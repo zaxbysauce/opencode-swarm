@@ -24,18 +24,33 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		directory: ctx.directory,
 		maxIterations: config.max_iterations,
 		agentCount: Object.keys(agents).length,
+		agentNames: Object.keys(agents),
 	});
 
 	return {
 		name: 'opencode-swarm',
 
-		// Register all agents (adds to existing, doesn't replace)
+		// Register all agents
 		agent: agents,
 
 		// Register tools
 		tool: {
 			detect_domains,
 			extract_code_blocks,
+		},
+
+		// Configure OpenCode - merge agents into config
+		config: async (opencodeConfig: Record<string, unknown>) => {
+			// Merge agent configs (don't override default_agent)
+			if (!opencodeConfig.agent) {
+				opencodeConfig.agent = { ...agents };
+			} else {
+				Object.assign(opencodeConfig.agent, agents);
+			}
+
+			log('Config applied', {
+				agents: Object.keys(agents),
+			});
 		},
 
 		// Inject phase reminders before API calls

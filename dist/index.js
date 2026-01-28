@@ -26822,7 +26822,8 @@ var OpenCodeSwarm = async (ctx) => {
   log("Plugin initialized", {
     directory: ctx.directory,
     maxIterations: config3.max_iterations,
-    agentCount: Object.keys(agents).length
+    agentCount: Object.keys(agents).length,
+    agentNames: Object.keys(agents)
   });
   return {
     name: "opencode-swarm",
@@ -26830,6 +26831,16 @@ var OpenCodeSwarm = async (ctx) => {
     tool: {
       detect_domains,
       extract_code_blocks
+    },
+    config: async (opencodeConfig) => {
+      if (!opencodeConfig.agent) {
+        opencodeConfig.agent = { ...agents };
+      } else {
+        Object.assign(opencodeConfig.agent, agents);
+      }
+      log("Config applied", {
+        agents: Object.keys(agents)
+      });
     },
     "experimental.chat.messages.transform": pipelineHook["experimental.chat.messages.transform"]
   };

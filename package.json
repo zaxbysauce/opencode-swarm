@@ -1,11 +1,11 @@
 {
   "name": "opencode-swarm",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "opencode-swarm": "dist/cli/index.js"
+    "opencode-swarm": "./dist/cli/index.js"
   },
   "type": "module",
   "license": "MIT",
