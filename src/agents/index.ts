@@ -138,43 +138,25 @@ function createSwarmAgents(
 		);
 		architect.name = prefixName('architect');
 		
-		// Update architect prompt to reference prefixed subagents if not default
+		// Replace placeholders in architect prompt
+		const swarmName = swarmConfig.name || swarmId;
+		const swarmIdentity = isDefault ? 'default' : swarmId;
+		const agentPrefix = prefix; // Empty for default, "local_" for local, etc.
+		
+		architect.config.prompt = architect.config.prompt
+			?.replace(/\{\{SWARM_ID\}\}/g, swarmIdentity)
+			.replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix);
+		
+		// Add warning header for non-default swarms
 		if (!isDefault) {
-			const swarmName = swarmConfig.name || swarmId;
 			architect.description = `[${swarmName}] ${architect.description}`;
-			
-			// Build the swarm-specific agent list header
-			const swarmHeader = `
-## ⚠️ YOU ARE THE ${swarmName.toUpperCase()} SWARM ARCHITECT
+			const swarmHeader = `## ⚠️ YOU ARE THE ${swarmName.toUpperCase()} SWARM ARCHITECT
 
-Your agents all have the "${swarmId}_" prefix. You MUST use this prefix when delegating:
-- Use @${prefix}explorer, NOT @explorer
-- Use @${prefix}coder, NOT @coder  
-- Use @${prefix}sme_security, NOT @sme_security
-- etc.
-
-If you call an agent WITHOUT the "${swarmId}_" prefix, you will be calling the WRONG swarm's agents!
+Your agents all have the "${swarmId}_" prefix. You MUST use this prefix when delegating.
+If you call an agent WITHOUT the "${swarmId}_" prefix, you will call the WRONG swarm's agents!
 
 `;
-			// Inject swarm-specific agent references into prompt
-			// Order matters: specific patterns first, then general sme pattern
-			architect.config.prompt = swarmHeader + (architect.config.prompt?.replace(
-				/@explorer/g, `@${prefix}explorer`
-			).replace(
-				/@coder/g, `@${prefix}coder`
-			).replace(
-				/@test_engineer/g, `@${prefix}test_engineer`
-			).replace(
-				/@security_reviewer/g, `@${prefix}security_reviewer`
-			).replace(
-				/@auditor/g, `@${prefix}auditor`
-			).replace(
-				// Match @sme_word patterns (actual agent names)
-				/@sme_(\w+)/g, `@${prefix}sme_$1`
-			).replace(
-				// Match @sme_[domain] template patterns
-				/@sme_\[(\w+)\]/g, `@${prefix}sme_[$1]`
-			) || '');
+			architect.config.prompt = swarmHeader + architect.config.prompt;
 		}
 		
 		agents.push(applyOverrides(architect, swarmAgents, swarmPrefix));
