@@ -1,20 +1,14 @@
 import type { AgentConfig as SDKAgentConfig } from '@opencode-ai/sdk';
 import {
-	CATEGORY_PREFIXES,
 	DEFAULT_MODELS,
-	isQAAgent,
-	isSMEAgent,
-	isSubagent,
-	ALL_SUBAGENT_NAMES,
 } from '../config/constants';
 import { loadAgentPrompt, type PluginConfig, type SwarmConfig } from '../config';
 import { type AgentDefinition, createArchitectAgent } from './architect';
-import { createAuditorAgent } from './auditor';
 import { createCoderAgent } from './coder';
 import { createExplorerAgent } from './explorer';
-import { createSecurityReviewerAgent } from './security-reviewer';
+import { createReviewerAgent } from './reviewer';
 import { createTestEngineerAgent } from './test-engineer';
-import { createAllSMEAgents } from './sme';
+import { createSMEAgent } from './sme';
 
 export type { AgentDefinition } from './architect';
 
@@ -37,21 +31,7 @@ function getModelForAgent(
 	const explicit = swarmAgents?.[baseAgentName]?.model;
 	if (explicit) return explicit;
 
-	// 2. Check category default for SME
-	if (isSMEAgent(baseAgentName)) {
-		const categoryModel = swarmAgents?.[CATEGORY_PREFIXES.sme]?.model;
-		if (categoryModel) return categoryModel;
-		return DEFAULT_MODELS._sme;
-	}
-
-	// 3. Check category default for QA
-	if (isQAAgent(baseAgentName)) {
-		const categoryModel = swarmAgents?.[CATEGORY_PREFIXES.qa]?.model;
-		if (categoryModel) return categoryModel;
-		return DEFAULT_MODELS._qa;
-	}
-
-	// 4. Default from constants
+	// 2. Default from constants
 	return DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
 }
 
@@ -129,9 +109,6 @@ function createSwarmAgents(
 	// Helper to create prefixed agent name
 	const prefixName = (name: string) => `${prefix}${name}`;
 
-	// Generate the list of subagent names for this swarm's architect prompt
-	const subagentNames = ALL_SUBAGENT_NAMES.map(name => `@${prefix}${name}`).join(' ');
-
 	// 1. Create Architect
 	if (!isAgentDisabled('architect', swarmAgents, swarmPrefix)) {
 		const architectPrompts = getPrompts('architect');
@@ -160,8 +137,8 @@ function createSwarmAgents(
 Your swarm ID is "${swarmId}". ALL your agents have the "${swarmId}_" prefix:
 - @${swarmId}_explorer (not @explorer)
 - @${swarmId}_coder (not @coder)
-- @${swarmId}_sme_security (not @sme_security)
-- @${swarmId}_auditor (not @auditor)
+- @${swarmId}_sme (not @sme)
+- @${swarmId}_reviewer (not @reviewer)
 - etc.
 
 CRITICAL: Agents without the "${swarmId}_" prefix DO NOT EXIST or belong to a DIFFERENT swarm.
@@ -186,15 +163,16 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix));
 	}
 
-	// 3. Create all SME agents
-	const smeAgents = createAllSMEAgents(getModel, getPrompts);
-	for (const sme of smeAgents) {
-		// Check disabled using the base SME name (e.g., "sme_powershell")
-		if (!isAgentDisabled(sme.name, swarmAgents, swarmPrefix)) {
-			const baseName = sme.name;
-			sme.name = prefixName(baseName);
-			agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
-		}
+	// 3. Create SME agent
+	if (!isAgentDisabled('sme', swarmAgents, swarmPrefix)) {
+		const smePrompts = getPrompts('sme');
+		const sme = createSMEAgent(
+			getModel('sme'),
+			smePrompts.prompt,
+			smePrompts.appendPrompt
+		);
+		sme.name = prefixName('sme');
+		agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
 	}
 
 	// 4. Create pipeline agents
@@ -209,26 +187,15 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(coder, swarmAgents, swarmPrefix));
 	}
 
-	if (!isAgentDisabled('security_reviewer', swarmAgents, swarmPrefix)) {
-		const securityPrompts = getPrompts('security_reviewer');
-		const security = createSecurityReviewerAgent(
-			getModel('security_reviewer'),
-			securityPrompts.prompt,
-			securityPrompts.appendPrompt
+	if (!isAgentDisabled('reviewer', swarmAgents, swarmPrefix)) {
+		const reviewerPrompts = getPrompts('reviewer');
+		const reviewer = createReviewerAgent(
+			getModel('reviewer'),
+			reviewerPrompts.prompt,
+			reviewerPrompts.appendPrompt
 		);
-		security.name = prefixName('security_reviewer');
-		agents.push(applyOverrides(security, swarmAgents, swarmPrefix));
-	}
-
-	if (!isAgentDisabled('auditor', swarmAgents, swarmPrefix)) {
-		const auditorPrompts = getPrompts('auditor');
-		const auditor = createAuditorAgent(
-			getModel('auditor'),
-			auditorPrompts.prompt,
-			auditorPrompts.appendPrompt
-		);
-		auditor.name = prefixName('auditor');
-		agents.push(applyOverrides(auditor, swarmAgents, swarmPrefix));
+		reviewer.name = prefixName('reviewer');
+		agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix));
 	}
 
 	if (!isAgentDisabled('test_engineer', swarmAgents, swarmPrefix)) {
@@ -309,7 +276,6 @@ export function getAgentConfigs(
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createExplorerAgent } from './explorer';
-export { createSecurityReviewerAgent } from './security-reviewer';
-export { createAuditorAgent } from './auditor';
+export { createReviewerAgent } from './reviewer';
 export { createTestEngineerAgent } from './test-engineer';
-export { createAllSMEAgents, createSMEAgent, listDomains } from './sme';
+export { createSMEAgent } from './sme';

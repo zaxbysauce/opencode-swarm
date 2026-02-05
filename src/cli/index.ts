@@ -40,7 +40,7 @@ function loadJson<T>(filepath: string): T | null {
 }
 
 function saveJson(filepath: string, data: unknown): void {
-	fs.writeFileSync(filepath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+	fs.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
 }
 
 async function install(): Promise<number> {
@@ -90,21 +90,20 @@ async function install(): Promise<number> {
 				remote: {
 					architect: { model: 'anthropic/claude-sonnet-4.5' },
 					coder: { model: 'openai/gpt-5.2-codex' },
-					_sme: { model: 'google/gemini-3-flash' },
-					_qa: { model: 'google/gemini-3-flash' },
+					sme: { model: 'google/gemini-3-flash' },
+					reviewer: { model: 'google/gemini-3-flash' },
 					test_engineer: { model: 'google/gemini-3-flash' },
 				},
 				hybrid: {
 					architect: { model: 'anthropic/claude-sonnet-4.5' },
 					coder: { model: 'ollama/qwen3:72b' },
-					_sme: { model: 'npu/qwen3:14b' },
-					_qa: { model: 'npu/qwen3:14b' },
+					sme: { model: 'npu/qwen3:14b' },
+					reviewer: { model: 'npu/qwen3:14b' },
 					test_engineer: { model: 'npu/qwen3:14b' },
 				},
 			},
 			swarm_mode: 'remote',
 			max_iterations: 5,
-			auto_detect_domains: true,
 			inject_phase_reminders: true,
 		};
 		saveJson(PLUGIN_CONFIG_PATH, defaultConfig);
@@ -124,11 +123,9 @@ async function install(): Promise<number> {
 	console.log('2. Run "opencode" to start using the swarm');
 	console.log('3. The Architect agent will orchestrate your requests');
 
-	console.log('\n📖 Available SME domains:');
-	console.log(
-		'   windows, powershell, python, oracle, network, security,\n' +
-			'   linux, vmware, azure, active_directory, ui_ux'
-	);
+	console.log('\n📖 SME agent:');
+	console.log('   The SME agent supports any domain — the Architect determines');
+	console.log('   what expertise is needed and requests it dynamically.');
 
 	return 0;
 }

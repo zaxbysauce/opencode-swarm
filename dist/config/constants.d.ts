@@ -1,20 +1,11 @@
-export declare const SME_AGENTS: readonly ["sme_windows", "sme_powershell", "sme_python", "sme_oracle", "sme_network", "sme_security", "sme_linux", "sme_vmware", "sme_azure", "sme_active_directory", "sme_ui_ux", "sme_web", "sme_database", "sme_devops", "sme_api", "sme_ai"];
-export declare const QA_AGENTS: readonly ["security_reviewer", "auditor"];
+export declare const QA_AGENTS: readonly ["reviewer"];
 export declare const PIPELINE_AGENTS: readonly ["explorer", "coder", "test_engineer"];
 export declare const ORCHESTRATOR_NAME: "architect";
-export declare const ALL_SUBAGENT_NAMES: readonly ["sme_windows", "sme_powershell", "sme_python", "sme_oracle", "sme_network", "sme_security", "sme_linux", "sme_vmware", "sme_azure", "sme_active_directory", "sme_ui_ux", "sme_web", "sme_database", "sme_devops", "sme_api", "sme_ai", "security_reviewer", "auditor", "explorer", "coder", "test_engineer"];
-export declare const ALL_AGENT_NAMES: readonly ["architect", "sme_windows", "sme_powershell", "sme_python", "sme_oracle", "sme_network", "sme_security", "sme_linux", "sme_vmware", "sme_azure", "sme_active_directory", "sme_ui_ux", "sme_web", "sme_database", "sme_devops", "sme_api", "sme_ai", "security_reviewer", "auditor", "explorer", "coder", "test_engineer"];
-export type SMEAgentName = (typeof SME_AGENTS)[number];
+export declare const ALL_SUBAGENT_NAMES: readonly ["sme", "reviewer", "explorer", "coder", "test_engineer"];
+export declare const ALL_AGENT_NAMES: readonly ["architect", "sme", "reviewer", "explorer", "coder", "test_engineer"];
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];
-export declare const CATEGORY_PREFIXES: {
-    readonly sme: "_sme";
-    readonly qa: "_qa";
-};
 export declare const DEFAULT_MODELS: Record<string, string>;
-export declare const DOMAIN_PATTERNS: Record<string, RegExp[]>;
-export declare function domainToAgentName(domain: string): SMEAgentName;
-export declare function isSMEAgent(name: string): name is SMEAgentName;
 export declare function isQAAgent(name: string): name is QAAgentName;
 export declare function isSubagent(name: string): boolean;

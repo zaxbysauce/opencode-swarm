@@ -11,5 +11,5 @@ import type { Plugin } from '@opencode-ai/plugin';
  */
 declare const OpenCodeSwarm: Plugin;
 export default OpenCodeSwarm;
-export type { AgentName, PluginConfig, SMEAgentName, QAAgentName, PipelineAgentName, } from './config';
+export type { AgentName, PluginConfig, QAAgentName, PipelineAgentName, } from './config';
 export type { AgentDefinition } from './agents';

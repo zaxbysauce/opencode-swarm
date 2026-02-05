@@ -66,7 +66,6 @@ export default OpenCodeSwarm;
 export type {
 	AgentName,
 	PluginConfig,
-	SMEAgentName,
 	QAAgentName,
 	PipelineAgentName,
 } from './config';

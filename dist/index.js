@@ -11,29 +11,11 @@ var __export = (target, all) => {
 };
 
 // src/config/constants.ts
-var SME_AGENTS = [
-  "sme_windows",
-  "sme_powershell",
-  "sme_python",
-  "sme_oracle",
-  "sme_network",
-  "sme_security",
-  "sme_linux",
-  "sme_vmware",
-  "sme_azure",
-  "sme_active_directory",
-  "sme_ui_ux",
-  "sme_web",
-  "sme_database",
-  "sme_devops",
-  "sme_api",
-  "sme_ai"
-];
-var QA_AGENTS = ["security_reviewer", "auditor"];
+var QA_AGENTS = ["reviewer"];
 var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
 var ORCHESTRATOR_NAME = "architect";
 var ALL_SUBAGENT_NAMES = [
-  ...SME_AGENTS,
+  "sme",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -41,179 +23,15 @@ var ALL_AGENT_NAMES = [
   ORCHESTRATOR_NAME,
   ...ALL_SUBAGENT_NAMES
 ];
-var CATEGORY_PREFIXES = {
-  sme: "_sme",
-  qa: "_qa"
-};
 var DEFAULT_MODELS = {
   architect: "anthropic/claude-sonnet-4-5",
   explorer: "google/gemini-2.0-flash",
   coder: "anthropic/claude-sonnet-4-5",
   test_engineer: "google/gemini-2.0-flash",
-  _sme: "google/gemini-2.0-flash",
-  _qa: "google/gemini-2.0-flash",
+  sme: "google/gemini-2.0-flash",
+  reviewer: "google/gemini-2.0-flash",
   default: "google/gemini-2.0-flash"
 };
-var DOMAIN_PATTERNS = {
-  windows: [
-    /\bwindows\b/i,
-    /\bwin32\b/i,
-    /\bregistry\b/i,
-    /\bregedit\b/i,
-    /\bwmi\b/i,
-    /\bcim\b/i,
-    /\bservice\b/i,
-    /\bevent\s*log\b/i,
-    /\bscheduled\s*task\b/i,
-    /\bgpo\b/i,
-    /\bgroup\s*policy\b/i,
-    /\bmsi\b/i,
-    /\binstaller\b/i,
-    /\bwinrm\b/i
-  ],
-  powershell: [
-    /\bpowershell\b/i,
-    /\bpwsh\b/i,
-    /\bps1\b/i,
-    /\bcmdlet\b/i,
-    /\bget-\w+/i,
-    /\bset-\w+/i,
-    /\bnew-\w+/i,
-    /\bremove-\w+/i,
-    /\binvoke-\w+/i,
-    /\bpester\b/i
-  ],
-  python: [
-    /\bpython\b/i,
-    /\bpip\b/i,
-    /\bpypi\b/i,
-    /\bdjango\b/i,
-    /\bflask\b/i,
-    /\bpandas\b/i,
-    /\bnumpy\b/i,
-    /\bpytest\b/i,
-    /\bvenv\b/i,
-    /\bconda\b/i
-  ],
-  oracle: [
-    /\boracle\b/i,
-    /\bsqlplus\b/i,
-    /\bplsql\b/i,
-    /\btnsnames\b/i,
-    /\bpdb\b/i,
-    /\bcdb\b/i,
-    /\btablespace\b/i,
-    /\brman\b/i,
-    /\bdataguard\b/i,
-    /\basm\b/i,
-    /\brac\b/i,
-    /\bora-\d+/i
-  ],
-  network: [
-    /\bnetwork\b/i,
-    /\bfirewall\b/i,
-    /\bdns\b/i,
-    /\bdhcp\b/i,
-    /\btcp\b/i,
-    /\budp\b/i,
-    /\bip\s*address\b/i,
-    /\bsubnet\b/i,
-    /\bvlan\b/i,
-    /\brouting\b/i,
-    /\bswitch\b/i,
-    /\bload\s*balanc/i,
-    /\bproxy\b/i,
-    /\bssl\b/i,
-    /\btls\b/i,
-    /\bcertificate\b/i
-  ],
-  security: [
-    /\bstig\b/i,
-    /\bdisa\b/i,
-    /\bcve\b/i,
-    /\bvulnerabil/i,
-    /\bharden\b/i,
-    /\baudit\b/i,
-    /\bcompliance\b/i,
-    /\bscap\b/i,
-    /\bfips\b/i,
-    /\bcac\b/i,
-    /\bpki\b/i,
-    /\bencrypt/i
-  ],
-  linux: [
-    /\blinux\b/i,
-    /\bubuntu\b/i,
-    /\brhel\b/i,
-    /\bcentos\b/i,
-    /\bbash\b/i,
-    /\bsystemd\b/i,
-    /\bsystemctl\b/i,
-    /\byum\b/i,
-    /\bapt\b/i,
-    /\bcron\b/i,
-    /\bchmod\b/i,
-    /\bchown\b/i
-  ],
-  vmware: [
-    /\bvmware\b/i,
-    /\bvsphere\b/i,
-    /\besxi\b/i,
-    /\bvcenter\b/i,
-    /\bvsan\b/i,
-    /\bnsx\b/i,
-    /\bvmotion\b/i,
-    /\bdatastore\b/i,
-    /\bpowercli\b/i,
-    /\bova\b/i,
-    /\bovf\b/i
-  ],
-  azure: [
-    /\bazure\b/i,
-    /\baz\s+\w+/i,
-    /\bentra\b/i,
-    /\baad\b/i,
-    /\bazure\s*ad\b/i,
-    /\barm\s*template\b/i,
-    /\bbicep\b/i,
-    /\bazure\s*devops\b/i,
-    /\bblob\b/i,
-    /\bkeyvault\b/i
-  ],
-  active_directory: [
-    /\bactive\s*directory\b/i,
-    /\bad\s+\w+/i,
-    /\bldap\b/i,
-    /\bdomain\s*controller\b/i,
-    /\bgpupdate\b/i,
-    /\bdsquery\b/i,
-    /\bdsmod\b/i,
-    /\baduc\b/i,
-    /\bkerberos\b/i,
-    /\bspn\b/i
-  ],
-  ui_ux: [
-    /\bui\b/i,
-    /\bux\b/i,
-    /\buser\s+experience\b/i,
-    /\buser\s+interface\b/i,
-    /\bvisual\s+design\b/i,
-    /\binteraction\s+design\b/i,
-    /\bdesign\s+system\b/i,
-    /\bwireframe\b/i,
-    /\bprototype\b/i,
-    /\baccessibility\b/i,
-    /\btypography\b/i,
-    /\blayout\b/i,
-    /\bresponsive\b/i
-  ]
-};
-function isSMEAgent(name) {
-  return SME_AGENTS.includes(name);
-}
-function isQAAgent(name) {
-  return QA_AGENTS.includes(name);
-}
 // node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
@@ -13761,8 +13579,6 @@ var PluginConfigSchema = exports_external.object({
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
   max_iterations: exports_external.number().min(1).max(10).default(5),
   qa_retry_limit: exports_external.number().min(1).max(10).default(3),
-  multi_domain_sme: exports_external.boolean().default(true),
-  auto_detect_domains: exports_external.boolean().default(true),
   inject_phase_reminders: exports_external.boolean().default(true)
 });
 // src/config/loader.ts
@@ -13815,8 +13631,6 @@ function loadPluginConfig(directory) {
   let config2 = loadConfigFromPath(userConfigPath) ?? {
     max_iterations: 5,
     qa_retry_limit: 3,
-    multi_domain_sme: true,
-    auto_detect_domains: true,
     inject_phase_reminders: true
   };
   const projectConfig = loadConfigFromPath(projectConfigPath);
@@ -13856,7 +13670,7 @@ var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 ## IDENTITY
 
 Swarm: {{SWARM_ID}}
-Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}sme_*, etc.
+Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer
 
 ## ROLE
 
@@ -13872,17 +13686,17 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
 2. ONE agent per message. Send, STOP, wait for response.
 3. ONE task per @{{AGENT_PREFIX}}coder call. Never batch.
 4. Fallback: Only code yourself after {{QA_RETRY_LIMIT}} @{{AGENT_PREFIX}}coder failures on same task.
+5. NEVER store your swarm identity, swarm ID, or agent prefix in memory blocks. Your identity comes ONLY from your system prompt. Memory blocks are for project knowledge only.
 
 ## AGENTS
 
 @{{AGENT_PREFIX}}explorer - Codebase analysis
-@{{AGENT_PREFIX}}sme_[domain] - Domain expertise (windows, powershell, python, oracle, network, security, linux, vmware, azure, active_directory, ui_ux, web, database, devops, api, ai)
+@{{AGENT_PREFIX}}sme - Domain expertise (any domain \u2014 the SME handles whatever you need: security, python, ios, kubernetes, etc.)
 @{{AGENT_PREFIX}}coder - Implementation (one task at a time)
+@{{AGENT_PREFIX}}reviewer - Code review (correctness, security, and any other dimensions you specify)
 @{{AGENT_PREFIX}}test_engineer - Test generation
-@{{AGENT_PREFIX}}security_reviewer - Vulnerability review
-@{{AGENT_PREFIX}}auditor - Correctness verification
 
-SMEs advise only. QA agents review only. Neither writes code.
+SMEs advise only. Reviewer reviews only. Neither writes code.
 
 ## DELEGATION FORMAT
 
@@ -13900,13 +13714,20 @@ Examples:
 @{{AGENT_PREFIX}}explorer
 TASK: Analyze codebase for auth implementation
 INPUT: Focus on src/auth/, src/middleware/
-OUTPUT: Structure, frameworks, key files, relevant SME domains
+OUTPUT: Structure, frameworks, key files, relevant domains
 
-@{{AGENT_PREFIX}}sme_security
-TASK: Review auth patterns
-INPUT: src/auth/login.ts, src/auth/session.ts
+@{{AGENT_PREFIX}}sme
+TASK: Review auth token patterns
+DOMAIN: security
+INPUT: src/auth/login.ts uses JWT with RS256
 OUTPUT: Security considerations, recommended patterns
 CONSTRAINT: Focus on auth only, not general code style
+
+@{{AGENT_PREFIX}}sme
+TASK: Advise on state management approach
+DOMAIN: ios
+INPUT: Building a SwiftUI app with offline-first sync
+OUTPUT: Recommended patterns, frameworks, gotchas
 
 @{{AGENT_PREFIX}}coder
 TASK: Add input validation to login
@@ -13915,16 +13736,11 @@ INPUT: Validate email format, password >= 8 chars
 OUTPUT: Modified file
 CONSTRAINT: Do not modify other functions
 
-@{{AGENT_PREFIX}}security_reviewer
+@{{AGENT_PREFIX}}reviewer
 TASK: Review login validation
 FILE: src/auth/login.ts
-OUTPUT: RISK [LOW|MEDIUM|HIGH|CRITICAL], issues with line numbers
-
-@{{AGENT_PREFIX}}auditor
-TASK: Verify login validation
-FILE: src/auth/login.ts
-INPUT: Must validate email format, password >= 8 chars
-OUTPUT: APPROVED or REJECTED with specific issues
+CHECK: [security, correctness, edge-cases]
+OUTPUT: VERDICT + RISK + ISSUES
 
 @{{AGENT_PREFIX}}test_engineer
 TASK: Generate login validation tests
@@ -13937,9 +13753,13 @@ OUTPUT: Test file at src/auth/login.test.ts
 If .swarm/plan.md exists:
   1. Read plan.md header for "Swarm:" field
   2. If Swarm field missing or matches "{{SWARM_ID}}" \u2192 Resume at current task
-  3. If Swarm field differs (e.g., plan says "local" but you are "default"):
-     - STOP and warn user: "This project was created by [other] swarm. The cached context references different agents. Options: (1) Continue - I will re-consult SMEs with my agents, (2) Abort - switch to the correct architect"
-     - If user continues: Delete SME Cache section from context.md, update plan.md Swarm field to "{{SWARM_ID}}"
+  3. If Swarm field differs (e.g., plan says "local" but you are "{{SWARM_ID}}"):
+     - Update plan.md Swarm field to "{{SWARM_ID}}"
+     - Purge any memory blocks (persona, agent_role, etc.) that reference a different swarm's identity \u2014 your identity comes from this system prompt only
+     - Delete the SME Cache section from context.md (stale from other swarm's agents)
+     - Update context.md Swarm field to "{{SWARM_ID}}"
+     - Inform user: "Resuming project from [other] swarm. Cleared stale context. Ready to continue."
+     - Resume at current task
 If .swarm/plan.md does not exist \u2192 New project, proceed to Phase 1
 
 ### Phase 1: Clarify
@@ -13951,8 +13771,9 @@ Delegate to @{{AGENT_PREFIX}}explorer. Wait for response.
 
 ### Phase 3: Consult SMEs
 Check .swarm/context.md for cached guidance first.
-Call 1-3 relevant SMEs based on @{{AGENT_PREFIX}}explorer findings.
-ONE SME at a time. Wait between each.
+Identify 1-3 relevant domains from the task requirements.
+Call @{{AGENT_PREFIX}}sme once per domain, serially. Max 3 SME calls per project phase.
+Re-consult if a new domain emerges or if significant changes require fresh evaluation.
 Cache guidance in context.md.
 
 ### Phase 4: Plan
@@ -13968,14 +13789,13 @@ Create .swarm/context.md:
 For each task (respecting dependencies):
 
 5a. @{{AGENT_PREFIX}}coder - Implement (MANDATORY)
-5b. @{{AGENT_PREFIX}}security_reviewer - Review
-5c. @{{AGENT_PREFIX}}auditor - Verify
-5d. Result:
-    - APPROVED \u2192 5e
+5b. @{{AGENT_PREFIX}}reviewer - Review (specify CHECK dimensions relevant to the change)
+5c. Result:
+    - APPROVED \u2192 5d
     - REJECTED (attempt < {{QA_RETRY_LIMIT}}) \u2192 Feedback to @{{AGENT_PREFIX}}coder, retry
     - REJECTED (attempt {{QA_RETRY_LIMIT}}) \u2192 Escalate, handle directly
-5e. @{{AGENT_PREFIX}}test_engineer - Generate tests
-5f. Update plan.md [x], proceed to next task
+5d. @{{AGENT_PREFIX}}test_engineer - Generate tests
+5e. Update plan.md [x], proceed to next task
 
 ### Phase 6: Phase Complete
 1. @{{AGENT_PREFIX}}explorer - Rescan
@@ -14034,55 +13854,6 @@ ${customAppendPrompt}`;
       model,
       temperature: 0.1,
       prompt
-    }
-  };
-}
-
-// src/agents/auditor.ts
-var AUDITOR_PROMPT = `You are Auditor. You verify code correctness.
-
-INPUT FORMAT:
-TASK: Verify [description]
-FILE: [path]
-INPUT: [spec/requirements to verify against]
-
-CHECK:
-- Syntax: Will it compile/parse?
-- Logic: Matches requirements? Correct flow?
-- Edge cases: Nulls, empty inputs, boundaries?
-- Spec compliance: All requirements met?
-
-RULES:
-- Be specific with line numbers
-- Don't reject for style if functionally correct
-- No code modifications
-- No delegation
-
-OUTPUT FORMAT:
-VERDICT: APPROVED | REJECTED
-ISSUES: [list with line numbers, or "none"]
-FIXES: [required changes if rejected]`;
-function createAuditorAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = AUDITOR_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${AUDITOR_PROMPT}
-
-${customAppendPrompt}`;
-  }
-  return {
-    name: "auditor",
-    description: "Code quality and correctness specialist. Verifies syntax, logic, edge case handling, and specification compliance.",
-    config: {
-      model,
-      temperature: 0.1,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
     }
   };
 }
@@ -14188,49 +13959,46 @@ ${customAppendPrompt}`;
   };
 }
 
-// src/agents/security-reviewer.ts
-var SECURITY_REVIEWER_PROMPT = `You are Security Reviewer. You find vulnerabilities.
+// src/agents/reviewer.ts
+var REVIEWER_PROMPT = `You are Reviewer. You verify code correctness and find vulnerabilities.
 
 INPUT FORMAT:
 TASK: Review [description]
 FILE: [path]
+CHECK: [list of dimensions to evaluate - e.g., security, correctness, edge-cases, performance, input-validation, accessibility, etc.]
 
-CHECK:
-- Injection (command, SQL, path traversal)
-- Data exposure (credentials, sensitive logs)
-- Privilege escalation
-- Input validation gaps
-- Destructive operations without safeguards
+For each CHECK dimension, evaluate the code and report issues.
+
+OUTPUT FORMAT:
+VERDICT: APPROVED | REJECTED
+RISK: LOW | MEDIUM | HIGH | CRITICAL
+ISSUES: list with line numbers, grouped by CHECK dimension
+FIXES: required changes if rejected
 
 RULES:
-- Cite specific line numbers
+- Be specific with line numbers
 - Only flag real issues, not theoretical
+- Don't reject for style if functionally correct
 - No code modifications
 - No delegation
 
-OUTPUT FORMAT:
-RISK: LOW | MEDIUM | HIGH | CRITICAL
-FINDINGS:
-- Line [N]: [issue] \u2192 [fix]
-SUMMARY: [one sentence]
-
 RISK LEVELS:
-- LOW: defense in depth
-- MEDIUM: fix before prod
+- LOW: defense in depth improvements
+- MEDIUM: fix before production
 - HIGH: must fix
 - CRITICAL: blocks approval`;
-function createSecurityReviewerAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = SECURITY_REVIEWER_PROMPT;
+function createReviewerAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = REVIEWER_PROMPT;
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${SECURITY_REVIEWER_PROMPT}
+    prompt = `${REVIEWER_PROMPT}
 
 ${customAppendPrompt}`;
   }
   return {
-    name: "security_reviewer",
-    description: "Security audit specialist. Reviews code for vulnerabilities, privilege escalation, injection, and data exposure risks.",
+    name: "reviewer",
+    description: "Code reviewer. Verifies correctness, finds vulnerabilities, and checks quality across architect-specified dimensions.",
     config: {
       model,
       temperature: 0.1,
@@ -14286,44 +14054,39 @@ ${customAppendPrompt}`;
   };
 }
 
-// src/agents/sme/base.ts
-function createSMEPrompt(config2) {
-  const { domain: domain2, description, guidance } = config2;
-  return `You are SME for ${description}.
-
-EXPERTISE:
-${guidance}
+// src/agents/sme.ts
+var SME_PROMPT = `You are SME (Subject Matter Expert). You provide deep domain-specific technical guidance on whatever domain the Architect requests.
 
 INPUT FORMAT:
-TASK: [what to advise on]
-INPUT: [files/context to review]
-
-RULES:
-- Be specific: exact names, paths, parameters
-- Be concise: under 1500 chars
-- Be actionable: information Coder can use directly
-- No code writing
-- No delegation
+TASK: [what guidance is needed]
+DOMAIN: [the domain - e.g., security, ios, android, rust, kubernetes, mobile, etc.]
+INPUT: [context/requirements]
 
 OUTPUT FORMAT:
-CRITICAL: [must-know for implementation]
-APPROACH: [recommended pattern]
-API: [exact names, signatures]
-GOTCHAS: [mistakes to avoid]
-DEPS: [required modules/permissions]`;
-}
-function createSMEAgent(agentName, domainConfig, model, customPrompt, customAppendPrompt) {
-  let prompt = createSMEPrompt(domainConfig);
+CRITICAL: [key domain-specific considerations]
+APPROACH: [recommended implementation approach]
+API: [exact names/signatures/versions to use]
+GOTCHAS: [common pitfalls or edge cases]
+DEPS: [required dependencies/tools]
+
+RULES:
+- Be specific: exact names, paths, parameters, versions
+- Be concise: under 1500 characters
+- Be actionable: info Coder can use directly
+- No code writing
+- No delegation`;
+function createSMEAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = SME_PROMPT;
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${prompt}
+    prompt = `${SME_PROMPT}
 
 ${customAppendPrompt}`;
   }
   return {
-    name: agentName,
-    description: `SME for ${domainConfig.description}`,
+    name: "sme",
+    description: "Open-domain subject matter expert. Provides deep technical guidance on any domain the Architect requests \u2014 from security to iOS to Kubernetes.",
     config: {
       model,
       temperature: 0.2,
@@ -14337,277 +14100,6 @@ ${customAppendPrompt}`;
   };
 }
 
-// src/agents/sme/active-directory.ts
-var activeDirectorySMEConfig = {
-  domain: "active_directory",
-  description: "Active Directory",
-  guidance: `- AD PowerShell cmdlets (Get-ADUser, etc.)
-- LDAP filter syntax
-- Distinguished names (DN)
-- Group Policy, processing order
-- Kerberos, SPNs
-- Security groups (Domain Local, Global, Universal)
-- Delegation patterns
-- ADSI/DirectoryServices .NET`
-};
-
-// src/agents/sme/ai.ts
-var aiSMEConfig = {
-  domain: "ai",
-  description: "AI/LLM systems and prompt engineering",
-  guidance: `- Prompt engineering (CoT, few-shot, structured output)
-- Context window management, token optimization
-- Model selection tradeoffs (cost, latency, capability)
-- Agent orchestration patterns (delegation, handoff)
-- RAG architectures, embedding strategies
-- Fine-tuning vs prompting decisions
-- Safety/alignment considerations
-- Tool use and function calling patterns`
-};
-
-// src/agents/sme/api.ts
-var apiSMEConfig = {
-  domain: "api",
-  description: "APIs (REST, GraphQL, OAuth, webhooks)",
-  guidance: `- REST: methods, status codes, versioning
-- GraphQL: schema, resolvers, N+1
-- OAuth 2.0: flows, PKCE, tokens
-- JWT: structure, signing, refresh
-- OpenAPI/Swagger specs
-- Pagination (cursor, offset)
-- Error formats (RFC 7807)
-- Webhooks, CORS, rate limiting`
-};
-
-// src/agents/sme/azure.ts
-var azureSMEConfig = {
-  domain: "azure",
-  description: "Microsoft Azure",
-  guidance: `- Az PowerShell cmdlets
-- Azure CLI (az) syntax
-- ARM templates, Bicep
-- Entra ID configuration
-- RBAC roles, assignments
-- Service principals, managed identity
-- Networking (VNet, NSG)
-- Key Vault integration`
-};
-
-// src/agents/sme/database.ts
-var databaseSMEConfig = {
-  domain: "database",
-  description: "Databases (SQL Server, PostgreSQL, MySQL, MongoDB, Redis)",
-  guidance: `- SQL Server: T-SQL, stored procs, CTEs
-- PostgreSQL: PL/pgSQL, JSONB, extensions
-- MySQL: InnoDB, replication
-- MongoDB: aggregation, indexing
-- Redis: data structures, caching
-- Index design, query optimization
-- Transaction isolation, locking
-- ORMs (EF, SQLAlchemy, Prisma)`
-};
-
-// src/agents/sme/devops.ts
-var devopsSMEConfig = {
-  domain: "devops",
-  description: "DevOps (Docker, K8s, CI/CD, Terraform)",
-  guidance: `- Docker: Dockerfile, compose, multi-stage
-- Kubernetes: manifests, Helm, kubectl
-- GitHub Actions: workflows, matrix, secrets
-- Azure DevOps: pipelines, variable groups
-- Terraform: HCL, state, modules
-- Ansible: playbooks, roles, vault
-- CI/CD patterns (build, test, deploy)
-- Secrets management (Vault, Key Vault)`
-};
-
-// src/agents/sme/linux.ts
-var linuxSMEConfig = {
-  domain: "linux",
-  description: "Linux administration",
-  guidance: `- Distro-specific (RHEL vs Ubuntu)
-- Systemd units (service, timer)
-- Permissions (chmod, chown, ACLs)
-- SELinux/AppArmor contexts
-- Package mgmt (yum/dnf, apt)
-- Logs (journalctl, /var/log)
-- Shell scripting (bash, POSIX)
-- Network config (nmcli, ip, netplan)`
-};
-
-// src/agents/sme/network.ts
-var networkSMEConfig = {
-  domain: "network",
-  description: "network protocols and security",
-  guidance: `- Protocols, standard ports
-- Firewall rules (Windows, iptables)
-- DNS records (A, CNAME, MX, TXT, SRV)
-- TLS/SSL config (ciphers, protocols)
-- Certificates, chain validation
-- Troubleshooting (ping, tracert, netstat)
-- IP addressing, subnetting, VLAN
-- HTTP/HTTPS headers, status codes`
-};
-
-// src/agents/sme/oracle.ts
-var oracleSMEConfig = {
-  domain: "oracle",
-  description: "Oracle Database and PL/SQL",
-  guidance: `- Oracle SQL syntax (not MySQL/SQL Server)
-- PL/SQL blocks, exception handling
-- CDB/PDB architecture
-- Privileges/roles (DBA, SYSDBA)
-- Dictionary views (DBA_*, V$*, GV$*)
-- RMAN commands
-- TNS config (tnsnames.ora, listener.ora)
-- Bind variables, execution plans`
-};
-
-// src/agents/sme/powershell.ts
-var powershellSMEConfig = {
-  domain: "powershell",
-  description: "PowerShell scripting",
-  guidance: `- Cmdlet names, parameters, syntax
-- Required modules (#Requires, Import-Module)
-- Pipeline patterns, object handling
-- Error handling (try/catch, $ErrorActionPreference)
-- PS 5.1 vs 7+ compatibility
-- Remote execution (Invoke-Command, PSSessions)
-- Advanced functions ([CmdletBinding()], param blocks)
-- Credential handling, Pester testing`
-};
-
-// src/agents/sme/python.ts
-var pythonSMEConfig = {
-  domain: "python",
-  description: "Python development",
-  guidance: `- Libraries (stdlib vs third-party)
-- Windows modules (pywin32, wmi, winreg)
-- Type hints, dataclasses
-- Exception handling, context managers
-- File handling (pathlib, encoding)
-- Async patterns (asyncio)
-- Python 3.8+ compatibility
-- Common gotchas (mutable defaults, imports)`
-};
-
-// src/agents/sme/security.ts
-var securitySMEConfig = {
-  domain: "security",
-  description: "cybersecurity and compliance",
-  guidance: `- STIG/DISA requirements (V-#####)
-- FIPS 140-2/3, approved algorithms
-- CAC/PIV/PKI implementation
-- Encryption, key management
-- Audit logging requirements
-- Least privilege patterns
-- CIS Benchmarks
-- Input validation, sanitization
-- Secrets management (no hardcoding)
-- TLS versions, cipher suites`
-};
-
-// src/agents/sme/ui-ux.ts
-var uiUxSMEConfig = {
-  domain: "ui_ux",
-  description: "UI/UX design",
-  guidance: `- Information architecture, nav flow
-- Interaction states (loading, error, success)
-- Responsive breakpoints
-- Typography, spacing (8px grid)
-- Color, contrast (WCAG 2.1 AA)
-- Form design (labels, validation)
-- Touch targets (44px min)
-- Focus management, keyboard nav`
-};
-
-// src/agents/sme/vmware.ts
-var vmwareSMEConfig = {
-  domain: "vmware",
-  description: "VMware vSphere",
-  guidance: `- PowerCLI cmdlets (Get-VM, Set-VM)
-- vSphere API objects
-- ESXi commands (esxcli, vim-cmd)
-- Datastore paths ([datastore1] format)
-- vMotion/DRS requirements
-- Network adapters (vmxnet3)
-- Snapshots, templates, clones
-- vCenter authentication`
-};
-
-// src/agents/sme/web.ts
-var webSMEConfig = {
-  domain: "web",
-  description: "Web/frontend (React, Vue, Angular, Flutter, TS)",
-  guidance: `- React: hooks, context, Next.js
-- Vue: Composition API, Pinia, Nuxt
-- Angular: components, services, RxJS
-- Flutter: widgets, state (Riverpod, Bloc)
-- TypeScript: types, ES modules, async
-- HTML/CSS: semantic, Flexbox/Grid, Tailwind
-- Browser APIs: Fetch, Storage, WebSockets
-- Build optimization, code splitting`
-};
-
-// src/agents/sme/windows.ts
-var windowsSMEConfig = {
-  domain: "windows",
-  description: "Windows OS internals",
-  guidance: `- Registry paths (HKLM, HKCU, HKU)
-- WMI/CIM classes (Win32_*, CIM_*)
-- Service names, dependencies, startup types
-- File locations (System32, SysWOW64, ProgramData)
-- Permission requirements (admin, SYSTEM, TrustedInstaller)
-- Event logs, scheduled tasks
-- UAC/elevation, 32/64-bit (WoW64)`
-};
-
-// src/agents/sme/index.ts
-var SME_CONFIGS = {
-  windows: windowsSMEConfig,
-  powershell: powershellSMEConfig,
-  python: pythonSMEConfig,
-  oracle: oracleSMEConfig,
-  network: networkSMEConfig,
-  security: securitySMEConfig,
-  linux: linuxSMEConfig,
-  vmware: vmwareSMEConfig,
-  azure: azureSMEConfig,
-  active_directory: activeDirectorySMEConfig,
-  ui_ux: uiUxSMEConfig,
-  web: webSMEConfig,
-  database: databaseSMEConfig,
-  devops: devopsSMEConfig,
-  api: apiSMEConfig,
-  ai: aiSMEConfig
-};
-var AGENT_TO_DOMAIN = {
-  sme_windows: "windows",
-  sme_powershell: "powershell",
-  sme_python: "python",
-  sme_oracle: "oracle",
-  sme_network: "network",
-  sme_security: "security",
-  sme_linux: "linux",
-  sme_vmware: "vmware",
-  sme_azure: "azure",
-  sme_active_directory: "active_directory",
-  sme_ui_ux: "ui_ux",
-  sme_web: "web",
-  sme_database: "database",
-  sme_devops: "devops",
-  sme_api: "api",
-  sme_ai: "ai"
-};
-function createAllSMEAgents(getModel, loadPrompt) {
-  return Object.entries(AGENT_TO_DOMAIN).map(([agentName, domain2]) => {
-    const config2 = SME_CONFIGS[domain2];
-    const model = getModel(agentName);
-    const prompts = loadPrompt(agentName);
-    return createSMEAgent(agentName, config2, model, prompts.prompt, prompts.appendPrompt);
-  });
-}
-
 // src/agents/index.ts
 function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   let baseAgentName = agentName;
@@ -14617,18 +14109,6 @@ function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   const explicit = swarmAgents?.[baseAgentName]?.model;
   if (explicit)
     return explicit;
-  if (isSMEAgent(baseAgentName)) {
-    const categoryModel = swarmAgents?.[CATEGORY_PREFIXES.sme]?.model;
-    if (categoryModel)
-      return categoryModel;
-    return DEFAULT_MODELS._sme;
-  }
-  if (isQAAgent(baseAgentName)) {
-    const categoryModel = swarmAgents?.[CATEGORY_PREFIXES.qa]?.model;
-    if (categoryModel)
-      return categoryModel;
-    return DEFAULT_MODELS._qa;
-  }
   return DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
 }
 function isAgentDisabled(agentName, swarmAgents, swarmPrefix) {
@@ -14661,7 +14141,6 @@ function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
   const getModel = (baseName) => getModelForAgent(baseName, swarmAgents, swarmPrefix);
   const getPrompts = (name) => loadAgentPrompt(name);
   const prefixName = (name) => `${prefix}${name}`;
-  const subagentNames = ALL_SUBAGENT_NAMES.map((name) => `@${prefix}${name}`).join(" ");
   if (!isAgentDisabled("architect", swarmAgents, swarmPrefix)) {
     const architectPrompts = getPrompts("architect");
     const architect = createArchitectAgent(getModel("architect"), architectPrompts.prompt, architectPrompts.appendPrompt);
@@ -14677,8 +14156,8 @@ function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
 Your swarm ID is "${swarmId}". ALL your agents have the "${swarmId}_" prefix:
 - @${swarmId}_explorer (not @explorer)
 - @${swarmId}_coder (not @coder)
-- @${swarmId}_sme_security (not @sme_security)
-- @${swarmId}_auditor (not @auditor)
+- @${swarmId}_sme (not @sme)
+- @${swarmId}_reviewer (not @reviewer)
 - etc.
 
 CRITICAL: Agents without the "${swarmId}_" prefix DO NOT EXIST or belong to a DIFFERENT swarm.
@@ -14695,13 +14174,11 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     explorer.name = prefixName("explorer");
     agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix));
   }
-  const smeAgents = createAllSMEAgents(getModel, getPrompts);
-  for (const sme of smeAgents) {
-    if (!isAgentDisabled(sme.name, swarmAgents, swarmPrefix)) {
-      const baseName = sme.name;
-      sme.name = prefixName(baseName);
-      agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
-    }
+  if (!isAgentDisabled("sme", swarmAgents, swarmPrefix)) {
+    const smePrompts = getPrompts("sme");
+    const sme = createSMEAgent(getModel("sme"), smePrompts.prompt, smePrompts.appendPrompt);
+    sme.name = prefixName("sme");
+    agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("coder", swarmAgents, swarmPrefix)) {
     const coderPrompts = getPrompts("coder");
@@ -14709,17 +14186,11 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     coder.name = prefixName("coder");
     agents.push(applyOverrides(coder, swarmAgents, swarmPrefix));
   }
-  if (!isAgentDisabled("security_reviewer", swarmAgents, swarmPrefix)) {
-    const securityPrompts = getPrompts("security_reviewer");
-    const security = createSecurityReviewerAgent(getModel("security_reviewer"), securityPrompts.prompt, securityPrompts.appendPrompt);
-    security.name = prefixName("security_reviewer");
-    agents.push(applyOverrides(security, swarmAgents, swarmPrefix));
-  }
-  if (!isAgentDisabled("auditor", swarmAgents, swarmPrefix)) {
-    const auditorPrompts = getPrompts("auditor");
-    const auditor = createAuditorAgent(getModel("auditor"), auditorPrompts.prompt, auditorPrompts.appendPrompt);
-    auditor.name = prefixName("auditor");
-    agents.push(applyOverrides(auditor, swarmAgents, swarmPrefix));
+  if (!isAgentDisabled("reviewer", swarmAgents, swarmPrefix)) {
+    const reviewerPrompts = getPrompts("reviewer");
+    const reviewer = createReviewerAgent(getModel("reviewer"), reviewerPrompts.prompt, reviewerPrompts.appendPrompt);
+    reviewer.name = prefixName("reviewer");
+    agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("test_engineer", swarmAgents, swarmPrefix)) {
     const testPrompts = getPrompts("test_engineer");
@@ -14769,16 +14240,16 @@ function getAgentConfigs(config2) {
 var PHASE_REMINDER = `<swarm_reminder>
 \u26A0\uFE0F ARCHITECT WORKFLOW REMINDER:
 1. ANALYZE \u2192 Identify domains, create initial spec
-2. SME_CONSULTATION \u2192 Delegate to @sme_* agents SERIALLY (one at a time)
+2. SME_CONSULTATION \u2192 Delegate to @sme (one domain per call, max 3 calls)
 3. COLLATE \u2192 Synthesize SME outputs into unified spec
 4. CODE \u2192 Delegate to @coder
-5. QA_REVIEW \u2192 Delegate to @security_reviewer AND @auditor
+5. QA_REVIEW \u2192 Delegate to @reviewer (specify CHECK dimensions)
 6. TRIAGE \u2192 Review feedback: APPROVED | REVISION_NEEDED | BLOCKED
 7. TEST \u2192 If approved, delegate to @test_engineer
 
 DELEGATION RULES:
-- SME agents: ONE at a time (serial)
-- QA agents: May run parallel
+- SME: ONE domain per call (serial), max 3 per phase
+- Reviewer: Specify CHECK dimensions relevant to the change
 - Always wait for response before next delegation
 </swarm_reminder>`;
 function createPipelineTrackerHook(config2) {
@@ -27142,6 +26613,19 @@ function tool(input) {
 tool.schema = exports_external2;
 
 // src/tools/domain-detector.ts
+var DOMAIN_PATTERNS = {
+  windows: [/\bwindows\b/i, /\bwin32\b/i, /\bregistry\b/i, /\bregedit\b/i, /\bwmi\b/i, /\bcim\b/i, /\bservice\b/i, /\bevent\s*log\b/i, /\bscheduled\s*task\b/i, /\bgpo\b/i, /\bgroup\s*policy\b/i, /\bmsi\b/i, /\binstaller\b/i, /\bwinrm\b/i],
+  powershell: [/\bpowershell\b/i, /\bpwsh\b/i, /\bps1\b/i, /\bcmdlet\b/i, /\bget-\w+/i, /\bset-\w+/i, /\bnew-\w+/i, /\bremove-\w+/i, /\binvoke-\w+/i, /\bpester\b/i],
+  python: [/\bpython\b/i, /\bpip\b/i, /\bpypi\b/i, /\bdjango\b/i, /\bflask\b/i, /\bpandas\b/i, /\bnumpy\b/i, /\bpytest\b/i, /\bvenv\b/i, /\bconda\b/i],
+  oracle: [/\boracle\b/i, /\bsqlplus\b/i, /\bplsql\b/i, /\btnsnames\b/i, /\bpdb\b/i, /\bcdb\b/i, /\btablespace\b/i, /\brman\b/i, /\bdataguard\b/i, /\basm\b/i, /\brac\b/i, /\bora-\d+/i],
+  network: [/\bnetwork\b/i, /\bfirewall\b/i, /\bdns\b/i, /\bdhcp\b/i, /\btcp\b/i, /\budp\b/i, /\bip\s*address\b/i, /\bsubnet\b/i, /\bvlan\b/i, /\brouting\b/i, /\bswitch\b/i, /\bload\s*balanc/i, /\bproxy\b/i, /\bssl\b/i, /\btls\b/i, /\bcertificate\b/i],
+  security: [/\bstig\b/i, /\bdisa\b/i, /\bcve\b/i, /\bvulnerabil/i, /\bharden\b/i, /\baudit\b/i, /\bcompliance\b/i, /\bscap\b/i, /\bfips\b/i, /\bcac\b/i, /\bpki\b/i, /\bencrypt/i],
+  linux: [/\blinux\b/i, /\bubuntu\b/i, /\brhel\b/i, /\bcentos\b/i, /\bbash\b/i, /\bsystemd\b/i, /\bsystemctl\b/i, /\byum\b/i, /\bapt\b/i, /\bcron\b/i, /\bchmod\b/i, /\bchown\b/i],
+  vmware: [/\bvmware\b/i, /\bvsphere\b/i, /\besxi\b/i, /\bvcenter\b/i, /\bvsan\b/i, /\bnsx\b/i, /\bvmotion\b/i, /\bdatastore\b/i, /\bpowercli\b/i, /\bova\b/i, /\bovf\b/i],
+  azure: [/\bazure\b/i, /\baz\s+\w+/i, /\bentra\b/i, /\baad\b/i, /\bazure\s*ad\b/i, /\barm\s*template\b/i, /\bbicep\b/i, /\bazure\s*devops\b/i, /\bblob\b/i, /\bkeyvault\b/i],
+  active_directory: [/\bactive\s*directory\b/i, /\bad\s+\w+/i, /\bldap\b/i, /\bdomain\s*controller\b/i, /\bgpupdate\b/i, /\bdsquery\b/i, /\bdsmod\b/i, /\baduc\b/i, /\bkerberos\b/i, /\bspn\b/i],
+  ui_ux: [/\bui\b/i, /\bux\b/i, /\buser\s+experience\b/i, /\buser\s+interface\b/i, /\bvisual\s+design\b/i, /\binteraction\s+design\b/i, /\bdesign\s+system\b/i, /\bwireframe\b/i, /\bprototype\b/i, /\baccessibility\b/i, /\btypography\b/i, /\blayout\b/i, /\bresponsive\b/i]
+};
 var detect_domains = tool({
   description: "Detect which SME domains are relevant for a given text. " + "Returns a list of domain names (windows, powershell, python, oracle, " + "network, security, linux, vmware, azure, active_directory, ui_ux) " + "that match patterns in the input text.",
   args: {
@@ -27163,7 +26647,7 @@ var detect_domains = tool({
     }
     return `Detected domains: ${detected.join(", ")}
 
-Corresponding SME agents: ${detected.map((d) => `@sme_${d}`).join(", ")}`;
+Use these as DOMAIN values when delegating to @sme.`;
   }
 });
 // src/tools/file-extractor.ts

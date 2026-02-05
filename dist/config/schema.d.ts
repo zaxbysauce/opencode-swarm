@@ -30,9 +30,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     }, z.core.$strip>>>;
     max_iterations: z.ZodDefault<z.ZodNumber>;
     qa_retry_limit: z.ZodDefault<z.ZodNumber>;
-    multi_domain_sme: z.ZodDefault<z.ZodBoolean>;
-    auto_detect_domains: z.ZodDefault<z.ZodBoolean>;
     inject_phase_reminders: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
-export type { AgentName, SMEAgentName, QAAgentName, PipelineAgentName, } from './constants';
+export type { AgentName, QAAgentName, PipelineAgentName, } from './constants';

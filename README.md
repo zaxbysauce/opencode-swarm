@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.4.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-4.0.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/opencode-plugin-purple" alt="OpenCode Plugin">
-  <img src="https://img.shields.io/badge/agents-20+-orange" alt="Agents">
+  <img src="https://img.shields.io/badge/agents-7-orange" alt="Agents">
 </p>
 
 <h1 align="center">🐝 OpenCode Swarm</h1>
@@ -37,11 +37,11 @@ Other Frameworks:
 OpenCode Swarm:
 ├── Architect analyzes request
 ├── Explorer scans codebase
-├── Security SME provides auth guidance
+├── @sme consulted on security domain
 ├── Architect creates phased plan with acceptance criteria
-├── Phase 1: User model → QA → Tests → ✓
-├── Phase 2: Auth logic → QA → Tests → ✓
-├── Phase 3: Session management → QA → Tests → ✓
+├── Phase 1: User model → Review → Tests → ✓
+├── Phase 2: Auth logic → Review → Tests → ✓
+├── Phase 3: Session management → Review → Tests → ✓
 └── Result: Working code. Documented decisions. Resumable progress.
 ```
 
@@ -72,7 +72,7 @@ OpenCode Swarm:
 - **Heterogeneous models** - different perspectives catch errors
 - **Phased planning** - documented tasks with acceptance criteria
 - **Persistent memory** - `.swarm/` files survive sessions
-- **QA per task** - security + audit before anything ships
+- **Review per task** - correctness + security review before anything ships
 - **One task at a time** - focused, quality code
 - **Resumable projects** - pick up exactly where you left off
 
@@ -110,8 +110,8 @@ OpenCode Swarm:
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  PHASE 3: Consult SMEs (serial, cached)                                 │
-│           @sme_security → auth best practices                           │
-│           @sme_api → JWT patterns, refresh flow                         │
+│           @sme DOMAIN: security → auth best practices                   │
+│           @sme DOMAIN: api → JWT patterns, refresh flow                 │
 │           Guidance saved to .swarm/context.md                           │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -129,10 +129,10 @@ OpenCode Swarm:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  PHASE 5: Execute (per task)                                            │
 │                                                                         │
-│   ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐           │
-│   │ @coder  │ →  │@security │ →  │@auditor │ →  │  @test   │           │
-│   │ 1 task  │    │ review   │    │ verify  │    │ generate │           │
-│   └─────────┘    └──────────┘    └─────────┘    └──────────┘           │
+│   ┌─────────┐    ┌────────────┐    ┌──────────┐                        │
+│   │ @coder  │ →  │ @reviewer  │ →  │  @test   │                        │
+│   │ 1 task  │    │ check all  │    │ generate │                        │
+│   └─────────┘    └────────────┘    └──────────┘                        │
 │        │                                              │                 │
 │        └──── If rejected: retry with feedback ────────┘                 │
 │                                                                         │
@@ -225,9 +225,9 @@ Swarm lets you mix models strategically:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "google/gemini-2.0-flash" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "security_reviewer": { "model": "openai/gpt-4o" },
-    "auditor": { "model": "google/gemini-2.0-flash" }
+    "sme": { "model": "google/gemini-2.0-flash" },
+    "reviewer": { "model": "openai/gpt-4o" },
+    "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
@@ -237,9 +237,9 @@ Swarm lets you mix models strategically:
 | Architect | Deep reasoning | Needs to plan complex work |
 | Explorer | Fast scanning | Speed over depth |
 | Coder | Implementation | Best coding model you have |
-| SMEs | Domain knowledge | Fast recall, not deep reasoning |
-| Security Reviewer | Finding flaws | **Different vendor catches different bugs** |
-| Auditor | Verification | Independent perspective |
+| SME | Domain knowledge | Fast recall, not deep reasoning |
+| Reviewer | Finding flaws | **Different vendor catches different bugs** |
+| Test Engineer | Test generation | Independent perspective on edge cases |
 
 **If Claude writes code and GPT reviews it, GPT catches Claude's blindspots.** This is why real teams have code review.
 
@@ -262,8 +262,8 @@ Run different model configurations simultaneously. Perfect for:
       "agents": {
         "architect": { "model": "anthropic/claude-sonnet-4-5" },
         "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        "_sme": { "model": "google/gemini-2.0-flash" },
-        "_qa": { "model": "openai/gpt-4o" }
+        "sme": { "model": "google/gemini-2.0-flash" },
+        "reviewer": { "model": "openai/gpt-4o" }
       }
     },
     "local": {
@@ -271,8 +271,8 @@ Run different model configurations simultaneously. Perfect for:
       "agents": {
         "architect": { "model": "ollama/qwen2.5:32b" },
         "coder": { "model": "ollama/qwen2.5:32b" },
-        "_sme": { "model": "ollama/qwen2.5:14b" },
-        "_qa": { "model": "ollama/qwen2.5:14b" }
+        "sme": { "model": "ollama/qwen2.5:14b" },
+        "reviewer": { "model": "ollama/qwen2.5:14b" }
       }
     }
   }
@@ -283,8 +283,8 @@ Run different model configurations simultaneously. Perfect for:
 
 | Swarm | Agents |
 |-------|--------|
-| `cloud` (default) | `architect`, `explorer`, `coder`, `sme_*`, etc. |
-| `local` | `local_architect`, `local_explorer`, `local_coder`, `local_sme_*`, etc. |
+| `cloud` (default) | `architect`, `explorer`, `coder`, `sme`, `reviewer`, `test_engineer` |
+| `local` | `local_architect`, `local_explorer`, `local_coder`, `local_sme`, `local_reviewer`, `local_test_engineer` |
 
 The first swarm (or one named "default") creates unprefixed agents. Additional swarms prefix all agent names.
 
@@ -324,24 +324,10 @@ bunx opencode-swarm install
 |-------|------|
 | `explorer` | Fast codebase scanner. Identifies structure, languages, frameworks, key files. |
 
-### 🧠 Domain Experts (15 SMEs)
-| Agent | Domain |
-|-------|--------|
-| `sme_web` | Flutter, React, Vue, Angular, JS/TS, HTML/CSS |
-| `sme_api` | REST, GraphQL, OAuth, JWT, webhooks |
-| `sme_database` | SQL Server, PostgreSQL, MySQL, MongoDB, Redis |
-| `sme_devops` | Docker, Kubernetes, CI/CD, Terraform |
-| `sme_security` | STIG, hardening, CVE, encryption, PKI |
-| `sme_python` | Python ecosystem, libraries, patterns |
-| `sme_powershell` | PowerShell scripting, modules, remoting |
-| `sme_windows` | Windows internals, registry, services, WMI |
-| `sme_linux` | Linux, systemd, package management |
-| `sme_network` | TCP/IP, firewalls, DNS, TLS |
-| `sme_azure` | Azure services, Entra ID, ARM/Bicep |
-| `sme_vmware` | vSphere, ESXi, PowerCLI |
-| `sme_oracle` | Oracle Database, SQL/PLSQL |
-| `sme_active_directory` | AD, LDAP, Group Policy, Kerberos |
-| `sme_ui_ux` | UI/UX design, accessibility |
+### 🧠 Domain Expert
+| Agent | Role |
+|-------|------|
+| `sme` | Open-domain expert. The architect specifies any domain (security, python, ios, rust, kubernetes, etc.) per call. No hardcoded list — works with any domain the LLM has knowledge of. |
 
 ### 💻 Implementation
 | Agent | Role |
@@ -352,8 +338,7 @@ bunx opencode-swarm install
 ### ✅ Quality Assurance
 | Agent | Role |
 |-------|------|
-| `security_reviewer` | Vulnerability assessment per task |
-| `auditor` | Correctness verification per task |
+| `reviewer` | Combined correctness + security review. The architect specifies CHECK dimensions (security, correctness, edge-cases, performance, etc.) per call. |
 
 ---
 
@@ -367,31 +352,18 @@ Create `~/.config/opencode/opencode-swarm.json`:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "google/gemini-2.0-flash" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "_qa": { "model": "google/gemini-2.0-flash" },
+    "sme": { "model": "google/gemini-2.0-flash" },
+    "reviewer": { "model": "openai/gpt-4o" },
     "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
 
-### Category Defaults
-
-- `_sme` → All 15 SME agents
-- `_qa` → security_reviewer + auditor
-
-Override specific agents:
+### Disable Agents
 ```json
 {
-  "_sme": { "model": "google/gemini-2.0-flash" },
-  "sme_security": { "model": "anthropic/claude-sonnet-4-5" }
-}
-```
-
-### Disable Unused Domains
-```json
-{
-  "sme_vmware": { "disabled": true },
-  "sme_oracle": { "disabled": true }
+  "sme": { "disabled": true },
+  "test_engineer": { "disabled": true }
 }
 ```
 
@@ -404,10 +376,10 @@ Override specific agents:
 | Execution | Serial (predictable) | Parallel (chaotic) | Parallel | Configurable |
 | Planning | Phased with acceptance criteria | Ad-hoc | Role-based | Graph-based |
 | Memory | Persistent `.swarm/` files | Session only | Session only | Checkpoints |
-| QA | Per-task (security + audit) | Optional | Optional | Manual |
+| QA | Per-task (unified review) | Optional | Optional | Manual |
 | Model mixing | Per-agent configuration | Limited | Limited | Manual |
 | Resume projects | ✅ Native | ❌ | ❌ | Partial |
-| SME domains | 15 specialized | Generic | Generic | Generic |
+| SME domains | Open-domain (any) | Generic | Generic | Generic |
 | Task granularity | One at a time | Batched | Batched | Varies |
 
 ---
@@ -416,13 +388,13 @@ Override specific agents:
 
 1. **Plan before code** - Documented phases with acceptance criteria
 2. **One task at a time** - Focused work, quality output
-3. **QA everything immediately** - Security + audit per task, not per project
+3. **Review everything immediately** - Correctness + security review per task, not per project
 4. **Cache SME knowledge** - Don't re-ask answered questions
 5. **Persistent memory** - `.swarm/` files survive sessions
 6. **Serial execution** - Predictable, debuggable, no race conditions
 7. **Heterogeneous models** - Different perspectives catch different bugs
 8. **User checkpoints** - Confirm before proceeding to next phase
-9. **Failure tracking** - Document rejections, escalate after 3 attempts
+9. **Failure tracking** - Document rejections, escalate after 5 attempts
 10. **Resumable by design** - Any Architect can pick up any project
 
 ---

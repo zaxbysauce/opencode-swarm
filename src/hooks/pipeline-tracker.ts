@@ -13,16 +13,16 @@ import type { PluginConfig } from '../config';
 const PHASE_REMINDER = `<swarm_reminder>
 ⚠️ ARCHITECT WORKFLOW REMINDER:
 1. ANALYZE → Identify domains, create initial spec
-2. SME_CONSULTATION → Delegate to @sme_* agents SERIALLY (one at a time)
+2. SME_CONSULTATION → Delegate to @sme (one domain per call, max 3 calls)
 3. COLLATE → Synthesize SME outputs into unified spec
 4. CODE → Delegate to @coder
-5. QA_REVIEW → Delegate to @security_reviewer AND @auditor
+5. QA_REVIEW → Delegate to @reviewer (specify CHECK dimensions)
 6. TRIAGE → Review feedback: APPROVED | REVISION_NEEDED | BLOCKED
 7. TEST → If approved, delegate to @test_engineer
 
 DELEGATION RULES:
-- SME agents: ONE at a time (serial)
-- QA agents: May run parallel
+- SME: ONE domain per call (serial), max 3 per phase
+- Reviewer: Specify CHECK dimensions relevant to the change
 - Always wait for response before next delegation
 </swarm_reminder>`;
 
