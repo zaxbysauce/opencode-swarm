@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-4.1.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/opencode-plugin-purple" alt="OpenCode Plugin">
-  <img src="https://img.shields.io/badge/agents-7-orange" alt="Agents">
+  <img src="https://img.shields.io/badge/agents-8-orange" alt="Agents">
 </p>
 
 <h1 align="center">🐝 OpenCode Swarm</h1>
@@ -36,12 +36,13 @@ Other Frameworks:
 
 OpenCode Swarm:
 ├── Architect analyzes request
-├── Explorer scans codebase
+├── Explorer scans codebase (+ gap analysis)
 ├── @sme consulted on security domain
 ├── Architect creates phased plan with acceptance criteria
-├── Phase 1: User model → Review → Tests → ✓
-├── Phase 2: Auth logic → Review → Tests → ✓
-├── Phase 3: Session management → Review → Tests → ✓
+├── @critic reviews plan → APPROVED
+├── Phase 1: User model → Review → Tests (run + PASS) → ✓
+├── Phase 2: Auth logic → Review → Tests (run + PASS) → ✓
+├── Phase 3: Session management → Review → Tests (run + PASS) → ✓
 └── Result: Working code. Documented decisions. Resumable progress.
 ```
 
@@ -127,16 +128,24 @@ OpenCode Swarm:
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
+│  PHASE 4.5: Critic Gate                                                 │
+│             @critic reviews plan → APPROVED / NEEDS_REVISION / REJECTED│
+│             Max 2 revision cycles before escalating to user             │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
 │  PHASE 5: Execute (per task)                                            │
 │                                                                         │
-│   ┌─────────┐    ┌────────────┐    ┌──────────┐                        │
-│   │ @coder  │ →  │ @reviewer  │ →  │  @test   │                        │
-│   │ 1 task  │    │ check all  │    │ generate │                        │
-│   └─────────┘    └────────────┘    └──────────┘                        │
-│        │                                              │                 │
-│        └──── If rejected: retry with feedback ────────┘                 │
+│   ┌─────────┐    ┌────────────┐    ┌──────────────┐                    │
+│   │ @coder  │ →  │ @reviewer  │ →  │    @test     │                    │
+│   │ 1 task  │    │ check all  │    │ write + run  │                    │
+│   └─────────┘    └────────────┘    └──────────────┘                    │
+│        │               │                   │                            │
+│        │     If REJECTED: retry    If FAIL: fix + retest               │
+│        └───────────────┘                                                │
 │                                                                         │
-│   Update plan.md: [x] Task complete                                     │
+│   Update plan.md: [x] Task complete (only if PASS)                      │
 │   Next task...                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -227,6 +236,7 @@ Swarm lets you mix models strategically:
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "openai/gpt-4o" },
+    "critic": { "model": "google/gemini-2.0-flash" },
     "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }
@@ -239,7 +249,8 @@ Swarm lets you mix models strategically:
 | Coder | Implementation | Best coding model you have |
 | SME | Domain knowledge | Fast recall, not deep reasoning |
 | Reviewer | Finding flaws | **Different vendor catches different bugs** |
-| Test Engineer | Test generation | Independent perspective on edge cases |
+| Critic | Plan review | Catches scope issues before any code is written |
+| Test Engineer | Test + run | Writes tests, runs them, reports PASS/FAIL |
 
 **If Claude writes code and GPT reviews it, GPT catches Claude's blindspots.** This is why real teams have code review.
 
@@ -283,8 +294,8 @@ Run different model configurations simultaneously. Perfect for:
 
 | Swarm | Agents |
 |-------|--------|
-| `cloud` (default) | `architect`, `explorer`, `coder`, `sme`, `reviewer`, `test_engineer` |
-| `local` | `local_architect`, `local_explorer`, `local_coder`, `local_sme`, `local_reviewer`, `local_test_engineer` |
+| `cloud` (default) | `architect`, `explorer`, `coder`, `sme`, `reviewer`, `critic`, `test_engineer` |
+| `local` | `local_architect`, `local_explorer`, `local_coder`, `local_sme`, `local_reviewer`, `local_critic`, `local_test_engineer` |
 
 The first swarm (or one named "default") creates unprefixed agents. Additional swarms prefix all agent names.
 
@@ -333,12 +344,13 @@ bunx opencode-swarm install
 | Agent | Role |
 |-------|------|
 | `coder` | Implements ONE task at a time with full context |
-| `test_engineer` | Generates tests for each completed task |
+| `test_engineer` | Generates tests, runs them, and reports structured PASS/FAIL verdicts |
 
 ### ✅ Quality Assurance
 | Agent | Role |
 |-------|------|
 | `reviewer` | Combined correctness + security review. The architect specifies CHECK dimensions (security, correctness, edge-cases, performance, etc.) per call. |
+| `critic` | Plan review gate. Reviews the architect's plan BEFORE implementation — checks completeness, feasibility, scope, dependencies, and flags AI-slop. |
 
 ---
 
@@ -354,6 +366,7 @@ Create `~/.config/opencode/opencode-swarm.json`:
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "openai/gpt-4o" },
+    "critic": { "model": "google/gemini-2.0-flash" },
     "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }

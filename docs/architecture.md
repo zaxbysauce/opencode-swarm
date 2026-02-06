@@ -52,17 +52,21 @@ Swarm enforces discipline:
 - Domain detection for SME routing
 - Re-runs at phase boundaries to capture changes
 
-### SMEs: The Advisors
-- 15 specialized domain experts
-- Consulted serially (never parallel)
+### SME: The Advisor
+- Single open-domain expert (any domain: security, ios, rust, kubernetes, etc.)
+- Consulted serially, one call per domain
 - Guidance cached in context.md
 - Read-only (cannot write code)
 
 ### Pipeline Agents: The Hands
 - Coder: Implements one task at a time
-- Security Reviewer: Finds vulnerabilities
-- Auditor: Verifies correctness
-- Test Engineer: Generates tests
+- Reviewer: Combined correctness + security review
+- Test Engineer: Generates tests, runs them, reports PASS/FAIL
+
+### Critic: The Gate
+- Reviews architect's plan BEFORE implementation begins
+- Returns APPROVED / NEEDS_REVISION / REJECTED
+- Read-only (cannot write code)
 
 ---
 
@@ -112,7 +116,7 @@ For each relevant domain:
     │   └── If cached → Skip this SME
     │
     └── If not cached:
-        ├── Delegate to @sme_[domain]
+        ├── Delegate to @sme with DOMAIN: [domain]
         ├── Wait for response
         └── Cache guidance in context.md
 ```
@@ -132,6 +136,16 @@ Create/Update .swarm/plan.md:
     └── Status tracking
 ```
 
+### Phase 4.5: Critic Gate
+
+```
+@critic reviews plan
+    │
+    ├── APPROVED → Proceed to Phase 5
+    ├── NEEDS_REVISION → Revise plan, resubmit (max 2 cycles)
+    └── REJECTED → Escalate to user
+```
+
 ### Phase 5: Execute
 
 ```
@@ -143,18 +157,16 @@ For each task in current phase:
     ├── @coder implements (ONE task)
     │   └── Wait for completion
     │
-    ├── @security_reviewer audits
-    │   └── Wait for response
-    │
-    ├── @auditor verifies
+    ├── @reviewer reviews
     │   ├── APPROVED → Continue
     │   └── REJECTED → Retry (max 3)
     │       └── After 3 failures → Escalate
     │
-    ├── @test_engineer generates tests
-    │   └── Wait for completion
+    ├── @test_engineer generates AND runs tests
+    │   ├── PASS → Continue
+    │   └── FAIL → Send failures to @coder, retest
     │
-    └── Update plan.md [x] complete
+    └── Update plan.md [x] complete (only if PASS)
 ```
 
 ### Phase 6: Phase Complete
@@ -250,10 +262,10 @@ Estimated: [SMALL/MEDIUM/LARGE]
 |-------|:----:|:-----:|:-------:|:--------:|
 | architect | ✅ | ✅ | ✅ | ✅ |
 | explorer | ✅ | ❌ | ❌ | ❌ |
-| sme_* | ✅ | ❌ | ❌ | ❌ |
+| sme | ✅ | ❌ | ❌ | ❌ |
 | coder | ✅ | ✅ | ✅ | ❌ |
-| security_reviewer | ✅ | ❌ | ❌ | ❌ |
-| auditor | ✅ | ❌ | ❌ | ❌ |
+| reviewer | ✅ | ❌ | ❌ | ❌ |
+| critic | ✅ | ❌ | ❌ | ❌ |
 | test_engineer | ✅ | ✅ | ✅ | ❌ |
 
 ---
@@ -264,13 +276,13 @@ Estimated: [SMALL/MEDIUM/LARGE]
 
 ```
 Attempt 1: @coder implements
-           @auditor rejects with feedback
+           @reviewer rejects with feedback
            
 Attempt 2: @coder fixes based on feedback
-           @auditor rejects again
+           @reviewer rejects again
            
 Attempt 3: @coder fixes again
-           @auditor rejects
+           @reviewer rejects
            
 Escalation: Architect handles directly
             OR re-scopes task

@@ -109,7 +109,7 @@ Benefits:
 **Swarm's approach**: Every task goes through QA.
 
 ```
-Task → Coder → Security Review → Audit → Tests → ✓ Complete
+Task → Coder → Review → Tests (run + verdict) → ✓ Complete
 ```
 
 If QA rejects:
@@ -154,14 +154,15 @@ Focused task = focused code.
 ```json
 {
   "coder": "anthropic/claude-sonnet-4-5",
-  "security_reviewer": "openai/gpt-4o",
-  "auditor": "google/gemini-2.0-flash"
+  "reviewer": "openai/gpt-4o",
+  "critic": "google/gemini-2.0-flash"
 }
 ```
 
 Why this works:
 - Different training data = different blindspots
 - GPT catches what Claude misses
+- Critic reviews the *plan*, Reviewer reviews the *code*
 - Like having reviewers from different backgrounds
 
 ---

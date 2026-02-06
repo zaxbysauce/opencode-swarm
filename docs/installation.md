@@ -28,8 +28,9 @@ Create `~/.config/opencode/opencode-swarm.json`:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "google/gemini-2.0-flash" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "_qa": { "model": "google/gemini-2.0-flash" },
+    "sme": { "model": "google/gemini-2.0-flash" },
+    "reviewer": { "model": "google/gemini-2.0-flash" },
+    "critic": { "model": "google/gemini-2.0-flash" },
     "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }
@@ -71,46 +72,12 @@ Each agent can use a different model:
 }
 ```
 
-### Category Defaults
-
-Use prefixes to set defaults for agent categories:
-
-| Prefix | Applies To |
-|--------|-----------|
-| `_sme` | All 15 SME agents |
-| `_qa` | security_reviewer, auditor |
-
-```json
-{
-  "agents": {
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "_qa": { "model": "google/gemini-2.0-flash" }
-  }
-}
-```
-
-### Override Category Defaults
-
-Specific agent config overrides category defaults:
-
-```json
-{
-  "agents": {
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "sme_security": { "model": "anthropic/claude-sonnet-4-5" }
-  }
-}
-```
-
-Here, `sme_security` uses Claude while all other SMEs use Gemini.
-
 ### Disable Agents
 
 ```json
 {
   "agents": {
-    "sme_vmware": { "disabled": true },
-    "sme_oracle": { "disabled": true }
+    "critic": { "disabled": true }
   }
 }
 ```
@@ -144,8 +111,9 @@ Run multiple independent swarms with different model configurations.
       "agents": {
         "architect": { "model": "anthropic/claude-sonnet-4-5" },
         "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        "_sme": { "model": "google/gemini-2.0-flash" },
-        "_qa": { "model": "openai/gpt-4o" }
+        "sme": { "model": "google/gemini-2.0-flash" },
+        "reviewer": { "model": "openai/gpt-4o" },
+        "critic": { "model": "openai/gpt-4o" }
       }
     },
     "local": {
@@ -153,8 +121,9 @@ Run multiple independent swarms with different model configurations.
       "agents": {
         "architect": { "model": "ollama/qwen2.5:32b" },
         "coder": { "model": "ollama/qwen2.5:32b" },
-        "_sme": { "model": "ollama/qwen2.5:14b" },
-        "_qa": { "model": "ollama/qwen2.5:14b" }
+        "sme": { "model": "ollama/qwen2.5:14b" },
+        "reviewer": { "model": "ollama/qwen2.5:14b" },
+        "critic": { "model": "ollama/qwen2.5:14b" }
       }
     }
   }
@@ -168,7 +137,7 @@ Run multiple independent swarms with different model configurations.
 2. **Additional swarms are prefixed**: Other swarms prefix all agents with the swarm ID:
    - `local_architect`
    - `local_coder`
-   - `local_sme_powershell`
+   - `local_sme`
    - etc.
 
 3. **Each architect knows its agents**: The `local_architect` prompt is automatically updated to reference `@local_explorer`, `@local_coder`, etc.
@@ -185,8 +154,9 @@ Run multiple independent swarms with different model configurations.
       "agents": {
         "architect": { "model": "anthropic/claude-sonnet-4-5" },
         "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        "_sme": { "model": "anthropic/claude-sonnet-4-5" },
-        "_qa": { "model": "openai/gpt-4o" }
+        "sme": { "model": "anthropic/claude-sonnet-4-5" },
+        "reviewer": { "model": "openai/gpt-4o" },
+        "critic": { "model": "openai/gpt-4o" }
       }
     },
     "balanced": {
@@ -194,8 +164,9 @@ Run multiple independent swarms with different model configurations.
       "agents": {
         "architect": { "model": "anthropic/claude-sonnet-4-5" },
         "coder": { "model": "google/gemini-2.0-flash" },
-        "_sme": { "model": "google/gemini-2.0-flash" },
-        "_qa": { "model": "google/gemini-2.0-flash" }
+        "sme": { "model": "google/gemini-2.0-flash" },
+        "reviewer": { "model": "google/gemini-2.0-flash" },
+        "critic": { "model": "google/gemini-2.0-flash" }
       }
     },
     "local": {
@@ -203,8 +174,9 @@ Run multiple independent swarms with different model configurations.
       "agents": {
         "architect": { "model": "ollama/qwen2.5:32b" },
         "coder": { "model": "ollama/qwen2.5:32b" },
-        "_sme": { "model": "ollama/qwen2.5:14b" },
-        "_qa": { "model": "ollama/qwen2.5:14b" }
+        "sme": { "model": "ollama/qwen2.5:14b" },
+        "reviewer": { "model": "ollama/qwen2.5:14b" },
+        "critic": { "model": "ollama/qwen2.5:14b" }
       }
     }
   }
@@ -227,9 +199,9 @@ Each swarm supports the same configuration options as the legacy `agents` block:
       "name": "Local",
       "agents": {
         "architect": { "model": "ollama/qwen2.5:32b" },
-        "_sme": { "model": "ollama/qwen2.5:14b" },
-        "sme_security": { "model": "ollama/qwen2.5:32b" },
-        "sme_vmware": { "disabled": true }
+        "sme": { "model": "ollama/qwen2.5:14b" },
+        "reviewer": { "model": "ollama/qwen2.5:14b" },
+        "critic": { "disabled": true }
       }
     }
   }
@@ -267,8 +239,9 @@ Use expensive models only where it matters:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "google/gemini-2.0-flash" },
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "_qa": { "model": "google/gemini-2.0-flash" },
+    "sme": { "model": "google/gemini-2.0-flash" },
+    "reviewer": { "model": "google/gemini-2.0-flash" },
+    "critic": { "model": "google/gemini-2.0-flash" },
     "test_engineer": { "model": "google/gemini-2.0-flash" }
   }
 }
@@ -284,9 +257,9 @@ Different vendors catch different bugs:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "google/gemini-2.0-flash" },
-    "_sme": { "model": "google/gemini-2.0-flash" },
-    "security_reviewer": { "model": "openai/gpt-4o" },
-    "auditor": { "model": "google/gemini-2.0-flash" },
+    "sme": { "model": "google/gemini-2.0-flash" },
+    "reviewer": { "model": "openai/gpt-4o" },
+    "critic": { "model": "google/gemini-2.0-flash" },
     "test_engineer": { "model": "openai/gpt-4o-mini" }
   }
 }
@@ -302,8 +275,9 @@ Use local models for high-volume agents:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "ollama/qwen2.5:14b" },
-    "_sme": { "model": "ollama/qwen2.5:14b" },
-    "_qa": { "model": "ollama/qwen2.5:14b" },
+    "sme": { "model": "ollama/qwen2.5:14b" },
+    "reviewer": { "model": "ollama/qwen2.5:14b" },
+    "critic": { "model": "ollama/qwen2.5:14b" },
     "test_engineer": { "model": "ollama/qwen2.5:14b" }
   }
 }
@@ -319,8 +293,9 @@ Single vendor, premium quality:
     "architect": { "model": "anthropic/claude-sonnet-4-5" },
     "coder": { "model": "anthropic/claude-sonnet-4-5" },
     "explorer": { "model": "anthropic/claude-haiku" },
-    "_sme": { "model": "anthropic/claude-haiku" },
-    "_qa": { "model": "anthropic/claude-sonnet-4-5" },
+    "sme": { "model": "anthropic/claude-haiku" },
+    "reviewer": { "model": "anthropic/claude-sonnet-4-5" },
+    "critic": { "model": "anthropic/claude-sonnet-4-5" },
     "test_engineer": { "model": "anthropic/claude-haiku" }
   }
 }
@@ -418,8 +393,8 @@ rm -rf .swarm/
 ### Wrong Model Used
 
 1. Check for typos in model names
-2. Verify category defaults vs specific overrides
-3. Specific config always overrides `_sme` / `_qa`
+2. Verify agent-specific overrides in config
+3. Check swarm-level vs top-level config precedence
 
 ### SMEs Not Being Called
 
