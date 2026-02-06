@@ -1,5 +1,5 @@
 // QA agents
-export const QA_AGENTS = ['reviewer'] as const;
+export const QA_AGENTS = ['reviewer', 'critic'] as const;
 
 export const PIPELINE_AGENTS = ['explorer', 'coder', 'test_engineer'] as const;
 
@@ -38,6 +38,9 @@ export const DEFAULT_MODELS: Record<string, string> = {
 
 	// Reviewer agent (QA)
 	reviewer: 'google/gemini-2.0-flash',
+
+	// Critic agent (QA - plan review gate)
+	critic: 'google/gemini-2.0-flash',
 
 	// Fallback
 	default: 'google/gemini-2.0-flash',

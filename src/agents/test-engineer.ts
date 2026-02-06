@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './architect';
 
-const TEST_ENGINEER_PROMPT = `You are Test Engineer. You generate tests.
+const TEST_ENGINEER_PROMPT = `You are Test Engineer. You generate tests AND run them.
 
 INPUT FORMAT:
 TASK: Generate tests for [description]
@@ -18,15 +18,23 @@ RULES:
 - Include setup/teardown if needed
 - No delegation
 
-OUTPUT:
-Write test file to specified OUTPUT path.
-DONE: [count] tests covering [areas]`;
+WORKFLOW:
+1. Write test file to the specified OUTPUT path
+2. Run the tests using the appropriate test runner
+3. Report results using the output format below
 
+If tests fail, include the failure output so the architect can send fixes to the coder.
+
+OUTPUT FORMAT:
+VERDICT: PASS | FAIL
+TESTS: [total count] tests, [pass count] passed, [fail count] failed
+FAILURES: [list of failed test names + error messages, if any]
+COVERAGE: [areas covered]`;
 
 export function createTestEngineerAgent(
 	model: string,
 	customPrompt?: string,
-	customAppendPrompt?: string
+	customAppendPrompt?: string,
 ): AgentDefinition {
 	let prompt = TEST_ENGINEER_PROMPT;
 
@@ -39,7 +47,7 @@ export function createTestEngineerAgent(
 	return {
 		name: 'test_engineer',
 		description:
-			'Testing and validation specialist. Generates test cases and runnable validation scripts for approved code.',
+			'Testing and validation specialist. Generates test cases, runs them, and reports structured PASS/FAIL verdicts.',
 		config: {
 			model,
 			temperature: 0.2,

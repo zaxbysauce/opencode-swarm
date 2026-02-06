@@ -1,8 +1,8 @@
-export declare const QA_AGENTS: readonly ["reviewer"];
+export declare const QA_AGENTS: readonly ["reviewer", "critic"];
 export declare const PIPELINE_AGENTS: readonly ["explorer", "coder", "test_engineer"];
 export declare const ORCHESTRATOR_NAME: "architect";
-export declare const ALL_SUBAGENT_NAMES: readonly ["sme", "reviewer", "explorer", "coder", "test_engineer"];
-export declare const ALL_AGENT_NAMES: readonly ["architect", "sme", "reviewer", "explorer", "coder", "test_engineer"];
+export declare const ALL_SUBAGENT_NAMES: readonly ["sme", "reviewer", "critic", "explorer", "coder", "test_engineer"];
+export declare const ALL_AGENT_NAMES: readonly ["architect", "sme", "reviewer", "critic", "explorer", "coder", "test_engineer"];
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];

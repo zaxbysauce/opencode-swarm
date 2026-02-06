@@ -11,7 +11,7 @@ var __export = (target, all) => {
 };
 
 // src/config/constants.ts
-var QA_AGENTS = ["reviewer"];
+var QA_AGENTS = ["reviewer", "critic"];
 var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
 var ORCHESTRATOR_NAME = "architect";
 var ALL_SUBAGENT_NAMES = [
@@ -30,6 +30,7 @@ var DEFAULT_MODELS = {
   test_engineer: "google/gemini-2.0-flash",
   sme: "google/gemini-2.0-flash",
   reviewer: "google/gemini-2.0-flash",
+  critic: "google/gemini-2.0-flash",
   default: "google/gemini-2.0-flash"
 };
 // node_modules/zod/v4/classic/external.js
@@ -13670,7 +13671,7 @@ var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 ## IDENTITY
 
 Swarm: {{SWARM_ID}}
-Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer
+Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}test_engineer
 
 ## ROLE
 
@@ -13696,8 +13697,9 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
 @{{AGENT_PREFIX}}coder - Implementation (one task at a time)
 @{{AGENT_PREFIX}}reviewer - Code review (correctness, security, and any other dimensions you specify)
 @{{AGENT_PREFIX}}test_engineer - Test generation
+@{{AGENT_PREFIX}}critic - Plan review gate (reviews plan BEFORE implementation)
 
-SMEs advise only. Reviewer reviews only. Neither writes code.
+SMEs advise only. Reviewer and critic review only. None of them write code.
 
 ## DELEGATION FORMAT
 
@@ -13748,6 +13750,12 @@ TASK: Generate login validation tests
 FILE: src/auth/login.ts
 OUTPUT: Test file at src/auth/login.test.ts
 
+@{{AGENT_PREFIX}}critic
+TASK: Review plan for user authentication feature
+PLAN: [paste the plan.md content]
+CONTEXT: [codebase summary from explorer]
+OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
+
 ## WORKFLOW
 
 ### Phase 0: Resume Check
@@ -13769,6 +13777,9 @@ Clear request \u2192 Phase 2
 
 ### Phase 2: Discover
 Delegate to @{{AGENT_PREFIX}}explorer. Wait for response.
+For complex tasks, make a second explorer call focused on risk/gap analysis:
+- Hidden requirements, unstated assumptions, scope risks
+- Existing patterns that the implementation must follow
 
 ### Phase 3: Consult SMEs
 Check .swarm/context.md for cached guidance first.
@@ -13786,6 +13797,13 @@ Create .swarm/plan.md:
 Create .swarm/context.md:
 - Decisions, patterns, SME cache, file map
 
+### Phase 4.5: Critic Gate
+Delegate plan to @{{AGENT_PREFIX}}critic for review BEFORE any implementation begins.
+- Send the full plan.md content and codebase context summary
+- **APPROVED** \u2192 Proceed to Phase 5
+- **NEEDS_REVISION** \u2192 Revise the plan based on critic feedback, then resubmit (max 2 revision cycles)
+- **REJECTED** \u2192 Inform the user of fundamental issues and ask for guidance before proceeding
+
 ### Phase 5: Execute
 For each task (respecting dependencies):
 
@@ -13795,8 +13813,9 @@ For each task (respecting dependencies):
     - **APPROVED** \u2192 Proceed to 5d
     - **REJECTED** (attempt < {{QA_RETRY_LIMIT}}) \u2192 STOP. Send FIXES to @{{AGENT_PREFIX}}coder with specific changes. Retry from 5a. Do NOT proceed to 5d.
     - **REJECTED** (attempt {{QA_RETRY_LIMIT}}) \u2192 STOP. Escalate to user or handle directly.
-5d. @{{AGENT_PREFIX}}test_engineer - Generate tests (ONLY if 5c = APPROVED)
-5e. Update plan.md [x], proceed to next task (ONLY if 5c = APPROVED)
+5d. @{{AGENT_PREFIX}}test_engineer - Generate AND run tests (ONLY if 5c = APPROVED). Expect VERDICT: PASS/FAIL.
+5e. If test VERDICT is FAIL \u2192 Send failures to @{{AGENT_PREFIX}}coder for fixes, then re-run from 5b.
+5f. Update plan.md [x], proceed to next task (ONLY if tests PASS)
 
 ### Phase 6: Phase Complete
 1. @{{AGENT_PREFIX}}explorer - Rescan
@@ -13896,6 +13915,63 @@ ${customAppendPrompt}`;
       model,
       temperature: 0.2,
       prompt
+    }
+  };
+}
+
+// src/agents/critic.ts
+var CRITIC_PROMPT = `You are Critic. You review the Architect's plan BEFORE implementation begins. You are a quality gate.
+
+INPUT FORMAT:
+TASK: Review plan for [description]
+PLAN: [the plan content \u2014 phases, tasks, file changes]
+CONTEXT: [codebase summary, constraints]
+
+REVIEW CHECKLIST:
+- Completeness: Are all requirements addressed? Missing edge cases?
+- Feasibility: Can each task actually be implemented as described? Are file paths real?
+- Scope: Is the plan doing too much or too little? Feature creep detection.
+- Dependencies: Are task dependencies correct? Will ordering work?
+- Risk: Are high-risk changes identified? Is there a rollback path?
+- AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
+
+OUTPUT FORMAT:
+VERDICT: APPROVED | NEEDS_REVISION | REJECTED
+CONFIDENCE: HIGH | MEDIUM | LOW
+ISSUES: [max 5 issues, each with: severity (CRITICAL/MAJOR/MINOR), description, suggested fix]
+SUMMARY: [1-2 sentence overall assessment]
+
+RULES:
+- Max 5 issues per review (focus on highest impact)
+- Be specific: reference exact task numbers and descriptions
+- CRITICAL issues block approval (VERDICT must be NEEDS_REVISION or REJECTED)
+- MAJOR issues should trigger NEEDS_REVISION
+- MINOR issues can be noted but don't block APPROVED
+- No code writing
+- No delegation
+- Don't reject for style/formatting \u2014 focus on substance
+- If the plan is fundamentally sound with only minor concerns, APPROVE it`;
+function createCriticAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = CRITIC_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${CRITIC_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "critic",
+    description: "Plan critic. Reviews the architect's plan before implementation begins \u2014 checks completeness, feasibility, scope, dependencies, and flags AI-slop.",
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
     }
   };
 }
@@ -14013,48 +14089,6 @@ ${customAppendPrompt}`;
   };
 }
 
-// src/agents/test-engineer.ts
-var TEST_ENGINEER_PROMPT = `You are Test Engineer. You generate tests.
-
-INPUT FORMAT:
-TASK: Generate tests for [description]
-FILE: [source file path]
-OUTPUT: [test file path]
-
-COVERAGE:
-- Happy path: normal inputs
-- Edge cases: empty, null, boundaries
-- Errors: invalid inputs, failures
-
-RULES:
-- Match language (PowerShell \u2192 Pester, Python \u2192 pytest, TS \u2192 vitest/jest)
-- Tests must be runnable
-- Include setup/teardown if needed
-- No delegation
-
-OUTPUT:
-Write test file to specified OUTPUT path.
-DONE: [count] tests covering [areas]`;
-function createTestEngineerAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = TEST_ENGINEER_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${TEST_ENGINEER_PROMPT}
-
-${customAppendPrompt}`;
-  }
-  return {
-    name: "test_engineer",
-    description: "Testing and validation specialist. Generates test cases and runnable validation scripts for approved code.",
-    config: {
-      model,
-      temperature: 0.2,
-      prompt
-    }
-  };
-}
-
 // src/agents/sme.ts
 var SME_PROMPT = `You are SME (Subject Matter Expert). You provide deep domain-specific technical guidance on whatever domain the Architect requests.
 
@@ -14097,6 +14131,57 @@ ${customAppendPrompt}`;
         edit: false,
         patch: false
       }
+    }
+  };
+}
+
+// src/agents/test-engineer.ts
+var TEST_ENGINEER_PROMPT = `You are Test Engineer. You generate tests AND run them.
+
+INPUT FORMAT:
+TASK: Generate tests for [description]
+FILE: [source file path]
+OUTPUT: [test file path]
+
+COVERAGE:
+- Happy path: normal inputs
+- Edge cases: empty, null, boundaries
+- Errors: invalid inputs, failures
+
+RULES:
+- Match language (PowerShell \u2192 Pester, Python \u2192 pytest, TS \u2192 vitest/jest)
+- Tests must be runnable
+- Include setup/teardown if needed
+- No delegation
+
+WORKFLOW:
+1. Write test file to the specified OUTPUT path
+2. Run the tests using the appropriate test runner
+3. Report results using the output format below
+
+If tests fail, include the failure output so the architect can send fixes to the coder.
+
+OUTPUT FORMAT:
+VERDICT: PASS | FAIL
+TESTS: [total count] tests, [pass count] passed, [fail count] failed
+FAILURES: [list of failed test names + error messages, if any]
+COVERAGE: [areas covered]`;
+function createTestEngineerAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = TEST_ENGINEER_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${TEST_ENGINEER_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "test_engineer",
+    description: "Testing and validation specialist. Generates test cases, runs them, and reports structured PASS/FAIL verdicts.",
+    config: {
+      model,
+      temperature: 0.2,
+      prompt
     }
   };
 }
@@ -14192,6 +14277,12 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     const reviewer = createReviewerAgent(getModel("reviewer"), reviewerPrompts.prompt, reviewerPrompts.appendPrompt);
     reviewer.name = prefixName("reviewer");
     agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix));
+  }
+  if (!isAgentDisabled("critic", swarmAgents, swarmPrefix)) {
+    const criticPrompts = getPrompts("critic");
+    const critic = createCriticAgent(getModel("critic"), criticPrompts.prompt, criticPrompts.appendPrompt);
+    critic.name = prefixName("critic");
+    agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("test_engineer", swarmAgents, swarmPrefix)) {
     const testPrompts = getPrompts("test_engineer");
