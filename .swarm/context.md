@@ -16,6 +16,8 @@ Swarm: paid
 - **Advisor merged into explorer**: Gap analysis handled by second explorer call (risk/gap focus) rather than separate agent. Keeps agent count lean.
 - **Validator merged into test_engineer**: Test engineer now writes AND runs tests, reports structured PASS/FAIL verdicts. No separate validator needed.
 - **Architect workflow enhanced**: Phase 4.5 (Critic Gate) added between Plan and Execute. Phase 2 includes gap analysis. Phase 5 includes test verdict loop.
+- **Delegation examples must match behavior**: Architect prompt agent descriptions and delegation examples must reflect actual agent capabilities (e.g., test_engineer "generate AND run" not just "generate"), otherwise the architect crafts delegations that contradict the subagent's own prompt.
+- **Critic review outcome**: Post-completion critic flagged 5 issues. Addressed: research file cleanup, CHANGELOG. Deferred: test suite (no existing infrastructure). Dismissed as false positives: CLI help update (CLI is just an installer), CI version refs (no CI exists).
 
 ## Architecture (Post-Enhancement)
 Agents per swarm: 7 subagents + 1 architect = 8 total
@@ -70,6 +72,7 @@ OUTPUT: VERDICT + RISK + ISSUES
 - Config: `src/config/schema.ts`, `constants.ts`, `loader.ts`
 - Tools: `src/tools/domain-detector.ts`, `file-extractor.ts`, `gitingest.ts`
 - Hooks: `src/hooks/pipeline-tracker.ts`
+- Docs: `README.md`, `CHANGELOG.md`, `docs/architecture.md`, `docs/design-rationale.md`, `docs/installation.md`
 
 ## SME Cache
 (No SME consultations needed - this is a self-referential refactor of the plugin itself)
