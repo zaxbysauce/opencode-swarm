@@ -2,22 +2,27 @@
 Swarm: paid
 
 ## Decisions
-- **Open-domain SME**: Single `sme` agent with NO hardcoded domain list. The architect determines what domain is needed (could be ios, android, rust, anything) and calls `@sme` with `DOMAIN: X`. The LLM's training provides the expertise — no need for curated domain snippets.
-- **One SME call per domain**: Architect calls `@sme` once per domain serially (not batched). This preserves full context window depth per domain and matches the existing serial consultation rhythm.
-- **Merged reviewer**: Single `reviewer` agent combines correctness + security. Architect specifies open-ended CHECK dimensions (not a fixed list).
+- **Open-domain SME**: Single `sme` agent with NO hardcoded domain list. The architect determines what domain is needed and calls `@sme` with `DOMAIN: X`.
+- **One SME call per domain**: Serial, not batched. Preserves full context window depth per domain.
+- **Merged reviewer**: Single `reviewer` agent combines correctness + security. Architect specifies open-ended CHECK dimensions.
 - **Identity in prompt only (Option C)**: Architects must NOT store swarm identity in memory blocks. System prompt is sole source of truth via {{SWARM_ID}} and {{AGENT_PREFIX}} template vars.
 - **Phase 0 cleanup on mismatch (Option B)**: When swarm mismatch detected in plan.md, architect must purge stale identity memory blocks and SME cache before resuming.
-- **detect_domains tool disabled by default**: Kept as optional helper but not registered unless explicitly enabled in config. Architect determines domains intelligently, not via regex.
-- **DOMAIN_PATTERNS removed from constants.ts**: Only exists inside domain-detector.ts as the tool's own data. Not used for agent creation.
-- **Breaking version bump**: 3.4.0 → 4.0.0. Agent names change (sme_* → sme, security_reviewer/auditor → reviewer), config options removed (multi_domain_sme, auto_detect_domains).
-- **Reviewer naming follows swarm prefix**: `mega_reviewer`, `local_reviewer`, etc. Same pattern as all other agents.
+- **detect_domains tool disabled by default**: Kept as optional helper but not registered unless explicitly enabled in config.
+- **Breaking version bump**: 3.4.0 → 4.0.0. Agent names change (sme_* → sme, security_reviewer/auditor → reviewer).
+- **Critic agent**: Read-only plan review gate. APPROVED/NEEDS_REVISION/REJECTED verdicts.
+- **Advisor merged into explorer**: Gap analysis handled by second explorer call rather than separate agent.
+- **Validator merged into test_engineer**: Test engineer writes AND runs tests, reports structured PASS/FAIL verdicts.
+- **Architect workflow enhanced**: Phase 4.5 (Critic Gate), Phase 2 gap analysis, Phase 5 test verdict loop.
+- **Delegation examples must match behavior**: Agent descriptions and delegation examples must reflect actual capabilities.
 
-- **Critic agent**: New read-only agent that reviews architect's plan BEFORE implementation. Quality gate with APPROVED/NEEDS_REVISION/REJECTED verdicts. Added as QA agent alongside reviewer.
-- **Advisor merged into explorer**: Gap analysis handled by second explorer call (risk/gap focus) rather than separate agent. Keeps agent count lean.
-- **Validator merged into test_engineer**: Test engineer now writes AND runs tests, reports structured PASS/FAIL verdicts. No separate validator needed.
-- **Architect workflow enhanced**: Phase 4.5 (Critic Gate) added between Plan and Execute. Phase 2 includes gap analysis. Phase 5 includes test verdict loop.
-- **Delegation examples must match behavior**: Architect prompt agent descriptions and delegation examples must reflect actual agent capabilities (e.g., test_engineer "generate AND run" not just "generate"), otherwise the architect crafts delegations that contradict the subagent's own prompt.
-- **Critic review outcome**: Post-completion critic flagged 5 issues. Addressed: research file cleanup, CHANGELOG. Deferred: test suite (no existing infrastructure). Dismissed as false positives: CLI help update (CLI is just an installer), CI version refs (no CI exists).
+### v4.2.0 Decisions
+- **Test framework: Bun test (built-in)**: Zero additional dependencies. `bun test` already in package.json scripts. `bun-types` already in devDeps.
+- **Export private helpers for testability**: `deepMerge` from loader.ts and `extractFilename` from file-extractor.ts will be exported to enable direct unit testing. Critic approved this approach.
+- **Test structure**: tests/unit/{config,tools,agents,hooks}/ — mirrors src/ structure.
+- **Tools tested via .execute()**: ToolDefinition wrappers (detect_domains, extract_code_blocks, gitingest) tested by calling their .execute() method directly.
+- **File-extractor tests use temp dirs**: extract_code_blocks writes files — tests create temp directories and clean up after.
+- **Agent factory tests rely on no-custom-prompts**: loadAgentPrompt returns empty objects when no custom prompt files exist, which is the default test environment.
+- **v4.3.0 deferred**: Context Pruning + Hooks Pipeline Enhancement + Agent Message Passing + Slash Commands planned for future release after test suite is established.
 
 ## Architecture (Post-Enhancement)
 Agents per swarm: 7 subagents + 1 architect = 8 total
@@ -29,17 +34,18 @@ Agents per swarm: 7 subagents + 1 architect = 8 total
 - critic (subagent, read-only, plan review gate)
 - test_engineer (subagent, write tests + run them, structured PASS/FAIL verdicts)
 
-## SME Delegation Format (New)
+## Delegation Formats
+
+### SME
 ```
 @{{AGENT_PREFIX}}sme
 TASK: Advise on [topic]
-DOMAIN: [any domain - ios, security, rust, mobile, etc.]
+DOMAIN: [any domain]
 INPUT: [context]
 OUTPUT: CRITICAL, APPROACH, API, GOTCHAS, DEPS
 ```
-One call per domain. Architect calls serially.
 
-## Critic Delegation Format
+### Critic
 ```
 @{{AGENT_PREFIX}}critic
 TASK: Review plan for [description]
@@ -47,9 +53,8 @@ PLAN: [plan.md content]
 CONTEXT: [codebase summary]
 OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
 ```
-Max 2 revision cycles before escalating to user.
 
-## Reviewer Delegation Format (New)
+### Reviewer
 ```
 @{{AGENT_PREFIX}}reviewer
 TASK: Review [description]
@@ -73,6 +78,7 @@ OUTPUT: VERDICT + RISK + ISSUES
 - Tools: `src/tools/domain-detector.ts`, `file-extractor.ts`, `gitingest.ts`
 - Hooks: `src/hooks/pipeline-tracker.ts`
 - Docs: `README.md`, `CHANGELOG.md`, `docs/architecture.md`, `docs/design-rationale.md`, `docs/installation.md`
+- Tests: `tests/unit/{config,tools,agents,hooks}/` (v4.2.0)
 
 ## SME Cache
-(No SME consultations needed - this is a self-referential refactor of the plugin itself)
+(No SME consultations needed for v4.2.0 — test suite is a well-understood domain)

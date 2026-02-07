@@ -1,8 +1,9 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.1.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-4.2.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/opencode-plugin-purple" alt="OpenCode Plugin">
   <img src="https://img.shields.io/badge/agents-8-orange" alt="Agents">
+  <img src="https://img.shields.io/badge/tests-209-brightgreen" alt="Tests">
 </p>
 
 <h1 align="center">🐝 OpenCode Swarm</h1>
@@ -409,6 +410,20 @@ Create `~/.config/opencode/opencode-swarm.json`:
 8. **User checkpoints** - Confirm before proceeding to next phase
 9. **Failure tracking** - Document rejections, escalate after 5 attempts
 10. **Resumable by design** - Any Architect can pick up any project
+
+---
+
+## Testing
+
+```bash
+# Run all tests
+bun test
+
+# Run specific test file
+bun test tests/unit/config/schema.test.ts
+```
+
+209 unit tests across 9 files covering config, tools, agents, and hooks. Uses Bun's built-in test runner — zero additional test dependencies.
 
 ---
 

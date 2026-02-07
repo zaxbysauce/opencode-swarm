@@ -30,10 +30,10 @@ const EXT_MAP: Record<string, string> = {
 /**
  * Extract filename from code content or context
  */
-function extractFilename(
+export function extractFilename(
 	code: string,
 	language: string,
-	index: number
+	index: number,
 ): string {
 	const lines = code.trim().split('\n');
 	const ext = EXT_MAP[language.toLowerCase()] ?? '.txt';
@@ -43,9 +43,7 @@ function extractFilename(
 		const firstLine = lines[0].trim();
 
 		// # filename: example.ps1 or // filename: example.js
-		const filenameMatch = firstLine.match(
-			/^[#/]+\s*filename[:\s]+(\S+\.\w+)/i
-		);
+		const filenameMatch = firstLine.match(/^[#/]+\s*filename[:\s]+(\S+\.\w+)/i);
 		if (filenameMatch) {
 			return filenameMatch[1];
 		}
@@ -143,7 +141,7 @@ export const extract_code_blocks: ToolDefinition = tool({
 				savedFiles.push(filepath);
 			} catch (error) {
 				errors.push(
-					`Failed to save ${filename}: ${error instanceof Error ? error.message : String(error)}`
+					`Failed to save ${filename}: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 		}

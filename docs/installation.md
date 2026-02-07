@@ -382,6 +382,39 @@ rm -rf .swarm/
 
 ---
 
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+bun test
+
+# Run specific test file
+bun test tests/unit/config/schema.test.ts
+
+# Run tests in a specific directory
+bun test tests/unit/agents/
+```
+
+### Build & Verify
+
+```bash
+# Build
+bun run build
+
+# Type check
+bun run typecheck
+
+# Lint
+bun run lint
+
+# Full verification
+bun test && bun run build && bun run typecheck && bun run lint
+```
+
+---
+
 ## Troubleshooting
 
 ### Agents Not Loading

@@ -1,69 +1,52 @@
-# opencode-swarm v4.1.0 Enhancement
+# opencode-swarm v4.2.0 — Test Suite Build-Out
 Swarm: paid
-Phase: ALL COMPLETE | Updated: 2026-02-06
+Phase: 4 [COMPLETE] | Updated: 2026-02-07
 
 ## Overview
-Add critic agent + enhance test engineer based on competitor analysis (oh-my-claudecode, oh-my-claude).
-- **Critic Agent** — Reviews architect's plan BEFORE implementation (quality gate)
-- **Test Engineer Enhancement** — Now writes AND runs tests, reports structured PASS/FAIL verdicts
-- **Architect Workflow Update** — New Phase 4.5 (Critic Gate), gap analysis in discovery, test verdict loop
+Build a comprehensive test suite for opencode-swarm using Bun's built-in test runner.
+Current test coverage: 0%. Target: Cover all pure logic modules with unit tests.
 
-Agent count: 7 → 8 per swarm (architect, explorer, sme, coder, reviewer, critic, test_engineer)
+No test infrastructure currently exists — `bun test` is configured in package.json but no test files exist.
 
-## Phase 1: Code Implementation [COMPLETE]
-- [x] 1.1: Create `src/agents/critic.ts` — Plan review gate agent [MEDIUM]
-- [x] 1.2: Update `src/config/constants.ts` — Add critic to QA_AGENTS + DEFAULT_MODELS [SMALL]
-- [x] 1.3: Update `src/agents/index.ts` — Add critic to factory + exports [SMALL]
-- [x] 1.4: Update `src/agents/architect.ts` — New workflow with Critic Gate, gap analysis, test verdict loop [MEDIUM]
-- [x] 1.5: Update `src/agents/test-engineer.ts` — Add execution phase + structured PASS/FAIL verdict [SMALL]
-- [x] 1.6: Review all changes — APPROVED, LOW RISK, 0 issues [SMALL]
-- [x] 1.7: Build & verify — typecheck 0 errors, lint 25 files 0 issues, build success [SMALL]
-- Commit: `4262982`
+Critic verdict: APPROVED (HIGH confidence). Minor note: export private helpers for testability.
 
-## Phase 2: Documentation + Release [COMPLETE]
-- [x] 2.1: Update README.md — Version badge 4.1.0, agent count 7→8, critic in workflow diagram + tables
-- [x] 2.2: Update docs/architecture.md — Fixed stale refs, added Phase 4.5 Critic Gate, critic in permissions table
-- [x] 2.3: Update docs/design-rationale.md — Updated QA pipeline diagram, model diversity example, added critic bullet
-- [x] 2.4: Update docs/installation.md — Major overhaul: removed _sme/_qa categories, replaced all stale agent names, added critic to all config examples
-- [x] 2.5: Bump package.json version 4.0.1 → 4.1.0
-- [x] 2.6: Rebuild — typecheck 0 errors, lint 0 issues, build success
-- Commit: `5b65b4b`
+## Phase 1: Test Infrastructure + Config Tests [COMPLETE]
+- [x] 1.1: Create tests/ directory structure [SMALL]
+- [x] 1.2: Export private helpers for testability [SMALL]
+  - Export `deepMerge` from src/config/loader.ts
+  - Export `extractFilename` from src/tools/file-extractor.ts
+- [x] 1.3: Write tests/unit/config/constants.test.ts — 14 tests [SMALL]
+- [x] 1.4: Write tests/unit/config/schema.test.ts — 27 tests [SMALL]
+- [x] 1.5: Write tests/unit/config/loader.test.ts — 17 tests [MEDIUM]
+  - deepMerge (8), loadPluginConfig (7, XDG_CONFIG_HOME isolation), loadAgentPrompt (2)
+- [x] 1.6: All 58 tests pass, typecheck clean, lint clean [SMALL]
+- [x] 1.7: Review — REJECTED (loader tests env-dependent), fixed with XDG_CONFIG_HOME override, re-verified [SMALL]
 
-## Phase 3: Hotfix [COMPLETE]
-- [x] 3.1: Fix architect prompt — test_engineer description and delegation example only said "generation", causing architect to add "do not run tests" constraint. Fixed both to say "generation AND execution" with VERDICT output.
-- [x] 3.2: Review — APPROVED, LOW RISK, 0 issues
-- [x] 3.3: Rebuild — clean
-- Commit: `5306b0a`
+## Phase 2: Tools Tests [COMPLETE]
+- [x] 2.1: Write tests/unit/tools/domain-detector.test.ts — 30 tests [SMALL]
+- [x] 2.2: Write tests/unit/tools/file-extractor.test.ts — 16 tests [MEDIUM]
+- [x] 2.3: Write tests/unit/tools/gitingest.test.ts — 5 tests [SMALL]
+- [x] 2.4: All 109 tests pass (58 Phase 1 + 51 Phase 2) [SMALL]
+- [x] 2.5: Review — APPROVED, LOW RISK, minor cleanup suggestions noted [SMALL]
 
-## Phase 4: Cleanup [COMPLETE]
-- [x] 4.1: Delete untracked competitor research .txt files
-- [x] 4.2: Add CHANGELOG.md (v4.0.0, v4.0.1, v4.1.0)
-- [x] 4.3: Update plan.md and context.md to final state
-- Commit: pending
+## Phase 3: Agent Factory + Hooks Tests [COMPLETE]
+- [x] 3.1: Write tests/unit/agents/creation.test.ts — 64 tests [SMALL]
+- [x] 3.2: Write tests/unit/agents/factory.test.ts — 20 tests [MEDIUM]
+- [x] 3.3: Write tests/unit/hooks/pipeline-tracker.test.ts — 16 tests [SMALL]
+  - Fixed false-positive malformed input test, added multiple text parts test
+- [x] 3.4: Run `bun test` — 209 pass, 0 fail [SMALL]
+- [x] 3.5: Review — APPROVED, LOW RISK [SMALL]
 
-## Critic Review (Post-Completion)
-- VERDICT: NEEDS_REVISION
-- Actionable issues addressed: research file cleanup (#3), changelog (#4)
-- Deferred: automated test suite (#1) — no existing test infrastructure
-- False positives dismissed: CLI help (#2), CI scripts (#5)
+## Phase 4: Documentation + Release [COMPLETE]
+- [x] 4.1: Update CHANGELOG.md — add v4.2.0 entry [SMALL]
+- [x] 4.2: Update README.md — version badge, tests badge, Testing section [SMALL]
+- [x] 4.3: Bump package.json version to 4.2.0 [SMALL]
+- [x] 4.4: Run full build + typecheck + lint + test — all pass [SMALL]
+- [x] 4.5: Final review — APPROVED, LOW RISK [SMALL]
 
-## File Impact Summary
-
-### New Files
-- `src/agents/critic.ts` — Plan review gate agent (read-only, temp 0.1)
-- `CHANGELOG.md` — Version history (v4.0.0, v4.0.1, v4.1.0)
-
-### Modified Files
-- `src/config/constants.ts` — Added critic to QA_AGENTS, DEFAULT_MODELS
-- `src/agents/index.ts` — Added critic import, factory block, export
-- `src/agents/architect.ts` — Critic gate, gap analysis, test verdict loop, fixed delegation example
-- `src/agents/test-engineer.ts` — Enhanced prompt: write + run + report, structured VERDICT output
-- `README.md` — Version badge, agent count, workflow diagram, tables
-- `docs/architecture.md` — Phase 4.5, permissions table, stale ref fixes
-- `docs/design-rationale.md` — QA pipeline, model diversity, critic bullet
-- `docs/installation.md` — Major overhaul: removed _sme/_qa, added critic everywhere
-- `package.json` — Version 4.0.1 → 4.1.0
-
-### Deleted Files
-- `techdufus-oh-my-claude-8a5edab282632443.txt` — Competitor research (untracked)
-- `yeachan-heo-oh-my-claudecode-8a5edab282632443.txt` — Competitor research (untracked)
+## Acceptance Criteria
+- `bun test` runs and passes with 0 failures
+- All pure logic modules have unit tests (config, tools, agents, hooks)
+- No new runtime dependencies added (Bun test is built-in)
+- Tests are isolated — no file system side effects leak between tests
+- Build, typecheck, and lint still pass

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-02-07
+### Added
+- **Comprehensive test suite** — 209 unit tests across 9 test files using Bun's built-in test runner. Zero additional dependencies.
+  - Config tests: constants (14), schema validation (27), config loader with XDG isolation (17)
+  - Tools tests: domain detector (30), file extractor with temp dirs (16), gitingest with fetch mocking (5)
+  - Agent tests: creation functions (64), factory + swarm prefixing (20)
+  - Hooks tests: pipeline tracker transform behavior (16)
+- Exported `deepMerge` from `src/config/loader.ts` and `extractFilename` from `src/tools/file-extractor.ts` for testability.
+
 ## [4.1.0] - 2026-02-06
 ### Added
 - **Critic agent** — New plan review gate that evaluates the architect's plan BEFORE implementation begins. Returns APPROVED/NEEDS_REVISION/REJECTED verdicts with confidence scores and up to 5 prioritized issues. Includes AI-slop detection.

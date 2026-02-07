@@ -37,7 +37,7 @@ function loadConfigFromPath(configPath: string): PluginConfig | null {
 		) {
 			console.warn(
 				`[opencode-swarm] Error reading config from ${configPath}:`,
-				error.message
+				error.message,
 			);
 		}
 		return null;
@@ -47,9 +47,9 @@ function loadConfigFromPath(configPath: string): PluginConfig | null {
 /**
  * Deep merge two objects, with override values taking precedence.
  */
-function deepMerge<T extends Record<string, unknown>>(
+export function deepMerge<T extends Record<string, unknown>>(
 	base?: T,
-	override?: T
+	override?: T,
 ): T | undefined {
 	if (!base) return override;
 	if (!override) return base;
@@ -69,7 +69,7 @@ function deepMerge<T extends Record<string, unknown>>(
 		) {
 			result[key] = deepMerge(
 				baseVal as Record<string, unknown>,
-				overrideVal as Record<string, unknown>
+				overrideVal as Record<string, unknown>,
 			) as T[keyof T];
 		} else {
 			result[key] = overrideVal;
@@ -91,7 +91,7 @@ export function loadPluginConfig(directory: string): PluginConfig {
 	const userConfigPath = path.join(
 		getUserConfigDir(),
 		'opencode',
-		CONFIG_FILENAME
+		CONFIG_FILENAME,
 	);
 
 	const projectConfigPath = path.join(directory, '.opencode', CONFIG_FILENAME);
@@ -125,7 +125,7 @@ export function loadAgentPrompt(agentName: string): {
 	const promptsDir = path.join(
 		getUserConfigDir(),
 		'opencode',
-		PROMPTS_DIR_NAME
+		PROMPTS_DIR_NAME,
 	);
 	const result: { prompt?: string; appendPrompt?: string } = {};
 
@@ -137,7 +137,7 @@ export function loadAgentPrompt(agentName: string): {
 		} catch (error) {
 			console.warn(
 				`[opencode-swarm] Error reading prompt file ${promptPath}:`,
-				error instanceof Error ? error.message : String(error)
+				error instanceof Error ? error.message : String(error),
 			);
 		}
 	}
@@ -150,7 +150,7 @@ export function loadAgentPrompt(agentName: string): {
 		} catch (error) {
 			console.warn(
 				`[opencode-swarm] Error reading append prompt ${appendPromptPath}:`,
-				error instanceof Error ? error.message : String(error)
+				error instanceof Error ? error.message : String(error),
 			);
 		}
 	}

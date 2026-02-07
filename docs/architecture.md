@@ -196,7 +196,19 @@ project/
 │       ├── phase-1.md # Archived phase summaries
 │       └── phase-2.md
 │
-└── [project files]
+├── src/               # Source code
+│   ├── agents/        # Agent definitions and factory
+│   ├── config/        # Schema, constants, loader
+│   ├── hooks/         # Pipeline tracker
+│   └── tools/         # Domain detector, file extractor, gitingest
+│
+├── tests/unit/        # Unit tests (bun test)
+│   ├── agents/        # Agent creation and factory tests
+│   ├── config/        # Config constants, schema, loader tests
+│   ├── hooks/         # Pipeline tracker tests
+│   └── tools/         # Domain detector, file extractor, gitingest tests
+│
+└── dist/              # Build output
 ```
 
 ### plan.md Schema

@@ -1,5 +1,9 @@
 import { type PluginConfig } from './schema';
 /**
+ * Deep merge two objects, with override values taking precedence.
+ */
+export declare function deepMerge<T extends Record<string, unknown>>(base?: T, override?: T): T | undefined;
+/**
  * Load plugin configuration from user and project config files.
  *
  * Config locations:
