@@ -1,6 +1,6 @@
 # v5.0.0 — Verifiable Execution
 Swarm: mega
-Phase: 2 [IN PROGRESS] | Updated: 2026-02-09
+Phase: 3 [PENDING] | Updated: 2026-02-09
 
 ## Thesis
 Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execution" by making the plan machine-checkable and persisting evidence per task.
@@ -17,14 +17,14 @@ Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execu
 
 ---
 
-## Phase 2: Evidence Bundles [IN PROGRESS]
+## Phase 2: Evidence Bundles [COMPLETE]
 
-- [ ] 2.1: Define evidence schemas in src/config/evidence-schema.ts [SMALL] ← CURRENT
-- [ ] 2.2: Create src/evidence/manager.ts with sanitizeTaskId() [SMALL]
-- [ ] 2.3: Add /swarm evidence command [SMALL]
-- [ ] 2.4: Update /swarm diagnose for evidence completeness [SMALL]
-- [ ] 2.5: Tests for evidence schemas and manager [MEDIUM]
-- [ ] 2.6: Evidence retention policy + /swarm archive [SMALL]
+- [x] 2.1: Define evidence schemas in src/config/evidence-schema.ts [SMALL]
+- [x] 2.2: Create src/evidence/manager.ts with sanitizeTaskId() [SMALL]
+- [x] 2.3: Add /swarm evidence command [SMALL]
+- [x] 2.4: Update /swarm diagnose for evidence completeness [SMALL]
+- [x] 2.5: Tests for evidence schemas and manager [MEDIUM]
+- [x] 2.6: Evidence retention policy + /swarm archive [SMALL]
 
 ---
 

@@ -1,7 +1,9 @@
 import type { AgentDefinition } from '../agents';
 export { handleAgentsCommand } from './agents';
+export { handleArchiveCommand } from './archive';
 export { handleConfigCommand } from './config';
 export { handleDiagnoseCommand } from './diagnose';
+export { handleEvidenceCommand } from './evidence';
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
 export { handlePlanCommand } from './plan';

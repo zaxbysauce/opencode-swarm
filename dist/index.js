@@ -13609,6 +13609,12 @@ var ContextBudgetConfigSchema = exports_external.object({
   critical_threshold: exports_external.number().min(0).max(1).default(0.9),
   model_limits: exports_external.record(exports_external.string(), exports_external.number().min(1000)).default({ default: 128000 })
 });
+var EvidenceConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  max_age_days: exports_external.number().min(1).max(365).default(90),
+  max_bundles: exports_external.number().min(10).max(1e4).default(1000),
+  auto_archive: exports_external.boolean().default(false)
+});
 var GuardrailsConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   max_tool_calls: exports_external.number().min(10).max(1000).default(200),
@@ -13625,7 +13631,8 @@ var PluginConfigSchema = exports_external.object({
   inject_phase_reminders: exports_external.boolean().default(true),
   hooks: HooksConfigSchema.optional(),
   context_budget: ContextBudgetConfigSchema.optional(),
-  guardrails: GuardrailsConfigSchema.optional()
+  guardrails: GuardrailsConfigSchema.optional(),
+  evidence: EvidenceConfigSchema.optional()
 });
 
 // src/config/loader.ts
@@ -13765,6 +13772,80 @@ var PlanSchema = exports_external.object({
   current_phase: exports_external.number().int().min(1),
   phases: exports_external.array(PhaseSchema).min(1),
   migration_status: MigrationStatusSchema.optional()
+});
+// src/config/evidence-schema.ts
+var EVIDENCE_MAX_JSON_BYTES = 500 * 1024;
+var EVIDENCE_MAX_PATCH_BYTES = 5 * 1024 * 1024;
+var EVIDENCE_MAX_TASK_BYTES = 20 * 1024 * 1024;
+var EvidenceTypeSchema = exports_external.enum([
+  "review",
+  "test",
+  "diff",
+  "approval",
+  "note"
+]);
+var EvidenceVerdictSchema = exports_external.enum([
+  "pass",
+  "fail",
+  "approved",
+  "rejected",
+  "info"
+]);
+var BaseEvidenceSchema = exports_external.object({
+  task_id: exports_external.string().min(1),
+  type: EvidenceTypeSchema,
+  timestamp: exports_external.string().datetime(),
+  agent: exports_external.string().min(1),
+  verdict: EvidenceVerdictSchema,
+  summary: exports_external.string().min(1),
+  metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional()
+});
+var ReviewEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("review"),
+  risk: exports_external.enum(["low", "medium", "high", "critical"]),
+  issues: exports_external.array(exports_external.object({
+    severity: exports_external.enum(["error", "warning", "info"]),
+    message: exports_external.string().min(1),
+    file: exports_external.string().optional(),
+    line: exports_external.number().int().optional()
+  })).default([])
+});
+var TestEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("test"),
+  tests_passed: exports_external.number().int().min(0),
+  tests_failed: exports_external.number().int().min(0),
+  test_file: exports_external.string().optional(),
+  failures: exports_external.array(exports_external.object({
+    name: exports_external.string().min(1),
+    message: exports_external.string().min(1)
+  })).default([])
+});
+var DiffEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("diff"),
+  files_changed: exports_external.array(exports_external.string()).default([]),
+  additions: exports_external.number().int().min(0).default(0),
+  deletions: exports_external.number().int().min(0).default(0),
+  patch_path: exports_external.string().optional()
+});
+var ApprovalEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("approval")
+});
+var NoteEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("note")
+});
+var EvidenceSchema = exports_external.discriminatedUnion("type", [
+  ReviewEvidenceSchema,
+  TestEvidenceSchema,
+  DiffEvidenceSchema,
+  ApprovalEvidenceSchema,
+  NoteEvidenceSchema
+]);
+var EvidenceBundleSchema = exports_external.object({
+  schema_version: exports_external.literal("1.0.0"),
+  task_id: exports_external.string().min(1),
+  entries: exports_external.array(EvidenceSchema).default([]),
+  created_at: exports_external.string().datetime(),
+  updated_at: exports_external.string().datetime()
 });
 // src/agents/architect.ts
 var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
@@ -14483,34 +14564,12 @@ function handleAgentsCommand(agents) {
 `);
 }
 
-// src/commands/config.ts
-import * as os2 from "os";
-import * as path2 from "path";
-function getUserConfigDir2() {
-  return process.env.XDG_CONFIG_HOME || path2.join(os2.homedir(), ".config");
-}
-async function handleConfigCommand(directory, _args) {
-  const config2 = loadPluginConfig(directory);
-  const userConfigPath = path2.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path2.join(directory, ".opencode", "opencode-swarm.json");
-  const lines = [
-    "## Swarm Configuration",
-    "",
-    "### Config Files",
-    `- User: \`${userConfigPath}\``,
-    `- Project: \`${projectConfigPath}\``,
-    "",
-    "### Resolved Config",
-    "```json",
-    JSON.stringify(config2, null, 2),
-    "```"
-  ];
-  return lines.join(`
-`);
-}
+// src/evidence/manager.ts
+import { mkdirSync, readdirSync, renameSync, rmSync, statSync as statSync2 } from "fs";
+import * as path3 from "path";
 
 // src/hooks/utils.ts
-import * as path3 from "path";
+import * as path2 from "path";
 
 // src/utils/errors.ts
 class SwarmError extends Error {
@@ -14577,14 +14636,14 @@ function validateSwarmPath(directory, filename) {
   if (/\.\.[/\\]/.test(filename)) {
     throw new Error("Invalid filename: path traversal detected");
   }
-  const baseDir = path3.normalize(path3.resolve(directory, ".swarm"));
-  const resolved = path3.normalize(path3.resolve(baseDir, filename));
+  const baseDir = path2.normalize(path2.resolve(directory, ".swarm"));
+  const resolved = path2.normalize(path2.resolve(baseDir, filename));
   if (process.platform === "win32") {
-    if (!resolved.toLowerCase().startsWith((baseDir + path3.sep).toLowerCase())) {
+    if (!resolved.toLowerCase().startsWith((baseDir + path2.sep).toLowerCase())) {
       throw new Error("Invalid filename: path escapes .swarm directory");
     }
   } else {
-    if (!resolved.startsWith(baseDir + path3.sep)) {
+    if (!resolved.startsWith(baseDir + path2.sep)) {
       throw new Error("Invalid filename: path escapes .swarm directory");
     }
   }
@@ -14607,8 +14666,225 @@ function estimateTokens(text) {
   return Math.ceil(text.length * 0.33);
 }
 
-// src/plan/manager.ts
+// src/evidence/manager.ts
+var TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+function sanitizeTaskId(taskId) {
+  if (!taskId || taskId.length === 0) {
+    throw new Error("Invalid task ID: empty string");
+  }
+  if (/\0/.test(taskId)) {
+    throw new Error("Invalid task ID: contains null bytes");
+  }
+  for (let i = 0;i < taskId.length; i++) {
+    if (taskId.charCodeAt(i) < 32) {
+      throw new Error("Invalid task ID: contains control characters");
+    }
+  }
+  if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
+    throw new Error("Invalid task ID: path traversal detected");
+  }
+  if (!TASK_ID_REGEX.test(taskId)) {
+    throw new Error(`Invalid task ID: must match pattern ^[\\w-]+(\\.[\\w-]+)*$, got "${taskId}"`);
+  }
+  return taskId;
+}
+async function loadEvidence(directory, taskId) {
+  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  validateSwarmPath(directory, relativePath);
+  const content = await readSwarmFileAsync(directory, relativePath);
+  if (content === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    const validated = EvidenceBundleSchema.parse(parsed);
+    return validated;
+  } catch (error49) {
+    warn(`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    return null;
+  }
+}
+async function listEvidenceTaskIds(directory) {
+  const evidenceBasePath = validateSwarmPath(directory, "evidence");
+  try {
+    statSync2(evidenceBasePath);
+  } catch {
+    return [];
+  }
+  let entries;
+  try {
+    entries = readdirSync(evidenceBasePath);
+  } catch {
+    return [];
+  }
+  const taskIds = [];
+  for (const entry of entries) {
+    const entryPath = path3.join(evidenceBasePath, entry);
+    try {
+      const stats = statSync2(entryPath);
+      if (!stats.isDirectory()) {
+        continue;
+      }
+      sanitizeTaskId(entry);
+      taskIds.push(entry);
+    } catch (error49) {
+      if (error49 instanceof Error && !error49.message.startsWith("Invalid task ID")) {
+        warn(`Error reading evidence entry '${entry}': ${error49.message}`);
+      }
+    }
+  }
+  return taskIds.sort();
+}
+async function deleteEvidence(directory, taskId) {
+  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const relativePath = path3.join("evidence", sanitizedTaskId);
+  const evidenceDir = validateSwarmPath(directory, relativePath);
+  try {
+    statSync2(evidenceDir);
+  } catch {
+    return false;
+  }
+  try {
+    rmSync(evidenceDir, { recursive: true, force: true });
+    return true;
+  } catch (error49) {
+    warn(`Failed to delete evidence for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    return false;
+  }
+}
+async function archiveEvidence(directory, maxAgeDays, maxBundles) {
+  const taskIds = await listEvidenceTaskIds(directory);
+  const cutoffDate = new Date;
+  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+  const cutoffIso = cutoffDate.toISOString();
+  const archived = [];
+  const remainingBundles = [];
+  for (const taskId of taskIds) {
+    const bundle = await loadEvidence(directory, taskId);
+    if (!bundle) {
+      continue;
+    }
+    if (bundle.updated_at < cutoffIso) {
+      const deleted = await deleteEvidence(directory, taskId);
+      if (deleted) {
+        archived.push(taskId);
+      }
+    } else {
+      remainingBundles.push({
+        taskId,
+        updatedAt: bundle.updated_at
+      });
+    }
+  }
+  if (maxBundles !== undefined && remainingBundles.length > maxBundles) {
+    remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+    const toDelete = remainingBundles.length - maxBundles;
+    for (let i = 0;i < toDelete; i++) {
+      const deleted = await deleteEvidence(directory, remainingBundles[i].taskId);
+      if (deleted) {
+        archived.push(remainingBundles[i].taskId);
+      }
+    }
+  }
+  return archived;
+}
+
+// src/commands/archive.ts
+async function handleArchiveCommand(directory, args) {
+  const config2 = loadPluginConfig(directory);
+  const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
+  const maxBundles = config2?.evidence?.max_bundles ?? 1000;
+  const dryRun = args.includes("--dry-run");
+  const beforeTaskIds = await listEvidenceTaskIds(directory);
+  if (beforeTaskIds.length === 0) {
+    return "No evidence bundles to archive.";
+  }
+  if (dryRun) {
+    const cutoffDate = new Date;
+    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+    const cutoffIso = cutoffDate.toISOString();
+    const wouldArchiveAge = [];
+    const remainingBundles = [];
+    for (const taskId of beforeTaskIds) {
+      const bundle = await loadEvidence(directory, taskId);
+      if (bundle && bundle.updated_at < cutoffIso) {
+        wouldArchiveAge.push(taskId);
+      } else if (bundle) {
+        remainingBundles.push({ taskId, updatedAt: bundle.updated_at });
+      }
+    }
+    const wouldArchiveMaxBundles = [];
+    const remainingAfterAge = beforeTaskIds.length - wouldArchiveAge.length;
+    if (remainingAfterAge > maxBundles) {
+      remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+      const excessCount = remainingAfterAge - maxBundles;
+      wouldArchiveMaxBundles.push(...remainingBundles.slice(0, excessCount).map((b) => b.taskId));
+    }
+    const totalWouldArchive = wouldArchiveAge.length + wouldArchiveMaxBundles.length;
+    if (totalWouldArchive === 0) {
+      return `No evidence bundles older than ${maxAgeDays} days found, and bundle count (${beforeTaskIds.length}) is within max_bundles limit (${maxBundles}).`;
+    }
+    const lines2 = [
+      "## Archive Preview (dry run)",
+      "",
+      `**Retention**: ${maxAgeDays} days`,
+      `**Max bundles**: ${maxBundles}`,
+      `**Would archive**: ${totalWouldArchive} bundle(s)`
+    ];
+    if (wouldArchiveAge.length > 0) {
+      lines2.push("", `**Age-based (${wouldArchiveAge.length})**:`, ...wouldArchiveAge.map((id) => `- ${id}`));
+    }
+    if (wouldArchiveMaxBundles.length > 0) {
+      lines2.push("", `**Max bundles limit (${wouldArchiveMaxBundles.length})**:`, ...wouldArchiveMaxBundles.map((id) => `- ${id}`));
+    }
+    return lines2.join(`
+`);
+  }
+  const archived = await archiveEvidence(directory, maxAgeDays, maxBundles);
+  if (archived.length === 0) {
+    return `No evidence bundles older than ${maxAgeDays} days found.`;
+  }
+  const lines = [
+    "## Evidence Archived",
+    "",
+    `**Retention**: ${maxAgeDays} days`,
+    `**Archived**: ${archived.length} bundle(s)`,
+    "",
+    ...archived.map((id) => `- ${id}`)
+  ];
+  return lines.join(`
+`);
+}
+
+// src/commands/config.ts
+import * as os2 from "os";
 import * as path4 from "path";
+function getUserConfigDir2() {
+  return process.env.XDG_CONFIG_HOME || path4.join(os2.homedir(), ".config");
+}
+async function handleConfigCommand(directory, _args) {
+  const config2 = loadPluginConfig(directory);
+  const userConfigPath = path4.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path4.join(directory, ".opencode", "opencode-swarm.json");
+  const lines = [
+    "## Swarm Configuration",
+    "",
+    "### Config Files",
+    `- User: \`${userConfigPath}\``,
+    `- Project: \`${projectConfigPath}\``,
+    "",
+    "### Resolved Config",
+    "```json",
+    JSON.stringify(config2, null, 2),
+    "```"
+  ];
+  return lines.join(`
+`);
+}
+
+// src/plan/manager.ts
+import * as path5 from "path";
 async function loadPlanJsonOnly(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
   if (planJsonContent !== null) {
@@ -14643,14 +14919,14 @@ async function loadPlan(directory) {
 }
 async function savePlan(directory, plan) {
   const validated = PlanSchema.parse(plan);
-  const swarmDir = path4.resolve(directory, ".swarm");
-  const planPath = path4.join(swarmDir, "plan.json");
-  const tempPath = path4.join(swarmDir, `plan.json.tmp.${Date.now()}`);
+  const swarmDir = path5.resolve(directory, ".swarm");
+  const planPath = path5.join(swarmDir, "plan.json");
+  const tempPath = path5.join(swarmDir, `plan.json.tmp.${Date.now()}`);
   await Bun.write(tempPath, JSON.stringify(validated, null, 2));
-  const { renameSync } = await import("fs");
-  renameSync(tempPath, planPath);
+  const { renameSync: renameSync2 } = await import("fs");
+  renameSync2(tempPath, planPath);
   const markdown = derivePlanMarkdown(validated);
-  await Bun.write(path4.join(swarmDir, "plan.md"), markdown);
+  await Bun.write(path5.join(swarmDir, "plan.md"), markdown);
 }
 function derivePlanMarkdown(plan) {
   const statusMap = {
@@ -14946,6 +15222,39 @@ async function handleDiagnoseCommand(directory, _args) {
       detail: "Invalid configuration"
     });
   }
+  if (plan) {
+    const completedTaskIds = [];
+    for (const phase of plan.phases) {
+      for (const task of phase.tasks) {
+        if (task.status === "completed") {
+          completedTaskIds.push(task.id);
+        }
+      }
+    }
+    if (completedTaskIds.length > 0) {
+      const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
+      const missingEvidence = completedTaskIds.filter((id) => !evidenceTaskIds.has(id));
+      if (missingEvidence.length === 0) {
+        checks3.push({
+          name: "Evidence",
+          status: "\u2705",
+          detail: `All ${completedTaskIds.length} completed tasks have evidence`
+        });
+      } else {
+        checks3.push({
+          name: "Evidence",
+          status: "\u274C",
+          detail: `${missingEvidence.length} completed task(s) missing evidence: ${missingEvidence.join(", ")}`
+        });
+      }
+    } else {
+      checks3.push({
+        name: "Evidence",
+        status: "\u2705",
+        detail: "No completed tasks yet"
+      });
+    }
+  }
   const passCount = checks3.filter((c) => c.status === "\u2705").length;
   const totalCount = checks3.length;
   const allPassed = passCount === totalCount;
@@ -14958,6 +15267,89 @@ async function handleDiagnoseCommand(directory, _args) {
   ];
   return lines.join(`
 `);
+}
+
+// src/commands/evidence.ts
+async function handleEvidenceCommand(directory, args) {
+  if (args.length === 0) {
+    const taskIds = await listEvidenceTaskIds(directory);
+    if (taskIds.length === 0) {
+      return "No evidence bundles found.";
+    }
+    const tableLines = [
+      "## Evidence Bundles",
+      "",
+      "| Task | Entries | Last Updated |",
+      "|------|---------|-------------|"
+    ];
+    for (const taskId2 of taskIds) {
+      const bundle2 = await loadEvidence(directory, taskId2);
+      if (bundle2) {
+        const entryCount = bundle2.entries.length;
+        const lastUpdated = bundle2.updated_at;
+        tableLines.push(`| ${taskId2} | ${entryCount} | ${lastUpdated} |`);
+      } else {
+        tableLines.push(`| ${taskId2} | ? | unknown |`);
+      }
+    }
+    return tableLines.join(`
+`);
+  }
+  const taskId = args[0];
+  const bundle = await loadEvidence(directory, taskId);
+  if (!bundle) {
+    return `No evidence found for task ${taskId}.`;
+  }
+  const lines = [
+    `## Evidence for Task ${taskId}`,
+    "",
+    `**Created**: ${bundle.created_at}`,
+    `**Updated**: ${bundle.updated_at}`,
+    `**Entries**: ${bundle.entries.length}`
+  ];
+  if (bundle.entries.length > 0) {
+    lines.push("");
+  }
+  for (let i = 0;i < bundle.entries.length; i++) {
+    const entry = bundle.entries[i];
+    lines.push(...formatEntry(i + 1, entry));
+  }
+  return lines.join(`
+`);
+}
+function formatEntry(index, entry) {
+  const lines = [];
+  const verdictEmoji = getVerdictEmoji(entry.verdict);
+  lines.push(`### Entry ${index}: ${entry.type} (${entry.verdict}) ${verdictEmoji}`);
+  lines.push(`- **Agent**: ${entry.agent}`);
+  lines.push(`- **Summary**: ${entry.summary}`);
+  lines.push(`- **Time**: ${entry.timestamp}`);
+  if (entry.type === "review") {
+    const reviewEntry = entry;
+    lines.push(`- **Risk Level**: ${reviewEntry.risk}`);
+    if (reviewEntry.issues && reviewEntry.issues.length > 0) {
+      lines.push(`- **Issues**: ${reviewEntry.issues.length}`);
+    }
+  } else if (entry.type === "test") {
+    const testEntry = entry;
+    lines.push(`- **Tests**: ${testEntry.tests_passed} passed, ${testEntry.tests_failed} failed`);
+  }
+  lines.push("");
+  return lines;
+}
+function getVerdictEmoji(verdict) {
+  switch (verdict) {
+    case "pass":
+    case "approved":
+      return "\u2705";
+    case "fail":
+    case "rejected":
+      return "\u274C";
+    case "info":
+      return "\u2139\uFE0F";
+    default:
+      return "";
+  }
 }
 
 // src/commands/export.ts
@@ -15430,6 +15822,8 @@ var HELP_TEXT = [
   "- `/swarm agents` \u2014 List registered agents",
   "- `/swarm history` \u2014 Show completed phases summary",
   "- `/swarm config` \u2014 Show current resolved configuration",
+  "- `/swarm evidence [taskId]` \u2014 Show evidence bundles",
+  "- `/swarm archive [--dry-run]` \u2014 Archive old evidence bundles",
   "- `/swarm diagnose` \u2014 Run health check on swarm state",
   "- `/swarm export` \u2014 Export plan and context as JSON",
   "- `/swarm reset --confirm` \u2014 Clear swarm state files"
@@ -15453,11 +15847,17 @@ function createSwarmCommandHandler(directory, agents) {
       case "agents":
         text = handleAgentsCommand(agents);
         break;
+      case "archive":
+        text = await handleArchiveCommand(directory, args);
+        break;
       case "history":
         text = await handleHistoryCommand(directory, args);
         break;
       case "config":
         text = await handleConfigCommand(directory, args);
+        break;
+      case "evidence":
+        text = await handleEvidenceCommand(directory, args);
         break;
       case "diagnose":
         text = await handleDiagnoseCommand(directory, args);
@@ -15581,8 +15981,8 @@ async function doFlush(directory) {
     const activitySection = renderActivitySection();
     const updated = replaceOrAppendSection(existing, "## Agent Activity", activitySection);
     const flushedCount = swarmState.pendingEvents;
-    const path5 = `${directory}/.swarm/context.md`;
-    await Bun.write(path5, updated);
+    const path6 = `${directory}/.swarm/context.md`;
+    await Bun.write(path6, updated);
     swarmState.pendingEvents = Math.max(0, swarmState.pendingEvents - flushedCount);
   } catch (error49) {
     warn("Agent activity flush failed:", error49);
@@ -16756,10 +17156,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path5) {
-  if (!path5)
+function getElementAtPath2(obj, path6) {
+  if (!path6)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -17118,11 +17518,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path5, issues) {
+function prefixIssues2(path6, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -17290,7 +17690,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path5 = []) => {
+  const processError = (error50, path6 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -17300,7 +17700,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path5, ...issue3.path];
+        const fullpath = [...path6, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -17332,8 +17732,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path5) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -28529,7 +28929,7 @@ Use these as DOMAIN values when delegating to @sme.`;
 });
 // src/tools/file-extractor.ts
 import * as fs3 from "fs";
-import * as path5 from "path";
+import * as path6 from "path";
 var EXT_MAP = {
   python: ".py",
   py: ".py",
@@ -28607,12 +29007,12 @@ var extract_code_blocks = tool({
       if (prefix) {
         filename = `${prefix}_${filename}`;
       }
-      let filepath = path5.join(targetDir, filename);
-      const base = path5.basename(filepath, path5.extname(filepath));
-      const ext = path5.extname(filepath);
+      let filepath = path6.join(targetDir, filename);
+      const base = path6.basename(filepath, path6.extname(filepath));
+      const ext = path6.extname(filepath);
       let counter = 1;
       while (fs3.existsSync(filepath)) {
-        filepath = path5.join(targetDir, `${base}_${counter}${ext}`);
+        filepath = path6.join(targetDir, `${base}_${counter}${ext}`);
         counter++;
       }
       try {

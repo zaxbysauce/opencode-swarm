@@ -36,6 +36,33 @@ export {
 	TaskStatusSchema,
 } from './plan-schema';
 export type {
+	ApprovalEvidence,
+	BaseEvidence,
+	DiffEvidence,
+	Evidence,
+	EvidenceBundle,
+	EvidenceType,
+	EvidenceVerdict,
+	NoteEvidence,
+	ReviewEvidence,
+	TestEvidence,
+} from './evidence-schema';
+export {
+	ApprovalEvidenceSchema,
+	BaseEvidenceSchema,
+	DiffEvidenceSchema,
+	EVIDENCE_MAX_JSON_BYTES,
+	EVIDENCE_MAX_PATCH_BYTES,
+	EVIDENCE_MAX_TASK_BYTES,
+	EvidenceBundleSchema,
+	EvidenceSchema,
+	EvidenceTypeSchema,
+	EvidenceVerdictSchema,
+	NoteEvidenceSchema,
+	ReviewEvidenceSchema,
+	TestEvidenceSchema,
+} from './evidence-schema';
+export type {
 	AgentOverrideConfig,
 	PluginConfig,
 	SwarmConfig,

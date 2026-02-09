@@ -40,6 +40,16 @@ export const ContextBudgetConfigSchema = z.object({
 
 export type ContextBudgetConfig = z.infer<typeof ContextBudgetConfigSchema>;
 
+// Evidence retention configuration
+export const EvidenceConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	max_age_days: z.number().min(1).max(365).default(90),
+	max_bundles: z.number().min(10).max(10000).default(1000),
+	auto_archive: z.boolean().default(false),
+});
+
+export type EvidenceConfig = z.infer<typeof EvidenceConfigSchema>;
+
 // Guardrails configuration
 export const GuardrailsConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -79,6 +89,9 @@ export const PluginConfigSchema = z.object({
 
 	// Guardrails configuration
 	guardrails: GuardrailsConfigSchema.optional(),
+
+	// Evidence configuration
+	evidence: EvidenceConfigSchema.optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

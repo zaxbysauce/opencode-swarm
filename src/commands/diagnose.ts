@@ -1,4 +1,5 @@
 import { loadPluginConfig } from '../config/loader';
+import { listEvidenceTaskIds } from '../evidence/manager';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
 
@@ -132,6 +133,45 @@ export async function handleDiagnoseCommand(
 			status: '❌',
 			detail: 'Invalid configuration',
 		});
+	}
+
+	// Check: Evidence completeness (only with structured plan)
+	if (plan) {
+		const completedTaskIds: string[] = [];
+		for (const phase of plan.phases) {
+			for (const task of phase.tasks) {
+				if (task.status === 'completed') {
+					completedTaskIds.push(task.id);
+				}
+			}
+		}
+
+		if (completedTaskIds.length > 0) {
+			const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
+			const missingEvidence = completedTaskIds.filter(
+				(id) => !evidenceTaskIds.has(id),
+			);
+
+			if (missingEvidence.length === 0) {
+				checks.push({
+					name: 'Evidence',
+					status: '✅',
+					detail: `All ${completedTaskIds.length} completed tasks have evidence`,
+				});
+			} else {
+				checks.push({
+					name: 'Evidence',
+					status: '❌',
+					detail: `${missingEvidence.length} completed task(s) missing evidence: ${missingEvidence.join(', ')}`,
+				});
+			}
+		} else {
+			checks.push({
+				name: 'Evidence',
+				status: '✅',
+				detail: 'No completed tasks yet',
+			});
+		}
 	}
 
 	// Format output

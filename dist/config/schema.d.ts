@@ -29,6 +29,13 @@ export declare const ContextBudgetConfigSchema: z.ZodObject<{
     model_limits: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodNumber>>;
 }, z.core.$strip>;
 export type ContextBudgetConfig = z.infer<typeof ContextBudgetConfigSchema>;
+export declare const EvidenceConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    max_age_days: z.ZodDefault<z.ZodNumber>;
+    max_bundles: z.ZodDefault<z.ZodNumber>;
+    auto_archive: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strip>;
+export type EvidenceConfig = z.infer<typeof EvidenceConfigSchema>;
 export declare const GuardrailsConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     max_tool_calls: z.ZodDefault<z.ZodNumber>;
@@ -75,6 +82,12 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_repetitions: z.ZodDefault<z.ZodNumber>;
         max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
         warning_threshold: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    evidence: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        max_age_days: z.ZodDefault<z.ZodNumber>;
+        max_bundles: z.ZodDefault<z.ZodNumber>;
+        auto_archive: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
