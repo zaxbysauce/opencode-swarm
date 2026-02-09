@@ -1,4 +1,6 @@
 import type { AgentDefinition } from '../agents';
+import { loadPluginConfig } from '../config/loader';
+import { GuardrailsConfigSchema } from '../config/schema';
 import { handleAgentsCommand } from './agents';
 import { handleArchiveCommand } from './archive';
 import { handleConfigCommand } from './config';
@@ -67,9 +69,15 @@ export function createSwarmCommandHandler(
 			case 'plan':
 				text = await handlePlanCommand(directory, args);
 				break;
-			case 'agents':
-				text = handleAgentsCommand(agents);
+			case 'agents': {
+				// Load guardrails config for profile display
+				const pluginConfig = loadPluginConfig(directory);
+				const guardrailsConfig = pluginConfig?.guardrails
+					? GuardrailsConfigSchema.parse(pluginConfig.guardrails)
+					: undefined;
+				text = handleAgentsCommand(agents, guardrailsConfig);
 				break;
+			}
 			case 'archive':
 				text = await handleArchiveCommand(directory, args);
 				break;

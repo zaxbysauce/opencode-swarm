@@ -1,6 +1,6 @@
 # v5.0.0 — Verifiable Execution
 Swarm: mega
-Phase: 4 [PENDING] | Updated: 2026-02-09
+Phase: 5 [PENDING] | Updated: 2026-02-09
 
 ## Thesis
 Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execution" by making the plan machine-checkable and persisting evidence per task.
@@ -36,11 +36,11 @@ Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execu
 
 ---
 
-## Phase 4: Enhanced Agent View + CI Hardening [PENDING]
+## Phase 4: Enhanced Agent View + CI Hardening [COMPLETE]
 
-- [ ] 4.1: Enhance /swarm agents output [SMALL]
-- [ ] 4.2: Add packaging smoke test [SMALL]
-- [ ] 4.3: Tests for enhanced agent view [SMALL]
+- [x] 4.1: Enhance /swarm agents output [SMALL]
+- [x] 4.2: Add packaging smoke test [SMALL]
+- [x] 4.3: Tests for enhanced agent view [SMALL]
 
 ---
 

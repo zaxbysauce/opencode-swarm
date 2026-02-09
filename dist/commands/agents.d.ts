@@ -1,2 +1,3 @@
 import type { AgentDefinition } from '../agents';
-export declare function handleAgentsCommand(agents: Record<string, AgentDefinition>): string;
+import type { GuardrailsConfig } from '../config/schema';
+export declare function handleAgentsCommand(agents: Record<string, AgentDefinition>, guardrails?: GuardrailsConfig): string;
