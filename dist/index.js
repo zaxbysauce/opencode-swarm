@@ -1,5 +1,20 @@
 // @bun
+var __create = Object.create;
+var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __toESM = (mod, isNodeMode, target) => {
+  target = mod != null ? __create(__getProtoOf(mod)) : {};
+  const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
+  for (let key of __getOwnPropNames(mod))
+    if (!__hasOwnProp.call(to, key))
+      __defProp(to, key, {
+        get: () => mod[key],
+        enumerable: true
+      });
+  return to;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
@@ -9,6 +24,7 @@ var __export = (target, all) => {
       set: (newValue) => all[name] = () => newValue
     });
 };
+var __require = import.meta.require;
 
 // src/config/constants.ts
 var QA_AGENTS = ["reviewer", "critic"];
@@ -33,6 +49,11 @@ var DEFAULT_MODELS = {
   critic: "google/gemini-2.0-flash",
   default: "google/gemini-2.0-flash"
 };
+// src/config/loader.ts
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
 // node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
@@ -13606,10 +13627,8 @@ var PluginConfigSchema = exports_external.object({
   context_budget: ContextBudgetConfigSchema.optional(),
   guardrails: GuardrailsConfigSchema.optional()
 });
+
 // src/config/loader.ts
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 var CONFIG_FILENAME = "opencode-swarm.json";
 var PROMPTS_DIR_NAME = "opencode-swarm";
 var MAX_CONFIG_FILE_BYTES = 102400;
@@ -13702,6 +13721,51 @@ function loadAgentPrompt(agentName) {
   }
   return result;
 }
+// src/config/plan-schema.ts
+var TaskStatusSchema = exports_external.enum([
+  "pending",
+  "in_progress",
+  "completed",
+  "blocked"
+]);
+var TaskSizeSchema = exports_external.enum(["small", "medium", "large"]);
+var PhaseStatusSchema = exports_external.enum([
+  "pending",
+  "in_progress",
+  "complete",
+  "blocked"
+]);
+var MigrationStatusSchema = exports_external.enum([
+  "native",
+  "migrated",
+  "migration_failed"
+]);
+var TaskSchema = exports_external.object({
+  id: exports_external.string(),
+  phase: exports_external.number().int().min(1),
+  status: TaskStatusSchema.default("pending"),
+  size: TaskSizeSchema.default("small"),
+  description: exports_external.string().min(1),
+  depends: exports_external.array(exports_external.string()).default([]),
+  acceptance: exports_external.string().optional(),
+  files_touched: exports_external.array(exports_external.string()).default([]),
+  evidence_path: exports_external.string().optional(),
+  blocked_reason: exports_external.string().optional()
+});
+var PhaseSchema = exports_external.object({
+  id: exports_external.number().int().min(1),
+  name: exports_external.string().min(1),
+  status: PhaseStatusSchema.default("pending"),
+  tasks: exports_external.array(TaskSchema).default([])
+});
+var PlanSchema = exports_external.object({
+  schema_version: exports_external.literal("1.0.0"),
+  title: exports_external.string().min(1),
+  swarm: exports_external.string().min(1),
+  current_phase: exports_external.number().int().min(1),
+  phases: exports_external.array(PhaseSchema).min(1),
+  migration_status: MigrationStatusSchema.optional()
+});
 // src/agents/architect.ts
 var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 
@@ -14543,30 +14607,318 @@ function estimateTokens(text) {
   return Math.ceil(text.length * 0.33);
 }
 
+// src/plan/manager.ts
+import * as path4 from "path";
+async function loadPlanJsonOnly(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    try {
+      const parsed = JSON.parse(planJsonContent);
+      const validated = PlanSchema.parse(parsed);
+      return validated;
+    } catch (error49) {
+      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    }
+  }
+  return null;
+}
+async function loadPlan(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    try {
+      const parsed = JSON.parse(planJsonContent);
+      const validated = PlanSchema.parse(parsed);
+      return validated;
+    } catch (error49) {
+      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    }
+  }
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent !== null) {
+    const migrated = migrateLegacyPlan(planMdContent);
+    await savePlan(directory, migrated);
+    return migrated;
+  }
+  return null;
+}
+async function savePlan(directory, plan) {
+  const validated = PlanSchema.parse(plan);
+  const swarmDir = path4.resolve(directory, ".swarm");
+  const planPath = path4.join(swarmDir, "plan.json");
+  const tempPath = path4.join(swarmDir, `plan.json.tmp.${Date.now()}`);
+  await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+  const { renameSync } = await import("fs");
+  renameSync(tempPath, planPath);
+  const markdown = derivePlanMarkdown(validated);
+  await Bun.write(path4.join(swarmDir, "plan.md"), markdown);
+}
+function derivePlanMarkdown(plan) {
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const now = new Date().toISOString();
+  const phaseStatus = statusMap[plan.phases[plan.current_phase - 1]?.status] || "PENDING";
+  let markdown = `# ${plan.title}
+Swarm: ${plan.swarm}
+Phase: ${plan.current_phase} [${phaseStatus}] | Updated: ${now}
+`;
+  for (const phase of plan.phases) {
+    const phaseStatusText = statusMap[phase.status] || "PENDING";
+    markdown += `
+## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
+`;
+    let currentTaskMarked = false;
+    for (const task of phase.tasks) {
+      let taskLine = "";
+      let suffix = "";
+      if (task.status === "completed") {
+        taskLine = `- [x] ${task.id}: ${task.description}`;
+      } else if (task.status === "blocked") {
+        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
+        if (task.blocked_reason) {
+          taskLine += ` - ${task.blocked_reason}`;
+        }
+      } else {
+        taskLine = `- [ ] ${task.id}: ${task.description}`;
+      }
+      taskLine += ` [${task.size.toUpperCase()}]`;
+      if (task.depends.length > 0) {
+        suffix += ` (depends: ${task.depends.join(", ")})`;
+      }
+      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
+        suffix += " \u2190 CURRENT";
+        currentTaskMarked = true;
+      }
+      markdown += `${taskLine}${suffix}
+`;
+    }
+  }
+  const phaseSections = markdown.split(`
+## `);
+  if (phaseSections.length > 1) {
+    const header = phaseSections[0];
+    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
+    markdown = `${header}
+---
+${phases.join(`
+---
+`)}`;
+  }
+  return `${markdown.trim()}
+`;
+}
+function migrateLegacyPlan(planContent, swarmId) {
+  const lines = planContent.split(`
+`);
+  let title = "Untitled Plan";
+  let swarm = swarmId || "default-swarm";
+  let currentPhaseNum = 1;
+  const phases = [];
+  let currentPhase = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
+      title = trimmed.substring(2).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Swarm:")) {
+      swarm = trimmed.substring(6).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Phase:")) {
+      const match = trimmed.match(/Phase:\s*(\d+)/i);
+      if (match) {
+        currentPhaseNum = parseInt(match[1], 10);
+      }
+      continue;
+    }
+    const phaseMatch = trimmed.match(/^##\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
+    if (phaseMatch) {
+      if (currentPhase !== null) {
+        phases.push(currentPhase);
+      }
+      const phaseId = parseInt(phaseMatch[1], 10);
+      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
+      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
+      const statusMap = {
+        complete: "complete",
+        completed: "complete",
+        "in progress": "in_progress",
+        in_progress: "in_progress",
+        inprogress: "in_progress",
+        pending: "pending",
+        blocked: "blocked"
+      };
+      currentPhase = {
+        id: phaseId,
+        name: phaseName,
+        status: statusMap[statusText] || "pending",
+        tasks: []
+      };
+      continue;
+    }
+    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (taskMatch && currentPhase !== null) {
+      const checkbox = taskMatch[1].toLowerCase();
+      const taskId = taskMatch[2];
+      let description = taskMatch[3].trim();
+      const sizeText = taskMatch[4]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = taskMatch[5];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+  }
+  if (currentPhase !== null) {
+    phases.push(currentPhase);
+  }
+  let migrationStatus = "migrated";
+  if (phases.length === 0) {
+    migrationStatus = "migration_failed";
+    phases.push({
+      id: 1,
+      name: "Migration Failed",
+      status: "blocked",
+      tasks: [
+        {
+          id: "1.1",
+          phase: 1,
+          status: "blocked",
+          size: "large",
+          description: "Review and restructure plan manually",
+          depends: [],
+          files_touched: [],
+          blocked_reason: "Legacy plan could not be parsed automatically"
+        }
+      ]
+    });
+  }
+  phases.sort((a, b) => a.id - b.id);
+  const plan = {
+    schema_version: "1.0.0",
+    title,
+    swarm,
+    current_phase: currentPhaseNum,
+    phases,
+    migration_status: migrationStatus
+  };
+  return plan;
+}
+
 // src/commands/diagnose.ts
 async function handleDiagnoseCommand(directory, _args) {
   const checks3 = [];
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  const contextContent = await readSwarmFileAsync(directory, "context.md");
-  if (planContent) {
-    const hasPhases = /^## Phase \d+/m.test(planContent);
-    const hasTasks = /^- \[[ x]\]/m.test(planContent);
-    if (hasPhases && hasTasks) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    checks3.push({
+      name: "plan.json",
+      status: "\u2705",
+      detail: "Valid schema (v1.0.0)"
+    });
+    if (plan.migration_status === "migrated") {
       checks3.push({
-        name: "plan.md",
+        name: "Migration",
         status: "\u2705",
-        detail: "Found with valid phase structure"
+        detail: "Plan was migrated from legacy plan.md"
       });
+    } else if (plan.migration_status === "migration_failed") {
+      checks3.push({
+        name: "Migration",
+        status: "\u274C",
+        detail: "Migration from plan.md failed \u2014 review manually"
+      });
+    }
+    const allTaskIds = new Set;
+    for (const phase of plan.phases) {
+      for (const task of phase.tasks) {
+        allTaskIds.add(task.id);
+      }
+    }
+    const missingDeps = [];
+    for (const phase of plan.phases) {
+      for (const task of phase.tasks) {
+        for (const dep of task.depends) {
+          if (!allTaskIds.has(dep)) {
+            missingDeps.push(`${task.id} depends on missing ${dep}`);
+          }
+        }
+      }
+    }
+    if (missingDeps.length > 0) {
+      checks3.push({
+        name: "Task DAG",
+        status: "\u274C",
+        detail: `Missing dependencies: ${missingDeps.join(", ")}`
+      });
+    } else {
+      checks3.push({
+        name: "Task DAG",
+        status: "\u2705",
+        detail: "All dependencies resolved"
+      });
+    }
+  } else {
+    const planContent = await readSwarmFileAsync(directory, "plan.md");
+    if (planContent) {
+      const hasPhases = /^## Phase \d+/m.test(planContent);
+      const hasTasks = /^- \[[ x]\]/m.test(planContent);
+      if (hasPhases && hasTasks) {
+        checks3.push({
+          name: "plan.md",
+          status: "\u2705",
+          detail: "Found with valid phase structure"
+        });
+      } else {
+        checks3.push({
+          name: "plan.md",
+          status: "\u274C",
+          detail: "Found but missing phase/task structure"
+        });
+      }
     } else {
       checks3.push({
         name: "plan.md",
         status: "\u274C",
-        detail: "Found but missing phase/task structure"
+        detail: "Not found"
       });
     }
-  } else {
-    checks3.push({ name: "plan.md", status: "\u274C", detail: "Not found" });
   }
+  const contextContent = await readSwarmFileAsync(directory, "context.md");
   if (contextContent) {
     checks3.push({ name: "context.md", status: "\u2705", detail: "Found" });
   } else {
@@ -14610,12 +14962,13 @@ async function handleDiagnoseCommand(directory, _args) {
 
 // src/commands/export.ts
 async function handleExportCommand(directory, _args) {
+  const planStructured = await loadPlanJsonOnly(directory);
   const planContent = await readSwarmFileAsync(directory, "plan.md");
   const contextContent = await readSwarmFileAsync(directory, "context.md");
   const exportData = {
     version: "4.5.0",
     exported: new Date().toISOString(),
-    plan: planContent,
+    plan: planStructured || planContent,
     context: contextContent
   };
   const lines = [
@@ -14631,6 +14984,34 @@ async function handleExportCommand(directory, _args) {
 
 // src/commands/history.ts
 async function handleHistoryCommand(directory, _args) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    if (plan.phases.length === 0) {
+      return "No history available.";
+    }
+    const tableLines2 = [
+      "## Swarm History",
+      "",
+      "| Phase | Name | Status | Tasks |",
+      "|-------|------|--------|-------|"
+    ];
+    for (const phase of plan.phases) {
+      const statusMap = {
+        complete: "COMPLETE",
+        in_progress: "IN PROGRESS",
+        pending: "PENDING",
+        blocked: "BLOCKED"
+      };
+      const statusText = statusMap[phase.status] || "PENDING";
+      const statusIcon = phase.status === "complete" ? "\u2705" : phase.status === "in_progress" ? "\uD83D\uDD04" : phase.status === "blocked" ? "\uD83D\uDEAB" : "\u23F3";
+      const completed = phase.tasks.filter((t) => t.status === "completed").length;
+      const total = phase.tasks.length;
+      const tasks = total > 0 ? `${completed}/${total}` : "-";
+      tableLines2.push(`| ${phase.id} | ${phase.name} | ${statusIcon} ${statusText} | ${tasks} |`);
+    }
+    return tableLines2.join(`
+`);
+  }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
   if (!planContent) {
     return "No history available.";
@@ -14682,6 +15063,46 @@ async function handleHistoryCommand(directory, _args) {
 
 // src/commands/plan.ts
 async function handlePlanCommand(directory, args) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    if (args.length === 0) {
+      return derivePlanMarkdown(plan);
+    }
+    const phaseNum2 = parseInt(args[0], 10);
+    if (Number.isNaN(phaseNum2)) {
+      return derivePlanMarkdown(plan);
+    }
+    const phase = plan.phases.find((p) => p.id === phaseNum2);
+    if (!phase) {
+      return `Phase ${phaseNum2} not found in plan.`;
+    }
+    const fullMarkdown = derivePlanMarkdown(plan);
+    const lines2 = fullMarkdown.split(`
+`);
+    const phaseLines2 = [];
+    let inTargetPhase2 = false;
+    for (const line of lines2) {
+      const phaseMatch = line.match(/^## Phase (\d+)/);
+      if (phaseMatch) {
+        const num = parseInt(phaseMatch[1], 10);
+        if (num === phaseNum2) {
+          inTargetPhase2 = true;
+          phaseLines2.push(line);
+          continue;
+        } else if (inTargetPhase2) {
+          break;
+        }
+      }
+      if (inTargetPhase2 && line.trim() === "---" && phaseLines2.length > 1) {
+        break;
+      }
+      if (inTargetPhase2) {
+        phaseLines2.push(line);
+      }
+    }
+    return phaseLines2.length > 0 ? phaseLines2.join(`
+`).trim() : `Phase ${phaseNum2} not found in plan.`;
+  }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
   if (!planContent) {
     return "No active swarm plan found.";
@@ -14909,13 +15330,81 @@ function extractPatterns(contextContent, maxChars = 500) {
   }
   return `${trimmed.slice(0, maxChars)}...`;
 }
+function extractCurrentPhaseFromPlan(plan) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const statusText = statusMap[phase.status] || "PENDING";
+  return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
+}
+function extractCurrentTaskFromPlan(plan) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const inProgress = phase.tasks.find((t) => t.status === "in_progress");
+  if (inProgress) {
+    const deps = inProgress.depends.length > 0 ? ` (depends: ${inProgress.depends.join(", ")})` : "";
+    return `- [ ] ${inProgress.id}: ${inProgress.description} [${inProgress.size.toUpperCase()}]${deps} \u2190 CURRENT`;
+  }
+  const pending = phase.tasks.find((t) => t.status === "pending");
+  if (pending) {
+    const deps = pending.depends.length > 0 ? ` (depends: ${pending.depends.join(", ")})` : "";
+    return `- [ ] ${pending.id}: ${pending.description} [${pending.size.toUpperCase()}]${deps}`;
+  }
+  return null;
+}
+function extractIncompleteTasksFromPlan(plan, maxChars = 500) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const incomplete = phase.tasks.filter((t) => t.status === "pending" || t.status === "in_progress");
+  if (incomplete.length === 0)
+    return null;
+  const lines = incomplete.map((t) => {
+    const deps = t.depends.length > 0 ? ` (depends: ${t.depends.join(", ")})` : "";
+    return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
+  });
+  const text = lines.join(`
+`);
+  if (text.length <= maxChars)
+    return text;
+  return `${text.slice(0, maxChars)}...`;
+}
 
 // src/commands/status.ts
 async function handleStatusCommand(directory, agents) {
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  if (!planContent) {
-    return "No active swarm plan found.";
+  const plan = await loadPlan(directory);
+  if (plan && plan.migration_status !== "migration_failed") {
+    const currentPhase2 = extractCurrentPhaseFromPlan(plan) || "Unknown";
+    let completedTasks2 = 0;
+    let totalTasks2 = 0;
+    for (const phase of plan.phases) {
+      for (const task of phase.tasks) {
+        totalTasks2++;
+        if (task.status === "completed")
+          completedTasks2++;
+      }
+    }
+    const agentCount2 = Object.keys(agents).length;
+    const lines2 = [
+      "## Swarm Status",
+      "",
+      `**Current Phase**: ${currentPhase2}`,
+      `**Tasks**: ${completedTasks2}/${totalTasks2} complete`,
+      `**Agents**: ${agentCount2} registered`
+    ];
+    return lines2.join(`
+`);
   }
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  if (!planContent)
+    return "No active swarm plan found.";
   const currentPhase = extractCurrentPhase(planContent) || "Unknown";
   const completedTasks = (planContent.match(/^- \[x\]/gm) || []).length;
   const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
@@ -15092,8 +15581,8 @@ async function doFlush(directory) {
     const activitySection = renderActivitySection();
     const updated = replaceOrAppendSection(existing, "## Agent Activity", activitySection);
     const flushedCount = swarmState.pendingEvents;
-    const path4 = `${directory}/.swarm/context.md`;
-    await Bun.write(path4, updated);
+    const path5 = `${directory}/.swarm/context.md`;
+    await Bun.write(path5, updated);
     swarmState.pendingEvents = Math.max(0, swarmState.pendingEvents - flushedCount);
   } catch (error49) {
     warn("Agent activity flush failed:", error49);
@@ -15142,24 +15631,34 @@ function createCompactionCustomizerHook(config2, directory) {
   }
   return {
     "experimental.session.compacting": safeHook(async (_input, output) => {
-      const planContent = await readSwarmFileAsync(directory, "plan.md");
       const contextContent = await readSwarmFileAsync(directory, "context.md");
-      if (planContent) {
-        const currentPhase = extractCurrentPhase(planContent);
+      const plan = await loadPlan(directory);
+      if (plan && plan.migration_status !== "migration_failed") {
+        const currentPhase = extractCurrentPhaseFromPlan(plan);
         if (currentPhase) {
           output.context.push(`[SWARM PLAN] ${currentPhase}`);
+        }
+        const incompleteTasks = extractIncompleteTasksFromPlan(plan);
+        if (incompleteTasks) {
+          output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
+        }
+      } else {
+        const planContent = await readSwarmFileAsync(directory, "plan.md");
+        if (planContent) {
+          const currentPhase = extractCurrentPhase(planContent);
+          if (currentPhase) {
+            output.context.push(`[SWARM PLAN] ${currentPhase}`);
+          }
+          const incompleteTasks = extractIncompleteTasks(planContent);
+          if (incompleteTasks) {
+            output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
+          }
         }
       }
       if (contextContent) {
         const decisionsSummary = extractDecisions(contextContent);
         if (decisionsSummary) {
           output.context.push(`[SWARM DECISIONS] ${decisionsSummary}`);
-        }
-      }
-      if (planContent) {
-        const incompleteTasks = extractIncompleteTasks(planContent);
-        if (incompleteTasks) {
-          output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
         }
       }
       if (contextContent) {
@@ -15451,16 +15950,28 @@ function createSystemEnhancerHook(config2, directory) {
   return {
     "experimental.chat.system.transform": safeHook(async (_input, output) => {
       try {
-        const planContent = await readSwarmFileAsync(directory, "plan.md");
         const contextContent = await readSwarmFileAsync(directory, "context.md");
-        if (planContent) {
-          const currentPhase = extractCurrentPhase(planContent);
+        const plan = await loadPlan(directory);
+        if (plan && plan.migration_status !== "migration_failed") {
+          const currentPhase = extractCurrentPhaseFromPlan(plan);
           if (currentPhase) {
             output.system.push(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
           }
-          const currentTask = extractCurrentTask(planContent);
+          const currentTask = extractCurrentTaskFromPlan(plan);
           if (currentTask) {
             output.system.push(`[SWARM CONTEXT] Current task: ${currentTask}`);
+          }
+        } else {
+          const planContent = await readSwarmFileAsync(directory, "plan.md");
+          if (planContent) {
+            const currentPhase = extractCurrentPhase(planContent);
+            if (currentPhase) {
+              output.system.push(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
+            }
+            const currentTask = extractCurrentTask(planContent);
+            if (currentTask) {
+              output.system.push(`[SWARM CONTEXT] Current task: ${currentTask}`);
+            }
           }
         }
         if (contextContent) {
@@ -16245,10 +16756,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path4) {
-  if (!path4)
+function getElementAtPath2(obj, path5) {
+  if (!path5)
     return obj;
-  return path4.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -16607,11 +17118,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path4, issues) {
+function prefixIssues2(path5, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path4);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -16779,7 +17290,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path4 = []) => {
+  const processError = (error50, path5 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -16789,7 +17300,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path4, ...issue3.path];
+        const fullpath = [...path5, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -16821,8 +17332,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path4 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path4) {
+  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path5) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -28018,7 +28529,7 @@ Use these as DOMAIN values when delegating to @sme.`;
 });
 // src/tools/file-extractor.ts
 import * as fs3 from "fs";
-import * as path4 from "path";
+import * as path5 from "path";
 var EXT_MAP = {
   python: ".py",
   py: ".py",
@@ -28096,12 +28607,12 @@ var extract_code_blocks = tool({
       if (prefix) {
         filename = `${prefix}_${filename}`;
       }
-      let filepath = path4.join(targetDir, filename);
-      const base = path4.basename(filepath, path4.extname(filepath));
-      const ext = path4.extname(filepath);
+      let filepath = path5.join(targetDir, filename);
+      const base = path5.basename(filepath, path5.extname(filepath));
+      const ext = path5.extname(filepath);
       let counter = 1;
       while (fs3.existsSync(filepath)) {
-        filepath = path4.join(targetDir, `${base}_${counter}${ext}`);
+        filepath = path5.join(targetDir, `${base}_${counter}${ext}`);
         counter++;
       }
       try {
@@ -28133,7 +28644,7 @@ Errors:
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve2) => setTimeout(resolve2, ms));
+var delay = (ms) => new Promise((resolve3) => setTimeout(resolve3, ms));
 async function fetchGitingest(args) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {

@@ -280,18 +280,8 @@ This phase is currently active.
 			expect(output.system).toEqual(['Initial system prompt']);
 		});
 
-		it('handler does not modify output.system when plan.md has no phase info', async () => {
-			// Create .swarm directory and plan.md file without phase info
-			const swarmDir = join(tempDir, '.swarm');
-			await mkdir(swarmDir, { recursive: true });
-			const planFile = join(swarmDir, 'plan.md');
-			const planContent = `
-# Project Plan
-
-This plan has no phase information.
-`;
-			await writeFile(planFile, planContent);
-
+		it('handler does not modify output.system when no plan exists', async () => {
+			// No plan files - should not modify output
 			const config: PluginConfig = {
 				...defaultConfig,
 				hooks: {
@@ -310,7 +300,7 @@ This plan has no phase information.
 
 			await transformHook(input, output);
 
-			// Should remain unchanged since no phase info was found
+			// Should remain unchanged since no plan exists
 			expect(output.system).toEqual(['Initial system prompt']);
 		});
 
@@ -355,10 +345,10 @@ This plan has header phase info but no IN PROGRESS phase.
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
 			const planFile = join(swarmDir, 'plan.md');
-			const planContent = `
+			const planContent = `Phase: 1
 # Project Plan
 
-## Phase 3: Testing Phase [IN PROGRESS]
+## Phase 1: Testing Phase [IN PROGRESS]
 
 Testing is underway.
 `;
@@ -421,18 +411,16 @@ Testing is underway.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config',
+				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
 			]);
 		});
 
 		it('handler injects key decisions when context.md has decisions', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
-			const planFile = join(swarmDir, 'plan.md');
 			const contextFile = join(swarmDir, 'context.md');
 			
-			// Empty plan.md so no phase injection
-			await writeFile(planFile, '');
+			// No plan.md - only context.md for decisions
 			
 			const contextContent = `# Context
 
@@ -517,7 +505,7 @@ Testing is underway.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config',
+				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
 				'[SWARM CONTEXT] Key decisions: - **Decision A**: Use TypeScript for new code\n- **Decision B**: Prefer composition over inheritance',
 			]);
 		});
@@ -527,7 +515,7 @@ Testing is underway.
 			await mkdir(swarmDir, { recursive: true });
 			const planFile = join(swarmDir, 'plan.md');
 			
-			const planContent = `
+			const planContent = `Phase: 1
 # Project Plan
 
 ## Phase 1: Setup [IN PROGRESS]
@@ -557,7 +545,8 @@ Testing is underway.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config',
+				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
+				// No decisions since context.md is missing
 			]);
 		});
 
@@ -1100,7 +1089,7 @@ ${longActivity}
 		it('handles error when context.md read fails gracefully', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
-			await writeFile(join(swarmDir, 'plan.md'), '');
+			// No plan.md - should not inject phase context
 			
 			// Create context.md as a directory instead of a file to cause read error
 			await mkdir(join(swarmDir, 'context.md'), { recursive: true });

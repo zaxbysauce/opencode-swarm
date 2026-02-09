@@ -122,6 +122,24 @@ OUTPUT: VERDICT + RISK + ISSUES
 - Guard experimental API usage with feature detection where possible
 - Hook failures must never crash the plugin
 
+### TypeScript Schema Design (v5.0.0)
+- Schema versioning: literal `schema_version` field, version-specific schema registry, idempotent migration functions
+- Zod v4: use `z.literal()` for version, `z.enum()` for status fields, `.extend()` for schema composition, `BaseEvidenceSchema.extend()` for evidence types
+- Dates: always `z.string().datetime()` for JSON persistence, never `z.date()`
+- Optional vs missing: `JSON.stringify()` omits undefined — use explicit null if "no value" must be preserved
+- Atomic writes: temp file + `rename()` — atomic on both POSIX and Windows
+- Migration: parse in phases (metadata → structure → tasks), warn but don't fail on ambiguous content, validate final output with Zod, backup original before overwriting
+- Schema evolution: never remove fields in minor versions, only add optional ones. Breaking changes require major version + migration function.
+
+### Security — Evidence & Plan I/O (v5.0.0)
+- Task ID sanitization: regex `^[\w-]+(\.[\w-]+)*$` before path construction, reject `..`, null bytes, control chars
+- Two-layer path validation: (1) sanitize task ID, (2) `validateSwarmPath()` on full constructed path
+- Evidence file size limits: JSON files 500KB, diff.patch 5MB, total per task 20MB
+- Content injection: evidence files safe to store as-is, must escape when rendering (never execute evidence content)
+- Concurrent writes: `mkdir({ recursive: true })` handles EEXIST, use temp+rename for atomicity
+- Symlink check: verify no symlinks with `fs.lstat()` before writing evidence on untrusted filesystems
+- `validateSwarmPath()` needs verification for nested subdirectory paths like `evidence/1.1/review.json`
+
 ### LLM Context Management (v4.3.0)
 - Can't delete messages from history, only transform/inject via hooks
 - Main pruning lever: `experimental.session.compacting` hook — guide OpenCode's built-in compaction
@@ -137,16 +155,11 @@ OUTPUT: VERDICT + RISK + ISSUES
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 72 | 72 | 0 | 8ms |
-| edit | 38 | 38 | 0 | 1385ms |
-| bash | 35 | 35 | 0 | 1248ms |
-| task | 13 | 13 | 0 | 75486ms |
-| todowrite | 11 | 11 | 0 | 2ms |
-| write | 4 | 4 | 0 | 1688ms |
-| memory_set | 3 | 3 | 0 | 1984ms |
-| glob | 1 | 1 | 0 | 48ms |
-| mystatus | 1 | 1 | 0 | 1828ms |
-| memory_replace | 1 | 1 | 0 | 3ms |
-| memory_list | 1 | 1 | 0 | 2ms |
-| grep | 1 | 1 | 0 | 2039ms |
-| apply_patch | 1 | 1 | 0 | 30ms |
+| read | 156 | 156 | 0 | 6ms |
+| bash | 106 | 106 | 0 | 907ms |
+| edit | 58 | 58 | 0 | 1122ms |
+| glob | 14 | 14 | 0 | 30ms |
+| grep | 14 | 14 | 0 | 73ms |
+| task | 14 | 14 | 0 | 203376ms |
+| write | 12 | 12 | 0 | 2931ms |
+| todowrite | 6 | 6 | 0 | 2ms |

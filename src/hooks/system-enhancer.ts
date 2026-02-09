@@ -7,11 +7,14 @@
  */
 
 import type { PluginConfig } from '../config';
+import { loadPlan } from '../plan/manager';
 import { swarmState } from '../state';
 import { warn } from '../utils';
 import {
 	extractCurrentPhase,
+	extractCurrentPhaseFromPlan,
 	extractCurrentTask,
+	extractCurrentTaskFromPlan,
 	extractDecisions,
 } from './extractors';
 import { readSwarmFileAsync, safeHook } from './utils';
@@ -36,27 +39,42 @@ export function createSystemEnhancerHook(
 				output: { system: string[] },
 			): Promise<void> => {
 				try {
-					const planContent = await readSwarmFileAsync(directory, 'plan.md');
 					const contextContent = await readSwarmFileAsync(
 						directory,
 						'context.md',
 					);
 
-					// Inject current phase
-					if (planContent) {
-						const currentPhase = extractCurrentPhase(planContent);
+					// Try structured plan first
+					const plan = await loadPlan(directory);
+					if (plan && plan.migration_status !== 'migration_failed') {
+						const currentPhase = extractCurrentPhaseFromPlan(plan);
 						if (currentPhase) {
 							output.system.push(
 								`[SWARM CONTEXT] Current phase: ${currentPhase}`,
 							);
 						}
-
-						// Inject current task
-						const currentTask = extractCurrentTask(planContent);
+						const currentTask = extractCurrentTaskFromPlan(plan);
 						if (currentTask) {
 							output.system.push(
 								`[SWARM CONTEXT] Current task: ${currentTask}`,
 							);
+						}
+					} else {
+						// Legacy fallback: read plan.md as string
+						const planContent = await readSwarmFileAsync(directory, 'plan.md');
+						if (planContent) {
+							const currentPhase = extractCurrentPhase(planContent);
+							if (currentPhase) {
+								output.system.push(
+									`[SWARM CONTEXT] Current phase: ${currentPhase}`,
+								);
+							}
+							const currentTask = extractCurrentTask(planContent);
+							if (currentTask) {
+								output.system.push(
+									`[SWARM CONTEXT] Current task: ${currentTask}`,
+								);
+							}
 						}
 					}
 

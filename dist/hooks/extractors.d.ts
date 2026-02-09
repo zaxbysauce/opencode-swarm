@@ -1,3 +1,4 @@
+import type { Plan } from '../config/plan-schema';
 /**
  * Swarm File Extractors
  *
@@ -24,3 +25,15 @@ export declare function extractIncompleteTasks(planContent: string, maxChars?: n
  * Extracts patterns section from context content.
  */
 export declare function extractPatterns(contextContent: string, maxChars?: number): string | null;
+/**
+ * Extracts current phase info from a Plan object.
+ */
+export declare function extractCurrentPhaseFromPlan(plan: Plan): string | null;
+/**
+ * Extracts the first incomplete task from the current phase of a Plan object.
+ */
+export declare function extractCurrentTaskFromPlan(plan: Plan): string | null;
+/**
+ * Extracts incomplete tasks from the current phase of a Plan object.
+ */
+export declare function extractIncompleteTasksFromPlan(plan: Plan, maxChars?: number): string | null;

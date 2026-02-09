@@ -1,32 +1,52 @@
 import type { AgentDefinition } from '../agents';
-import { extractCurrentPhase } from '../hooks/extractors';
+import {
+	extractCurrentPhase,
+	extractCurrentPhaseFromPlan,
+} from '../hooks/extractors';
 import { readSwarmFileAsync } from '../hooks/utils';
+import { loadPlan } from '../plan/manager';
 
 export async function handleStatusCommand(
 	directory: string,
 	agents: Record<string, AgentDefinition>,
 ): Promise<string> {
-	// 1. Read plan.md
-	const planContent = await readSwarmFileAsync(directory, 'plan.md');
+	// Try structured plan first
+	const plan = await loadPlan(directory);
 
-	// 2. If no plan.md, return early
-	if (!planContent) {
-		return 'No active swarm plan found.';
+	if (plan && plan.migration_status !== 'migration_failed') {
+		const currentPhase = extractCurrentPhaseFromPlan(plan) || 'Unknown';
+
+		// Count tasks across all phases
+		let completedTasks = 0;
+		let totalTasks = 0;
+		for (const phase of plan.phases) {
+			for (const task of phase.tasks) {
+				totalTasks++;
+				if (task.status === 'completed') completedTasks++;
+			}
+		}
+
+		const agentCount = Object.keys(agents).length;
+		const lines = [
+			'## Swarm Status',
+			'',
+			`**Current Phase**: ${currentPhase}`,
+			`**Tasks**: ${completedTasks}/${totalTasks} complete`,
+			`**Agents**: ${agentCount} registered`,
+		];
+		return lines.join('\n');
 	}
 
-	// 3. Extract current phase using existing extractCurrentPhase()
-	const currentPhase = extractCurrentPhase(planContent) || 'Unknown';
+	// Legacy fallback (existing code)
+	const planContent = await readSwarmFileAsync(directory, 'plan.md');
+	if (!planContent) return 'No active swarm plan found.';
 
-	// 4. Count tasks: completed (- [x]) vs total (- [x] + - [ ]) in the ENTIRE plan
-	//    Use regex to count across all lines
+	const currentPhase = extractCurrentPhase(planContent) || 'Unknown';
 	const completedTasks = (planContent.match(/^- \[x\]/gm) || []).length;
 	const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
 	const totalTasks = completedTasks + incompleteTasks;
-
-	// 5. Get agent count
 	const agentCount = Object.keys(agents).length;
 
-	// 6. Format as concise markdown
 	const lines = [
 		'## Swarm Status',
 		'',
@@ -34,6 +54,5 @@ export async function handleStatusCommand(
 		`**Tasks**: ${completedTasks}/${totalTasks} complete`,
 		`**Agents**: ${agentCount} registered`,
 	];
-
 	return lines.join('\n');
 }

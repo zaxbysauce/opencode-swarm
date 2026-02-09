@@ -1,5 +1,33 @@
 import { describe, it, expect } from 'bun:test';
-import { extractCurrentTask, extractIncompleteTasks, extractPatterns, extractCurrentPhase, extractDecisions } from '../../../src/hooks/extractors';
+import { extractCurrentTask, extractIncompleteTasks, extractPatterns, extractCurrentPhase, extractDecisions, extractCurrentPhaseFromPlan, extractCurrentTaskFromPlan, extractIncompleteTasksFromPlan } from '../../../src/hooks/extractors';
+import type { Plan } from '../../../src/config/plan-schema';
+
+function createTestPlan(overrides?: Partial<Plan>): Plan {
+	return {
+		schema_version: '1.0.0' as const,
+		title: 'Test Plan',
+		swarm: 'test-swarm',
+		current_phase: 1,
+		phases: [{
+			id: 1,
+			name: 'Phase 1',
+			status: 'in_progress' as const,
+			tasks: [
+				{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+				{ id: '1.2', phase: 1, status: 'in_progress' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
+				{ id: '1.3', phase: 1, status: 'pending' as const, size: 'large' as const, description: 'Task three', depends: ['1.2'], files_touched: [] },
+			],
+		}, {
+			id: 2,
+			name: 'Phase 2',
+			status: 'pending' as const,
+			tasks: [
+				{ id: '2.1', phase: 2, status: 'pending' as const, size: 'small' as const, description: 'Future task', depends: [], files_touched: [] },
+			],
+		}],
+		...overrides,
+	};
+}
 
 describe('extractCurrentTask', () => {
 	it('Returns null for empty/falsy input', () => {
@@ -598,5 +626,248 @@ More explanatory text
 - Decision 3: Document everything`;
 		const result = extractDecisions(content);
 		expect(result).toBe('- Decision 1: Use TypeScript\n- Decision 2: Write tests\n- Decision 3: Document everything');
+	});
+});
+
+describe('extractCurrentPhaseFromPlan', () => {
+	it('Returns correct phase info for in_progress phase', () => {
+		const plan = createTestPlan({ current_phase: 1 });
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBe('Phase 1: Phase 1 [IN PROGRESS]');
+	});
+
+	it('Returns correct status text for complete phase', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'complete' as const,
+				tasks: [],
+			}],
+		});
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBe('Phase 1: Phase 1 [COMPLETE]');
+	});
+
+	it('Returns correct status text for pending phase', () => {
+		const plan = createTestPlan({
+			current_phase: 2,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'complete' as const,
+					tasks: [],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					status: 'pending' as const,
+					tasks: [],
+				},
+			],
+		});
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBe('Phase 2: Phase 2 [PENDING]');
+	});
+
+	it('Returns correct status text for blocked phase', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'blocked' as const,
+				tasks: [],
+			}],
+		});
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBe('Phase 1: Phase 1 [BLOCKED]');
+	});
+
+	it('Returns null when current_phase does not match any phase ID', () => {
+		const plan = createTestPlan({ current_phase: 99 });
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBeNull();
+	});
+
+	it('Returns correct phase when current_phase is 2', () => {
+		const plan = createTestPlan({
+			current_phase: 2,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'complete' as const,
+					tasks: [],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					status: 'in_progress' as const,
+					tasks: [
+						{ id: '2.1', phase: 2, status: 'pending' as const, size: 'small' as const, description: 'Task 2.1', depends: [], files_touched: [] },
+					],
+				},
+			],
+		});
+		const result = extractCurrentPhaseFromPlan(plan);
+		expect(result).toBe('Phase 2: Phase 2 [IN PROGRESS]');
+	});
+});
+
+describe('extractCurrentTaskFromPlan', () => {
+	it('Returns first in_progress task (prioritizes over pending)', () => {
+		const plan = createTestPlan();
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1) ← CURRENT');
+	});
+
+	it('Returns first pending task when no in_progress task exists', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
+					{ id: '1.3', phase: 1, status: 'pending' as const, size: 'large' as const, description: 'Task three', depends: ['1.2'], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1)');
+	});
+
+	it('Returns null when phase has only completed tasks', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'completed' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toBeNull();
+	});
+
+	it('Returns null when current_phase does not match any phase ID', () => {
+		const plan = createTestPlan({ current_phase: 99 });
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toBeNull();
+	});
+
+	it('Includes dependency info in output', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task with deps', depends: ['1.1', '1.3'], files_touched: [] },
+					{ id: '1.3', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'Another task', depends: [], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toBe('- [ ] 1.2: Task with deps [MEDIUM] (depends: 1.1, 1.3)');
+	});
+
+	it('Shows ← CURRENT marker for in_progress task', () => {
+		const plan = createTestPlan();
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).toContain('← CURRENT');
+	});
+
+	it('Does NOT show ← CURRENT for pending task', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractCurrentTaskFromPlan(plan);
+		expect(result).not.toContain('← CURRENT');
+	});
+});
+
+describe('extractIncompleteTasksFromPlan', () => {
+	it('Returns all pending and in_progress tasks from current phase', () => {
+		const plan = createTestPlan();
+		const result = extractIncompleteTasksFromPlan(plan);
+		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1)\n- [ ] 1.3: Task three [LARGE] (depends: 1.2)');
+	});
+
+	it('Returns null when all tasks are completed', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'completed' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractIncompleteTasksFromPlan(plan);
+		expect(result).toBeNull();
+	});
+
+	it('Returns null when current phase not found', () => {
+		const plan = createTestPlan({ current_phase: 99 });
+		const result = extractIncompleteTasksFromPlan(plan);
+		expect(result).toBeNull();
+	});
+
+	it('Respects maxChars truncation', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'A'.repeat(500), depends: [], files_touched: [] },
+					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'B'.repeat(500), depends: [], files_touched: [] },
+				],
+			}],
+		});
+		const result = extractIncompleteTasksFromPlan(plan, 100);
+		expect(result).toContain('...');
+		if (result) {
+			expect(result.length).toBeLessThanOrEqual(103);
+		}
+	});
+
+	it('Each task line includes size and dependencies', () => {
+		const plan = createTestPlan();
+		const result = extractIncompleteTasksFromPlan(plan);
+		expect(result).toContain('[MEDIUM]');
+		expect(result).toContain('[LARGE]');
+		expect(result).toContain('(depends: 1.1)');
+		expect(result).toContain('(depends: 1.2)');
+	});
+
+	it('Returns null when phase has no tasks', () => {
+		const plan = createTestPlan({
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [],
+			}],
+		});
+		const result = extractIncompleteTasksFromPlan(plan);
+		expect(result).toBeNull();
 	});
 });

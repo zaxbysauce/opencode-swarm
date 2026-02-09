@@ -1,3 +1,5 @@
+import type { Plan } from '../config/plan-schema';
+
 /**
  * Swarm File Extractors
  *
@@ -206,4 +208,76 @@ export function extractPatterns(
 	}
 
 	return `${trimmed.slice(0, maxChars)}...`;
+}
+
+/**
+ * Extracts current phase info from a Plan object.
+ */
+export function extractCurrentPhaseFromPlan(plan: Plan): string | null {
+	const phase = plan.phases.find((p) => p.id === plan.current_phase);
+	if (!phase) return null;
+
+	const statusMap: Record<string, string> = {
+		pending: 'PENDING',
+		in_progress: 'IN PROGRESS',
+		complete: 'COMPLETE',
+		blocked: 'BLOCKED',
+	};
+	const statusText = statusMap[phase.status] || 'PENDING';
+	return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
+}
+
+/**
+ * Extracts the first incomplete task from the current phase of a Plan object.
+ */
+export function extractCurrentTaskFromPlan(plan: Plan): string | null {
+	const phase = plan.phases.find((p) => p.id === plan.current_phase);
+	if (!phase) return null;
+
+	// Find first in_progress task, or first pending task
+	const inProgress = phase.tasks.find((t) => t.status === 'in_progress');
+	if (inProgress) {
+		const deps =
+			inProgress.depends.length > 0
+				? ` (depends: ${inProgress.depends.join(', ')})`
+				: '';
+		return `- [ ] ${inProgress.id}: ${inProgress.description} [${inProgress.size.toUpperCase()}]${deps} ← CURRENT`;
+	}
+
+	const pending = phase.tasks.find((t) => t.status === 'pending');
+	if (pending) {
+		const deps =
+			pending.depends.length > 0
+				? ` (depends: ${pending.depends.join(', ')})`
+				: '';
+		return `- [ ] ${pending.id}: ${pending.description} [${pending.size.toUpperCase()}]${deps}`;
+	}
+
+	return null;
+}
+
+/**
+ * Extracts incomplete tasks from the current phase of a Plan object.
+ */
+export function extractIncompleteTasksFromPlan(
+	plan: Plan,
+	maxChars: number = 500,
+): string | null {
+	const phase = plan.phases.find((p) => p.id === plan.current_phase);
+	if (!phase) return null;
+
+	const incomplete = phase.tasks.filter(
+		(t) => t.status === 'pending' || t.status === 'in_progress',
+	);
+	if (incomplete.length === 0) return null;
+
+	const lines = incomplete.map((t) => {
+		const deps =
+			t.depends.length > 0 ? ` (depends: ${t.depends.join(', ')})` : '';
+		return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
+	});
+
+	const text = lines.join('\n');
+	if (text.length <= maxChars) return text;
+	return `${text.slice(0, maxChars)}...`;
 }

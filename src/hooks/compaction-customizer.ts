@@ -6,10 +6,13 @@
  */
 
 import type { PluginConfig } from '../config';
+import { loadPlan } from '../plan/manager';
 import {
 	extractCurrentPhase,
+	extractCurrentPhaseFromPlan,
 	extractDecisions,
 	extractIncompleteTasks,
+	extractIncompleteTasksFromPlan,
 	extractPatterns,
 } from './extractors';
 import { readSwarmFileAsync, safeHook } from './utils';
@@ -33,17 +36,34 @@ export function createCompactionCustomizerHook(
 				_input: { sessionID: string },
 				output: { context: string[]; prompt?: string },
 			): Promise<void> => {
-				const planContent = await readSwarmFileAsync(directory, 'plan.md');
 				const contextContent = await readSwarmFileAsync(
 					directory,
 					'context.md',
 				);
 
-				// Add current phase from plan.md
-				if (planContent) {
-					const currentPhase = extractCurrentPhase(planContent);
+				// Try structured plan first
+				const plan = await loadPlan(directory);
+				if (plan && plan.migration_status !== 'migration_failed') {
+					const currentPhase = extractCurrentPhaseFromPlan(plan);
 					if (currentPhase) {
 						output.context.push(`[SWARM PLAN] ${currentPhase}`);
+					}
+					const incompleteTasks = extractIncompleteTasksFromPlan(plan);
+					if (incompleteTasks) {
+						output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
+					}
+				} else {
+					// Legacy fallback
+					const planContent = await readSwarmFileAsync(directory, 'plan.md');
+					if (planContent) {
+						const currentPhase = extractCurrentPhase(planContent);
+						if (currentPhase) {
+							output.context.push(`[SWARM PLAN] ${currentPhase}`);
+						}
+						const incompleteTasks = extractIncompleteTasks(planContent);
+						if (incompleteTasks) {
+							output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
+						}
 					}
 				}
 
@@ -52,14 +72,6 @@ export function createCompactionCustomizerHook(
 					const decisionsSummary = extractDecisions(contextContent);
 					if (decisionsSummary) {
 						output.context.push(`[SWARM DECISIONS] ${decisionsSummary}`);
-					}
-				}
-
-				// Add incomplete tasks from plan.md
-				if (planContent) {
-					const incompleteTasks = extractIncompleteTasks(planContent);
-					if (incompleteTasks) {
-						output.context.push(`[SWARM TASKS] ${incompleteTasks}`);
 					}
 				}
 

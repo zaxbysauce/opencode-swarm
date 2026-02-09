@@ -1,42 +1,51 @@
-# Agent Guardrails — Circuit Breaker for Runaway Agents
+# v5.0.0 — Verifiable Execution
 Swarm: mega
 Phase: 2 [IN PROGRESS] | Updated: 2026-02-09
 
-## Problem
-Subagents (especially the coder) sometimes get stuck in loops — outputting nonsense, repeating tool calls, or spinning for hours. The architect waits for the Task tool to return and never notices. This burns significant API costs with zero value.
-
-## Solution
-Two-layer circuit breaker system using existing Plugin API hooks.
-
-Layer 1 (Soft Warning): At 50% of limits, inject a warning message into the agent's chat stream asking it to self-correct.
-Layer 2 (Hard Block): At 100% of limits, block ALL further tool calls (throw error) AND inject a forceful "STOP" message.
-
-Detection signals:
-1. Tool call count per agent session
-2. Wall-clock time since session started
-3. Repetition — same tool+args hash >N times consecutively
-4. Consecutive errors — >N errors in a row
+## Thesis
+Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execution" by making the plan machine-checkable and persisting evidence per task.
 
 ---
 
-## Phase 1: Core Implementation [COMPLETE]
+## Phase 1: Canonical Plan Schema [COMPLETE]
 
-- [x] 1.1: Add guardrails config schema [SMALL]
-- [x] 1.2: Add per-session state tracking [SMALL]
-- [x] 1.3: Implement guardrails hook logic [MEDIUM]
-- [x] 1.4: Integrate into plugin hooks [SMALL]
-- [x] 1.5: Tests (46 new tests, 668 total) [MEDIUM]
-- [x] 1.6: Phase 1 verification — all green [SMALL]
+- [x] 1.1: Define PlanSchema + TaskSchema + PhaseSchema in src/config/plan-schema.ts [SMALL]
+- [x] 1.2: Create src/plan/manager.ts — load/save/migrate/derive [MEDIUM]
+- [x] 1.3: Update src/hooks/extractors.ts to use plan manager [SMALL]
+- [x] 1.4: Update slash commands (plan, history, diagnose, export) [SMALL]
+- [x] 1.5: Tests for plan schema, manager, migration, precedence [MEDIUM]
 
 ---
 
-## Phase 2: Documentation & Ship [IN PROGRESS]
+## Phase 2: Evidence Bundles [IN PROGRESS]
 
-### 2.1: Update README [SMALL]
-- [ ] 2.1
+- [ ] 2.1: Define evidence schemas in src/config/evidence-schema.ts [SMALL] ← CURRENT
+- [ ] 2.2: Create src/evidence/manager.ts with sanitizeTaskId() [SMALL]
+- [ ] 2.3: Add /swarm evidence command [SMALL]
+- [ ] 2.4: Update /swarm diagnose for evidence completeness [SMALL]
+- [ ] 2.5: Tests for evidence schemas and manager [MEDIUM]
+- [ ] 2.6: Evidence retention policy + /swarm archive [SMALL]
 
-### 2.2: CHANGELOG + version bump [SMALL]
-- [ ] 2.2
+---
 
-### 2.3: Final verification + commit + push [SMALL]
-- [ ] 2.3 (depends: 2.1, 2.2)
+## Phase 3: Per-Agent Guardrail Profiles [PENDING]
+
+- [ ] 3.1: Extend GuardrailsConfigSchema with profiles [SMALL]
+- [ ] 3.2: Update guardrails.ts for per-agent limit resolution [SMALL]
+- [ ] 3.3: Tests for profile resolution and merge [SMALL]
+
+---
+
+## Phase 4: Enhanced Agent View + CI Hardening [PENDING]
+
+- [ ] 4.1: Enhance /swarm agents output [SMALL]
+- [ ] 4.2: Add packaging smoke test [SMALL]
+- [ ] 4.3: Tests for enhanced agent view [SMALL]
+
+---
+
+## Phase 5: Context Injection Budget + Documentation [PENDING]
+
+- [ ] 5.1: Structured injection budget in system-enhancer.ts [SMALL]
+- [ ] 5.2: Update README, CHANGELOG, docs for v5.0.0 [SMALL]
+- [ ] 5.3: Version bump to 5.0.0 + final verification [SMALL]

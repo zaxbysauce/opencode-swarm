@@ -1,4 +1,5 @@
 import { readSwarmFileAsync } from '../hooks/utils';
+import { loadPlanJsonOnly } from '../plan/manager';
 
 /**
  * Handles the /swarm history command.
@@ -8,8 +9,53 @@ export async function handleHistoryCommand(
 	directory: string,
 	_args: string[],
 ): Promise<string> {
-	const planContent = await readSwarmFileAsync(directory, 'plan.md');
+	const plan = await loadPlanJsonOnly(directory);
 
+	if (plan) {
+		if (plan.phases.length === 0) {
+			return 'No history available.';
+		}
+
+		const tableLines = [
+			'## Swarm History',
+			'',
+			'| Phase | Name | Status | Tasks |',
+			'|-------|------|--------|-------|',
+		];
+
+		for (const phase of plan.phases) {
+			const statusMap: Record<string, string> = {
+				complete: 'COMPLETE',
+				in_progress: 'IN PROGRESS',
+				pending: 'PENDING',
+				blocked: 'BLOCKED',
+			};
+			const statusText = statusMap[phase.status] || 'PENDING';
+			const statusIcon =
+				phase.status === 'complete'
+					? '✅'
+					: phase.status === 'in_progress'
+						? '🔄'
+						: phase.status === 'blocked'
+							? '🚫'
+							: '⏳';
+
+			const completed = phase.tasks.filter(
+				(t) => t.status === 'completed',
+			).length;
+			const total = phase.tasks.length;
+			const tasks = total > 0 ? `${completed}/${total}` : '-';
+
+			tableLines.push(
+				`| ${phase.id} | ${phase.name} | ${statusIcon} ${statusText} | ${tasks} |`,
+			);
+		}
+
+		return tableLines.join('\n');
+	}
+
+	// Legacy fallback — keep existing regex-based code
+	const planContent = await readSwarmFileAsync(directory, 'plan.md');
 	if (!planContent) {
 		return 'No history available.';
 	}
