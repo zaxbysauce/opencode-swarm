@@ -508,6 +508,10 @@ Override limits for specific agents that need more (or less) room:
 
 Profiles merge with base config — only specified fields are overridden.
 
+> **Built-in Architect Defaults:** The architect agent automatically receives higher limits
+> (600 tool calls, 90 min duration, 8 consecutive errors, 0.7 warning threshold) without any
+> configuration. These built-in defaults can be overridden via a `profiles.architect` entry.
+
 ### Disable Guardrails
 
 ```json

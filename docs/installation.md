@@ -573,6 +573,17 @@ Control agent execution limits:
 | `warning_threshold` | number | `0.5` | Inject warning at this percentage of any limit |
 | `profiles` | object | — | Per-agent overrides. Keys are agent names, values override base settings. |
 
+**Built-in Architect Defaults:** The architect agent automatically receives higher limits without configuration:
+
+| Setting | Base Default | Architect Default |
+|---------|-------------|-------------------|
+| `max_tool_calls` | 200 | 600 |
+| `max_duration_minutes` | 30 | 90 |
+| `max_consecutive_errors` | 5 | 8 |
+| `warning_threshold` | 0.5 | 0.7 |
+
+These built-in defaults are applied automatically. To customize, add a `profiles.architect` entry — user-defined profiles always take precedence.
+
 ---
 
 ## Slash Commands

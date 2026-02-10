@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] - 2026-02-10
+### Changed
+- **Default architect guardrails** — The architect agent now automatically receives higher circuit breaker limits (600 tool calls, 90 min duration, 8 consecutive errors, 0.7 warning threshold) via `DEFAULT_ARCHITECT_PROFILE`. Proportional 3× scaling matches the architect's orchestration role. User-defined `profiles.architect` entries still take full precedence.
+
+### Tests
+- **7 new tests** for architect default profile resolution (automatic application, user override precedence, non-architect isolation, schema bounds validation).
+- **883 total tests** across 39 files (up from 876 in v5.0.0).
+
 ## [5.0.0] - 2026-02-09
 ### Added
 - **Canonical plan schema** — Machine-readable `plan.json` with Zod-validated `PlanSchema`, `TaskSchema`, and `PhaseSchema`. Structured task status (`pending`, `in_progress`, `completed`, `blocked`), phase-level status tracking, and schema versioning (`schema_version: "1.0"`).
