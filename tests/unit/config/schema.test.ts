@@ -274,9 +274,15 @@ describe('GuardrailsConfigSchema', () => {
     }
   });
 
-  it('rejects max_tool_calls below 10', () => {
-    const result = GuardrailsConfigSchema.safeParse({ max_tool_calls: 5 });
+  it('rejects max_tool_calls below 0', () => {
+    const result = GuardrailsConfigSchema.safeParse({ max_tool_calls: -1 });
     expect(result.success).toBe(false);
+  });
+
+  it('allows max_tool_calls of 0 (unlimited)', () => {
+    const result = GuardrailsConfigSchema.safeParse({ max_tool_calls: 0 });
+    expect(result.success).toBe(true);
+    expect(result.data?.max_tool_calls).toBe(0);
   });
 
   it('rejects max_tool_calls above 1000', () => {

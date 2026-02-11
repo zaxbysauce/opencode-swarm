@@ -33,9 +33,14 @@ describe('GuardrailsProfileSchema', () => {
 		expect(result).toEqual({ max_tool_calls: 50 });
 	});
 
-	it('invalid max_tool_calls (below 10) rejects', () => {
+	it('max_tool_calls 0 (unlimited) parses', () => {
+		const result = GuardrailsProfileSchema.parse({ max_tool_calls: 0 });
+		expect(result.max_tool_calls).toBe(0);
+	});
+
+	it('invalid max_tool_calls (below 0) rejects', () => {
 		expect(() =>
-			GuardrailsProfileSchema.parse({ max_tool_calls: 5 }),
+			GuardrailsProfileSchema.parse({ max_tool_calls: -1 }),
 		).toThrow();
 	});
 
@@ -159,7 +164,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_consecutive_errors: 5,
 			warning_threshold: 0.75,
 			profiles: {
-				coder: { max_tool_calls: 5 }, // Invalid: below 10
+				coder: { max_tool_calls: -1 }, // Invalid: below 0
 			},
 		};
 
@@ -312,7 +317,7 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 
 	it('architect gets built-in default profile automatically', () => {
 		const result = resolveGuardrailsConfig(base, 'architect');
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 		expect(result.max_duration_minutes).toBe(0);
 		expect(result.max_consecutive_errors).toBe(8);
 		expect(result.warning_threshold).toBe(0.75);
@@ -321,6 +326,7 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 	it('architect built-in does not override max_repetitions (not in DEFAULT_AGENT_PROFILES.architect)', () => {
 		const result = resolveGuardrailsConfig(base, 'architect');
 		expect(result.max_repetitions).toBe(10);
+		expect(result.max_tool_calls).toBe(0); // Should be unlimited (0)
 	});
 
 	it('non-architect agents also get their built-in defaults', () => {
@@ -366,7 +372,7 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 
 	it('DEFAULT_ARCHITECT_PROFILE values match DEFAULT_AGENT_PROFILES.architect', () => {
 		const result = GuardrailsProfileSchema.parse(DEFAULT_ARCHITECT_PROFILE);
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 		expect(result.max_duration_minutes).toBe(0);
 		expect(result.max_consecutive_errors).toBe(8);
 		expect(result.warning_threshold).toBe(0.75);
@@ -446,19 +452,19 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 
 	it('local_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'local_architect');
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 		expect(result.max_duration_minutes).toBe(0);
 	});
 
 	it('paid_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'paid_architect');
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 		expect(result.max_duration_minutes).toBe(0);
 	});
 
 	it('mega_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'mega_architect');
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 	});
 
 	it('local_coder gets coder built-in defaults', () => {
@@ -498,7 +504,7 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 
 	it('custom swarm name architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'enterprise_architect');
-		expect(result.max_tool_calls).toBe(800);
+		expect(result.max_tool_calls).toBe(0); // Unlimited
 		expect(result.max_duration_minutes).toBe(0);
 		expect(result.max_consecutive_errors).toBe(8);
 		expect(result.warning_threshold).toBe(0.75);

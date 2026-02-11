@@ -186,11 +186,19 @@ export function ensureAgentSession(
 	let session = swarmState.agentSessions.get(sessionId);
 
 	if (session) {
-		// Update agent name if provided and different
-		if (agentName && session.agentName === 'unknown') {
+		// Update agent name if provided and different from current
+		if (agentName && agentName !== session.agentName) {
 			session.agentName = agentName;
 			// Reset start time for accurate duration tracking with correct agent limits
 			session.startTime = now;
+			// Reset per-agent guardrail state to prevent limits leaking across agents
+			session.toolCallCount = 0;
+			session.consecutiveErrors = 0;
+			session.recentToolCalls = [];
+			session.warningIssued = false;
+			session.warningReason = '';
+			session.hardLimitHit = false;
+			session.lastSuccessTime = now;
 		}
 		session.lastToolCallTime = now;
 		return session;

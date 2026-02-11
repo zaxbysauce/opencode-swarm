@@ -516,20 +516,63 @@ describe('state module', () => {
 			expect(session.agentName).toBe('paid_architect');
 		});
 
-		it('does NOT update agent name when already set to non-unknown', () => {
-			ensureAgentSession('test-session', 'architect');
-			const session = ensureAgentSession('test-session', 'coder');
-			expect(session.agentName).toBe('architect'); // Should NOT change
-		});
+	it('updates agent name when switching from non-unknown to different agent', () => {
+		ensureAgentSession('test-session', 'architect');
+		const session = ensureAgentSession('test-session', 'coder');
+		expect(session.agentName).toBe('coder'); // Should change
+	});
 
-		it('resets startTime when updating from unknown', () => {
-			const session = ensureAgentSession('test-session'); // unknown
-			const originalStart = session.startTime;
-			session.startTime = originalStart - 60000; // Simulate 1 min elapsed
+	it('resets guardrail state when switching agents', () => {
+		// Start with architect
+		const session = ensureAgentSession('test-session', 'architect');
+		session.toolCallCount = 50;
+		session.consecutiveErrors = 3;
+		session.warningIssued = true;
+		session.hardLimitHit = true;
+		session.recentToolCalls = [{ tool: 'read', argsHash: 123, timestamp: Date.now() }];
+		const oldStartTime = session.startTime;
+		const oldLastSuccessTime = session.lastSuccessTime;
 
-			ensureAgentSession('test-session', 'architect');
-			expect(session.startTime).toBeGreaterThan(originalStart - 60000); // Reset
-		});
+		// Small delay to ensure time difference
+		const beforeSwitch = Date.now();
+
+		// Switch to coder
+		ensureAgentSession('test-session', 'coder');
+
+		// All guardrail state should be reset
+		expect(session.agentName).toBe('coder');
+		expect(session.toolCallCount).toBe(0);
+		expect(session.consecutiveErrors).toBe(0);
+		expect(session.warningIssued).toBe(false);
+		expect(session.hardLimitHit).toBe(false);
+		expect(session.recentToolCalls).toEqual([]);
+		expect(session.warningReason).toBe('');
+		expect(session.startTime).toBeGreaterThanOrEqual(oldStartTime); // Reset to now or later
+		expect(session.lastSuccessTime).toBeGreaterThanOrEqual(beforeSwitch);
+	});
+
+	it('resets startTime when updating from unknown', () => {
+		const session = ensureAgentSession('test-session'); // unknown
+		const originalStart = session.startTime;
+		session.startTime = originalStart - 60000; // Simulate 1 min elapsed
+
+		ensureAgentSession('test-session', 'architect');
+		expect(session.startTime).toBeGreaterThan(originalStart - 60000); // Reset
+	});
+
+	it('resets startTime and guardrail state when switching from unknown to real agent', () => {
+		const session = ensureAgentSession('test-session'); // unknown
+		session.toolCallCount = 10;
+		session.hardLimitHit = true;
+		const originalStart = session.startTime;
+		session.startTime = originalStart - 60000;
+
+		ensureAgentSession('test-session', 'architect');
+		expect(session.agentName).toBe('architect');
+		expect(session.toolCallCount).toBe(0);
+		expect(session.hardLimitHit).toBe(false);
+		expect(session.startTime).toBeGreaterThan(originalStart - 60000);
+	});
 
 		it('returns same session object for same sessionID', () => {
 			const s1 = ensureAgentSession('same-id', 'architect');

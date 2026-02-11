@@ -104,7 +104,10 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 			const elapsedMinutes = (Date.now() - session.startTime) / 60000;
 
 			// Check HARD limits (any one triggers circuit breaker)
-			if (session.toolCallCount >= agentConfig.max_tool_calls) {
+			if (
+				agentConfig.max_tool_calls > 0 &&
+				session.toolCallCount >= agentConfig.max_tool_calls
+			) {
 				session.hardLimitHit = true;
 				warn('Circuit breaker: tool call limit hit', {
 					sessionID: input.sessionID,
@@ -164,7 +167,10 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 
 			// Check SOFT limits (only if warning not already issued)
 			if (!session.warningIssued) {
-				const toolPct = session.toolCallCount / agentConfig.max_tool_calls;
+				const toolPct =
+					agentConfig.max_tool_calls > 0
+						? session.toolCallCount / agentConfig.max_tool_calls
+						: 0;
 				const durationPct =
 					agentConfig.max_duration_minutes > 0
 						? elapsedMinutes / agentConfig.max_duration_minutes
@@ -174,7 +180,10 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					session.consecutiveErrors / agentConfig.max_consecutive_errors;
 
 				const reasons: string[] = [];
-				if (toolPct >= agentConfig.warning_threshold) {
+				if (
+					agentConfig.max_tool_calls > 0 &&
+					toolPct >= agentConfig.warning_threshold
+				) {
 					reasons.push(
 						`tool calls ${session.toolCallCount}/${agentConfig.max_tool_calls}`,
 					);

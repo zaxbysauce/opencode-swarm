@@ -736,6 +736,110 @@ describe('guardrails circuit breaker', () => {
 		});
 	});
 
+	describe('toolBefore - agent switching regression', () => {
+		it('switches guardrail profile when active agent changes in same session', async () => {
+			const config = defaultConfig({ max_duration_minutes: 30 });
+			const hooks = createGuardrailsHooks(config);
+
+			// Step 1: Start as critic with tight duration limit
+			swarmState.activeAgent.set('shared-session', 'critic');
+			startAgentSession('shared-session', 'critic');
+			const session = getAgentSession('shared-session');
+			if (session) {
+				session.startTime = Date.now() - 35 * 60000; // 35 min ago
+				session.lastSuccessTime = Date.now();
+			}
+
+			// Step 2: Verify critic session throws due to duration
+			await expect(
+				hooks.toolBefore(makeInput('shared-session'), makeOutput()),
+			).rejects.toThrow('Duration exhausted');
+
+			// Step 3: Clear hard limit and switch active agent to architect
+			if (session) {
+				session.hardLimitHit = false;
+			}
+			swarmState.activeAgent.set('shared-session', 'architect');
+
+			// Step 4: Call ensureAgentSession to trigger the agent switch
+			const { ensureAgentSession: localEnsureAgentSession } = await import('../../../src/state');
+			localEnsureAgentSession('shared-session', 'architect');
+
+			// Verify session agent is now architect
+			expect(getAgentSession('shared-session')?.agentName).toBe('architect');
+
+			// Step 5: Verify architect has unlimited duration (max_duration_minutes = 0)
+			// Since architect's duration is unlimited (0), it should not throw
+			// even though the session is old
+			await hooks.toolBefore(makeInput('shared-session'), makeOutput());
+		});
+	});
+
+	describe('toolBefore - unlimited tool calls (0)', () => {
+		it('does not throw when max_tool_calls is 0 even after many calls', async () => {
+			const config = defaultConfig({ max_tool_calls: 0 });
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'unknown');
+
+			// Make 1000 tool calls
+			for (let i = 0; i < 1000; i++) {
+				await hooks.toolBefore(
+					makeInput('test-session', 'tool', `call-${i}`),
+					makeOutput({ index: i }),
+				);
+			}
+
+			const session = getAgentSession('test-session');
+			expect(session?.toolCallCount).toBe(1000);
+			expect(session?.hardLimitHit).toBe(false);
+		});
+
+		it('does not issue tool call warning when max_tool_calls is 0', async () => {
+			const config = defaultConfig({
+				max_tool_calls: 0,
+				warning_threshold: 0.1,
+				max_duration_minutes: 0, // Also unlimited to avoid duration warning
+				idle_timeout_minutes: 1000, // High to avoid idle warning
+				max_repetitions: 1000, // High to avoid repetition warning
+			});
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'unknown');
+
+			// Make many calls with different tools/args to avoid repetition detection
+			for (let i = 0; i < 100; i++) {
+				await hooks.toolBefore(
+					makeInput('test-session', `tool-${i}`, `call-${i}`),
+					makeOutput({ index: i }),
+				);
+			}
+
+			const session = getAgentSession('test-session');
+			// Warning should NOT be issued for tool calls (max_tool_calls=0 means unlimited)
+			expect(session?.warningIssued).toBe(false);
+		});
+
+		it('architect profile has unlimited tool calls by default', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('arch-session', 'architect');
+			startAgentSession('arch-session', 'architect');
+
+			// Make many calls - should not throw
+			for (let i = 0; i < 500; i++) {
+				await hooks.toolBefore(
+					makeInput('arch-session', 'tool', `call-${i}`),
+					makeOutput({ index: i }),
+				);
+			}
+
+			const session = getAgentSession('arch-session');
+			expect(session?.toolCallCount).toBe(500);
+			expect(session?.hardLimitHit).toBe(false);
+		});
+	});
+
 	describe('toolBefore - idle timeout', () => {
 		it('throws when idle timeout exceeded', async () => {
 			const config = defaultConfig({ idle_timeout_minutes: 30 });
