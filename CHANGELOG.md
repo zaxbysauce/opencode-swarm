@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.7] - 2026-02-11
+### Fixed
+- **Removed stale orphan declaration files from dist/** — Deleted 17 stale `.d.ts` files from prior build configurations that no longer have matching source files: `dist/agents/auditor.d.ts`, `dist/agents/security-reviewer.d.ts`, `dist/agents/sme-unified.d.ts`, and the entire `dist/agents/sme/` directory (14 individual SME domain agent declarations). These were harmless type declarations (not runtime code), but cluttered the published package.
+
+### Changed
+- **Build script now cleans dist/ before rebuilding** — Added `rm -rf dist` as the first step in the `build` script and as a standalone `clean` script. This prevents orphan files from accumulating across build configuration changes. The `prepublishOnly` hook runs `build`, so npm publishes will always start from a clean dist/.
+
+## [5.0.6] - 2026-02-11
+### Fixed
+- **Circuit breaker running stale code from orphan dist files** — Stale `dist/guardrails.js` and `dist/state.js` from v4.6.0 were shipping in the npm package alongside the correct bundled `dist/index.js`. Bun's module resolver could load these orphan files, which contained the old 30-minute duration limit, old 60-minute stale session eviction, and old aggressive "CIRCUIT BREAKER: Stop making tool calls" messages — completely bypassing the v5.0.3–5.0.5 fixes. Removed both orphan files from dist/.
+
 ## [5.0.5] - 2026-02-11
 ### Fixed
 - **Circuit breaker triggers too early on tool calls** — Default `warning_threshold` was 0.5 (warnings at 50% of limit), causing agents to receive "wrap up" messages at just 100 tool calls for subagents with a 200-call limit. Raised default to 0.75. Added built-in per-agent-type profiles so each agent gets appropriate limits: coder/test_engineer (400 calls, 45 min, 0.85 threshold), explorer (150 calls, 20 min), reviewer/critic/sme (200 calls, 30 min, 0.65 threshold), architect (800 calls, 90 min, 0.75 threshold).

@@ -1,6 +1,6 @@
 {
 	"name": "opencode-swarm",
-	"version": "5.0.5",
+	"version": "5.0.7",
 	"description": "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -25,7 +25,8 @@
 		"LICENSE"
 	],
 	"scripts": {
-		"build": "bun build src/index.ts --outdir dist --target bun --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && tsc --emitDeclarationOnly",
+		"clean": "rm -rf dist",
+		"build": "rm -rf dist && bun build src/index.ts --outdir dist --target bun --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && tsc --emitDeclarationOnly",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome lint .",
