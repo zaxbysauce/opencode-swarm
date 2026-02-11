@@ -15955,11 +15955,11 @@ var swarmState = {
   pendingEvents: 0,
   agentSessions: new Map
 };
-function startAgentSession(sessionId, agentName, staleDurationMs = 3600000) {
+function startAgentSession(sessionId, agentName, staleDurationMs = 7200000) {
   const now = Date.now();
   const staleIds = [];
   for (const [id, session] of swarmState.agentSessions) {
-    if (now - session.startTime > staleDurationMs) {
+    if (now - session.lastToolCallTime > staleDurationMs) {
       staleIds.push(id);
     }
   }
@@ -15969,6 +15969,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 3600000) {
   const sessionState = {
     agentName,
     startTime: now,
+    lastToolCallTime: now,
     toolCallCount: 0,
     consecutiveErrors: 0,
     recentToolCalls: [],
@@ -15979,6 +15980,24 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 3600000) {
 }
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
+}
+function ensureAgentSession(sessionId, agentName) {
+  const now = Date.now();
+  let session = swarmState.agentSessions.get(sessionId);
+  if (session) {
+    if (agentName && session.agentName === "unknown") {
+      session.agentName = agentName;
+      session.startTime = now;
+    }
+    session.lastToolCallTime = now;
+    return session;
+  }
+  startAgentSession(sessionId, agentName ?? "unknown");
+  session = swarmState.agentSessions.get(sessionId);
+  if (!session) {
+    throw new Error(`Failed to create guardrail session for ${sessionId}`);
+  }
+  return session;
 }
 
 // src/hooks/agent-activity.ts
@@ -16208,6 +16227,7 @@ function createDelegationTrackerHook(config2) {
     }
     const previousAgent = swarmState.activeAgent.get(input.sessionID);
     swarmState.activeAgent.set(input.sessionID, input.agent);
+    ensureAgentSession(input.sessionID, input.agent);
     if (config2.hooks?.delegation_tracker === true && previousAgent && previousAgent !== input.agent) {
       const entry = {
         from: previousAgent,
@@ -16234,22 +16254,8 @@ function createGuardrailsHooks(config2) {
   }
   return {
     toolBefore: async (input, output) => {
-      let session = getAgentSession(input.sessionID);
-      if (!session) {
-        const agentName = swarmState.activeAgent.get(input.sessionID) ?? "unknown";
-        startAgentSession(input.sessionID, agentName);
-        session = getAgentSession(input.sessionID);
-        if (!session) {
-          warn(`Failed to create session for ${input.sessionID}`);
-          return;
-        }
-      } else if (session.agentName === "unknown") {
-        const activeAgentName = swarmState.activeAgent.get(input.sessionID);
-        if (activeAgentName) {
-          session.agentName = activeAgentName;
-          session.startTime = Date.now();
-        }
-      }
+      const agentName = swarmState.activeAgent.get(input.sessionID);
+      const session = ensureAgentSession(input.sessionID, agentName);
       const agentConfig = resolveGuardrailsConfig(config2, session.agentName);
       if (session.hardLimitHit) {
         throw new Error("\uD83D\uDED1 CIRCUIT BREAKER: Agent blocked. Hard limit was previously triggered. Stop making tool calls and return your progress summary.");
@@ -16279,10 +16285,22 @@ function createGuardrailsHooks(config2) {
       const elapsedMinutes = (Date.now() - session.startTime) / 60000;
       if (session.toolCallCount >= agentConfig.max_tool_calls) {
         session.hardLimitHit = true;
+        warn("Circuit breaker: tool call limit hit", {
+          sessionID: input.sessionID,
+          agentName: session.agentName,
+          resolvedMaxCalls: agentConfig.max_tool_calls,
+          currentCalls: session.toolCallCount
+        });
         throw new Error(`\uD83D\uDED1 CIRCUIT BREAKER: Tool call limit reached (${session.toolCallCount}/${agentConfig.max_tool_calls}). Stop making tool calls and return your progress summary.`);
       }
       if (elapsedMinutes >= agentConfig.max_duration_minutes) {
         session.hardLimitHit = true;
+        warn("Circuit breaker: duration limit hit", {
+          sessionID: input.sessionID,
+          agentName: session.agentName,
+          resolvedMaxMinutes: agentConfig.max_duration_minutes,
+          elapsedMinutes: Math.floor(elapsedMinutes)
+        });
         throw new Error(`\uD83D\uDED1 CIRCUIT BREAKER: Duration limit reached (${Math.floor(elapsedMinutes)} min). Stop making tool calls and return your progress summary.`);
       }
       if (repetitionCount >= agentConfig.max_repetitions) {

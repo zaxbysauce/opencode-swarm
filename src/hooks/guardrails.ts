@@ -11,7 +11,7 @@ import {
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
 } from '../config/schema';
-import { getAgentSession, startAgentSession, swarmState } from '../state';
+import { ensureAgentSession, getAgentSession, swarmState } from '../state';
 import { warn } from '../utils';
 
 /**
@@ -52,28 +52,9 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 		 * Checks guardrail limits before allowing a tool call
 		 */
 		toolBefore: async (input, output) => {
-			// Get or create session
-			let session = getAgentSession(input.sessionID);
-			if (!session) {
-				// Get the real agent name from swarmState if available
-				const agentName =
-					swarmState.activeAgent.get(input.sessionID) ?? 'unknown';
-
-				startAgentSession(input.sessionID, agentName);
-				session = getAgentSession(input.sessionID);
-				if (!session) {
-					warn(`Failed to create session for ${input.sessionID}`);
-					return;
-				}
-			} else if (session.agentName === 'unknown') {
-				// Update agent name if session was created with 'unknown' before the active agent was set
-				const activeAgentName = swarmState.activeAgent.get(input.sessionID);
-				if (activeAgentName) {
-					session.agentName = activeAgentName;
-					// Reset start time for accurate duration tracking with correct agent limits
-					session.startTime = Date.now();
-				}
-			}
+			// Ensure session exists — uses activeAgent map as fallback for agent name
+			const agentName = swarmState.activeAgent.get(input.sessionID);
+			const session = ensureAgentSession(input.sessionID, agentName);
 
 			// Resolve per-agent config using profile overrides
 			const agentConfig = resolveGuardrailsConfig(config, session.agentName);
@@ -125,6 +106,12 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 			// Check HARD limits (any one triggers circuit breaker)
 			if (session.toolCallCount >= agentConfig.max_tool_calls) {
 				session.hardLimitHit = true;
+				warn('Circuit breaker: tool call limit hit', {
+					sessionID: input.sessionID,
+					agentName: session.agentName,
+					resolvedMaxCalls: agentConfig.max_tool_calls,
+					currentCalls: session.toolCallCount,
+				});
 				throw new Error(
 					`🛑 CIRCUIT BREAKER: Tool call limit reached (${session.toolCallCount}/${agentConfig.max_tool_calls}). Stop making tool calls and return your progress summary.`,
 				);
@@ -132,6 +119,12 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 
 			if (elapsedMinutes >= agentConfig.max_duration_minutes) {
 				session.hardLimitHit = true;
+				warn('Circuit breaker: duration limit hit', {
+					sessionID: input.sessionID,
+					agentName: session.agentName,
+					resolvedMaxMinutes: agentConfig.max_duration_minutes,
+					elapsedMinutes: Math.floor(elapsedMinutes),
+				});
 				throw new Error(
 					`🛑 CIRCUIT BREAKER: Duration limit reached (${Math.floor(elapsedMinutes)} min). Stop making tool calls and return your progress summary.`,
 				);

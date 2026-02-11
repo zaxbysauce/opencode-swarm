@@ -1,0 +1,224 @@
+{
+  "schema_version": "1.0.0",
+  "title": "v5.0.0 — Verifiable Execution",
+  "swarm": "mega",
+  "current_phase": 5,
+  "phases": [
+    {
+      "id": 1,
+      "name": "Canonical Plan Schema",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "1.1",
+          "phase": 1,
+          "status": "completed",
+          "size": "small",
+          "description": "Define PlanSchema + TaskSchema + PhaseSchema in src/config/plan",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.2",
+          "phase": 1,
+          "status": "completed",
+          "size": "medium",
+          "description": "Create src/plan/manager.ts — load/save/migrate/derive",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.3",
+          "phase": 1,
+          "status": "completed",
+          "size": "small",
+          "description": "Update src/hooks/extractors.ts to use plan manager",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.4",
+          "phase": 1,
+          "status": "completed",
+          "size": "small",
+          "description": "Update slash commands (plan, history, diagnose, export)",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.5",
+          "phase": 1,
+          "status": "completed",
+          "size": "medium",
+          "description": "Tests for plan schema, manager, migration, precedence",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Evidence Bundles",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "2.1",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Define evidence schemas in src/config/evidence",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.2",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Create src/evidence/manager.ts with sanitizeTaskId()",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.3",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Add /swarm evidence command",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.4",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Update /swarm diagnose for evidence completeness",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.5",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Tests for evidence schemas and manager",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.6",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Evidence retention policy + /swarm archive",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Per-Agent Guardrail Profiles",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "3.1",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Extend GuardrailsConfigSchema with profiles",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "3.2",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Update guardrails.ts for per",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "3.3",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Tests for profile resolution and merge",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Enhanced Agent View + CI Hardening",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "4.1",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Enhance /swarm agents output",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.2",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Add packaging smoke test",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.3",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Tests for enhanced agent view",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Context Injection Budget + Documentation",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "5.1",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Structured injection budget in system",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "5.2",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Update README, CHANGELOG, docs for v5.0.0",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "5.3",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Version bump to 5.0.0 + final verification",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    }
+  ],
+  "migration_status": "migrated"
+}

@@ -7,7 +7,7 @@
 
 import type { PluginConfig } from '../config/schema';
 import type { DelegationEntry } from '../state';
-import { swarmState } from '../state';
+import { ensureAgentSession, swarmState } from '../state';
 
 /**
  * Creates the chat.message hook for delegation tracking.
@@ -32,6 +32,11 @@ export function createDelegationTrackerHook(
 
 		// Update the active agent
 		swarmState.activeAgent.set(input.sessionID, input.agent);
+
+		// Ensure guardrail session exists with correct agent name
+		// This prevents the race condition where tool.execute.before fires
+		// before chat.message, causing sessions to be created with 'unknown'
+		ensureAgentSession(input.sessionID, input.agent);
 
 		// If delegation tracking is enabled and agent has changed, log the delegation
 		if (

@@ -47,6 +47,9 @@ export interface AgentSessionState {
 	/** Date.now() when session started */
 	startTime: number;
 
+	/** Timestamp of most recent tool call (for stale session eviction) */
+	lastToolCallTime: number;
+
 	/** Total tool calls in this session */
 	toolCallCount: number;
 
@@ -103,19 +106,20 @@ export function resetSwarmState(): void {
  * Also removes any stale sessions older than staleDurationMs.
  * @param sessionId - The session identifier
  * @param agentName - The agent associated with this session
- * @param staleDurationMs - Age threshold for stale session eviction (default: 60 min)
+ * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
  */
 export function startAgentSession(
 	sessionId: string,
 	agentName: string,
-	staleDurationMs = 3600000,
+	staleDurationMs = 7200000,
 ): void {
 	const now = Date.now();
 
-	// Evict stale sessions (collect first to avoid delete-during-iteration)
+	// Evict stale sessions based on last activity, not start time
+	// Default: 2 hours — must exceed the max possible agent duration (120 min from schema)
 	const staleIds: string[] = [];
 	for (const [id, session] of swarmState.agentSessions) {
-		if (now - session.startTime > staleDurationMs) {
+		if (now - session.lastToolCallTime > staleDurationMs) {
 			staleIds.push(id);
 		}
 	}
@@ -127,6 +131,7 @@ export function startAgentSession(
 	const sessionState: AgentSessionState = {
 		agentName,
 		startTime: now,
+		lastToolCallTime: now,
 		toolCallCount: 0,
 		consecutiveErrors: 0,
 		recentToolCalls: [],
@@ -154,4 +159,41 @@ export function getAgentSession(
 	sessionId: string,
 ): AgentSessionState | undefined {
 	return swarmState.agentSessions.get(sessionId);
+}
+
+/**
+ * Ensure a guardrail session exists for the given sessionID.
+ * If one exists and agentName is provided and different, update it.
+ * If none exists, create one.
+ * Always updates lastToolCallTime.
+ * @param sessionId - The session identifier
+ * @param agentName - Optional agent name (if known)
+ * @returns The AgentSessionState
+ */
+export function ensureAgentSession(
+	sessionId: string,
+	agentName?: string,
+): AgentSessionState {
+	const now = Date.now();
+	let session = swarmState.agentSessions.get(sessionId);
+
+	if (session) {
+		// Update agent name if provided and different
+		if (agentName && session.agentName === 'unknown') {
+			session.agentName = agentName;
+			// Reset start time for accurate duration tracking with correct agent limits
+			session.startTime = now;
+		}
+		session.lastToolCallTime = now;
+		return session;
+	}
+
+	// Create new session
+	startAgentSession(sessionId, agentName ?? 'unknown');
+	session = swarmState.agentSessions.get(sessionId);
+	if (!session) {
+		// This should never happen, but TypeScript needs it
+		throw new Error(`Failed to create guardrail session for ${sessionId}`);
+	}
+	return session;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState, ToolCallEntry, ToolAggregate, DelegationEntry, startAgentSession, endAgentSession, getAgentSession } from '../../src/state';
+import { swarmState, resetSwarmState, ToolCallEntry, ToolAggregate, DelegationEntry, startAgentSession, endAgentSession, getAgentSession, ensureAgentSession } from '../../src/state';
 
 describe('state module', () => {
 	beforeEach(() => {
@@ -440,10 +440,10 @@ describe('state module', () => {
 			startAgentSession('old-session', 'coder');
 			const oldSession = getAgentSession('old-session');
 			if (oldSession) {
-				oldSession.startTime = Date.now() - 7200000; // 2 hours ago
+				oldSession.lastToolCallTime = Date.now() - 7300000; // 121 minutes ago (>120 min threshold)
 			}
 
-			// Start a new session (triggers stale eviction with default 60 min)
+			// Start a new session (triggers stale eviction with default 120 min)
 			startAgentSession('new-session', 'reviewer');
 
 			// Old session should be gone
@@ -460,16 +460,16 @@ describe('state module', () => {
 			// Make one old
 			const oldSession = getAgentSession('old-session');
 			if (oldSession) {
-				oldSession.startTime = Date.now() - 7200000; // 2 hours ago
+				oldSession.lastToolCallTime = Date.now() - 7300000; // 121 minutes ago (>120 min threshold)
 			}
 
 			// Keep recent session recent
 			const recentSession = getAgentSession('recent-session');
 			if (recentSession) {
-				recentSession.startTime = Date.now() - 300000; // 5 minutes ago
+				recentSession.lastToolCallTime = Date.now() - 300000; // 5 minutes ago
 			}
 
-			// Start a new session (triggers stale eviction with default 60 min)
+			// Start a new session (triggers stale eviction with default 120 min)
 			startAgentSession('new-session', 'explorer');
 
 			// Old session should be gone
@@ -478,6 +478,63 @@ describe('state module', () => {
 			expect(getAgentSession('recent-session')).toBeDefined();
 			// New session should exist
 			expect(getAgentSession('new-session')).toBeDefined();
+		});
+	});
+
+	describe('ensureAgentSession', () => {
+		it('creates new session when none exists', () => {
+			const session = ensureAgentSession('new-session', 'architect');
+			expect(session.agentName).toBe('architect');
+			expect(session.toolCallCount).toBe(0);
+			expect(session.hardLimitHit).toBe(false);
+			expect(session.lastToolCallTime).toBeGreaterThan(0);
+		});
+
+		it('creates session with unknown when no agent name provided', () => {
+			const session = ensureAgentSession('new-session');
+			expect(session.agentName).toBe('unknown');
+		});
+
+		it('updates lastToolCallTime on existing session', () => {
+			startAgentSession('existing-session', 'coder');
+			const session1 = getAgentSession('existing-session')!;
+			const firstTime = session1.lastToolCallTime;
+
+			// Small delay to ensure timestamp difference
+			const laterTime = firstTime + 100;
+			// Manually advance to simulate time passing
+			session1.lastToolCallTime = firstTime;
+
+			const session2 = ensureAgentSession('existing-session');
+			expect(session2.lastToolCallTime).toBeGreaterThanOrEqual(firstTime);
+			expect(session2).toBe(session1); // Same object reference
+		});
+
+		it('updates agent name from unknown to real name', () => {
+			ensureAgentSession('test-session'); // Creates with 'unknown'
+			const session = ensureAgentSession('test-session', 'paid_architect');
+			expect(session.agentName).toBe('paid_architect');
+		});
+
+		it('does NOT update agent name when already set to non-unknown', () => {
+			ensureAgentSession('test-session', 'architect');
+			const session = ensureAgentSession('test-session', 'coder');
+			expect(session.agentName).toBe('architect'); // Should NOT change
+		});
+
+		it('resets startTime when updating from unknown', () => {
+			const session = ensureAgentSession('test-session'); // unknown
+			const originalStart = session.startTime;
+			session.startTime = originalStart - 60000; // Simulate 1 min elapsed
+
+			ensureAgentSession('test-session', 'architect');
+			expect(session.startTime).toBeGreaterThan(originalStart - 60000); // Reset
+		});
+
+		it('returns same session object for same sessionID', () => {
+			const s1 = ensureAgentSession('same-id', 'architect');
+			const s2 = ensureAgentSession('same-id');
+			expect(s1).toBe(s2);
 		});
 	});
 });

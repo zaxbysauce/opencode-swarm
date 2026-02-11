@@ -1,51 +1,17 @@
-# v5.0.0 — Verifiable Execution
-Swarm: mega
-Phase: 5 [PENDING] | Updated: 2026-02-09
+# Remove @agent routing prefixes from delegation prompts
+Swarm: paid
+Phase: 1 [PENDING] | Updated: 2026-02-10
 
 ## Thesis
-Upgrade opencode-swarm from "workflow + prompts" to "workflow + verifiable execution" by making the plan machine-checkable and persisting evidence per task.
+The architect's delegation prompts include `@agent_name` prefixes that leak into subagent context, causing subagents to waste tool calls attempting self-delegation via the Task tool. Remove all `@agent_name` routing metadata from prompt text — routing is handled by the `subagent_type` parameter on the Task tool.
 
 ---
 
-## Phase 1: Canonical Plan Schema [COMPLETE]
+## Phase 1: Remove @agent prefixes [PENDING]
 
-- [x] 1.1: Define PlanSchema + TaskSchema + PhaseSchema in src/config/plan-schema.ts [SMALL]
-- [x] 1.2: Create src/plan/manager.ts — load/save/migrate/derive [MEDIUM]
-- [x] 1.3: Update src/hooks/extractors.ts to use plan manager [SMALL]
-- [x] 1.4: Update slash commands (plan, history, diagnose, export) [SMALL]
-- [x] 1.5: Tests for plan schema, manager, migration, precedence [MEDIUM]
-
----
-
-## Phase 2: Evidence Bundles [COMPLETE]
-
-- [x] 2.1: Define evidence schemas in src/config/evidence-schema.ts [SMALL]
-- [x] 2.2: Create src/evidence/manager.ts with sanitizeTaskId() [SMALL]
-- [x] 2.3: Add /swarm evidence command [SMALL]
-- [x] 2.4: Update /swarm diagnose for evidence completeness [SMALL]
-- [x] 2.5: Tests for evidence schemas and manager [MEDIUM]
-- [x] 2.6: Evidence retention policy + /swarm archive [SMALL]
-
----
-
-## Phase 3: Per-Agent Guardrail Profiles [COMPLETE]
-
-- [x] 3.1: Extend GuardrailsConfigSchema with profiles [SMALL]
-- [x] 3.2: Update guardrails.ts for per-agent limit resolution [SMALL]
-- [x] 3.3: Tests for profile resolution and merge [SMALL]
-
----
-
-## Phase 4: Enhanced Agent View + CI Hardening [COMPLETE]
-
-- [x] 4.1: Enhance /swarm agents output [SMALL]
-- [x] 4.2: Add packaging smoke test [SMALL]
-- [x] 4.3: Tests for enhanced agent view [SMALL]
-
----
-
-## Phase 5: Context Injection Budget + Documentation [COMPLETE]
-
-- [x] 5.1: Structured injection budget in system-enhancer.ts [SMALL]
-- [x] 5.2: Update README, CHANGELOG, docs for v5.0.0 [SMALL]
-- [x] 5.3: Version bump to 5.0.0 + final verification [SMALL]
+- [ ] 1.1: Update src/agents/architect.ts — remove `@{{AGENT_PREFIX}}` from all delegation format examples, agent list, workflow steps, and rules. Keep `{{AGENT_PREFIX}}` (without @) in the IDENTITY section agent list for informational awareness only. [MEDIUM]
+- [ ] 1.2: Update .swarm/context.md Delegation Formats section — remove `@{{AGENT_PREFIX}}` prefixes from SME, Critic, and Reviewer example formats [SMALL]
+- [ ] 1.3: Update docs/installation.md line 143 — remove `@local_` prefix reference [SMALL]
+- [ ] 1.4: Update tests/unit/agents/creation.test.ts if any assertions check for `@{{AGENT_PREFIX}}` patterns [SMALL]
+- [ ] 1.5: Update persona memory block — add rule about not including @ prefixes in delegation prompts [SMALL]
+- [ ] 1.6: Build, run full test suite, verify 883+ tests pass [SMALL]

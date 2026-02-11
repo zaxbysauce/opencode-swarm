@@ -66,7 +66,6 @@ interface Hooks {
 
 ### SME
 ```
-@{{AGENT_PREFIX}}sme
 TASK: Advise on [topic]
 DOMAIN: [any domain]
 INPUT: [context]
@@ -75,7 +74,6 @@ OUTPUT: CRITICAL, APPROACH, API, GOTCHAS, DEPS
 
 ### Critic
 ```
-@{{AGENT_PREFIX}}critic
 TASK: Review plan for [description]
 PLAN: [plan.md content]
 CONTEXT: [codebase summary]
@@ -84,7 +82,6 @@ OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
 
 ### Reviewer
 ```
-@{{AGENT_PREFIX}}reviewer
 TASK: Review [description]
 FILE: [path]
 CHECK: [security, correctness, edge-cases, etc.]
@@ -155,13 +152,11 @@ OUTPUT: VERDICT + RISK + ISSUES
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 346 | 346 | 0 | 5ms |
-| bash | 243 | 243 | 0 | 1056ms |
-| edit | 207 | 207 | 0 | 944ms |
-| task | 48 | 48 | 0 | 155416ms |
-| todowrite | 39 | 39 | 0 | 2ms |
-| grep | 28 | 28 | 0 | 71ms |
-| write | 27 | 27 | 0 | 3057ms |
-| glob | 19 | 19 | 0 | 28ms |
-| memory_set | 2 | 2 | 0 | 6ms |
-| invalid | 1 | 1 | 0 | 1ms |
+| read | 37 | 37 | 0 | 3ms |
+| edit | 21 | 21 | 0 | 945ms |
+| bash | 14 | 14 | 0 | 1590ms |
+| task | 8 | 8 | 0 | 104229ms |
+| grep | 7 | 7 | 0 | 1228ms |
+| todowrite | 6 | 6 | 0 | 1ms |
+| write | 5 | 5 | 0 | 398ms |
+| glob | 3 | 3 | 0 | 22ms |

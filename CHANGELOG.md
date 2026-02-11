@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.4] - 2026-02-11
+### Fixed
+- **Guardrails race condition: sessions created with wrong agent name** — The `tool.execute.before` hook could fire before `chat.message` (which provides the agent name), causing guardrail sessions to be permanently stuck with `agentName: 'unknown'` and the default 30-minute limit instead of the architect's 90-minute limit. Added `ensureAgentSession()` which is called from both `chat.message` and `tool.execute.before` hooks, ensuring the session always has the correct agent name regardless of hook firing order.
+- **Stale session eviction killed architect sessions prematurely** — The eviction threshold was 60 minutes (hardcoded `staleDurationMs = 3600000`), but the architect's max duration is 90 minutes. Any new session created after 60 minutes would evict the architect's session. Changed eviction to use `lastToolCallTime` instead of `startTime` and increased threshold to 120 minutes (matching the schema maximum).
+- **Added diagnostic logging** — Circuit breaker now logs `agentName`, `resolvedMaxMinutes`/`resolvedMaxCalls`, and elapsed values via `warn()` when limits are hit, enabling production debugging.
+
+### Tests
+- **7 new tests** for `ensureAgentSession` (session creation, name updates from unknown, preservation of existing names, startTime reset).
+- **909 total tests** across 39 files (up from 902 in v5.0.3).
+
 ## [5.0.3] - 2026-02-10
 ### Fixed
 - **Guardrails circuit breaker now recognizes prefixed architect agents** — `resolveGuardrailsConfig()` previously compared the raw prefixed agent name (e.g., `local_architect`, `paid_architect`) against `ORCHESTRATOR_NAME` (`'architect'`) using exact match, which always failed. Added `stripKnownSwarmPrefix()` which uses suffix matching against `ALL_AGENT_NAMES` to strip **any** swarm prefix (not just hardcoded ones). Works for custom swarm names like `enterprise_architect`, `team_alpha_coder`, etc. Also fixed session creation in `guardrails.ts` to read the real agent name from `swarmState.activeAgent` instead of defaulting to `'unknown'`.

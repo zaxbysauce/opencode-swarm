@@ -41,6 +41,8 @@ export interface AgentSessionState {
     agentName: string;
     /** Date.now() when session started */
     startTime: number;
+    /** Timestamp of most recent tool call (for stale session eviction) */
+    lastToolCallTime: number;
     /** Total tool calls in this session */
     toolCallCount: number;
     /** Consecutive errors (reset on success) */
@@ -82,7 +84,7 @@ export declare function resetSwarmState(): void;
  * Also removes any stale sessions older than staleDurationMs.
  * @param sessionId - The session identifier
  * @param agentName - The agent associated with this session
- * @param staleDurationMs - Age threshold for stale session eviction (default: 60 min)
+ * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
  */
 export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number): void;
 /**
@@ -96,3 +98,13 @@ export declare function endAgentSession(sessionId: string): void;
  * @returns The AgentSessionState or undefined if not found
  */
 export declare function getAgentSession(sessionId: string): AgentSessionState | undefined;
+/**
+ * Ensure a guardrail session exists for the given sessionID.
+ * If one exists and agentName is provided and different, update it.
+ * If none exists, create one.
+ * Always updates lastToolCallTime.
+ * @param sessionId - The session identifier
+ * @param agentName - Optional agent name (if known)
+ * @returns The AgentSessionState
+ */
+export declare function ensureAgentSession(sessionId: string, agentName?: string): AgentSessionState;
