@@ -257,7 +257,7 @@ describe('GuardrailsConfigSchema', () => {
       expect(result.data.max_duration_minutes).toBe(30);
       expect(result.data.max_repetitions).toBe(10);
       expect(result.data.max_consecutive_errors).toBe(5);
-      expect(result.data.warning_threshold).toBe(0.5);
+      expect(result.data.warning_threshold).toBe(0.75);
     }
   });
 
@@ -270,7 +270,7 @@ describe('GuardrailsConfigSchema', () => {
       expect(result.data.max_duration_minutes).toBe(30); // Default
       expect(result.data.max_repetitions).toBe(10); // Default
       expect(result.data.max_consecutive_errors).toBe(5); // Default
-      expect(result.data.warning_threshold).toBe(0.5); // Default
+      expect(result.data.warning_threshold).toBe(0.75); // Default
     }
   });
 

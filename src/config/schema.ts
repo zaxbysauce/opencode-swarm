@@ -63,12 +63,47 @@ export const GuardrailsProfileSchema = z.object({
 
 export type GuardrailsProfile = z.infer<typeof GuardrailsProfileSchema>;
 
-export const DEFAULT_ARCHITECT_PROFILE: GuardrailsProfile = {
-	max_tool_calls: 600,
-	max_duration_minutes: 90,
-	max_consecutive_errors: 8,
-	warning_threshold: 0.7,
+export const DEFAULT_AGENT_PROFILES: Record<string, GuardrailsProfile> = {
+	architect: {
+		max_tool_calls: 800,
+		max_duration_minutes: 90,
+		max_consecutive_errors: 8,
+		warning_threshold: 0.75,
+	},
+	coder: {
+		max_tool_calls: 400,
+		max_duration_minutes: 45,
+		warning_threshold: 0.85,
+	},
+	test_engineer: {
+		max_tool_calls: 400,
+		max_duration_minutes: 45,
+		warning_threshold: 0.85,
+	},
+	explorer: {
+		max_tool_calls: 150,
+		max_duration_minutes: 20,
+		warning_threshold: 0.75,
+	},
+	reviewer: {
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		warning_threshold: 0.65,
+	},
+	critic: {
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		warning_threshold: 0.65,
+	},
+	sme: {
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		warning_threshold: 0.65,
+	},
 };
+
+/** @deprecated Use DEFAULT_AGENT_PROFILES.architect instead */
+export const DEFAULT_ARCHITECT_PROFILE = DEFAULT_AGENT_PROFILES.architect;
 
 // Guardrails configuration
 export const GuardrailsConfigSchema = z.object({
@@ -77,7 +112,7 @@ export const GuardrailsConfigSchema = z.object({
 	max_duration_minutes: z.number().min(1).max(120).default(30),
 	max_repetitions: z.number().min(3).max(50).default(10),
 	max_consecutive_errors: z.number().min(2).max(20).default(5),
-	warning_threshold: z.number().min(0.1).max(0.9).default(0.5),
+	warning_threshold: z.number().min(0.1).max(0.9).default(0.75),
 	profiles: z.record(z.string(), GuardrailsProfileSchema).optional(),
 });
 
@@ -110,7 +145,7 @@ export function stripKnownSwarmPrefix(name: string): string {
 
 /**
  * Resolve guardrails configuration for a specific agent.
- * Merges the base config with built-in defaults (for the architect) and
+ * Merges the base config with built-in agent-type defaults and
  * any per-agent profile overrides. Merge order: base < built-in < user profile.
  *
  * @param base - The base guardrails configuration
@@ -128,9 +163,8 @@ export function resolveGuardrailsConfig(
 	// Strip known swarm prefixes to get the base agent name
 	const baseName = stripKnownSwarmPrefix(agentName);
 
-	// Layer 1: Apply built-in defaults for the architect (using base name)
-	const builtIn =
-		baseName === ORCHESTRATOR_NAME ? DEFAULT_ARCHITECT_PROFILE : undefined;
+	// Layer 1: Apply built-in defaults for the agent (using base name)
+	const builtIn = DEFAULT_AGENT_PROFILES[baseName];
 
 	// Layer 2: Apply user-defined profile overrides (highest priority)
 	// Check base name first, then fall back to prefixed name for backwards compatibility

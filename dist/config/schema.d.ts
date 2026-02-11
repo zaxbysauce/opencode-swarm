@@ -45,7 +45,15 @@ export declare const GuardrailsProfileSchema: z.ZodObject<{
     warning_threshold: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type GuardrailsProfile = z.infer<typeof GuardrailsProfileSchema>;
-export declare const DEFAULT_ARCHITECT_PROFILE: GuardrailsProfile;
+export declare const DEFAULT_AGENT_PROFILES: Record<string, GuardrailsProfile>;
+/** @deprecated Use DEFAULT_AGENT_PROFILES.architect instead */
+export declare const DEFAULT_ARCHITECT_PROFILE: {
+    max_tool_calls?: number | undefined;
+    max_duration_minutes?: number | undefined;
+    max_repetitions?: number | undefined;
+    max_consecutive_errors?: number | undefined;
+    warning_threshold?: number | undefined;
+};
 export declare const GuardrailsConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     max_tool_calls: z.ZodDefault<z.ZodNumber>;
@@ -76,7 +84,7 @@ export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
 export declare function stripKnownSwarmPrefix(name: string): string;
 /**
  * Resolve guardrails configuration for a specific agent.
- * Merges the base config with built-in defaults (for the architect) and
+ * Merges the base config with built-in agent-type defaults and
  * any per-agent profile overrides. Merge order: base < built-in < user profile.
  *
  * @param base - The base guardrails configuration

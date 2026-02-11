@@ -5,6 +5,7 @@ import {
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
 	DEFAULT_ARCHITECT_PROFILE,
+	DEFAULT_AGENT_PROFILES,
 	type GuardrailsConfig,
 } from '../../../src/config/schema';
 
@@ -101,7 +102,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: {
 				coder: { max_tool_calls: 400 },
 				explorer: { max_duration_minutes: 60 },
@@ -119,7 +120,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 		};
 
 		const result = GuardrailsConfigSchema.parse(config);
@@ -133,7 +134,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: {},
 		};
 
@@ -148,7 +149,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: {
 				coder: { max_tool_calls: 5 }, // Invalid: below 10
 			},
@@ -165,7 +166,7 @@ describe('resolveGuardrailsConfig', () => {
 		max_duration_minutes: 30,
 		max_repetitions: 10,
 		max_consecutive_errors: 5,
-		warning_threshold: 0.5,
+		warning_threshold: 0.75,
 		profiles: {
 			coder: { max_tool_calls: 20, warning_threshold: 0.7 },
 			explorer: { max_duration_minutes: 60 },
@@ -187,28 +188,18 @@ describe('resolveGuardrailsConfig', () => {
 		expect(result).toBe(baseConfig);
 	});
 
-	it('returns base when agentName not in profiles', () => {
+	it('returns base when agentName not in built-in profiles', () => {
 		const result = resolveGuardrailsConfig(baseConfig, 'unknown-agent');
 		expect(result).toBe(baseConfig);
 	});
 
-	it('returns base when profiles field is undefined', () => {
-		const configWithoutProfiles: GuardrailsConfig = {
-			...baseConfig,
-			profiles: undefined,
-		};
-
-		const result = resolveGuardrailsConfig(configWithoutProfiles, 'coder');
-		expect(result).toBe(configWithoutProfiles);
-	});
-
-	it('merges single field override (coder gets max_tool_calls=20)', () => {
+	it('merges single field override (coder gets max_tool_calls=20 from profile)', () => {
 		const result = resolveGuardrailsConfig(baseConfig, 'coder');
-		expect(result.max_tool_calls).toBe(20);
-		expect(result.max_duration_minutes).toBe(30); // Unchanged
-		expect(result.max_repetitions).toBe(10); // Unchanged
-		expect(result.max_consecutive_errors).toBe(5); // Unchanged
-		expect(result.warning_threshold).toBe(0.7); // Also overridden
+		expect(result.max_tool_calls).toBe(20); // User profile override
+		expect(result.max_duration_minutes).toBe(45); // Built-in profile
+		expect(result.max_repetitions).toBe(10); // Base value
+		expect(result.max_consecutive_errors).toBe(5); // Base value
+		expect(result.warning_threshold).toBe(0.7); // User profile override (0.7), not built-in (0.85)
 	});
 
 	it('merges multiple field overrides', () => {
@@ -226,17 +217,18 @@ describe('resolveGuardrailsConfig', () => {
 		};
 
 		const result = resolveGuardrailsConfig(config, 'coder');
-		expect(result.max_tool_calls).toBe(50);
-		expect(result.max_duration_minutes).toBe(45);
-		expect(result.max_repetitions).toBe(15);
-		expect(result.max_consecutive_errors).toBe(10);
-		expect(result.warning_threshold).toBe(0.8);
+		expect(result.max_tool_calls).toBe(50); // User override
+		expect(result.max_duration_minutes).toBe(45); // User override (same as built-in)
+		expect(result.max_repetitions).toBe(15); // User override
+		expect(result.max_consecutive_errors).toBe(10); // User override
+		expect(result.warning_threshold).toBe(0.8); // User override
 	});
 
 	it('profile does not affect other agents (explorer profile does not affect coder resolution)', () => {
 		const result = resolveGuardrailsConfig(baseConfig, 'coder');
-		expect(result.max_tool_calls).toBe(20); // coder's override
-		expect(result.max_duration_minutes).toBe(30); // base value, not explorer's 60
+		expect(result.max_tool_calls).toBe(20); // coder's user profile override
+		expect(result.max_duration_minutes).toBe(45); // coder's built-in profile
+		expect(result.warning_threshold).toBe(0.7); // coder's user profile override
 	});
 
 	it('base profiles field preserved in result', () => {
@@ -256,18 +248,18 @@ describe('resolveGuardrailsConfig', () => {
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: {
-				tester: { max_consecutive_errors: 2 }, // Only override one field
+				test_engineer: { max_consecutive_errors: 2 }, // Only override one field
 			},
 		};
 
-		const result = resolveGuardrailsConfig(config, 'tester');
-		expect(result.max_tool_calls).toBe(100); // Base value
-		expect(result.max_duration_minutes).toBe(30); // Base value
+		const result = resolveGuardrailsConfig(config, 'test_engineer');
+		expect(result.max_tool_calls).toBe(400); // Built-in profile value
+		expect(result.max_duration_minutes).toBe(45); // Built-in profile value
 		expect(result.max_repetitions).toBe(10); // Base value
-		expect(result.max_consecutive_errors).toBe(2); // Override value
-		expect(result.warning_threshold).toBe(0.5); // Base value
+		expect(result.max_consecutive_errors).toBe(2); // User profile override
+		expect(result.warning_threshold).toBe(0.85); // Built-in profile value
 	});
 
 	it('multiple profiles can exist with different overrides', () => {
@@ -277,22 +269,22 @@ describe('resolveGuardrailsConfig', () => {
 			max_duration_minutes: 20,
 			max_repetitions: 5,
 			max_consecutive_errors: 3,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: {
 				coder: { max_tool_calls: 100 },
 				explorer: { max_duration_minutes: 40 },
-				tester: { max_repetitions: 10 },
+				test_engineer: { max_repetitions: 10 },
 			},
 		};
 
 		const coderResult = resolveGuardrailsConfig(config, 'coder');
-		expect(coderResult.max_tool_calls).toBe(100);
+		expect(coderResult.max_tool_calls).toBe(100); // User override
 
 		const explorerResult = resolveGuardrailsConfig(config, 'explorer');
-		expect(explorerResult.max_duration_minutes).toBe(40);
+		expect(explorerResult.max_duration_minutes).toBe(40); // User override
 
-		const testerResult = resolveGuardrailsConfig(config, 'tester');
-		expect(testerResult.max_repetitions).toBe(10);
+		const testerResult = resolveGuardrailsConfig(config, 'test_engineer');
+		expect(testerResult.max_repetitions).toBe(10); // User override
 	});
 });
 
@@ -303,25 +295,27 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 		max_duration_minutes: 30,
 		max_repetitions: 10,
 		max_consecutive_errors: 5,
-		warning_threshold: 0.5,
+		warning_threshold: 0.75,
 	};
 
 	it('architect gets built-in default profile automatically', () => {
 		const result = resolveGuardrailsConfig(base, 'architect');
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 		expect(result.max_duration_minutes).toBe(90);
 		expect(result.max_consecutive_errors).toBe(8);
-		expect(result.warning_threshold).toBe(0.7);
+		expect(result.warning_threshold).toBe(0.75);
 	});
 
-	it('architect built-in does not override max_repetitions (not in DEFAULT_ARCHITECT_PROFILE)', () => {
+	it('architect built-in does not override max_repetitions (not in DEFAULT_AGENT_PROFILES.architect)', () => {
 		const result = resolveGuardrailsConfig(base, 'architect');
 		expect(result.max_repetitions).toBe(10);
 	});
 
-	it('non-architect agents do not get built-in defaults', () => {
+	it('non-architect agents also get their built-in defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'coder');
-		expect(result).toBe(base);
+		expect(result.max_tool_calls).toBe(400); // Built-in coder profile
+		expect(result.max_duration_minutes).toBe(45); // Built-in coder profile
+		expect(result.warning_threshold).toBe(0.85); // Built-in coder profile
 	});
 
 	it('user profile overrides built-in architect defaults', () => {
@@ -335,7 +329,7 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 		const result = resolveGuardrailsConfig(config, 'architect');
 		expect(result.max_tool_calls).toBe(300); // User wins
 		expect(result.max_duration_minutes).toBe(90); // Built-in
-		expect(result.warning_threshold).toBe(0.7); // Built-in
+		expect(result.warning_threshold).toBe(0.75); // Built-in
 	});
 
 	it('user can fully override all architect built-in defaults', () => {
@@ -358,12 +352,12 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 		expect(result.warning_threshold).toBe(0.6);
 	});
 
-	it('DEFAULT_ARCHITECT_PROFILE values are within schema bounds', () => {
+	it('DEFAULT_ARCHITECT_PROFILE values match DEFAULT_AGENT_PROFILES.architect', () => {
 		const result = GuardrailsProfileSchema.parse(DEFAULT_ARCHITECT_PROFILE);
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 		expect(result.max_duration_minutes).toBe(90);
 		expect(result.max_consecutive_errors).toBe(8);
-		expect(result.warning_threshold).toBe(0.7);
+		expect(result.warning_threshold).toBe(0.75);
 	});
 
 	it('architect built-in does not affect other agents in same config', () => {
@@ -375,8 +369,8 @@ describe('resolveGuardrailsConfig architect defaults', () => {
 		};
 
 		const result = resolveGuardrailsConfig(config, 'coder');
-		expect(result.max_tool_calls).toBe(100); // coder profile
-		expect(result.max_duration_minutes).toBe(30); // base, NOT 90
+		expect(result.max_tool_calls).toBe(100); // User coder profile
+		expect(result.max_duration_minutes).toBe(45); // Built-in coder profile
 	});
 });
 
@@ -434,29 +428,31 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 		max_duration_minutes: 30,
 		max_repetitions: 10,
 		max_consecutive_errors: 5,
-		warning_threshold: 0.5,
+		warning_threshold: 0.75,
 	};
 
 	it('local_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'local_architect');
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 		expect(result.max_duration_minutes).toBe(90);
 	});
 
 	it('paid_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'paid_architect');
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 		expect(result.max_duration_minutes).toBe(90);
 	});
 
 	it('mega_architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'mega_architect');
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 	});
 
-	it('local_coder does NOT get architect defaults (returns base)', () => {
+	it('local_coder gets coder built-in defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'local_coder');
-		expect(result).toBe(base);
+		expect(result.max_tool_calls).toBe(400); // Built-in coder profile
+		expect(result.max_duration_minutes).toBe(45); // Built-in coder profile
+		expect(result.warning_threshold).toBe(0.85); // Built-in coder profile
 	});
 
 	it('profile lookup uses base name', () => {
@@ -489,15 +485,17 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 
 	it('custom swarm name architect gets architect defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'enterprise_architect');
-		expect(result.max_tool_calls).toBe(600);
+		expect(result.max_tool_calls).toBe(800);
 		expect(result.max_duration_minutes).toBe(90);
 		expect(result.max_consecutive_errors).toBe(8);
-		expect(result.warning_threshold).toBe(0.7);
+		expect(result.warning_threshold).toBe(0.75);
 	});
 
-	it('custom swarm name coder does NOT get architect defaults', () => {
+	it('custom swarm name coder gets coder built-in defaults', () => {
 		const result = resolveGuardrailsConfig(base, 'team_alpha_coder');
-		expect(result).toBe(base);
+		expect(result.max_tool_calls).toBe(400); // Built-in coder profile
+		expect(result.max_duration_minutes).toBe(45); // Built-in coder profile
+		expect(result.warning_threshold).toBe(0.85); // Built-in coder profile
 	});
 
 	it('custom swarm name profile lookup uses base name', () => {

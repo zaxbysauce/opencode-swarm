@@ -10,7 +10,7 @@ import type { GuardrailsConfig } from '../../../src/config/schema';
 			max_duration_minutes: 30,
 			max_repetitions: 10,
 			max_consecutive_errors: 5,
-			warning_threshold: 0.5,
+			warning_threshold: 0.75,
 			profiles: undefined,
 			...overrides,
 		};
@@ -75,7 +75,7 @@ describe('guardrails circuit breaker', () => {
 		it('warning issued at threshold', async () => {
 			const config = defaultConfig({ max_tool_calls: 10, warning_threshold: 0.5 });
 			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', 'coder');
+			startAgentSession('test-session', 'unknown');
 
 			for (let i = 0; i < 5; i++) {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput());
@@ -88,31 +88,31 @@ describe('guardrails circuit breaker', () => {
 		it('throws at hard limit', async () => {
 			const config = defaultConfig({ max_tool_calls: 5 });
 			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', 'coder');
+			startAgentSession('test-session', 'unknown');
 
 			// First 4 should not throw (0-4 increments, but limit is 5)
 			for (let i = 0; i < 4; i++) {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput());
 			}
 
-			// 5th call should throw
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('Tool call limit');
+		// 5th call should throw
+		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
+			.rejects.toThrow('Tool calls exhausted');
 		});
 
 		it('blocks all subsequent calls after hard limit', async () => {
 			const config = defaultConfig({ max_tool_calls: 3 });
 			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', 'coder');
+			startAgentSession('test-session', 'unknown');
 
 			// First 2 should not throw
 			for (let i = 0; i < 2; i++) {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput());
 			}
 
-			// 3rd call should throw and set hardLimitHit
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('Tool call limit');
+		// 3rd call should throw and set hardLimitHit
+		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
+			.rejects.toThrow('Tool calls exhausted');
 
 			// 4th call should also throw with different message
 			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
@@ -124,7 +124,7 @@ describe('guardrails circuit breaker', () => {
 		it('throws at duration limit', async () => {
 			const config = defaultConfig({ max_duration_minutes: 30 });
 			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', 'coder');
+			startAgentSession('test-session', 'unknown');
 
 			// Manually set startTime to 31 minutes ago
 			const session = getAgentSession('test-session');
@@ -132,14 +132,14 @@ describe('guardrails circuit breaker', () => {
 				session.startTime = Date.now() - 31 * 60000;
 			}
 
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('Duration limit');
+		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
+			.rejects.toThrow('Duration exhausted');
 		});
 
 		it('warning at duration threshold', async () => {
 			const config = defaultConfig({ max_duration_minutes: 30, warning_threshold: 0.5 });
 			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', 'coder');
+			startAgentSession('test-session', 'unknown');
 
 			// Manually set startTime to 16 minutes ago (above 15 min threshold)
 			const session = getAgentSession('test-session');
@@ -165,9 +165,9 @@ describe('guardrails circuit breaker', () => {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput(args));
 			}
 
-			// 3rd identical call should throw
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput(args)))
-				.rejects.toThrow('Repetition detected');
+		// 3rd identical call should throw
+		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput(args)))
+			.rejects.toThrow('Repeated the same tool call');
 		});
 
 		it('does not flag different tools', async () => {
@@ -226,8 +226,8 @@ describe('guardrails circuit breaker', () => {
 				session.consecutiveErrors = 5;
 			}
 
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('consecutive errors');
+		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
+			.rejects.toThrow('consecutive tool errors detected');
 		});
 
 		it('does not throw when errors under limit', async () => {
@@ -334,7 +334,7 @@ describe('guardrails circuit breaker', () => {
 
 			await hooks.messagesTransform({}, { messages });
 
-			expect(messages[0].parts[0].text).toContain('⚠️ GUARDRAIL WARNING');
+			expect(messages[0].parts[0].text).toContain('⚠️ APPROACHING LIMITS');
 		});
 
 		it('injects hard stop when hardLimitHit', async () => {
@@ -354,7 +354,7 @@ describe('guardrails circuit breaker', () => {
 
 			await hooks.messagesTransform({}, { messages });
 
-			expect(messages[0].parts[0].text).toContain('🛑 CIRCUIT BREAKER ACTIVE');
+			expect(messages[0].parts[0].text).toContain('🛑 LIMIT REACHED');
 		});
 
 		it('hard limit message takes precedence over warning', async () => {
@@ -375,8 +375,8 @@ describe('guardrails circuit breaker', () => {
 
 			await hooks.messagesTransform({}, { messages });
 
-			expect(messages[0].parts[0].text).toContain('🛑 CIRCUIT BREAKER ACTIVE');
-			expect(messages[0].parts[0].text).not.toContain('⚠️ GUARDRAIL WARNING');
+			expect(messages[0].parts[0].text).toContain('🛑 LIMIT REACHED');
+			expect(messages[0].parts[0].text).not.toContain('⚠️ APPROACHING LIMITS');
 		});
 
 		it('does nothing with no messages', async () => {
@@ -465,10 +465,10 @@ describe('guardrails circuit breaker', () => {
 			});
 			const hooks = createGuardrailsHooks(config);
 
-			// Create session with 'coder' agent
+			// Create session with 'coder' agent - user profile override gives limit of 20
 			startAgentSession('coder-session', 'coder');
 
-			// Make 10 calls - should NOT throw (coder limit is 20)
+			// Make 10 calls - should NOT throw (coder limit is 20 from user profile)
 			for (let i = 0; i < 10; i++) {
 				await hooks.toolBefore(
 					makeInput('coder-session', `tool-${i}`, `call-${i}`),
@@ -477,50 +477,51 @@ describe('guardrails circuit breaker', () => {
 			}
 			// No error thrown - coder's limit of 20 not reached
 
-			// But a default agent session would throw at 10
-			startAgentSession('default-session', 'explorer');
+			// But a unknown agent session would throw at 10 (uses base limit)
+			startAgentSession('default-session', 'unknown');
 			for (let i = 0; i < 9; i++) {
 				await hooks.toolBefore(
 					makeInput('default-session', `tool-${i}`, `call-d-${i}`),
 					makeOutput({ arg: i }),
 				);
 			}
-			// 10th call should throw for explorer (base limit is 10)
+			// 10th call should throw for unknown (base limit is 10)
 			await expect(
 				hooks.toolBefore(
 					makeInput('default-session', 'tool-10', 'call-d-10'),
 					makeOutput({ arg: 10 }),
 				),
-			).rejects.toThrow('CIRCUIT BREAKER');
+			).rejects.toThrow('LIMIT REACHED');
 		});
 
-		it('agent without profile uses base config limits', async () => {
+		it('agent with user profile override uses custom limits', async () => {
 			const config = defaultConfig({
 				max_tool_calls: 5,
 				profiles: {
 					coder: { max_tool_calls: 100 }, // Coder gets high limit
+					explorer: { max_tool_calls: 10 }, // Explorer gets custom limit
 				},
 			});
 			const hooks = createGuardrailsHooks(config);
 
-			// Create session with 'explorer' agent (no profile)
+			// Create session with 'explorer' agent (has built-in profile + user override)
 			startAgentSession('explorer-session', 'explorer');
 
-			// Make 4 calls - should be fine
-			for (let i = 0; i < 4; i++) {
+			// Make 9 calls - should be fine (built-in is 150, user override is 10)
+			for (let i = 0; i < 9; i++) {
 				await hooks.toolBefore(
 					makeInput('explorer-session', `tool-${i}`, `call-${i}`),
 					makeOutput({ arg: i }),
 				);
 			}
 
-			// 5th call should throw (base limit is 5, explorer has no profile)
+			// 10th call should throw (user override limit is 10)
 			await expect(
 				hooks.toolBefore(
-					makeInput('explorer-session', 'tool-5', 'call-5'),
-					makeOutput({ arg: 5 }),
+					makeInput('explorer-session', 'tool-10', 'call-10'),
+					makeOutput({ arg: 10 }),
 				),
-			).rejects.toThrow('CIRCUIT BREAKER');
+			).rejects.toThrow('LIMIT REACHED');
 		});
 
 		it('unknown agent (auto-created session) uses base config', async () => {
@@ -550,7 +551,7 @@ describe('guardrails circuit breaker', () => {
 					makeInput('unknown-session', 'tool-5', 'call-5'),
 					makeOutput({ arg: 5 }),
 				),
-			).rejects.toThrow('CIRCUIT BREAKER');
+			).rejects.toThrow('LIMIT REACHED');
 		});
 
 		it('agent with profile gets different warning threshold', async () => {
@@ -558,12 +559,12 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 100,
 				warning_threshold: 0.5, // Base: warn at 50 calls
 				profiles: {
-					coder: { warning_threshold: 0.8 }, // Coder: warn at 80 calls
+					coder: { warning_threshold: 0.8 }, // Coder: warn at 80 calls (built-in is 400*0.85=340)
 				},
 			});
 			const hooks = createGuardrailsHooks(config);
 
-			// Coder session - should NOT warn at 50 calls (threshold is 0.8, so 80)
+			// Coder session - should NOT warn at 50 calls (built-in threshold is 0.85, user override is 0.8)
 			startAgentSession('coder-session', 'coder');
 			for (let i = 0; i < 50; i++) {
 				await hooks.toolBefore(
@@ -574,9 +575,10 @@ describe('guardrails circuit breaker', () => {
 			const coderSession = getAgentSession('coder-session');
 			expect(coderSession?.warningIssued).toBe(false);
 
-			// Explorer session - SHOULD warn at 50 calls (uses base threshold of 0.5)
+			// Explorer session - has built-in threshold of 0.75, max_tool_calls of 150
+			// Warning at: 150 * 0.75 = 112.5 calls, so we need 113+ calls to trigger warning
 			startAgentSession('explorer-session', 'explorer');
-			for (let i = 0; i < 50; i++) {
+			for (let i = 0; i < 113; i++) {
 				await hooks.toolBefore(
 					makeInput('explorer-session', `tool-${i}`, `call-e-${i}`),
 					makeOutput({ arg: i }),
@@ -608,7 +610,7 @@ describe('guardrails circuit breaker', () => {
 					makeInput('tester-session', 'tool-1', 'call-1'),
 					makeOutput({ arg: 1 }),
 				),
-			).rejects.toThrow('consecutive errors');
+			).rejects.toThrow('consecutive tool errors detected');
 
 			// But explorer session with 2 errors should be fine
 			startAgentSession('explorer-session', 'explorer');
@@ -652,32 +654,28 @@ describe('guardrails circuit breaker', () => {
 					makeInput('coder-session', 'read', 'call-3'),
 					makeOutput(args),
 				),
-			).rejects.toThrow('Repetition detected');
+			).rejects.toThrow('Repeated the same tool call');
 
-			// Reset state and create new hooks for explorer session
+			// Reset state and create new hooks for sme session (uses base limit)
 			resetSwarmState();
 			hooks = createGuardrailsHooks(config);
 
-			// But explorer session can have more repetitions (uses base limit of 10)
-			startAgentSession('explorer-session', 'explorer');
+			// sme session can have more repetitions (uses base limit of 10, since no user profile)
+			startAgentSession('sme-session', 'sme');
 			for (let i = 0; i < 9; i++) {
 				await hooks.toolBefore(
-					makeInput('explorer-session', 'read', `call-e-${i}`),
+					makeInput('sme-session', 'read', `call-s-${i}`),
 					makeOutput(args),
 				);
 			}
-			// 10th call should be fine (limit is 10, repetitionCount = 10 >= 10... wait)
-			// Actually, 10th call would have repetitionCount = 10, which equals limit, so it throws
-			// So we should test that 9th call is fine and 10th call throws
-			// But we just made 9 calls (0-8), so let's add the 10th and verify it throws
-
+			// 9th call is fine (repetitionCount = 9 < 10)
 			// 10th call should throw (repetitionCount = 10 >= 10)
 			await expect(
 				hooks.toolBefore(
-					makeInput('explorer-session', 'read', 'call-e-9'),
+					makeInput('sme-session', 'read', 'call-s-9'),
 					makeOutput(args),
 				),
-			).rejects.toThrow('Repetition detected');
+			).rejects.toThrow('Repeated the same tool call');
 		});
 	});
 });

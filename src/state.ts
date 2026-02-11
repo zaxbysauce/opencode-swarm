@@ -62,6 +62,9 @@ export interface AgentSessionState {
 	/** Whether a soft warning has been issued */
 	warningIssued: boolean;
 
+	/** Human-readable warning reason (set when warningIssued = true) */
+	warningReason: string;
+
 	/** Whether a hard limit has been triggered */
 	hardLimitHit: boolean;
 }
@@ -136,6 +139,7 @@ export function startAgentSession(
 		consecutiveErrors: 0,
 		recentToolCalls: [],
 		warningIssued: false,
+		warningReason: '',
 		hardLimitHit: false,
 	};
 

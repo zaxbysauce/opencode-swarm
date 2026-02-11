@@ -113,7 +113,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					currentCalls: session.toolCallCount,
 				});
 				throw new Error(
-					`🛑 CIRCUIT BREAKER: Tool call limit reached (${session.toolCallCount}/${agentConfig.max_tool_calls}). Stop making tool calls and return your progress summary.`,
+					`🛑 LIMIT REACHED: Tool calls exhausted (${session.toolCallCount}/${agentConfig.max_tool_calls}). Finish the current operation and return your progress summary.`,
 				);
 			}
 
@@ -126,46 +126,57 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					elapsedMinutes: Math.floor(elapsedMinutes),
 				});
 				throw new Error(
-					`🛑 CIRCUIT BREAKER: Duration limit reached (${Math.floor(elapsedMinutes)} min). Stop making tool calls and return your progress summary.`,
+					`🛑 LIMIT REACHED: Duration exhausted (${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min). Finish the current operation and return your progress summary.`,
 				);
 			}
 
 			if (repetitionCount >= agentConfig.max_repetitions) {
 				session.hardLimitHit = true;
 				throw new Error(
-					`🛑 CIRCUIT BREAKER: Repetition detected (same call ${repetitionCount} times). Stop making tool calls and return your progress summary.`,
+					`🛑 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`,
 				);
 			}
 
 			if (session.consecutiveErrors >= agentConfig.max_consecutive_errors) {
 				session.hardLimitHit = true;
 				throw new Error(
-					`🛑 CIRCUIT BREAKER: Too many consecutive errors (${session.consecutiveErrors}). Stop making tool calls and return your progress summary.`,
+					`🛑 LIMIT REACHED: ${session.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`,
 				);
 			}
 
 			// Check SOFT limits (only if warning not already issued)
 			if (!session.warningIssued) {
-				const toolWarning =
-					session.toolCallCount >=
-					agentConfig.max_tool_calls * agentConfig.warning_threshold;
-				const durationWarning =
-					elapsedMinutes >=
-					agentConfig.max_duration_minutes * agentConfig.warning_threshold;
-				const repetitionWarning =
-					repetitionCount >=
-					agentConfig.max_repetitions * agentConfig.warning_threshold;
-				const errorWarning =
-					session.consecutiveErrors >=
-					agentConfig.max_consecutive_errors * agentConfig.warning_threshold;
+				const toolPct = session.toolCallCount / agentConfig.max_tool_calls;
+				const durationPct = elapsedMinutes / agentConfig.max_duration_minutes;
+				const repPct = repetitionCount / agentConfig.max_repetitions;
+				const errorPct =
+					session.consecutiveErrors / agentConfig.max_consecutive_errors;
 
-				if (
-					toolWarning ||
-					durationWarning ||
-					repetitionWarning ||
-					errorWarning
-				) {
+				const reasons: string[] = [];
+				if (toolPct >= agentConfig.warning_threshold) {
+					reasons.push(
+						`tool calls ${session.toolCallCount}/${agentConfig.max_tool_calls}`,
+					);
+				}
+				if (durationPct >= agentConfig.warning_threshold) {
+					reasons.push(
+						`duration ${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min`,
+					);
+				}
+				if (repPct >= agentConfig.warning_threshold) {
+					reasons.push(
+						`repetitions ${repetitionCount}/${agentConfig.max_repetitions}`,
+					);
+				}
+				if (errorPct >= agentConfig.warning_threshold) {
+					reasons.push(
+						`errors ${session.consecutiveErrors}/${agentConfig.max_consecutive_errors}`,
+					);
+				}
+
+				if (reasons.length > 0) {
 					session.warningIssued = true;
+					session.warningReason = reasons.join(', ');
 				}
 			}
 		},
@@ -237,11 +248,14 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 			// Prepend appropriate message
 			if (session.hardLimitHit) {
 				textPart.text =
-					'[🛑 CIRCUIT BREAKER ACTIVE: You have exceeded your resource limits. Do NOT make any more tool calls. Immediately return a summary of your progress so far. Any further tool calls will be blocked.]\n\n' +
+					'[🛑 LIMIT REACHED: Your resource budget is exhausted. Do not make additional tool calls. Return a summary of your progress and any remaining work.]\n\n' +
 					textPart.text;
 			} else if (session.warningIssued) {
+				const reasonSuffix = session.warningReason
+					? ` (${session.warningReason})`
+					: '';
 				textPart.text =
-					'[⚠️ GUARDRAIL WARNING: You are approaching resource limits. Please wrap up your current task efficiently. Avoid unnecessary tool calls and prepare to return your results soon.]\n\n' +
+					`[⚠️ APPROACHING LIMITS${reasonSuffix}: You still have capacity to finish your current step. Complete what you're working on, then return your results.]\n\n` +
 					textPart.text;
 			}
 		},

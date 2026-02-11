@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.5] - 2026-02-11
+### Fixed
+- **Circuit breaker triggers too early on tool calls** — Default `warning_threshold` was 0.5 (warnings at 50% of limit), causing agents to receive "wrap up" messages at just 100 tool calls for subagents with a 200-call limit. Raised default to 0.75. Added built-in per-agent-type profiles so each agent gets appropriate limits: coder/test_engineer (400 calls, 45 min, 0.85 threshold), explorer (150 calls, 20 min), reviewer/critic/sme (200 calls, 30 min, 0.65 threshold), architect (800 calls, 90 min, 0.75 threshold).
+- **Warning messages too aggressive** — Softened circuit breaker messages from "🛑 CIRCUIT BREAKER: Stop making tool calls" to "🛑 LIMIT REACHED: Finish the current operation". Warning messages now include concrete usage numbers (e.g., "tool calls 340/400, duration 35/45 min") instead of vague "wrap up your current task" language. Added defensive handling for empty warning reasons.
+
+### Changed
+- `DEFAULT_ARCHITECT_PROFILE` is now deprecated in favor of `DEFAULT_AGENT_PROFILES` which contains profiles for all 7 agent types.
+- `resolveGuardrailsConfig()` now applies built-in profiles for all known agent types, not just the architect.
+- `AgentSessionState` now includes a `warningReason` field for tracking what triggered the warning.
+
+### Tests
+- Updated guardrails test assertions to match new message format and per-agent profile behavior.
+- **908 total tests** across 39 files.
+
 ## [5.0.4] - 2026-02-11
 ### Fixed
 - **Guardrails race condition: sessions created with wrong agent name** — The `tool.execute.before` hook could fire before `chat.message` (which provides the agent name), causing guardrail sessions to be permanently stuck with `agentName: 'unknown'` and the default 30-minute limit instead of the architect's 90-minute limit. Added `ensureAgentSession()` which is called from both `chat.message` and `tool.execute.before` hooks, ensuring the session always has the correct agent name regardless of hook firing order.
