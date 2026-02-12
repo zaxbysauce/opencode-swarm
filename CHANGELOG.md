@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2026-02-12
+### Added
+- **Score-based context injection (opt-in)** — Context candidates (phase, task, decisions, agent context) are now ranked by importance score before injection under token budget. Scoring is disabled by default for safe rollout.
+- **Scoring configuration** — New `context_budget.scoring` block with:
+  - `enabled: false` (default) — opt-in scoring
+  - `max_candidates: 100` — limit candidate pool before ranking
+  - `weights` — 8 configurable weights for feature scoring (phase, current_task, blocked_task, recent_failure, recent_success, evidence_presence, decision_recency, dependency_proximity)
+  - `decision_decay` — exponential or linear decay for stale decisions
+  - `token_ratios` — per-content-type token estimation (code denser than prose)
+- **Dependency proximity scoring** — Context from task dependencies scores higher with formula `weight / (1 + depth)`
+- **Decision decay** — Stale decisions decay in importance: exponential `2^(-age/half_life)` or linear mode
+
+### Changed
+- `src/hooks/system-enhancer.ts` — When `context_budget.scoring.enabled: true`, ranks candidates before injection; disabled mode unchanged (backward compatible)
+- `src/config/schema.ts` — Added `ScoringConfigSchema`, `ScoringWeightsSchema`, `DecisionDecaySchema`, `TokenRatiosSchema`
+- `src/config/constants.ts` — Added `DEFAULT_SCORING_CONFIG` and `resolveScoringConfig()` for deep-merge with user config
+
+### Tests
+- 15 new tests in `tests/unit/hooks/context-scoring.test.ts` covering:
+  - Disabled mode preserves order
+  - Deterministic ranking
+  - Dependency depth decay formula
+  - Exponential and linear decision decay
+  - Tie-breaking (score → priority → id)
+  - Edge cases (empty, all-zero scores, max_candidates truncation)
+- Total: 990 tests passing
+
 ## [5.0.10] - 2026-02-12
 ### Fixed
 - **Architect session stuck with 30-minute limit** — The primary architect session's agent name was never set in `swarmState.activeAgent` because `delegation-tracker.ts` bails immediately when `input.agent` is empty (which is the case for primary sessions). When the first tool call arrived, `ensureAgentSession()` created a session with `agentName: 'unknown'`, and `resolveGuardrailsConfig()` returned the base config (30-minute limit) since 'unknown' had no built-in profile. Two-layer fix:

@@ -13833,6 +13833,30 @@ var DEFAULT_MODELS = {
   critic: "google/gemini-2.0-flash",
   default: "google/gemini-2.0-flash"
 };
+var DEFAULT_SCORING_CONFIG = {
+  enabled: false,
+  max_candidates: 100,
+  weights: {
+    phase: 1,
+    current_task: 2,
+    blocked_task: 1.5,
+    recent_failure: 2.5,
+    recent_success: 0.5,
+    evidence_presence: 1,
+    decision_recency: 1.5,
+    dependency_proximity: 1
+  },
+  decision_decay: {
+    mode: "exponential",
+    half_life_hours: 24
+  },
+  token_ratios: {
+    prose: 0.25,
+    code: 0.4,
+    markdown: 0.3,
+    json: 0.35
+  }
+};
 // src/config/plan-schema.ts
 var TaskStatusSchema = exports_external.enum([
   "pending",
@@ -16536,7 +16560,69 @@ ${originalText}`;
     })
   };
 }
+// src/hooks/context-scoring.ts
+function calculateAgeFactor(ageHours, config2) {
+  if (ageHours <= 0) {
+    return 1;
+  }
+  if (config2.mode === "exponential") {
+    return 2 ** (-ageHours / config2.half_life_hours);
+  } else {
+    const linearFactor = 1 - ageHours / (config2.half_life_hours * 2);
+    return Math.max(0, linearFactor);
+  }
+}
+function calculateBaseScore(candidate, weights, decayConfig) {
+  const { kind, metadata } = candidate;
+  const phase = kind === "phase" ? 1 : 0;
+  const currentTask = metadata.isCurrentTask ? 1 : 0;
+  const blockedTask = metadata.isBlockedTask ? 1 : 0;
+  const recentFailure = metadata.hasFailure ? 1 : 0;
+  const recentSuccess = metadata.hasSuccess ? 1 : 0;
+  const evidencePresence = metadata.hasEvidence ? 1 : 0;
+  let decisionRecency = 0;
+  if (kind === "decision" && metadata.decisionAgeHours !== undefined) {
+    decisionRecency = calculateAgeFactor(metadata.decisionAgeHours, decayConfig);
+  }
+  const dependencyProximity = 1 / (1 + (metadata.dependencyDepth ?? 0));
+  return weights.phase * phase + weights.current_task * currentTask + weights.blocked_task * blockedTask + weights.recent_failure * recentFailure + weights.recent_success * recentSuccess + weights.evidence_presence * evidencePresence + weights.decision_recency * decisionRecency + weights.dependency_proximity * dependencyProximity;
+}
+function rankCandidates(candidates, config2) {
+  if (!config2.enabled) {
+    return candidates.map((c) => ({ ...c, score: 0 }));
+  }
+  if (candidates.length === 0) {
+    return [];
+  }
+  const scored = candidates.map((candidate) => {
+    const score = calculateBaseScore(candidate, config2.weights, config2.decision_decay);
+    return { ...candidate, score };
+  });
+  scored.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority;
+    }
+    return a.id.localeCompare(b.id);
+  });
+  return scored.slice(0, config2.max_candidates);
+}
+
 // src/hooks/system-enhancer.ts
+function estimateContentType(text) {
+  if (text.includes("```") || text.includes("function ") || text.includes("const ")) {
+    return "code";
+  }
+  if (text.startsWith("{") || text.startsWith("[")) {
+    return "json";
+  }
+  if (text.includes("#") || text.includes("*") || text.includes("- ")) {
+    return "markdown";
+  }
+  return "prose";
+}
 function createSystemEnhancerHook(config2, directory) {
   const enabled = config2.hooks?.system_enhancer !== false;
   if (!enabled) {
@@ -16556,43 +16642,132 @@ function createSystemEnhancerHook(config2, directory) {
         const maxInjectionTokens = config2.context_budget?.max_injection_tokens ?? Number.POSITIVE_INFINITY;
         let injectedTokens = 0;
         const contextContent = await readSwarmFileAsync(directory, "context.md");
+        const scoringEnabled = config2.context_budget?.scoring?.enabled === true;
+        if (!scoringEnabled) {
+          const plan2 = await loadPlan(directory);
+          if (plan2 && plan2.migration_status !== "migration_failed") {
+            const currentPhase2 = extractCurrentPhaseFromPlan(plan2);
+            if (currentPhase2) {
+              tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase2}`);
+            }
+            const currentTask2 = extractCurrentTaskFromPlan(plan2);
+            if (currentTask2) {
+              tryInject(`[SWARM CONTEXT] Current task: ${currentTask2}`);
+            }
+          } else {
+            const planContent = await readSwarmFileAsync(directory, "plan.md");
+            if (planContent) {
+              const currentPhase2 = extractCurrentPhase(planContent);
+              if (currentPhase2) {
+                tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase2}`);
+              }
+              const currentTask2 = extractCurrentTask(planContent);
+              if (currentTask2) {
+                tryInject(`[SWARM CONTEXT] Current task: ${currentTask2}`);
+              }
+            }
+          }
+          if (contextContent) {
+            const decisions = extractDecisions(contextContent, 200);
+            if (decisions) {
+              tryInject(`[SWARM CONTEXT] Key decisions: ${decisions}`);
+            }
+            if (config2.hooks?.agent_activity !== false && _input.sessionID) {
+              const activeAgent = swarmState.activeAgent.get(_input.sessionID);
+              if (activeAgent) {
+                const agentContext = extractAgentContext(contextContent, activeAgent, config2.hooks?.agent_awareness_max_chars ?? 300);
+                if (agentContext) {
+                  tryInject(`[SWARM AGENT CONTEXT] ${agentContext}`);
+                }
+              }
+            }
+          }
+          return;
+        }
+        const userScoringConfig = config2.context_budget?.scoring;
+        const candidates = [];
+        let idCounter = 0;
+        const effectiveConfig = userScoringConfig?.weights ? {
+          ...DEFAULT_SCORING_CONFIG,
+          ...userScoringConfig,
+          weights: userScoringConfig.weights
+        } : DEFAULT_SCORING_CONFIG;
         const plan = await loadPlan(directory);
+        let currentPhase = null;
+        let currentTask = null;
         if (plan && plan.migration_status !== "migration_failed") {
-          const currentPhase = extractCurrentPhaseFromPlan(plan);
-          if (currentPhase) {
-            tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
-          }
-          const currentTask = extractCurrentTaskFromPlan(plan);
-          if (currentTask) {
-            tryInject(`[SWARM CONTEXT] Current task: ${currentTask}`);
-          }
+          currentPhase = extractCurrentPhaseFromPlan(plan);
+          currentTask = extractCurrentTaskFromPlan(plan);
         } else {
           const planContent = await readSwarmFileAsync(directory, "plan.md");
           if (planContent) {
-            const currentPhase = extractCurrentPhase(planContent);
-            if (currentPhase) {
-              tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
-            }
-            const currentTask = extractCurrentTask(planContent);
-            if (currentTask) {
-              tryInject(`[SWARM CONTEXT] Current task: ${currentTask}`);
-            }
+            currentPhase = extractCurrentPhase(planContent);
+            currentTask = extractCurrentTask(planContent);
           }
+        }
+        if (currentPhase) {
+          const text = `[SWARM CONTEXT] Current phase: ${currentPhase}`;
+          candidates.push({
+            id: `candidate-${idCounter++}`,
+            kind: "phase",
+            text,
+            tokens: estimateTokens(text),
+            priority: 1,
+            metadata: { contentType: estimateContentType(text) }
+          });
+        }
+        if (currentTask) {
+          const text = `[SWARM CONTEXT] Current task: ${currentTask}`;
+          candidates.push({
+            id: `candidate-${idCounter++}`,
+            kind: "task",
+            text,
+            tokens: estimateTokens(text),
+            priority: 2,
+            metadata: {
+              contentType: estimateContentType(text),
+              isCurrentTask: true
+            }
+          });
         }
         if (contextContent) {
           const decisions = extractDecisions(contextContent, 200);
           if (decisions) {
-            tryInject(`[SWARM CONTEXT] Key decisions: ${decisions}`);
+            const text = `[SWARM CONTEXT] Key decisions: ${decisions}`;
+            candidates.push({
+              id: `candidate-${idCounter++}`,
+              kind: "decision",
+              text,
+              tokens: estimateTokens(text),
+              priority: 3,
+              metadata: { contentType: estimateContentType(text) }
+            });
           }
           if (config2.hooks?.agent_activity !== false && _input.sessionID) {
             const activeAgent = swarmState.activeAgent.get(_input.sessionID);
             if (activeAgent) {
               const agentContext = extractAgentContext(contextContent, activeAgent, config2.hooks?.agent_awareness_max_chars ?? 300);
               if (agentContext) {
-                tryInject(`[SWARM AGENT CONTEXT] ${agentContext}`);
+                const text = `[SWARM AGENT CONTEXT] ${agentContext}`;
+                candidates.push({
+                  id: `candidate-${idCounter++}`,
+                  kind: "agent_context",
+                  text,
+                  tokens: estimateTokens(text),
+                  priority: 4,
+                  metadata: { contentType: estimateContentType(text) }
+                });
               }
             }
           }
+        }
+        const ranked = rankCandidates(candidates, effectiveConfig);
+        for (const candidate of ranked) {
+          if (injectedTokens + candidate.tokens > maxInjectionTokens) {
+            continue;
+          }
+          output.system.push(candidate.text);
+          injectedTokens += candidate.tokens;
         }
       } catch (error49) {
         warn("System enhancer failed:", error49);
