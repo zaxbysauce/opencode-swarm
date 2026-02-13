@@ -7,9 +7,11 @@
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
 
+import { ORCHESTRATOR_NAME } from '../config/constants';
 import {
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
+	stripKnownSwarmPrefix,
 } from '../config/schema';
 import { ensureAgentSession, getAgentSession, swarmState } from '../state';
 import { warn } from '../utils';
@@ -52,6 +54,16 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 		 * Checks guardrail limits before allowing a tool call
 		 */
 		toolBefore: async (input, output) => {
+			// Architect is structurally exempt from guardrails — early return
+			// This prevents false circuit breaker trips from complex delegation state resolution
+			const rawActiveAgent = swarmState.activeAgent.get(input.sessionID);
+			const strippedAgent = rawActiveAgent
+				? stripKnownSwarmPrefix(rawActiveAgent)
+				: undefined;
+			if (strippedAgent === ORCHESTRATOR_NAME) {
+				return;
+			}
+
 			// Ensure session exists — uses activeAgent map as fallback for agent name
 			const agentName = swarmState.activeAgent.get(input.sessionID);
 			const session = ensureAgentSession(input.sessionID, agentName);

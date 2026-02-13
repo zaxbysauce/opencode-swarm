@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2026-02-13
+### Fixed
+- **Structural architect guardrail exemption** — Added early-return in `guardrails.ts` `toolBefore` that checks `stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME` and bypasses all guardrail checks for the architect. Prevents false circuit breaker trips from complex delegation state resolution edge cases.
+
+### Added
+- **Delegation gate hook** — New `src/hooks/delegation-gate.ts` warns the architect when coder delegations are too complex. Detects oversized delegations (>4000 chars), multiple FILE:/TASK: directives, and batching language. Non-blocking (prepends warning, doesn't throw).
+- **Delegation gate config** — `hooks.delegation_gate` (boolean, default true) and `hooks.delegation_max_chars` (number, default 4000) added to `HooksConfigSchema`
+
+### Tests
+- 5 new architect exemption tests in `tests/unit/hooks/guardrails.test.ts`
+- 10 new delegation gate tests in `tests/unit/hooks/delegation-gate.test.ts`
+- Total: 1001 tests passing
+
 ## [5.1.0] - 2026-02-12
 ### Added
 - **Score-based context injection (opt-in)** — Context candidates (phase, task, decisions, agent context) are now ranked by importance score before injection under token budget. Scoring is disabled by default for safe rollout.

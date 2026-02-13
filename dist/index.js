@@ -13578,7 +13578,9 @@ var HooksConfigSchema = exports_external.object({
   compaction: exports_external.boolean().default(true),
   agent_activity: exports_external.boolean().default(true),
   delegation_tracker: exports_external.boolean().default(false),
-  agent_awareness_max_chars: exports_external.number().min(50).max(2000).default(300)
+  agent_awareness_max_chars: exports_external.number().min(50).max(2000).default(300),
+  delegation_gate: exports_external.boolean().default(true),
+  delegation_max_chars: exports_external.number().min(500).max(20000).default(4000)
 });
 var ScoringWeightsSchema = exports_external.object({
   phase: exports_external.number().min(0).max(5).default(1),
@@ -16350,6 +16352,70 @@ function createDelegationTrackerHook(config2) {
     }
   };
 }
+// src/hooks/delegation-gate.ts
+function createDelegationGateHook(config2) {
+  const enabled = config2.hooks?.delegation_gate !== false;
+  const delegationMaxChars = config2.hooks?.delegation_max_chars ?? 4000;
+  if (!enabled) {
+    return async (_input, _output) => {};
+  }
+  return async (_input, output) => {
+    const messages = output?.messages;
+    if (!messages || messages.length === 0)
+      return;
+    let lastUserMessageIndex = -1;
+    for (let i = messages.length - 1;i >= 0; i--) {
+      if (messages[i]?.info?.role === "user") {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+    if (lastUserMessageIndex === -1)
+      return;
+    const lastUserMessage = messages[lastUserMessageIndex];
+    if (!lastUserMessage?.parts)
+      return;
+    const agent = lastUserMessage.info?.agent;
+    const strippedAgent = agent ? stripKnownSwarmPrefix(agent) : undefined;
+    if (strippedAgent && strippedAgent !== "architect")
+      return;
+    const textPartIndex = lastUserMessage.parts.findIndex((p) => p?.type === "text" && p.text !== undefined);
+    if (textPartIndex === -1)
+      return;
+    const textPart = lastUserMessage.parts[textPartIndex];
+    const text = textPart.text ?? "";
+    const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;
+    if (!coderDelegationPattern.test(text))
+      return;
+    const warnings = [];
+    if (text.length > delegationMaxChars) {
+      warnings.push(`Delegation exceeds recommended size (${text.length} chars, limit ${delegationMaxChars}). Consider splitting into smaller tasks.`);
+    }
+    const fileMatches = text.match(/^FILE:/gm);
+    if (fileMatches && fileMatches.length > 1) {
+      warnings.push(`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`);
+    }
+    const taskMatches = text.match(/^TASK:/gm);
+    if (taskMatches && taskMatches.length > 1) {
+      warnings.push(`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`);
+    }
+    const batchingPattern = /\b(?:and also|then also|additionally|as well as|along with)\b/gi;
+    const batchingMatches = text.match(batchingPattern);
+    if (batchingMatches && batchingMatches.length > 0) {
+      warnings.push("Batching language detected. Break compound objectives into separate coder calls.");
+    }
+    if (warnings.length === 0)
+      return;
+    const warningText = `[\u26A0\uFE0F DELEGATION GATE: Your coder delegation may be too complex. Issues:
+${warnings.join(`
+`)}
+Split into smaller, atomic tasks for better results.]`;
+    const originalText = textPart.text ?? "";
+    textPart.text = `${warningText}
+
+${originalText}`;
+  };
+}
 // src/hooks/guardrails.ts
 function createGuardrailsHooks(config2) {
   if (config2.enabled === false) {
@@ -16361,6 +16427,11 @@ function createGuardrailsHooks(config2) {
   }
   return {
     toolBefore: async (input, output) => {
+      const rawActiveAgent = swarmState.activeAgent.get(input.sessionID);
+      const strippedAgent = rawActiveAgent ? stripKnownSwarmPrefix(rawActiveAgent) : undefined;
+      if (strippedAgent === ORCHESTRATOR_NAME) {
+        return;
+      }
       const agentName = swarmState.activeAgent.get(input.sessionID);
       const session = ensureAgentSession(input.sessionID, agentName);
       const agentConfig = resolveGuardrailsConfig(config2, session.agentName);
@@ -29522,6 +29593,7 @@ var OpenCodeSwarm = async (ctx) => {
   const commandHandler = createSwarmCommandHandler(ctx.directory, Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])));
   const activityHooks = createAgentActivityHooks(config3, ctx.directory);
   const delegationHandler = createDelegationTrackerHook(config3);
+  const delegationGateHandler = createDelegationGateHook(config3);
   const guardrailsConfig = GuardrailsConfigSchema.parse(config3.guardrails ?? {});
   const guardrailsHooks = createGuardrailsHooks(guardrailsConfig);
   log("Plugin initialized", {
@@ -29569,7 +29641,8 @@ var OpenCodeSwarm = async (ctx) => {
     "experimental.chat.messages.transform": composeHandlers(...[
       pipelineHook["experimental.chat.messages.transform"],
       contextBudgetHandler,
-      guardrailsHooks.messagesTransform
+      guardrailsHooks.messagesTransform,
+      delegationGateHandler
     ].filter((fn) => Boolean(fn))),
     "experimental.chat.system.transform": systemEnhancerHook["experimental.chat.system.transform"],
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],

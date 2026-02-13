@@ -9,6 +9,7 @@ import {
 	createAgentActivityHooks,
 	createCompactionCustomizerHook,
 	createContextBudgetHandler,
+	createDelegationGateHook,
 	createDelegationTrackerHook,
 	createGuardrailsHooks,
 	createPipelineTrackerHook,
@@ -43,6 +44,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
 	const delegationHandler = createDelegationTrackerHook(config);
+	const delegationGateHandler = createDelegationGateHook(config);
 	const guardrailsConfig = GuardrailsConfigSchema.parse(
 		config.guardrails ?? {},
 	);
@@ -109,6 +111,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				pipelineHook['experimental.chat.messages.transform'],
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
+				delegationGateHandler,
 			].filter((fn): fn is NonNullable<typeof fn> => Boolean(fn)),
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		) as any,

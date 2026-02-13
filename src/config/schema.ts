@@ -25,6 +25,8 @@ export const HooksConfigSchema = z.object({
 	agent_activity: z.boolean().default(true),
 	delegation_tracker: z.boolean().default(false),
 	agent_awareness_max_chars: z.number().min(50).max(2000).default(300),
+	delegation_gate: z.boolean().default(true),
+	delegation_max_chars: z.number().min(500).max(20000).default(4000),
 });
 
 export type HooksConfig = z.infer<typeof HooksConfigSchema>;

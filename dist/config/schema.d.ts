@@ -20,6 +20,8 @@ export declare const HooksConfigSchema: z.ZodObject<{
     agent_activity: z.ZodDefault<z.ZodBoolean>;
     delegation_tracker: z.ZodDefault<z.ZodBoolean>;
     agent_awareness_max_chars: z.ZodDefault<z.ZodNumber>;
+    delegation_gate: z.ZodDefault<z.ZodBoolean>;
+    delegation_max_chars: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type HooksConfig = z.infer<typeof HooksConfigSchema>;
 export declare const ScoringWeightsSchema: z.ZodObject<{
@@ -200,6 +202,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         agent_activity: z.ZodDefault<z.ZodBoolean>;
         delegation_tracker: z.ZodDefault<z.ZodBoolean>;
         agent_awareness_max_chars: z.ZodDefault<z.ZodNumber>;
+        delegation_gate: z.ZodDefault<z.ZodBoolean>;
+        delegation_max_chars: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     context_budget: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
