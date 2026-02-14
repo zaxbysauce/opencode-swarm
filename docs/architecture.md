@@ -550,12 +550,23 @@ Agent awareness tracks what each agent is doing and shares relevant context acro
 ### Shared State
 
 `src/state.ts` exports a module-scoped singleton (`swarmState`) with:
-- `activeAgents: Map<sessionId, agentName>` — Which agent is active in each session
+- `activeAgents: Map<sessionId, agentName>` — Which agent is active in each session (updated by chat.message hook)
+- `agentSessions: Map<sessionId, AgentSessionState>` — Per-session guardrail tracking (toolCallCount, startTime, delegationActive flag)
 - `eventCounter: number` — Tracks events for flush threshold
 - `flushLock: Promise | null` — Serializes context.md writes
 - `resetSwarmState()` — Clears all state (used in tests)
 
 The module has **zero imports** — it's pure TypeScript with no project dependencies.
+
+### Stale Delegation Detection
+
+When a subagent finishes and returns control to the architect, there's a race condition between the `chat.message` hook (which updates `activeAgent`) and the `tool.execute.before` hook (which checks guardrails). To prevent the architect from inheriting subagent limits during this transition:
+
+1. **Stale delegation window:** If `lastToolCallTime` is >10 seconds old, the session is considered stale and reverts to architect
+2. **Delegation active flag:** If `delegationActive=false` (subagent finished), immediately revert to architect
+3. **Early exemption:** Three name-based architect checks in the guardrails hook provide defense-in-depth
+
+The 10-second window is tight enough to prevent architect misidentification but loose enough to allow slow subagent operations (file I/O, network).
 
 ### Activity Tracking Flow
 

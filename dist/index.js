@@ -30165,7 +30165,7 @@ var OpenCodeSwarm = async (ctx) => {
       if (session && activeAgent && activeAgent !== ORCHESTRATOR_NAME) {
         const stripActive = stripKnownSwarmPrefix(activeAgent);
         if (stripActive !== ORCHESTRATOR_NAME) {
-          const staleDelegation = !session.delegationActive || Date.now() - session.lastToolCallTime > 60000;
+          const staleDelegation = !session.delegationActive || Date.now() - session.lastToolCallTime > 1e4;
           if (staleDelegation) {
             swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
             ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);

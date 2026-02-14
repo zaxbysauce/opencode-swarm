@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.1.4-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-5.1.5-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/opencode-plugin-purple" alt="OpenCode Plugin">
   <img src="https://img.shields.io/badge/agents-7-orange" alt="Agents">
-  <img src="https://img.shields.io/badge/tests-1027-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1034-brightgreen" alt="Tests">
 </p>
 
 <h1 align="center">🐝 OpenCode Swarm</h1>
@@ -564,7 +564,7 @@ bun test
 bun test tests/unit/config/schema.test.ts
 ```
 
-1027 unit tests across 44 files covering config, tools, agents, hooks, commands, state, guardrails, evidence, and plan schemas. Uses Bun's built-in test runner — zero additional test dependencies.
+1034 tests across 45 files covering config, tools, agents, hooks, commands, state, guardrails, evidence, plan schemas, and circuit breaker race conditions. Uses Bun's built-in test runner — zero additional test dependencies.
 
 ## Troubleshooting
 

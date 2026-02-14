@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.5] - 2026-02-14
+### Fixed
+- **Architect circuit breaker race condition** — Reduced stale delegation window from 60 seconds to 10 seconds to prevent architect from being misidentified as a subagent during rapid delegation transitions. Fixes issue where architect would inherit subagent duration limits when making tool calls immediately after subagent finishes, before `chat.message` hook updates state.
+
+### Tests
+- Added 6 comprehensive integration tests in `tests/integration/circuit-breaker-race-condition.test.ts` covering:
+  - Architect exemption after `delegationActive=false`
+  - Stale delegation timeout (>10s idle)
+  - Subagent legitimately hitting limits within 10s window
+  - Rapid architect→subagent→architect transitions
+  - Prefixed agent name limit resolution (e.g., `mega_coder`)
+  - Unknown agent name fallback to architect profile
+- Total: 1034 tests passing across 45 files
+
 ## [5.1.4] - 2026-02-14
 ### Fixed
 - **Architect circuit breaker regression** — Ensured delegation end resets active agent to architect and added fallback exemption check so architects never inherit subagent duration limits.

@@ -573,7 +573,7 @@ Control agent execution limits:
 | `warning_threshold` | number | `0.5` | Inject warning at this percentage of any limit |
 | `profiles` | object | — | Per-agent overrides. Keys are agent names, values override base settings. |
 
-**Architect is exempt/unlimited by default:** The architect agent has no guardrail limits by default. To override, add a `profiles.architect` entry:
+**Architect is exempt/unlimited by default:** The architect agent has no guardrail limits by default (0 = unlimited). The system uses a 10-second stale delegation window to prevent the architect from inheriting subagent limits during rapid delegation transitions. To override, add a `profiles.architect` entry:
 
 ```jsonc
 {

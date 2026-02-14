@@ -155,8 +155,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Revert to primary agent if delegation appears stale
 			// Delegation is stale if:
 			// 1. delegationActive is explicitly false, OR
-			// 2. The session's lastToolCallTime is >60s old (subagent completed, no chat.message reset)
-			// 60s chosen to allow for slow subagent operations (file I/O, network, compilation)
+			// 2. The session's lastToolCallTime is >10s old (subagent completed, no chat.message reset)
+			// 10s window is tight enough to prevent architect misidentification after delegation
+			// but loose enough to allow for slow subagent operations (file I/O, network)
 			const session = swarmState.agentSessions.get(input.sessionID);
 			const activeAgent = swarmState.activeAgent.get(input.sessionID);
 			if (session && activeAgent && activeAgent !== ORCHESTRATOR_NAME) {
@@ -164,7 +165,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				if (stripActive !== ORCHESTRATOR_NAME) {
 					const staleDelegation =
 						!session.delegationActive ||
-						Date.now() - session.lastToolCallTime > 60000;
+						Date.now() - session.lastToolCallTime > 10000;
 					if (staleDelegation) {
 						swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
 						ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);
