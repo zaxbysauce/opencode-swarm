@@ -1,0 +1,285 @@
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { handleBenchmarkCommand } from '../../../src/commands/benchmark';
+import { resetSwarmState, swarmState, startAgentSession } from '../../../src/state';
+import { saveEvidence } from '../../../src/evidence/manager';
+import { mkdirSync, rmSync } from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+
+let testDir: string;
+
+beforeEach(() => {
+	resetSwarmState();
+	testDir = path.join(
+		os.tmpdir(),
+		`benchmark-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
+	mkdirSync(path.join(testDir, '.swarm'), { recursive: true });
+});
+
+afterEach(() => {
+	rmSync(testDir, { recursive: true, force: true });
+});
+
+describe('handleBenchmarkCommand', () => {
+	it('default mode with empty state', async () => {
+		const result = await handleBenchmarkCommand(testDir, []);
+		expect(result).toContain('mode: in-memory');
+		expect(result).toContain('No agent sessions recorded');
+		expect(result).toContain('No tool data recorded');
+		expect(result).toContain('No delegations recorded');
+		expect(result).toContain('[BENCHMARK_JSON]');
+		// Should NOT have Quality Signals or CI Gate sections
+		expect(result).not.toContain('Quality Signals');
+		expect(result).not.toContain('CI Gate');
+	});
+
+	it('default mode with populated state', async () => {
+		// Add agent sessions
+		startAgentSession('session-1', 'coder');
+		const coderSession = swarmState.agentSessions.get('session-1')!;
+		coderSession.toolCallCount = 25;
+		coderSession.warningIssued = true;
+
+		startAgentSession('session-2', 'reviewer');
+		const reviewerSession = swarmState.agentSessions.get('session-2')!;
+		reviewerSession.toolCallCount = 10;
+
+		// Add tool aggregates
+		swarmState.toolAggregates.set('read', {
+			tool: 'read',
+			count: 30,
+			successCount: 28,
+			failureCount: 2,
+			totalDuration: 900,
+		});
+		swarmState.toolAggregates.set('edit', {
+			tool: 'edit',
+			count: 15,
+			successCount: 15,
+			failureCount: 0,
+			totalDuration: 750,
+		});
+
+		const result = await handleBenchmarkCommand(testDir, []);
+		expect(result).toContain('**coder**');
+		expect(result).toContain('25 tool calls');
+		expect(result).toContain('1 warning');
+		expect(result).toContain('**reviewer**');
+		expect(result).toContain('10 tool calls');
+		// Tool performance table
+		expect(result).toContain('| read |');
+		expect(result).toContain('| edit |');
+	});
+
+	it('cumulative mode reads evidence', async () => {
+		// Save review evidence
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
+			type: 'review',
+			timestamp: new Date().toISOString(),
+			agent: 'reviewer',
+			verdict: 'approved',
+			summary: 'LGTM',
+			risk: 'low',
+			issues: [],
+		});
+		await saveEvidence(testDir, '1.2', {
+			task_id: '1.2',
+			type: 'review',
+			timestamp: new Date().toISOString(),
+			agent: 'reviewer',
+			verdict: 'rejected',
+			summary: 'Needs fixes',
+			risk: 'high',
+			issues: [],
+		});
+		// Save test evidence
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
+			type: 'test',
+			timestamp: new Date().toISOString(),
+			agent: 'test_engineer',
+			verdict: 'pass',
+			summary: 'All pass',
+			tests_passed: 10,
+			tests_failed: 0,
+			failures: [],
+		});
+
+		const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+		expect(result).toContain('mode: cumulative');
+		expect(result).toContain('Quality Signals');
+		expect(result).toContain('Review pass rate: 50%');
+		expect(result).toContain('Test pass rate: 100%');
+	});
+
+	it('ci-gate passes when thresholds met', async () => {
+		// Create passing evidence - 8 approved, 2 rejected = 80% >= 70%
+		for (let i = 0; i < 8; i++) {
+			await saveEvidence(testDir, `pass-${i}`, {
+				task_id: `pass-${i}`,
+				type: 'review',
+				timestamp: new Date().toISOString(),
+				agent: 'reviewer',
+				verdict: 'approved',
+				summary: 'Good',
+				risk: 'low',
+				issues: [],
+			});
+		}
+		for (let i = 0; i < 2; i++) {
+			await saveEvidence(testDir, `fail-${i}`, {
+				task_id: `fail-${i}`,
+				type: 'review',
+				timestamp: new Date().toISOString(),
+				agent: 'reviewer',
+				verdict: 'rejected',
+				summary: 'Bad',
+				risk: 'high',
+				issues: [],
+			});
+		}
+		// Test evidence: 90 passed, 10 failed = 90% >= 80%
+		await saveEvidence(testDir, 'test-1', {
+			task_id: 'test-1',
+			type: 'test',
+			timestamp: new Date().toISOString(),
+			agent: 'test_engineer',
+			verdict: 'pass',
+			summary: 'Tests done',
+			tests_passed: 90,
+			tests_failed: 10,
+			failures: [],
+		});
+
+		// Low error rate tools
+		swarmState.toolAggregates.set('read', {
+			tool: 'read',
+			count: 100,
+			successCount: 95,
+			failureCount: 5,
+			totalDuration: 1000,
+		});
+
+		const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
+		expect(result).toContain('CI Gate');
+		expect(result).toContain('✅ PASSED');
+	});
+
+	it('ci-gate fails when review pass rate below threshold', async () => {
+		// 1 approved, 9 rejected = 10% < 70%
+		await saveEvidence(testDir, 'good-1', {
+			task_id: 'good-1',
+			type: 'review',
+			timestamp: new Date().toISOString(),
+			agent: 'reviewer',
+			verdict: 'approved',
+			summary: 'Good',
+			risk: 'low',
+			issues: [],
+		});
+		for (let i = 0; i < 9; i++) {
+			await saveEvidence(testDir, `bad-${i}`, {
+				task_id: `bad-${i}`,
+				type: 'review',
+				timestamp: new Date().toISOString(),
+				agent: 'reviewer',
+				verdict: 'rejected',
+				summary: 'Bad',
+				risk: 'high',
+				issues: [],
+			});
+		}
+		// Add passing test evidence to isolate the failure to review rate
+		await saveEvidence(testDir, 'test-pass', {
+			task_id: 'test-pass',
+			type: 'test',
+			timestamp: new Date().toISOString(),
+			agent: 'test_engineer',
+			verdict: 'pass',
+			summary: 'Done',
+			tests_passed: 100,
+			tests_failed: 0,
+			failures: [],
+		});
+
+		const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
+		expect(result).toContain('❌ FAILED');
+		expect(result).toContain('Review pass rate');
+	});
+
+	it('ci-gate fails when agent error rate above threshold', async () => {
+		// High failure rate: 30% > 20%
+		swarmState.toolAggregates.set('bash', {
+			tool: 'bash',
+			count: 100,
+			successCount: 70,
+			failureCount: 30,
+			totalDuration: 5000,
+		});
+		// Need passing evidence to not fail on review/test thresholds
+		for (let i = 0; i < 8; i++) {
+			await saveEvidence(testDir, `r-${i}`, {
+				task_id: `r-${i}`,
+				type: 'review',
+				timestamp: new Date().toISOString(),
+				agent: 'reviewer',
+				verdict: 'approved',
+				summary: 'OK',
+				risk: 'low',
+				issues: [],
+			});
+		}
+		await saveEvidence(testDir, 'test-ok', {
+			task_id: 'test-ok',
+			type: 'test',
+			timestamp: new Date().toISOString(),
+			agent: 'test_engineer',
+			verdict: 'pass',
+			summary: 'Done',
+			tests_passed: 100,
+			tests_failed: 0,
+			failures: [],
+		});
+
+		const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
+		expect(result).toContain('❌ FAILED');
+		expect(result).toContain('Agent error rate');
+	});
+
+	it('JSON block is parseable', async () => {
+		swarmState.toolAggregates.set('read', {
+			tool: 'read',
+			count: 5,
+			successCount: 5,
+			failureCount: 0,
+			totalDuration: 100,
+		});
+
+		const result = await handleBenchmarkCommand(testDir, []);
+		const jsonMatch = result.match(
+			/\[BENCHMARK_JSON\]\n([\s\S]*?)\n\[\/BENCHMARK_JSON\]/,
+		);
+		expect(jsonMatch).not.toBeNull();
+		const parsed = JSON.parse(jsonMatch![1]);
+		expect(parsed.mode).toBe('in-memory');
+		expect(parsed.timestamp).toBeDefined();
+		expect(parsed.tool_performance).toBeArray();
+		expect(parsed.tool_performance[0].tool).toBe('read');
+		expect(parsed.delegations).toBe(0);
+	});
+
+	it('delegation count reported correctly', async () => {
+		swarmState.delegationChains.set('session-1', [
+			{ from: 'architect', to: 'coder', timestamp: Date.now() },
+			{ from: 'architect', to: 'reviewer', timestamp: Date.now() },
+		]);
+		swarmState.delegationChains.set('session-2', [
+			{ from: 'architect', to: 'explorer', timestamp: Date.now() },
+		]);
+
+		const result = await handleBenchmarkCommand(testDir, []);
+		expect(result).toContain('Total: 3 delegations');
+	});
+});

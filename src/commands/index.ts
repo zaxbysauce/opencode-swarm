@@ -3,6 +3,7 @@ import { loadPluginConfig } from '../config/loader';
 import { GuardrailsConfigSchema } from '../config/schema';
 import { handleAgentsCommand } from './agents';
 import { handleArchiveCommand } from './archive';
+import { handleBenchmarkCommand } from './benchmark';
 import { handleConfigCommand } from './config';
 import { handleDiagnoseCommand } from './diagnose';
 import { handleEvidenceCommand } from './evidence';
@@ -15,6 +16,7 @@ import { handleStatusCommand } from './status';
 // Re-export individual handlers
 export { handleAgentsCommand } from './agents';
 export { handleArchiveCommand } from './archive';
+export { handleBenchmarkCommand } from './benchmark';
 export { handleConfigCommand } from './config';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleEvidenceCommand } from './evidence';
@@ -35,6 +37,7 @@ const HELP_TEXT = [
 	'- `/swarm evidence [taskId]` — Show evidence bundles',
 	'- `/swarm archive [--dry-run]` — Archive old evidence bundles',
 	'- `/swarm diagnose` — Run health check on swarm state',
+	'- `/swarm benchmark [--cumulative] [--ci-gate]` — Show performance metrics',
 	'- `/swarm export` — Export plan and context as JSON',
 	'- `/swarm reset --confirm` — Clear swarm state files',
 ].join('\n');
@@ -92,6 +95,9 @@ export function createSwarmCommandHandler(
 				break;
 			case 'diagnose':
 				text = await handleDiagnoseCommand(directory, args);
+				break;
+			case 'benchmark':
+				text = await handleBenchmarkCommand(directory, args);
 				break;
 			case 'export':
 				text = await handleExportCommand(directory, args);

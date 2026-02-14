@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.2] - 2026-02-13
+### Added
+- **`/swarm benchmark` command** — New performance metrics command with three modes:
+  - Default: In-memory snapshot from `swarmState` (tool call counts, success rates, avg durations, delegation chains, active sessions)
+  - `--cumulative`: Aggregates evidence bundles from `.swarm/evidence/` (review verdicts, test pass rates, diff stats)
+  - `--ci-gate`: Exits with pass/fail verdict against configurable thresholds (tool success rate ≥95%, test pass rate ≥90%, review approval rate ≥80%)
+- Outputs markdown summary with optional raw JSON block for machine consumption
+
+### Tests
+- 8 new benchmark command tests in `tests/unit/commands/benchmark.test.ts`
+- Total: 1009 tests passing
+
 ## [5.1.1] - 2026-02-13
 ### Fixed
 - **Structural architect guardrail exemption** — Added early-return in `guardrails.ts` `toolBefore` that checks `stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME` and bypasses all guardrail checks for the architect. Prevents false circuit breaker trips from complex delegation state resolution edge cases.
