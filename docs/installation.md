@@ -587,6 +587,63 @@ Control agent execution limits:
 
 ---
 
+## Review Passes Configuration
+
+Control the dual-pass security review behavior introduced in v6.0.0:
+
+```jsonc
+{
+  "review_passes": {
+    "always_security_review": false,
+    "security_globs": [
+      "**/*auth*", "**/*crypto*",
+      "**/*session*", "**/*token*",
+      "**/*middleware*", "**/*api*",
+      "**/*security*"
+    ]
+  }
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `always_security_review` | boolean | `false` | When `true`, run a security-only review pass on every task regardless of file path. When `false`, only trigger on files matching `security_globs`. |
+| `security_globs` | string[] | 7 patterns | Glob patterns for security-sensitive files. When a changed file matches any pattern, the architect triggers an automatic security-only reviewer pass after the general review. |
+
+The security review pass uses **OWASP Top 10 2021** categories as its review framework. It runs as a separate reviewer delegation with security-only framing — the same reviewer agent, different mission.
+
+---
+
+## Integration Analysis Configuration
+
+Control whether contract change detection triggers automatic impact analysis:
+
+```jsonc
+{
+  "integration_analysis": {
+    "enabled": true
+  }
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | When `true`, the architect runs the `diff` tool after each coder task. If contract changes are detected (exported functions, interfaces, type definitions), the explorer is delegated to run impact analysis across dependent files before review begins. |
+
+### What Counts as a Contract Change
+
+The `diff` tool flags these patterns as contract changes:
+- `export function`, `export const`, `export class`, `export interface`, `export type`
+- `export default`
+- `export { ... }` (re-exports)
+
+When contract changes are detected, the explorer analyzes:
+- Which files import the changed exports
+- Whether the changes are additive (safe) or breaking (signature changes, removals)
+- Downstream impact on dependent modules
+
+---
+
 ## Slash Commands
 
 Twelve commands are available under `/swarm`:

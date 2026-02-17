@@ -60,8 +60,8 @@ Swarm enforces discipline:
 
 ### Pipeline Agents: The Hands
 - Coder: Implements one task at a time
-- Reviewer: Combined correctness + security review
-- Test Engineer: Generates tests, runs them, reports PASS/FAIL
+- Reviewer: Dual-pass review — general correctness first, then automatic security-only pass for security-sensitive files (OWASP Top 10 categories)
+- Test Engineer: Generates verification tests + adversarial tests (attack vectors, boundary violations, injection attempts)
 
 ### Critic: The Gate
 - Reviews architect's plan BEFORE implementation begins
@@ -154,19 +154,32 @@ For each task in current phase:
     ├── Check dependencies complete
     │   └── If blocked → Skip, mark [BLOCKED]
     │
-    ├── @coder implements (ONE task)
-    │   └── Wait for completion
+    ├── 5a. @coder implements (ONE task)
+    │       └── Wait for completion
     │
-    ├── @reviewer reviews
-    │   ├── APPROVED → Continue
-    │   └── REJECTED → Retry (max 3)
-    │       └── After 3 failures → Escalate
+    ├── 5b. diff tool analyzes changes
+    │       ├── Detect contract changes (exports, interfaces, types)
+    │       └── If contracts changed → @explorer runs impact analysis
     │
-    ├── @test_engineer generates AND runs tests
-    │   ├── PASS → Continue
-    │   └── FAIL → Send failures to @coder, retest
+    ├── 5c. @reviewer reviews (correctness, edge-cases, performance)
+    │       ├── APPROVED → Continue
+    │       └── REJECTED → Retry from 5a (max 5)
     │
-    └── Update plan.md [x] complete (only if PASS)
+    ├── 5d. @reviewer security-only pass (if file matches security globs
+    │       or coder output contains security keywords)
+    │       ├── Security globs: auth, crypto, session, token, middleware, api, security
+    │       └── Uses OWASP Top 10 2021 categories
+    │
+    ├── 5e. @test_engineer generates AND runs verification tests
+    │       ├── PASS → Continue
+    │       └── FAIL → Send failures to @coder, retry from 5c
+    │
+    ├── 5f. @test_engineer adversarial testing pass
+    │       ├── Attack vectors, boundary violations, injection attempts
+    │       ├── PASS → Continue
+    │       └── FAIL → Send failures to @coder, retry from 5c
+    │
+    └── 5g. Update plan.md [x] complete (only after ALL gates pass)
 ```
 
 ### Phase 6: Phase Complete
@@ -223,26 +236,29 @@ project/
 │   │   ├── compaction-customizer.ts # Session compaction enrichment
 │   │   ├── agent-activity.ts        # Tool hooks (activity tracking + flush)
 │   │   └── delegation-tracker.ts    # Chat message hook (active agent tracking)
-│   ├── tools/             # Domain detector, file extractor, gitingest
+│   ├── tools/             # Domain detector, file extractor, gitingest, diff, retrieve-summary
 │   ├── plan/              # Plan management
 │   │   └── manager.ts     # load/save/migrate/derive plan operations
 │   └── evidence/          # Evidence bundle management
 │       ├── index.ts       # Barrel exports
 │       └── manager.ts     # CRUD: save/load/list/delete/archive evidence
 │
-├── tests/unit/            # 1027 tests across 44 files (bun test)
-│   ├── agents/            # creation (64), factory (20)
+├── tests/unit/            # 1188 tests across 53+ files (bun test)
+│   ├── agents/            # creation (64), factory (20), architect-v6-prompt (15),
+│   │                      # security-categories (12)
 │   ├── config/            # constants (14), schema (35), loader (17), plan-schema (40),
-│   │                      # evidence-schema (23), evidence-config (8)
+│   │                      # evidence-schema (23), evidence-config (8),
+│   │                      # review-integration-schemas (20)
 │   ├── hooks/             # pipeline-tracker (16), utils (25), system-enhancer (58),
 │   │                      # compaction-customizer (26), context-budget (23),
 │   │                      # extractors (32), agent-activity (14), delegation-tracker (16),
-│   │                      # guardrails (39)
+│   │                      # guardrails (39), system-enhancer-v6 (18)
 │   ├── commands/          # status (6), plan (9), agents (28), index (11),
-│   │                      # archive (8)
+│   │                      # archive (8), benchmark (5)
 │   ├── evidence/          # manager (25)
 │   ├── plan/              # manager (40)
-│   ├── tools/             # domain-detector (30), file-extractor (16), gitingest (5)
+│   ├── tools/             # domain-detector (30), file-extractor (16), gitingest (5),
+│   │                      # diff (22), retrieve-summary (28)
 │   ├── smoke/             # packaging (8)
 │   └── state.test.ts      # Shared state (31)
 │
@@ -413,7 +429,7 @@ Persistent `.swarm/` files provide:
 
 ## Hooks System
 
-The hooks system is the foundation of v5.1.x+. All features are built as hook handlers registered on OpenCode's Plugin API.
+The hooks system is the foundation of v5.1.x+, extended in v6.0.0 with config-aware hint injection. All features are built as hook handlers registered on OpenCode's Plugin API.
 
 ### Core Utilities
 
@@ -469,6 +485,7 @@ Registered on `experimental.chat.system.transform`:
 - Respects `max_injection_tokens` budget (default: 4,000 tokens)
 - Priority ordering: phase → task → decisions → agent context
 - Lower-priority items dropped when budget is exhausted
+- **v6.0.0**: Injects config override hints for `always_security_review` and `integration_analysis.enabled` when non-default values are detected
 
 ---
 

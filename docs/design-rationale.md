@@ -106,13 +106,18 @@ Benefits:
 - Massive rework
 - "It worked on my machine"
 
-**Swarm's approach**: Every task goes through QA.
+**Swarm's approach**: Every task goes through a multi-gate QA pipeline.
 
 ```
-Task → Coder → Review → Tests (run + verdict) → ✓ Complete
+Task → Coder → Diff → Review → Security Review → Tests → Adversarial Tests → ✓ Complete
 ```
 
-If QA rejects:
+The v6.0.0 pipeline adds three new gates:
+- **Diff analysis** — Detect contract changes, trigger impact analysis if exports changed
+- **Security-only review** — Automatic second pass for security-sensitive files (OWASP Top 10)
+- **Adversarial testing** — Attack vectors, boundary violations, injection attempts
+
+If any gate rejects:
 - Immediate feedback
 - Fix while context is fresh
 - Don't build on broken foundation
