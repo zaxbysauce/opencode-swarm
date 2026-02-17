@@ -109,6 +109,33 @@ export const SummaryConfigSchema = z.object({
 
 export type SummaryConfig = z.infer<typeof SummaryConfigSchema>;
 
+// Review passes configuration (dual-pass security review)
+export const ReviewPassesConfigSchema = z.object({
+	always_security_review: z.boolean().default(false),
+	security_globs: z
+		.array(z.string())
+		.default([
+			'**/auth/**',
+			'**/api/**',
+			'**/crypto/**',
+			'**/security/**',
+			'**/middleware/**',
+			'**/session/**',
+			'**/token/**',
+		]),
+});
+
+export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
+
+// Integration analysis configuration
+export const IntegrationAnalysisConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+});
+
+export type IntegrationAnalysisConfig = z.infer<
+	typeof IntegrationAnalysisConfigSchema
+>;
+
 // Guardrails profile (per-agent overrides - all fields optional)
 export const GuardrailsProfileSchema = z.object({
 	max_tool_calls: z.number().min(0).max(1000).optional(),
@@ -293,6 +320,12 @@ export const PluginConfigSchema = z.object({
 
 	// Summary configuration
 	summaries: SummaryConfigSchema.optional(),
+
+	// Review passes configuration (dual-pass security review)
+	review_passes: ReviewPassesConfigSchema.optional(),
+
+	// Integration analysis configuration
+	integration_analysis: IntegrationAnalysisConfigSchema.optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

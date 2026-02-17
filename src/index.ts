@@ -22,7 +22,7 @@ import {
 	safeHook,
 } from './hooks';
 import { ensureAgentSession, swarmState } from './state';
-import { detect_domains, extract_code_blocks, gitingest } from './tools';
+import { detect_domains, diff, extract_code_blocks, gitingest } from './tools';
 import { log } from './utils';
 
 /**
@@ -90,6 +90,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			detect_domains,
 			extract_code_blocks,
 			gitingest,
+			diff,
 		},
 
 		// Configure OpenCode - merge agents into config

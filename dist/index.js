@@ -13630,6 +13630,21 @@ var SummaryConfigSchema = exports_external.object({
   max_stored_bytes: exports_external.number().min(10240).max(104857600).default(10485760),
   retention_days: exports_external.number().min(1).max(365).default(7)
 });
+var ReviewPassesConfigSchema = exports_external.object({
+  always_security_review: exports_external.boolean().default(false),
+  security_globs: exports_external.array(exports_external.string()).default([
+    "**/auth/**",
+    "**/api/**",
+    "**/crypto/**",
+    "**/security/**",
+    "**/middleware/**",
+    "**/session/**",
+    "**/token/**"
+  ])
+});
+var IntegrationAnalysisConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true)
+});
 var GuardrailsProfileSchema = exports_external.object({
   max_tool_calls: exports_external.number().min(0).max(1000).optional(),
   max_duration_minutes: exports_external.number().min(0).max(480).optional(),
@@ -13729,7 +13744,9 @@ var PluginConfigSchema = exports_external.object({
   context_budget: ContextBudgetConfigSchema.optional(),
   guardrails: GuardrailsConfigSchema.optional(),
   evidence: EvidenceConfigSchema.optional(),
-  summaries: SummaryConfigSchema.optional()
+  summaries: SummaryConfigSchema.optional(),
+  review_passes: ReviewPassesConfigSchema.optional(),
+  integration_analysis: IntegrationAnalysisConfigSchema.optional()
 });
 
 // src/config/loader.ts
@@ -14021,17 +14038,13 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
    - If NEEDS_REVISION: Revise plan and re-submit to critic (max 2 cycles)
    - If REJECTED after 2 cycles: Escalate to user with explanation
    - ONLY AFTER critic approval: Proceed to implementation (Phase 3+)
-7. **MANDATORY QA GATE (Execute AFTER every coder task)**:
-   - Step A: {{AGENT_PREFIX}}coder completes implementation \u2192 STOP
-   - Step B: IMMEDIATELY delegate to {{AGENT_PREFIX}}reviewer with CHECK dimensions (security, correctness, edge-cases, etc.)
-   - Step C: Wait for reviewer verdict
-     - If VERDICT: REJECTED \u2192 Send FIXES back to {{AGENT_PREFIX}}coder (return to Step A)
-     - If VERDICT: APPROVED \u2192 Proceed to Step D
-   - Step D: IMMEDIATELY delegate to {{AGENT_PREFIX}}test_engineer to generate and run tests
-   - Step E: Wait for test verdict
-     - If VERDICT: FAIL \u2192 Send failure details back to {{AGENT_PREFIX}}coder (return to Step A)
-     - If VERDICT: PASS \u2192 Mark task complete, proceed to next task
-8. **NEVER skip the QA gate**: You cannot delegate to {{AGENT_PREFIX}}coder for a new task until the previous task passes BOTH reviewer approval AND test_engineer verification. The sequence is ALWAYS: coder \u2192 reviewer \u2192 test_engineer \u2192 next_coder.
+7. **MANDATORY QA GATE (Execute AFTER every coder task)** \u2014 sequence: coder \u2192 diff \u2192 review \u2192 security review \u2192 verification tests \u2192 adversarial tests \u2192 next task.
+   - After coder completes: run \`diff\` tool. If \`hasContractChanges\` is true \u2192 delegate {{AGENT_PREFIX}}explorer for integration impact analysis. BREAKING \u2192 return to coder. COMPATIBLE \u2192 proceed.
+   - Delegate {{AGENT_PREFIX}}reviewer with CHECK dimensions. REJECTED \u2192 return to coder (max {{QA_RETRY_LIMIT}} attempts). APPROVED \u2192 continue.
+   - If file matches security globs (auth, api, crypto, security, middleware, session, token) OR coder output contains security keywords \u2192 delegate {{AGENT_PREFIX}}reviewer AGAIN with security-only CHECK. REJECTED \u2192 return to coder.
+   - Delegate {{AGENT_PREFIX}}test_engineer for verification tests. FAIL \u2192 return to coder.
+   - Delegate {{AGENT_PREFIX}}test_engineer for adversarial tests (attack vectors only). FAIL \u2192 return to coder.
+   - All pass \u2192 mark task complete, proceed to next task.
 
 ## AGENTS
 
@@ -14043,6 +14056,8 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
 {{AGENT_PREFIX}}critic - Plan review gate (reviews plan BEFORE implementation)
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
+
+Available Tools: diff (structured git diff with contract change detection)
 
 ## DELEGATION FORMAT
 
@@ -14099,6 +14114,24 @@ PLAN: [paste the plan.md content]
 CONTEXT: [codebase summary from explorer]
 OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
 
+{{AGENT_PREFIX}}reviewer
+TASK: Security-only review of login validation
+FILE: src/auth/login.ts
+CHECK: [security-only] \u2014 evaluate against OWASP Top 10, scan for hardcoded secrets, injection vectors, insecure crypto, missing input validation
+OUTPUT: VERDICT + RISK + SECURITY ISSUES ONLY
+
+{{AGENT_PREFIX}}test_engineer
+TASK: Adversarial security testing
+FILE: src/auth/login.ts
+CONSTRAINT: ONLY attack vectors \u2014 malformed inputs, oversized payloads, injection attempts, auth bypass, boundary violations
+OUTPUT: Test file + VERDICT: PASS/FAIL
+
+{{AGENT_PREFIX}}explorer
+TASK: Integration impact analysis
+INPUT: Contract changes detected: [list from diff tool]
+OUTPUT: BREAKING CHANGES + CONSUMERS AFFECTED + VERDICT: BREAKING/COMPATIBLE
+CONSTRAINT: Read-only. grep for imports/usages of changed exports.
+
 ## WORKFLOW
 
 ### Phase 0: Resume Check
@@ -14150,15 +14183,13 @@ Delegate plan to {{AGENT_PREFIX}}critic for review BEFORE any implementation beg
 ### Phase 5: Execute
 For each task (respecting dependencies):
 
-5a. {{AGENT_PREFIX}}coder - Implement (MANDATORY)
-5b. {{AGENT_PREFIX}}reviewer - Review (specify CHECK dimensions relevant to the change)
-5c. **GATE - Check VERDICT:**
-    - **APPROVED** \u2192 Proceed to 5d
-    - **REJECTED** (attempt < {{QA_RETRY_LIMIT}}) \u2192 STOP. Send FIXES to {{AGENT_PREFIX}}coder with specific changes. Retry from 5a. Do NOT proceed to 5d.
-    - **REJECTED** (attempt {{QA_RETRY_LIMIT}}) \u2192 STOP. Escalate to user or handle directly.
-5d. {{AGENT_PREFIX}}test_engineer - Generate AND run tests (ONLY if 5c = APPROVED). Expect VERDICT: PASS/FAIL.
-5e. If test VERDICT is FAIL \u2192 Send failures to {{AGENT_PREFIX}}coder for fixes, then re-run from 5b.
-5f. Update plan.md [x], proceed to next task (ONLY if tests PASS)
+5a. {{AGENT_PREFIX}}coder - Implement
+5b. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. BREAKING \u2192 coder retry.
+5c. {{AGENT_PREFIX}}reviewer - General review. REJECTED (< {{QA_RETRY_LIMIT}}) \u2192 coder retry. REJECTED ({{QA_RETRY_LIMIT}}) \u2192 escalate.
+5d. Security gate: if file matches security globs or content has security keywords \u2192 {{AGENT_PREFIX}}reviewer security-only. REJECTED \u2192 coder retry.
+5e. {{AGENT_PREFIX}}test_engineer - Verification tests. FAIL \u2192 coder retry from 5c.
+5f. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL \u2192 coder retry from 5c.
+5g. Update plan.md [x], proceed to next task.
 
 ### Phase 6: Phase Complete
 1. {{AGENT_PREFIX}}explorer - Rescan
@@ -17244,6 +17275,12 @@ function createSystemEnhancerHook(config2, directory) {
             }
           }
           tryInject("[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.");
+          if (config2.review_passes?.always_security_review) {
+            tryInject("[SWARM CONFIG] Security review pass is MANDATORY for ALL tasks. Skip file-pattern check \u2014 always run security-only reviewer pass after general review APPROVED.");
+          }
+          if (config2.integration_analysis?.enabled === false) {
+            tryInject("[SWARM CONFIG] Integration analysis is DISABLED. Skip diff tool and integration impact analysis after coder tasks.");
+          }
           return;
         }
         const userScoringConfig = config2.context_budget?.scoring;
@@ -17322,6 +17359,28 @@ function createSystemEnhancerHook(config2, directory) {
               }
             }
           }
+        }
+        if (config2.review_passes?.always_security_review) {
+          const text = "[SWARM CONFIG] Security review pass is MANDATORY for ALL tasks. Skip file-pattern check \u2014 always run security-only reviewer pass after general review APPROVED.";
+          candidates.push({
+            id: `candidate-${idCounter++}`,
+            kind: "phase",
+            text,
+            tokens: estimateTokens(text),
+            priority: 1,
+            metadata: { contentType: "prose" }
+          });
+        }
+        if (config2.integration_analysis?.enabled === false) {
+          const text = "[SWARM CONFIG] Integration analysis is DISABLED. Skip diff tool and integration impact analysis after coder tasks.";
+          candidates.push({
+            id: `candidate-${idCounter++}`,
+            kind: "phase",
+            text,
+            tokens: estimateTokens(text),
+            priority: 1,
+            metadata: { contentType: "prose" }
+          });
         }
         const ranked = rankCandidates(candidates, effectiveConfig);
         for (const candidate of ranked) {
@@ -17517,6 +17576,9 @@ function createToolSummarizerHook(config2, directory) {
     }
   };
 }
+// src/tools/diff.ts
+import { execSync } from "child_process";
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
@@ -29837,7 +29899,149 @@ function tool(input) {
   return input;
 }
 tool.schema = exports_external2;
-
+// src/tools/diff.ts
+var MAX_DIFF_LINES = 500;
+var DIFF_TIMEOUT_MS = 30000;
+var MAX_BUFFER_BYTES = 5 * 1024 * 1024;
+var CONTRACT_PATTERNS = [
+  /^[+-]\s*export\s+(function|const|class|interface|type|enum|default)\b/,
+  /^[+-]\s*(interface|type)\s+\w+/,
+  /^[+-]\s*public\s+/,
+  /^[+-]\s*(async\s+)?function\s+\w+\s*\(/
+];
+var SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
+var MAX_REF_LENGTH = 256;
+var MAX_PATH_LENGTH = 500;
+var SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
+function validateBase(base) {
+  if (base.length > MAX_REF_LENGTH) {
+    return `base ref exceeds maximum length of ${MAX_REF_LENGTH}`;
+  }
+  if (!SAFE_REF_PATTERN.test(base)) {
+    return "base contains invalid characters for git ref";
+  }
+  return null;
+}
+function validatePaths(paths) {
+  if (!paths)
+    return null;
+  for (const path7 of paths) {
+    if (!path7 || path7.length === 0) {
+      return "empty path not allowed";
+    }
+    if (path7.length > MAX_PATH_LENGTH) {
+      return `path exceeds maximum length of ${MAX_PATH_LENGTH}`;
+    }
+    if (SHELL_METACHARACTERS.test(path7)) {
+      return "path contains shell metacharacters";
+    }
+  }
+  return null;
+}
+var diff = tool({
+  description: "Analyze git diff for changed files, exports, interfaces, and function signatures. Returns structured output with contract change detection.",
+  args: {
+    base: tool.schema.string().optional().describe('Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.'),
+    paths: tool.schema.array(tool.schema.string()).optional().describe("Optional file paths to restrict diff scope.")
+  },
+  async execute(args, _context) {
+    try {
+      const base = args.base ?? "HEAD";
+      const pathSpec = args.paths?.length ? "-- " + args.paths.join(" ") : "";
+      const baseValidationError = validateBase(base);
+      if (baseValidationError) {
+        const errorResult = {
+          error: `invalid base: ${baseValidationError}`,
+          files: [],
+          contractChanges: [],
+          hasContractChanges: false
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      const pathsValidationError = validatePaths(args.paths);
+      if (pathsValidationError) {
+        const errorResult = {
+          error: `invalid paths: ${pathsValidationError}`,
+          files: [],
+          contractChanges: [],
+          hasContractChanges: false
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      let gitCmd;
+      if (base === "staged") {
+        gitCmd = "git --no-pager diff --cached";
+      } else if (base === "unstaged") {
+        gitCmd = "git --no-pager diff";
+      } else {
+        gitCmd = `git --no-pager diff ${base}`;
+      }
+      const numstatOutput = execSync(gitCmd + " --numstat " + pathSpec, {
+        encoding: "utf-8",
+        timeout: DIFF_TIMEOUT_MS
+      });
+      const fullDiffOutput = execSync(gitCmd + " -U3 " + pathSpec, {
+        encoding: "utf-8",
+        timeout: DIFF_TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER_BYTES
+      });
+      const files = [];
+      const numstatLines = numstatOutput.split(`
+`);
+      for (const line of numstatLines) {
+        if (!line.trim())
+          continue;
+        const parts = line.split("\t");
+        if (parts.length >= 3) {
+          const additions = parseInt(parts[0]) || 0;
+          const deletions = parseInt(parts[1]) || 0;
+          const path7 = parts[2];
+          files.push({ path: path7, additions, deletions });
+        }
+      }
+      const contractChanges = [];
+      const diffLines = fullDiffOutput.split(`
+`);
+      let currentFile = "";
+      for (const line of diffLines) {
+        const gitLineMatch = line.match(/^diff --git.* b\/(.+)$/);
+        if (gitLineMatch) {
+          currentFile = gitLineMatch[1];
+        }
+        for (const pattern of CONTRACT_PATTERNS) {
+          if (pattern.test(line)) {
+            const trimmed = line.trim();
+            if (currentFile) {
+              contractChanges.push(`[${currentFile}] ${trimmed}`);
+            } else {
+              contractChanges.push(trimmed);
+            }
+            break;
+          }
+        }
+      }
+      const hasContractChanges = contractChanges.length > 0;
+      const fileCount = files.length;
+      const truncated = diffLines.length > MAX_DIFF_LINES;
+      const summary = truncated ? `${fileCount} files changed. Contract changes: ${hasContractChanges ? "YES" : "NO"}. (truncated to ${MAX_DIFF_LINES} lines)` : `${fileCount} files changed. Contract changes: ${hasContractChanges ? "YES" : "NO"}`;
+      const result = {
+        files,
+        contractChanges,
+        hasContractChanges,
+        summary
+      };
+      return JSON.stringify(result, null, 2);
+    } catch (e) {
+      const errorResult = {
+        error: e instanceof Error ? `git diff failed: ${e.constructor.name}` : "git diff failed: unknown error",
+        files: [],
+        contractChanges: [],
+        hasContractChanges: false
+      };
+      return JSON.stringify(errorResult, null, 2);
+    }
+  }
+});
 // src/tools/domain-detector.ts
 var DOMAIN_PATTERNS = {
   windows: [
@@ -30251,7 +30455,8 @@ var OpenCodeSwarm = async (ctx) => {
     tool: {
       detect_domains,
       extract_code_blocks,
-      gitingest
+      gitingest,
+      diff
     },
     config: async (opencodeConfig) => {
       if (!opencodeConfig.agent) {

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-02-17
+
+### Added
+- **Dual-pass security reviewer** — After general reviewer APPROVED, architect deterministically triggers a security-only reviewer pass when file path matches security globs (auth, api, crypto, security, middleware, session, token) or coder output contains security keywords. Configurable via `review_passes` config.
+- **Adversarial testing pass** — After verification tests PASS, architect delegates test_engineer with adversarial-only framing (attack vectors, boundary violations, injection attempts). Pure prompt engineering, no new infrastructure.
+- **Integration impact analysis** — After coder completes, architect runs `diff` tool. If contract changes detected (exports, interfaces, types), explorer runs impact analysis before review.
+- **`diff` tool** — New agent-accessible tool providing structured git diff with numstat parsing, contract change detection, base ref support (HEAD/staged/unstaged), path filtering, and 500-line truncation.
+- **`SECURITY_CATEGORIES` constant** — OWASP Top 10 2021 categories exported from `src/agents/reviewer.ts` for security-focused review passes.
+- **`review_passes` config schema** — `always_security_review` (default: false) and `security_globs` (default: 7 patterns) for controlling dual-pass behavior.
+- **`integration_analysis` config schema** — `enabled` (default: true) for controlling integration impact analysis.
+- System-enhancer hint injection for `always_security_review` and `integration_analysis.enabled` config overrides.
+- 87 new unit tests (diff tool, SECURITY_CATEGORIES, config schemas, architect prompt, system-enhancer hints).
+
+### Changed
+- **BREAKING**: Architect prompt Rules 7-8 consolidated into single Rule 7 with full QA sequence (coder → diff → review → security review → verification tests → adversarial tests). Users with `customPrompt` overrides must update manually.
+- Phase 5 (Execute) rewritten to 7 compact steps (5a-5g) including integration analysis, security gate, and adversarial testing.
+- AGENTS section now lists "Available Tools: diff".
+- Three new delegation examples added (security-only reviewer, adversarial test_engineer, integration impact explorer).
+
+### Tests
+- Total: ~1188 tests across 53+ files.
+
 ## [5.2.0] - 2026-02-17
 
 ### Changed

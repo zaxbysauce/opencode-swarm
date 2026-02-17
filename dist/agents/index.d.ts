@@ -20,6 +20,6 @@ export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createCriticAgent } from './critic';
 export { createExplorerAgent } from './explorer';
-export { createReviewerAgent } from './reviewer';
+export { createReviewerAgent, SECURITY_CATEGORIES, type SecurityCategory, } from './reviewer';
 export { createSMEAgent } from './sme';
 export { createTestEngineerAgent } from './test-engineer';

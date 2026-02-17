@@ -152,6 +152,20 @@ export function createSystemEnhancerHook(
 							'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 						);
 
+						// v6.0: Security review override
+						if (config.review_passes?.always_security_review) {
+							tryInject(
+								'[SWARM CONFIG] Security review pass is MANDATORY for ALL tasks. Skip file-pattern check — always run security-only reviewer pass after general review APPROVED.',
+							);
+						}
+
+						// v6.0: Integration analysis override
+						if (config.integration_analysis?.enabled === false) {
+							tryInject(
+								'[SWARM CONFIG] Integration analysis is DISABLED. Skip diff tool and integration impact analysis after coder tasks.',
+							);
+						}
+
 						return;
 					}
 
@@ -253,6 +267,34 @@ export function createSystemEnhancerHook(
 								}
 							}
 						}
+					}
+
+					// v6.0: Security review override
+					if (config.review_passes?.always_security_review) {
+						const text =
+							'[SWARM CONFIG] Security review pass is MANDATORY for ALL tasks. Skip file-pattern check — always run security-only reviewer pass after general review APPROVED.';
+						candidates.push({
+							id: `candidate-${idCounter++}`,
+							kind: 'phase' as ContextCandidate['kind'],
+							text,
+							tokens: estimateTokens(text),
+							priority: 1,
+							metadata: { contentType: 'prose' as ContentType },
+						});
+					}
+
+					// v6.0: Integration analysis override
+					if (config.integration_analysis?.enabled === false) {
+						const text =
+							'[SWARM CONFIG] Integration analysis is DISABLED. Skip diff tool and integration impact analysis after coder tasks.';
+						candidates.push({
+							id: `candidate-${idCounter++}`,
+							kind: 'phase' as ContextCandidate['kind'],
+							text,
+							tokens: estimateTokens(text),
+							priority: 1,
+							metadata: { contentType: 'prose' as ContentType },
+						});
 					}
 
 					// Rank candidates

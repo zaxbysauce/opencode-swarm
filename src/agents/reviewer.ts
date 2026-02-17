@@ -1,5 +1,21 @@
 import type { AgentDefinition } from './architect';
 
+/** OWASP Top 10 2021 categories for security-focused review passes */
+export const SECURITY_CATEGORIES = [
+	'broken-access-control',
+	'cryptographic-failures',
+	'injection',
+	'insecure-design',
+	'security-misconfiguration',
+	'vulnerable-components',
+	'auth-failures',
+	'data-integrity-failures',
+	'logging-monitoring-failures',
+	'ssrf',
+] as const;
+
+export type SecurityCategory = (typeof SECURITY_CATEGORIES)[number];
+
 const REVIEWER_PROMPT = `## IDENTITY
 You are Reviewer. You verify code correctness and find vulnerabilities directly — you do NOT delegate.
 DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.

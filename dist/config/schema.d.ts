@@ -128,6 +128,15 @@ export declare const SummaryConfigSchema: z.ZodObject<{
     retention_days: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type SummaryConfig = z.infer<typeof SummaryConfigSchema>;
+export declare const ReviewPassesConfigSchema: z.ZodObject<{
+    always_security_review: z.ZodDefault<z.ZodBoolean>;
+    security_globs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
+export declare const IntegrationAnalysisConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strip>;
+export type IntegrationAnalysisConfig = z.infer<typeof IntegrationAnalysisConfigSchema>;
 export declare const GuardrailsProfileSchema: z.ZodObject<{
     max_tool_calls: z.ZodOptional<z.ZodNumber>;
     max_duration_minutes: z.ZodOptional<z.ZodNumber>;
@@ -281,6 +290,13 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_summary_chars: z.ZodDefault<z.ZodNumber>;
         max_stored_bytes: z.ZodDefault<z.ZodNumber>;
         retention_days: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    review_passes: z.ZodOptional<z.ZodObject<{
+        always_security_review: z.ZodDefault<z.ZodBoolean>;
+        security_globs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>;
+    integration_analysis: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
