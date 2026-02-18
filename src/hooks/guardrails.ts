@@ -307,27 +307,14 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 			// Find the last message
 			const lastMessage = messages[messages.length - 1];
 
-			// Try to determine sessionID from the last message
-			let sessionId: string | undefined = lastMessage.info?.sessionID;
-
-			// Try to find a window with warning/hard limit
-			let targetWindow = sessionId ? getActiveWindow(sessionId) : undefined;
-
-			// If no window found via sessionID, scan all sessions
-			if (
-				!targetWindow ||
-				(!targetWindow.warningIssued && !targetWindow.hardLimitHit)
-			) {
-				for (const [id] of swarmState.agentSessions) {
-					const window = getActiveWindow(id);
-					if (window && (window.warningIssued || window.hardLimitHit)) {
-						targetWindow = window;
-						sessionId = id;
-						break;
-					}
-				}
+			// Determine sessionID from the last message — if absent, skip injection
+			const sessionId: string | undefined = lastMessage.info?.sessionID;
+			if (!sessionId) {
+				return;
 			}
 
+			// Only check the window for THIS session — never scan other sessions
+			const targetWindow = getActiveWindow(sessionId);
 			if (
 				!targetWindow ||
 				(!targetWindow.warningIssued && !targetWindow.hardLimitHit)

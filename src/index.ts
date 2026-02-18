@@ -48,10 +48,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
-	const delegationHandler = createDelegationTrackerHook(config);
 	const delegationGateHandler = createDelegationGateHook(config);
-	const guardrailsConfig = GuardrailsConfigSchema.parse(
-		config.guardrails ?? {},
+	// Fail-safe: if config was NOT loaded from file (fallback defaults),
+	// default guardrails to disabled to prevent silent re-enablement
+	const guardrailsFallback = config._loadedFromFile
+		? (config.guardrails ?? {})
+		: { ...config.guardrails, enabled: false };
+	const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
+	const delegationHandler = createDelegationTrackerHook(
+		config,
+		guardrailsConfig.enabled,
 	);
 	const guardrailsHooks = createGuardrailsHooks(guardrailsConfig);
 	const summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});

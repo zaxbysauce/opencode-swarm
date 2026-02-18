@@ -13,6 +13,8 @@ export declare function deepMerge<T extends Record<string, unknown>>(base?: T, o
  * 2. Project config: <directory>/.opencode/opencode-swarm.json
  *
  * Project config takes precedence. Nested objects are deep-merged.
+ * IMPORTANT: Raw configs are merged BEFORE Zod parsing so that
+ * Zod defaults don't override explicit user values.
  */
 export declare function loadPluginConfig(directory: string): PluginConfig;
 /**

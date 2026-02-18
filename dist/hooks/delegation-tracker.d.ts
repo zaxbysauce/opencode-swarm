@@ -8,7 +8,7 @@ import type { PluginConfig } from '../config/schema';
 /**
  * Creates the chat.message hook for delegation tracking.
  */
-export declare function createDelegationTrackerHook(config: PluginConfig): (input: {
+export declare function createDelegationTrackerHook(config: PluginConfig, guardrailsEnabled?: boolean): (input: {
     sessionID: string;
     agent?: string;
 }, output: Record<string, unknown>) => Promise<void>;

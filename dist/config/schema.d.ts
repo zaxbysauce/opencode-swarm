@@ -298,6 +298,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     integration_analysis: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
+    _loadedFromFile: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 export type { AgentName, PipelineAgentName, QAAgentName, } from './constants';

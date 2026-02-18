@@ -128,6 +128,7 @@ describe('PluginConfigSchema', () => {
         max_iterations: 5,
         qa_retry_limit: 3,
         inject_phase_reminders: true,
+        _loadedFromFile: false,
       });
     }
   });
@@ -159,7 +160,7 @@ describe('PluginConfigSchema', () => {
     const result = PluginConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).toEqual(config);
+      expect(result.data).toEqual({ ...config, _loadedFromFile: false });
     }
   });
 

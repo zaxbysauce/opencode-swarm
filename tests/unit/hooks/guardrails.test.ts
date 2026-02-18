@@ -448,6 +448,111 @@ describe('guardrails circuit breaker', () => {
 
 			expect(messages[0].parts[0].text).toBe(originalText);
 		});
+
+		// Fix 2: Session isolation tests - warnings from one session should not leak to another
+		it('session A warning does NOT leak into session B', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Session A: coder hits warning
+			startAgentSession('session-a', 'coder');
+			await hooks.toolBefore(makeInput('session-a'), makeOutput());
+			const windowA = getActiveWindow('session-a');
+			if (windowA) {
+				windowA.warningIssued = true;
+			}
+
+			// Session B: architect (no warning)
+			startAgentSession('session-b', 'explorer');
+
+			// Messages from session B should NOT get session A's warning
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'session-b' },
+				parts: [{ type: 'text', text: 'Explorer output' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+			expect(messages[0].parts[0].text).toBe('Explorer output');
+		});
+
+		it('session A hard limit does NOT inject into session B', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Session A: coder hits hard limit
+			startAgentSession('session-a', 'coder');
+			await hooks.toolBefore(makeInput('session-a'), makeOutput());
+			const windowA = getActiveWindow('session-a');
+			if (windowA) {
+				windowA.hardLimitHit = true;
+			}
+
+			// Session B messages should not get the hard limit
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'session-b' },
+				parts: [{ type: 'text', text: 'Other session output' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+			expect(messages[0].parts[0].text).toBe('Other session output');
+		});
+
+		it('messages with no sessionID are not injected', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Create a session with a warning
+			startAgentSession('session-a', 'coder');
+			await hooks.toolBefore(makeInput('session-a'), makeOutput());
+			const windowA = getActiveWindow('session-a');
+			if (windowA) {
+				windowA.hardLimitHit = true;
+			}
+
+			// Messages without sessionID should not get injection
+			const messages = [{
+				info: { role: 'assistant' },
+				parts: [{ type: 'text', text: 'No session ID here' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+			expect(messages[0].parts[0].text).toBe('No session ID here');
+		});
+
+		it('warning injection works for correct session', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up two sessions
+			startAgentSession('session-a', 'coder');
+			await hooks.toolBefore(makeInput('session-a'), makeOutput());
+			const windowA = getActiveWindow('session-a');
+			if (windowA) {
+				windowA.warningIssued = true;
+				windowA.warningReason = 'tool calls 150/200';
+			}
+
+			startAgentSession('session-b', 'explorer');
+
+			// Session A messages SHOULD get the warning
+			const messagesA = [{
+				info: { role: 'assistant', sessionID: 'session-a' },
+				parts: [{ type: 'text', text: 'Session A output' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages: messagesA });
+			expect(messagesA[0].parts[0].text).toContain('⚠️ APPROACHING LIMITS');
+			expect(messagesA[0].parts[0].text).toContain('tool calls 150/200');
+
+			// Session B messages should NOT get the warning
+			const messagesB = [{
+				info: { role: 'assistant', sessionID: 'session-b' },
+				parts: [{ type: 'text', text: 'Session B output' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages: messagesB });
+			expect(messagesB[0].parts[0].text).toBe('Session B output');
+		});
 	});
 
 	describe('hashArgs', () => {

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.1] - 2026-02-18
+
+### Fixed
+- **Fail-safe guardrails on config load failure** — When config file exists but fails to parse, guardrails now default to `enabled: false` instead of silently re-enabling with defaults. Adds `_loadedFromFile` flag and loud warning on non-ENOENT load errors.
+- **Cross-session warning leak** — `messagesTransform` no longer scans all sessions for budget warnings. Only the current session's invocation window is checked, preventing Session A's limit warnings from being injected into Session B.
+- **Shallow config merge for object-typed keys** — All object-typed config keys (`guardrails`, `context_budget`, `evidence`, `summaries`, `hooks`, `review_passes`, `integration_analysis`) now use deep merge. Project-level partial overrides no longer clobber unrelated fields from user config.
+- **Invocation window creation when guardrails disabled** — Delegation tracker now skips `beginInvocation()` when `guardrails.enabled` is `false`, avoiding unnecessary state accumulation.
+
+### Tests
+- 15 new tests: config load failure fallback (5), cross-session isolation (4), deep merge (3), invocation window skip (3).
+- Total: 1203 tests across 53 files.
+
 ## [6.0.0] - 2026-02-17
 
 ### Added

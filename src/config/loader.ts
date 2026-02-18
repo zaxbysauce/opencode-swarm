@@ -16,6 +16,60 @@ function getUserConfigDir(): string {
 }
 
 /**
+ * Load raw config JSON from a file path without Zod validation.
+ * Returns the raw JSON object for pre-validation merging.
+ */
+function loadRawConfigFromPath(
+	configPath: string,
+): Record<string, unknown> | null {
+	try {
+		const stats = fs.statSync(configPath);
+		if (stats.size > MAX_CONFIG_FILE_BYTES) {
+			console.warn(
+				`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
+			);
+			return null;
+		}
+
+		const content = fs.readFileSync(configPath, 'utf-8');
+		const rawConfig = JSON.parse(content);
+
+		if (
+			typeof rawConfig !== 'object' ||
+			rawConfig === null ||
+			Array.isArray(rawConfig)
+		) {
+			console.warn(
+				`[opencode-swarm] Invalid config at ${configPath}: expected an object`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
+			);
+			return null;
+		}
+
+		return rawConfig as Record<string, unknown>;
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			'code' in error &&
+			(error as NodeJS.ErrnoException).code !== 'ENOENT'
+		) {
+			console.warn(
+				`[opencode-swarm] ⚠️ CONFIG LOAD FAILURE — config exists at ${configPath} but could not be loaded: ${error.message}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
+			);
+		}
+		return null;
+	}
+}
+
+/**
  * Load and validate config from a specific file path.
  */
 function loadConfigFromPath(configPath: string): PluginConfig | null {
@@ -25,6 +79,9 @@ function loadConfigFromPath(configPath: string): PluginConfig | null {
 		if (stats.size > MAX_CONFIG_FILE_BYTES) {
 			console.warn(
 				`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
 			);
 			return null;
 		}
@@ -36,10 +93,13 @@ function loadConfigFromPath(configPath: string): PluginConfig | null {
 		if (!result.success) {
 			console.warn(`[opencode-swarm] Invalid config at ${configPath}:`);
 			console.warn(result.error.format());
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
+			);
 			return null;
 		}
 
-		return result.data;
+		return { ...result.data, _loadedFromFile: true };
 	} catch (error) {
 		if (
 			error instanceof Error &&
@@ -47,8 +107,10 @@ function loadConfigFromPath(configPath: string): PluginConfig | null {
 			(error as NodeJS.ErrnoException).code !== 'ENOENT'
 		) {
 			console.warn(
-				`[opencode-swarm] Error reading config from ${configPath}:`,
-				error.message,
+				`[opencode-swarm] ⚠️ CONFIG LOAD FAILURE — config exists at ${configPath} but could not be loaded: ${error.message}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
 			);
 		}
 		return null;
@@ -116,6 +178,8 @@ export function deepMerge<T extends Record<string, unknown>>(
  * 2. Project config: <directory>/.opencode/opencode-swarm.json
  *
  * Project config takes precedence. Nested objects are deep-merged.
+ * IMPORTANT: Raw configs are merged BEFORE Zod parsing so that
+ * Zod defaults don't override explicit user values.
  */
 export function loadPluginConfig(directory: string): PluginConfig {
 	const userConfigPath = path.join(
@@ -126,22 +190,49 @@ export function loadPluginConfig(directory: string): PluginConfig {
 
 	const projectConfigPath = path.join(directory, '.opencode', CONFIG_FILENAME);
 
-	let config: PluginConfig = loadConfigFromPath(userConfigPath) ?? {
-		max_iterations: 5,
-		qa_retry_limit: 3,
-		inject_phase_reminders: true,
-	};
+	// Load raw configs (no Zod defaults applied yet)
+	const rawUserConfig = loadRawConfigFromPath(userConfigPath);
+	const rawProjectConfig = loadRawConfigFromPath(projectConfigPath);
 
-	const projectConfig = loadConfigFromPath(projectConfigPath);
-	if (projectConfig) {
-		config = {
-			...config,
-			...projectConfig,
-			agents: deepMerge(config.agents, projectConfig.agents),
+	// Track whether any config was loaded from file
+	const loadedFromFile = rawUserConfig !== null || rawProjectConfig !== null;
+
+	// Deep-merge raw objects before Zod parsing so that
+	// Zod defaults don't override explicit user values
+	let mergedRaw: Record<string, unknown> = rawUserConfig ?? {};
+	if (rawProjectConfig) {
+		mergedRaw = deepMergeInternal(mergedRaw, rawProjectConfig, 0);
+	}
+
+	// Validate merged config with Zod (applies defaults ONCE)
+	const result = PluginConfigSchema.safeParse(mergedRaw);
+	if (!result.success) {
+		// If merged config fails validation, try user config alone
+		// (project config may have invalid values that should be ignored)
+		if (rawUserConfig) {
+			const userResult = PluginConfigSchema.safeParse(rawUserConfig);
+			if (userResult.success) {
+				console.warn(
+					'[opencode-swarm] Project config ignored due to validation errors. Using user config.',
+				);
+				return { ...userResult.data, _loadedFromFile: true };
+			}
+		}
+		// Neither merged nor user config is valid, return defaults
+		console.warn('[opencode-swarm] Merged config validation failed:');
+		console.warn(result.error.format());
+		console.warn(
+			'[opencode-swarm] ⚠️ Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.',
+		);
+		return {
+			max_iterations: 5,
+			qa_retry_limit: 3,
+			inject_phase_reminders: true,
+			_loadedFromFile: false,
 		};
 	}
 
-	return config;
+	return { ...result.data, _loadedFromFile: loadedFromFile };
 }
 
 /**

@@ -187,6 +187,7 @@ describe('config/loader', () => {
 				max_iterations: 5,
 				qa_retry_limit: 3,
 				inject_phase_reminders: true,
+				_loadedFromFile: false,
 			});
 		});
 
@@ -377,6 +378,127 @@ describe('config/loader', () => {
 			expect(result.inject_phase_reminders).toBe(true); // Default value
 			
 			// Clean up project directory
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		// Fix 1: _loadedFromFile tracking tests
+		it('_loadedFromFile is false when no config files exist', () => {
+			const result = loadPluginConfig(tempDir);
+			expect(result._loadedFromFile).toBe(false);
+		});
+
+		it('_loadedFromFile is true when user config loads successfully', () => {
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
+
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const result = loadPluginConfig(projectDir);
+			expect(result._loadedFromFile).toBe(true);
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		it('_loadedFromFile is false when config file has invalid JSON', () => {
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, '{ invalid }');
+
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const result = loadPluginConfig(projectDir);
+			expect(result._loadedFromFile).toBe(false);
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		it('_loadedFromFile is false when config file is too large', () => {
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 3 }) + ' '.repeat(110_000));
+
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const result = loadPluginConfig(projectDir);
+			expect(result._loadedFromFile).toBe(false);
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		// Fix 3: Deep merge tests
+		it('deep merges guardrails config between user and project', () => {
+			// User config has guardrails.enabled: false
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, JSON.stringify({
+				guardrails: { enabled: false }
+			}));
+
+			// Project config has guardrails.max_tool_calls: 500
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const configDir = path.join(projectDir, '.opencode');
+			const configFile = path.join(configDir, 'opencode-swarm.json');
+			fs.mkdirSync(configDir, { recursive: true });
+			fs.writeFileSync(configFile, JSON.stringify({
+				guardrails: { max_tool_calls: 500 }
+			}));
+
+			const result = loadPluginConfig(projectDir);
+
+			// Both fields should be present (deep merge, not shallow replace)
+			expect(result.guardrails?.enabled).toBe(false);
+			expect(result.guardrails?.max_tool_calls).toBe(500);
+
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		it('deep merges context_budget config between user and project', () => {
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, JSON.stringify({
+				context_budget: { enabled: true, warn_threshold: 0.5 }
+			}));
+
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const configDir = path.join(projectDir, '.opencode');
+			const configFile = path.join(configDir, 'opencode-swarm.json');
+			fs.mkdirSync(configDir, { recursive: true });
+			fs.writeFileSync(configFile, JSON.stringify({
+				context_budget: { critical_threshold: 0.8 }
+			}));
+
+			const result = loadPluginConfig(projectDir);
+
+			// Both fields should be present
+			expect(result.context_budget?.enabled).toBe(true);
+			expect(result.context_budget?.warn_threshold).toBe(0.5);
+			expect(result.context_budget?.critical_threshold).toBe(0.8);
+
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		it('deep merges hooks config between user and project', () => {
+			const userConfigDir = path.join(tempDir, 'opencode');
+			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(userConfigFile, JSON.stringify({
+				hooks: { system_enhancer: false }
+			}));
+
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const configDir = path.join(projectDir, '.opencode');
+			const configFile = path.join(configDir, 'opencode-swarm.json');
+			fs.mkdirSync(configDir, { recursive: true });
+			fs.writeFileSync(configFile, JSON.stringify({
+				hooks: { delegation_tracker: true }
+			}));
+
+			const result = loadPluginConfig(projectDir);
+
+			// Both fields should be present
+			expect(result.hooks?.system_enhancer).toBe(false);
+			expect(result.hooks?.delegation_tracker).toBe(true);
+
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
 	});

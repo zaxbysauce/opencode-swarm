@@ -21,6 +21,7 @@ import {
  */
 export function createDelegationTrackerHook(
 	config: PluginConfig,
+	guardrailsEnabled = true,
 ): (
 	input: { sessionID: string; agent?: string },
 	output: Record<string, unknown>,
@@ -77,7 +78,7 @@ export function createDelegationTrackerHook(
 		// Start new invocation window for non-architect agents
 		// CRITICAL: Always call beginInvocation, even if same agent as previous
 		// (handles architect → coder → architect → coder re-invocation pattern)
-		if (!isArchitect) {
+		if (!isArchitect && guardrailsEnabled) {
 			beginInvocation(input.sessionID, agentName);
 		}
 

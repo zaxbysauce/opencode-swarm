@@ -13746,7 +13746,8 @@ var PluginConfigSchema = exports_external.object({
   evidence: EvidenceConfigSchema.optional(),
   summaries: SummaryConfigSchema.optional(),
   review_passes: ReviewPassesConfigSchema.optional(),
-  integration_analysis: IntegrationAnalysisConfigSchema.optional()
+  integration_analysis: IntegrationAnalysisConfigSchema.optional(),
+  _loadedFromFile: exports_external.boolean().default(false)
 });
 
 // src/config/loader.ts
@@ -13756,25 +13757,26 @@ var MAX_CONFIG_FILE_BYTES = 102400;
 function getUserConfigDir() {
   return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
 }
-function loadConfigFromPath(configPath) {
+function loadRawConfigFromPath(configPath) {
   try {
     const stats = fs.statSync(configPath);
     if (stats.size > MAX_CONFIG_FILE_BYTES) {
       console.warn(`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
       return null;
     }
     const content = fs.readFileSync(configPath, "utf-8");
     const rawConfig = JSON.parse(content);
-    const result = PluginConfigSchema.safeParse(rawConfig);
-    if (!result.success) {
-      console.warn(`[opencode-swarm] Invalid config at ${configPath}:`);
-      console.warn(result.error.format());
+    if (typeof rawConfig !== "object" || rawConfig === null || Array.isArray(rawConfig)) {
+      console.warn(`[opencode-swarm] Invalid config at ${configPath}: expected an object`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
       return null;
     }
-    return result.data;
+    return rawConfig;
   } catch (error48) {
     if (error48 instanceof Error && "code" in error48 && error48.code !== "ENOENT") {
-      console.warn(`[opencode-swarm] Error reading config from ${configPath}:`, error48.message);
+      console.warn(`[opencode-swarm] \u26A0\uFE0F CONFIG LOAD FAILURE \u2014 config exists at ${configPath} but could not be loaded: ${error48.message}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
     }
     return null;
   }
@@ -13796,30 +13798,36 @@ function deepMergeInternal(base, override, depth) {
   }
   return result;
 }
-function deepMerge(base, override) {
-  if (!base)
-    return override;
-  if (!override)
-    return base;
-  return deepMergeInternal(base, override, 0);
-}
 function loadPluginConfig(directory) {
   const userConfigPath = path.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
   const projectConfigPath = path.join(directory, ".opencode", CONFIG_FILENAME);
-  let config2 = loadConfigFromPath(userConfigPath) ?? {
-    max_iterations: 5,
-    qa_retry_limit: 3,
-    inject_phase_reminders: true
-  };
-  const projectConfig = loadConfigFromPath(projectConfigPath);
-  if (projectConfig) {
-    config2 = {
-      ...config2,
-      ...projectConfig,
-      agents: deepMerge(config2.agents, projectConfig.agents)
+  const rawUserConfig = loadRawConfigFromPath(userConfigPath);
+  const rawProjectConfig = loadRawConfigFromPath(projectConfigPath);
+  const loadedFromFile = rawUserConfig !== null || rawProjectConfig !== null;
+  let mergedRaw = rawUserConfig ?? {};
+  if (rawProjectConfig) {
+    mergedRaw = deepMergeInternal(mergedRaw, rawProjectConfig, 0);
+  }
+  const result = PluginConfigSchema.safeParse(mergedRaw);
+  if (!result.success) {
+    if (rawUserConfig) {
+      const userResult = PluginConfigSchema.safeParse(rawUserConfig);
+      if (userResult.success) {
+        console.warn("[opencode-swarm] Project config ignored due to validation errors. Using user config.");
+        return { ...userResult.data, _loadedFromFile: true };
+      }
+    }
+    console.warn("[opencode-swarm] Merged config validation failed:");
+    console.warn(result.error.format());
+    console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
+    return {
+      max_iterations: 5,
+      qa_retry_limit: 3,
+      inject_phase_reminders: true,
+      _loadedFromFile: false
     };
   }
-  return config2;
+  return { ...result.data, _loadedFromFile: loadedFromFile };
 }
 function loadAgentPrompt(agentName) {
   const promptsDir = path.join(getUserConfigDir(), "opencode", PROMPTS_DIR_NAME);
@@ -16859,7 +16867,7 @@ ${originalText}`;
   };
 }
 // src/hooks/delegation-tracker.ts
-function createDelegationTrackerHook(config2) {
+function createDelegationTrackerHook(config2, guardrailsEnabled = true) {
   return async (input, _output) => {
     const now = Date.now();
     if (!input.agent || input.agent === "") {
@@ -16881,7 +16889,7 @@ function createDelegationTrackerHook(config2) {
     const isArchitect = strippedAgent === ORCHESTRATOR_NAME;
     const session = ensureAgentSession(input.sessionID, agentName);
     session.delegationActive = !isArchitect;
-    if (!isArchitect) {
+    if (!isArchitect && guardrailsEnabled) {
       beginInvocation(input.sessionID, agentName);
     }
     if (config2.hooks?.delegation_tracker === true && previousAgent && previousAgent !== agentName) {
@@ -17056,18 +17064,11 @@ function createGuardrailsHooks(config2) {
         return;
       }
       const lastMessage = messages[messages.length - 1];
-      let sessionId = lastMessage.info?.sessionID;
-      let targetWindow = sessionId ? getActiveWindow(sessionId) : undefined;
-      if (!targetWindow || !targetWindow.warningIssued && !targetWindow.hardLimitHit) {
-        for (const [id] of swarmState.agentSessions) {
-          const window = getActiveWindow(id);
-          if (window && (window.warningIssued || window.hardLimitHit)) {
-            targetWindow = window;
-            sessionId = id;
-            break;
-          }
-        }
+      const sessionId = lastMessage.info?.sessionID;
+      if (!sessionId) {
+        return;
       }
+      const targetWindow = getActiveWindow(sessionId);
       if (!targetWindow || !targetWindow.warningIssued && !targetWindow.hardLimitHit) {
         return;
       }
@@ -30426,9 +30427,10 @@ var OpenCodeSwarm = async (ctx) => {
   const contextBudgetHandler = createContextBudgetHandler(config3);
   const commandHandler = createSwarmCommandHandler(ctx.directory, Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])));
   const activityHooks = createAgentActivityHooks(config3, ctx.directory);
-  const delegationHandler = createDelegationTrackerHook(config3);
   const delegationGateHandler = createDelegationGateHook(config3);
-  const guardrailsConfig = GuardrailsConfigSchema.parse(config3.guardrails ?? {});
+  const guardrailsFallback = config3._loadedFromFile ? config3.guardrails ?? {} : { ...config3.guardrails, enabled: false };
+  const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
+  const delegationHandler = createDelegationTrackerHook(config3, guardrailsConfig.enabled);
   const guardrailsHooks = createGuardrailsHooks(guardrailsConfig);
   const summaryConfig = SummaryConfigSchema.parse(config3.summaries ?? {});
   const toolSummarizerHook = createToolSummarizerHook(summaryConfig, ctx.directory);

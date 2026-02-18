@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState } from '../../../src/state';
+import { swarmState, resetSwarmState, getActiveWindow } from '../../../src/state';
 import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
 import type { PluginConfig } from '../../../src/config';
 
@@ -466,6 +466,54 @@ describe('DelegationTrackerHook', () => {
 				const session = swarmState.agentSessions.get(sessionId);
 				expect(session!.delegationActive).toBe(false);
 			});
+		});
+	});
+
+	// Fix 4: guardrails disabled optimization tests
+	describe('guardrails disabled optimization', () => {
+		it('does not call beginInvocation when guardrails disabled', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig, false);
+			const sessionId = 'test-session';
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Active agent should still be set
+			expect(swarmState.activeAgent.get(sessionId)).toBe('coder');
+			// Session should exist
+			expect(swarmState.agentSessions.get(sessionId)).toBeDefined();
+			// But no invocation window should be created
+			expect(getActiveWindow(sessionId)).toBeUndefined();
+		});
+
+		it('calls beginInvocation when guardrails enabled (default)', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session';
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Active agent should be set
+			expect(swarmState.activeAgent.get(sessionId)).toBe('coder');
+			// Invocation window should be created
+			expect(getActiveWindow(sessionId)).toBeDefined();
+		});
+
+		it('calls beginInvocation when guardrails explicitly enabled', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig, true);
+			const sessionId = 'test-session';
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			expect(getActiveWindow(sessionId)).toBeDefined();
+		});
+
+		it('architect is never tracked regardless of guardrails flag', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig, true);
+			const sessionId = 'test-session';
+
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			// Architect should never have an invocation window
+			expect(getActiveWindow(sessionId)).toBeUndefined();
 		});
 	});
 });
