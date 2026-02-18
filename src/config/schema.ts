@@ -396,9 +396,6 @@ export const PluginConfigSchema = z.object({
 
 	// UI/UX review configuration (designer agent)
 	ui_review: UIReviewConfigSchema.optional(),
-
-	// Internal: tracks whether config was loaded from file or is fallback defaults
-	_loadedFromFile: z.boolean().default(false),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

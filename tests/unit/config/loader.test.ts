@@ -183,12 +183,11 @@ describe('config/loader', () => {
 			const result = loadPluginConfig(tempDir);
 			
 			// Should return defaults when no user config and no project config exist
-			expect(result).toEqual({
-				max_iterations: 5,
-				qa_retry_limit: 3,
-				inject_phase_reminders: true,
-				_loadedFromFile: false,
-			});
+		expect(result).toEqual({
+			max_iterations: 5,
+			qa_retry_limit: 3,
+			inject_phase_reminders: true,
+		});
 		});
 
 		it('loads user config', () => {
@@ -381,48 +380,6 @@ describe('config/loader', () => {
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
 
-		// Fix 1: _loadedFromFile tracking tests
-		it('_loadedFromFile is false when no config files exist', () => {
-			const result = loadPluginConfig(tempDir);
-			expect(result._loadedFromFile).toBe(false);
-		});
-
-		it('_loadedFromFile is true when user config loads successfully', () => {
-			const userConfigDir = path.join(tempDir, 'opencode');
-			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
-
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
-			const result = loadPluginConfig(projectDir);
-			expect(result._loadedFromFile).toBe(true);
-			fs.rmSync(projectDir, { recursive: true, force: true });
-		});
-
-		it('_loadedFromFile is false when config file has invalid JSON', () => {
-			const userConfigDir = path.join(tempDir, 'opencode');
-			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, '{ invalid }');
-
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
-			const result = loadPluginConfig(projectDir);
-			expect(result._loadedFromFile).toBe(false);
-			fs.rmSync(projectDir, { recursive: true, force: true });
-		});
-
-		it('_loadedFromFile is false when config file is too large', () => {
-			const userConfigDir = path.join(tempDir, 'opencode');
-			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 3 }) + ' '.repeat(110_000));
-
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
-			const result = loadPluginConfig(projectDir);
-			expect(result._loadedFromFile).toBe(false);
-			fs.rmSync(projectDir, { recursive: true, force: true });
-		});
-
 		// Fix 3: Deep merge tests
 		it('deep merges guardrails config between user and project', () => {
 			// User config has guardrails.enabled: false
@@ -498,6 +455,25 @@ describe('config/loader', () => {
 			// Both fields should be present
 			expect(result.hooks?.system_enhancer).toBe(false);
 			expect(result.hooks?.delegation_tracker).toBe(true);
+
+			fs.rmSync(projectDir, { recursive: true, force: true });
+		});
+
+		it('config file with "_loadedFromFile": true in JSON has no effect on returned config', () => {
+			// Security test: _loadedFromFile is internal loader state and must not be
+			// deserialized from user input. A config file containing "_loadedFromFile": true
+			// should produce a config with NO _loadedFromFile property (Zod strips unknown fields).
+			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const configDir = path.join(projectDir, '.opencode');
+			const configFile = path.join(configDir, 'opencode-swarm.json');
+
+			fs.mkdirSync(configDir, { recursive: true });
+			fs.writeFileSync(configFile, JSON.stringify({ _loadedFromFile: true }));
+
+			const result = loadPluginConfig(projectDir);
+
+			// _loadedFromFile must NOT be present in the returned PluginConfig
+			expect(Object.prototype.hasOwnProperty.call(result, '_loadedFromFile')).toBe(false);
 
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});

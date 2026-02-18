@@ -7,8 +7,8 @@ export declare const TaskStatusSchema: z.ZodEnum<{
 }>;
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export declare const TaskSizeSchema: z.ZodEnum<{
-    small: "small";
     medium: "medium";
+    small: "small";
     large: "large";
 }>;
 export type TaskSize = z.infer<typeof TaskSizeSchema>;
@@ -35,8 +35,8 @@ export declare const TaskSchema: z.ZodObject<{
         blocked: "blocked";
     }>>;
     size: z.ZodDefault<z.ZodEnum<{
-        small: "small";
         medium: "medium";
+        small: "small";
         large: "large";
     }>>;
     description: z.ZodString;
@@ -66,8 +66,8 @@ export declare const PhaseSchema: z.ZodObject<{
             blocked: "blocked";
         }>>;
         size: z.ZodDefault<z.ZodEnum<{
-            small: "small";
             medium: "medium";
+            small: "small";
             large: "large";
         }>>;
         description: z.ZodString;
@@ -103,8 +103,8 @@ export declare const PlanSchema: z.ZodObject<{
                 blocked: "blocked";
             }>>;
             size: z.ZodDefault<z.ZodEnum<{
-                small: "small";
                 medium: "medium";
+                small: "small";
                 large: "large";
             }>>;
             description: z.ZodString;

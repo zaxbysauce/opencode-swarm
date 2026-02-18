@@ -26,11 +26,83 @@ var __export = (target, all) => {
 };
 var __require = import.meta.require;
 
-// src/config/loader.ts
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+// src/utils/merge.ts
+var MAX_MERGE_DEPTH = 10;
+function deepMergeInternal(base, override, depth) {
+  if (depth >= MAX_MERGE_DEPTH) {
+    throw new Error(`deepMerge exceeded maximum depth of ${MAX_MERGE_DEPTH}`);
+  }
+  const result = { ...base };
+  for (const key of Object.keys(override)) {
+    const baseVal = base[key];
+    const overrideVal = override[key];
+    if (typeof baseVal === "object" && baseVal !== null && typeof overrideVal === "object" && overrideVal !== null && !Array.isArray(baseVal) && !Array.isArray(overrideVal)) {
+      result[key] = deepMergeInternal(baseVal, overrideVal, depth + 1);
+    } else {
+      result[key] = overrideVal;
+    }
+  }
+  return result;
+}
+function deepMerge(base, override) {
+  if (!base)
+    return override;
+  if (!override)
+    return base;
+  return deepMergeInternal(base, override, 0);
+}
 
+// src/config/constants.ts
+var QA_AGENTS = ["reviewer", "critic"];
+var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
+var ORCHESTRATOR_NAME = "architect";
+var ALL_SUBAGENT_NAMES = [
+  "sme",
+  "docs",
+  "designer",
+  ...QA_AGENTS,
+  ...PIPELINE_AGENTS
+];
+var ALL_AGENT_NAMES = [
+  ORCHESTRATOR_NAME,
+  ...ALL_SUBAGENT_NAMES
+];
+var DEFAULT_MODELS = {
+  architect: "anthropic/claude-sonnet-4-5",
+  explorer: "google/gemini-2.0-flash",
+  coder: "anthropic/claude-sonnet-4-5",
+  test_engineer: "google/gemini-2.0-flash",
+  sme: "google/gemini-2.0-flash",
+  reviewer: "google/gemini-2.0-flash",
+  critic: "google/gemini-2.0-flash",
+  docs: "google/gemini-2.0-flash",
+  designer: "google/gemini-2.0-flash",
+  default: "google/gemini-2.0-flash"
+};
+var DEFAULT_SCORING_CONFIG = {
+  enabled: false,
+  max_candidates: 100,
+  weights: {
+    phase: 1,
+    current_task: 2,
+    blocked_task: 1.5,
+    recent_failure: 2.5,
+    recent_success: 0.5,
+    evidence_presence: 1,
+    decision_recency: 1.5,
+    dependency_proximity: 1
+  },
+  decision_decay: {
+    mode: "exponential",
+    half_life_hours: 24
+  },
+  token_ratios: {
+    prose: 0.25,
+    code: 0.4,
+    markdown: 0.3,
+    json: 0.35
+  }
+};
 // node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
@@ -13563,6 +13635,85 @@ function date4(params) {
 
 // node_modules/zod/v4/classic/external.js
 config(en_default());
+// src/config/evidence-schema.ts
+var EVIDENCE_MAX_JSON_BYTES = 500 * 1024;
+var EVIDENCE_MAX_PATCH_BYTES = 5 * 1024 * 1024;
+var EVIDENCE_MAX_TASK_BYTES = 20 * 1024 * 1024;
+var EvidenceTypeSchema = exports_external.enum([
+  "review",
+  "test",
+  "diff",
+  "approval",
+  "note"
+]);
+var EvidenceVerdictSchema = exports_external.enum([
+  "pass",
+  "fail",
+  "approved",
+  "rejected",
+  "info"
+]);
+var BaseEvidenceSchema = exports_external.object({
+  task_id: exports_external.string().min(1),
+  type: EvidenceTypeSchema,
+  timestamp: exports_external.string().datetime(),
+  agent: exports_external.string().min(1),
+  verdict: EvidenceVerdictSchema,
+  summary: exports_external.string().min(1),
+  metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional()
+});
+var ReviewEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("review"),
+  risk: exports_external.enum(["low", "medium", "high", "critical"]),
+  issues: exports_external.array(exports_external.object({
+    severity: exports_external.enum(["error", "warning", "info"]),
+    message: exports_external.string().min(1),
+    file: exports_external.string().optional(),
+    line: exports_external.number().int().optional()
+  })).default([])
+});
+var TestEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("test"),
+  tests_passed: exports_external.number().int().min(0),
+  tests_failed: exports_external.number().int().min(0),
+  test_file: exports_external.string().optional(),
+  failures: exports_external.array(exports_external.object({
+    name: exports_external.string().min(1),
+    message: exports_external.string().min(1)
+  })).default([])
+});
+var DiffEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("diff"),
+  files_changed: exports_external.array(exports_external.string()).default([]),
+  additions: exports_external.number().int().min(0).default(0),
+  deletions: exports_external.number().int().min(0).default(0),
+  patch_path: exports_external.string().optional()
+});
+var ApprovalEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("approval")
+});
+var NoteEvidenceSchema = BaseEvidenceSchema.extend({
+  type: exports_external.literal("note")
+});
+var EvidenceSchema = exports_external.discriminatedUnion("type", [
+  ReviewEvidenceSchema,
+  TestEvidenceSchema,
+  DiffEvidenceSchema,
+  ApprovalEvidenceSchema,
+  NoteEvidenceSchema
+]);
+var EvidenceBundleSchema = exports_external.object({
+  schema_version: exports_external.literal("1.0.0"),
+  task_id: exports_external.string().min(1),
+  entries: exports_external.array(EvidenceSchema).default([]),
+  created_at: exports_external.string().datetime(),
+  updated_at: exports_external.string().datetime()
+});
+// src/config/loader.ts
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
 // src/config/schema.ts
 var AgentOverrideConfigSchema = exports_external.object({
   model: exports_external.string().optional(),
@@ -13798,8 +13949,7 @@ var PluginConfigSchema = exports_external.object({
   review_passes: ReviewPassesConfigSchema.optional(),
   integration_analysis: IntegrationAnalysisConfigSchema.optional(),
   docs: DocsConfigSchema.optional(),
-  ui_review: UIReviewConfigSchema.optional(),
-  _loadedFromFile: exports_external.boolean().default(false)
+  ui_review: UIReviewConfigSchema.optional()
 });
 
 // src/config/loader.ts
@@ -13818,6 +13968,11 @@ function loadRawConfigFromPath(configPath) {
       return null;
     }
     const content = fs.readFileSync(configPath, "utf-8");
+    if (content.length > MAX_CONFIG_FILE_BYTES) {
+      console.warn(`[opencode-swarm] Config file too large after read (max 100 KB): ${configPath}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
+      return null;
+    }
     const rawConfig = JSON.parse(content);
     if (typeof rawConfig !== "object" || rawConfig === null || Array.isArray(rawConfig)) {
       console.warn(`[opencode-swarm] Invalid config at ${configPath}: expected an object`);
@@ -13833,23 +13988,6 @@ function loadRawConfigFromPath(configPath) {
     return null;
   }
 }
-var MAX_MERGE_DEPTH = 10;
-function deepMergeInternal(base, override, depth) {
-  if (depth >= MAX_MERGE_DEPTH) {
-    throw new Error(`deepMerge exceeded maximum depth of ${MAX_MERGE_DEPTH}`);
-  }
-  const result = { ...base };
-  for (const key of Object.keys(override)) {
-    const baseVal = base[key];
-    const overrideVal = override[key];
-    if (typeof baseVal === "object" && baseVal !== null && typeof overrideVal === "object" && overrideVal !== null && !Array.isArray(baseVal) && !Array.isArray(overrideVal)) {
-      result[key] = deepMergeInternal(baseVal, overrideVal, depth + 1);
-    } else {
-      result[key] = overrideVal;
-    }
-  }
-  return result;
-}
 function loadPluginConfig(directory) {
   const userConfigPath = path.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
   const projectConfigPath = path.join(directory, ".opencode", CONFIG_FILENAME);
@@ -13858,7 +13996,7 @@ function loadPluginConfig(directory) {
   const loadedFromFile = rawUserConfig !== null || rawProjectConfig !== null;
   let mergedRaw = rawUserConfig ?? {};
   if (rawProjectConfig) {
-    mergedRaw = deepMergeInternal(mergedRaw, rawProjectConfig, 0);
+    mergedRaw = deepMerge(mergedRaw, rawProjectConfig);
   }
   const result = PluginConfigSchema.safeParse(mergedRaw);
   if (!result.success) {
@@ -13866,20 +14004,24 @@ function loadPluginConfig(directory) {
       const userResult = PluginConfigSchema.safeParse(rawUserConfig);
       if (userResult.success) {
         console.warn("[opencode-swarm] Project config ignored due to validation errors. Using user config.");
-        return { ...userResult.data, _loadedFromFile: true };
+        return userResult.data;
       }
     }
     console.warn("[opencode-swarm] Merged config validation failed:");
     console.warn(result.error.format());
     console.warn("[opencode-swarm] \u26A0\uFE0F Guardrails will be DISABLED as a safety precaution. Fix the config file to restore normal operation.");
-    return {
-      max_iterations: 5,
-      qa_retry_limit: 3,
-      inject_phase_reminders: true,
-      _loadedFromFile: false
-    };
+    return PluginConfigSchema.parse({});
   }
-  return { ...result.data, _loadedFromFile: loadedFromFile };
+  return result.data;
+}
+function loadPluginConfigWithMeta(directory) {
+  const userConfigPath = path.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
+  const projectConfigPath = path.join(directory, ".opencode", CONFIG_FILENAME);
+  const rawUserConfig = loadRawConfigFromPath(userConfigPath);
+  const rawProjectConfig = loadRawConfigFromPath(projectConfigPath);
+  const loadedFromFile = rawUserConfig !== null || rawProjectConfig !== null;
+  const config2 = loadPluginConfig(directory);
+  return { config: config2, loadedFromFile };
 }
 function loadAgentPrompt(agentName) {
   const promptsDir = path.join(getUserConfigDir(), "opencode", PROMPTS_DIR_NAME);
@@ -13902,58 +14044,6 @@ function loadAgentPrompt(agentName) {
   }
   return result;
 }
-
-// src/config/constants.ts
-var QA_AGENTS = ["reviewer", "critic"];
-var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
-var ORCHESTRATOR_NAME = "architect";
-var ALL_SUBAGENT_NAMES = [
-  "sme",
-  "docs",
-  "designer",
-  ...QA_AGENTS,
-  ...PIPELINE_AGENTS
-];
-var ALL_AGENT_NAMES = [
-  ORCHESTRATOR_NAME,
-  ...ALL_SUBAGENT_NAMES
-];
-var DEFAULT_MODELS = {
-  architect: "anthropic/claude-sonnet-4-5",
-  explorer: "google/gemini-2.0-flash",
-  coder: "anthropic/claude-sonnet-4-5",
-  test_engineer: "google/gemini-2.0-flash",
-  sme: "google/gemini-2.0-flash",
-  reviewer: "google/gemini-2.0-flash",
-  critic: "google/gemini-2.0-flash",
-  docs: "google/gemini-2.0-flash",
-  designer: "google/gemini-2.0-flash",
-  default: "google/gemini-2.0-flash"
-};
-var DEFAULT_SCORING_CONFIG = {
-  enabled: false,
-  max_candidates: 100,
-  weights: {
-    phase: 1,
-    current_task: 2,
-    blocked_task: 1.5,
-    recent_failure: 2.5,
-    recent_success: 0.5,
-    evidence_presence: 1,
-    decision_recency: 1.5,
-    dependency_proximity: 1
-  },
-  decision_decay: {
-    mode: "exponential",
-    half_life_hours: 24
-  },
-  token_ratios: {
-    prose: 0.25,
-    code: 0.4,
-    markdown: 0.3,
-    json: 0.35
-  }
-};
 // src/config/plan-schema.ts
 var TaskStatusSchema = exports_external.enum([
   "pending",
@@ -13998,80 +14088,6 @@ var PlanSchema = exports_external.object({
   current_phase: exports_external.number().int().min(1),
   phases: exports_external.array(PhaseSchema).min(1),
   migration_status: MigrationStatusSchema.optional()
-});
-// src/config/evidence-schema.ts
-var EVIDENCE_MAX_JSON_BYTES = 500 * 1024;
-var EVIDENCE_MAX_PATCH_BYTES = 5 * 1024 * 1024;
-var EVIDENCE_MAX_TASK_BYTES = 20 * 1024 * 1024;
-var EvidenceTypeSchema = exports_external.enum([
-  "review",
-  "test",
-  "diff",
-  "approval",
-  "note"
-]);
-var EvidenceVerdictSchema = exports_external.enum([
-  "pass",
-  "fail",
-  "approved",
-  "rejected",
-  "info"
-]);
-var BaseEvidenceSchema = exports_external.object({
-  task_id: exports_external.string().min(1),
-  type: EvidenceTypeSchema,
-  timestamp: exports_external.string().datetime(),
-  agent: exports_external.string().min(1),
-  verdict: EvidenceVerdictSchema,
-  summary: exports_external.string().min(1),
-  metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional()
-});
-var ReviewEvidenceSchema = BaseEvidenceSchema.extend({
-  type: exports_external.literal("review"),
-  risk: exports_external.enum(["low", "medium", "high", "critical"]),
-  issues: exports_external.array(exports_external.object({
-    severity: exports_external.enum(["error", "warning", "info"]),
-    message: exports_external.string().min(1),
-    file: exports_external.string().optional(),
-    line: exports_external.number().int().optional()
-  })).default([])
-});
-var TestEvidenceSchema = BaseEvidenceSchema.extend({
-  type: exports_external.literal("test"),
-  tests_passed: exports_external.number().int().min(0),
-  tests_failed: exports_external.number().int().min(0),
-  test_file: exports_external.string().optional(),
-  failures: exports_external.array(exports_external.object({
-    name: exports_external.string().min(1),
-    message: exports_external.string().min(1)
-  })).default([])
-});
-var DiffEvidenceSchema = BaseEvidenceSchema.extend({
-  type: exports_external.literal("diff"),
-  files_changed: exports_external.array(exports_external.string()).default([]),
-  additions: exports_external.number().int().min(0).default(0),
-  deletions: exports_external.number().int().min(0).default(0),
-  patch_path: exports_external.string().optional()
-});
-var ApprovalEvidenceSchema = BaseEvidenceSchema.extend({
-  type: exports_external.literal("approval")
-});
-var NoteEvidenceSchema = BaseEvidenceSchema.extend({
-  type: exports_external.literal("note")
-});
-var EvidenceSchema = exports_external.discriminatedUnion("type", [
-  ReviewEvidenceSchema,
-  TestEvidenceSchema,
-  DiffEvidenceSchema,
-  ApprovalEvidenceSchema,
-  NoteEvidenceSchema
-]);
-var EvidenceBundleSchema = exports_external.object({
-  schema_version: exports_external.literal("1.0.0"),
-  task_id: exports_external.string().min(1),
-  entries: exports_external.array(EvidenceSchema).default([]),
-  created_at: exports_external.string().datetime(),
-  updated_at: exports_external.string().datetime()
 });
 // src/agents/architect.ts
 var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
@@ -30766,9 +30782,39 @@ var gitingest = tool({
     return fetchGitingest(args);
   }
 });
+// src/tools/retrieve-summary.ts
+var RETRIEVE_MAX_BYTES = 10 * 1024 * 1024;
+var retrieve_summary = tool({
+  description: "Retrieve the full content of a stored tool output summary by its ID (e.g. S1, S2). Use this when a prior tool output was summarized and you need the full content.",
+  args: {
+    id: tool.schema.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits.")
+  },
+  async execute(args, context) {
+    const directory = context.directory;
+    let sanitizedId;
+    try {
+      sanitizedId = sanitizeSummaryId(args.id);
+    } catch {
+      return "Error: invalid summary ID format. Expected format: S followed by digits (e.g. S1, S2, S99).";
+    }
+    let fullOutput;
+    try {
+      fullOutput = await loadFullOutput(directory, sanitizedId);
+    } catch {
+      return "Error: failed to retrieve summary.";
+    }
+    if (fullOutput === null) {
+      return `Summary \`${sanitizedId}\` not found. Use a valid summary ID (e.g. S1, S2).`;
+    }
+    if (fullOutput.length > RETRIEVE_MAX_BYTES) {
+      return `Error: summary content exceeds maximum size limit (10 MB).`;
+    }
+    return fullOutput;
+  }
+});
 // src/index.ts
 var OpenCodeSwarm = async (ctx) => {
-  const config3 = loadPluginConfig(ctx.directory);
+  const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
   const agents = getAgentConfigs(config3);
   const agentDefinitions = createAgents(config3);
   const pipelineHook = createPipelineTrackerHook(config3);
@@ -30778,7 +30824,7 @@ var OpenCodeSwarm = async (ctx) => {
   const commandHandler = createSwarmCommandHandler(ctx.directory, Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])));
   const activityHooks = createAgentActivityHooks(config3, ctx.directory);
   const delegationGateHandler = createDelegationGateHook(config3);
-  const guardrailsFallback = config3._loadedFromFile ? config3.guardrails ?? {} : { ...config3.guardrails, enabled: false };
+  const guardrailsFallback = loadedFromFile ? config3.guardrails ?? {} : { ...config3.guardrails, enabled: false };
   const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
   const delegationHandler = createDelegationTrackerHook(config3, guardrailsConfig.enabled);
   const guardrailsHooks = createGuardrailsHooks(guardrailsConfig);
@@ -30808,7 +30854,8 @@ var OpenCodeSwarm = async (ctx) => {
       detect_domains,
       extract_code_blocks,
       gitingest,
-      diff
+      diff,
+      retrieve_summary
     },
     config: async (opencodeConfig) => {
       if (!opencodeConfig.agent) {

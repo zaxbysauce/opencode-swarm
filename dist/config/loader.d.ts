@@ -1,10 +1,6 @@
 import { type PluginConfig } from './schema';
 export declare const MAX_CONFIG_FILE_BYTES = 102400;
-export declare const MAX_MERGE_DEPTH = 10;
-/**
- * Deep merge two objects, with override values taking precedence.
- */
-export declare function deepMerge<T extends Record<string, unknown>>(base?: T, override?: T): T | undefined;
+export { deepMerge, MAX_MERGE_DEPTH } from '../utils/merge';
 /**
  * Load plugin configuration from user and project config files.
  *
@@ -17,6 +13,15 @@ export declare function deepMerge<T extends Record<string, unknown>>(base?: T, o
  * Zod defaults don't override explicit user values.
  */
 export declare function loadPluginConfig(directory: string): PluginConfig;
+/**
+ * Internal variant of loadPluginConfig that also returns loader metadata.
+ * Used only by src/index.ts to determine guardrails fallback behavior.
+ * NOT part of the public API — use loadPluginConfig() for all other callers.
+ */
+export declare function loadPluginConfigWithMeta(directory: string): {
+    config: PluginConfig;
+    loadedFromFile: boolean;
+};
 /**
  * Load custom prompt for an agent from the prompts directory.
  * Checks for {agent}.md (replaces default) and {agent}_append.md (appends).

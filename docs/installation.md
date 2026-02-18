@@ -31,7 +31,9 @@ Create `~/.config/opencode/opencode-swarm.json`:
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "google/gemini-2.0-flash" },
     "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "google/gemini-2.0-flash" }
+    "test_engineer": { "model": "google/gemini-2.0-flash" },
+    "docs": { "model": "google/gemini-2.0-flash" },
+    "designer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
@@ -242,7 +244,9 @@ Use expensive models only where it matters:
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "google/gemini-2.0-flash" },
     "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "google/gemini-2.0-flash" }
+    "test_engineer": { "model": "google/gemini-2.0-flash" },
+    "docs": { "model": "google/gemini-2.0-flash" },
+    "designer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
@@ -260,7 +264,9 @@ Different vendors catch different bugs:
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "openai/gpt-4o" },
     "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "openai/gpt-4o-mini" }
+    "test_engineer": { "model": "openai/gpt-4o-mini" },
+    "docs": { "model": "google/gemini-2.0-flash" },
+    "designer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
@@ -278,7 +284,9 @@ Use local models for high-volume agents:
     "sme": { "model": "ollama/qwen2.5:14b" },
     "reviewer": { "model": "ollama/qwen2.5:14b" },
     "critic": { "model": "ollama/qwen2.5:14b" },
-    "test_engineer": { "model": "ollama/qwen2.5:14b" }
+    "test_engineer": { "model": "ollama/qwen2.5:14b" },
+    "docs": { "model": "ollama/qwen2.5:14b" },
+    "designer": { "model": "ollama/qwen2.5:14b" }
   }
 }
 ```
@@ -296,7 +304,9 @@ Single vendor, premium quality:
     "sme": { "model": "anthropic/claude-haiku" },
     "reviewer": { "model": "anthropic/claude-sonnet-4-5" },
     "critic": { "model": "anthropic/claude-sonnet-4-5" },
-    "test_engineer": { "model": "anthropic/claude-haiku" }
+    "test_engineer": { "model": "anthropic/claude-haiku" },
+    "docs": { "model": "anthropic/claude-haiku" },
+    "designer": { "model": "anthropic/claude-haiku" }
   }
 }
 ```
@@ -658,7 +668,7 @@ Shows current swarm state:
 ```
 Phase: 2 [IN PROGRESS]
 Tasks: 3/5 complete
-Agents: 7 registered
+Agents: 9 registered
 ```
 
 ### `/swarm plan`

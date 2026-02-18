@@ -1,7 +1,7 @@
 import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs } from './agents';
 import { createSwarmCommandHandler } from './commands';
-import { loadPluginConfig } from './config';
+import { loadPluginConfig, loadPluginConfigWithMeta } from './config';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import {
 	GuardrailsConfigSchema,
@@ -22,7 +22,13 @@ import {
 	safeHook,
 } from './hooks';
 import { ensureAgentSession, swarmState } from './state';
-import { detect_domains, diff, extract_code_blocks, gitingest } from './tools';
+import {
+	detect_domains,
+	diff,
+	extract_code_blocks,
+	gitingest,
+	retrieve_summary,
+} from './tools';
 import { log } from './utils';
 
 /**
@@ -36,7 +42,7 @@ import { log } from './utils';
  * - Iterative refinement with triage
  */
 const OpenCodeSwarm: Plugin = async (ctx) => {
-	const config = loadPluginConfig(ctx.directory);
+	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
 	const pipelineHook = createPipelineTrackerHook(config);
@@ -51,7 +57,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const delegationGateHandler = createDelegationGateHook(config);
 	// Fail-safe: if config was NOT loaded from file (fallback defaults),
 	// default guardrails to disabled to prevent silent re-enablement
-	const guardrailsFallback = config._loadedFromFile
+	const guardrailsFallback = loadedFromFile
 		? (config.guardrails ?? {})
 		: { ...config.guardrails, enabled: false };
 	const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
@@ -97,6 +103,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			extract_code_blocks,
 			gitingest,
 			diff,
+			retrieve_summary,
 		},
 
 		// Configure OpenCode - merge agents into config

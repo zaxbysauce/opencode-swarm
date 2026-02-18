@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.1] - 2026-02-18
+
+### Security
+- **Removed `_loadedFromFile` from `PluginConfigSchema`** — This internal loader flag was reachable via JSON deserialization. A config file containing `"_loadedFromFile": true` could bypass the guardrails fail-safe that disables guardrails when no config file is present. The field is now internal-only via `loadPluginConfigWithMeta()`.
+- **TOCTOU hardening** — Added second `content.length` check after `readFileSync` in `loadRawConfigFromPath` to guard against files that grow between `statSync` and `readFileSync`.
+
+### Changed
+- **`loadPluginConfigWithMeta()`** — New internal function (not in public API) used only by `src/index.ts`. Returns `{ config: PluginConfig, loadedFromFile: boolean }` to keep loader metadata separate from user config.
+- **`deepMerge` extracted to `src/utils/merge.ts`** — Breaks circular ESM dependency: `constants.ts → loader.ts → schema.ts → constants.ts`. Both `deepMerge` and `MAX_MERGE_DEPTH` remain re-exported from `loader.ts` for backward compatibility.
+- **Dead function `loadConfigFromPath` deleted** — Was never called; removed to reduce confusion about authoritative config load path.
+
+### Fixed
+- **`retrieve_summary` tool registered** — `src/tools/retrieve-summary.ts` was implemented but not wired into the plugin tool block. Agents can now call `retrieve_summary` to retrieve full tool outputs that were auto-summarized.
+
+### Tests
+- 3 new tests: security test verifying `_loadedFromFile` in JSON is stripped by Zod (`loader.test.ts`), end-to-end guardrails-disabled path (`guardrails-disabled.test.ts`), `_loadedFromFile` bypass attempt is blocked (`guardrails-disabled.test.ts`).
+- 5 stale tests removed: `_loadedFromFile` tracking tests in `loader.test.ts` and `schema.test.ts` (field no longer in schema).
+
 ## [6.1.0] - 2026-02-18
 
 ### Added

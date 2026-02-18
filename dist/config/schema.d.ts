@@ -318,7 +318,6 @@ export declare const PluginConfigSchema: z.ZodObject<{
         trigger_paths: z.ZodDefault<z.ZodArray<z.ZodString>>;
         trigger_keywords: z.ZodDefault<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
-    _loadedFromFile: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 export type { AgentName, PipelineAgentName, QAAgentName, } from './constants';

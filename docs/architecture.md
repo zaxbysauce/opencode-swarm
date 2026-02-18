@@ -47,10 +47,14 @@ Swarm enforces discipline:
 - Maintains project memory
 
 ### Explorer: The Eyes
-- Fast codebase scanning
-- Structure and pattern identification
-- Domain detection for SME routing
-- Re-runs at phase boundaries to capture changes
+- Fast codebase scanner
+- Identifies structure, languages, frameworks, key files
+- Read-only (cannot write code)
+
+### Designer: The Blueprint
+- UI/UX specification agent
+- Generates component scaffolds and design tokens before coding begins on UI-heavy tasks
+- Runs in Phase 5 before Coder (Rule 9)
 
 ### SME: The Advisor
 - Single open-domain expert (any domain: security, ios, rust, kubernetes, etc.)
@@ -67,6 +71,11 @@ Swarm enforces discipline:
 - Reviews architect's plan BEFORE implementation begins
 - Returns APPROVED / NEEDS_REVISION / REJECTED
 - Read-only (cannot write code)
+
+### Docs: The Scribe
+- Documentation synthesizer
+- Automatically updates READMEs, API docs, and guides based on implementation changes
+- Runs in Phase 6 as part of project wrap-up
 
 ---
 
@@ -184,6 +193,15 @@ For each task in current phase:
 
 ### Phase 6: Phase Complete
 
+```
+All tasks in phase done
+    │
+    ├── Re-run @explorer (codebase changed)
+    ├── @docs synthesizer pass (updates docs per changes)
+    ├── Update context.md with learnings
+    ├── Archive to .swarm/history/phase-N.md
+    │
+    └── Ask user: "Ready for Phase [N+1]?"
 ```
 All tasks in phase done
     │

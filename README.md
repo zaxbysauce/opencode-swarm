@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-6.1.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/opencode-plugin-purple" alt="OpenCode Plugin">
-  <img src="https://img.shields.io/badge/agents-7-orange" alt="Agents">
-  <img src="https://img.shields.io/badge/tests-1188-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/agents-9-orange" alt="Agents">
+  <img src="https://img.shields.io/badge/tests-1280-brightgreen" alt="Tests">
 </p>
 
 <h1 align="center">🐝 OpenCode Swarm</h1>
@@ -343,6 +343,17 @@ bunx opencode-swarm uninstall --clean
 
 ## What's New
 
+### v6.1.1 — Security Fix & Tech Debt
+- **Security hardening (`_loadedFromFile`)** — Fixed a critical vulnerability where an internal loader flag could be injected via JSON config to bypass guardrails. The flag is now purely internal and no longer part of the public schema.
+- **TOCTOU protection** — Added atomic-style content checks in the config loader to prevent race conditions during file reads.
+- **`retrieve_summary` tool** — Properly registered the retrieval tool, allowing agents to fetch full content from auto-summarized tool outputs.
+- **92 new tests** — 1280 total tests across 57+ files (up from 1188 in v6.0.0).
+
+### v6.1.0 — Docs & Design Agents
+- **`docs` agent** — Dedicated documentation synthesizer that automatically updates READMEs, API docs, and guides during Phase 6.
+- **`designer` agent** — UI/UX specification agent that generates component scaffolds before coding begins on UI-heavy tasks.
+- **Heterogeneous model defaults** — Updated default models for new agents to use optimized Gemini models for speed and cost.
+
 ### v6.0.0 — Core QA & Security Gates
 - **Dual-pass security reviewer** — After the general reviewer APPROVES, the architect automatically triggers a second security-only review pass when the changed file matches security-sensitive paths (`auth`, `crypto`, `session`, `token`, `middleware`, `api`, `security`) or the coder's output contains security keywords. Configurable via `review_passes` config.
 - **Adversarial testing** — After verification tests PASS, the test engineer is re-delegated with adversarial-only framing: attack vectors, boundary violations, and injection attempts. Pure prompt engineering, no new infrastructure.
@@ -411,6 +422,11 @@ All features are opt-in via configuration. See [Installation Guide](docs/install
 |-------|------|
 | `explorer` | Fast codebase scanner. Identifies structure, languages, frameworks, key files. |
 
+### 🎨 Design
+| Agent | Role |
+|-------|------|
+| `designer` | UI/UX specification agent. Generates component scaffolds and design tokens before coding begins on UI-heavy tasks. |
+
 ### 🧠 Domain Expert
 | Agent | Role |
 |-------|------|
@@ -427,6 +443,11 @@ All features are opt-in via configuration. See [Installation Guide](docs/install
 |-------|------|
 | `reviewer` | Dual-pass review: correctness review first, then automatic security-only pass for security-sensitive files. The architect specifies CHECK dimensions per call. OWASP Top 10 categories built in. |
 | `critic` | Plan review gate. Reviews the architect's plan BEFORE implementation — checks completeness, feasibility, scope, dependencies, and flags AI-slop. |
+
+### 📝 Documentation
+| Agent | Role |
+|-------|------|
+| `docs` | Documentation synthesizer. Automatically updates READMEs, API docs, and guides based on implementation changes during Phase 6. |
 
 ---
 
@@ -462,7 +483,9 @@ Create `~/.config/opencode/opencode-swarm.json`:
     "sme": { "model": "google/gemini-2.0-flash" },
     "reviewer": { "model": "openai/gpt-4o" },
     "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "google/gemini-2.0-flash" }
+    "test_engineer": { "model": "google/gemini-2.0-flash" },
+    "docs": { "model": "google/gemini-2.0-flash" },
+    "designer": { "model": "google/gemini-2.0-flash" }
   }
 }
 ```
@@ -630,7 +653,7 @@ bun test
 bun test tests/unit/config/schema.test.ts
 ```
 
-1188 tests across 53+ files covering config, tools, agents, hooks, commands, state, guardrails, evidence, plan schemas, circuit breaker race conditions, invocation windows, multi-invocation isolation, security categories, review/integration schemas, and diff tool. Uses Bun's built-in test runner — zero additional test dependencies.
+1280 tests across 57+ files covering config, tools, agents, hooks, commands, state, guardrails, evidence, plan schemas, circuit breaker race conditions, invocation windows, multi-invocation isolation, security categories, review/integration schemas, and diff tool. Uses Bun's built-in test runner — zero additional test dependencies.
 
 ## Troubleshooting
 

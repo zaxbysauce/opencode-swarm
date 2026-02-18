@@ -55,8 +55,8 @@ export declare const ReviewEvidenceSchema: z.ZodObject<{
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     type: z.ZodLiteral<"review">;
     risk: z.ZodEnum<{
-        medium: "medium";
         low: "low";
+        medium: "medium";
         high: "high";
         critical: "critical";
     }>;
@@ -162,8 +162,8 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     type: z.ZodLiteral<"review">;
     risk: z.ZodEnum<{
-        medium: "medium";
         low: "low";
+        medium: "medium";
         high: "high";
         critical: "critical";
     }>;
@@ -264,8 +264,8 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
         metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
         type: z.ZodLiteral<"review">;
         risk: z.ZodEnum<{
-            medium: "medium";
             low: "low";
+            medium: "medium";
             high: "high";
             critical: "critical";
         }>;

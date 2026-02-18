@@ -64,7 +64,7 @@ export function isSubagent(name: string): boolean {
 	return (ALL_SUBAGENT_NAMES as readonly string[]).includes(name);
 }
 
-import { deepMerge } from './loader';
+import { deepMerge } from '../utils/merge';
 import type { ScoringConfig } from './schema';
 
 // Default scoring configuration
