@@ -1,5 +1,5 @@
+import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
-import * as path from 'path';
 import { createAgents, getAgentConfigs } from './agents';
 import {
 	type AutomationStatusArtifact,

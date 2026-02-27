@@ -7,7 +7,7 @@
 
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
-import { swarmState } from '../state';
+import { ensureAgentSession, swarmState } from '../state';
 
 interface MessageInfo {
 	role: string;
@@ -24,6 +24,15 @@ interface MessagePart {
 interface MessageWithParts {
 	info: MessageInfo;
 	parts: MessagePart[];
+}
+
+/**
+ * Extracts the TASK line content from the delegation text.
+ * Returns the content after "TASK:" or null if not found.
+ */
+function extractTaskLine(text: string): string | null {
+	const match = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
+	return match ? match[1].trim() : null;
 }
 
 /**
@@ -89,10 +98,44 @@ export function createDelegationGateHook(
 		const textPart = lastUserMessage.parts[textPartIndex];
 		const text = textPart.text ?? '';
 
-		// Detect if this is a coder delegation
-		// Matches lines like "coder\nTASK:" or "mega_coder\nTASK:" etc.
+		// Check for zero-coder-delegation violation (v6.12 Anti-Process-Violation)
+		// Detect when architect writes to non-.swarm/ files without ever delegating to coder
+		// This check runs for ALL architect messages (not just coder delegations)
+		const sessionID = lastUserMessage.info?.sessionID;
+
+		// Step 1: Extract task ID from TASK line (if present)
+		const taskIdMatch = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
+		const currentTaskId = taskIdMatch ? taskIdMatch[1].trim() : null;
+
+		// Step 2: Detect if this is a coder delegation BEFORE running violation check
 		const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;
-		if (!coderDelegationPattern.test(text)) return;
+		const isCoderDelegation = coderDelegationPattern.test(text);
+
+		// Step 3: If this is a coder delegation with a task ID, track it
+		if (sessionID && isCoderDelegation && currentTaskId) {
+			const session = ensureAgentSession(sessionID);
+			session.lastCoderDelegationTaskId = currentTaskId;
+		}
+
+		// Step 4: Run zero-coder-delegation warning only if:
+		// - Not a coder delegation message
+		// - Has a task ID (not null)
+		// - Architect has written files
+		// - Task ID differs from last coder delegation
+		if (sessionID && !isCoderDelegation && currentTaskId) {
+			const session = ensureAgentSession(sessionID);
+			if (
+				session.architectWriteCount > 0 &&
+				session.lastCoderDelegationTaskId !== currentTaskId
+			) {
+				// Inject warning directly into message
+				const warningText = `⚠️ DELEGATION VIOLATION: Code modifications detected for task ${currentTaskId} with zero coder delegations.\nRule 1: DELEGATE all coding to coder. You do NOT write code.`;
+				textPart.text = `${warningText}\n\n${text}`;
+			}
+		}
+
+		// Early return if not a coder delegation (skip rest of checks)
+		if (!isCoderDelegation) return;
 
 		// Run heuristic checks and collect warnings
 		const warnings: string[] = [];
@@ -120,18 +163,30 @@ export function createDelegationGateHook(
 			);
 		}
 
-		// Check for batching language
+		// Check for batching language (punctuation-tolerant)
 		const batchingPattern =
-			/\b(?:and also|then also|additionally|as well as|along with)\b/gi;
+			/\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
 		const batchingMatches = text.match(batchingPattern);
 		if (batchingMatches && batchingMatches.length > 0) {
 			warnings.push(
-				'Batching language detected. Break compound objectives into separate coder calls.',
+				`Batching language detected (${batchingMatches.join(', ')}). Break compound objectives into separate coder calls.`,
 			);
 		}
 
+		// Check for " and " connecting separate actions in the TASK line
+		// Use simpler heuristic: look for "and" between capitalized words or common patterns
+		const taskLine = extractTaskLine(text);
+		if (taskLine) {
+			// Simple heuristic: " and " followed by a verb-like word
+			// Pattern: "word(s) and verb" where verb is action-like
+			const andPattern =
+				/\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
+			if (andPattern.test(taskLine)) {
+				warnings.push('TASK line contains "and" connecting separate actions');
+			}
+		}
+
 		// Check for protocol violation: coder → coder without reviewer/test_engineer
-		const sessionID = lastUserMessage.info?.sessionID;
 		if (sessionID) {
 			const delegationChain = swarmState.delegationChains.get(sessionID);
 			if (delegationChain && delegationChain.length >= 2) {
@@ -170,8 +225,11 @@ export function createDelegationGateHook(
 		// If no warnings, return
 		if (warnings.length === 0) return;
 
-		// Build warning text
-		const warningText = `[⚠️ DELEGATION GATE: Your coder delegation may be too complex. Issues:\n${warnings.join('\n')}\nSplit into smaller, atomic tasks for better results.]`;
+		// Build warning text in v6.12 format
+		const warningLines = warnings.map((w) => `Detected signal: ${w}`);
+		const warningText = `⚠️ BATCH DETECTED: Your coder delegation appears to contain multiple tasks.
+Rule 3: ONE task per coder call. Split this into separate delegations.
+${warningLines.join('\n')}`;
 
 		// Prepend warning to the text part
 		const originalText = textPart.text ?? '';

@@ -110,6 +110,13 @@ export class PhaseBoundaryTrigger {
 	}
 
 	/**
+	 * Get the last triggered phase (for external access)
+	 */
+	get lastTriggeredPhaseValue(): number {
+		return this.lastTriggeredPhase;
+	}
+
+	/**
 	 * Check if a phase boundary has been crossed
 	 * Returns the result of the detection
 	 */
@@ -418,7 +425,7 @@ export class PreflightTriggerManager {
 			enabled: this.isEnabled(),
 			mode,
 			currentPhase: this.trigger.getCurrentPhase(),
-			lastTriggeredPhase: this.trigger['lastTriggeredPhase'],
+			lastTriggeredPhase: this.trigger.lastTriggeredPhaseValue,
 			pendingRequests: this.getQueueSize(),
 		};
 	}

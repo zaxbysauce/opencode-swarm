@@ -2,7 +2,7 @@
  * Security Tests for Task 5.2 - Adversarial Config Testing
  * Tests attack vectors: malformed/oversized config, invalid JSON, disable-guardrails attempts, unsafe mode injections
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { tmpdir } from 'node:os';
@@ -17,16 +17,29 @@ import {
 
 // Test temp directory
 let testDir: string;
+let tempConfigHome: string;
+let originalXdgConfigHome: string | undefined;
 
 beforeEach(() => {
 	// Create temp directory for config files
 	testDir = fs.mkdtempSync(path.join(tmpdir(), 'security-test-'));
+	originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+	tempConfigHome = fs.mkdtempSync(path.join(tmpdir(), 'security-config-home-'));
+	process.env.XDG_CONFIG_HOME = tempConfigHome;
 });
 
 afterEach(() => {
 	// Clean up temp directory
 	if (testDir && fs.existsSync(testDir)) {
 		fs.rmSync(testDir, { recursive: true, force: true });
+	}
+	if (originalXdgConfigHome === undefined) {
+		delete process.env.XDG_CONFIG_HOME;
+	} else {
+		process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+	}
+	if (tempConfigHome && fs.existsSync(tempConfigHome)) {
+		fs.rmSync(tempConfigHome, { recursive: true, force: true });
 	}
 });
 
@@ -238,6 +251,7 @@ describe('SECURITY: Unsafe Mode/Capability Injections', () => {
 					plan_sync: true,
 					phase_preflight: true,
 					config_doctor_on_startup: true,
+					config_doctor_autofix: true,
 					evidence_auto_summaries: true,
 					decision_drift_detection: true,
 				},
@@ -275,12 +289,12 @@ describe('SECURITY: Unsafe Mode/Capability Injections', () => {
 
 	it('should reject unknown capability fields', () => {
 		// Use type assertion to test unknown field
-		const input: any = {
+		const input = {
 			mode: 'auto',
 			capabilities: {
 				exec_shell: true,
 			},
-		};
+		} as Record<string, unknown>;
 		const result = AutomationConfigSchema.safeParse(input);
 
 		// SECURITY FINDING: Zod allows unknown fields in z.record()
@@ -366,10 +380,10 @@ describe('SECURITY: Schema Enforcement', () => {
 
 	it('should reject unknown top-level config fields', () => {
 		// Use type assertion to test unknown field
-		const input: any = {
+		const input = {
 			super_admin_mode: true,
 			debug_exec: 'echo hello',
-		};
+		} as Record<string, unknown>;
 		const result = PluginConfigSchema.safeParse(input);
 
 		// Zod record() allows unknown keys by default, but schema is strict
@@ -410,24 +424,36 @@ describe('SECURITY: Fail-Secure Defaults', () => {
 	});
 
 	it('should apply fail-secure when project config is invalid', () => {
-		// Write valid user config first
-		const userConfigDir = path.join(os.homedir(), '.config', 'opencode');
-		fs.mkdirSync(userConfigDir, { recursive: true });
-		fs.writeFileSync(
-			path.join(userConfigDir, 'opencode-swarm.json'),
-			JSON.stringify({ guardrails: { enabled: true } }),
+		const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		const tempConfigHome = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'opencode-swarm-config-'),
 		);
+		process.env.XDG_CONFIG_HOME = tempConfigHome;
+		const userConfigDir = path.join(tempConfigHome, 'opencode');
 
-		// Write invalid project config
-		writeConfig(testDir, '{ invalid json }');
+		try {
+			// Write valid user config first
+			fs.mkdirSync(userConfigDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(userConfigDir, 'opencode-swarm.json'),
+				JSON.stringify({ guardrails: { enabled: true } }),
+			);
 
-		const config = loadPluginConfig(testDir);
+			// Write invalid project config
+			writeConfig(testDir, '{ invalid json }');
 
-		// Should use user config or defaults
-		expect(config.guardrails?.enabled).toBe(true);
+			const config = loadPluginConfig(testDir);
 
-		// Cleanup
-		fs.rmSync(userConfigDir, { recursive: true, force: true });
+			// Should use user config or defaults
+			expect(config.guardrails?.enabled).toBe(true);
+		} finally {
+			if (originalXdgConfigHome === undefined) {
+				delete process.env.XDG_CONFIG_HOME;
+			} else {
+				process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+			}
+			fs.rmSync(tempConfigHome, { recursive: true, force: true });
+		}
 	});
 });
 

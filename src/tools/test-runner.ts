@@ -118,10 +118,12 @@ function containsControlChars(str: string): boolean {
 	// Includes all C0 control codes (0x00-0x1f) except tab which is checked separately
 	// Also includes DEL (0x7f), C1 control codes (0x80-0x9f), and explicitly LF/CR
 	// LF (\n, 0x0a) and CR (\r, 0x0d) must be explicitly rejected for security
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security validation pattern
 	return /[\x00-\x08\x0a\x0b\x0c\x0d\x0e-\x1f\x7f\x80-\x9f]/.test(str);
 }
 
 // PowerShell metacharacters that could enable command injection
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security validation pattern
 const POWERSHELL_METACHARACTERS = /[|;&`$(){}[\]<>"'#*?\x00-\x1f]/;
 
 function containsPowerShellMetacharacters(str: string): boolean {
@@ -204,7 +206,7 @@ export async function detectTestFramework(): Promise<TestFramework> {
 				scripts?: Record<string, string>;
 			};
 
-			const deps = pkg.dependencies || {};
+			const _deps = pkg.dependencies || {};
 			const devDeps = pkg.devDependencies || {};
 			const scripts = pkg.scripts || {};
 
@@ -350,7 +352,7 @@ function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 
 		// Map source files to test files by naming convention
 		// e.g., utils.ts -> utils.test.ts, utils.spec.ts
-		for (const pattern of TEST_PATTERNS) {
+		for (const _pattern of TEST_PATTERNS) {
 			// Try common test file names for the source file
 			const nameWithoutExt = basename.replace(/\.[^.]+$/, '');
 			const ext = path.extname(basename);
@@ -395,9 +397,10 @@ async function getTestFilesFromGraph(sourceFiles: string[]): Promise<string[]> {
 			// Look for import statements that reference source files
 			// Match patterns like: import ... from "./sourceFile" or import ... from '../sourceFile'
 			const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
-			let match;
+			let match: RegExpExecArray | null;
 
-			while ((match = importRegex.exec(content)) !== null) {
+			match = importRegex.exec(content);
+			while (match !== null) {
 				const importPath = match[1];
 
 				// Resolve the import path relative to the test file
@@ -457,11 +460,13 @@ async function getTestFilesFromGraph(sourceFiles: string[]): Promise<string[]> {
 						break;
 					}
 				}
+				match = importRegex.exec(content);
 			}
 
 			// Also check for dynamic imports or require statements
 			const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-			while ((match = requireRegex.exec(content)) !== null) {
+			match = requireRegex.exec(content);
+			while (match !== null) {
 				const importPath = match[1];
 				if (importPath.startsWith('.')) {
 					let resolvedImport = path.resolve(testDir, importPath);
@@ -511,6 +516,7 @@ async function getTestFilesFromGraph(sourceFiles: string[]): Promise<string[]> {
 						}
 					}
 				}
+				match = requireRegex.exec(content);
 			}
 		} catch {}
 	}
@@ -799,7 +805,7 @@ export async function runTests(
 				}
 				truncIndex--;
 			}
-			output = output.slice(0, truncIndex) + '\n... (output truncated)';
+			output = `${output.slice(0, truncIndex)}\n... (output truncated)`;
 		}
 
 		// Parse the output
@@ -916,7 +922,7 @@ function findSourceFiles(dir: string, files: string[] = []): string[] {
 
 		const fullPath = path.join(dir, entry);
 
-		let stat;
+		let stat: import('node:fs').Stats;
 		try {
 			stat = fs.statSync(fullPath);
 		} catch {
@@ -975,7 +981,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 		}
 
 		const scope = args.scope || 'all';
-		const files = args.files || [];
+		const _files = args.files || [];
 		const coverage = args.coverage || false;
 		const timeout_ms = Math.min(
 			args.timeout_ms || DEFAULT_TIMEOUT_MS,

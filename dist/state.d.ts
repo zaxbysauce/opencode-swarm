@@ -55,6 +55,26 @@ export interface AgentSessionState {
     windows: Record<string, InvocationWindow>;
     /** Last tool-call threshold at which a compaction hint was issued */
     lastCompactionHint: number;
+    /** Count of architect direct writes to non-.swarm/ files */
+    architectWriteCount: number;
+    /** Last task ID that was delegated to coder (for zero-delegation detection) */
+    lastCoderDelegationTaskId: string | null;
+    /** Gate names observed for current task (taskId → Set of gates) */
+    gateLog: Map<string, Set<string>>;
+    /** Reviewer delegations per phase (phaseNumber → count) */
+    reviewerCallCount: Map<number, number>;
+    /** Last gate failure for self-fix detection */
+    lastGateFailure: {
+        tool: string;
+        taskId: string;
+        timestamp: number;
+    } | null;
+    /** Whether partial gate warning has been issued for this session */
+    partialGateWarningIssued: boolean;
+    /** Whether architect attempted self-fix write after gate failure */
+    selfFixAttempted: boolean;
+    /** Phases that have already received a catastrophic zero-reviewer warning */
+    catastrophicPhaseWarnings: Set<number>;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.

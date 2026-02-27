@@ -31,8 +31,8 @@ export interface SastContext {
 	filePath: string;
 	content: string;
 	language: string;
-	parser?: any;
-	tree?: any;
+	parser?: unknown;
+	tree?: unknown;
 }
 
 export interface SastFinding {
@@ -107,11 +107,11 @@ function findPatternMatches(content: string, pattern: RegExp): SastMatch[] {
 		// Use exec in a loop with a working copy of the pattern
 		const workPattern = new RegExp(
 			pattern.source,
-			pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g',
+			pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`,
 		);
-		let match: RegExpExecArray | null;
+		let match = workPattern.exec(line);
 
-		while ((match = workPattern.exec(line)) !== null) {
+		while (match !== null) {
 			matches.push({
 				text: match[0],
 				line: lineNum + 1, // 1-indexed
@@ -122,6 +122,8 @@ function findPatternMatches(content: string, pattern: RegExp): SastMatch[] {
 			if (match[0].length === 0) {
 				workPattern.lastIndex++;
 			}
+
+			match = workPattern.exec(line);
 		}
 	}
 

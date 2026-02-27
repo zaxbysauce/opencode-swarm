@@ -89,13 +89,29 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 			expect(prompt).toContain('MANDATORY QA GATE');
 		});
 
-		it('17. Rule 7 contains full sequence with tools', () => {
-			// The full sequence in v6.10: coder → diff → syntax_check → placeholder_scan → lint fix → build_check → pre_check_batch → reviewer
-			expect(prompt).toContain('coder → diff → syntax_check');
-			expect(prompt).toContain('placeholder_scan');
-			expect(prompt).toContain('lint fix');
-			expect(prompt).toContain('pre_check_batch');
-			expect(prompt).toContain('reviewer');
+		it('17. Rule 7 contains STAGE A: AUTOMATED TOOL GATES', () => {
+			// v6.12 Task 1.7: STAGE A / STAGE B restructure
+			expect(prompt).toContain('STAGE A: AUTOMATED TOOL GATES');
+		});
+
+		it('17b. Rule 7 contains STAGE B: AGENT REVIEW GATES', () => {
+			expect(prompt).toContain('STAGE B: AGENT REVIEW GATES');
+		});
+
+		it('17c. Rule 7 clarifies Stage A limitations', () => {
+			expect(prompt).toContain('Stage A passing does NOT mean: code is correct, secure, tested, or reviewed');
+		});
+
+		it('17d. Rule 7 states Stage A does not satisfy Stage B', () => {
+			expect(prompt).toContain('Stage A passing does not satisfy Stage B');
+		});
+
+		it('17e. STAGE A appears BEFORE STAGE B (ordering test)', () => {
+			const stageAIndex = prompt.indexOf('STAGE A: AUTOMATED TOOL GATES');
+			const stageBIndex = prompt.indexOf('STAGE B: AGENT REVIEW GATES');
+			expect(stageAIndex).toBeGreaterThan(-1);
+			expect(stageBIndex).toBeGreaterThan(-1);
+			expect(stageAIndex).toBeLessThan(stageBIndex);
 		});
 
 		it('18. Rule 7 mentions security review in sequence', () => {
@@ -113,6 +129,21 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 		it('21. Rule 7 mentions integration analysis with hasContractChanges', () => {
 			expect(prompt).toContain('hasContractChanges');
 			expect(prompt).toContain('integration impact analysis');
+		});
+	});
+
+	// v6.12 Task 1.8: CATASTROPHIC VIOLATION CHECK
+	describe('v6.12 Task 1.8 - CATASTROPHIC VIOLATION CHECK', () => {
+		it('v6.12 Task 1.8 - CATASTROPHIC VIOLATION CHECK present', () => {
+			expect(prompt).toContain('CATASTROPHIC VIOLATION CHECK');
+		});
+
+		it('v6.12 Task 1.8 - reviewer delegation question present', () => {
+			expect(prompt).toContain('Have I delegated to {{AGENT_PREFIX}}reviewer at least once this phase?');
+		});
+
+		it('v6.12 Task 1.8 - zero reviewer delegations warning present', () => {
+			expect(prompt).toContain('zero reviewer delegations');
 		});
 	});
 
@@ -387,23 +418,35 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 		});
 
 		it('pre_check_batch includes lint:check', () => {
-			const precheckStart = prompt.indexOf('pre_check_batch');
-			const reviewerPos = prompt.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
-			const precheckSection = prompt.slice(precheckStart, reviewerPos);
+			const phase5Section = prompt.slice(
+				prompt.indexOf('### MODE: EXECUTE'),
+				prompt.indexOf('### MODE: PHASE-WRAP')
+			);
+			const precheckStart = phase5Section.indexOf('pre_check_batch');
+			const reviewerPos = phase5Section.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
+			const precheckSection = phase5Section.slice(precheckStart, reviewerPos);
 			expect(precheckSection).toContain('lint:check');
 		});
 
 		it('pre_check_batch includes secretscan', () => {
-			const precheckStart = prompt.indexOf('pre_check_batch');
-			const reviewerPos = prompt.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
-			const precheckSection = prompt.slice(precheckStart, reviewerPos);
+			const phase5Section = prompt.slice(
+				prompt.indexOf('### MODE: EXECUTE'),
+				prompt.indexOf('### MODE: PHASE-WRAP')
+			);
+			const precheckStart = phase5Section.indexOf('pre_check_batch');
+			const reviewerPos = phase5Section.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
+			const precheckSection = phase5Section.slice(precheckStart, reviewerPos);
 			expect(precheckSection).toContain('secretscan');
 		});
 
 		it('pre_check_batch includes sast_scan', () => {
-			const precheckStart = prompt.indexOf('pre_check_batch');
-			const reviewerPos = prompt.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
-			const precheckSection = prompt.slice(precheckStart, reviewerPos);
+			const phase5Section = prompt.slice(
+				prompt.indexOf('### MODE: EXECUTE'),
+				prompt.indexOf('### MODE: PHASE-WRAP')
+			);
+			const precheckStart = phase5Section.indexOf('pre_check_batch');
+			const reviewerPos = phase5Section.indexOf('{{AGENT_PREFIX}}reviewer', precheckStart);
+			const precheckSection = phase5Section.slice(precheckStart, reviewerPos);
 			expect(precheckSection).toContain('sast_scan');
 		});
 
@@ -716,8 +759,42 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 			expect(prompt).toContain('→ REQUIRED: Print "reviewer:');
 		});
 
-		it('TASK COMPLETION CHECKLIST present', () => {
-			expect(prompt).toContain('TASK COMPLETION CHECKLIST');
+		it('⛔ TASK COMPLETION GATE present', () => {
+			expect(prompt).toContain('⛔ TASK COMPLETION GATE');
+		});
+
+		// v6.12 Task 1.5: Task Completion Gate Upgrade
+		it('v6.12 Task 1.5 - MUST NOT mark complete without checklist', () => {
+			expect(prompt).toContain('You MUST NOT mark a task complete without printing this checklist');
+		});
+
+		it('v6.12 Task 1.5 - fabrication warning present', () => {
+			expect(prompt).toContain('that is fabrication');
+		});
+
+		it('v6.12 Task 1.5 - actual tool/agent output requirement', () => {
+			expect(prompt).toContain('Each value must come from actual tool/agent output in this session');
+		});
+
+		it('ADVERSARIAL: TASK COMPLETION GATE requires value: ___ placeholders', () => {
+			const gateSection = prompt.substring(
+				prompt.indexOf('⛔ TASK COMPLETION GATE'),
+				prompt.indexOf('5o. Update plan.md')
+			);
+			expect(gateSection).toContain('value: ___');
+		});
+
+		// v6.12 Task 1.6: pre_check_batch SCOPE BOUNDARY
+		it('v6.12 Task 1.6 - pre_check_batch SCOPE BOUNDARY section exists', () => {
+			expect(prompt).toContain('pre_check_batch SCOPE BOUNDARY');
+		});
+
+		it('v6.12 Task 1.6 - does NOT mean code is reviewed', () => {
+			expect(prompt).toContain('does NOT mean "code is reviewed."');
+		});
+
+		it('v6.12 Task 1.6 - PROCESS VIOLATION statement present', () => {
+			expect(prompt).toContain('Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION');
 		});
 	});
 
@@ -757,5 +834,634 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 		it('Commit without QA is violation', () => {
 			expect(prompt).toContain('workflow violation');
 		});
+	});
+});
+
+// ============================================
+// Phase 4: ANTI-SELF-CODING RULES (v6.12)
+// ============================================
+
+describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	describe('Block Structure', () => {
+		it('ANTI-SELF-CODING RULES header exists', () => {
+			expect(prompt).toContain('ANTI-SELF-CODING RULES');
+		});
+
+		it('Block is positioned after "cannot objectively evaluate their own work"', () => {
+			// The block should appear after the line about gates existing for objectivity
+			const gatesReasonPos = prompt.indexOf('The gates exist because the author cannot objectively evaluate their own work');
+			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
+			expect(gatesReasonPos).toBeGreaterThan(-1);
+			expect(antiSelfCodingPos).toBeGreaterThan(-1);
+			expect(antiSelfCodingPos).toBeGreaterThan(gatesReasonPos);
+		});
+
+		it('Block indicates these thoughts are WRONG', () => {
+			expect(prompt).toContain('these thoughts are WRONG and must be ignored');
+		});
+	});
+
+	describe('All 7 Rationalization Patterns', () => {
+		it('Pattern 1: "It\'s just a schema change"', () => {
+			expect(prompt).toContain("It's just a schema change");
+		});
+
+		it('Pattern 2: "I already know what to write"', () => {
+			expect(prompt).toContain('I already know what to write');
+		});
+
+		it('Pattern 3: "It\'s faster if I just do it"', () => {
+			expect(prompt).toContain("It's faster if I just do it");
+		});
+
+		it('Pattern 4: "The coder succeeded on the last tasks"', () => {
+			expect(prompt).toContain('The coder succeeded on the last tasks');
+		});
+
+		it('Pattern 5: "I\'ll just use apply_patch / edit / write directly"', () => {
+			expect(prompt).toContain("I'll just use apply_patch / edit / write directly");
+			expect(prompt).toContain('these are coder tools, not architect tools');
+		});
+
+		it('Pattern 6: "It\'s just adding a column / field / import"', () => {
+			expect(prompt).toContain("It's just adding a column / field / import");
+		});
+
+		it('Pattern 7: "I\'ll do the simple parts"', () => {
+			expect(prompt).toContain("I'll do the simple parts");
+			expect(prompt).toContain('ALL parts go to coder');
+		});
+	});
+
+	describe('Escalation About Zero Failures', () => {
+		it('Zero coder failures = zero justification for self-coding', () => {
+			expect(prompt).toContain('Zero {{AGENT_PREFIX}}coder failures on this task = zero justification');
+		});
+
+		it('Rule 4 requires QA_RETRY_LIMIT failures, not 0', () => {
+			expect(prompt).toContain('Rule 4 requires {{QA_RETRY_LIMIT}} failures before you may code');
+			expect(prompt).toContain('Not 0');
+		});
+
+		it('Self-coding without QA_RETRY_LIMIT failures is Rule 1 violation', () => {
+			expect(prompt).toContain('Self-coding without {{QA_RETRY_LIMIT}} failures is a Rule 1 violation');
+		});
+	});
+
+	describe('Template Variable Syntax', () => {
+		it('Uses {{AGENT_PREFIX}} not hardcoded @', () => {
+			// Verify the template variable syntax in ANTI-SELF-CODING section
+			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
+			const rule1ViolationPos = prompt.indexOf('Self-coding without {{QA_RETRY_LIMIT}} failures');
+			const antiSelfCodingSection = prompt.slice(antiSelfCodingPos, rule1ViolationPos + 100);
+
+			expect(antiSelfCodingSection).toContain('{{AGENT_PREFIX}}coder');
+		});
+
+		it('Uses {{QA_RETRY_LIMIT}} for retry limit variable', () => {
+			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
+			const nextSectionPos = prompt.indexOf('### MODE:', antiSelfCodingPos);
+			const antiSelfCodingSection = nextSectionPos > 0
+				? prompt.slice(antiSelfCodingPos, nextSectionPos)
+				: prompt.slice(antiSelfCodingPos, antiSelfCodingPos + 2000);
+
+			expect(antiSelfCodingSection).toContain('{{QA_RETRY_LIMIT}}');
+		});
+	});
+
+	// v6.12 Task 1.2: Rule 1 Tool Boundary Expansion
+	describe('Rule 1 Tool Boundary Expansion (v6.12 Task 1.2)', () => {
+		it('Rule 1 contains "YOUR TOOLS:" listing architect-only tools', () => {
+			expect(prompt).toContain('YOUR TOOLS:');
+		});
+
+		it('Rule 1 contains "CODER\'S TOOLS:" listing coder-only tools', () => {
+			expect(prompt).toContain("CODER'S TOOLS:");
+		});
+
+		it('Rule 1 contains the principle: "If a tool modifies a file, it is a CODER tool"', () => {
+			expect(prompt).toContain('If a tool modifies a file, it is a CODER tool');
+		});
+
+		it('YOUR TOOLS list includes Task (delegation)', () => {
+			// Verify YOUR TOOLS section contains Task for delegation
+			const yourToolsPos = prompt.indexOf('YOUR TOOLS:');
+			const codersToolsPos = prompt.indexOf("CODER'S TOOLS:");
+			const yourToolsSection = prompt.slice(yourToolsPos, codersToolsPos);
+			expect(yourToolsSection).toContain('Task');
+		});
+
+		it('CODER\'S TOOLS list includes write, edit, and patch', () => {
+			// Verify CODER'S TOOLS section contains file-modifying tools
+			const codersToolsPos = prompt.indexOf("CODER'S TOOLS:");
+			const nextSectionPos = prompt.indexOf('If a tool modifies a file', codersToolsPos);
+			const codersToolsSection = prompt.slice(codersToolsPos, nextSectionPos > 0 ? nextSectionPos : codersToolsPos + 300);
+			expect(codersToolsSection).toContain('write');
+			expect(codersToolsSection).toContain('edit');
+		});
+
+		it('ADVERSARIAL: YOUR TOOLS must NOT contain any coder tools (write, edit, patch, etc)', () => {
+			// ATTACK VECTOR: If write/edit were accidentally added to YOUR TOOLS,
+			// the architect might attempt to use them directly instead of delegating.
+			// This test ensures YOUR TOOLS section excludes all file-modifying tools.
+			const yourToolsPos = prompt.indexOf('YOUR TOOLS:');
+			const codersToolsPos = prompt.indexOf("CODER'S TOOLS:");
+			const yourToolsSection = prompt.slice(yourToolsPos, codersToolsPos);
+
+			// These file-modifying tools must NEVER appear in YOUR TOOLS
+			const coderTools = ['write', 'edit', 'patch', 'apply_patch', 'create_file', 'insert', 'replace'];
+			for (const tool of coderTools) {
+				expect(yourToolsSection).not.toContain(tool);
+			}
+		});
+
+		it('ADVERSARIAL: CODER\'S TOOLS must NOT contain architect tools (Task, lint, etc)', () => {
+			// ATTACK VECTOR: If architect tools were accidentally added to CODER'S TOOLS,
+			// the boundary would be confused and delegation logic would be ambiguous.
+			const codersToolsPos = prompt.indexOf("CODER'S TOOLS:");
+			const nextSectionPos = prompt.indexOf('If a tool modifies a file', codersToolsPos);
+			const codersToolsSection = prompt.slice(codersToolsPos, nextSectionPos > 0 ? nextSectionPos : codersToolsPos + 300);
+
+			// These read-only/analysis tools must NEVER appear in CODER'S TOOLS
+			const architectTools = ['Task', 'lint', 'diff', 'secretscan', 'sast_scan', 'pre_check_batch', 'symbols'];
+			for (const tool of architectTools) {
+				expect(codersToolsSection).not.toContain(tool);
+			}
+		});
+
+		it('Tool boundary rule ends with explicit delegation instruction', () => {
+			// The rule should end with "Delegate." as the action
+			expect(prompt).toContain('If a tool modifies a file, it is a CODER tool. Delegate.');
+		});
+	});
+});
+
+// ============================================
+// Rule 4 Self-Coding Pre-Check Adversarial Tests
+// ============================================
+
+describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	describe('Attack Vector 1: BEFORE SELF-CODING header must be present', () => {
+		it('Contains "BEFORE SELF-CODING" section header (cannot be removed)', () => {
+			expect(prompt).toContain('BEFORE SELF-CODING');
+		});
+
+		it('Header includes verification instruction', () => {
+			expect(prompt).toContain('BEFORE SELF-CODING — verify ALL of the following are true');
+		});
+	});
+
+	describe('Attack Vector 2: Checklist items must use [ ] format', () => {
+		it('First checklist item uses [ ] format for coder delegation count', () => {
+			expect(prompt).toContain('[ ] {{AGENT_PREFIX}}coder has been delegated this exact task');
+		});
+
+		it('Second checklist item uses [ ] format for failure verification', () => {
+			expect(prompt).toContain('[ ] Each delegation returned a failure');
+		});
+
+		it('Third checklist item uses [ ] format for retry printing', () => {
+			expect(prompt).toContain('[ ] You have printed "Coder attempt [N/{{QA_RETRY_LIMIT}}]"');
+		});
+
+		it('Fourth checklist item uses [ ] format for escalation', () => {
+			expect(prompt).toContain('[ ] Print "ESCALATION:');
+		});
+
+		it('All 4 checklist items are present', () => {
+			const selfCodingSection = prompt.substring(
+				prompt.indexOf('BEFORE SELF-CODING'),
+				prompt.indexOf('If ANY box is unchecked')
+			);
+			const checklistItems = (selfCodingSection.match(/\[ \]/g) || []).length;
+			expect(checklistItems).toBeGreaterThanOrEqual(4);
+		});
+	});
+
+	describe('Attack Vector 3: ESCALATION keyword must be present', () => {
+		it('Contains "ESCALATION:" keyword in print instruction', () => {
+			expect(prompt).toContain('ESCALATION:');
+		});
+
+		it('Escalation message includes task identifier placeholder', () => {
+			expect(prompt).toContain('Self-coding task [X.Y]');
+		});
+
+		it('Escalation message includes failure count placeholder', () => {
+			expect(prompt).toContain('after {{QA_RETRY_LIMIT}} coder failures');
+		});
+
+		it('Full escalation message is properly formatted', () => {
+			expect(prompt).toContain('Print "ESCALATION: Self-coding task [X.Y] after {{QA_RETRY_LIMIT}} coder failures" before writing any code');
+		});
+	});
+
+	describe('Attack Vector 4: DO NOT code line must be present and strong', () => {
+		it('Contains "DO NOT code" instruction', () => {
+			expect(prompt).toContain('DO NOT code');
+		});
+
+		it('Instruction includes delegation fallback', () => {
+			expect(prompt).toContain('DO NOT code. Delegate to {{AGENT_PREFIX}}coder');
+		});
+
+		it('Instruction is triggered by ANY unchecked box', () => {
+			expect(prompt).toContain('If ANY box is unchecked: DO NOT code');
+		});
+
+		it('Line is positioned immediately after the checklist', () => {
+			const checklistEndPos = prompt.indexOf('[ ] Print "ESCALATION:');
+			const doNotCodePos = prompt.indexOf('If ANY box is unchecked: DO NOT code');
+			expect(doNotCodePos).toBeGreaterThan(checklistEndPos);
+		});
+	});
+
+	describe('Combined Adversarial: Tampering Detection', () => {
+		it('All 4 attack vectors are protected in the prompt', () => {
+			// Verify all critical elements exist together
+			expect(prompt).toContain('BEFORE SELF-CODING — verify ALL of the following are true');
+			expect(prompt).toContain('[ ] {{AGENT_PREFIX}}coder has been delegated');
+			expect(prompt).toContain('[ ] Print "ESCALATION:');
+			expect(prompt).toContain('If ANY box is unchecked: DO NOT code');
+		});
+
+		it('Self-coding section follows FAILURE COUNTING section', () => {
+			const failureCountingPos = prompt.indexOf('FAILURE COUNTING');
+			const beforeSelfCodingPos = prompt.indexOf('BEFORE SELF-CODING');
+			expect(failureCountingPos).toBeGreaterThan(-1);
+			expect(beforeSelfCodingPos).toBeGreaterThan(-1);
+			expect(beforeSelfCodingPos).toBeGreaterThan(failureCountingPos);
+		});
+
+		it('Cannot bypass by removing ESCALATION keyword', () => {
+			// The ESCALATION keyword is required in the checklist
+			const beforeSelfCodingSection = prompt.substring(
+				prompt.indexOf('BEFORE SELF-CODING'),
+				prompt.indexOf('If ANY box is unchecked') + 100
+			);
+			expect(beforeSelfCodingSection).toContain('ESCALATION:');
+		});
+
+		it('Cannot bypass by weakening DO NOT code', () => {
+			// The exact phrase must be present
+			expect(prompt).toContain('If ANY box is unchecked: DO NOT code. Delegate to {{AGENT_PREFIX}}coder');
+		});
+	});
+
+	// ============================================
+	// ADVERSARIAL: PARTIAL GATE RATIONALIZATIONS
+	// ============================================
+
+	describe('Adversarial: PARTIAL GATE RATIONALIZATIONS Section Integrity', () => {
+		// Attack Vector 1: Removal or renaming of the section header
+		it('Cannot bypass by removing PARTIAL GATE RATIONALIZATIONS section header', () => {
+			// The exact section header must be present
+			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS — running SOME gates is NOT compliance:');
+		});
+
+		it('Cannot bypass by renaming PARTIAL GATE RATIONALIZATIONS', () => {
+			// Must contain the full phrase, not a weakened version
+			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS');
+			expect(prompt).toContain('running SOME gates is NOT compliance');
+		});
+
+		// Attack Vector 2: Weakening the "#1 predictor" phrase
+		it('Cannot bypass by weakening #1 predictor phrase', () => {
+			// The exact phrase about complacency must be present
+			expect(prompt).toContain('#1 predictor of shipped bugs');
+		});
+
+		it('Cannot weaken complacency warning in Phase 6', () => {
+			// Phase 6 warning must be present with exact wording
+			expect(prompt).toContain('complacency after successful phases is the #1 predictor of shipped bugs');
+			expect(prompt).toContain('Phase 6 needs MORE review, not less');
+		});
+
+		// Attack Vector 3: Changing "ALL steps or NONE" to "most steps"
+		it('Cannot bypass by changing ALL steps or NONE', () => {
+			// The exact phrase must be present
+			expect(prompt).toContain('The QA gate is ALL steps or NONE');
+		});
+
+		it('Cannot weaken by removing NONE alternative', () => {
+			// Must be "ALL or NONE", not just "ALL steps"
+			expect(prompt).toContain('ALL steps or NONE');
+			expect(prompt).not.toContain('ALL steps or most steps');
+		});
+
+		it('Cannot bypass by adding exceptions to gate requirements', () => {
+			// The "no exceptions" statement must be present
+			expect(prompt).toContain('There are NO exceptions to the QA gate sequence');
+		});
+
+		// Attack Vector 4: Removing pre_check_batch disclaimer
+		it('Cannot bypass by removing pre_check_batch does NOT replace disclaimer', () => {
+			// The disclaimer must be present
+			expect(prompt).toContain('pre_check_batch does NOT replace {{AGENT_PREFIX}}reviewer or {{AGENT_PREFIX}}test_engineer');
+		});
+
+		it('Cannot bypass by removing syntax_check disclaimer', () => {
+			// The disclaimer about syntax_check must be present
+			expect(prompt).toContain('syntax_check catches syntax. Reviewer catches logic. Test_engineer catches behavior.');
+		});
+
+		it('Cannot bypass by removing agent gate necessity explanation', () => {
+			// The explanation for why agent gates exist must be present
+			expect(prompt).toContain('agent reviews (reviewer, test_engineer) exist because automated tools miss logic errors, security flaws, and edge cases');
+		});
+
+		// Attack Vector 5: Removing PARTIAL GATE VIOLATION warning
+		it('Cannot bypass by removing PARTIAL GATE VIOLATION warning', () => {
+			// The warning must be present
+			expect(prompt).toContain('PARTIAL GATE VIOLATION');
+		});
+
+		it('Cannot bypass by weakening severity statement', () => {
+			// Must state it's same severity as skipping all gates
+			expect(prompt).toContain('It is the same severity as skipping all gates');
+		});
+
+		// Attack Vector 6: Speed-based rationalizations
+		it('Cannot bypass by removing fast gates rationalization', () => {
+			// The rationalization about speed must be present
+			expect(prompt).toContain('speed of a gate does not determine whether it is required');
+		});
+
+		// Attack Vector 7: Past success rationalization
+		it('Cannot bypass by removing past success rationalization', () => {
+			// The rationalization about past success must be present
+			expect(prompt).toContain('past success does not predict future correctness');
+		});
+	});
+
+	// ============================================
+	// v6.12 Task 1.9 - GATE FAILURE RESPONSE RULES
+	// ============================================
+
+	describe('v6.12 Task 1.9 - GATE FAILURE RESPONSE RULES', () => {
+		it('GATE FAILURE RESPONSE RULES header present', () => {
+			expect(prompt).toContain('GATE FAILURE RESPONSE RULES');
+		});
+
+		it('MUST return to coder, MUST NOT fix yourself', () => {
+			expect(prompt).toContain('You MUST return to {{AGENT_PREFIX}}coder. You MUST NOT fix the code yourself.');
+		});
+
+		it('self-editing rationalization addressed', () => {
+			expect(prompt).toContain('Editing the file yourself to fix the syntax error');
+		});
+
+		it('tool installation workaround addressed', () => {
+			expect(prompt).toContain('"Installing" or "configuring" tools to work around the failure');
+		});
+
+		it('lint fix mode is the ONLY exception', () => {
+			expect(prompt).toContain('The ONLY exception: lint tool in fix mode');
+		});
+	});
+
+	// ============================================
+	// v6.12 Task 1.10 - Rule 3 BATCHING DETECTION
+	// ============================================
+
+	describe('v6.12 Task 1.10 - BATCHING DETECTION', () => {
+		it('BATCHING DETECTION header present', () => {
+			expect(prompt).toContain('BATCHING DETECTION');
+		});
+
+		it('The word "and" connecting two actions pattern present', () => {
+			expect(prompt).toContain('The word "and" connecting two actions');
+		});
+
+		it('Multiple FILE paths pattern present', () => {
+			expect(prompt).toContain('Multiple FILE paths');
+		});
+
+		it('SPLIT RULE present', () => {
+			expect(prompt).toContain('SPLIT RULE');
+		});
+
+		it('Two small delegations with two QA gates present', () => {
+			expect(prompt).toContain('Two small delegations with two QA gates');
+		});
+
+		it('Batching detection examples include "and" in TASK line', () => {
+			expect(prompt).toContain('split it');
+		});
+
+		it('WHY section explains QA gate batching problem', () => {
+			expect(prompt).toContain('If you batch 3 tasks into 1 coder call');
+		});
+
+		// ========================================
+		// ADVERSARIAL ATTACK VECTORS - Task 1.10
+		// ========================================
+		describe('Adversarial Attack Vectors', () => {
+			// Attack Vector 1: Remove BATCHING DETECTION header
+			it('AV1: Cannot bypass by removing BATCHING DETECTION header', () => {
+				// This test ensures the BATCHING DETECTION section header is present
+				// If removed, architects might not know when they're batching
+				expect(prompt).toContain('BATCHING DETECTION');
+				// Also verify the context is correct - it should be part of Rule 3
+				const batchingPos = prompt.indexOf('BATCHING DETECTION');
+				const rule3Pos = prompt.indexOf('3. ONE task per');
+				expect(rule3Pos).toBeGreaterThan(-1);
+				// BATCHING DETECTION should appear near Rule 3
+				expect(Math.abs(batchingPos - rule3Pos)).toBeLessThan(200);
+			});
+
+			// Attack Vector 2: Incomplete heuristics list (missing "Multiple FILE paths")
+			it('AV2: Cannot bypass by removing "Multiple FILE paths" heuristic', () => {
+				// All four heuristics must be present for complete batching detection
+				expect(prompt).toContain('The word "and" connecting two actions');
+				expect(prompt).toContain('Multiple FILE paths');
+				expect(prompt).toContain('Multiple TASK objectives');
+				expect(prompt).toContain('Phrases like "also"');
+				// Verify "Multiple FILE paths" is specifically in the heuristics list
+				const batchingStart = prompt.indexOf('BATCHING DETECTION');
+				const splitRulePos = prompt.indexOf('SPLIT RULE');
+				const batchingSection = prompt.slice(batchingStart, splitRulePos);
+				expect(batchingSection).toContain('Multiple FILE paths');
+			});
+
+			// Attack Vector 3: Remove SPLIT RULE
+			it('AV3: Cannot bypass by removing SPLIT RULE', () => {
+				// SPLIT RULE tells architects how to fix batching
+				expect(prompt).toContain('SPLIT RULE');
+				// The split rule must contain actionable guidance
+				expect(prompt).toContain("If your delegation draft has \"and\" in the TASK line, split it");
+				// Must explain why splitting is better
+				expect(prompt).toContain('Two small delegations with two QA gates');
+			});
+
+			// Attack Vector 4: Remove QA gate rationale in WHY section
+			it('AV4: Cannot bypass by removing WHY section QA gate rationale', () => {
+				// WHY section explains consequences of batching
+				expect(prompt).toContain('WHY:');
+				// Must explain QA gate runs once on combined diff
+				expect(prompt).toContain('QA gate runs once on the combined diff');
+				// Must explain reviewer cannot distinguish changes
+				expect(prompt).toContain('reviewer cannot distinguish');
+				// Must explain test_engineer cannot write targeted tests
+				expect(prompt).toContain('test_engineer cannot write targeted tests');
+				// Must explain failure blocks entire batch
+				expect(prompt).toContain('A failure in one part blocks the entire batch');
+			});
+
+	// Additional: Verify WHY section is between BATCHING DETECTION and SPLIT RULE
+		it('AV5: WHY section positioned correctly between detection and split rule', () => {
+			const batchingPos = prompt.indexOf('BATCHING DETECTION');
+			const whyPos = prompt.indexOf('WHY:');
+			const splitRulePos = prompt.indexOf('SPLIT RULE');
+			// Order should be: BATCHING DETECTION -> WHY -> SPLIT RULE
+			expect(whyPos).toBeGreaterThan(batchingPos);
+			expect(splitRulePos).toBeGreaterThan(whyPos);
+		});
+	});
+
+	// ============================================
+	// v6.12 Task 4.1 - Anti-Process-Violation Hardening
+	// ============================================
+
+	describe('v6.12 Anti-Process-Violation Hardening', () => {
+		const prompt = createArchitectAgent('test-model').config.prompt!;
+
+		// Self-coding (Task 1.1)
+		it('ANTI-SELF-CODING RULES block present', () => {
+			expect(prompt).toContain('ANTI-SELF-CODING RULES');
+		});
+
+		it('addresses schema/config rationalization', () => {
+			expect(prompt).toContain("It's just a schema change");
+			expect(prompt).toContain('config flag');
+		});
+
+		it('addresses "I already know what to write" rationalization', () => {
+			expect(prompt).toContain('knowing what to write is planning');
+		});
+
+		it('names apply_patch/edit/write as coder tools', () => {
+			expect(prompt).toContain('apply_patch / edit / write');
+			expect(prompt).toContain('coder tools, not architect tools');
+		});
+
+		// Rule 1 tool boundary (Task 1.2)
+		it('Rule 1 defines tool boundaries', () => {
+			expect(prompt).toContain('YOUR TOOLS:');
+			expect(prompt).toContain("CODER'S TOOLS:");
+			expect(prompt).toContain('If a tool modifies a file, it is a CODER tool');
+		});
+
+		// Rule 4 self-coding pre-check (Task 1.3)
+		it('Rule 4 has self-coding pre-check', () => {
+			expect(prompt).toContain('BEFORE SELF-CODING');
+			expect(prompt).toContain('ESCALATION: Self-coding task');
+		});
+
+		// Self-coding severity (Task 1.1)
+		it('self-coding equated to gate-skip severity', () => {
+			expect(prompt).toContain('Self-coding without {{QA_RETRY_LIMIT}} failures is a Rule 1 violation');
+		});
+
+		it('zero failures = zero justification', () => {
+			expect(prompt).toContain('Zero {{AGENT_PREFIX}}coder failures on this task = zero justification');
+		});
+
+		// Gate failure response (Task 1.9)
+		it('GATE FAILURE RESPONSE RULES present', () => {
+			expect(prompt).toContain('GATE FAILURE RESPONSE RULES');
+			expect(prompt).toContain('You MUST return to {{AGENT_PREFIX}}coder. You MUST NOT fix the code yourself.');
+		});
+
+		it('addresses self-fix rationalizations', () => {
+			expect(prompt).toContain('Editing the file yourself to fix the syntax error');
+			expect(prompt).toContain('"Installing" or "configuring" tools to work around the failure');
+		});
+
+		it('lint fix mode is the only exception', () => {
+			expect(prompt).toContain('The ONLY exception: lint tool in fix mode');
+		});
+
+		// Batching (Task 1.10)
+		it('BATCHING DETECTION present in Rule 3', () => {
+			expect(prompt).toContain('BATCHING DETECTION');
+			expect(prompt).toContain('SPLIT RULE');
+		});
+
+		it('batching examples are concrete', () => {
+			expect(prompt).toContain('The word "and" connecting two actions');
+			expect(prompt).toContain('Multiple FILE paths');
+		});
+
+		// Partial gate (Task 1.4)
+		it('PARTIAL GATE RATIONALIZATIONS present', () => {
+			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS');
+			expect(prompt).toContain('pre_check_batch does NOT replace');
+			expect(prompt).toContain('PARTIAL GATE VIOLATION');
+		});
+
+		it('addresses complacency after successful phases', () => {
+			expect(prompt).toContain('complacency after successful phases');
+			expect(prompt).toContain('Phase 6 needs MORE review, not less');
+		});
+
+		it('addresses selective gate optimization', () => {
+			expect(prompt).toContain("I'll just run the fast gates");
+			expect(prompt).toContain(
+				'speed of a gate does not determine whether it is required',
+			);
+		});
+
+		// Completion gate (Task 1.5)
+		it('completion checklist is hard-stop not suggestion', () => {
+			expect(prompt).toContain('⛔ TASK COMPLETION GATE');
+			expect(prompt).toContain(
+				'You MUST NOT mark a task complete without printing this checklist',
+			);
+			expect(prompt).toContain('that is fabrication');
+		});
+
+		it('checklist requires actual output not memory', () => {
+			expect(prompt).toContain(
+				'Each value must come from actual tool/agent output in this session',
+			);
+		});
+
+		// Scope boundary (Task 1.6)
+		it('pre_check_batch scope boundary present', () => {
+			expect(prompt).toContain('pre_check_batch SCOPE BOUNDARY');
+			expect(prompt).toContain('does NOT mean "code is reviewed."');
+			expect(prompt).toContain('Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION');
+		});
+
+		// Stage A/B (Task 1.7)
+		it('QA gate has two-stage structure', () => {
+			expect(prompt).toContain('STAGE A: AUTOMATED TOOL GATES');
+			expect(prompt).toContain('STAGE B: AGENT REVIEW GATES');
+			const stageA = prompt.indexOf('STAGE A');
+			const stageB = prompt.indexOf('STAGE B');
+			expect(stageA).toBeLessThan(stageB);
+		});
+
+		it('Stage A explicitly states what it does NOT cover', () => {
+			expect(prompt).toContain(
+				'Stage A passing does NOT mean: code is correct, secure, tested, or reviewed',
+			);
+		});
+
+		// Catastrophic check (Task 1.8)
+		it('catastrophic violation check at phase boundary', () => {
+			expect(prompt).toContain('CATASTROPHIC VIOLATION CHECK');
+			expect(prompt).toContain(
+				'Have I delegated to {{AGENT_PREFIX}}reviewer at least once this phase?',
+			);
+		});
+	});
 	});
 });

@@ -9,10 +9,37 @@
  */
 
 import type { PluginConfig } from '../config';
+import { loadPlan } from '../plan/manager';
+import { extractCurrentPhaseFromPlan } from './extractors';
 import { safeHook } from './utils';
 
-const PHASE_REMINDER = `<swarm_reminder>
-⚠️ ARCHITECT WORKFLOW REMINDER:
+/**
+ * Parse phase number from phase string like "Phase 4: Documentation & Release [IN PROGRESS]"
+ * Returns null if parsing fails.
+ */
+function parsePhaseNumber(phaseString: string | null): number | null {
+	if (!phaseString) return null;
+
+	const match = phaseString.match(/^Phase (\d+):/);
+	if (match) {
+		return parseInt(match[1], 10);
+	}
+	return null;
+}
+
+/**
+ * Build dynamic phase reminder with compliance escalation based on phase number.
+ * Counteracts temporal compliance decay discovered during field testing.
+ */
+export function buildPhaseReminder(phaseNumber: number | null): string {
+	const phaseHeader = phaseNumber !== null ? ` (Phase ${phaseNumber})` : '';
+	const complianceHeader =
+		phaseNumber !== null
+			? `COMPLIANCE CHECK (Phase ${phaseNumber}):`
+			: 'COMPLIANCE CHECK:';
+
+	return `<swarm_reminder>
+⚠️ ARCHITECT WORKFLOW REMINDER${phaseHeader}:
 1. ANALYZE → Identify domains, create initial spec
 2. SME_CONSULTATION → Delegate to @sme (one domain per call, max 3 calls)
 3. COLLATE → Synthesize SME outputs into unified spec
@@ -25,7 +52,18 @@ DELEGATION RULES:
 - SME: ONE domain per call (serial), max 3 per phase
 - Reviewer: Specify CHECK dimensions relevant to the change
 - Always wait for response before next delegation
+
+${complianceHeader}
+- Reviewer delegation is MANDATORY for every coder task.
+- pre_check_batch is NOT a substitute for reviewer.
+- Stage A (tools) + Stage B (agents) = BOTH required.
+${
+	phaseNumber !== null && phaseNumber >= 4
+		? `\n⚠️ You are in Phase ${phaseNumber}. Compliance degrades with time. Do not skip reviewer or test_engineer.`
+		: ''
+}
 </swarm_reminder>`;
+}
 
 interface MessageInfo {
 	role: string;
@@ -89,10 +127,26 @@ export function createPipelineTrackerHook(config: PluginConfig) {
 
 				if (textPartIndex === -1) return;
 
+				// Load plan and extract current phase for compliance escalation
+				let phaseNumber: number | null = null;
+				try {
+					const plan = await loadPlan(process.cwd());
+					if (plan) {
+						const phaseString = extractCurrentPhaseFromPlan(plan);
+						phaseNumber = parsePhaseNumber(phaseString);
+					}
+				} catch {
+					// Fall back to base compliance text if plan loading fails
+					phaseNumber = null;
+				}
+
+				// Generate dynamic reminder based on phase number
+				const phaseReminder = buildPhaseReminder(phaseNumber);
+
 				// Prepend the reminder to the existing text
 				const originalText = lastUserMessage.parts[textPartIndex].text ?? '';
 				lastUserMessage.parts[textPartIndex].text =
-					`${PHASE_REMINDER}\n\n---\n\n${originalText}`;
+					`${phaseReminder}\n\n---\n\n${originalText}`;
 			},
 		),
 	};

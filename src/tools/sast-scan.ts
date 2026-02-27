@@ -9,11 +9,8 @@ import { extname } from 'node:path';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
-import {
-	getLanguageForExtension,
-	type LanguageDefinition,
-} from '../lang/registry';
-import { executeRulesSync, type SastFinding } from '../sast/rules/index';
+import { getLanguageForExtension } from '../lang/registry';
+import { executeRulesSync } from '../sast/rules/index';
 import { isSemgrepAvailable, runSemgrep } from '../sast/semgrep';
 import { warn } from '../utils';
 
@@ -222,7 +219,7 @@ export async function sastScan(
 	// Track results
 	const allFindings: SastScanFinding[] = [];
 	let filesScanned = 0;
-	let filesSkipped = 0;
+	let _filesSkipped = 0;
 
 	// Check Semgrep availability once
 	const semgrepAvailable = isSemgrepAvailable();
@@ -242,14 +239,14 @@ export async function sastScan(
 
 		// Skip non-existent files
 		if (!fs.existsSync(resolvedPath)) {
-			filesSkipped++;
+			_filesSkipped++;
 			continue;
 		}
 
 		// Check if file should be skipped (size/binary)
 		const skipResult = shouldSkipFile(resolvedPath);
 		if (skipResult.skip) {
-			filesSkipped++;
+			_filesSkipped++;
 			continue;
 		}
 
@@ -259,7 +256,7 @@ export async function sastScan(
 
 		if (!langDef) {
 			// Unsupported language
-			filesSkipped++;
+			_filesSkipped++;
 			continue;
 		}
 

@@ -1,4 +1,3 @@
-import type { Plan } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { derivePlanMarkdown, loadPlanJsonOnly } from '../plan/manager';
 

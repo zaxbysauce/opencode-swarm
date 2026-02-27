@@ -73,6 +73,7 @@ function extractSyntaxErrors(
 	const errors: Array<{ line: number; column: number; message: string }> = [];
 
 	// Walk the tree to find ERROR nodes
+	// biome-ignore lint/suspicious/noExplicitAny: tree-sitter node type not exported
 	function walkNode(node: any) {
 		if (node.type === 'ERROR') {
 			errors.push({

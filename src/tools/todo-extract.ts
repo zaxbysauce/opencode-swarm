@@ -212,7 +212,7 @@ function parseTodoComments(
 
 			// Truncate to max length
 			if (text.length > MAX_TEXT_LENGTH) {
-				text = text.substring(0, MAX_TEXT_LENGTH - 3) + '...';
+				text = `${text.substring(0, MAX_TEXT_LENGTH - 3)}...`;
 			}
 
 			entries.push({

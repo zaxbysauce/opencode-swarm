@@ -182,17 +182,17 @@ function parseYamlSpec(content: string): SpecPath[] {
 	// Extract all path entries matching pattern: space-space-slash-something-colon
 	// This matches /endpoint: at the start of a line (2 spaces indent)
 	const pathRegex = /^\s{2}(\/[^\s:]+):/gm;
-	let match;
-
-	while ((match = pathRegex.exec(content)) !== null) {
+	for (
+		let match = pathRegex.exec(content);
+		match !== null;
+		match = pathRegex.exec(content)
+	) {
 		const pathKey = match[1];
 
 		// Extract methods for this path - look for method names under this path
 		// Methods are at 4 spaces indent (2 more than path)
 		const methodRegex = /^\s{4}(get|post|put|patch|delete|options|head):/gm;
 		const methods: string[] = [];
-		let methodMatch;
-
 		// Find the section for this path (from this match to the next 2-space indent line)
 		const pathStart = match.index;
 		const nextPathMatch = content.substring(pathStart + 1).match(/^\s{2}\//m);
@@ -201,9 +201,11 @@ function parseYamlSpec(content: string): SpecPath[] {
 				? pathStart + 1 + nextPathMatch.index
 				: content.length;
 		const pathSection = content.substring(pathStart, pathEnd);
+		let methodMatch = methodRegex.exec(pathSection);
 
-		while ((methodMatch = methodRegex.exec(pathSection)) !== null) {
+		while (methodMatch !== null) {
 			methods.push(methodMatch[1]);
+			methodMatch = methodRegex.exec(pathSection);
 		}
 
 		if (methods.length > 0) {
@@ -289,14 +291,14 @@ function extractRoutesFromFile(filePath: string): CodeRoute[] {
 	// Track line numbers for Express/Fastify
 	for (let lineNum = 0; lineNum < lines.length; lineNum++) {
 		const line = lines[lineNum];
-		let match;
+		let match = expressRegex.exec(line);
 
 		// Reset regex lastIndex for each line
 		expressRegex.lastIndex = 0;
 		flaskRegex.lastIndex = 0;
 
 		// Check Express/Fastify patterns
-		while ((match = expressRegex.exec(line)) !== null) {
+		while (match !== null) {
 			const method = match[1].toLowerCase();
 			const routePath = match[2];
 			routes.push({
@@ -305,10 +307,12 @@ function extractRoutesFromFile(filePath: string): CodeRoute[] {
 				file: filePath,
 				line: lineNum + 1, // 1-indexed
 			});
+			match = expressRegex.exec(line);
 		}
 
 		// Check Flask patterns
-		while ((match = flaskRegex.exec(line)) !== null) {
+		match = flaskRegex.exec(line);
+		while (match !== null) {
 			const routePath = match[1];
 			// Flask defaults to GET, but we can't know all methods
 			// Use 'get' as default since it's most common
@@ -318,6 +322,7 @@ function extractRoutesFromFile(filePath: string): CodeRoute[] {
 				file: filePath,
 				line: lineNum + 1,
 			});
+			match = flaskRegex.exec(line);
 		}
 	}
 

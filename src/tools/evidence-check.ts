@@ -77,9 +77,11 @@ function isPathWithinSwarm(filePath: string, cwd: string): boolean {
 function parseCompletedTasks(planContent: string): CompletedTask[] {
 	const tasks: CompletedTask[] = [];
 	const regex = /^-\s+\[x\]\s+(\d+\.\d+):\s+(.+)/gm;
-	let match: RegExpExecArray | null;
-
-	while ((match = regex.exec(planContent)) !== null) {
+	for (
+		let match = regex.exec(planContent);
+		match !== null;
+		match = regex.exec(planContent)
+	) {
 		const taskId = match[1];
 		let taskName = match[2].trim();
 
@@ -93,7 +95,7 @@ function parseCompletedTasks(planContent: string): CompletedTask[] {
 }
 
 // ============ Evidence Reading ============
-function readEvidenceFiles(evidenceDir: string, cwd: string): EvidenceFile[] {
+function readEvidenceFiles(evidenceDir: string, _cwd: string): EvidenceFile[] {
 	const evidence: EvidenceFile[] = [];
 
 	// Handle missing evidence directory gracefully
@@ -204,7 +206,7 @@ function analyzeGaps(
 	for (const task of completedTasks) {
 		const taskEvidence = evidenceByTask.get(task.taskId) || new Set();
 		const requiredSet = new Set(requiredTypes.map((t) => t.toLowerCase()));
-		const presentSet = new Set(
+		const _presentSet = new Set(
 			[...taskEvidence].filter((t) => requiredSet.has(t.toLowerCase())),
 		);
 

@@ -38,7 +38,7 @@ export function createDelegationTrackerHook(
 			const session = swarmState.agentSessions.get(input.sessionID);
 
 			// Only reset if delegation was actually active (prevents spurious resets)
-			if (session && session.delegationActive) {
+			if (session?.delegationActive) {
 				session.delegationActive = false;
 				// Set activeAgent to architect to ensure duration exemption applies
 				swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);

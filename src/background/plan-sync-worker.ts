@@ -195,7 +195,7 @@ export class PlanSyncWorker {
 			this.watcher = fs.watch(
 				swarmDir,
 				{ persistent: false },
-				(eventType, filename) => {
+				(_eventType, filename) => {
 					// Ignore callbacks after stop/dispose
 					if (this.disposed || this.status !== 'running') {
 						return;
@@ -443,7 +443,7 @@ export class PlanSyncWorker {
 	): Promise<T> {
 		return new Promise<T>((resolve, reject) => {
 			const timer = setTimeout(() => {
-				reject(new Error(timeoutMessage + ' (' + ms + 'ms)'));
+				reject(new Error(`${timeoutMessage} (${ms}ms)`));
 			}, ms);
 
 			promise

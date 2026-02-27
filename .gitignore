@@ -13,6 +13,20 @@ ctx_*.txt
 nul
 # Spurious test-created directories
 undefined/
+syntax-check-test-*/
+# Test output artifacts (numbered variants)
+testlog*.txt
+test_result*.txt
+dist-build-test/
+# Build tool type-declaration subdirs
+dist/build/
+dist/quality/
+dist/sbom/
+dist/tools/build-check.d.ts
+dist/tools/pre-check-batch.d.ts
+dist/tools/quality-budget.d.ts
+dist/tools/sbom-generate.d.ts
 # Swarm phase spec/planning scratch files
 v6.*-*.md
+v6.*.md
 

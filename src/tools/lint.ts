@@ -179,7 +179,7 @@ export async function runLint(
 
 		// Truncate output if too large
 		if (output.length > MAX_OUTPUT_BYTES) {
-			output = output.slice(0, MAX_OUTPUT_BYTES) + '\n... (output truncated)';
+			output = `${output.slice(0, MAX_OUTPUT_BYTES)}\n... (output truncated)`;
 		}
 
 		const result: LintSuccessResult = {

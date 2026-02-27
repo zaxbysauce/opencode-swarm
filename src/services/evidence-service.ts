@@ -1,6 +1,5 @@
 import type {
 	Evidence,
-	EvidenceBundle,
 	ReviewEvidence,
 	TestEvidence,
 } from '../config/evidence-schema';
@@ -73,12 +72,12 @@ function formatEvidenceEntry(
 
 	if (entry.type === 'review') {
 		const reviewEntry = entry as ReviewEvidence;
-		details['risk'] = reviewEntry.risk;
-		details['issues'] = reviewEntry.issues?.length;
+		details.risk = reviewEntry.risk;
+		details.issues = reviewEntry.issues?.length;
 	} else if (entry.type === 'test') {
 		const testEntry = entry as TestEvidence;
-		details['tests_passed'] = testEntry.tests_passed;
-		details['tests_failed'] = testEntry.tests_failed;
+		details.tests_passed = testEntry.tests_passed;
+		details.tests_failed = testEntry.tests_failed;
 	}
 
 	return {

@@ -1,9 +1,9 @@
 /**
- * v6.1.2 Guardrails Remediation — ADVERSARIAL SECURITY TESTS
+ * v6.12 Guardrails Remediation — ADVERSARIAL SECURITY TESTS
  *
  * This test suite probes ATTACK VECTORS only — no happy-path tests.
  * Tests verify that malicious inputs, race conditions, and boundary
- * violations are handled correctly by the v6.1.2 fixes.
+ * violations are handled correctly by the v6.12 fixes.
  *
  * Attack vectors probed:
  * 1. Architect exemption bypass via activeAgent poisoning
@@ -720,6 +720,438 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			expect(stripKnownSwarmPrefix('architectural')).toBe('architectural');
 			// 'architects' should NOT match 'architect'
 			expect(stripKnownSwarmPrefix('architects')).toBe('architects');
+		});
+	});
+
+	// ============================================================
+	// ATTACK VECTOR 9: Gate Tracking Manipulation (v6.12)
+	// ============================================================
+	describe('Attack Vector 9 — Gate tracking manipulation', () => {
+		it('ATTACK: tool name with namespace prefix (opencode:lint) IS recognized as gate', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('gate-test-1', ORCHESTRATOR_NAME);
+
+			// Use namespaced tool name
+			await hooks.toolAfter(
+				{ tool: 'opencode:lint', sessionID: 'gate-test-1', callID: 'c1' },
+				{ title: 'lint', output: 'ok', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('gate-test-1');
+			const taskId = 'gate-test-1:current';
+			expect(session?.gateLog.has(taskId)).toBe(true);
+			// Note: Original tool name is stored, not normalized
+			expect(session?.gateLog.get(taskId)?.has('opencode:lint')).toBe(true);
+		});
+
+		it('ATTACK: tool name with dot separator (opencode.lint) IS recognized as gate', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('gate-test-2', ORCHESTRATOR_NAME);
+
+			// Use dot-separated tool name
+			await hooks.toolAfter(
+				{ tool: 'opencode.lint', sessionID: 'gate-test-2', callID: 'c1' },
+				{ title: 'lint', output: 'ok', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('gate-test-2');
+			const taskId = 'gate-test-2:current';
+			expect(session?.gateLog.has(taskId)).toBe(true);
+			// Note: Original tool name is stored, not normalized
+			expect(session?.gateLog.get(taskId)?.has('opencode.lint')).toBe(true);
+		});
+
+		it('ATTACK: non-gate tool with gate-like name is NOT tracked as gate', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('gate-test-3', ORCHESTRATOR_NAME);
+
+			// Use fake tool name that contains 'lint' but isn't exactly 'lint'
+			await hooks.toolAfter(
+				{ tool: 'lint_files', sessionID: 'gate-test-3', callID: 'c1' },
+				{ title: 'lint_files', output: 'ok', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('gate-test-3');
+			const taskId = 'gate-test-3:current';
+			// Should NOT have gate log entry for non-gate tool
+			expect(session?.gateLog.has(taskId)).toBe(false);
+		});
+
+		it('ATTACK: cross-session task ID collision does NOT pollute other session', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			// Session 1: architect runs lint
+			startAgentSession('session-1', ORCHESTRATOR_NAME);
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'session-1', callID: 'c1' },
+				{ title: 'lint', output: 'ok', metadata: {} },
+			);
+
+			// Session 2: different session
+			startAgentSession('session-2', ORCHESTRATOR_NAME);
+			await hooks.toolAfter(
+				{ tool: 'diff', sessionID: 'session-2', callID: 'c1' },
+				{ title: 'diff', output: 'ok', metadata: {} },
+			);
+
+			// Verify session 1 only has lint
+			const session1 = swarmState.agentSessions.get('session-1');
+			expect(session1?.gateLog.get('session-1:current')?.has('lint')).toBe(true);
+			expect(session1?.gateLog.get('session-1:current')?.has('diff')).toBe(false);
+
+			// Verify session 2 only has diff
+			const session2 = swarmState.agentSessions.get('session-2');
+			expect(session2?.gateLog.get('session-2:current')?.has('diff')).toBe(true);
+			expect(session2?.gateLog.get('session-2:current')?.has('lint')).toBe(false);
+		});
+
+		it('ATTACK: gate failure state cleared after successful gate', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('failure-test', ORCHESTRATOR_NAME);
+
+			// First call: failing gate
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'failure-test', callID: 'c1' },
+				{ title: 'lint', output: 'FAIL: some errors', metadata: {} },
+			);
+
+			const sessionAfterFail = swarmState.agentSessions.get('failure-test');
+			expect(sessionAfterFail?.lastGateFailure?.tool).toBe('lint');
+
+			// Second call: successful gate
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'failure-test', callID: 'c2' },
+				{ title: 'lint', output: 'All checks passed', metadata: {} },
+			);
+
+			const sessionAfterPass = swarmState.agentSessions.get('failure-test');
+			expect(sessionAfterPass?.lastGateFailure).toBeNull();
+		});
+
+		it('ATTACK: null output counts as gate failure', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('null-output-test', ORCHESTRATOR_NAME);
+
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'null-output-test', callID: 'c1' },
+				{ title: 'lint', output: null as unknown as string, metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('null-output-test');
+			expect(session?.lastGateFailure?.tool).toBe('lint');
+		});
+
+		it('ATTACK: undefined output counts as gate failure', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('undefined-output-test', ORCHESTRATOR_NAME);
+
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'undefined-output-test', callID: 'c1' },
+				{ title: 'lint', output: undefined as unknown as string, metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('undefined-output-test');
+			expect(session?.lastGateFailure?.tool).toBe('lint');
+		});
+
+		it('ATTACK: partialGateWarningIssued prevents repeated warnings', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('warning-once', ORCHESTRATOR_NAME);
+
+			// Run only one required gate (missing 4)
+			await hooks.toolAfter(
+				{ tool: 'lint', sessionID: 'warning-once', callID: 'c1' },
+				{ title: 'lint', output: 'ok', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('warning-once');
+			session!.partialGateWarningIssued = true;
+			// Add reviewer delegations to prevent catastrophic warning from project plan.json
+			session!.reviewerCallCount.set(1, 1);
+			session!.reviewerCallCount.set(2, 1);
+			session!.reviewerCallCount.set(3, 1);
+			session!.reviewerCallCount.set(4, 1);
+
+			// Transform messages - should NOT add warning because flag is already set
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'warning-once' },
+					parts: [{ type: 'text', text: 'Done!' }],
+				},
+			];
+			await hooks.messagesTransform({}, { messages });
+
+			// Text should NOT contain warning (flag was already set)
+			expect(messages[0].parts[0].text).toBe('Done!');
+		});
+
+		it('ATTACK: all required gates must pass to avoid partial gate warning', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('all-gates', ORCHESTRATOR_NAME);
+
+			// Run ALL required gates
+			const requiredGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'];
+			for (let i = 0; i < requiredGates.length; i++) {
+				await hooks.toolAfter(
+					{ tool: requiredGates[i], sessionID: 'all-gates', callID: `c${i}` },
+					{ title: requiredGates[i], output: 'ok', metadata: {} },
+				);
+			}
+
+			// Also add reviewer delegation for ALL phases (code loads current phase from plan)
+			const session = swarmState.agentSessions.get('all-gates');
+			session!.reviewerCallCount.set(1, 1);
+			session!.reviewerCallCount.set(2, 1);
+			session!.reviewerCallCount.set(3, 1);
+			session!.reviewerCallCount.set(4, 1);
+
+			// Transform messages - should NOT add warning because all gates passed
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'all-gates' },
+					parts: [{ type: 'text', text: 'Done!' }],
+				},
+			];
+			await hooks.messagesTransform({}, { messages });
+
+			// Text should NOT contain warning
+			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
+		});
+
+		it('ATTACK: missing even ONE required gate triggers partial gate warning', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('missing-one-gate', ORCHESTRATOR_NAME);
+
+			// Run all required gates EXCEPT pre_check_batch
+			const partialGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint'];
+			for (let i = 0; i < partialGates.length; i++) {
+				await hooks.toolAfter(
+					{ tool: partialGates[i], sessionID: 'missing-one-gate', callID: `c${i}` },
+					{ title: partialGates[i], output: 'ok', metadata: {} },
+				);
+			}
+
+			// Add reviewer delegation for all phases
+			const session = swarmState.agentSessions.get('missing-one-gate');
+			session!.reviewerCallCount.set(1, 1);
+			session!.reviewerCallCount.set(2, 1);
+			session!.reviewerCallCount.set(3, 1);
+			session!.reviewerCallCount.set(4, 1);
+
+			// Transform messages - SHOULD add warning
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'missing-one-gate' },
+					parts: [{ type: 'text', text: 'Done!' }],
+				},
+			];
+			await hooks.messagesTransform({}, { messages });
+
+			// Text SHOULD contain warning with missing gate
+			expect(messages[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
+			expect(messages[0].parts[0].text).toContain('pre_check_batch');
+		});
+
+		it('ATTACK: missing reviewer delegation triggers partial gate warning', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('no-reviewer', ORCHESTRATOR_NAME);
+
+			// Run all required gates
+			const requiredGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'];
+			for (let i = 0; i < requiredGates.length; i++) {
+				await hooks.toolAfter(
+					{ tool: requiredGates[i], sessionID: 'no-reviewer', callID: `c${i}` },
+					{ title: requiredGates[i], output: 'ok', metadata: {} },
+				);
+			}
+
+			// NO reviewer delegation added
+
+			// Transform messages - SHOULD add warning about missing reviewer
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'no-reviewer' },
+					parts: [{ type: 'text', text: 'Done!' }],
+				},
+			];
+			await hooks.messagesTransform({}, { messages });
+
+			// Text SHOULD contain warning about missing reviewer
+			expect(messages[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
+			expect(messages[0].parts[0].text).toContain('reviewer/test_engineer');
+		});
+
+		it('ATTACK: output with "gates_passed: false" counts as failure', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('gates-passed-false', ORCHESTRATOR_NAME);
+
+			await hooks.toolAfter(
+				{ tool: 'pre_check_batch', sessionID: 'gates-passed-false', callID: 'c1' },
+				{ title: 'pre_check_batch', output: '{"gates_passed": false, "errors": []}', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('gates-passed-false');
+			expect(session?.lastGateFailure?.tool).toBe('pre_check_batch');
+		});
+
+		it('ATTACK: output with lowercase "gates_passed: false" counts as failure', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('gates-passed-lowercase', ORCHESTRATOR_NAME);
+
+			await hooks.toolAfter(
+				{ tool: 'pre_check_batch', sessionID: 'gates-passed-lowercase', callID: 'c1' },
+				{ title: 'pre_check_batch', output: 'GATES_PASSED: FALSE', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('gates-passed-lowercase');
+			expect(session?.lastGateFailure?.tool).toBe('pre_check_batch');
+		});
+
+		it('ATTACK: gate tracking works for optional gates too', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('optional-gates', ORCHESTRATOR_NAME);
+
+			// Run an optional gate
+			await hooks.toolAfter(
+				{ tool: 'secretscan', sessionID: 'optional-gates', callID: 'c1' },
+				{ title: 'secretscan', output: 'ok', metadata: {} },
+			);
+
+			const session = swarmState.agentSessions.get('optional-gates');
+			const taskId = 'optional-gates:current';
+			expect(session?.gateLog.has(taskId)).toBe(true);
+			expect(session?.gateLog.get(taskId)?.has('secretscan')).toBe(true);
+		});
+
+		it('ATTACK: architect write outside .swarm sets architectWriteCount', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('write-test', ORCHESTRATOR_NAME);
+
+			// Architect writes to file outside .swarm
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: 'write-test', callID: 'c1' },
+				{ args: { filePath: 'src/test.ts' } },
+			);
+
+			const session = swarmState.agentSessions.get('write-test');
+			expect(session?.architectWriteCount).toBe(1);
+		});
+
+		it('ATTACK: architect write inside .swarm does NOT set architectWriteCount', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			startAgentSession('write-swarm-test', ORCHESTRATOR_NAME);
+
+			// Architect writes to file inside .swarm
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: 'write-swarm-test', callID: 'c1' },
+				{ args: { filePath: '.swarm/plan.md' } },
+			);
+
+			const session = swarmState.agentSessions.get('write-swarm-test');
+			expect(session?.architectWriteCount).toBe(0);
+		});
+
+		it('ATTACK: session without sessionID in message skips injection safely', async () => {
+			const guardrailsConfig = GuardrailsConfigSchema.parse({
+				enabled: true,
+				max_tool_calls: 100,
+			});
+			const hooks = createGuardrailsHooks(guardrailsConfig);
+
+			// Message without sessionID
+			const messages = [
+				{
+					info: { role: 'assistant' }, // No sessionID
+					parts: [{ type: 'text', text: 'Done!' }],
+				},
+			];
+
+			// Should not throw
+			await expect(
+				hooks.messagesTransform({}, { messages }),
+			).resolves.toBeUndefined();
+
+			// Text should be unchanged
+			expect(messages[0].parts[0].text).toBe('Done!');
 		});
 	});
 });

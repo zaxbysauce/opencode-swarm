@@ -169,7 +169,7 @@ function findBuildFiles(workingDir: string, patterns: string[]): string | null {
 				const files = fs.readdirSync(dir);
 				const matches = files.filter((f) => {
 					// Convert glob to regex
-					const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+					const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
 					return regex.test(f);
 				});
 				if (matches.length > 0) {
@@ -258,7 +258,7 @@ function findAllBuildFiles(workingDir: string): string[] {
 		for (const pattern of ecosystem.buildFiles) {
 			if (pattern.includes('*')) {
 				// Glob pattern - search recursively
-				const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+				const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
 				findFilesRecursive(workingDir, regex, allBuildFiles);
 			} else {
 				// Exact file
@@ -317,7 +317,7 @@ export async function discoverBuildCommands(
 	const changedFiles = options?.changedFiles ?? [];
 
 	// Get files to check based on scope
-	const filesToCheck = filterByScope(workingDir, scope, changedFiles);
+	const _filesToCheck = filterByScope(workingDir, scope, changedFiles);
 
 	const commands: BuildCommand[] = [];
 	const skipped: { ecosystem: string; reason: string }[] = [];

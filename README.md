@@ -396,6 +396,22 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
 
 ---
 
+## Recent Changes
+
+### v6.12.0 — Anti-Process-Violation Hardening
+
+This release adds runtime detection hooks to catch and warn about architect workflow violations:
+
+- **Self-coding detection**: Warns when the architect writes code directly instead of delegating
+- **Partial gate tracking**: Detects when QA gates are skipped
+- **Self-fix detection**: Warns when an agent fixes its own gate failure (should delegate to fresh agent)
+- **Batch detection**: Catches "implement X and add Y" batching in task requests
+- **Zero-delegation detection**: Warns when tasks complete without any coder delegation
+
+These hooks are advisory (warnings only) and help maintain workflow discipline during long sessions.
+
+---
+
 ## Testing
 
 6,000+ tests. Unit, integration, adversarial, and smoke. Zero additional test dependencies.

@@ -1,0 +1,1100 @@
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	resetSwarmState,
+	swarmState,
+	startAgentSession,
+	ensureAgentSession,
+} from '../../../src/state';
+import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import type { PluginConfig } from '../../../src/config';
+
+function makeGuardrailsConfig(overrides?: Record<string, unknown>) {
+	return {
+		enabled: true,
+		warning_threshold: 0.8,
+		max_tool_calls: 100,
+		max_duration_minutes: 30,
+		max_repetitions: 5,
+		max_consecutive_errors: 3,
+		idle_timeout_minutes: 10,
+		...overrides,
+	};
+}
+
+function makeDelegationConfig(overrides?: Record<string, unknown>): PluginConfig {
+	return {
+		max_iterations: 5,
+		qa_retry_limit: 3,
+		inject_phase_reminders: true,
+		hooks: {
+			system_enhancer: true,
+			compaction: true,
+			agent_activity: true,
+			delegation_tracker: false,
+			agent_awareness_max_chars: 300,
+			delegation_gate: true,
+			delegation_max_chars: 4000,
+			...(overrides?.hooks as Record<string, unknown>),
+		},
+	} as PluginConfig;
+}
+
+function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+	return {
+		messages: [{
+			info: { role: 'user' as const, agent, sessionID },
+			parts: [{ type: 'text', text }],
+		}],
+	};
+}
+
+// ============================================
+// Task 2.1: Architect Self-Coding Detection
+// ============================================
+describe('architect self-coding detection (Task 2.1)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	it('architect writing to .swarm/plan.md does NOT trigger warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to .swarm/plan.md
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '.swarm/plan.md', content: '# Plan' } };
+
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Check that architectWriteCount was NOT incremented
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('architect writing to src/foo.ts DOES trigger warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Check that architectWriteCount was incremented
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(1);
+
+		// Now call messagesTransform to verify warning is injected
+		const messages = makeMessages('TASK: Check the code', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify warning contains SELF-CODING DETECTED
+		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('1 write-class');
+	});
+
+	it('coder writing to src/foo.ts does NOT trigger warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up coder session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, 'mega_coder');
+		startAgentSession(sessionId, 'mega_coder');
+
+		// Coder writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Verify warning is NOT injected
+		const messages = makeMessages('Working on the code', 'mega_coder', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Should NOT contain SELF-CODING DETECTED
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	it('warning includes write count', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes twice
+		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput1 = { args: { filePath: 'src/foo.ts', content: 'const x = 1;' } };
+		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
+
+		const toolInput2 = { tool: 'edit', sessionID: sessionId, callID: 'call-2' };
+		const toolOutput2 = { args: { filePath: 'src/bar.ts', content: 'const y = 2;' } };
+		await hook.toolBefore(toolInput2 as any, toolOutput2 as any);
+
+		// Verify count is 2
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(2);
+
+		// Now call messagesTransform
+		const messages = makeMessages('TASK: Review', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify warning includes write count
+		expect(messages.messages[0].parts[0].text).toContain('2 write-class');
+	});
+
+	it('warning text contains SELF-CODING DETECTED', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Verify warning text contains SELF-CODING DETECTED
+		const messages = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+	});
+
+	it('architectWriteCount increments per write', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+
+		// First write
+		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput1 = { args: { filePath: 'src/a.ts', content: 'a' } };
+		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
+		expect(session.architectWriteCount).toBe(1);
+
+		// Second write
+		const toolInput2 = { tool: 'edit', sessionID: sessionId, callID: 'call-2' };
+		const toolOutput2 = { args: { filePath: 'src/b.ts', content: 'b' } };
+		await hook.toolBefore(toolInput2 as any, toolOutput2 as any);
+		expect(session.architectWriteCount).toBe(2);
+
+		// Third write
+		const toolInput3 = { tool: 'patch', sessionID: sessionId, callID: 'call-3' };
+		const toolOutput3 = { args: { filePath: 'src/c.ts', content: 'c' } };
+		await hook.toolBefore(toolInput3 as any, toolOutput3 as any);
+		expect(session.architectWriteCount).toBe(3);
+	});
+});
+
+// ============================================
+// Task 2.4: Batch Delegation Detection
+// ============================================
+describe('batch delegation detection (Task 2.4)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	it('single-task delegation -> no warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const cleanText = 'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email';
+		const messages = makeMessages(cleanText, 'architect');
+		const originalText = messages.messages[0].parts[0].text;
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toBe(originalText);
+	});
+
+	it('TASK with AND connecting two actions -> warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('Detected signal');
+	});
+
+	it('multiple FILE lines -> warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives');
+	});
+
+	it('"additionally" -> warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation additionally add tests\nFILE: src/test.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+	});
+
+	it('"and also" -> warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+	});
+
+	it('"also" alone (without and) -> no warning (needs "and also" pattern)', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		// "also" alone doesn't match the batching pattern - needs "and also" or "then also"
+		const text = 'coder\nTASK: Add validation also add tests\nFILE: src/test.ts';
+		const messages = makeMessages(text, 'architect');
+		const originalText = messages.messages[0].parts[0].text;
+
+		await hook({}, messages as any);
+
+		// Should NOT contain batching language warning (pattern requires "and also")
+		expect(messages.messages[0].parts[0].text).toBe(originalText);
+	});
+
+	it('"while you\'re at it" -> warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation while you\'re at it add tests\nFILE: src/test.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+	});
+
+	it('warning includes matched heuristic name (Detected signal: ...)', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		const text = 'coder\nTASK: Add validation\nFILE: src/a.ts\nFILE: src/b.ts';
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		// Check that warning contains "Detected signal:" with the heuristic
+		expect(messages.messages[0].parts[0].text).toContain('Detected signal:');
+		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives');
+	});
+
+	it('long single-task delegation under maxChars -> no warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		// Long but single task - under 4000 chars
+		const text = 'coder\nTASK: Add comprehensive validation\nFILE: src/test.ts\nINPUT: ' + 'x'.repeat(1000);
+		const messages = makeMessages(text, 'architect');
+		const originalText = messages.messages[0].parts[0].text;
+
+		await hook({}, messages as any);
+
+		// Should NOT contain batch warning
+		expect(messages.messages[0].parts[0].text).not.toContain('BATCH DETECTED');
+		// Text should remain unchanged
+		expect(messages.messages[0].parts[0].text).toBe(originalText);
+	});
+});
+
+// ============================================
+// Task 2.5: Gate Failure Self-Fix Detection
+// ============================================
+describe('gate failure self-fix detection (Task 2.5)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	it('gate fail -> coder delegation -> no warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000, // 30 seconds ago
+		};
+
+		// Now architect delegates to coder (not writing)
+		const messages = makeMessages('coder\nTASK: Fix the issue', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Should NOT contain SELF-FIX warning (delegation is OK)
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+	});
+
+	it('gate fail -> architect write to src/ within 2 min -> SELF-FIX warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure 30 seconds ago
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect writes to src/ (self-fix attempt)
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Verify selfFixAttempted flag is set
+		expect(session.selfFixAttempted).toBe(true);
+
+		// Now call messagesTransform to get warning
+		const messages = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify SELF-FIX warning
+		expect(messages.messages[0].parts[0].text).toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('lint');
+		expect(messages.messages[0].parts[0].text).toContain('task-123');
+	});
+
+	it('gate pass -> architect write -> no warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// No gate failure - gate passed
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = null; // Gate passed
+
+		// Architect writes to src/
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Verify selfFixAttempted is NOT set (no gate failure)
+		expect(session.selfFixAttempted).toBe(false);
+
+		// messagesTransform should not have SELF-FIX warning
+		const messages = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+	});
+
+	it('gate fail -> architect write to .swarm/ -> no warning (legit)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect writes to .swarm/ (not a self-fix - this is legit plan update)
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '.swarm/plan.md', content: '# Updated Plan' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Verify selfFixAttempted is NOT set (writing to .swarm/ is OK)
+		expect(session.selfFixAttempted).toBe(false);
+
+		// messagesTransform should not have SELF-FIX warning
+		const messages = makeMessages('TASK: Update plan', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+	});
+
+	it('self-fix warning clears after messagesTransform (no duplicate warnings)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect attempts self-fix
+		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput1 = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
+		expect(session.selfFixAttempted).toBe(true);
+
+		// First messagesTransform - warning should be injected and flag cleared
+		const messages1 = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages1 as any);
+		expect(messages1.messages[0].parts[0].text).toContain('SELF-FIX DETECTED');
+		expect(session.selfFixAttempted).toBe(false); // Flag cleared after warning injection
+
+		// Second messagesTransform - NO warning (flag was cleared)
+		const messages2 = makeMessages('TASK: Another task', 'architect', sessionId);
+		await hook.messagesTransform({}, messages2 as any);
+		// Should NOT contain another SELF-FIX warning (flag is false)
+		// Note: The warning was already cleared, so no new warning
+		expect(messages2.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+	});
+
+	it('2-minute window expires -> no warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure MORE than 2 minutes ago (2 min + 1 second)
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 121_000, // 121 seconds ago (over 2 min)
+		};
+
+		// Architect writes to src/
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// selfFixAttempted should NOT be set because window expired
+		expect(session.selfFixAttempted).toBe(false);
+
+		// messagesTransform should not have SELF-FIX warning
+		const messages = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+	});
+
+	it('architect write after gate failure writes only to src/ triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'build_check',
+			taskId: 'build-task',
+			timestamp: Date.now() - 60_000, // 1 minute ago (within 2 min window)
+		};
+
+		// Architect writes to src/ - this IS a self-fix
+		const toolInput = { tool: 'edit', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/main.ts', content: '// fixed' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// selfFixAttempted should be set
+		expect(session.selfFixAttempted).toBe(true);
+
+		// Verify warning contains the gate tool name
+		const messages = makeMessages('TASK: Fix build', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('build_check');
+		expect(messages.messages[0].parts[0].text).toContain('build-task');
+	});
+});
+
+// ============================================
+// ADVERSARIAL TESTS: Attack Vectors
+// ============================================
+describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	// Path traversal attacks
+	it('path traversal attempt: ../../../etc/passwd -> triggers self-coding warning (not .swarm/)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Malicious path traversal attempt
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '../../../etc/passwd', content: 'malicious' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	// FIXED: Path traversal bypass - .swarm/../ now detected correctly
+	it('FIXED: path traversal with .swarm/ prefix injection: .swarm/../src/evil.ts -> DETECTED correctly', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Path with .swarm/ prefix but traverses out - now CORRECTLY DETECTED after fix
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '.swarm/../src/evil.ts', content: 'malicious' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		// FIXED: Path traversal is now detected - .swarm/../src/evil.ts resolves outside .swarm/
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	// Agent identity spoofing
+	it('agent name spoofing: "architect_evil" does not bypass detection', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, 'architect_evil'); // Fake architect
+		startAgentSession(sessionId, 'architect_evil');
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/evil.ts', content: 'malicious' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Should NOT trigger self-coding warning because it's not the real architect
+		const messages = makeMessages('TASK: Hack', 'architect_evil', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	// VULNERABILITY: Empty/null sessionID causes unhandled behavior
+	it('VULNERABILITY: empty sessionID is not architect (no self-coding check)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Empty sessionID - no architect session exists, so no self-coding detection
+		const toolInput = { tool: 'write', sessionID: '', callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/test.ts', content: 'test' } };
+
+		// Hook runs but doesn't detect architect (empty session has no agent mapping)
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Empty session won't be tracked as architect since no activeAgent mapping exists
+		const session = swarmState.agentSessions.get('');
+		// Session may not exist or have 0 write count (not recognized as architect)
+		expect(session?.architectWriteCount ?? 0).toBe(0);
+	});
+
+	it('null sessionID is handled gracefully (uses fallback)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const toolInput = { tool: 'write', sessionID: null as any, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/test.ts', content: 'test' } };
+
+		// Should NOT crash - null is handled as undefined session
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+	});
+});
+
+// ============================================
+// ADVERSARIAL TESTS: Malformed Inputs
+// ============================================
+describe('ADVERSARIAL: malformed inputs (Task 4.2)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	it('missing args object does not crash hook (graceful degradation)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = {}; // No args
+
+		// Hook handles missing args gracefully (no filePath to check)
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		// No write count increment because no filePath was found
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('null args.filePath does not crash hook (graceful degradation)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: null } };
+
+		// Hook handles null filePath gracefully
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('undefined args.filePath does not crash hook (graceful degradation)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: undefined } };
+
+		// Hook handles undefined filePath gracefully
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('empty string filePath does not crash hook (no increment)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '', content: 'test' } };
+
+		// Hook handles empty string filePath gracefully
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		// Empty string is falsy in isOutsideSwarmDir check
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('non-string filePath (number) does not crash hook (type check)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 12345 as any, content: 'test' } };
+
+		// Hook handles non-string filePath gracefully (type check)
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		// Non-string is ignored due to typeof check
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('non-string filePath (object) does not crash hook (type check)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: { path: 'evil' } as any, content: 'test' } };
+
+		// Hook handles object filePath gracefully (type check)
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('messagesTransform with empty messages array does not crash', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const output = { messages: [] };
+		// Hook returns early when no messages
+		await hook.messagesTransform({}, output as any);
+		// No crash = success
+		expect(true).toBe(true);
+	});
+
+	it('messagesTransform with undefined messages does not crash', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const output = { messages: undefined };
+		// Hook returns early when messages is undefined
+		await hook.messagesTransform({}, output as any);
+		expect(true).toBe(true);
+	});
+
+	it('messagesTransform with missing parts array does not crash', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const output = { messages: [{ info: { role: 'user' } }] };
+		// Hook returns early when parts is missing
+		await hook.messagesTransform({}, output as any);
+		expect(true).toBe(true);
+	});
+});
+
+// ============================================
+// ADVERSARIAL TESTS: Boundary Cases
+// ============================================
+describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	// Exact timing boundaries
+	it('self-fix detection: within 2 min window (60 seconds) -> triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const session = ensureAgentSession(sessionId);
+		// Use 60 seconds - well within the 2 min window
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 60_000,
+		};
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'fix' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		expect(session.selfFixAttempted).toBe(true);
+	});
+
+	it('self-fix detection: exactly 2 minutes + 1ms (120001ms) -> NO warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 120_001, // Just over 2 min
+		};
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'fix' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		expect(session.selfFixAttempted).toBe(false);
+	});
+
+	// Path boundary cases
+	it('filePath exactly ".swarm/" (no file) -> no warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '.swarm/', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	it('filePath with mixed separators (Windows): "src\\foo.ts" -> triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src\\foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	it('filePath with leading "./": "./src/foo.ts" -> triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: './src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	it('filePath ".swarm/./plan.md" (with ./) -> no warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: '.swarm/./plan.md', content: 'plan' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(0);
+	});
+
+	// Unicode and special characters
+	it('filePath with nested path: "src/unicode/test.ts" -> triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/unicode/test.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	it('filePath with null byte injection: "src/test.ts\x00.swarm/" -> triggers warning', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		// Null byte injection attempt
+		const toolOutput = { args: { filePath: 'src/test.ts\x00.swarm/', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const session = ensureAgentSession(sessionId);
+		// Should detect as outside .swarm/ since null byte is before .swarm/
+		expect(session.architectWriteCount).toBe(1);
+	});
+
+	// Batch detection boundary cases
+	it('batch detection: exact char limit (4000) -> no warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		// Prefix is 42 chars ('coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ')
+		const prefix = 'coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ';
+		const text = prefix + 'x'.repeat(3958); // 42 + 3958 = 4000
+		expect(text.length).toBe(4000);
+		const messages = makeMessages(text, 'architect');
+		const originalText = messages.messages[0].parts[0].text;
+
+		await hook({}, messages as any);
+
+		expect(messages.messages[0].parts[0].text).toBe(originalText);
+	});
+
+	it('batch detection: 4001 chars -> triggers oversized warning', async () => {
+		const config = makeDelegationConfig();
+		const hook = createDelegationGateHook(config);
+
+		// Prefix is 42 chars, so need 3959 x's to get 4001 total
+		const prefix = 'coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ';
+		const text = prefix + 'x'.repeat(3959); // 42 + 3959 = 4001
+		expect(text.length).toBe(4001);
+		const messages = makeMessages(text, 'architect');
+
+		await hook({}, messages as any);
+
+		// Check for BATCH DETECTED with oversized warning
+		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('chars');
+	});
+
+	// Gate failure edge cases
+	it('gate failure with special chars in taskId: "task-<script>alert(1)</script>" -> sanitized in output', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-<script>alert(1)</script>',
+			timestamp: Date.now() - 30_000,
+		};
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'fix' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = makeMessages('TASK: Check', 'architect', sessionId);
+		await hook.messagesTransform({}, messages as any);
+
+		// Warning is injected (taskId is included as-is in warning text)
+		expect(messages.messages[0].parts[0].text).toContain('SELF-FIX DETECTED');
+		// Note: Sanitization is UI concern; hook passes through taskId as-is
+	});
+
+	// Concurrent session edge cases
+	it('multiple sessions with same agent -> independent counts', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Session 1
+		const session1 = 'session-1';
+		swarmState.activeAgent.set(session1, ORCHESTRATOR_NAME);
+		startAgentSession(session1, ORCHESTRATOR_NAME);
+
+		// Session 2
+		const session2 = 'session-2';
+		swarmState.activeAgent.set(session2, ORCHESTRATOR_NAME);
+		startAgentSession(session2, ORCHESTRATOR_NAME);
+
+		// Write in session 1
+		await hook.toolBefore(
+			{ tool: 'write', sessionID: session1, callID: 'call-1' } as any,
+			{ args: { filePath: 'src/a.ts', content: 'a' } } as any,
+		);
+
+		// Write in session 2
+		await hook.toolBefore(
+			{ tool: 'write', sessionID: session2, callID: 'call-2' } as any,
+			{ args: { filePath: 'src/b.ts', content: 'b' } } as any,
+		);
+
+		const sess1 = ensureAgentSession(session1);
+		const sess2 = ensureAgentSession(session2);
+
+		// Each session should have count of 1
+		expect(sess1.architectWriteCount).toBe(1);
+		expect(sess2.architectWriteCount).toBe(1);
+	});
+});

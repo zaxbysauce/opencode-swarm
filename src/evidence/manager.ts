@@ -6,7 +6,6 @@ import {
 	type Evidence,
 	type EvidenceBundle,
 	EvidenceBundleSchema,
-	EvidenceTypeSchema,
 	type PlaceholderEvidence,
 	type QualityBudgetEvidence,
 	type SastEvidence,

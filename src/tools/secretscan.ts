@@ -359,19 +359,19 @@ function isBinaryFile(filePath: string, buffer: Buffer): boolean {
 }
 
 // ============ Redaction Utilities ============
-function redactMatch(fullMatch: string, _group?: string): string {
+function _redactMatch(_fullMatch: string, _group?: string): string {
 	// Replace the actual secret portion with redacted version
 	return '[REDACTED]';
 }
 
-function createContextRedactor(
+function _createContextRedactor(
 	line: string,
 	startIdx: number,
 	endIdx: number,
 ): string {
 	const before = line.slice(0, startIdx);
 	const after = line.slice(endIdx);
-	return before + '[SECRET]' + after;
+	return `${before}[SECRET]${after}`;
 }
 
 // ============ Secret Scanning ============
@@ -384,7 +384,7 @@ interface ScanLineResult {
 	matchEnd: number;
 }
 
-function scanLineForSecrets(line: string, lineNum: number): ScanLineResult[] {
+function scanLineForSecrets(line: string, _lineNum: number): ScanLineResult[] {
 	const results: ScanLineResult[] = [];
 
 	// Skip lines that are too long
@@ -396,9 +396,11 @@ function scanLineForSecrets(line: string, lineNum: number): ScanLineResult[] {
 	for (const pattern of SECRET_PATTERNS) {
 		// Reset lastIndex for global patterns to ensure deterministic behavior
 		pattern.regex.lastIndex = 0;
-		let match: RegExpExecArray | null;
-
-		while ((match = pattern.regex.exec(line)) !== null) {
+		for (
+			let match = pattern.regex.exec(line);
+			match !== null;
+			match = pattern.regex.exec(line)
+		) {
 			const fullMatch = match[0];
 			const redacted = pattern.redactTemplate(fullMatch);
 
@@ -585,8 +587,8 @@ function isPathWithinScope(realPath: string, scanDir: string): boolean {
 	return (
 		resolvedRealPath === resolvedScanDir ||
 		resolvedRealPath.startsWith(resolvedScanDir + path.sep) ||
-		resolvedRealPath.startsWith(resolvedScanDir + '/') ||
-		resolvedRealPath.startsWith(resolvedScanDir + '\\')
+		resolvedRealPath.startsWith(`${resolvedScanDir}/`) ||
+		resolvedRealPath.startsWith(`${resolvedScanDir}\\`)
 	);
 }
 
@@ -630,7 +632,7 @@ function findScannableFiles(
 
 		const fullPath = path.join(dir, entry);
 
-		let lstat;
+		let lstat: fs.Stats;
 		try {
 			// Use lstat to detect symlinks without following them
 			lstat = fs.lstatSync(fullPath);
@@ -911,7 +913,7 @@ export const secretscan: ReturnType<typeof tool> = tool({
 				);
 			}
 			if (parts.length > 0) {
-				result.message = parts.join('; ') + '.';
+				result.message = `${parts.join('; ')}.`;
 			}
 
 			// Check output size

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { PluginConfig } from '../config/schema';
 import {
 	applySafeAutoFixes,
 	type ConfigBackup,
@@ -37,13 +38,15 @@ function createTestConfig(dir: string, config: object): string {
 }
 
 // Minimal config object for testing - bypass type checking for invalid configs
-function createTestConfigObj(overrides: Record<string, unknown> = {}): unknown {
+function createTestConfigObj(
+	overrides: Record<string, unknown> = {},
+): PluginConfig {
 	return {
 		max_iterations: 5,
 		qa_retry_limit: 3,
 		inject_phase_reminders: true,
 		...overrides,
-	};
+	} as PluginConfig;
 }
 
 describe('Config Doctor Service', () => {
@@ -59,7 +62,7 @@ describe('Config Doctor Service', () => {
 
 	describe('runConfigDoctor', () => {
 		it('should return empty findings for valid config', () => {
-			const config = createTestConfigObj() as any;
+			const config = createTestConfigObj();
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -73,7 +76,7 @@ describe('Config Doctor Service', () => {
 				agents: {
 					coder: { model: 'gpt-4' },
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -94,7 +97,7 @@ describe('Config Doctor Service', () => {
 					warning_threshold: 0.75,
 					idle_timeout_minutes: 60,
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -108,7 +111,7 @@ describe('Config Doctor Service', () => {
 				automation: {
 					mode: 'invalid',
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -127,7 +130,7 @@ describe('Config Doctor Service', () => {
 						config_doctor_on_startup: 'yes',
 					},
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -140,7 +143,7 @@ describe('Config Doctor Service', () => {
 		it('should detect out-of-bounds max_iterations', () => {
 			const config = createTestConfigObj({
 				max_iterations: 100,
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -163,7 +166,7 @@ describe('Config Doctor Service', () => {
 						unknown_agent: { max_tool_calls: 100 },
 					},
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -178,7 +181,7 @@ describe('Config Doctor Service', () => {
 				hooks: {
 					unknown_hook: true,
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -191,7 +194,7 @@ describe('Config Doctor Service', () => {
 		it('should detect out-of-bounds qa_retry_limit', () => {
 			const config = createTestConfigObj({
 				qa_retry_limit: 100,
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -209,7 +212,7 @@ describe('Config Doctor Service', () => {
 						},
 					},
 				},
-			}) as any;
+			});
 
 			const result = runConfigDoctor(config, tempDir);
 
@@ -946,7 +949,7 @@ describe('Config Doctor Service', () => {
 		it('should run doctor without fixes when autoFix is false', async () => {
 			createTestConfig(tempDir, { max_iterations: 5 });
 
-			const config = createTestConfigObj() as any;
+			const config = createTestConfigObj();
 
 			const result = await runConfigDoctorWithFixes(tempDir, config, false);
 
@@ -961,7 +964,7 @@ describe('Config Doctor Service', () => {
 
 			const config = createTestConfigObj({
 				max_iterations: 100,
-			}) as any;
+			});
 
 			const result = await runConfigDoctorWithFixes(tempDir, config, true);
 
@@ -984,7 +987,7 @@ describe('Config Doctor Service', () => {
 			// Pass a config object that has the SAME issue (simulating stale in-memory)
 			const staleConfig = createTestConfigObj({
 				max_iterations: 100,
-			}) as any;
+			});
 
 			const result = await runConfigDoctorWithFixes(tempDir, staleConfig, true);
 
@@ -1000,11 +1003,11 @@ describe('Config Doctor Service', () => {
 					path.join(tempDir, '.swarm', 'config-doctor.json'),
 					'utf-8',
 				),
-			);
+			) as ConfigDoctorResult;
 
 			// After fix, there should be no out-of-bounds-iterations finding
 			const postFixFinding = artifact.findings.find(
-				(f: any) => f.id === 'out-of-bounds-iterations',
+				(f) => f.id === 'out-of-bounds-iterations',
 			);
 			expect(postFixFinding).toBeUndefined();
 		});
@@ -1018,7 +1021,7 @@ describe('Config Doctor Service', () => {
 			const config = createTestConfigObj({
 				max_iterations: 100,
 				qa_retry_limit: 50,
-			}) as any;
+			});
 
 			const result = await runConfigDoctorWithFixes(tempDir, config, true);
 
@@ -1081,7 +1084,7 @@ describe('Config Doctor Service', () => {
 						unknown_agent: { max_tool_calls: 100 },
 					},
 				},
-			}) as any;
+			});
 
 			const result = await runConfigDoctorWithFixes(tempDir, config, true);
 

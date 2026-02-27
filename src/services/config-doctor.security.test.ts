@@ -13,14 +13,13 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { PluginConfig } from '../config/schema';
 import {
 	applySafeAutoFixes,
 	type ConfigBackup,
 	type ConfigDoctorResult,
-	createConfigBackup,
 	restoreFromBackup,
 	runConfigDoctor,
-	runConfigDoctorWithFixes,
 	writeBackupArtifact,
 } from './config-doctor';
 
@@ -166,7 +165,7 @@ describe('SECURITY: Backup Artifact Tampering', () => {
 			const restored = JSON.parse(fs.readFileSync(result!, 'utf-8'));
 			expect(restored.test).toBe(true);
 			// Prototype pollution should NOT affect new objects
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.admin).toBeUndefined();
 			expect(testObj.polluted).toBeUndefined();
 		});
@@ -222,7 +221,7 @@ describe('SECURITY: Backup Artifact Tampering', () => {
 				backupPath,
 				JSON.stringify({
 					...backup,
-					preview: hugeContent.substring(0, 500) + '...',
+					preview: `${hugeContent.substring(0, 500)}...`,
 				}),
 				'utf-8',
 			);
@@ -656,7 +655,7 @@ describe('SECURITY: Hash Bypass Attempts', () => {
 
 			// Different content that happens to have similar hash prefix
 			const fakeContent = '{ "fake": true }';
-			const fakeHash = computeSHA256(fakeContent);
+			const _fakeHash = computeSHA256(fakeContent);
 
 			// Try to use original hash with fake content
 			const backup: ConfigBackup = {
@@ -856,7 +855,7 @@ describe('SECURITY: Malformed Config Doctor Artifacts', () => {
 			expect(result).toBeNull();
 
 			// Verify prototype not polluted
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.polluted).toBeUndefined();
 		});
 
@@ -881,7 +880,7 @@ describe('SECURITY: Malformed Config Doctor Artifacts', () => {
 			expect(result).toBeNull();
 
 			// Verify prototype not polluted
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.polluted).toBeUndefined();
 		});
 	});
@@ -936,7 +935,7 @@ describe('SECURITY: Startup Autofix Abuse', () => {
 			expect(appliedFixes.length).toBe(0);
 
 			// Verify prototype not polluted
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.polluted).toBeUndefined();
 		});
 
@@ -973,7 +972,7 @@ describe('SECURITY: Startup Autofix Abuse', () => {
 			expect(appliedFixes.length).toBe(0);
 
 			// Verify prototype not polluted
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.polluted).toBeUndefined();
 		});
 
@@ -1010,7 +1009,7 @@ describe('SECURITY: Startup Autofix Abuse', () => {
 			expect(appliedFixes.length).toBe(0);
 
 			// Verify prototype not polluted
-			const testObj: any = {};
+			const testObj: Record<string, unknown> = {};
 			expect(testObj.polluted).toBeUndefined();
 		});
 
@@ -1417,7 +1416,7 @@ describe('SECURITY: Startup Autofix Abuse', () => {
 			createTestConfig(tempDir, { max_iterations: 100 });
 
 			const config = { max_iterations: 100 };
-			const result = runConfigDoctor(config as any, tempDir);
+			const result = runConfigDoctor(config as PluginConfig, tempDir);
 
 			const { updatedConfigPath } = applySafeAutoFixes(tempDir, result);
 
@@ -1534,7 +1533,7 @@ describe('SECURITY: Combined Attack Scenarios', () => {
 		expect(Array.isArray(restored.permissions)).toBe(true);
 
 		// And prototype should not be polluted
-		const testObj: any = {};
+		const testObj: Record<string, unknown> = {};
 		expect(testObj.admin).toBeUndefined();
 	});
 });

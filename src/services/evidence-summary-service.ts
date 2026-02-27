@@ -13,7 +13,6 @@ import type {
 import type {
 	Phase,
 	PhaseStatus,
-	Plan,
 	Task,
 	TaskStatus,
 } from '../config/plan-schema';
@@ -271,7 +270,7 @@ async function buildPhaseSummary(phase: Phase): Promise<PhaseEvidenceSummary> {
 
 	// Build summaries for all tasks in phase (including those without evidence)
 	const taskSummaries: TaskEvidenceSummary[] = [];
-	const taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
+	const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
 
 	for (const task of phase.tasks) {
 		const summary = await buildTaskSummary(task, task.id);

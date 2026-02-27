@@ -203,7 +203,7 @@ export function createSummary(
 
 	// Truncate preview if it exceeds max preview chars
 	if (preview.length > maxPreviewChars) {
-		preview = preview.substring(0, maxPreviewChars - 3) + '...';
+		preview = `${preview.substring(0, maxPreviewChars - 3)}...`;
 	}
 
 	return `${headerLine}\n${preview}\n${footerLine}`;

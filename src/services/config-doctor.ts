@@ -343,7 +343,7 @@ function readConfigFromFile(directory: string): {
 function validateConfigKey(
 	path: string,
 	value: unknown,
-	config: PluginConfig,
+	_config: PluginConfig,
 ): ConfigFinding[] {
 	const findings: ConfigFinding[] = [];
 

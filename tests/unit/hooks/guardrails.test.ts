@@ -1414,4 +1414,270 @@ describe('guardrails circuit breaker', () => {
 			expect(session?.agentName).toBe('architect');
 		});
 	});
+
+	// ============================================================
+	// SELF-FIX WARNING INJECTION TESTS
+	// Tests for v6.12 Task 2.5: Self-fix detection after gate failure
+	// ============================================================
+	describe('self-fix warning injection', () => {
+		beforeEach(() => {
+			resetSwarmState();
+		});
+
+		it('sets selfFixAttempted flag when architect uses write tool after gate failure', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('selffix-session', 'architect');
+			startAgentSession('selffix-session', 'architect');
+			const session = getAgentSession('selffix-session');
+
+			// Simulate a recent gate failure
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-123',
+					timestamp: Date.now() - 30000, // 30 seconds ago
+				};
+			}
+
+			// Architect attempts to write to a non-.swarm file
+			await hooks.toolBefore(
+				makeInput('selffix-session', 'edit', 'call-1'),
+				makeOutput({ filePath: '/src/test.ts' }), // Outside .swarm/
+			);
+
+			// Flag should be set
+			expect(session?.selfFixAttempted).toBe(true);
+		});
+
+		it('injects SELF-FIX warning in messagesTransform when selfFixAttempted is true', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('selffix-warn-session', 'architect');
+			startAgentSession('selffix-warn-session', 'architect');
+			const session = getAgentSession('selffix-warn-session');
+
+			// Simulate a recent gate failure and write attempt
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-456',
+					timestamp: Date.now() - 10000, // 10 seconds ago
+				};
+				session.selfFixAttempted = true;
+			}
+
+			// Transform messages
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'selffix-warn-session' },
+				parts: [{ type: 'text', text: 'I will fix the code now.' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+
+			// Warning should be injected
+			expect(messages[0].parts[0].text).toContain('SELF-FIX DETECTED');
+			expect(messages[0].parts[0].text).toContain("Gate 'reviewer' failed");
+			expect(messages[0].parts[0].text).toContain('task-456');
+		});
+
+		it('does NOT inject warning without write attempt (flag not set)', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('no-write-session', 'architect');
+			startAgentSession('no-write-session', 'architect');
+			const session = getAgentSession('no-write-session');
+
+			// Gate failure exists, but no write attempt (selfFixAttempted is false)
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-789',
+					timestamp: Date.now() - 30000,
+				};
+				// selfFixAttempted is NOT set
+				// Add reviewer delegations to prevent catastrophic warning from project plan.json
+				session.reviewerCallCount.set(1, 1);
+				session.reviewerCallCount.set(2, 1);
+				session.reviewerCallCount.set(3, 1);
+				session.reviewerCallCount.set(4, 1);
+			}
+
+			// Transform messages
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'no-write-session' },
+				parts: [{ type: 'text', text: 'Original message.' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+
+			// No warning should be injected
+			expect(messages[0].parts[0].text).toBe('Original message.');
+			expect(messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		});
+
+		it('clears selfFixAttempted flag after warning injection', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('clear-flag-session', 'architect');
+			startAgentSession('clear-flag-session', 'architect');
+			const session = getAgentSession('clear-flag-session');
+
+			// Set up conditions for warning
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-clear',
+					timestamp: Date.now() - 10000,
+				};
+				session.selfFixAttempted = true;
+			}
+
+			// Transform messages
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'clear-flag-session' },
+				parts: [{ type: 'text', text: 'Message' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+
+			// Flag should be cleared after injection
+			expect(session?.selfFixAttempted).toBe(false);
+		});
+
+		it('does NOT inject warning for old gate failures (> 2 minutes)', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('old-failure-session', 'architect');
+			startAgentSession('old-failure-session', 'architect');
+			const session = getAgentSession('old-failure-session');
+
+			// Gate failure is too old (> 2 minutes)
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-old',
+					timestamp: Date.now() - 150000, // 2.5 minutes ago
+				};
+				session.selfFixAttempted = true;
+				// Add reviewer delegations to prevent catastrophic warning from project plan.json
+				session.reviewerCallCount.set(1, 1);
+				session.reviewerCallCount.set(2, 1);
+				session.reviewerCallCount.set(3, 1);
+				session.reviewerCallCount.set(4, 1);
+			}
+
+			// Transform messages
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'old-failure-session' },
+				parts: [{ type: 'text', text: 'Old failure message.' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+
+			// No warning should be injected (failure too old)
+			expect(messages[0].parts[0].text).toBe('Old failure message.');
+			expect(messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		});
+
+		it('does NOT set selfFixAttempted for .swarm/ files', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('swarm-file-session', 'architect');
+			startAgentSession('swarm-file-session', 'architect');
+			const session = getAgentSession('swarm-file-session');
+
+			// Simulate a recent gate failure
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-swarm',
+					timestamp: Date.now() - 30000,
+				};
+			}
+
+			// Architect writes to .swarm/ directory (allowed - path starts with .swarm/)
+			await hooks.toolBefore(
+				makeInput('swarm-file-session', 'edit', 'call-1'),
+				makeOutput({ filePath: '.swarm/plan.md' }), // Inside .swarm/
+			);
+
+			// Flag should NOT be set for .swarm/ files
+			expect(session?.selfFixAttempted).toBeFalsy();
+		});
+
+		it('does NOT set selfFixAttempted without gate failure', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('no-failure-session', 'architect');
+			startAgentSession('no-failure-session', 'architect');
+			const session = getAgentSession('no-failure-session');
+
+			// No gate failure set
+
+			// Architect attempts to write to a non-.swarm file
+			await hooks.toolBefore(
+				makeInput('no-failure-session', 'edit', 'call-1'),
+				makeOutput({ filePath: '/src/test.ts' }),
+			);
+
+			// Flag should NOT be set without a gate failure
+			expect(session?.selfFixAttempted).toBeFalsy();
+		});
+
+		it('does NOT inject duplicate SELF-FIX warnings', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			// Set up architect session
+			swarmState.activeAgent.set('dup-warn-session', 'architect');
+			startAgentSession('dup-warn-session', 'architect');
+			const session = getAgentSession('dup-warn-session');
+
+			// Set up conditions for warning
+			if (session) {
+				session.lastGateFailure = {
+					tool: 'reviewer',
+					taskId: 'task-dup',
+					timestamp: Date.now() - 10000,
+				};
+				session.selfFixAttempted = true;
+			}
+
+			// Transform messages twice
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'dup-warn-session' },
+				parts: [{ type: 'text', text: 'Message' }],
+			}];
+
+			await hooks.messagesTransform({}, { messages });
+			const textAfterFirst = messages[0].parts[0].text;
+
+			// Reset flag to simulate another check
+			if (session) {
+				session.selfFixAttempted = true;
+			}
+
+			await hooks.messagesTransform({}, { messages });
+			const textAfterSecond = messages[0].parts[0].text;
+
+			// Should only have one SELF-FIX DETECTED occurrence
+			const selfFixCount = (textAfterSecond.match(/SELF-FIX DETECTED/g) || []).length;
+			expect(selfFixCount).toBe(1);
+		});
+	});
 });

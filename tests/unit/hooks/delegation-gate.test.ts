@@ -1,6 +1,6 @@
-import { describe, it, expect, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
 import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState } from '../../../src/state';
+import { swarmState, resetSwarmState, ensureAgentSession } from '../../../src/state';
 import type { PluginConfig } from '../../../src/config';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
@@ -21,18 +21,24 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string) {
+function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
 	return {
 		messages: [{
-			info: { role: 'user' as const, agent, sessionID: 'test-session' },
+			info: { role: 'user' as const, agent, sessionID },
 			parts: [{ type: 'text', text }],
 		}],
 	};
 }
 
 describe('delegation gate hook', () => {
+	beforeEach(() => {
+		// Reset all swarm state before each test
+		resetSwarmState();
+	});
+
 	afterEach(() => {
-		swarmState.delegationChains.clear();
+		// Clean up after each test
+		resetSwarmState();
 	});
 
 	it('no-op when disabled', async () => {
@@ -85,7 +91,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('exceeds recommended size');
 	});
 
@@ -98,7 +104,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives detected');
 	});
 
@@ -111,7 +117,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Multiple TASK: sections detected');
 	});
 
@@ -124,7 +130,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
 	});
 
@@ -151,7 +157,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 	});
 
 	it('custom delegation_max_chars respected', async () => {
@@ -164,7 +170,7 @@ describe('delegation gate hook', () => {
 
 		await hook({}, messages);
 
-		expect(messages.messages[0].parts[0].text).toContain('⚠️ DELEGATION GATE');
+		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('limit 100');
 	});
 
@@ -231,5 +237,163 @@ describe('delegation gate hook', () => {
 		await hook({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('PROTOCOL VIOLATION');
+	});
+
+	// ============================================
+	// Zero-Coder-Delegation Detection Tests (v6.12)
+	// ============================================
+
+	describe('zero-coder-delegation detection', () => {
+		it('should warn when architect writes code without delegating to coder', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Simulate session where architect has written files
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 3;
+
+			// Architect sends a non-coder message with a task
+			const messages = makeMessages('TASK: Fix the validation logic', 'architect');
+
+			await hook({}, messages);
+
+			expect(messages.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
+			expect(messages.messages[0].parts[0].text).toContain('zero coder delegations');
+		});
+
+		it('should NOT warn when task ID matches last coder delegation', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Simulate session where architect wrote files BUT also delegated to coder for same task
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 3;
+			session.lastCoderDelegationTaskId = 'Fix the validation logic';
+
+			// Same task ID as last coder delegation
+			const messages = makeMessages('TASK: Fix the validation logic', 'architect');
+			const originalText = messages.messages[0].parts[0].text;
+
+			await hook({}, messages);
+
+			// No warning because task matches coder delegation
+			expect(messages.messages[0].parts[0].text).toBe(originalText);
+		});
+
+		it('should NOT warn when architect has not written any files', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Session exists but no writes
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 0;
+
+			const messages = makeMessages('TASK: Check the logs', 'architect');
+			const originalText = messages.messages[0].parts[0].text;
+
+			await hook({}, messages);
+
+			expect(messages.messages[0].parts[0].text).toBe(originalText);
+		});
+
+		it('should NOT warn on coder delegation messages', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Architect has written files
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 5;
+
+			// This IS a coder delegation
+			const messages = makeMessages('coder\nTASK: Implement feature\nFILE: src/feature.ts', 'architect');
+			const originalText = messages.messages[0].parts[0].text;
+
+			await hook({}, messages);
+
+			// No DELEGATION VIOLATION warning (just clean coder delegation)
+			expect(messages.messages[0].parts[0].text).not.toContain('DELEGATION VIOLATION');
+			expect(messages.messages[0].parts[0].text).toBe(originalText);
+		});
+
+		it('should track coder delegation task IDs', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Send a coder delegation
+			const messages1 = makeMessages('coder\nTASK: Task Alpha\nFILE: src/alpha.ts', 'architect');
+			await hook({}, messages1);
+
+			// Verify task ID was tracked
+			const session = ensureAgentSession('test-session');
+			expect(session.lastCoderDelegationTaskId).toBe('Task Alpha');
+		});
+
+		it('should NOT track task ID from non-coder messages', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Send a non-coder message
+			const messages = makeMessages('TASK: Review this please', 'architect');
+			await hook({}, messages);
+
+			const session = ensureAgentSession('test-session');
+			// Task ID should not be tracked (it's not a coder delegation)
+			expect(session.lastCoderDelegationTaskId).toBeNull();
+		});
+
+		it('should warn on subsequent different tasks after writing files', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// First: architect delegates to coder for Task A
+			const messages1 = makeMessages('coder\nTASK: Task A\nFILE: src/a.ts', 'architect');
+			await hook({}, messages1);
+
+			// Architect writes some files (simulated)
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 2;
+
+			// Now architect sends non-coder message with different task
+			const messages2 = makeMessages('TASK: Task B - fix the bug', 'architect');
+			await hook({}, messages2);
+
+			// Should warn because Task B differs from last coder delegation (Task A)
+			expect(messages2.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
+			expect(messages2.messages[0].parts[0].text).toContain('Task B - fix the bug');
+		});
+
+		it('should NOT warn for messages without TASK line', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			const session = ensureAgentSession('test-session');
+			session.architectWriteCount = 5;
+
+			// No TASK: prefix
+			const messages = makeMessages('Just checking the status of the build', 'architect');
+			const originalText = messages.messages[0].parts[0].text;
+
+			await hook({}, messages);
+
+			expect(messages.messages[0].parts[0].text).toBe(originalText);
+		});
+
+		it('should not warn when sessionID is missing', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// No sessionID
+			const messages = {
+				messages: [{
+					info: { role: 'user' as const, agent: 'architect' },
+					parts: [{ type: 'text', text: 'TASK: Do something' }],
+				}],
+			};
+			const originalText = messages.messages[0].parts[0].text;
+
+			await hook({}, messages);
+
+			expect(messages.messages[0].parts[0].text).toBe(originalText);
+		});
 	});
 });

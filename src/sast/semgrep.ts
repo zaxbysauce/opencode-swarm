@@ -9,7 +9,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { SastFinding } from './rules/index.js';
 
-const execFileAsync = promisify(execFile);
+const _execFileAsync = promisify(execFile);
 
 /**
  * Semgrep CLI options
@@ -255,7 +255,7 @@ export async function runSemgrep(
 	// Build the Semgrep command arguments (safe array, no shell injection)
 	// Use local rules only (no --config auto or remote rulesets)
 	const args = [
-		'--config=./' + rulesDir,
+		`--config=./${rulesDir}`,
 		'--json',
 		'--quiet', // Only output findings
 		...files,

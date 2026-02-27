@@ -25,8 +25,8 @@ export interface SastContext {
     filePath: string;
     content: string;
     language: string;
-    parser?: any;
-    tree?: any;
+    parser?: unknown;
+    tree?: unknown;
 }
 export interface SastFinding {
     rule_id: string;

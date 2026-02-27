@@ -10,7 +10,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Plan } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
 
@@ -487,7 +486,7 @@ export function formatDriftForContext(result: DriftAnalysisResult): string {
 	const maxLength = 600;
 	let summary = result.summary;
 	if (summary.length > maxLength) {
-		summary = summary.substring(0, maxLength - 3) + '...';
+		summary = `${summary.substring(0, maxLength - 3)}...`;
 	}
 
 	return summary;

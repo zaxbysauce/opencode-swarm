@@ -5,8 +5,8 @@
  * Provides passive, read-only status information without affecting workflow.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 /** Automation status snapshot structure */
 export interface AutomationStatusSnapshot {

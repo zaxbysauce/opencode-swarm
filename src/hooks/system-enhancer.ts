@@ -278,7 +278,7 @@ export function createSystemEnhancerHook(
 												if (retroHint.length <= 800) {
 													tryInject(retroHint);
 												} else {
-													tryInject(retroHint.substring(0, 800) + '...');
+													tryInject(`${retroHint.substring(0, 800)}...`);
 												}
 											}
 											break;
@@ -305,11 +305,13 @@ export function createSystemEnhancerHook(
 
 									for (const threshold of thresholds) {
 										if (totalToolCalls >= threshold && lastHint < threshold) {
+											const totalToolCallsPlaceholder =
+												'$' + '{totalToolCalls}';
 											const messageTemplate =
 												compactionConfig?.message ??
-												'[SWARM HINT] Session has ${totalToolCalls} tool calls. Consider compacting at next phase boundary to maintain context quality.';
+												`[SWARM HINT] Session has ${totalToolCallsPlaceholder} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
 											const message = messageTemplate.replace(
-												'${totalToolCalls}',
+												totalToolCallsPlaceholder,
 												String(totalToolCalls),
 											);
 											tryInject(message);
@@ -619,7 +621,7 @@ export function createSystemEnhancerHook(
 											const retroText =
 												retroHint_b.length <= 800
 													? retroHint_b
-													: retroHint_b.substring(0, 800) + '...';
+													: `${retroHint_b.substring(0, 800)}...`;
 											candidates.push({
 												id: `candidate-${idCounter++}`,
 												kind: 'phase' as ContextCandidate['kind'],
@@ -653,11 +655,13 @@ export function createSystemEnhancerHook(
 
 								for (const threshold of thresholds_b) {
 									if (totalToolCalls_b >= threshold && lastHint_b < threshold) {
+										const totalToolCallsPlaceholder_b =
+											'$' + '{totalToolCalls}';
 										const messageTemplate_b =
 											compactionConfig_b?.message ??
-											'[SWARM HINT] Session has ${totalToolCalls} tool calls. Consider compacting at next phase boundary to maintain context quality.';
+											`[SWARM HINT] Session has ${totalToolCallsPlaceholder_b} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
 										const compactionText = messageTemplate_b.replace(
-											'${totalToolCalls}',
+											totalToolCallsPlaceholder_b,
 											String(totalToolCalls_b),
 										);
 										candidates.push({

@@ -7,12 +7,14 @@
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
 
+import * as path from 'node:path';
 import { ORCHESTRATOR_NAME } from '../config/constants';
 import {
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
+import { loadPlan } from '../plan/manager';
 import {
 	beginInvocation,
 	ensureAgentSession,
@@ -20,6 +22,119 @@ import {
 	swarmState,
 } from '../state';
 import { warn } from '../utils';
+import { extractCurrentPhaseFromPlan } from './extractors';
+
+/**
+ * Extracts phase number from a phase string like "Phase 3: Implementation"
+ */
+function extractPhaseNumber(phaseString: string | null): number {
+	if (!phaseString) return 1;
+	const match = phaseString.match(/^Phase (\d+):/);
+	return match ? parseInt(match[1], 10) : 1;
+}
+
+/**
+ * Detects if a tool is a write-class tool that modifies file contents
+ */
+function isWriteTool(toolName: string): boolean {
+	// Strip namespace prefix (e.g., "opencode:write" -> "write")
+	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const writeTools = [
+		'write',
+		'edit',
+		'patch',
+		'apply_patch',
+		'create_file',
+		'insert',
+		'replace',
+	];
+	return writeTools.includes(normalized);
+}
+
+/**
+ * Detects if the current session is controlled by the architect (orchestrator)
+ */
+function isArchitect(sessionId: string): boolean {
+	// Check activeAgent map
+	const activeAgent = swarmState.activeAgent.get(sessionId);
+	if (activeAgent) {
+		const stripped = stripKnownSwarmPrefix(activeAgent);
+		if (stripped === ORCHESTRATOR_NAME) {
+			return true;
+		}
+	}
+
+	// Check agentSessions
+	const session = swarmState.agentSessions.get(sessionId);
+	if (session) {
+		const stripped = stripKnownSwarmPrefix(session.agentName);
+		if (stripped === ORCHESTRATOR_NAME) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Detects if a file path is outside the .swarm/ directory
+ */
+function isOutsideSwarmDir(filePath: string): boolean {
+	if (!filePath) return false;
+	// Use path.resolve to normalize the path (handles .., ., and separators)
+	const cwd = process.cwd();
+	const swarmDir = path.resolve(cwd, '.swarm');
+	const resolved = path.resolve(cwd, filePath);
+	// Check if resolved path is inside .swarm/ directory
+	const relative = path.relative(swarmDir, resolved);
+	// If relative path starts with '..', it's outside .swarm/
+	return relative.startsWith('..') || path.isAbsolute(relative);
+}
+
+/**
+ * v6.12: Detects if a tool is a Stage A automated gate tool
+ */
+function isGateTool(toolName: string): boolean {
+	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const gateTools = [
+		'diff',
+		'syntax_check',
+		'placeholder_scan',
+		'imports',
+		'lint',
+		'build_check',
+		'pre_check_batch',
+		'secretscan',
+		'sast_scan',
+		'quality_budget',
+	];
+	return gateTools.includes(normalized);
+}
+
+/**
+ * v6.12: Detects if a tool call is an agent delegation (Task tool with subagent_type)
+ */
+function isAgentDelegation(
+	toolName: string,
+	args: unknown,
+): { isDelegation: boolean; targetAgent: string | null } {
+	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	if (normalized !== 'Task' && normalized !== 'task') {
+		return { isDelegation: false, targetAgent: null };
+	}
+
+	const argsObj = args as Record<string, unknown> | undefined;
+	if (!argsObj) {
+		return { isDelegation: false, targetAgent: null };
+	}
+
+	const subagentType = argsObj.subagent_type;
+	if (typeof subagentType === 'string') {
+		return { isDelegation: true, targetAgent: subagentType };
+	}
+
+	return { isDelegation: false, targetAgent: null };
+}
 
 /**
  * Creates guardrails hooks for circuit breaker protection
@@ -54,11 +169,52 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 		};
 	}
 
+	// v6.12: Track input args by callID for delegation detection in toolAfter
+	const inputArgsByCallID = new Map<string, unknown>();
+
 	return {
 		/**
 		 * Checks guardrail limits before allowing a tool call
 		 */
 		toolBefore: async (input, output) => {
+			// v6.12: Self-coding detection — MUST be first, before any exemptions
+			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+				const args = output.args as Record<string, unknown> | undefined;
+				const targetPath =
+					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
+				if (typeof targetPath === 'string' && isOutsideSwarmDir(targetPath)) {
+					const session = swarmState.agentSessions.get(input.sessionID);
+					if (session) {
+						session.architectWriteCount++;
+						warn('Architect direct code edit detected', {
+							tool: input.tool,
+							sessionID: input.sessionID,
+							targetPath,
+							writeCount: session.architectWriteCount,
+						});
+
+						// v6.12 Task 2.5: Self-fix detection
+						// Check if this write is happening shortly after a gate failure
+						if (
+							session.lastGateFailure &&
+							Date.now() - session.lastGateFailure.timestamp < 120_000 // 2 minutes
+						) {
+							const failedGate = session.lastGateFailure.tool;
+							const failedTaskId = session.lastGateFailure.taskId;
+							warn('Self-fix after gate failure detected', {
+								failedGate,
+								failedTaskId,
+								currentTool: input.tool,
+								sessionID: input.sessionID,
+							});
+							// Set flag so messagesTransform knows to inject warning
+							session.selfFixAttempted = true;
+							// The warning will be injected via messagesTransform based on lastGateFailure
+						}
+					}
+				}
+			}
+
 			// Architect is structurally exempt from guardrails — early return
 			// This prevents false circuit breaker trips from complex delegation state resolution
 			//
@@ -277,12 +433,74 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					window.warningReason = reasons.join(', ');
 				}
 			}
+
+			// v6.12: Store input args for delegation detection in toolAfter
+			inputArgsByCallID.set(input.callID, output.args);
 		},
 
 		/**
 		 * Tracks tool execution results and updates consecutive error count
 		 */
 		toolAfter: async (input, output) => {
+			// v6.12: Gate completion tracking (moved above window check for architect sessions)
+			const session = swarmState.agentSessions.get(input.sessionID);
+			if (session) {
+				// Track gate tools
+				if (isGateTool(input.tool)) {
+					// v6.12: Use session-aware task ID to avoid cross-session collisions
+					const taskId = `${input.sessionID}:current`;
+					if (!session.gateLog.has(taskId)) {
+						session.gateLog.set(taskId, new Set());
+					}
+					session.gateLog.get(taskId)?.add(input.tool);
+
+					// Track gate failures for Task 2.5
+					const outputStr =
+						typeof output.output === 'string' ? output.output : '';
+					const hasFailure =
+						output.output === null ||
+						output.output === undefined ||
+						outputStr.includes('FAIL') ||
+						outputStr.includes('error') ||
+						outputStr.toLowerCase().includes('gates_passed: false');
+					if (hasFailure) {
+						session.lastGateFailure = {
+							tool: input.tool,
+							taskId,
+							timestamp: Date.now(),
+						};
+					} else {
+						session.lastGateFailure = null; // Clear on pass
+					}
+				}
+
+				// v6.12: Track reviewer AND test_engineer delegations
+				// Use input args stored from toolBefore (not output.metadata)
+				const inputArgs = inputArgsByCallID.get(input.callID);
+				// v6.12: Clean up to prevent memory leak
+				inputArgsByCallID.delete(input.callID);
+				const delegation = isAgentDelegation(input.tool, inputArgs);
+				if (
+					delegation.isDelegation &&
+					(delegation.targetAgent === 'reviewer' ||
+						delegation.targetAgent === 'test_engineer')
+				) {
+					// v6.12: Get current phase from plan
+					let currentPhase = 1; // Default to phase 1
+					try {
+						const plan = await loadPlan(process.cwd());
+						if (plan) {
+							const phaseString = extractCurrentPhaseFromPlan(plan);
+							currentPhase = extractPhaseNumber(phaseString);
+						}
+					} catch {
+						// Use default phase 1 if plan loading fails
+					}
+					const count = session.reviewerCallCount.get(currentPhase) ?? 0;
+					session.reviewerCallCount.set(currentPhase, count + 1);
+				}
+			}
+
 			const window = getActiveWindow(input.sessionID);
 			if (!window) return; // Architect or window missing
 
@@ -314,6 +532,170 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 			const sessionId: string | undefined = lastMessage.info?.sessionID;
 			if (!sessionId) {
 				return;
+			}
+
+			// v6.12: Self-coding warning injection
+			const session = swarmState.agentSessions.get(sessionId);
+			const activeAgent = swarmState.activeAgent.get(sessionId);
+			const isArchitectSession = activeAgent
+				? stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME
+				: session
+					? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME
+					: false;
+
+			if (isArchitectSession && session && session.architectWriteCount > 0) {
+				// Find text part and prepend warning
+				const textPart = lastMessage.parts.find(
+					(part): part is { type: string; text: string } =>
+						part.type === 'text' && typeof part.text === 'string',
+				);
+				if (textPart) {
+					textPart.text =
+						`⚠️ SELF-CODING DETECTED: You have used ${session.architectWriteCount} write-class tool(s) directly on non-.swarm/ files.\n` +
+						`Rule 1 requires ALL coding to be delegated to @coder.\n` +
+						`If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.\n\n` +
+						textPart.text;
+				}
+			}
+
+			// v6.12 Task 2.5: Self-fix warning injection
+			// Only warn after an actual write attempt (flag set in toolBefore)
+			if (
+				isArchitectSession &&
+				session &&
+				session.selfFixAttempted &&
+				session.lastGateFailure &&
+				Date.now() - session.lastGateFailure.timestamp < 120_000
+			) {
+				const textPart = lastMessage.parts.find(
+					(part): part is { type: string; text: string } =>
+						part.type === 'text' && typeof part.text === 'string',
+				);
+				if (textPart && !textPart.text.includes('SELF-FIX DETECTED')) {
+					textPart.text =
+						`⚠️ SELF-FIX DETECTED: Gate '${session.lastGateFailure.tool}' failed on task ${session.lastGateFailure.taskId}.\n` +
+						`You are now using a write tool instead of delegating to @coder.\n` +
+						`GATE FAILURE RESPONSE RULES require: return to coder with structured rejection.\n` +
+						`Do NOT fix gate failures yourself.\n\n` +
+						textPart.text;
+					// Clear flag to avoid repeated warnings
+					session.selfFixAttempted = false;
+				}
+			}
+
+			// v6.12: Partial gate violation detection
+			// Check if this is the architect session and has gate log
+			const isArchitectSessionForGates = activeAgent
+				? stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME
+				: session
+					? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME
+					: false;
+			if (
+				isArchitectSessionForGates &&
+				session &&
+				session.gateLog.size > 0 &&
+				!session.partialGateWarningIssued
+			) {
+				// v6.12: Use session-aware task ID for gate log lookup
+				const taskId = `${sessionId}:current`;
+				const gates = session.gateLog.get(taskId);
+				if (gates) {
+					// v6.12: Check ALL required Stage A gates (not just pre_check_batch)
+					// Required gates: diff, syntax_check, placeholder_scan, lint, pre_check_batch
+					// Optional gates: imports, build_check, secretscan, sast_scan, quality_budget
+					const REQUIRED_GATES = [
+						'diff',
+						'syntax_check',
+						'placeholder_scan',
+						'lint',
+						'pre_check_batch',
+					];
+					const missingGates: string[] = [];
+					for (const gate of REQUIRED_GATES) {
+						if (!gates.has(gate)) {
+							missingGates.push(gate);
+						}
+					}
+					// Check if reviewer or test_engineer delegations exist (via reviewerCallCount)
+					// v6.12: Check for CURRENT phase, not just any phase
+					let currentPhaseForCheck = 1; // Default to phase 1
+					try {
+						const plan = await loadPlan(process.cwd());
+						if (plan) {
+							const phaseString = extractCurrentPhaseFromPlan(plan);
+							currentPhaseForCheck = extractPhaseNumber(phaseString);
+						}
+					} catch {
+						// Use default phase 1 if plan loading fails
+					}
+					const hasReviewerDelegation =
+						(session.reviewerCallCount.get(currentPhaseForCheck) ?? 0) > 0;
+					if (missingGates.length > 0 || !hasReviewerDelegation) {
+						const textPart = lastMessage.parts.find(
+							(part): part is { type: string; text: string } =>
+								part.type === 'text' && typeof part.text === 'string',
+						);
+						if (textPart && !textPart.text.includes('PARTIAL GATE VIOLATION')) {
+							const missing = [...missingGates];
+							if (!hasReviewerDelegation) {
+								missing.push(
+									'reviewer/test_engineer (no delegations this phase)',
+								);
+							}
+							// v6.12: Set flag to warn only once per session
+							session.partialGateWarningIssued = true;
+							textPart.text =
+								`⚠️ PARTIAL GATE VIOLATION: Task may be marked complete but missing gates: [${missing.join(', ')}].\n` +
+								`The QA gate is ALL steps or NONE. Revert any ✓ marks and run the missing gates.\n\n` +
+								textPart.text;
+						}
+					}
+				}
+			}
+
+			// v6.12 Task 2.3: Catastrophic zero-reviewer warning
+			// Check if any completed phase has ZERO reviewer delegations
+			if (
+				isArchitectSessionForGates &&
+				session &&
+				session.catastrophicPhaseWarnings
+			) {
+				try {
+					const plan = await loadPlan(process.cwd());
+					if (plan?.phases) {
+						for (const phase of plan.phases) {
+							if (phase.status === 'complete') {
+								const phaseNum = phase.id;
+								// Check if already warned for this phase
+								if (!session.catastrophicPhaseWarnings.has(phaseNum)) {
+									const reviewerCount =
+										session.reviewerCallCount.get(phaseNum) ?? 0;
+									if (reviewerCount === 0) {
+										// Inject warning once
+										session.catastrophicPhaseWarnings.add(phaseNum);
+										const textPart = lastMessage.parts.find(
+											(part): part is { type: string; text: string } =>
+												part.type === 'text' && typeof part.text === 'string',
+										);
+										if (
+											textPart &&
+											!textPart.text.includes('CATASTROPHIC VIOLATION')
+										) {
+											textPart.text =
+												`[CATASTROPHIC VIOLATION: Phase ${phaseNum} completed with ZERO reviewer delegations.` +
+												` Every coder task requires reviewer approval. Recommend retrospective review of all Phase ${phaseNum} tasks.]\n\n` +
+												textPart.text;
+										}
+										// Only warn once, break after first warning to avoid spam
+										break;
+									}
+								}
+							}
+						}
+					}
+				} catch {
+					// Silently skip if plan loading fails
+				}
 			}
 
 			// Only check the window for THIS session — never scan other sessions

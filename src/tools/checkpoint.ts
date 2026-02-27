@@ -30,6 +30,7 @@ interface CheckpointLog {
 // ============ Validation ============
 
 // Control characters to reject: tab, newline, carriage return, vertical tab, form feed, null, etc.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security validation pattern
 const CONTROL_CHAR_PATTERN = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 
 // BOM and non-ASCII unicode pattern (emoji, accented chars, etc.)

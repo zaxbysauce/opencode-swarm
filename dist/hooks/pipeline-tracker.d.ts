@@ -8,6 +8,11 @@
  * drop after 2-3 turns without reminders.
  */
 import type { PluginConfig } from '../config';
+/**
+ * Build dynamic phase reminder with compliance escalation based on phase number.
+ * Counteracts temporal compliance decay discovered during field testing.
+ */
+export declare function buildPhaseReminder(phaseNumber: number | null): string;
 interface MessageInfo {
     role: string;
     agent?: string;

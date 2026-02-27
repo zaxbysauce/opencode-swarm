@@ -1,4 +1,4 @@
-import type { Phase, Plan } from '../config/plan-schema';
+import type { Plan } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
 

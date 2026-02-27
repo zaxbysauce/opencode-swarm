@@ -80,6 +80,10 @@ export declare class PhaseBoundaryTrigger {
      */
     getCurrentPhase(): number;
     /**
+     * Get the last triggered phase (for external access)
+     */
+    get lastTriggeredPhaseValue(): number;
+    /**
      * Check if a phase boundary has been crossed
      * Returns the result of the detection
      */

@@ -151,7 +151,7 @@ function extractTSSymbols(filePath: string, cwd: string): SymbolInfo[] {
 				if (lines[j].trim().startsWith('/**')) break;
 			}
 			jsdoc = jsdocLines.join('\n').trim();
-			if (jsdoc.length > 300) jsdoc = jsdoc.substring(0, 300) + '...';
+			if (jsdoc.length > 300) jsdoc = `${jsdoc.substring(0, 300)}...`;
 		}
 
 		// Exported function

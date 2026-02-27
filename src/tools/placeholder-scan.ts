@@ -4,7 +4,6 @@ import * as path from 'node:path';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
 import { getParserForFile } from '../lang/registry';
-import type { Parser } from '../lang/runtime';
 
 // ============ Types ============
 
@@ -109,7 +108,7 @@ const TEST_PATH_PATTERNS = [
 ];
 
 // Additional content patterns that indicate a test file (more specific - only framework calls)
-const TEST_CONTENT_PATTERNS = [
+const _TEST_CONTENT_PATTERNS = [
 	/\bdescribe\s*\(/,
 	/\bit\s*\(/,
 	/\btest\s*\(\s*['"`]/,
@@ -175,14 +174,14 @@ function isAllowedByGlobs(filePath: string, allowGlobs?: string[]): boolean {
 			.replace(/<<<DBL>>>/g, '(.*)'); // ** → match any chars including slash
 
 		// Test if path starts with the glob pattern
-		const regex = new RegExp('^' + regexPattern, 'i');
+		const regex = new RegExp(`^${regexPattern}`, 'i');
 		if (regex.test(normalizedPath)) {
 			return true;
 		}
 
 		// Also try matching just the filename
 		const filename = path.basename(filePath);
-		const filenameRegex = new RegExp('^' + regexPattern + '$', 'i');
+		const filenameRegex = new RegExp(`^${regexPattern}$`, 'i');
 		if (filenameRegex.test(filename)) {
 			return true;
 		}
@@ -337,6 +336,7 @@ async function scanWithParser(
 			seenKeys.add(`${f.line}:${f.rule_id}`);
 		}
 
+		// biome-ignore lint/suspicious/noExplicitAny: tree-sitter node type not exported
 		function walkNode(node: any) {
 			const nodeType = node.type;
 			const nodeText = node.text;

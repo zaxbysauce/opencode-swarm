@@ -65,6 +65,24 @@ export interface AgentSessionState {
 
 	/** Last tool-call threshold at which a compaction hint was issued */
 	lastCompactionHint: number;
+
+	// v6.12 Anti-Process-Violation Detection
+	/** Count of architect direct writes to non-.swarm/ files */
+	architectWriteCount: number;
+	/** Last task ID that was delegated to coder (for zero-delegation detection) */
+	lastCoderDelegationTaskId: string | null;
+	/** Gate names observed for current task (taskId → Set of gates) */
+	gateLog: Map<string, Set<string>>;
+	/** Reviewer delegations per phase (phaseNumber → count) */
+	reviewerCallCount: Map<number, number>;
+	/** Last gate failure for self-fix detection */
+	lastGateFailure: { tool: string; taskId: string; timestamp: number } | null;
+	/** Whether partial gate warning has been issued for this session */
+	partialGateWarningIssued: boolean;
+	/** Whether architect attempted self-fix write after gate failure */
+	selfFixAttempted: boolean;
+	/** Phases that have already received a catastrophic zero-reviewer warning */
+	catastrophicPhaseWarnings: Set<number>;
 }
 
 /**
@@ -128,6 +146,8 @@ export function resetSwarmState(): void {
 	swarmState.delegationChains.clear();
 	swarmState.pendingEvents = 0;
 	swarmState.agentSessions.clear();
+	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
+	// are cleared when agentSessions entries are deleted
 }
 
 /**
@@ -166,6 +186,15 @@ export function startAgentSession(
 		lastInvocationIdByAgent: {},
 		windows: {},
 		lastCompactionHint: 0,
+		// v6.12 Anti-Process-Violation Detection
+		architectWriteCount: 0,
+		lastCoderDelegationTaskId: null,
+		gateLog: new Map(),
+		reviewerCallCount: new Map(),
+		lastGateFailure: null,
+		partialGateWarningIssued: false,
+		selfFixAttempted: false,
+		catastrophicPhaseWarnings: new Set(),
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -234,6 +263,32 @@ export function ensureAgentSession(
 		// Initialize lastCompactionHint if missing (migration safety)
 		if (session.lastCompactionHint === undefined) {
 			session.lastCompactionHint = 0;
+		}
+
+		// Initialize v6.12 fields if missing (migration safety)
+		if (session.architectWriteCount === undefined) {
+			session.architectWriteCount = 0;
+		}
+		if (session.lastCoderDelegationTaskId === undefined) {
+			session.lastCoderDelegationTaskId = null;
+		}
+		if (!session.gateLog) {
+			session.gateLog = new Map();
+		}
+		if (!session.reviewerCallCount) {
+			session.reviewerCallCount = new Map();
+		}
+		if (session.lastGateFailure === undefined) {
+			session.lastGateFailure = null;
+		}
+		if (session.partialGateWarningIssued === undefined) {
+			session.partialGateWarningIssued = false;
+		}
+		if (session.selfFixAttempted === undefined) {
+			session.selfFixAttempted = false;
+		}
+		if (!session.catastrophicPhaseWarnings) {
+			session.catastrophicPhaseWarnings = new Set();
 		}
 
 		session.lastToolCallTime = now;

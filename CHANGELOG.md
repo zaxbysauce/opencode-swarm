@@ -1,5 +1,63 @@
 # Changelog
 
+## [6.12.0] - 2026-02-27
+
+### Added
+- **Anti-Process-Violation Hardening**: Runtime detection hooks to catch architect workflow violations
+  - Self-coding detection: Warns when architect uses write/edit tools directly instead of delegating to mega_coder
+  - Gate tracking: Detects partial QA gate execution (skipping gates)
+  - Self-fix detection: Warns when same agent fixes its own gate failure within 2 minutes
+  - Batch detection: Detects "implement X and add Y" batching in delegation requests
+  - Zero-coder-delegation detection: Catches when tasks complete without any coder delegation
+  - Catastrophic violation warning: Warns when Phase >= 4 has zero reviewer calls
+
+- **New state tracking fields** in `AgentSessionState`:
+  - `architectWriteCount`: Tracks architect's direct code edits
+  - `gateLog`: Tracks which QA gates have run
+  - `reviewerCallCount`: Tracks mega_reviewer delegations
+  - `lastGateFailure`: Records last failed gate for self-fix detection
+  - `selfFixAttempted`: Flag for self-fix detection
+  - `partialGateWarningIssued`: Dedup for partial gate warnings
+  - `catastrophicPhaseWarnings`: Set of phases with catastrophic warnings
+  - `lastCoderDelegationTaskId`: Tracks last delegated task for zero-delegation detection
+
+- **Pipeline-tracker compliance escalation**: Phase >= 4 now includes explicit compliance reminders
+
+### Changed
+- **Architect prompt hardening**: Added 11 new enforcement blocks to the architect agent prompt:
+  - ANTI-SELF-CODING RULES with concrete ✗/✓ rationalization examples
+  - Tool-usage boundary clarifying Rule 1 (DELEGATE all coding)
+  - Self-coding pre-check in Rule 4 fallback
+  - PARTIAL GATE RATIONALIZATIONS anti-pattern list
+  - ⛔ TASK COMPLETION GATE hard-stop checklist
+  - precheckbatch SCOPE BOUNDARY (Stage A gates only)
+  - Rule 7 STAGE A / STAGE B restructure
+  - CATASTROPHIC VIOLATION CHECK for zero-reviewer scenarios
+  - GATE FAILURE RESPONSE RULES with structured rejection format
+  - Rule 3 BATCHING DETECTION + split requirement
+  - RETRY PROTOCOL with resume-at-step instruction
+
+- **Delegation gate enhanced**: Batch detection now catches 8 patterns including verb+and+verb, "while you're at it", and compound task descriptions
+
+### Fixed
+- **Path traversal in `isOutsideSwarmDir`**: Now uses `path.resolve()` and `path.relative()` for proper normalization instead of simple prefix check (fixes `.swarm/../src/evil.ts` bypass)
+- **Lint errors across codebase**: Fixed 30+ lint errors in checkpoint.ts, test-runner.ts, pkg-audit.ts, placeholder-scan.ts, syntax-check.ts, trigger.ts
+
+### Security
+- **Path traversal bypass fixed**: The `isOutsideSwarmDir` function in `guardrails.ts` now correctly detects traversal attempts like `.swarm/../src/evil.ts`, `../.swarm/../../etc/passwd`, and URL-encoded variants
+- **135 adversarial security tests**: Comprehensive coverage of path traversal, prototype pollution, state mutation, gate bypass, and batch detection evasion attacks
+
+### Tests
+- **487 new v6.12 tests** across 8 test files:
+  - `self-coding-detection.test.ts`: 40+ tests for self-coding, batch, self-fix detection
+  - `gate-tracking.test.ts`: Gate tracking, reviewer count, delegation violation tests
+  - `guardrails-catastrophic-warning.test.ts`: Catastrophic warning injection, deduplication, edge cases
+  - `guardrails-v612-adversarial.test.ts`: Circuit breaker, config tampering, state pollution attacks
+  - Plus updates to existing test files for new hook behaviors
+- **34 new path traversal adversarial tests** in `guardrails-pathtraversal-adversarial.test.ts`
+
+---
+
 ## v6.11.1 - Packaging Fix (2026-02-27)
 
 ### Fixes

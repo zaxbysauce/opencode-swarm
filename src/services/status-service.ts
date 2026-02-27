@@ -1,5 +1,4 @@
 import type { AgentDefinition } from '../agents';
-import type { Plan } from '../config/plan-schema';
 import {
 	extractCurrentPhase,
 	extractCurrentPhaseFromPlan,

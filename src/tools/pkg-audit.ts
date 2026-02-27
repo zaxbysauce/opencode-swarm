@@ -502,7 +502,7 @@ async function runCargoAudit(): Promise<AuditResult> {
 			};
 		}
 
-		let { stdout, stderr } = result;
+		let { stdout, stderr: _stderr } = result;
 		if (stdout.length > MAX_OUTPUT_BYTES) {
 			stdout = stdout.slice(0, MAX_OUTPUT_BYTES);
 		}
@@ -529,7 +529,7 @@ async function runCargoAudit(): Promise<AuditResult> {
 		for (const line of lines) {
 			try {
 				const obj = JSON.parse(line) as CargoAuditResponse;
-				if (obj.vulnerabilities && obj.vulnerabilities.list) {
+				if (obj.vulnerabilities?.list) {
 					for (const item of obj.vulnerabilities.list) {
 						const cvss = item.advisory.cvss || 0;
 						const severity = mapCargoSeverity(cvss);

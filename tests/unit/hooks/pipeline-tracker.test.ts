@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { createPipelineTrackerHook } from '../../../src/hooks/pipeline-tracker';
+import { createPipelineTrackerHook, buildPhaseReminder } from '../../../src/hooks/pipeline-tracker';
 
 describe('Pipeline Tracker Hook', () => {
   describe('Disabled hook behavior', () => {
@@ -487,6 +487,93 @@ describe('Pipeline Tracker Hook', () => {
       // Last user message (index 2) should be modified
       expect(output.messages[2].parts[0].text).toContain('<swarm_reminder>');
       expect(output.messages[2].parts[0].text).toContain('Last user message');
+    });
+  });
+
+  describe('Compliance Escalation (Task 1.11 / v6.12)', () => {
+    describe('Base compliance text (all phases)', () => {
+      it('reminder contains COMPLIANCE CHECK header', () => {
+        const reminder = buildPhaseReminder(1);
+        expect(reminder).toContain('COMPLIANCE CHECK');
+      });
+
+      it('reminder contains mandatory reviewer delegation text', () => {
+        const reminder = buildPhaseReminder(1);
+        expect(reminder).toContain('Reviewer delegation is MANDATORY');
+      });
+
+      it('reminder contains pre_check_batch is NOT a substitute warning', () => {
+        const reminder = buildPhaseReminder(1);
+        expect(reminder).toContain('pre_check_batch is NOT a substitute for reviewer');
+      });
+    });
+
+    describe('Phase >= 4 escalation warning', () => {
+      it('Phase 4 includes escalation warning about compliance degradation', () => {
+        const reminder = buildPhaseReminder(4);
+        expect(reminder).toContain('Compliance degrades with time');
+      });
+
+      it('Phase 5 includes escalation warning', () => {
+        const reminder = buildPhaseReminder(5);
+        expect(reminder).toContain('Compliance degrades with time');
+      });
+
+      it('Phase 8 includes escalation warning', () => {
+        const reminder = buildPhaseReminder(8);
+        expect(reminder).toContain('Compliance degrades with time');
+      });
+
+      it('Phase >= 4 includes phase number in escalation message', () => {
+        const reminder = buildPhaseReminder(4);
+        expect(reminder).toContain('You are in Phase 4');
+      });
+    });
+
+    describe('Phase < 4 no escalation warning', () => {
+      it('Phase 1 does NOT include escalation warning', () => {
+        const reminder = buildPhaseReminder(1);
+        expect(reminder).not.toContain('Compliance degrades with time');
+      });
+
+      it('Phase 2 does NOT include escalation warning', () => {
+        const reminder = buildPhaseReminder(2);
+        expect(reminder).not.toContain('Compliance degrades with time');
+      });
+
+      it('Phase 3 does NOT include escalation warning', () => {
+        const reminder = buildPhaseReminder(3);
+        expect(reminder).not.toContain('Compliance degrades with time');
+      });
+    });
+
+    describe('Null phase (missing plan state)', () => {
+      it('null phase returns base compliance text', () => {
+        const reminder = buildPhaseReminder(null);
+        expect(reminder).toContain('COMPLIANCE CHECK');
+      });
+
+      it('null phase does NOT include escalation warning', () => {
+        const reminder = buildPhaseReminder(null);
+        expect(reminder).not.toContain('Compliance degrades with time');
+      });
+
+      it('null phase header does NOT contain phase number', () => {
+        const reminder = buildPhaseReminder(null);
+        // Header should be just 'COMPLIANCE CHECK:' not 'COMPLIANCE CHECK (Phase X):'
+        expect(reminder).toContain('COMPLIANCE CHECK:');
+        expect(reminder).not.toContain('COMPLIANCE CHECK (Phase');
+      });
+
+      it('null phase still contains mandatory reviewer text', () => {
+        const reminder = buildPhaseReminder(null);
+        expect(reminder).toContain('Reviewer delegation is MANDATORY');
+      });
+
+      it('null phase still contains pre_check_batch warning', () => {
+        const reminder = buildPhaseReminder(null);
+        expect(reminder).toContain('pre_check_batch is NOT a substitute for reviewer');
+      });
     });
   });
 });

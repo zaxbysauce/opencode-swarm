@@ -112,11 +112,11 @@ function parseImports(
 	const imports: ImportMatch[] = [];
 
 	// Resolve the target file to absolute path for comparison
-	let resolvedTarget: string;
+	let _resolvedTarget: string;
 	try {
-		resolvedTarget = path.resolve(targetFile);
+		_resolvedTarget = path.resolve(targetFile);
 	} catch {
-		resolvedTarget = targetFile;
+		_resolvedTarget = targetFile;
 	}
 
 	// Get the base name without extension for matching
@@ -143,8 +143,11 @@ function parseImports(
 	const importRegex =
 		/import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`]+)['"`]|import\s+['"`]([^'"`]+)['"`]|require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 
-	let match: RegExpExecArray | null;
-	while ((match = importRegex.exec(content)) !== null) {
+	for (
+		let match = importRegex.exec(content);
+		match !== null;
+		match = importRegex.exec(content)
+	) {
 		// Extract the module path (from any of the capture groups)
 		const modulePath = match[1] || match[2] || match[3];
 		if (!modulePath) continue;
@@ -175,7 +178,7 @@ function parseImports(
 		}
 
 		// Normalize module path for comparison
-		const normalizedModule = modulePath
+		const _normalizedModule = modulePath
 			.replace(/^\.\//, '')
 			.replace(/^\.\.\\/, '../');
 
@@ -183,7 +186,7 @@ function parseImports(
 		let isMatch = false;
 
 		// Get target file info for robust matching
-		const targetDir = path.dirname(targetFile);
+		const _targetDir = path.dirname(targetFile);
 		const targetExt = path.extname(targetFile);
 		const targetBasenameNoExt = path.basename(targetFile, targetExt);
 
@@ -207,19 +210,19 @@ function parseImports(
 		if (
 			modulePath === targetBasename ||
 			modulePath === targetBasenameNoExt ||
-			modulePath === './' + targetBasename ||
-			modulePath === './' + targetBasenameNoExt ||
-			modulePath === '../' + targetBasename ||
-			modulePath === '../' + targetBasenameNoExt ||
+			modulePath === `./${targetBasename}` ||
+			modulePath === `./${targetBasenameNoExt}` ||
+			modulePath === `../${targetBasename}` ||
+			modulePath === `../${targetBasenameNoExt}` ||
 			moduleNormalized === normalizedTargetWithExt ||
 			moduleNormalized === normalizedTargetWithoutExt ||
-			modulePath.endsWith('/' + targetBasename) ||
-			modulePath.endsWith('\\' + targetBasename) ||
-			modulePath.endsWith('/' + targetBasenameNoExt) ||
-			modulePath.endsWith('\\' + targetBasenameNoExt) ||
+			modulePath.endsWith(`/${targetBasename}`) ||
+			modulePath.endsWith(`\\${targetBasename}`) ||
+			modulePath.endsWith(`/${targetBasenameNoExt}`) ||
+			modulePath.endsWith(`\\${targetBasenameNoExt}`) ||
 			// Extension-less import matching (./utils matches ./utils.ts)
 			moduleNameNoExt === targetBasenameNoExt ||
-			'./' + moduleNameNoExt === targetBasenameNoExt ||
+			`./${moduleNameNoExt}` === targetBasenameNoExt ||
 			moduleName === targetBasename ||
 			moduleName === targetBasenameNoExt
 		) {
@@ -361,7 +364,7 @@ function findSourceFiles(
 
 		const fullPath = path.join(dir, entry);
 
-		let stat;
+		let stat: fs.Stats;
 		try {
 			stat = fs.statSync(fullPath);
 		} catch (e) {
@@ -551,7 +554,7 @@ export const imports: ReturnType<typeof tool> = tool({
 							raw: imp.raw,
 						});
 					}
-				} catch (e) {
+				} catch (_e) {
 					skippedFileCount++;
 				}
 			}
@@ -582,7 +585,7 @@ export const imports: ReturnType<typeof tool> = tool({
 				}
 			}
 			if (parts.length > 0) {
-				result.message = parts.join('; ') + '.';
+				result.message = `${parts.join('; ')}.`;
 			}
 
 			return JSON.stringify(result, null, 2);

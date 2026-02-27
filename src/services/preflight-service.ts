@@ -16,7 +16,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { listEvidenceTaskIds } from '../evidence/manager';
 import { loadPlan } from '../plan/manager';
-import { type LintResult, runLint } from '../tools/lint';
+import { runLint } from '../tools/lint';
 import { runSecretscan, type SecretscanResult } from '../tools/secretscan';
 import { runTests, type TestResult } from '../tools/test-runner';
 import { log } from '../utils';
@@ -207,7 +207,7 @@ function getVersionFileVersion(dir: string): string | null {
  */
 async function runVersionCheck(
 	dir: string,
-	timeoutMs: number,
+	_timeoutMs: number,
 ): Promise<PreflightCheckResult> {
 	const startTime = Date.now();
 
@@ -277,7 +277,7 @@ async function runVersionCheck(
  * Run lint check
  */
 async function runLintCheck(
-	dir: string,
+	_dir: string,
 	linter: 'biome' | 'eslint',
 	timeoutMs: number,
 ): Promise<PreflightCheckResult> {
@@ -366,7 +366,7 @@ async function runLintCheck(
  * Run tests check
  */
 async function runTestsCheck(
-	dir: string,
+	_dir: string,
 	scope: 'all' | 'convention' | 'graph',
 	timeoutMs: number,
 ): Promise<PreflightCheckResult> {

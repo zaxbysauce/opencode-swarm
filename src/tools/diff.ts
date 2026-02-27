@@ -78,7 +78,7 @@ export const diff: ReturnType<typeof tool> = tool({
 	): Promise<string> {
 		try {
 			const base = args.base ?? 'HEAD';
-			const pathSpec = args.paths?.length ? '-- ' + args.paths.join(' ') : '';
+			const pathSpec = args.paths?.length ? `-- ${args.paths.join(' ')}` : '';
 
 			const baseValidationError = validateBase(base);
 			if (baseValidationError) {
@@ -111,12 +111,12 @@ export const diff: ReturnType<typeof tool> = tool({
 				gitCmd = `git --no-pager diff ${base}`;
 			}
 
-			const numstatOutput = execSync(gitCmd + ' --numstat ' + pathSpec, {
+			const numstatOutput = execSync(`${gitCmd} --numstat ${pathSpec}`, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 			});
 
-			const fullDiffOutput = execSync(gitCmd + ' -U3 ' + pathSpec, {
+			const fullDiffOutput = execSync(`${gitCmd} -U3 ${pathSpec}`, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
@@ -132,8 +132,8 @@ export const diff: ReturnType<typeof tool> = tool({
 				if (!line.trim()) continue;
 				const parts = line.split('\t');
 				if (parts.length >= 3) {
-					const additions = parseInt(parts[0]) || 0;
-					const deletions = parseInt(parts[1]) || 0;
+					const additions = parseInt(parts[0], 10) || 0;
+					const deletions = parseInt(parts[1], 10) || 0;
 					const path = parts[2];
 					files.push({ path, additions, deletions });
 				}

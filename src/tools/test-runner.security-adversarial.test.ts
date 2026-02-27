@@ -44,9 +44,11 @@ const validateArgsDirect = (args: unknown): boolean => {
 			if (/^[a-zA-Z]:[/\\]/.test(f)) return false;
 			if (/^\\\\/.test(f)) return false;
 			// Check control characters
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security test pattern
 			if (/[\x00-\x08\x0a\x0b\x0c\x0d\x0e-\x1f\x7f\x80-\x9f]/.test(f))
 				return false;
 			// Check PowerShell metacharacters
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security test pattern
 			if (/[|;&`$(){}[\]<>"'#*?\x00-\x1f]/.test(f)) return false;
 		}
 	}
@@ -281,14 +283,14 @@ describe('ADVERSARIAL: Edge Cases [VULNERABLE - FAILING]', () => {
 describe('ADVERSARIAL: Denial of Service [VULNERABLE - FAILING]', () => {
 	it('VULN: accepts extremely long filename (DoS vector)', () => {
 		// This SHOULD be rejected but is accepted - DoS VULNERABILITY
-		const longName = 'a'.repeat(10000) + '.ts';
+		const longName = `${'a'.repeat(10000)}.ts`;
 		expect(validateArgsDirect({ files: [longName] })).toBe(true);
 	});
 
 	it('VULN: accepts filename with null bytes throughout', () => {
 		// Actually, this is blocked by control char check
 		expect(
-			validateArgsDirect({ files: ['test' + '\x00'.repeat(100) + 'file.ts'] }),
+			validateArgsDirect({ files: [`test${'\x00'.repeat(100)}file.ts`] }),
 		).toBe(false);
 	});
 });

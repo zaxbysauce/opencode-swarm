@@ -103,7 +103,7 @@ function findManifestFiles(rootDir: string): string[] {
 /**
  * Get unique directories containing the given files
  */
-function getUniqueDirectories(files: string[]): string[] {
+function _getUniqueDirectories(files: string[]): string[] {
 	const dirs = new Set<string>();
 	for (const file of files) {
 		dirs.add(path.dirname(file));
@@ -119,7 +119,7 @@ function findManifestFilesInDirs(
 	workingDir: string,
 ): string[] {
 	const found: string[] = [];
-	const cwd = process.cwd();
+	const _cwd = process.cwd();
 
 	// Get all unique patterns from detectors
 	const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];

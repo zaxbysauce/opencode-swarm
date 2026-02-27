@@ -358,7 +358,7 @@ export async function handleBenchmarkCommand(
 	}
 
 	// Quality Metrics section
-	if (qualityMetrics && qualityMetrics.hasEvidence) {
+	if (qualityMetrics?.hasEvidence) {
 		lines.push('### Quality Metrics');
 		lines.push(
 			`- Complexity Delta: ${qualityMetrics.complexityDelta} (max: ${qualityMetrics.thresholds.maxComplexityDelta}) ${qualityMetrics.complexityDelta <= qualityMetrics.thresholds.maxComplexityDelta ? '✅' : '❌'}`,
