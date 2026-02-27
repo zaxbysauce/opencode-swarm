@@ -1,6 +1,84 @@
 import { z } from 'zod';
 import { ALL_AGENT_NAMES } from './constants';
 
+// Known Swarm prefixes for multi-tenant/variant agent names
+// These are stripped to get the canonical agent name
+const KNOWN_SWARM_PREFIXES = [
+	'paid',
+	'local',
+	'cloud',
+	'enterprise',
+	'mega',
+	'default',
+	'custom',
+	'team',
+	'project',
+	'swarm',
+];
+
+// Supported separators between prefix and agent name
+const SEPARATORS = ['_', '-', ' '];
+
+/**
+ * Strips known Swarm prefixes from agent names to get the canonical agent name.
+ *
+ * Strategy:
+ * 1. First try stripping known prefixes from the front (e.g., 'paid_architect' -> 'architect')
+ * 2. If that doesn't yield a known agent, check if the name ENDS with a known agent name
+ *    (e.g., 'not-an-architect' -> 'architect', 'team-alpha-reviewer' -> 'reviewer')
+ *
+ * Supports underscore, hyphen, and space separators.
+ * Case-insensitive matching, but returns the canonical lowercase agent name.
+ *
+ * @param agentName - The potentially prefixed agent name
+ * @returns The canonical agent name, or the original if no known agent found
+ */
+export function stripKnownSwarmPrefix(agentName: string): string {
+	if (!agentName) return agentName;
+
+	const normalized = agentName.toLowerCase();
+
+	// Strategy 1: Strip known prefixes from the front
+	let stripped = normalized;
+	let previous = '';
+
+	while (stripped !== previous) {
+		previous = stripped;
+		for (const prefix of KNOWN_SWARM_PREFIXES) {
+			for (const sep of SEPARATORS) {
+				const prefixWithSep = prefix + sep;
+				if (stripped.startsWith(prefixWithSep)) {
+					stripped = stripped.slice(prefixWithSep.length);
+					break;
+				}
+			}
+			if (stripped !== previous) break;
+		}
+	}
+
+	// Check if stripped result is a known agent name
+	if ((ALL_AGENT_NAMES as readonly string[]).includes(stripped)) {
+		return stripped;
+	}
+
+	// Strategy 2: Check if the name ENDS with a known agent name (with separator)
+	for (const agent of ALL_AGENT_NAMES) {
+		for (const sep of SEPARATORS) {
+			const suffix = sep + agent;
+			if (normalized.endsWith(suffix)) {
+				return agent;
+			}
+		}
+		// Also check if it exactly equals an agent name (already handled but for completeness)
+		if (normalized === agent) {
+			return agent;
+		}
+	}
+
+	// Return original if no known agent found
+	return agentName;
+}
+
 // Agent override configuration
 export const AgentOverrideConfigSchema = z.object({
 	model: z.string().optional(),
@@ -453,87 +531,79 @@ export const GuardrailsConfigSchema = z.object({
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
 
 /**
- * Normalize an agent name for comparison (lowercase + consistent separators).
- * Converts hyphens and spaces to underscores for consistent matching.
- */
-function normalizeAgentName(name: string): string {
-	return name.toLowerCase().replace(/[-\s]+/g, '_');
-}
-
-/**
- * Strip any swarm prefix from an agent name to get the base agent name.
- * Works with any swarm name by checking if the name (or suffix after removing
- * a prefix) matches a known agent name from ALL_AGENT_NAMES.
+ * Resolves guardrails configuration for a specific agent.
  *
- * Normalization handles:
- * - Case-insensitive matching (e.g., "PAID_ARCHITECT" → "architect")
- * - Multiple separators: underscore, hyphen, space (e.g., "paid-architect", "paid architect")
+ * Resolution order (later values override earlier):
+ * 1. Base config values
+ * 2. Built-in agent profile defaults from DEFAULT_AGENT_PROFILES (known agents only)
+ * 3. User profile overrides - checks in order:
+ *    a. config.profiles[originalAgentName] (e.g., 'paid_coder')
+ *    b. config.profiles[canonicalName] (e.g., 'coder')
  *
- * Examples: 'local_architect' → 'architect', 'enterprise_coder' → 'coder',
- *           'paid-architect' → 'architect', 'PAID_ARCHITECT' → 'architect',
- *           'architect' → 'architect', 'unknown_thing' → 'unknown_thing'
+ * For prefixed agent names (e.g., 'local_coder'), strips prefixes using stripKnownSwarmPrefix.
+ * Unknown agent names get base config + user profile (NOT architect defaults - prevents bypass).
  *
- * @param name - The agent name (possibly prefixed)
- * @returns The base agent name if recognized, or the original name
- */
-export function stripKnownSwarmPrefix(name: string): string {
-	if (!name) return name;
-	// If the name itself is a known agent name (exact match), return as-is
-	if ((ALL_AGENT_NAMES as readonly string[]).includes(name)) return name;
-	// Normalize the input name for flexible matching
-	const normalized = normalizeAgentName(name);
-	// Check each known agent name
-	for (const agentName of ALL_AGENT_NAMES) {
-		const normalizedAgent = normalizeAgentName(agentName);
-		// Direct normalized match (name IS a known agent)
-		if (normalized === normalizedAgent) return agentName;
-		// Suffix match: check if normalized name ends with _<knownAgentName>
-		// This handles underscore, hyphen, and space separators uniformly
-		// after normalization to underscore
-		if (normalized.endsWith(`_${normalizedAgent}`)) {
-			return agentName;
-		}
-	}
-	return name;
-}
-
-/**
- * Resolve guardrails configuration for a specific agent.
- * Merges the base config with built-in agent-type defaults and
- * any per-agent profile overrides. Merge order: base < built-in < user profile.
- *
- * @param base - The base guardrails configuration
- * @param agentName - Optional agent name to look up profile overrides
- * @returns The effective guardrails configuration for the agent
+ * @param config - The base guardrails configuration
+ * @param agentName - Optional agent name to resolve profile for
+ * @returns Resolved configuration object
  */
 export function resolveGuardrailsConfig(
-	base: GuardrailsConfig,
+	config: GuardrailsConfig,
 	agentName?: string,
 ): GuardrailsConfig {
+	// No agent name provided - return base config as-is
 	if (!agentName) {
-		return base;
+		return config;
 	}
 
-	// Strip known swarm prefixes to get the base agent name
-	const baseName = stripKnownSwarmPrefix(agentName);
+	// Strip prefixes to get canonical agent name
+	const canonicalName = stripKnownSwarmPrefix(agentName);
 
-	// Belt-and-suspenders: if no built-in profile matches, do NOT fall back to architect
-	// (that would exempt unknown agents from guardrails). Unknown agents get base config.
-	const builtInLookup = DEFAULT_AGENT_PROFILES[baseName];
+	// Check if this is a known agent (has built-in profile)
+	const hasBuiltInProfile = canonicalName in DEFAULT_AGENT_PROFILES;
 
-	// Layer 1: Apply built-in defaults for the agent (if known)
-	const builtIn = builtInLookup;
+	// Check for user profile - try original name first, then canonical name
+	// This allows users to define profiles for specific prefixed variants or custom agents
+	const userProfile =
+		config.profiles?.[agentName] ?? config.profiles?.[canonicalName];
 
-	// Layer 2: Apply user-defined profile overrides (highest priority)
-	// Check base name first, then original name for backwards compatibility
-	const userProfile = base.profiles?.[baseName] ?? base.profiles?.[agentName];
-
-	if (!builtIn && !userProfile) {
-		return base;
+	// Unknown agents: base config + user profile (NOT built-in defaults - prevents bypass)
+	if (!hasBuiltInProfile) {
+		if (userProfile) {
+			return { ...config, ...userProfile };
+		}
+		return config;
 	}
 
-	return { ...base, ...builtIn, ...userProfile };
+	// Known agents: Get built-in profile
+	const builtInProfile = DEFAULT_AGENT_PROFILES[canonicalName];
+
+	// Merge: base config -> built-in profile -> user profile
+	const resolved: GuardrailsConfig = {
+		...config,
+		...builtInProfile,
+		...(userProfile || {}),
+	};
+
+	return resolved;
 }
+
+// Tool filter configuration - controls which tools each agent is allowed to use
+// Enables role-scoped tool filtering for plugin-defined agent whitelists
+export const ToolFilterConfigSchema = z.object({
+	// Enable or disable tool filtering globally
+	// When true, agents are restricted to their allowed tool lists
+	enabled: z.boolean().default(true),
+	// Per-agent tool whitelist overrides
+	// Keys are agent names (e.g., "architect", "coder", "reviewer")
+	// Values are arrays of allowed tool names
+	// Empty array denies all tools for that agent
+	// When not specified, agents use default tool assignments
+	overrides: z.record(z.string(), z.array(z.string())).default({}),
+});
+
+// Type alias for downstream usage
+export type ToolFilterConfig = z.infer<typeof ToolFilterConfigSchema>;
 
 // Checkpoint configuration
 export const CheckpointConfigSchema = z.object({
@@ -624,6 +694,9 @@ export const PluginConfigSchema = z.object({
 
 	// Guardrails configuration
 	guardrails: GuardrailsConfigSchema.optional(),
+
+	// Tool filter configuration - controls which tools each agent is allowed to use
+	tool_filter: ToolFilterConfigSchema.optional(),
 
 	// Evidence configuration
 	evidence: EvidenceConfigSchema.optional(),

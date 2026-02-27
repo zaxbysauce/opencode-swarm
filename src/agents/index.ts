@@ -4,7 +4,8 @@ import {
 	type PluginConfig,
 	type SwarmConfig,
 } from '../config';
-import { DEFAULT_MODELS } from '../config/constants';
+import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
+import { stripKnownSwarmPrefix } from '../config/schema';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
 import { createCriticAgent } from './critic';
@@ -321,6 +322,13 @@ export function getAgentConfigs(
 ): Record<string, SDKAgentConfig> {
 	const agents = createAgents(config);
 
+	// Check if tool filtering is disabled globally
+	const toolFilterEnabled = config?.tool_filter?.enabled ?? true;
+	const toolFilterOverrides = config?.tool_filter?.overrides ?? {};
+
+	// Track warning for missing whitelist entries (warn once per unique base name)
+	const warnedMissingWhitelist = new Set<string>();
+
 	return Object.fromEntries(
 		agents.map((agent) => {
 			const sdkConfig: SDKAgentConfig = {
@@ -334,6 +342,64 @@ export function getAgentConfigs(
 				sdkConfig.mode = 'primary';
 			} else {
 				sdkConfig.mode = 'subagent';
+			}
+
+			// Extract base agent name using canonical prefix stripper (supports underscore, hyphen, space)
+			const baseAgentName = stripKnownSwarmPrefix(agent.name);
+
+			// If tool filtering is globally disabled, use original tools unchanged
+			if (!toolFilterEnabled) {
+				sdkConfig.tools = agent.config.tools ?? {};
+				return [agent.name, sdkConfig];
+			}
+
+			// Determine allowed tools: check override first, then fall back to AGENT_TOOL_MAP
+			let allowedTools: string[] | undefined;
+			const override = toolFilterOverrides[baseAgentName];
+			if (override !== undefined) {
+				// Override exists - use it (even if empty array)
+				allowedTools = override;
+			} else {
+				// No override - use default AGENT_TOOL_MAP
+				allowedTools =
+					AGENT_TOOL_MAP[baseAgentName as keyof typeof AGENT_TOOL_MAP];
+			}
+
+			// Warn once when base name lacks a whitelist entry (no override and no AGENT_TOOL_MAP)
+			if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
+				if (!warnedMissingWhitelist.has(baseAgentName)) {
+					console.warn(
+						`[getAgentConfigs] Unknown agent '${baseAgentName}', defaulting to minimal toolset.`,
+					);
+					warnedMissingWhitelist.add(baseAgentName);
+				}
+			}
+
+			// Copy original tools to preserve flags (including write/edit)
+			const originalTools = agent.config.tools
+				? { ...agent.config.tools }
+				: undefined;
+
+			if (allowedTools) {
+				// Preserve explicit false flags from original tools
+				const baseTools = originalTools ?? {};
+				const disabledTools = Object.fromEntries(
+					Object.entries(baseTools).filter(([, value]) => value === false),
+				);
+				const filteredTools: Record<string, boolean> = { ...disabledTools };
+
+				// Add allowed tools (skip if explicitly disabled)
+				for (const tool of allowedTools) {
+					if (filteredTools[tool] === false) continue;
+					filteredTools[tool] = true;
+				}
+				sdkConfig.tools = filteredTools;
+			} else {
+				// No whitelist entry: default to minimal safe toolset
+				sdkConfig.tools = {
+					write: false,
+					edit: false,
+				};
 			}
 
 			return [agent.name, sdkConfig];

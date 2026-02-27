@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool } from '@opencode-ai/plugin';
 
 // ============ Constants ============
 export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
@@ -194,10 +194,13 @@ function hasDevDependency(
 	return hasPackageJsonDependency(devDeps, ...patterns);
 }
 
-export async function detectTestFramework(): Promise<TestFramework> {
+export async function detectTestFramework(
+	cwd?: string,
+): Promise<TestFramework> {
+	const baseDir = cwd || process.cwd();
 	// Check for package.json to detect JS/TS frameworks
 	try {
-		const packageJsonPath = path.join(process.cwd(), 'package.json');
+		const packageJsonPath = path.join(baseDir, 'package.json');
 		if (fs.existsSync(packageJsonPath)) {
 			const content = fs.readFileSync(packageJsonPath, 'utf-8');
 			const pkg = JSON.parse(content) as {
@@ -223,8 +226,8 @@ export async function detectTestFramework(): Promise<TestFramework> {
 
 			// Check for bun.lockb or bun.lock
 			if (
-				fs.existsSync(path.join(process.cwd(), 'bun.lockb')) ||
-				fs.existsSync(path.join(process.cwd(), 'bun.lock'))
+				fs.existsSync(path.join(baseDir, 'bun.lockb')) ||
+				fs.existsSync(path.join(baseDir, 'bun.lock'))
 			) {
 				// Check if bun test is in scripts
 				if (scripts.test?.includes('bun')) return 'bun';
@@ -236,9 +239,9 @@ export async function detectTestFramework(): Promise<TestFramework> {
 
 	// Check for Python test frameworks (pytest)
 	try {
-		const pyprojectTomlPath = path.join(process.cwd(), 'pyproject.toml');
-		const setupCfgPath = path.join(process.cwd(), 'setup.cfg');
-		const requirementsTxtPath = path.join(process.cwd(), 'requirements.txt');
+		const pyprojectTomlPath = path.join(baseDir, 'pyproject.toml');
+		const setupCfgPath = path.join(baseDir, 'setup.cfg');
+		const requirementsTxtPath = path.join(baseDir, 'requirements.txt');
 
 		if (fs.existsSync(pyprojectTomlPath)) {
 			const content = fs.readFileSync(pyprojectTomlPath, 'utf-8');
@@ -261,7 +264,7 @@ export async function detectTestFramework(): Promise<TestFramework> {
 
 	// Check for Cargo/Rust (Cargo.toml)
 	try {
-		const cargoTomlPath = path.join(process.cwd(), 'Cargo.toml');
+		const cargoTomlPath = path.join(baseDir, 'Cargo.toml');
 		if (fs.existsSync(cargoTomlPath)) {
 			const content = fs.readFileSync(cargoTomlPath, 'utf-8');
 			if (content.includes('[dev-dependencies]')) {
@@ -281,12 +284,9 @@ export async function detectTestFramework(): Promise<TestFramework> {
 
 	// Check for PowerShell/Pester (pester.ps1, pester.config.ps1)
 	try {
-		const pesterConfigPath = path.join(process.cwd(), 'pester.config.ps1');
-		const pesterConfigJsonPath = path.join(
-			process.cwd(),
-			'pester.config.ps1.json',
-		);
-		const pesterPs1Path = path.join(process.cwd(), 'tests.ps1');
+		const pesterConfigPath = path.join(baseDir, 'pester.config.ps1');
+		const pesterConfigJsonPath = path.join(baseDir, 'pester.config.ps1.json');
+		const pesterPs1Path = path.join(baseDir, 'tests.ps1');
 
 		if (
 			fs.existsSync(pesterConfigPath) ||
@@ -735,6 +735,7 @@ export async function runTests(
 	files: string[],
 	coverage: boolean,
 	timeout_ms: number,
+	cwd?: string,
 ): Promise<TestResult> {
 	// Build the command
 	const command = buildTestCommand(framework, scope, files, coverage);
@@ -767,6 +768,7 @@ export async function runTests(
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
+			cwd: cwd || process.cwd(),
 		});
 
 		// Race with timeout
@@ -966,7 +968,50 @@ export const test_runner: ReturnType<typeof tool> = tool({
 			.optional()
 			.describe('Timeout in milliseconds (default 60000, max 300000)'),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
+	async execute(args: unknown, context: unknown): Promise<string> {
+		const ctx = context as ToolContext;
+		const rawDir = ctx?.directory || ctx?.worktree || process.cwd();
+		// Normalize whitespace-only strings back to process.cwd()
+		const workingDir = rawDir.trim() || process.cwd();
+		// Validate workingDir to prevent path traversal, injection, and abuse
+		// Length check FIRST — before any regex operations (defense against ReDoS)
+		if (workingDir.length > 4096) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error: 'Invalid working directory',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+		// Reject UNC paths (\\server\share, //server/share) and Windows device paths (\\.\ or \\?\)
+		if (/^[/\\]{2}/.test(workingDir)) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error: 'Invalid working directory',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+		if (containsControlChars(workingDir)) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error: 'Invalid working directory',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+		if (containsPathTraversal(workingDir)) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error: 'Invalid working directory',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
 		// Validate arguments
 		if (!validateArgs(args)) {
 			const errorResult: TestErrorResult = {
@@ -989,7 +1034,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 		);
 
 		// Detect the test framework
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(workingDir);
 
 		if (framework === 'none') {
 			const result: TestErrorResult = {
@@ -1026,7 +1071,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 							const ext = path.extname(f).toLowerCase();
 							return SOURCE_EXTENSIONS.has(ext);
 						})
-					: findSourceFiles(process.cwd());
+					: findSourceFiles(workingDir);
 			testFiles = getTestFilesFromConvention(sourceFiles);
 		} else if (scope === 'graph') {
 			// Try to find related tests via import analysis
@@ -1037,7 +1082,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 							const ext = path.extname(f).toLowerCase();
 							return SOURCE_EXTENSIONS.has(ext);
 						})
-					: findSourceFiles(process.cwd());
+					: findSourceFiles(workingDir);
 
 			// Try graph-based discovery via imports (best effort)
 			const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
@@ -1059,6 +1104,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 			testFiles,
 			coverage,
 			timeout_ms,
+			workingDir,
 		);
 
 		// Add graph fallback message if applicable
