@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.8.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.7.0...v6.8.0) (2026-02-27)
+
+
+### Features
+
+* release v6.8.0 — complete background automation ([c4082f7](https://github.com/zaxbysauce/opencode-swarm/commit/c4082f76ee40df131faa7edc79e17cb73f1e0455))
+
 ## v6.11.0 - Architect Prompt Hardening (2026-02-26)
 
 ### Workflow Hardening
