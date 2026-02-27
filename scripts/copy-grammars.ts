@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Copy grammar WASM files from @vscode/tree-sitter-wasm to src/lang/grammars/
- * Run automatically via postinstall hook
+ * Run during build (bun run build)
  *
  * Usage:
  *   bun run copy-grammars              # Copy from node_modules to src/lang/grammars

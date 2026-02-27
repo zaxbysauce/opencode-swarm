@@ -29,7 +29,6 @@
 		"clean": "rm -rf dist",
 		"copy-grammars": "bun run scripts/copy-grammars.ts",
 		"build": "rm -rf dist && bun run copy-grammars && bun build src/index.ts --outdir dist --target bun --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
-		"postinstall": "bun run copy-grammars",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome lint .",
