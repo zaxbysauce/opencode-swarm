@@ -1,5 +1,12 @@
 # Changelog
 
+## v6.11.1 - Packaging Fix (2026-02-27)
+
+### Fixes
+
+- Remove `postinstall` hook to avoid Bun dependency during npm global install
+- Grammars are bundled via `bun run build` into `dist/lang/grammars`
+
 ## v6.11.0 - Architect Prompt Hardening (2026-02-26)
 
 ### Workflow Hardening
