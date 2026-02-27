@@ -26,7 +26,7 @@ For new projects, just gather your requirements, architecture notes, and stack d
 
 ### 2. Brief Every Model on the Swarm
 
-Paste the gitingest of [opencode-swarm](https://github.com/zaxbysauce/opencode-swarm) into each model. A plan written without understanding the swarm workflow will have tasks that are too big, badly structured, or missing required fields.
+Paste the [opencode-swarm README](https://github.com/zaxbysauce/opencode-swarm) into each model. The README covers the workflow, task format, and QA gates — that's all they need to structure a plan correctly. You don't need the full plugin codebase unless you're planning changes to the swarm itself.
 
 Each model needs to know:
 - The Architect delegates all coding to the Coder — it never writes code itself
@@ -40,8 +40,8 @@ Each model needs to know:
 Give one model your requirements + codebase snapshot. Ask for a full plan in the swarm's markdown format. This is your starting point, not the final product.
 
 ```
-Here is my codebase [paste gitingest]. Here is the opencode-swarm plugin
-[paste swarm gitingest]. I need to implement [describe feature/change].
+Here is my codebase [paste gitingest]. Here is the opencode-swarm README
+[paste README]. I need to implement [describe feature/change].
 
 Generate a complete implementation plan in the swarm's markdown format.
 Every task must include FILE, TASK, CONSTRAINT, and ACCEPTANCE CRITERIA.
@@ -56,7 +56,7 @@ Paste the draft into every other model you have. Ask each to tear it apart:
 ```
 Here is an implementation plan for my project [paste plan]. Here is the
 codebase context [paste gitingest]. Here is the swarm plugin that will
-execute it [paste swarm gitingest].
+execute it [paste swarm README].
 
 Review this plan and tell me:
 
@@ -141,7 +141,7 @@ Both produce the same output: a structured `.swarm/plan.md` the Architect can ex
 
 ## TL;DR
 
-1. gitingest your codebase + the swarm plugin
+1. gitingest your codebase + grab the swarm README
 2. Generate a draft plan with one model
 3. Cross-examine with 3-5 other models
 4. Iterate until convergence (2-4 rounds)
