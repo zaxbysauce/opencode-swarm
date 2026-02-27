@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.8.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.7.0...v6.8.0) (2026-02-27)
+
+
+### Features
+
+* release v6.8.0 — complete background automation ([c4082f7](https://github.com/zaxbysauce/opencode-swarm/commit/c4082f76ee40df131faa7edc79e17cb73f1e0455))
+* v6.12.0 Anti-Process-Violation Hardening ([40542ed](https://github.com/zaxbysauce/opencode-swarm/commit/40542edc21d6e48dfd8c8548d0cd8af03f6dc408))
+
+
+### Bug Fixes
+
+* avoid npm install failure by dropping postinstall hook ([4ed1c18](https://github.com/zaxbysauce/opencode-swarm/commit/4ed1c189860f21a7caca23288efc5953fafb75a4))
+
 ## [6.12.0] - 2026-02-27
 
 ### Added
