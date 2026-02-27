@@ -1,72 +1,45 @@
-```markdown
-# Pre-Swarm Planning: How to Build Implementation Plans Before Touching OpenCode
+# Pre-Swarm Planning
 
-## Why This Matters
+## The Point
 
-OpenCode Swarm is an execution engine. Feed it a great plan and it will produce
-great code. Feed it a vague or contradictory plan and the Critic will struggle
-to save it — garbage in, garbage out, regardless of how many QA gates run.
+The swarm is an execution engine. Good plan in, good code out. Bad plan in, wasted API calls while the Critic tries to salvage it.
 
-Every API call the Architect spends figuring out *what* to build is a wasted
-call. The planning phase — requirements, architecture decisions, task
-decomposition — should be completely finished before you open OpenCode. Free
-web chat interfaces can do this work at zero API cost.
+Every cycle the Architect spends figuring out *what* to build is a cycle not spent building. Do your planning in free web chat interfaces before you ever open OpenCode.
 
 ---
 
-## The Core Idea
+## How It Works
 
-Use multiple AI models via their **free web chat interfaces** to debate,
-challenge, and converge on a single implementation plan. Models have different
-training data, different blind spots, and different failure modes. A plan that
-survives scrutiny from Claude, Gemini, ChatGPT, Perplexity, Qwen, and Deepseek
-simultaneously is a fundamentally stronger plan than one any single model
-approved.
+Use multiple AI models (their free web tiers) to debate and poke holes in a single implementation plan. Different models have different blind spots — Claude might approve something Gemini flags as conflicting with a library's actual behavior, or Perplexity might surface a recent CVE the others missed.
 
-Once you have that plan, drop it into your project directory and tell the
-Architect to implement it. The swarm handles everything from there.
+A plan that survives scrutiny from 3-6 models is stronger than anything one model produces alone. Once it's solid, drop it in your project and let the Architect run.
 
 ---
 
-## Step-by-Step Process
+## Steps
 
-### Step 1 — Generate a Codebase Snapshot
+### 1. Snapshot Your Codebase
 
-Use [gitingest](https://gitingest.com) (or equivalent) to produce a single text
-file containing your entire codebase. This gives every AI model the same
-ground truth about your project's current state without requiring them to browse
-files.
+Use [gitingest](https://gitingest.com) to dump your entire codebase into a single text file. This gives every model the same context.
 
-For a new project, prepare:
-- Your requirements document
-- Any existing architecture diagrams or notes
-- Technology stack decisions
+For new projects, just gather your requirements, architecture notes, and stack decisions.
 
-### Step 2 — Brief Every Model on the Swarm Workflow
+### 2. Brief Every Model on the Swarm
 
-Before asking for any plan, paste the gitingest of
-[opencode-swarm](https://github.com/zaxbysauce/opencode-swarm) into each model's
-context. This is critical. A plan written without understanding the swarm
-workflow will produce tasks that are too large, incorrectly structured, or
-missing required fields.
+Paste the gitingest of [opencode-swarm](https://github.com/zaxbysauce/opencode-swarm) into each model. A plan written without understanding the swarm workflow will have tasks that are too big, badly structured, or missing required fields.
 
-Every model needs to understand:
+Each model needs to know:
 - The Architect delegates all coding to the Coder — it never writes code itself
-- Each task goes through a full 12-step QA gate (diff → syntaxcheck → ... →
-  adversarial tests)
+- Each task runs through a full 12-step QA gate
 - Tasks must be atomic: one file, one concern, one logical change
-- Tasks need FILE, TASK, CONSTRAINT, and ACCEPTANCE CRITERIA fields
-- The Critic reviews the plan before any implementation begins
+- Tasks need `FILE`, `TASK`, `CONSTRAINT`, and `ACCEPTANCE CRITERIA` fields
+- The Critic reviews the plan before implementation starts
 
-### Step 3 — Generate an Initial Plan
+### 3. Generate a Draft Plan
 
-Give one model your requirements and codebase snapshot. Ask it to produce a
-full implementation plan in the swarm's markdown format. This is your starting
-draft — not your final plan.
+Give one model your requirements + codebase snapshot. Ask for a full plan in the swarm's markdown format. This is your starting point, not the final product.
 
-Prompt template:
 ```
-
 Here is my codebase [paste gitingest]. Here is the opencode-swarm plugin
 [paste swarm gitingest]. I need to implement [describe feature/change].
 
@@ -74,18 +47,13 @@ Generate a complete implementation plan in the swarm's markdown format.
 Every task must include FILE, TASK, CONSTRAINT, and ACCEPTANCE CRITERIA.
 Tasks must be atomic — one file, one concern. No task should touch more
 than 2 files. No compound verbs in TASK lines.
-
 ```
 
-### Step 4 — Cross-Examine With Other Models
+### 4. Cross-Examine With Other Models
 
-Take the draft plan and paste it into every other model you have access to.
-Ask each one to critique it, find gaps, identify ambiguities, and suggest
-improvements. Be explicit about what you want them to look for:
+Paste the draft into every other model you have. Ask each to tear it apart:
 
-Prompt template:
 ```
-
 Here is an implementation plan for my project [paste plan]. Here is the
 codebase context [paste gitingest]. Here is the swarm plugin that will
 execute it [paste swarm gitingest].
@@ -99,20 +67,15 @@ Review this plan and tell me:
 5. Does anything conflict with the existing codebase?
 ```
 
-### Step 5 — Iterate Until Convergence
+### 5. Iterate Until They Agree
 
-Revise the plan based on feedback. Repeat Step 4 with the updated plan.
-Continue until all models agree the plan is sound — no significant objections,
-no missing pieces, no ambiguous tasks.
+Revise based on feedback, then repeat step 4. Keep going until every model signs off — no major objections, no missing pieces, no vague tasks.
 
-In practice this takes 2–4 rounds. A plan that Claude approves but Gemini
-finds three gaps in needs another pass. A plan all six models approve with
-minor wording suggestions is ready to ship to the swarm.
+This usually takes 2-4 rounds. If you can't converge after 4-5 rounds, your requirements are probably ambiguous. Fix those first.
 
-### Step 6 — Final Swarm-Specific Validation
+### 6. Final Validation Checklist
 
-Before handing the plan to the Architect, do a final check against the swarm's
-requirements:
+Before handing off to the Architect:
 
 - [ ] Every task has `FILE:`, `TASK:`, `CONSTRAINT:`, `ACCEPTANCE CRITERIA:`
 - [ ] No task touches more than 2 files
@@ -120,125 +83,69 @@ requirements:
 - [ ] Dependencies are declared explicitly (`depends: X.Y`)
 - [ ] Phase structure matches `.swarm/plan.md` format (`## Phase N:`)
 - [ ] Acceptance criteria are specific enough for the test engineer to verify
-- [ ] Security-sensitive files (auth, crypto, config, env) are flagged in task
-  descriptions so the security reviewer gate triggers
+- [ ] Security-sensitive files (auth, crypto, config, env) are flagged so the security reviewer gate triggers
 
-### Step 7 — Hand Off to the Swarm
+### 7. Hand Off
 
-Save the plan as `.swarm/plan.md` (or the filename your workflow expects) and
-start the Architect:
+Save as `.swarm/plan.md` and start the Architect:
 
 ```
-
 Implement the plan in .swarm/plan.md. Follow phases sequentially.
 Run bun test after each phase. Report progress after each completed task.
-
 ```
 
-The swarm handles the rest.
-
 ---
 
-## Recommended Model Mix
+## Model Recommendations
 
-You don't need paid subscriptions. Free tiers are sufficient for planning:
+Free tiers are fine for planning. 3-4 models is enough for most work; 5-6 for complex stuff.
 
-| Model | Strength for Planning | Free Access |
+| Model | Good At | Free Access |
 |---|---|---|
-| **Claude** (Anthropic) | Strong reasoning, catches logical gaps | claude.ai free tier |
-| **Gemini** (Google) | Good at finding undocumented edge cases | gemini.google.com |
-| **ChatGPT** (OpenAI) | Broad knowledge, good at task decomposition | chatgpt.com free tier |
-| **Perplexity** | Research-backed, good for API/library questions | perplexity.ai free tier |
-| **Qwen** (Alibaba) | Different training distribution, catches different gaps | chat.qwen.ai |
-| **Deepseek** | Strong at code architecture reasoning | chat.deepseek.com |
-
-Using 3–4 models is enough for most plans. Using 5–6 gives you higher
-confidence on complex or high-stakes implementations.
+| **Claude** | Reasoning, catching logical gaps | claude.ai |
+| **Gemini** | Finding undocumented edge cases | gemini.google.com |
+| **ChatGPT** | Broad knowledge, task decomposition | chatgpt.com |
+| **Perplexity** | Research-backed, API/library questions | perplexity.ai |
+| **Qwen** | Different training data, catches different things | chat.qwen.ai |
+| **Deepseek** | Code architecture reasoning | chat.deepseek.com |
 
 ---
 
-## What Good Convergence Looks Like
+## How to Tell It's Working
 
-The models are converging when:
-- Feedback shifts from "this task is missing X" to "minor wording preference"
-- All models can trace every requirement to at least one task
-- No model identifies a file that needs changing that isn't covered by a task
-- The plan's phase structure makes logical sense to each model independently
-- Acceptance criteria are concrete enough that a model can answer "pass or
-  fail" without judgment calls
+**Converging** — feedback shifts from "this task is missing X" to minor wording nitpicks. All models can trace every requirement to a task. No one finds uncovered files.
 
-The models are NOT converging when:
-- Different models recommend contradictory approaches to the same problem
-- Each round of feedback introduces new structural concerns
-- Models disagree on whether the existing codebase supports the approach
-- Task sizes keep ballooning ("this should really be one task covering A, B,
-  and C")
-
-If you can't reach convergence after 4–5 rounds, the requirements themselves
-are likely ambiguous. Resolve the ambiguity before writing more plan.
+**Not converging** — models recommend contradictory approaches, each round surfaces new structural problems, or they disagree on whether the codebase even supports the approach. If tasks keep getting bigger ("this should really be one task covering A, B, and C"), that's a red flag too.
 
 ---
 
-## Why Multiple Models Instead of One
-
-Any single model has blind spots shaped by its training. Claude might approve
-an approach that Gemini immediately flags as conflicting with a library's
-documented behavior. ChatGPT might miss a security implication that Perplexity
-surfaces from a recent CVE. Deepseek might catch an architectural contradiction
-that the others rationalized past.
-
-The disagreements between models are valuable signal. A plan that survives
-multi-model scrutiny has been stress-tested against multiple failure modes.
-The swarm's QA gates are your last line of defense during execution — the
-pre-planning process is your first.
-
----
-
-## The Cost Equation
+## Cost
 
 | Activity | API Cost |
 |---|---|
-| Multi-model web chat planning (Steps 1–6) | **$0** |
-| Swarm execution of a solid plan | Low — clear tasks, few coder retries |
-| Swarm execution of a vague plan | High — Critic cycles, coder retries, gate failures |
+| Multi-model planning in web chat | **$0** |
+| Swarm execution of a solid plan | Low — clear tasks, few retries |
+| Swarm execution of a vague plan | High — Critic cycles, retries, gate failures |
 
-The planning phase costs nothing but time. The execution phase costs API calls
-proportional to how many times the Coder needs to retry, the Critic needs to
-revise, or the Architect needs to re-clarify scope. Investing 1–2 hours in
-web chat planning routinely saves 3–5x that time in swarm execution.
+1-2 hours of free planning routinely saves 3-5x that in execution costs.
 
 ---
 
-## Relationship to Spec Kit
+## Spec Kit
 
-[GitHub Spec Kit](https://github.com/github/spec-kit) automates a similar
-planning workflow — spec → plan → tasks — using AI agents inside your editor.
-The manual multi-model approach described here produces equivalent artifacts
-but gives you direct control over which models review the plan and makes
-cross-model disagreement visible rather than resolving it automatically.
+[GitHub Spec Kit](https://github.com/github/spec-kit) automates a similar workflow (spec → plan → tasks) using AI agents in your editor. It's faster. The manual multi-model approach gives you more control and makes cross-model disagreements visible, which matters more for complex or security-sensitive work.
 
-The two approaches are complementary. Spec Kit is faster. The manual approach
-gives you higher confidence on complex or security-sensitive implementations
-where you want explicit human judgment at each review stage.
-
-Either way, the output feeds into the same place: a structured `.swarm/plan.md`
-that the Architect can execute.
+Both produce the same output: a structured `.swarm/plan.md` the Architect can execute.
 
 ---
 
-## Quick Reference
-
-```
+## TL;DR
 
 1. gitingest your codebase + the swarm plugin
-2. Generate initial plan with one model
+2. Generate a draft plan with one model
 3. Cross-examine with 3-5 other models
 4. Iterate until convergence (2-4 rounds)
-5. Final swarm-format validation checklist
-6. Drop plan.md into .swarm/ and start the Architect
-```
+5. Run the validation checklist
+6. Drop `plan.md` into `.swarm/` and start the Architect
 
-Total planning cost: $0 (free web chat tiers)
-Total planning time: 1–2 hours for most features
-Payoff: Faster execution, fewer retries, lower API spend
-```
+Planning cost: $0 | Planning time: 1-2 hours | Payoff: fewer retries, lower API spend
