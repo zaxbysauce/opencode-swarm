@@ -3,6 +3,8 @@ node_modules/
 .newsroom/
 # PlanSyncWorker test temp directories
 .test-plan-sync-*/
+# Gate workflow test directories
+gate-workflow-test-*/
 # Test output artifacts
 test-results.xml
 test_output.txt
