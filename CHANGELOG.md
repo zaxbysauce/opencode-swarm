@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.13.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.12.1...v6.13.0) (2026-02-28)
+
+
+### Features
+
+* v6.13.1 system message consolidation + test isolation + config fixes ([d2c6d1c](https://github.com/zaxbysauce/opencode-swarm/commit/d2c6d1cab8ecde703db238ae5af7773cce2a9f5d))
+
 ## [6.12.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.12.0...v6.12.1) (2026-02-28)
 
 
