@@ -3,11 +3,11 @@ export declare const EVIDENCE_MAX_JSON_BYTES: number;
 export declare const EVIDENCE_MAX_PATCH_BYTES: number;
 export declare const EVIDENCE_MAX_TASK_BYTES: number;
 export declare const EvidenceTypeSchema: z.ZodEnum<{
-    placeholder: "placeholder";
+    diff: "diff";
     quality_budget: "quality_budget";
+    placeholder: "placeholder";
     review: "review";
     test: "test";
-    diff: "diff";
     approval: "approval";
     note: "note";
     retrospective: "retrospective";
@@ -28,11 +28,11 @@ export type EvidenceVerdict = z.infer<typeof EvidenceVerdictSchema>;
 export declare const BaseEvidenceSchema: z.ZodObject<{
     task_id: z.ZodString;
     type: z.ZodEnum<{
-        placeholder: "placeholder";
+        diff: "diff";
         quality_budget: "quality_budget";
+        placeholder: "placeholder";
         review: "review";
         test: "test";
-        diff: "diff";
         approval: "approval";
         note: "note";
         retrospective: "retrospective";

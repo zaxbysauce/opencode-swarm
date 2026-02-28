@@ -43,6 +43,6 @@ export interface TestErrorResult {
     message?: string;
 }
 export type TestResult = TestSuccessResult | TestErrorResult;
-export declare function detectTestFramework(): Promise<TestFramework>;
-export declare function runTests(framework: TestFramework, scope: 'all' | 'convention' | 'graph', files: string[], coverage: boolean, timeout_ms: number): Promise<TestResult>;
+export declare function detectTestFramework(cwd?: string): Promise<TestFramework>;
+export declare function runTests(framework: TestFramework, scope: 'all' | 'convention' | 'graph', files: string[], coverage: boolean, timeout_ms: number, cwd?: string): Promise<TestResult>;
 export declare const test_runner: ReturnType<typeof tool>;

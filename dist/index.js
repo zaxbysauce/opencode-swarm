@@ -14576,6 +14576,10 @@ import * as path4 from "path";
 async function loadPlanJsonOnly(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
   if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+      return null;
+    }
     try {
       const parsed = JSON.parse(planJsonContent);
       const validated = PlanSchema.parse(parsed);
@@ -14660,25 +14664,29 @@ ${markdown}`;
 async function loadPlan(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
   if (planJsonContent !== null) {
-    try {
-      const parsed = JSON.parse(planJsonContent);
-      const validated = PlanSchema.parse(parsed);
-      const inSync = await isPlanMdInSync(directory, validated);
-      if (!inSync) {
-        try {
-          await regeneratePlanMarkdown(directory, validated);
-        } catch (regenError) {
-          warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+    } else {
+      try {
+        const parsed = JSON.parse(planJsonContent);
+        const validated = PlanSchema.parse(parsed);
+        const inSync = await isPlanMdInSync(directory, validated);
+        if (!inSync) {
+          try {
+            await regeneratePlanMarkdown(directory, validated);
+          } catch (regenError) {
+            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
+          }
         }
-      }
-      return validated;
-    } catch (error49) {
-      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
-      const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
-      if (planMdContent2 !== null) {
-        const migrated = migrateLegacyPlan(planMdContent2);
-        await savePlan(directory, migrated);
-        return migrated;
+        return validated;
+      } catch (error49) {
+        warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
+        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
+        if (planMdContent2 !== null) {
+          const migrated = migrateLegacyPlan(planMdContent2);
+          await savePlan(directory, migrated);
+          return migrated;
+        }
       }
     }
   }
@@ -30094,9 +30102,10 @@ function hasDevDependency(devDeps, ...patterns) {
     return false;
   return hasPackageJsonDependency(devDeps, ...patterns);
 }
-async function detectTestFramework() {
+async function detectTestFramework(cwd) {
+  const baseDir = cwd || process.cwd();
   try {
-    const packageJsonPath = path12.join(process.cwd(), "package.json");
+    const packageJsonPath = path12.join(baseDir, "package.json");
     if (fs7.existsSync(packageJsonPath)) {
       const content = fs7.readFileSync(packageJsonPath, "utf-8");
       const pkg = JSON.parse(content);
@@ -30117,16 +30126,16 @@ async function detectTestFramework() {
         return "jest";
       if (hasDevDependency(devDeps, "mocha", "@types/mocha"))
         return "mocha";
-      if (fs7.existsSync(path12.join(process.cwd(), "bun.lockb")) || fs7.existsSync(path12.join(process.cwd(), "bun.lock"))) {
+      if (fs7.existsSync(path12.join(baseDir, "bun.lockb")) || fs7.existsSync(path12.join(baseDir, "bun.lock"))) {
         if (scripts.test?.includes("bun"))
           return "bun";
       }
     }
   } catch {}
   try {
-    const pyprojectTomlPath = path12.join(process.cwd(), "pyproject.toml");
-    const setupCfgPath = path12.join(process.cwd(), "setup.cfg");
-    const requirementsTxtPath = path12.join(process.cwd(), "requirements.txt");
+    const pyprojectTomlPath = path12.join(baseDir, "pyproject.toml");
+    const setupCfgPath = path12.join(baseDir, "setup.cfg");
+    const requirementsTxtPath = path12.join(baseDir, "requirements.txt");
     if (fs7.existsSync(pyprojectTomlPath)) {
       const content = fs7.readFileSync(pyprojectTomlPath, "utf-8");
       if (content.includes("[tool.pytest"))
@@ -30146,7 +30155,7 @@ async function detectTestFramework() {
     }
   } catch {}
   try {
-    const cargoTomlPath = path12.join(process.cwd(), "Cargo.toml");
+    const cargoTomlPath = path12.join(baseDir, "Cargo.toml");
     if (fs7.existsSync(cargoTomlPath)) {
       const content = fs7.readFileSync(cargoTomlPath, "utf-8");
       if (content.includes("[dev-dependencies]")) {
@@ -30157,9 +30166,9 @@ async function detectTestFramework() {
     }
   } catch {}
   try {
-    const pesterConfigPath = path12.join(process.cwd(), "pester.config.ps1");
-    const pesterConfigJsonPath = path12.join(process.cwd(), "pester.config.ps1.json");
-    const pesterPs1Path = path12.join(process.cwd(), "tests.ps1");
+    const pesterConfigPath = path12.join(baseDir, "pester.config.ps1");
+    const pesterConfigJsonPath = path12.join(baseDir, "pester.config.ps1.json");
+    const pesterPs1Path = path12.join(baseDir, "tests.ps1");
     if (fs7.existsSync(pesterConfigPath) || fs7.existsSync(pesterConfigJsonPath) || fs7.existsSync(pesterPs1Path)) {
       return "pester";
     }
@@ -30469,7 +30478,7 @@ function parseTestOutput(framework, output) {
   }
   return { totals, coveragePercent };
 }
-async function runTests(framework, scope, files, coverage, timeout_ms) {
+async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
   const command = buildTestCommand(framework, scope, files, coverage);
   if (!command) {
     return {
@@ -30494,7 +30503,8 @@ async function runTests(framework, scope, files, coverage, timeout_ms) {
   try {
     const proc = Bun.spawn(command, {
       stdout: "pipe",
-      stderr: "pipe"
+      stderr: "pipe",
+      cwd: cwd || process.cwd()
     });
     const exitPromise = proc.exited;
     const timeoutPromise = new Promise((resolve7) => setTimeout(() => {
@@ -30666,7 +30676,46 @@ var init_test_runner = __esm(() => {
       coverage: tool.schema.boolean().optional().describe("Enable coverage reporting if supported"),
       timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)")
     },
-    async execute(args2, _context) {
+    async execute(args2, context) {
+      const ctx = context;
+      const rawDir = ctx?.directory || ctx?.worktree || process.cwd();
+      const workingDir = rawDir.trim() || process.cwd();
+      if (workingDir.length > 4096) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (/^[/\\]{2}/.test(workingDir)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (containsControlChars2(workingDir)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (containsPathTraversal2(workingDir)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
       if (!validateArgs2(args2)) {
         const errorResult = {
           success: false,
@@ -30681,7 +30730,7 @@ var init_test_runner = __esm(() => {
       const _files = args2.files || [];
       const coverage = args2.coverage || false;
       const timeout_ms = Math.min(args2.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
-      const framework = await detectTestFramework();
+      const framework = await detectTestFramework(workingDir);
       if (framework === "none") {
         const result2 = {
           success: false,
@@ -30707,13 +30756,13 @@ var init_test_runner = __esm(() => {
         const sourceFiles = args2.files && args2.files.length > 0 ? args2.files.filter((f) => {
           const ext = path12.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
-        }) : findSourceFiles(process.cwd());
+        }) : findSourceFiles(workingDir);
         testFiles = getTestFilesFromConvention(sourceFiles);
       } else if (scope === "graph") {
         const sourceFiles = args2.files && args2.files.length > 0 ? args2.files.filter((f) => {
           const ext = path12.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
-        }) : findSourceFiles(process.cwd());
+        }) : findSourceFiles(workingDir);
         const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
         if (graphTestFiles.length > 0) {
           testFiles = graphTestFiles;
@@ -30723,7 +30772,7 @@ var init_test_runner = __esm(() => {
           testFiles = getTestFilesFromConvention(sourceFiles);
         }
       }
-      const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms);
+      const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
       if (graphFallbackReason && result.message) {
         result.message = `${result.message} (${graphFallbackReason})`;
       }
@@ -31374,6 +31423,34 @@ var init_preflight_integration = __esm(() => {
 // src/index.ts
 import * as path32 from "path";
 
+// src/tools/tool-names.ts
+var TOOL_NAMES = [
+  "diff",
+  "syntax_check",
+  "placeholder_scan",
+  "imports",
+  "lint",
+  "secretscan",
+  "sast_scan",
+  "build_check",
+  "pre_check_batch",
+  "quality_budget",
+  "symbols",
+  "complexity_hotspots",
+  "schema_drift",
+  "todo_extract",
+  "evidence_check",
+  "sbom_generate",
+  "checkpoint",
+  "pkg_audit",
+  "test_runner",
+  "detect_domains",
+  "gitingest",
+  "retrieve_summary",
+  "extract_code_blocks"
+];
+var TOOL_NAME_SET = new Set(TOOL_NAMES);
+
 // src/config/constants.ts
 var QA_AGENTS = ["reviewer", "critic"];
 var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
@@ -31389,6 +31466,102 @@ var ALL_AGENT_NAMES = [
   ORCHESTRATOR_NAME,
   ...ALL_SUBAGENT_NAMES
 ];
+var AGENT_TOOL_MAP = {
+  architect: [
+    "checkpoint",
+    "complexity_hotspots",
+    "detect_domains",
+    "evidence_check",
+    "extract_code_blocks",
+    "gitingest",
+    "imports",
+    "lint",
+    "diff",
+    "pkg_audit",
+    "pre_check_batch",
+    "retrieve_summary",
+    "schema_drift",
+    "secretscan",
+    "symbols",
+    "test_runner",
+    "todo_extract"
+  ],
+  explorer: [
+    "complexity_hotspots",
+    "detect_domains",
+    "extract_code_blocks",
+    "gitingest",
+    "imports",
+    "retrieve_summary",
+    "schema_drift",
+    "symbols",
+    "todo_extract"
+  ],
+  coder: [
+    "diff",
+    "imports",
+    "lint",
+    "symbols",
+    "extract_code_blocks",
+    "retrieve_summary"
+  ],
+  test_engineer: [
+    "test_runner",
+    "diff",
+    "symbols",
+    "extract_code_blocks",
+    "retrieve_summary",
+    "imports",
+    "complexity_hotspots",
+    "pkg_audit"
+  ],
+  sme: [
+    "complexity_hotspots",
+    "detect_domains",
+    "extract_code_blocks",
+    "imports",
+    "retrieve_summary",
+    "schema_drift",
+    "symbols"
+  ],
+  reviewer: [
+    "diff",
+    "imports",
+    "lint",
+    "pkg_audit",
+    "pre_check_batch",
+    "secretscan",
+    "symbols",
+    "complexity_hotspots",
+    "retrieve_summary",
+    "extract_code_blocks",
+    "test_runner"
+  ],
+  critic: [
+    "complexity_hotspots",
+    "detect_domains",
+    "imports",
+    "retrieve_summary",
+    "symbols"
+  ],
+  docs: [
+    "detect_domains",
+    "extract_code_blocks",
+    "gitingest",
+    "imports",
+    "retrieve_summary",
+    "schema_drift",
+    "symbols",
+    "todo_extract"
+  ],
+  designer: ["extract_code_blocks", "retrieve_summary", "symbols"]
+};
+for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
+  const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
+  if (invalidTools.length > 0) {
+    throw new Error(`Agent '${agentName}' has invalid tool names: [${invalidTools.join(", ")}]. ` + `All tools must be registered in TOOL_NAME_SET.`);
+  }
+}
 var DEFAULT_MODELS = {
   architect: "anthropic/claude-sonnet-4-5",
   explorer: "google/gemini-2.0-flash",
@@ -31436,6 +31609,55 @@ import * as path from "path";
 
 // src/config/schema.ts
 init_zod();
+var KNOWN_SWARM_PREFIXES = [
+  "paid",
+  "local",
+  "cloud",
+  "enterprise",
+  "mega",
+  "default",
+  "custom",
+  "team",
+  "project",
+  "swarm"
+];
+var SEPARATORS = ["_", "-", " "];
+function stripKnownSwarmPrefix(agentName) {
+  if (!agentName)
+    return agentName;
+  const normalized = agentName.toLowerCase();
+  let stripped = normalized;
+  let previous = "";
+  while (stripped !== previous) {
+    previous = stripped;
+    for (const prefix of KNOWN_SWARM_PREFIXES) {
+      for (const sep of SEPARATORS) {
+        const prefixWithSep = prefix + sep;
+        if (stripped.startsWith(prefixWithSep)) {
+          stripped = stripped.slice(prefixWithSep.length);
+          break;
+        }
+      }
+      if (stripped !== previous)
+        break;
+    }
+  }
+  if (ALL_AGENT_NAMES.includes(stripped)) {
+    return stripped;
+  }
+  for (const agent of ALL_AGENT_NAMES) {
+    for (const sep of SEPARATORS) {
+      const suffix = sep + agent;
+      if (normalized.endsWith(suffix)) {
+        return agent;
+      }
+    }
+    if (normalized === agent) {
+      return agent;
+    }
+  }
+  return agentName;
+}
 var AgentOverrideConfigSchema = exports_external.object({
   model: exports_external.string().optional(),
   temperature: exports_external.number().min(0).max(2).optional(),
@@ -31751,38 +31973,36 @@ var GuardrailsConfigSchema = exports_external.object({
   idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
   profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
 });
-function normalizeAgentName(name2) {
-  return name2.toLowerCase().replace(/[-\s]+/g, "_");
-}
-function stripKnownSwarmPrefix(name2) {
-  if (!name2)
-    return name2;
-  if (ALL_AGENT_NAMES.includes(name2))
-    return name2;
-  const normalized = normalizeAgentName(name2);
-  for (const agentName of ALL_AGENT_NAMES) {
-    const normalizedAgent = normalizeAgentName(agentName);
-    if (normalized === normalizedAgent)
-      return agentName;
-    if (normalized.endsWith(`_${normalizedAgent}`)) {
-      return agentName;
-    }
-  }
-  return name2;
-}
-function resolveGuardrailsConfig(base, agentName) {
+function resolveGuardrailsConfig(config2, agentName) {
   if (!agentName) {
-    return base;
+    return config2;
   }
-  const baseName = stripKnownSwarmPrefix(agentName);
-  const builtInLookup = DEFAULT_AGENT_PROFILES[baseName];
-  const builtIn = builtInLookup;
-  const userProfile = base.profiles?.[baseName] ?? base.profiles?.[agentName];
-  if (!builtIn && !userProfile) {
-    return base;
+  const canonicalName = stripKnownSwarmPrefix(agentName);
+  const hasBuiltInProfile = canonicalName in DEFAULT_AGENT_PROFILES;
+  const userProfile = config2.profiles?.[agentName] ?? config2.profiles?.[canonicalName];
+  if (!hasBuiltInProfile) {
+    if (userProfile) {
+      return { ...config2, ...userProfile };
+    }
+    return config2;
   }
-  return { ...base, ...builtIn, ...userProfile };
+  const builtInProfile = DEFAULT_AGENT_PROFILES[canonicalName];
+  const resolved = {
+    ...config2,
+    ...builtInProfile,
+    ...userProfile || {}
+  };
+  return resolved;
 }
+var ToolFilterConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  overrides: exports_external.record(exports_external.string(), exports_external.array(exports_external.string())).default({})
+});
+var PlanCursorConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  max_tokens: exports_external.number().min(500).max(4000).default(1500),
+  lookahead_tasks: exports_external.number().min(0).max(5).default(2)
+});
 var CheckpointConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   auto_checkpoint_threshold: exports_external.number().min(1).max(20).default(3)
@@ -31819,6 +32039,8 @@ var PluginConfigSchema = exports_external.object({
   gates: GateConfigSchema.optional(),
   context_budget: ContextBudgetConfigSchema.optional(),
   guardrails: GuardrailsConfigSchema.optional(),
+  tool_filter: ToolFilterConfigSchema.optional(),
+  plan_cursor: PlanCursorConfigSchema.optional(),
   evidence: EvidenceConfigSchema.optional(),
   summaries: SummaryConfigSchema.optional(),
   review_passes: ReviewPassesConfigSchema.optional(),
@@ -31853,7 +32075,11 @@ function loadRawConfigFromPath(configPath) {
       console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
       return { config: null, fileExisted: true, hadError: true };
     }
-    const rawConfig = JSON.parse(content);
+    let sanitizedContent = content;
+    if (content.charCodeAt(0) === 65279) {
+      sanitizedContent = content.slice(1);
+    }
+    const rawConfig = JSON.parse(sanitizedContent);
     if (typeof rawConfig !== "object" || rawConfig === null || Array.isArray(rawConfig)) {
       console.warn(`[opencode-swarm] Invalid config at ${configPath}: expected an object`);
       console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config format invalid. Falling back to safe defaults with guardrails ENABLED.");
@@ -31991,18 +32217,22 @@ A failure in one part blocks the entire batch, wasting all the work.
 
 SPLIT RULE: If your delegation draft has "and" in the TASK line, split it.
 Two small delegations with two QA gates > one large delegation with one QA gate.
-4. Fallback: Only code yourself after {{QA_RETRY_LIMIT}} {{AGENT_PREFIX}}coder failures on same task.
-   FAILURE COUNTING \u2014 increment the counter when:
-   - Coder submits code that fails any tool gate or pre_check_batch (gates_passed === false)
-   - Coder submits code REJECTED by reviewer after being given the rejection reason
-   - Print "Coder attempt [N/{{QA_RETRY_LIMIT}}] on task [X.Y]" at every retry
-   - Reaching {{QA_RETRY_LIMIT}}: escalate to user with full failure history before writing code yourself
-BEFORE SELF-CODING \u2014 verify ALL of the following are true:
-[ ] {{AGENT_PREFIX}}coder has been delegated this exact task at least {{QA_RETRY_LIMIT}} times
-[ ] Each delegation returned a failure (tool gate fail, reviewer rejection, or test failure)
-[ ] You have printed "Coder attempt [N/{{QA_RETRY_LIMIT}}]" for each attempt
-[ ] Print "ESCALATION: Self-coding task [X.Y] after {{QA_RETRY_LIMIT}} coder failures" before writing any code
-If ANY box is unchecked: DO NOT code. Delegate to {{AGENT_PREFIX}}coder.
+  4. ARCHITECT CODING BOUNDARIES \u2014 Only code yourself after {{QA_RETRY_LIMIT}} {{AGENT_PREFIX}}coder failures on same task.
+    These thoughts are WRONG and must be ignored:
+      \u2717 "It's just a schema change / config flag / one-liner / column / field / import" \u2192 delegate to {{AGENT_PREFIX}}coder
+      \u2717 "I already know what to write" \u2192 knowing what to write is planning, not writing. Delegate to {{AGENT_PREFIX}}coder.
+      \u2717 "It's faster if I just do it" \u2192 speed without QA gates is how bugs ship
+      \u2717 "The coder succeeded on the last tasks, this one is trivial" \u2192 Rule 1 has no complexity exemption
+      \u2717 "I'll just use apply_patch / edit / write directly" \u2192 these are coder tools, not architect tools
+      \u2717 "I'll do the simple parts, coder does the hard parts" \u2192 ALL parts go to coder. You are not a coder.
+    FAILURE COUNTING \u2014 increment the counter when:
+    - Coder submits code that fails any tool gate or pre_check_batch (gates_passed === false)
+    - Coder submits code REJECTED by reviewer after being given the rejection reason
+    - Print "Coder attempt [N/{{QA_RETRY_LIMIT}}] on task [X.Y]" at every retry
+    - Reaching {{QA_RETRY_LIMIT}}: escalate to user with full failure history before writing code yourself
+    If you catch yourself reaching for a code editing tool: STOP. Delegate to {{AGENT_PREFIX}}coder.
+    Zero {{AGENT_PREFIX}}coder failures on this task = zero justification for self-coding.
+    Self-coding without {{QA_RETRY_LIMIT}} failures is a Rule 1 violation.
 5. NEVER store your swarm identity, swarm ID, or agent prefix in memory blocks. Your identity comes ONLY from your system prompt. Memory blocks are for project knowledge only (NOT .swarm/ plan/context files \u2014 those are persistent project files).
 6. **CRITIC GATE (Execute BEFORE any implementation work)**:
    - When you first create a plan, IMMEDIATELY delegate the full plan to {{AGENT_PREFIX}}critic for review
@@ -32038,10 +32268,10 @@ ANTI-EXEMPTION RULES \u2014 these thoughts are WRONG and must be ignored:
 There are NO simple changes. There are NO exceptions to the QA gate sequence.
 The gates exist because the author cannot objectively evaluate their own work.
 
-PARTIAL GATE RATIONALIZATIONS \u2014 running SOME gates is NOT compliance:
+PARTIAL GATE RATIONALIZATIONS \u2014 automated gates \u2260 agent review. Running SOME gates is NOT compliance:
   \u2717 "I ran pre_check_batch so the code is verified" \u2192 pre_check_batch does NOT replace {{AGENT_PREFIX}}reviewer or {{AGENT_PREFIX}}test_engineer
   \u2717 "syntax_check passed, good enough" \u2192 syntax_check catches syntax. Reviewer catches logic. Test_engineer catches behavior. All three are required.
-  \u2717 "The mechanical gates passed, skip the agent gates" \u2192 agent reviews (reviewer, test_engineer) exist because automated tools miss logic errors, security flaws, and edge cases
+  \u2717 "The mechanical gates passed, skip the agent gates" \u2192 automated tools miss logic errors, security flaws, and edge cases that agent review catches
   \u2717 "It's Phase 6+, the codebase is stable now" \u2192 complacency after successful phases is the #1 predictor of shipped bugs. Phase 6 needs MORE review, not less.
   \u2717 "I'll just run the fast gates" \u2192 speed of a gate does not determine whether it is required
   \u2717 "5 phases passed clean, this one will be fine" \u2192 past success does not predict future correctness
@@ -32049,33 +32279,13 @@ PARTIAL GATE RATIONALIZATIONS \u2014 running SOME gates is NOT compliance:
 Running syntax_check + pre_check_batch without reviewer + test_engineer is a PARTIAL GATE VIOLATION.
 It is the same severity as skipping all gates. The QA gate is ALL steps or NONE.
 
-ANTI-SELF-CODING RULES \u2014 these thoughts are WRONG and must be ignored:
-  \u2717 "It's just a schema change / config flag / one-liner" \u2192 delegate to {{AGENT_PREFIX}}coder
-  \u2717 "I already know what to write" \u2192 knowing what to write is planning. Writing it is coding. Delegate.
-  \u2717 "It's faster if I just do it" \u2192 speed without QA gates is how bugs ship
-  \u2717 "The coder succeeded on the last tasks, this one is trivial" \u2192 Rule 1 has no complexity exemption
-  \u2717 "I'll just use apply_patch / edit / write directly" \u2192 these are coder tools, not architect tools
-  \u2717 "It's just adding a column / field / import" \u2192 delegate to {{AGENT_PREFIX}}coder
-  \u2717 "I'll do the simple parts, coder does the hard parts" \u2192 ALL parts go to coder. You are not a coder.
-
-If you catch yourself reaching for a code editing tool: STOP. Delegate to {{AGENT_PREFIX}}coder.
-Zero {{AGENT_PREFIX}}coder failures on this task = zero justification for self-coding.
-Rule 4 requires {{QA_RETRY_LIMIT}} failures before you may code. Not 0. Not "it seemed simpler."
-Self-coding without {{QA_RETRY_LIMIT}} failures is a Rule 1 violation \u2014 identical severity to skipping QA gates.
       - After coder completes: run \`diff\` tool. If \`hasContractChanges\` is true \u2192 delegate {{AGENT_PREFIX}}explorer for integration impact analysis. BREAKING \u2192 return to coder. COMPATIBLE \u2192 proceed.
       - Run \`syntax_check\` tool. SYNTACTIC ERRORS \u2192 return to coder. NO ERRORS \u2192 proceed to placeholder_scan.
       - Run \`placeholder_scan\` tool. PLACEHOLDER FINDINGS \u2192 return to coder. NO FINDINGS \u2192 proceed to imports check.
       - Run \`imports\` tool. Record results for dependency audit. Proceed to lint fix.
       - Run \`lint\` tool (mode: fix) \u2192 allow auto-corrections. LINT FIX FAILS \u2192 return to coder. SUCCESS \u2192 proceed to build_check.
       - Run \`build_check\` tool. BUILD FAILS \u2192 return to coder. SUCCESS \u2192 proceed to pre_check_batch.
-      - Run \`pre_check_batch\` tool \u2192 runs four verification tools in parallel (max 4 concurrent):
-        - lint:check (code quality verification)
-        - secretscan (secret detection)
-        - sast_scan (static security analysis)
-        - quality_budget (maintainability metrics)
-        \u2192 Returns { gates_passed, lint, secretscan, sast_scan, quality_budget, total_duration_ms }
-        \u2192 If gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to @coder with specific tool failures. Do NOT call @reviewer.
-        \u2192 If gates_passed === true: proceed to @reviewer.
+      - Run \`pre_check_batch\` tool. If gates_passed === false: return to coder. If gates_passed === true: proceed to @reviewer.
     - Delegate {{AGENT_PREFIX}}reviewer with CHECK dimensions. REJECTED \u2192 return to coder (max {{QA_RETRY_LIMIT}} attempts). APPROVED \u2192 continue.
     - If file matches security globs (auth, api, crypto, security, middleware, session, token, config/, env, credentials, authorization, roles, permissions, access) OR content has security keywords (see SECURITY_KEYWORDS list) OR secretscan has ANY findings OR sast_scan has ANY findings at or above threshold \u2192 MUST delegate {{AGENT_PREFIX}}reviewer AGAIN with security-only CHECK review. REJECTED \u2192 return to coder (max {{QA_RETRY_LIMIT}} attempts). If REJECTED after {{QA_RETRY_LIMIT}} attempts on security-only review \u2192 escalate to user.
    - Delegate {{AGENT_PREFIX}}test_engineer for verification tests. FAIL \u2192 return to coder.
@@ -33199,6 +33409,9 @@ function createAgents(config2) {
 }
 function getAgentConfigs(config2) {
   const agents = createAgents(config2);
+  const toolFilterEnabled = config2?.tool_filter?.enabled ?? true;
+  const toolFilterOverrides = config2?.tool_filter?.overrides ?? {};
+  const warnedMissingWhitelist = new Set;
   return Object.fromEntries(agents.map((agent) => {
     const sdkConfig = {
       ...agent.config,
@@ -33208,6 +33421,41 @@ function getAgentConfigs(config2) {
       sdkConfig.mode = "primary";
     } else {
       sdkConfig.mode = "subagent";
+    }
+    const baseAgentName = stripKnownSwarmPrefix(agent.name);
+    if (!toolFilterEnabled) {
+      sdkConfig.tools = agent.config.tools ?? {};
+      return [agent.name, sdkConfig];
+    }
+    let allowedTools;
+    const override = toolFilterOverrides[baseAgentName];
+    if (override !== undefined) {
+      allowedTools = override;
+    } else {
+      allowedTools = AGENT_TOOL_MAP[baseAgentName];
+    }
+    if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
+      if (!warnedMissingWhitelist.has(baseAgentName)) {
+        console.warn(`[getAgentConfigs] Unknown agent '${baseAgentName}', defaulting to minimal toolset.`);
+        warnedMissingWhitelist.add(baseAgentName);
+      }
+    }
+    const originalTools = agent.config.tools ? { ...agent.config.tools } : undefined;
+    if (allowedTools) {
+      const baseTools = originalTools ?? {};
+      const disabledTools = Object.fromEntries(Object.entries(baseTools).filter(([, value]) => value === false));
+      const filteredTools = { ...disabledTools };
+      for (const tool of allowedTools) {
+        if (filteredTools[tool] === false)
+          continue;
+        filteredTools[tool] = true;
+      }
+      sdkConfig.tools = filteredTools;
+    } else {
+      sdkConfig.tools = {
+        write: false,
+        edit: false
+      };
     }
     return [agent.name, sdkConfig];
   }));
@@ -35706,6 +35954,153 @@ function extractIncompleteTasksFromPlan(plan, maxChars = 500) {
     return text;
   return `${text.slice(0, maxChars)}...`;
 }
+function extractPlanCursor(planContent, options) {
+  const maxTokens = options?.maxTokens ?? 1500;
+  const maxChars = maxTokens * 4;
+  const lookaheadCount = options?.lookaheadTasks ?? 2;
+  if (!planContent || typeof planContent !== "string") {
+    return `[SWARM PLAN CURSOR]
+No plan content available. Start by creating a .swarm/plan.md file.
+[/SWARM PLAN CURSOR]`;
+  }
+  const lines = planContent.split(`
+`);
+  const result = [];
+  result.push("[SWARM PLAN CURSOR]");
+  const phases = [];
+  let currentPhase = null;
+  let inPhase = false;
+  for (let i2 = 0;i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const trimmed = line.trim();
+    const phaseMatch = trimmed.match(/^## Phase (\d+):?\s*(.*?)\s*\[(COMPLETE|IN PROGRESS|PENDING|BLOCKED)\]/i);
+    if (phaseMatch) {
+      if (currentPhase) {
+        phases.push(currentPhase);
+      }
+      const phaseNum = parseInt(phaseMatch[1], 10);
+      const phaseTitle = phaseMatch[2]?.trim() || "";
+      const status = phaseMatch[3].toUpperCase();
+      currentPhase = {
+        number: phaseNum,
+        title: phaseTitle,
+        status,
+        contentLines: []
+      };
+      inPhase = true;
+      continue;
+    }
+    if (inPhase && (line.startsWith("## ") || trimmed === "---")) {
+      if (currentPhase) {
+        phases.push(currentPhase);
+      }
+      currentPhase = null;
+      inPhase = false;
+      continue;
+    }
+    if (currentPhase && inPhase && trimmed) {
+      currentPhase.contentLines.push(line);
+    }
+  }
+  if (currentPhase) {
+    phases.push(currentPhase);
+  }
+  if (phases.length === 0) {
+    result.push("No phases found in plan.");
+    result.push("[/SWARM PLAN CURSOR]");
+    return result.join(`
+`);
+  }
+  const inProgressPhase = phases.find((p) => p.status === "IN PROGRESS");
+  const completePhases = phases.filter((p) => p.status === "COMPLETE");
+  const pendingPhases = phases.filter((p) => p.status === "PENDING");
+  if (completePhases.length > 0) {
+    const recentComplete = completePhases.slice(-5);
+    if (completePhases.length > 5) {
+      result.push("");
+      result.push(`## Earlier Phases (${completePhases.length - 5} more)`);
+      result.push(`- Phase 1-${completePhases.length - 5}: Complete`);
+    }
+    result.push("");
+    result.push("## Completed Phases");
+    for (const phase of recentComplete) {
+      const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 3);
+      const taskSummary = taskLines.length > 0 ? taskLines.join(", ") : "All tasks complete";
+      result.push(`- Phase ${phase.number}: ${phase.title}`);
+      result.push(`  - ${taskSummary}`);
+    }
+  }
+  const incompleteTasks = inProgressPhase ? inProgressPhase.contentLines.filter((l) => l.trim().startsWith("- [ ]")).map((l) => l.trim()) : [];
+  if (inProgressPhase) {
+    result.push("");
+    result.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+    result.push(`- ${inProgressPhase.title}`);
+    if (incompleteTasks.length > 0) {
+      const currentTask = incompleteTasks[0];
+      result.push("");
+      result.push(`- Current: ${currentTask.replace("- [ ] ", "")}`);
+      const lookahead = incompleteTasks.slice(1, 1 + lookaheadCount);
+      for (let i2 = 0;i2 < lookahead.length; i2++) {
+        result.push(`- Next: ${lookahead[i2].replace("- [ ] ", "")}`);
+      }
+    } else {
+      result.push("- (No pending tasks)");
+    }
+  }
+  const nextPending = pendingPhases[0];
+  if (nextPending) {
+    result.push("");
+    result.push(`## Phase ${nextPending.number} [PENDING]`);
+    result.push(`- ${nextPending.title}`);
+  }
+  let output = result.join(`
+`);
+  output += `
+[/SWARM PLAN CURSOR]`;
+  if (output.length > maxChars) {
+    const compactResult = [];
+    compactResult.push("[SWARM PLAN CURSOR]");
+    if (completePhases.length > 0) {
+      compactResult.push("## Completed Phases");
+      const recentCompact = completePhases.slice(-3);
+      for (const phase of recentCompact) {
+        const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 1);
+        const taskSummary = taskLines.length > 0 ? taskLines[0] : "Complete";
+        compactResult.push(`- Phase ${phase.number}: ${taskSummary}`);
+      }
+      if (completePhases.length > 3) {
+        compactResult.push(`- Earlier: Phase 1-${completePhases.length - 3} complete`);
+      }
+    }
+    if (inProgressPhase) {
+      compactResult.push("");
+      compactResult.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+      compactResult.push(`- ${inProgressPhase.title}`);
+      if (incompleteTasks.length > 0) {
+        const truncateTask = (task) => {
+          const text = task.replace("- [ ] ", "");
+          return text.length > 60 ? text.slice(0, 57) + "..." : text;
+        };
+        compactResult.push(`- Current: ${truncateTask(incompleteTasks[0])}`);
+        const lookahead = incompleteTasks.slice(1, 1 + Math.min(lookaheadCount, 1));
+        for (const task of lookahead) {
+          compactResult.push(`- Next: ${truncateTask(task)}`);
+        }
+      } else {
+        compactResult.push("- (No pending tasks)");
+      }
+    }
+    if (nextPending) {
+      compactResult.push("");
+      compactResult.push(`## Phase ${nextPending.number} [PENDING]`);
+      compactResult.push(`- ${nextPending.title}`);
+    }
+    compactResult.push("[/SWARM PLAN CURSOR]");
+    output = compactResult.join(`
+`);
+  }
+  return output;
+}
 
 // src/services/status-service.ts
 init_utils2();
@@ -37188,27 +37583,21 @@ function createSystemEnhancerHook(config3, directory) {
         const scoringEnabled = config3.context_budget?.scoring?.enabled === true;
         if (!scoringEnabled) {
           const plan2 = await loadPlan(directory);
+          let planContent = null;
+          let phaseHeader = "";
           if (plan2 && plan2.migration_status !== "migration_failed") {
-            const currentPhase2 = extractCurrentPhaseFromPlan(plan2);
-            if (currentPhase2) {
-              tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase2}`);
-            }
-            const currentTask2 = extractCurrentTaskFromPlan(plan2);
-            if (currentTask2) {
-              tryInject(`[SWARM CONTEXT] Current task: ${currentTask2}`);
-            }
+            phaseHeader = extractCurrentPhaseFromPlan(plan2) || "";
+            planContent = await readSwarmFileAsync(directory, "plan.md");
           } else {
-            const planContent = await readSwarmFileAsync(directory, "plan.md");
-            if (planContent) {
-              const currentPhase2 = extractCurrentPhase(planContent);
-              if (currentPhase2) {
-                tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase2}`);
-              }
-              const currentTask2 = extractCurrentTask(planContent);
-              if (currentTask2) {
-                tryInject(`[SWARM CONTEXT] Current task: ${currentTask2}`);
-              }
-            }
+            planContent = await readSwarmFileAsync(directory, "plan.md");
+            phaseHeader = planContent ? extractCurrentPhase(planContent) || "" : "";
+          }
+          if (phaseHeader) {
+            tryInject(`[SWARM CONTEXT] Phase: ${phaseHeader}`);
+          }
+          if (planContent) {
+            const planCursor = extractPlanCursor(planContent);
+            tryInject(planCursor);
           }
           if (contextContent) {
             const decisions = extractDecisions(contextContent, 200);
@@ -37341,6 +37730,7 @@ function createSystemEnhancerHook(config3, directory) {
         const userScoringConfig = config3.context_budget?.scoring;
         const candidates = [];
         let idCounter = 0;
+        let planContentForCursor = null;
         const effectiveConfig = userScoringConfig?.weights ? {
           ...DEFAULT_SCORING_CONFIG,
           ...userScoringConfig,
@@ -37353,10 +37743,10 @@ function createSystemEnhancerHook(config3, directory) {
           currentPhase = extractCurrentPhaseFromPlan(plan);
           currentTask = extractCurrentTaskFromPlan(plan);
         } else {
-          const planContent = await readSwarmFileAsync(directory, "plan.md");
-          if (planContent) {
-            currentPhase = extractCurrentPhase(planContent);
-            currentTask = extractCurrentTask(planContent);
+          planContentForCursor = await readSwarmFileAsync(directory, "plan.md");
+          if (planContentForCursor) {
+            currentPhase = extractCurrentPhase(planContentForCursor);
+            currentTask = extractCurrentTask(planContentForCursor);
           }
         }
         if (currentPhase) {
@@ -37382,6 +37772,17 @@ function createSystemEnhancerHook(config3, directory) {
               contentType: estimateContentType(text),
               isCurrentTask: true
             }
+          });
+        }
+        if (planContentForCursor) {
+          const planCursor = extractPlanCursor(planContentForCursor);
+          candidates.push({
+            id: `candidate-${idCounter++}`,
+            kind: "phase",
+            text: planCursor,
+            tokens: estimateTokens(planCursor),
+            priority: 1,
+            metadata: { contentType: "markdown" }
           });
         }
         if (contextContent) {

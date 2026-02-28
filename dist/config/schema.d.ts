@@ -1,4 +1,19 @@
 import { z } from 'zod';
+/**
+ * Strips known Swarm prefixes from agent names to get the canonical agent name.
+ *
+ * Strategy:
+ * 1. First try stripping known prefixes from the front (e.g., 'paid_architect' -> 'architect')
+ * 2. If that doesn't yield a known agent, check if the name ENDS with a known agent name
+ *    (e.g., 'not-an-architect' -> 'architect', 'team-alpha-reviewer' -> 'reviewer')
+ *
+ * Supports underscore, hyphen, and space separators.
+ * Case-insensitive matching, but returns the canonical lowercase agent name.
+ *
+ * @param agentName - The potentially prefixed agent name
+ * @returns The canonical agent name, or the original if no known agent found
+ */
+export declare function stripKnownSwarmPrefix(agentName: string): string;
 export declare const AgentOverrideConfigSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
     temperature: z.ZodOptional<z.ZodNumber>;
@@ -269,32 +284,34 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
 /**
- * Strip any swarm prefix from an agent name to get the base agent name.
- * Works with any swarm name by checking if the name (or suffix after removing
- * a prefix) matches a known agent name from ALL_AGENT_NAMES.
+ * Resolves guardrails configuration for a specific agent.
  *
- * Normalization handles:
- * - Case-insensitive matching (e.g., "PAID_ARCHITECT" → "architect")
- * - Multiple separators: underscore, hyphen, space (e.g., "paid-architect", "paid architect")
+ * Resolution order (later values override earlier):
+ * 1. Base config values
+ * 2. Built-in agent profile defaults from DEFAULT_AGENT_PROFILES (known agents only)
+ * 3. User profile overrides - checks in order:
+ *    a. config.profiles[originalAgentName] (e.g., 'paid_coder')
+ *    b. config.profiles[canonicalName] (e.g., 'coder')
  *
- * Examples: 'local_architect' → 'architect', 'enterprise_coder' → 'coder',
- *           'paid-architect' → 'architect', 'PAID_ARCHITECT' → 'architect',
- *           'architect' → 'architect', 'unknown_thing' → 'unknown_thing'
+ * For prefixed agent names (e.g., 'local_coder'), strips prefixes using stripKnownSwarmPrefix.
+ * Unknown agent names get base config + user profile (NOT architect defaults - prevents bypass).
  *
- * @param name - The agent name (possibly prefixed)
- * @returns The base agent name if recognized, or the original name
+ * @param config - The base guardrails configuration
+ * @param agentName - Optional agent name to resolve profile for
+ * @returns Resolved configuration object
  */
-export declare function stripKnownSwarmPrefix(name: string): string;
-/**
- * Resolve guardrails configuration for a specific agent.
- * Merges the base config with built-in agent-type defaults and
- * any per-agent profile overrides. Merge order: base < built-in < user profile.
- *
- * @param base - The base guardrails configuration
- * @param agentName - Optional agent name to look up profile overrides
- * @returns The effective guardrails configuration for the agent
- */
-export declare function resolveGuardrailsConfig(base: GuardrailsConfig, agentName?: string): GuardrailsConfig;
+export declare function resolveGuardrailsConfig(config: GuardrailsConfig, agentName?: string): GuardrailsConfig;
+export declare const ToolFilterConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    overrides: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>>;
+}, z.core.$strip>;
+export type ToolFilterConfig = z.infer<typeof ToolFilterConfigSchema>;
+export declare const PlanCursorConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    max_tokens: z.ZodDefault<z.ZodNumber>;
+    lookahead_tasks: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type PlanCursorConfig = z.infer<typeof PlanCursorConfigSchema>;
 export declare const CheckpointConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     auto_checkpoint_threshold: z.ZodDefault<z.ZodNumber>;
@@ -440,6 +457,15 @@ export declare const PluginConfigSchema: z.ZodObject<{
             warning_threshold: z.ZodOptional<z.ZodNumber>;
             idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
         }, z.core.$strip>>>;
+    }, z.core.$strip>>;
+    tool_filter: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        overrides: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>>;
+    }, z.core.$strip>>;
+    plan_cursor: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        max_tokens: z.ZodDefault<z.ZodNumber>;
+        lookahead_tasks: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     evidence: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

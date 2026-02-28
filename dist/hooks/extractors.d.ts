@@ -37,3 +37,17 @@ export declare function extractCurrentTaskFromPlan(plan: Plan): string | null;
  * Extracts incomplete tasks from the current phase of a Plan object.
  */
 export declare function extractIncompleteTasksFromPlan(plan: Plan, maxChars?: number): string | null;
+/**
+ * Extracts plan cursor - a concise summary of current phase, current task,
+ * and lookahead tasks for context-aware agent communication.
+ *
+ * @param planContent - The raw plan markdown content
+ * @param options - Optional configuration
+ * @param options.maxTokens - Target max tokens (default 1500, ~6000 chars)
+ * @param options.lookaheadTasks - Number of lookahead tasks (default 2)
+ * @returns A [SWARM PLAN CURSOR] block with phase summaries and task details
+ */
+export declare function extractPlanCursor(planContent: string, options?: {
+    maxTokens?: number;
+    lookaheadTasks?: number;
+}): string;
