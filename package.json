@@ -9,6 +9,14 @@
 	},
 	"type": "module",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/zaxbysauce/opencode-swarm.git"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
 	"keywords": [
 		"opencode",
 		"opencode-plugin",

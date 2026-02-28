@@ -1,4 +1,3 @@
-﻿# .github/workflows/release-and-publish.yml
 name: release-and-publish
 
 on:
@@ -8,28 +7,41 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.rp.outputs.releases_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   publish-npm:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-      - run: npm ci
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
+
       - run: npm publish --access public
-
-
-
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
