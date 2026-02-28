@@ -49,7 +49,13 @@ function loadRawConfigFromPath(configPath: string): {
 			return { config: null, fileExisted: true, hadError: true };
 		}
 
-		const rawConfig = JSON.parse(content);
+		// SECURITY: Strip UTF-8 BOM from file content
+		// BOM is a common marker that should be normalized, but must be at start of file
+		let sanitizedContent = content;
+		if (content.charCodeAt(0) === 0xfeff) {
+			sanitizedContent = content.slice(1);
+		}
+		const rawConfig = JSON.parse(sanitizedContent);
 
 		if (
 			typeof rawConfig !== 'object' ||

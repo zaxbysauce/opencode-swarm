@@ -19,6 +19,13 @@ export async function loadPlanJsonOnly(
 ): Promise<Plan | null> {
 	const planJsonContent = await readSwarmFileAsync(directory, 'plan.json');
 	if (planJsonContent !== null) {
+		// SECURITY: Reject content with null bytes (injection) or invalid UTF-8 (corruption markers)
+		if (planJsonContent.includes('\0') || planJsonContent.includes('\uFFFD')) {
+			warn(
+				'Plan rejected: .swarm/plan.json contains null bytes or invalid encoding',
+			);
+			return null;
+		}
 		try {
 			const parsed = JSON.parse(planJsonContent);
 			const validated = PlanSchema.parse(parsed);
@@ -173,38 +180,46 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 	// Step 1: Try to load and validate plan.json
 	const planJsonContent = await readSwarmFileAsync(directory, 'plan.json');
 	if (planJsonContent !== null) {
-		try {
-			const parsed = JSON.parse(planJsonContent);
-			const validated = PlanSchema.parse(parsed);
-
-			// Auto-heal case 1: Valid plan.json exists, check if plan.md needs regeneration
-			const inSync = await isPlanMdInSync(directory, validated);
-			if (!inSync) {
-				try {
-					await regeneratePlanMarkdown(directory, validated);
-				} catch (regenError) {
-					// Log warning but don't fail - plan.json is valid
-					warn(
-						`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`,
-					);
-				}
-			}
-
-			return validated;
-		} catch (error) {
-			// Step 2: Validation failed, log warning and fall through to legacy
+		// SECURITY: Reject content with null bytes or invalid UTF-8
+		if (planJsonContent.includes('\0') || planJsonContent.includes('\uFFFD')) {
 			warn(
-				`Plan validation failed for .swarm/plan.json: ${error instanceof Error ? error.message : String(error)}`,
+				'Plan rejected: .swarm/plan.json contains null bytes or invalid encoding',
 			);
-			// Auto-heal case 2: plan.json invalid but plan.md exists -> migrate from plan.md
-			const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
-			if (planMdContent !== null) {
-				const migrated = migrateLegacyPlan(planMdContent);
-				// savePlan writes both plan.json and plan.md
-				await savePlan(directory, migrated);
-				return migrated;
+			// Skip to plan.md migration path - don't parse tainted content
+		} else {
+			try {
+				const parsed = JSON.parse(planJsonContent);
+				const validated = PlanSchema.parse(parsed);
+
+				// Auto-heal case 1: Valid plan.json exists, check if plan.md needs regeneration
+				const inSync = await isPlanMdInSync(directory, validated);
+				if (!inSync) {
+					try {
+						await regeneratePlanMarkdown(directory, validated);
+					} catch (regenError) {
+						// Log warning but don't fail - plan.json is valid
+						warn(
+							`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`,
+						);
+					}
+				}
+
+				return validated;
+			} catch (error) {
+				// Step 2: Validation failed, log warning and fall through to legacy
+				warn(
+					`Plan validation failed for .swarm/plan.json: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				// Auto-heal case 2: plan.json invalid but plan.md exists -> migrate from plan.md
+				const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
+				if (planMdContent !== null) {
+					const migrated = migrateLegacyPlan(planMdContent);
+					// savePlan writes both plan.json and plan.md
+					await savePlan(directory, migrated);
+					return migrated;
+				}
+				// If plan.md doesn't exist either, fall through to step 3
 			}
-			// If plan.md doesn't exist either, fall through to step 3
 		}
 	}
 

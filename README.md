@@ -366,23 +366,37 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
   "automation": {
     "mode": "manual",
     "capabilities": {
-      "plan_sync": false,
+      "plan_sync": true,
       "phase_preflight": false,
       "config_doctor_on_startup": false,
-      "evidence_auto_summaries": false,
-      "decision_drift_detection": false
+      "config_doctor_autofix": false,
+      "evidence_auto_summaries": true,
+      "decision_drift_detection": true
     }
   }
 }
 ```
 
-### Automation Modes
+### Automation
 
-| Mode | Behavior |
-|------|----------|
-| `manual` | No background automation (default) |
-| `hybrid` | Background automation for safe ops, manual for sensitive ones |
-| `auto` | Full background automation |
+Default mode: `manual`. No background automation — all actions require explicit slash commands.
+
+Modes:
+
+- `manual` — No background automation. All actions via slash commands (default).
+- `hybrid` — Background automation for safe operations, manual for sensitive ones.
+- `auto` — Full background automation.
+
+Capability defaults:
+
+- `plan_sync`: `true` — Background plan synchronization using `fs.watch` with debounced writes (300ms) and 2-second polling fallback
+- `phase_preflight`: `false` — Phase preflight checks before agent execution (opt-in)
+- `config_doctor_on_startup`: `false` — Validate configuration on startup
+- `config_doctor_autofix`: `false` — Auto-fix for config doctor (opt-in, security-sensitive)
+- `evidence_auto_summaries`: `true` — Automatic summaries for evidence bundles
+- `decision_drift_detection`: `true` — Detect drift between planned and actual decisions
+
+---
 
 ### Disabling Agents
 
