@@ -5,6 +5,8 @@ node_modules/
 .test-plan-sync-*/
 # Gate workflow test directories
 gate-workflow-test-*/
+# Adversarial detector test temp directories
+.test-adversarial-*/
 # Test output artifacts
 test-results.xml
 test_output.txt
