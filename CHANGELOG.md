@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.12.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.12.0...v6.12.1) (2026-02-28)
+
+
+### Bug Fixes
+
+* TypeScript errors from optional current_phase ([284bc5f](https://github.com/zaxbysauce/opencode-swarm/commit/284bc5f574ef87210063c0bc8abe3fcd165b5886))
+
 ## [6.13.0] - 2026-02-28
 
 ### Added
