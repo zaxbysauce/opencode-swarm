@@ -311,10 +311,11 @@ export function derivePlanMarkdown(plan: Plan): string {
 	};
 
 	const now = new Date().toISOString();
+	const currentPhase = plan.current_phase ?? 1;
 	const phaseStatus =
-		statusMap[plan.phases[plan.current_phase - 1]?.status] || 'PENDING';
+		statusMap[plan.phases[currentPhase - 1]?.status] || 'PENDING';
 
-	let markdown = `# ${plan.title}\nSwarm: ${plan.swarm}\nPhase: ${plan.current_phase} [${phaseStatus}] | Updated: ${now}\n`;
+	let markdown = `# ${plan.title}\nSwarm: ${plan.swarm}\nPhase: ${currentPhase} [${phaseStatus}] | Updated: ${now}\n`;
 
 	// Sort phases deterministically by ID (ascending)
 	const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);

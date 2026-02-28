@@ -74,7 +74,7 @@ function extractFromPlan(plan: Plan): HistoryData {
 		phases.push({
 			id: phase.id,
 			name: phase.name,
-			status: phase.status,
+			status: phase.status === 'completed' ? 'complete' : phase.status,
 			statusText: getStatusText(phase.status),
 			statusIcon: getStatusIcon(phase.status),
 			completedTasks: completed,

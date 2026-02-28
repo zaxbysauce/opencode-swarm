@@ -19,6 +19,7 @@ import {
 } from './config/schema';
 import {
 	composeHandlers,
+	consolidateSystemMessages,
 	createAgentActivityHooks,
 	createCompactionCustomizerHook,
 	createContextBudgetHandler,
@@ -341,6 +342,14 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
 				delegationGateHandler,
+				// Final transformation: consolidate multiple system messages into one
+				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {
+					if (output.messages) {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+						output.messages = consolidateSystemMessages(output.messages as any);
+					}
+					return Promise.resolve();
+				},
 			].filter((fn): fn is NonNullable<typeof fn> => Boolean(fn)),
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		) as any,

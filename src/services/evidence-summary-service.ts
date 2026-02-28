@@ -464,7 +464,7 @@ export async function buildEvidenceSummary(
 		schema_version: EVIDENCE_SUMMARY_VERSION,
 		generated_at: new Date().toISOString(),
 		planTitle: plan.title,
-		currentPhase: currentPhase ?? plan.current_phase,
+		currentPhase: currentPhase ?? plan.current_phase ?? 1,
 		phaseSummaries,
 		overallCompletionRatio,
 		overallBlockers,

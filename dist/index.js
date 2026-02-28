@@ -14150,6 +14150,7 @@ var init_plan_schema = __esm(() => {
     "pending",
     "in_progress",
     "complete",
+    "completed",
     "blocked"
   ]);
   MigrationStatusSchema = exports_external.enum([
@@ -14179,7 +14180,7 @@ var init_plan_schema = __esm(() => {
     schema_version: exports_external.literal("1.0.0"),
     title: exports_external.string().min(1),
     swarm: exports_external.string().min(1),
-    current_phase: exports_external.number().int().min(1),
+    current_phase: exports_external.number().int().min(1).optional(),
     phases: exports_external.array(PhaseSchema).min(1),
     migration_status: MigrationStatusSchema.optional()
   });
@@ -14720,10 +14721,11 @@ function derivePlanMarkdown(plan) {
     blocked: "BLOCKED"
   };
   const now = new Date().toISOString();
-  const phaseStatus = statusMap[plan.phases[plan.current_phase - 1]?.status] || "PENDING";
+  const currentPhase = plan.current_phase ?? 1;
+  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
   let markdown = `# ${plan.title}
 Swarm: ${plan.swarm}
-Phase: ${plan.current_phase} [${phaseStatus}] | Updated: ${now}
+Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
 `;
   const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
   for (const phase of sortedPhases) {
@@ -15146,7 +15148,7 @@ async function buildEvidenceSummary(directory, currentPhase) {
     schema_version: EVIDENCE_SUMMARY_VERSION,
     generated_at: new Date().toISOString(),
     planTitle: plan.title,
-    currentPhase: currentPhase ?? plan.current_phase,
+    currentPhase: currentPhase ?? plan.current_phase ?? 1,
     phaseSummaries,
     overallCompletionRatio,
     overallBlockers,
@@ -32051,7 +32053,12 @@ var PluginConfigSchema = exports_external.object({
   lint: LintConfigSchema.optional(),
   secretscan: SecretscanConfigSchema.optional(),
   checkpoint: CheckpointConfigSchema.optional(),
-  automation: AutomationConfigSchema.optional()
+  automation: AutomationConfigSchema.optional(),
+  tool_output: exports_external.object({
+    truncation_enabled: exports_external.boolean().default(true),
+    max_lines: exports_external.number().min(10).max(500).default(150),
+    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional()
+  }).optional()
 });
 
 // src/config/loader.ts
@@ -35365,7 +35372,7 @@ function extractFromPlan(plan) {
     phases.push({
       id: phase.id,
       name: phase.name,
-      status: phase.status,
+      status: phase.status === "completed" ? "complete" : phase.status,
       statusText: getStatusText(phase.status),
       statusIcon: getStatusIcon(phase.status),
       completedTasks: completed,
@@ -37104,6 +37111,54 @@ function hashArgs(args2) {
     return 0;
   }
 }
+// src/hooks/messages-transform.ts
+function consolidateSystemMessages(messages) {
+  if (messages.length > 0 && messages[0].role === "system" && messages[0].content !== undefined && typeof messages[0].content === "string" && messages[0].content.trim().length > 0) {
+    const systemMessageCount = messages.filter((m) => m.role === "system" && typeof m.content === "string" && m.content.trim().length > 0 && m.tool_call_id === undefined && m.name === undefined).length;
+    if (systemMessageCount === 1) {
+      return [...messages];
+    }
+  }
+  const systemMessageIndices = [];
+  const systemContents = [];
+  for (let i2 = 0;i2 < messages.length; i2++) {
+    const message = messages[i2];
+    if (message.role !== "system") {
+      continue;
+    }
+    if (message.tool_call_id !== undefined || message.name !== undefined) {
+      continue;
+    }
+    if (typeof message.content !== "string") {
+      continue;
+    }
+    const trimmedContent = message.content.trim();
+    if (trimmedContent.length === 0) {
+      continue;
+    }
+    systemMessageIndices.push(i2);
+    systemContents.push(trimmedContent);
+  }
+  if (systemContents.length === 0) {
+    return [...messages];
+  }
+  const mergedSystemContent = systemContents.join(`
+
+`);
+  const result = [];
+  const firstSystemMessage = messages[systemMessageIndices[0]];
+  result.push({
+    role: "system",
+    content: mergedSystemContent,
+    ...Object.fromEntries(Object.entries(firstSystemMessage).filter(([key]) => key !== "role" && key !== "content"))
+  });
+  for (let i2 = 0;i2 < messages.length; i2++) {
+    if (!systemMessageIndices.includes(i2)) {
+      result.push({ ...messages[i2] });
+    }
+  }
+  return result;
+}
 // src/hooks/phase-monitor.ts
 init_manager2();
 init_utils2();
@@ -37113,7 +37168,7 @@ function createPhaseMonitorHook(directory, preflightManager) {
     const plan = await loadPlan(directory);
     if (!plan)
       return;
-    const currentPhase = plan.current_phase;
+    const currentPhase = plan.current_phase ?? 1;
     if (lastKnownPhase === null) {
       lastKnownPhase = currentPhase;
       return;
@@ -37582,7 +37637,13 @@ function createSystemEnhancerHook(config3, directory) {
         const contextContent = await readSwarmFileAsync(directory, "context.md");
         const scoringEnabled = config3.context_budget?.scoring?.enabled === true;
         if (!scoringEnabled) {
-          const plan2 = await loadPlan(directory);
+          let plan2 = null;
+          try {
+            plan2 = await loadPlan(directory);
+          } catch (error93) {
+            warn(`Failed to load plan: ${error93 instanceof Error ? error93.message : String(error93)}`);
+          }
+          const mode = await detectArchitectMode(directory);
           let planContent = null;
           let phaseHeader = "";
           if (plan2 && plan2.migration_status !== "migration_failed") {
@@ -37595,11 +37656,11 @@ function createSystemEnhancerHook(config3, directory) {
           if (phaseHeader) {
             tryInject(`[SWARM CONTEXT] Phase: ${phaseHeader}`);
           }
-          if (planContent) {
+          if (mode !== "DISCOVER" && planContent) {
             const planCursor = extractPlanCursor(planContent);
             tryInject(planCursor);
           }
-          if (contextContent) {
+          if (mode !== "DISCOVER" && contextContent) {
             const decisions = extractDecisions(contextContent, 200);
             if (decisions) {
               tryInject(`[SWARM CONTEXT] Key decisions: ${decisions}`);
@@ -37633,14 +37694,16 @@ function createSystemEnhancerHook(config3, directory) {
           if (config3.secretscan?.enabled === false) {
             tryInject("[SWARM CONFIG] Secretscan gate is DISABLED. Skip secretscan in QA sequence.");
           }
-          const sessionId_preflight = _input.sessionID;
-          const activeAgent_preflight = swarmState.activeAgent.get(sessionId_preflight ?? "");
-          const isArchitectForPreflight = !activeAgent_preflight || stripKnownSwarmPrefix(activeAgent_preflight) === "architect";
-          if (isArchitectForPreflight) {
-            if (config3.pipeline?.parallel_precheck !== false) {
-              tryInject("[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.");
-            } else {
-              tryInject("[SWARM HINT] Parallel pre-check disabled: run lint:check \u2192 secretscan \u2192 sast_scan \u2192 quality_budget sequentially.");
+          if (mode !== "DISCOVER") {
+            const sessionId_preflight = _input.sessionID;
+            const activeAgent_preflight = swarmState.activeAgent.get(sessionId_preflight ?? "");
+            const isArchitectForPreflight = !activeAgent_preflight || stripKnownSwarmPrefix(activeAgent_preflight) === "architect";
+            if (isArchitectForPreflight) {
+              if (config3.pipeline?.parallel_precheck !== false) {
+                tryInject("[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.");
+              } else {
+                tryInject("[SWARM HINT] Parallel pre-check disabled: run lint:check \u2192 secretscan \u2192 sast_scan \u2192 quality_budget sequentially.");
+              }
             }
           }
           const sessionId_retro = _input.sessionID;
@@ -37683,50 +37746,55 @@ function createSystemEnhancerHook(config3, directory) {
                 }
               }
             } catch {}
-            const compactionConfig = config3.compaction_advisory;
-            if (compactionConfig?.enabled !== false && sessionId_retro) {
-              const session = swarmState.agentSessions.get(sessionId_retro);
-              if (session) {
-                const totalToolCalls = Array.from(swarmState.toolAggregates.values()).reduce((sum, agg) => sum + agg.count, 0);
-                const thresholds = compactionConfig?.thresholds ?? [
-                  50,
-                  75,
-                  100,
-                  125,
-                  150
-                ];
-                const lastHint = session.lastCompactionHint || 0;
-                for (const threshold of thresholds) {
-                  if (totalToolCalls >= threshold && lastHint < threshold) {
-                    const totalToolCallsPlaceholder = "$" + "{totalToolCalls}";
-                    const messageTemplate = compactionConfig?.message ?? `[SWARM HINT] Session has ${totalToolCallsPlaceholder} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
-                    const message = messageTemplate.replace(totalToolCallsPlaceholder, String(totalToolCalls));
-                    tryInject(message);
-                    session.lastCompactionHint = threshold;
-                    break;
+            if (mode !== "DISCOVER") {
+              const compactionConfig = config3.compaction_advisory;
+              if (compactionConfig?.enabled !== false && sessionId_retro) {
+                const session = swarmState.agentSessions.get(sessionId_retro);
+                if (session) {
+                  const totalToolCalls = Array.from(swarmState.toolAggregates.values()).reduce((sum, agg) => sum + agg.count, 0);
+                  const thresholds = compactionConfig?.thresholds ?? [
+                    50,
+                    75,
+                    100,
+                    125,
+                    150
+                  ];
+                  const lastHint = session.lastCompactionHint || 0;
+                  for (const threshold of thresholds) {
+                    if (totalToolCalls >= threshold && lastHint < threshold) {
+                      const totalToolCallsPlaceholder = "$" + "{totalToolCalls}";
+                      const messageTemplate = compactionConfig?.message ?? `[SWARM HINT] Session has ${totalToolCallsPlaceholder} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
+                      const message = messageTemplate.replace(totalToolCallsPlaceholder, String(totalToolCalls));
+                      tryInject(message);
+                      session.lastCompactionHint = threshold;
+                      break;
+                    }
                   }
                 }
               }
             }
           }
-          const automationCapabilities = config3.automation?.capabilities;
-          if (automationCapabilities?.decision_drift_detection === true && _input.sessionID) {
-            const activeAgentForDrift = swarmState.activeAgent.get(_input.sessionID);
-            const isArchitectForDrift = !activeAgentForDrift || stripKnownSwarmPrefix(activeAgentForDrift) === "architect";
-            if (isArchitectForDrift) {
-              try {
-                const driftResult = await analyzeDecisionDrift(directory);
-                if (driftResult.hasDrift) {
-                  const driftText = formatDriftForContext(driftResult);
-                  if (driftText) {
-                    tryInject(driftText);
+          if (mode !== "DISCOVER") {
+            const automationCapabilities = config3.automation?.capabilities;
+            if (automationCapabilities?.decision_drift_detection === true && _input.sessionID) {
+              const activeAgentForDrift = swarmState.activeAgent.get(_input.sessionID);
+              const isArchitectForDrift = !activeAgentForDrift || stripKnownSwarmPrefix(activeAgentForDrift) === "architect";
+              if (isArchitectForDrift) {
+                try {
+                  const driftResult = await analyzeDecisionDrift(directory);
+                  if (driftResult.hasDrift) {
+                    const driftText = formatDriftForContext(driftResult);
+                    if (driftText) {
+                      tryInject(driftText);
+                    }
                   }
-                }
-              } catch {}
+                } catch {}
+              }
             }
           }
           return;
         }
+        const mode_b = await detectArchitectMode(directory);
         const userScoringConfig = config3.context_budget?.scoring;
         const candidates = [];
         let idCounter = 0;
@@ -37736,7 +37804,12 @@ function createSystemEnhancerHook(config3, directory) {
           ...userScoringConfig,
           weights: userScoringConfig.weights
         } : DEFAULT_SCORING_CONFIG;
-        const plan = await loadPlan(directory);
+        let plan = null;
+        try {
+          plan = await loadPlan(directory);
+        } catch (error93) {
+          warn(`Failed to load plan: ${error93 instanceof Error ? error93.message : String(error93)}`);
+        }
         let currentPhase = null;
         let currentTask = null;
         if (plan && plan.migration_status !== "migration_failed") {
@@ -37940,34 +38013,36 @@ function createSystemEnhancerHook(config3, directory) {
               }
             }
           } catch {}
-          const compactionConfig_b = config3.compaction_advisory;
-          if (compactionConfig_b?.enabled !== false && sessionId_retro_b) {
-            const session_b = swarmState.agentSessions.get(sessionId_retro_b);
-            if (session_b) {
-              const totalToolCalls_b = Array.from(swarmState.toolAggregates.values()).reduce((sum, agg) => sum + agg.count, 0);
-              const thresholds_b = compactionConfig_b?.thresholds ?? [
-                50,
-                75,
-                100,
-                125,
-                150
-              ];
-              const lastHint_b = session_b.lastCompactionHint || 0;
-              for (const threshold of thresholds_b) {
-                if (totalToolCalls_b >= threshold && lastHint_b < threshold) {
-                  const totalToolCallsPlaceholder_b = "$" + "{totalToolCalls}";
-                  const messageTemplate_b = compactionConfig_b?.message ?? `[SWARM HINT] Session has ${totalToolCallsPlaceholder_b} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
-                  const compactionText = messageTemplate_b.replace(totalToolCallsPlaceholder_b, String(totalToolCalls_b));
-                  candidates.push({
-                    id: `candidate-${idCounter++}`,
-                    kind: "phase",
-                    text: compactionText,
-                    tokens: estimateTokens(compactionText),
-                    priority: 1,
-                    metadata: { contentType: "prose" }
-                  });
-                  session_b.lastCompactionHint = threshold;
-                  break;
+          if (mode_b !== "DISCOVER") {
+            const compactionConfig_b = config3.compaction_advisory;
+            if (compactionConfig_b?.enabled !== false && sessionId_retro_b) {
+              const session_b = swarmState.agentSessions.get(sessionId_retro_b);
+              if (session_b) {
+                const totalToolCalls_b = Array.from(swarmState.toolAggregates.values()).reduce((sum, agg) => sum + agg.count, 0);
+                const thresholds_b = compactionConfig_b?.thresholds ?? [
+                  50,
+                  75,
+                  100,
+                  125,
+                  150
+                ];
+                const lastHint_b = session_b.lastCompactionHint || 0;
+                for (const threshold of thresholds_b) {
+                  if (totalToolCalls_b >= threshold && lastHint_b < threshold) {
+                    const totalToolCallsPlaceholder_b = "$" + "{totalToolCalls}";
+                    const messageTemplate_b = compactionConfig_b?.message ?? `[SWARM HINT] Session has ${totalToolCallsPlaceholder_b} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
+                    const compactionText = messageTemplate_b.replace(totalToolCallsPlaceholder_b, String(totalToolCalls_b));
+                    candidates.push({
+                      id: `candidate-${idCounter++}`,
+                      kind: "phase",
+                      text: compactionText,
+                      tokens: estimateTokens(compactionText),
+                      priority: 1,
+                      metadata: { contentType: "prose" }
+                    });
+                    session_b.lastCompactionHint = threshold;
+                    break;
+                  }
                 }
               }
             }
@@ -38041,6 +38116,26 @@ ${activitySection}`;
     return `${contextSummary.substring(0, maxChars - 3)}...`;
   }
   return contextSummary;
+}
+async function detectArchitectMode(directory) {
+  try {
+    const plan = await loadPlan(directory);
+    if (!plan) {
+      return "DISCOVER";
+    }
+    const hasActiveTask = plan.phases?.some((phase) => phase.tasks?.some((task) => task.status === "in_progress")) ?? false;
+    if (hasActiveTask) {
+      return "EXECUTE";
+    }
+    const hasPendingTask = plan.phases?.some((phase) => phase.tasks?.some((task) => task.status === "pending")) ?? false;
+    if (!hasPendingTask) {
+      return "PHASE-WRAP";
+    }
+    return "PLAN";
+  } catch (error93) {
+    warn(`Failed to detect architect mode: ${error93 instanceof Error ? error93.message : String(error93)}`);
+    return "UNKNOWN";
+  }
 }
 // src/summaries/summarizer.ts
 var HYSTERESIS_FACTOR = 1.25;
@@ -48188,6 +48283,33 @@ var todo_extract = tool({
 });
 // src/index.ts
 init_utils();
+
+// src/utils/tool-output.ts
+function truncateToolOutput(output, maxLines, toolName) {
+  if (!output) {
+    return output;
+  }
+  const lines = output.split(`
+`);
+  if (lines.length <= maxLines) {
+    return output;
+  }
+  const omittedCount = lines.length - maxLines;
+  const truncated = lines.slice(0, maxLines);
+  const footerLines = [];
+  footerLines.push("");
+  footerLines.push(`[... ${omittedCount} line${omittedCount === 1 ? "" : "s"} omitted ...]`);
+  if (toolName) {
+    footerLines.push(`Tool: ${toolName}`);
+  }
+  footerLines.push("Use /swarm retrieve <id> to get the full content");
+  return truncated.join(`
+`) + `
+` + footerLines.join(`
+`);
+}
+
+// src/index.ts
 var OpenCodeSwarm = async (ctx) => {
   const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
   const agents = getAgentConfigs(config3);
@@ -48365,7 +48487,13 @@ var OpenCodeSwarm = async (ctx) => {
       pipelineHook["experimental.chat.messages.transform"],
       contextBudgetHandler,
       guardrailsHooks.messagesTransform,
-      delegationGateHandler
+      delegationGateHandler,
+      (_input, output) => {
+        if (output.messages) {
+          output.messages = consolidateSystemMessages(output.messages);
+        }
+        return Promise.resolve();
+      }
     ].filter((fn) => Boolean(fn))),
     "experimental.chat.system.transform": composeHandlers(...[
       systemEnhancerHook["experimental.chat.system.transform"],
@@ -48396,6 +48524,21 @@ var OpenCodeSwarm = async (ctx) => {
       await activityHooks.toolAfter(input, output);
       await guardrailsHooks.toolAfter(input, output);
       await toolSummarizerHook?.(input, output);
+      const toolOutputConfig = config3.tool_output;
+      if (toolOutputConfig && toolOutputConfig.truncation_enabled !== false && typeof output.output === "string") {
+        const skipTools = [
+          "pre_check_batch",
+          "pkg_audit",
+          "schema_drift",
+          "sbom_generate"
+        ];
+        if (!skipTools.includes(input.tool)) {
+          const maxLines = toolOutputConfig.per_tool?.[input.tool] ?? toolOutputConfig.max_lines ?? 150;
+          if (input.tool === "diff" || input.tool === "symbols") {
+            output.output = truncateToolOutput(output.output, maxLines, input.tool);
+          }
+        }
+      }
       if (input.tool === "task") {
         const sessionId = input.sessionID;
         swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);

@@ -14,6 +14,7 @@ export {
 	extractPatterns,
 } from './extractors';
 export { createGuardrailsHooks } from './guardrails';
+export { consolidateSystemMessages } from './messages-transform';
 export { createPhaseMonitorHook } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
 export { createSystemEnhancerHook } from './system-enhancer';

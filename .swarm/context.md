@@ -163,18 +163,20 @@ All 7 secretscan findings are false positives:
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 296 | 296 | 0 | 218ms |
-| bash | 237 | 237 | 0 | 1041ms |
-| edit | 161 | 161 | 0 | 922ms |
-| grep | 94 | 94 | 0 | 75ms |
-| task | 51 | 51 | 0 | 125441ms |
-| glob | 34 | 34 | 0 | 87ms |
-| retrieve_summary | 22 | 22 | 0 | 3ms |
-| write | 22 | 22 | 0 | 1611ms |
-| lint | 13 | 13 | 0 | 2509ms |
-| secretscan | 9 | 9 | 0 | 289ms |
-| invalid | 4 | 4 | 0 | 1ms |
-| test_runner | 1 | 1 | 0 | 3ms |
+| read | 77 | 77 | 0 | 5ms |
+| bash | 61 | 61 | 0 | 3210ms |
+| edit | 53 | 53 | 0 | 704ms |
+| grep | 23 | 23 | 0 | 44ms |
+| glob | 14 | 14 | 0 | 16ms |
+| task | 9 | 9 | 0 | 75542ms |
+| write | 9 | 9 | 0 | 2718ms |
+| retrieve_summary | 3 | 3 | 0 | 1ms |
+| lint | 3 | 3 | 0 | 2570ms |
+| diff | 2 | 2 | 0 | 24ms |
+| invalid | 2 | 2 | 0 | 1ms |
+| pre_check_batch | 2 | 2 | 0 | 1ms |
+| imports | 1 | 1 | 0 | 1ms |
+| test_runner | 1 | 1 | 0 | 1ms |
 ## v6.9.0 Release Retrospective (2026-02-25)
 
 ### Summary
@@ -412,3 +414,25 @@ All 11 tasks completed:
 6. Complete Task 3.1 (delegation-gate enhancement)
 7. Run full test suite (Tasks 4.1-4.5)
 8. Version bump and release
+
+---
+
+## v6.13.1 - System Message Consolidation (2026-02-27)
+
+### Project Overview
+- **Name:** opencode-swarm v6.13.1
+- **Goals:**
+  1. Consolidate system messages to prevent Jinja template errors
+  2. Fix tests from overwriting user config
+  3. Fix /swarm command template bug (`{{arguments}}` → `$ARGUMENTS`)
+  4. Fix default config schema mismatch (preset/presets → agents)
+
+### Key Files Identified
+- `src/index.ts:326` — Command template uses `{{arguments}}`
+- `src/index.ts:338-346` — messages.transform hook pipeline
+- `src/cli/index.ts:88-109` — Broken defaultConfig with preset/presets
+- `src/config/constants.ts:133-161` — DEFAULT_MODELS with stale IDs
+- `src/config/schema.ts:684` — PluginConfigSchema accepts `agents`, not `presets`
+
+### Current Status
+- Phase 1: Task 1.1 in progress

@@ -546,6 +546,11 @@ export declare const PluginConfigSchema: z.ZodObject<{
             decision_drift_detection: boolean;
         };
     }, unknown>>>;
+    tool_output: z.ZodOptional<z.ZodObject<{
+        truncation_enabled: z.ZodDefault<z.ZodBoolean>;
+        max_lines: z.ZodDefault<z.ZodNumber>;
+        per_tool: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 export type { AgentName, PipelineAgentName, QAAgentName, } from './constants';

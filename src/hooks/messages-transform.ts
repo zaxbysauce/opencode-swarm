@@ -22,11 +22,16 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 	) {
 		// Check if there's only one system message in the entire array
 		const systemMessageCount = messages.filter(
-			(m) => m.role === 'system' && typeof m.content === 'string',
+			(m) =>
+				m.role === 'system' &&
+				typeof m.content === 'string' &&
+				m.content.trim().length > 0 &&
+				m.tool_call_id === undefined &&
+				m.name === undefined,
 		).length;
 
 		if (systemMessageCount === 1) {
-			return messages;
+			return [...messages];
 		}
 	}
 
@@ -66,7 +71,7 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 
 	// If there are no system messages to merge, return unchanged
 	if (systemContents.length === 0) {
-		return messages;
+		return [...messages];
 	}
 
 	// Build the new array

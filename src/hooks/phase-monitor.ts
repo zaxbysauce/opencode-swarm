@@ -27,7 +27,7 @@ export function createPhaseMonitorHook(
 		const plan = await loadPlan(directory);
 		if (!plan) return;
 
-		const currentPhase = plan.current_phase;
+		const currentPhase = plan.current_phase ?? 1;
 
 		// First call: initialize without triggering
 		if (lastKnownPhase === null) {

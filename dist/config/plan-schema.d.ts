@@ -15,10 +15,23 @@ export type TaskSize = z.infer<typeof TaskSizeSchema>;
 export declare const PhaseStatusSchema: z.ZodEnum<{
     pending: "pending";
     in_progress: "in_progress";
+    completed: "completed";
     blocked: "blocked";
     complete: "complete";
 }>;
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
+/**
+ * Normalize phase status - 'completed' maps to 'complete'.
+ * @param status - The phase status to normalize
+ * @returns Normalized status ('completed' becomes 'complete')
+ */
+export declare function normalizePhaseStatus(status: PhaseStatus): PhaseStatus;
+/**
+ * Check if a phase status represents completion.
+ * @param status - The phase status to check
+ * @returns true if status is 'complete' or 'completed'
+ */
+export declare function isPhaseComplete(status: PhaseStatus): boolean;
 export declare const MigrationStatusSchema: z.ZodEnum<{
     native: "native";
     migrated: "migrated";
@@ -53,6 +66,7 @@ export declare const PhaseSchema: z.ZodObject<{
     status: z.ZodDefault<z.ZodEnum<{
         pending: "pending";
         in_progress: "in_progress";
+        completed: "completed";
         blocked: "blocked";
         complete: "complete";
     }>>;
@@ -83,13 +97,14 @@ export declare const PlanSchema: z.ZodObject<{
     schema_version: z.ZodLiteral<"1.0.0">;
     title: z.ZodString;
     swarm: z.ZodString;
-    current_phase: z.ZodNumber;
+    current_phase: z.ZodOptional<z.ZodNumber>;
     phases: z.ZodArray<z.ZodObject<{
         id: z.ZodNumber;
         name: z.ZodString;
         status: z.ZodDefault<z.ZodEnum<{
             pending: "pending";
             in_progress: "in_progress";
+            completed: "completed";
             blocked: "blocked";
             complete: "complete";
         }>>;
@@ -122,3 +137,15 @@ export declare const PlanSchema: z.ZodObject<{
     }>>;
 }, z.core.$strip>;
 export type Plan = z.infer<typeof PlanSchema>;
+/**
+ * Find the first phase that is in progress.
+ * @param phases - Array of phases
+ * @returns Phase number of first in-progress phase, or first phase if none
+ */
+export declare function findFirstActivePhase(phases: Phase[]): number | undefined;
+/**
+ * Get the current phase from a plan, with fallback inference.
+ * @param plan - The plan object
+ * @returns The current phase number, or inferred value, or 1 as last resort
+ */
+export declare function getCurrentPhase(plan: Plan): number;
