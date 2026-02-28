@@ -1,5 +1,36 @@
 # Changelog
 
+## [6.13.0] - 2026-02-28
+
+### Added
+- **Role-Scoped Tool Filtering**: AGENT_TOOL_MAP in src/config/constants.ts
+  - Architect gets all 17+ tools
+  - Other agents capped at 12 tools
+  - Config option: tool_filter.enabled/overrides
+
+- **Plan Cursor**: Compressed plan summary under 1,500 tokens
+  - extractPlanCursor in src/hooks/extractors.ts
+  - Priority 1 injection in system-enhancer
+  - Config: plan_cursor.enabled/max_tokens/lookahead_tasks
+
+- **Mode-Conditional System Injection**: detectArchitectMode in src/hooks/system-enhancer.ts
+  - DISCOVER/PLAN/EXECUTE/PHASE-WRAP/UNKNOWN modes
+  - DISCOVER mode suppresses: Plan Cursor, Decisions, Agent Context, Drift, Pre-Check
+  - Phase Header always injects
+
+- **Tool Output Truncation**: truncateToolOutput in src/utils/tool-output.ts
+  - Config: tool_output.truncation_enabled/max_lines/per_tool
+  - Only diff/symbols tools truncated by default
+  - Footer with omitted lines count and retrieval guidance
+
+- **ZodError Fixes**: src/config/plan-schema.ts
+  - current_phase now optional with inference fallback
+  - PhaseStatusSchema accepts both 'complete' and 'completed'
+  - loadPlan guarded with try-catch in system-enhancer
+
+### Tests
+- 209 new tests across 6 test files
+
 ## [6.12.0] - 2026-02-27
 
 ### Added

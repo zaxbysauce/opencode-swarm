@@ -591,6 +591,16 @@ The following tools can be assigned to agents via overrides:
 
 ## Recent Changes
 
+### v6.13.0 — Context Efficiency
+
+This release focuses on reducing context usage and improving mode-conditional behavior:
+
+- **Role-Scoped Tool Filtering**: Agent tools filtered via AGENT_TOOL_MAP
+- **Plan Cursor**: Compressed plan summary under 1,500 tokens
+- **Mode Detection**: DISCOVER/PLAN/EXECUTE/PHASE-WRAP/UNKNOWN modes
+- **Tool Output Truncation**: diff/symbols outputs truncated with footer
+- **ZodError Fixes**: Optional current_phase, 'completed' status support
+
 ### v6.12.0 — Anti-Process-Violation Hardening
 
 This release adds runtime detection hooks to catch and warn about architect workflow violations:
@@ -630,7 +640,7 @@ bun test
 
 See [CHANGELOG.md](CHANGELOG.md) for shipped features.
 
-Upcoming: v6.12 targets process violation hardening based on field testing with models that attempt to bypass QA gates.
+Upcoming: v6.14 focuses on further context optimization and agent coordination improvements.
 
 ---
 
