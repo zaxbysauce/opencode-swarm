@@ -7,6 +7,22 @@
 
 * TypeScript errors from optional current_phase ([284bc5f](https://github.com/zaxbysauce/opencode-swarm/commit/284bc5f574ef87210063c0bc8abe3fcd165b5886))
 
+## [6.13.1] - 2026-02-28
+
+### Added
+- **consolidateSystemMessages** utility to merge multiple system messages into one at index 0.
+- **Test isolation helpers** `createIsolatedTestEnv` and `assertSafeForWrite`.
+- Migration for v6.12 presets-format configs (in‑memory, with warning).
+
+### Fixed
+- `/swarm` command template: `{{arguments}}` → `$ARGUMENTS` with LLM no‑op instruction.
+- `install()` default config: preset/presets schema → agents schema.
+- DEFAULT_MODELS updates: `claude-sonnet-4-5` → `claude-sonnet-4-20250514`, `gemini-2.0-flash` → `gemini-2.5-flash`.
+
+### Tests
+- 20 new tests for consolidation utility.
+- 14 new tests for isolation helper.
+
 ## [6.13.0] - 2026-02-28
 
 ### Added
