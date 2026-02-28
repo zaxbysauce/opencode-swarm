@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.13.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.1...v6.13.2) (2026-02-28)
+
+
+### Bug Fixes
+
+* disable component-prefixed release tags ([9f51963](https://github.com/zaxbysauce/opencode-swarm/commit/9f519631e81cabd56c6e124562c978e4a4005001))
+
 ## [6.12.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.12.0...v6.12.1) (2026-02-28)
 
 
