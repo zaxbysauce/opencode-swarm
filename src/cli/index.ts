@@ -86,26 +86,15 @@ async function install(): Promise<number> {
 	// Create default plugin config if not exists
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
 		const defaultConfig = {
-			preset: 'remote',
-			presets: {
-				remote: {
-					architect: { model: 'anthropic/claude-sonnet-4.5' },
-					coder: { model: 'openai/gpt-5.2-codex' },
-					sme: { model: 'google/gemini-3-flash' },
-					reviewer: { model: 'google/gemini-3-flash' },
-					test_engineer: { model: 'google/gemini-3-flash' },
-				},
-				hybrid: {
-					architect: { model: 'anthropic/claude-sonnet-4.5' },
-					coder: { model: 'ollama/qwen3:72b' },
-					sme: { model: 'npu/qwen3:14b' },
-					reviewer: { model: 'npu/qwen3:14b' },
-					test_engineer: { model: 'npu/qwen3:14b' },
-				},
+			// Must match PluginConfigSchema in src/config/schema.ts
+			agents: {
+				architect: { model: 'anthropic/claude-sonnet-4-20250514' },
+				coder: { model: 'anthropic/claude-sonnet-4-20250514' },
+				sme: { model: 'google/gemini-2.5-flash' },
+				reviewer: { model: 'google/gemini-2.5-flash' },
+				test_engineer: { model: 'google/gemini-2.5-flash' },
 			},
-			swarm_mode: 'remote',
 			max_iterations: 5,
-			inject_phase_reminders: true,
 		};
 		saveJson(PLUGIN_CONFIG_PATH, defaultConfig);
 		console.log('✓ Created default plugin config at:', PLUGIN_CONFIG_PATH);

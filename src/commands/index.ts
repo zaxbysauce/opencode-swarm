@@ -75,6 +75,8 @@ export function createSwarmCommandHandler(
 			return;
 		}
 
+		// Verified: input.arguments receives the expanded $ARGUMENTS from the template.
+		// The hook output.parts overrides the LLM response in the UI.
 		// Parse arguments
 		const tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
 		const [subcommand, ...args] = tokens;

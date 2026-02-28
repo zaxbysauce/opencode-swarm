@@ -244,18 +244,14 @@ describe('consolidateSystemMessages', () => {
 				{ role: 'user', content: 'Hello' },
 				{ role: 'system', content: [{ type: 'text', text: 'Anthropic style' }] },
 				{ role: 'system', content: 'Valid system prompt 2' },
-				{ role: 'system', content: '   ' }, // whitespace-only
+				{ role: 'system', content: '   ' }, // whitespace-only - removed
 				{ role: 'assistant', content: 'Hi!' },
 			];
 
 			const result = consolidateSystemMessages(messages);
 
-			// Debug: see what's actually returned
-			console.log('Result length:', result.length);
-			result.forEach((m, i) => console.log(i, m.role, JSON.stringify(m.content)));
-
-			// Empty/whitespace and non-string system messages are kept but not merged
-			expect(result.length).toBe(5);
+			// Whitespace-only system message is filtered out, not added to result
+			expect(result.length).toBe(4);
 			expect(result[0].role).toBe('system');
 			// Only the two valid string system messages should be merged
 			expect(result[0].content).toBe('Valid system prompt 1\n\nValid system prompt 2');
@@ -263,9 +259,8 @@ describe('consolidateSystemMessages', () => {
 			// Anthropic-style message stays in place
 			expect(result[2].role).toBe('system');
 			expect(result[2].content).toEqual([{ type: 'text', text: 'Anthropic style' }]);
-			// Whitespace-only message is filtered out (not added to result)
+			// Whitespace-only message is removed
 			expect(result[3].role).toBe('assistant');
-			expect(result[4]).toBeUndefined();
 		});
 
 		it('handles multiple system messages with name fields - none merged', () => {
@@ -357,6 +352,33 @@ describe('consolidateSystemMessages', () => {
 			expect(result[0].content).toBe(
 				'Base system prompt from OpenCode\n\nAdditional system instruction\n\nYet another system instruction',
 			);
+		});
+
+		it('swarm agent injection does not produce multiple system messages', () => {
+			// Simulate: OpenCode system prompt + swarm-injected agent prompt + conversation
+			const input = [
+				{ role: 'system', content: 'You are a helpful assistant.' },
+				{ role: 'user', content: 'Fix the bug in auth.ts' },
+				{ role: 'assistant', content: 'I will delegate to the coder.' },
+				{ role: 'system', content: 'You are the coder agent. Follow all QA gates...' },
+			];
+			const result = consolidateSystemMessages(input);
+
+			// Exactly one system message
+			const systemMessages = result.filter((m) => m.role === 'system');
+			expect(systemMessages).toHaveLength(1);
+
+			// It is at index 0
+			expect(result[0].role).toBe('system');
+
+			// Contains both prompts
+			expect(result[0].content).toContain('You are a helpful assistant.');
+			expect(result[0].content).toContain('You are the coder agent.');
+
+			// Conversation order preserved
+			const nonSystem = result.filter((m) => m.role !== 'system');
+			expect(nonSystem[0]).toEqual({ role: 'user', content: 'Fix the bug in auth.ts' });
+			expect(nonSystem[1]).toEqual({ role: 'assistant', content: 'I will delegate to the coder.' });
 		});
 	});
 });

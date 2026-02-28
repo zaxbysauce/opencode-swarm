@@ -107,6 +107,33 @@ import { deepMerge as deepMergeFn } from '../utils/merge';
 export { deepMerge, MAX_MERGE_DEPTH } from '../utils/merge';
 
 /**
+ * Migrate v6.12 presets-format config to v6.13+ agents format.
+ * v6.12 install() generated: { preset: 'remote', presets: { remote: { architect: {...} } } }
+ * v6.13+ expects:            { agents: { architect: {...} } }
+ */
+function migratePresetsConfig(
+	raw: Record<string, unknown>,
+): Record<string, unknown> {
+	if (raw.presets && typeof raw.presets === 'object' && !raw.agents) {
+		const presetName = (raw.preset as string) || 'remote';
+		const presets = raw.presets as Record<string, unknown>;
+		const activePreset = presets[presetName] || Object.values(presets)[0];
+
+		if (activePreset && typeof activePreset === 'object') {
+			const migrated = { ...raw, agents: activePreset };
+			delete migrated.preset;
+			delete migrated.presets;
+			delete migrated.swarm_mode;
+			console.warn(
+				'[opencode-swarm] Migrated v6.12 presets config to agents format. Consider updating your opencode-swarm.json.',
+			);
+			return migrated;
+		}
+	}
+	return raw;
+}
+
+/**
  * Load plugin configuration from user and project config files.
  *
  * Config locations:
@@ -147,6 +174,9 @@ export function loadPluginConfig(directory: string): PluginConfig {
 			unknown
 		>;
 	}
+
+	// Migrate v6.12 presets format to v6.13+ agents format
+	mergedRaw = migratePresetsConfig(mergedRaw);
 
 	// Validate merged config with Zod (applies defaults ONCE)
 	const result = PluginConfigSchema.safeParse(mergedRaw);

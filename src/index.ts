@@ -324,7 +324,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			opencodeConfig.command = {
 				...((opencodeConfig.command as Record<string, unknown>) || {}),
 				swarm: {
-					template: '{{arguments}}',
+					// Template is required by OpenCode and always sent to the LLM.
+					// The actual command is handled by command.execute.before hook.
+					// The template instructs the LLM to no-op. When OpenCode ships
+					// the noReply option (opencode #9306), this can be simplified.
+					template:
+						'The /swarm command has been processed by the plugin handler. Acknowledge with: "Done." Do not take any further action. User input was: $ARGUMENTS',
 					description: 'Swarm management commands',
 				},
 			};

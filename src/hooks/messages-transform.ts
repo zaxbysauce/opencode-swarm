@@ -69,9 +69,29 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 		systemContents.push(trimmedContent);
 	}
 
-	// If there are no system messages to merge, return unchanged
+	// If there are no system messages to merge, filter out whitespace-only
+	// system messages but keep non-mergeable ones (non-string content, name, tool_call_id)
 	if (systemContents.length === 0) {
-		return [...messages];
+		return messages.filter((m) => {
+			// Keep non-system messages
+			if (m.role !== 'system') {
+				return true;
+			}
+			// Keep non-mergeable system messages (non-string content, has name, has tool_call_id)
+			if (
+				typeof m.content !== 'string' ||
+				m.name !== undefined ||
+				m.tool_call_id !== undefined
+			) {
+				return true;
+			}
+			// Keep system messages with valid string content (non-whitespace-only)
+			if (m.content.trim().length > 0) {
+				return true;
+			}
+			// Remove whitespace-only system messages
+			return false;
+		});
 	}
 
 	// Build the new array
@@ -96,10 +116,24 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 
 	// Add all non-system messages in their original order
 	for (let i = 0; i < messages.length; i++) {
-		if (!systemMessageIndices.includes(i)) {
-			// Create a shallow copy to avoid mutating the original
-			result.push({ ...messages[i] });
+		const message = messages[i];
+
+		// Skip system messages that are in systemMessageIndices (they were merged)
+		if (systemMessageIndices.includes(i)) {
+			continue;
 		}
+
+		// Skip whitespace-only system messages that were not merged
+		if (
+			message.role === 'system' &&
+			typeof message.content === 'string' &&
+			message.content.trim().length === 0
+		) {
+			continue;
+		}
+
+		// Create a shallow copy to avoid mutating the original
+		result.push({ ...message });
 	}
 
 	return result;

@@ -131,33 +131,25 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 
 // Default models for each agent/category
 export const DEFAULT_MODELS: Record<string, string> = {
-	// Orchestrator
-	architect: 'anthropic/claude-sonnet-4-5',
+	// Orchestrator — needs strong reasoning
+	architect: 'anthropic/claude-sonnet-4-20250514',
 
-	// Fast explorer agent (use cheap/fast model)
-	explorer: 'google/gemini-2.0-flash',
+	// Explorer — fast/cheap for file discovery
+	explorer: 'google/gemini-2.5-flash',
 
 	// Pipeline agents
-	coder: 'anthropic/claude-sonnet-4-5',
-	test_engineer: 'google/gemini-2.0-flash',
+	coder: 'anthropic/claude-sonnet-4-20250514',
+	test_engineer: 'google/gemini-2.5-flash',
 
-	// SME agent
-	sme: 'google/gemini-2.0-flash',
-
-	// Reviewer agent (QA)
-	reviewer: 'google/gemini-2.0-flash',
-
-	// Critic agent (QA - plan review gate)
-	critic: 'google/gemini-2.0-flash',
-
-	// Documentation synthesizer
-	docs: 'google/gemini-2.0-flash',
-
-	// UI/UX Designer
-	designer: 'google/gemini-2.0-flash',
+	// SME, Reviewer, Critic, Docs, Designer — fast/cheap
+	sme: 'google/gemini-2.5-flash',
+	reviewer: 'google/gemini-2.5-flash',
+	critic: 'google/gemini-2.5-flash',
+	docs: 'google/gemini-2.5-flash',
+	designer: 'google/gemini-2.5-flash',
 
 	// Fallback
-	default: 'google/gemini-2.0-flash',
+	default: 'google/gemini-2.5-flash',
 };
 
 // Check if agent is in QA category
