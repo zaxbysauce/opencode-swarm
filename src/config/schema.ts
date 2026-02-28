@@ -267,6 +267,18 @@ export const PipelineConfigSchema = z.object({
 
 export type PipelineConfig = z.infer<typeof PipelineConfigSchema>;
 
+// Phase complete configuration (phase completion gate settings)
+export const PhaseCompleteConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	required_agents: z
+		.array(z.enum(['coder', 'reviewer', 'test_engineer']))
+		.default(['coder', 'reviewer', 'test_engineer']),
+	require_docs: z.boolean().default(true),
+	policy: z.enum(['enforce', 'warn']).default('enforce'),
+});
+
+export type PhaseCompleteConfig = z.infer<typeof PhaseCompleteConfigSchema>;
+
 // Summary configuration (reversible summaries for oversized tool outputs)
 export const SummaryConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -274,6 +286,7 @@ export const SummaryConfigSchema = z.object({
 	max_summary_chars: z.number().min(100).max(5000).default(1000),
 	max_stored_bytes: z.number().min(10240).max(104857600).default(10485760),
 	retention_days: z.number().min(1).max(365).default(7),
+	exempt_tools: z.array(z.string()).default(['retrieve_summary', 'task']),
 });
 
 export type SummaryConfig = z.infer<typeof SummaryConfigSchema>;
@@ -295,6 +308,19 @@ export const ReviewPassesConfigSchema = z.object({
 });
 
 export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
+
+// Adversarial detection configuration (same-model adversarial detection)
+export const AdversarialDetectionConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	policy: z.enum(['warn', 'gate', 'ignore']).default('warn'),
+	pairs: z
+		.array(z.tuple([z.string(), z.string()]))
+		.default([['coder', 'reviewer']]),
+});
+
+export type AdversarialDetectionConfig = z.infer<
+	typeof AdversarialDetectionConfigSchema
+>;
 
 // Integration analysis configuration
 export const IntegrationAnalysisConfigSchema = z.object({
@@ -694,6 +720,9 @@ export const PluginConfigSchema = z.object({
 	max_iterations: z.number().min(1).max(10).default(5),
 	pipeline: PipelineConfigSchema.optional(),
 
+	// Phase complete settings
+	phase_complete: PhaseCompleteConfigSchema.optional(),
+
 	// QA workflow settings
 	qa_retry_limit: z.number().min(1).max(10).default(3),
 
@@ -726,6 +755,9 @@ export const PluginConfigSchema = z.object({
 
 	// Review passes configuration (dual-pass security review)
 	review_passes: ReviewPassesConfigSchema.optional(),
+
+	// Adversarial detection configuration (same-model checker detection)
+	adversarial_detection: AdversarialDetectionConfigSchema.optional(),
 
 	// Integration analysis configuration
 	integration_analysis: IntegrationAnalysisConfigSchema.optional(),

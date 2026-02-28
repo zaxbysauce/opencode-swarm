@@ -5,5 +5,5 @@ export { ApprovalEvidenceSchema, BaseEvidenceSchema, DiffEvidenceSchema, EVIDENC
 export { loadAgentPrompt, loadPluginConfig, loadPluginConfigWithMeta, } from './loader';
 export type { MigrationStatus, Phase, PhaseStatus, Plan, Task, TaskSize, TaskStatus, } from './plan-schema';
 export { MigrationStatusSchema, PhaseSchema, PhaseStatusSchema, PlanSchema, TaskSchema, TaskSizeSchema, TaskStatusSchema, } from './plan-schema';
-export type { AgentOverrideConfig, AutomationCapabilities, AutomationConfig, AutomationMode, PipelineConfig, PluginConfig, SwarmConfig, } from './schema';
-export { AgentOverrideConfigSchema, AutomationCapabilitiesSchema, AutomationConfigSchema, AutomationModeSchema, PipelineConfigSchema, PluginConfigSchema, SwarmConfigSchema, } from './schema';
+export type { AgentOverrideConfig, AutomationCapabilities, AutomationConfig, AutomationMode, PhaseCompleteConfig, PipelineConfig, PluginConfig, SwarmConfig, } from './schema';
+export { AgentOverrideConfigSchema, AutomationCapabilitiesSchema, AutomationConfigSchema, AutomationModeSchema, PhaseCompleteConfigSchema, PipelineConfigSchema, PluginConfigSchema, SwarmConfigSchema, } from './schema';

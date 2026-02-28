@@ -12,6 +12,7 @@ import type { DelegationEntry } from '../state';
 import {
 	beginInvocation,
 	ensureAgentSession,
+	recordPhaseAgentDispatch,
 	swarmState,
 	updateAgentEventTime,
 } from '../state';
@@ -74,6 +75,9 @@ export function createDelegationTrackerHook(
 		// Set delegationActive: false for architect, true for subagents
 		// This ensures stale detection works correctly for both cases
 		session.delegationActive = !isArchitect;
+
+		// Record agent dispatch for phase completion tracking
+		recordPhaseAgentDispatch(input.sessionID, agentName);
 
 		// Start new invocation window for non-architect agents
 		// CRITICAL: Always call beginInvocation, even if same agent as previous

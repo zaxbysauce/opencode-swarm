@@ -17,6 +17,10 @@ import { analyzeDecisionDrift, formatDriftForContext } from '../services';
 import { swarmState } from '../state';
 import { warn } from '../utils';
 import {
+	detectAdversarialPair,
+	formatAdversarialWarning,
+} from './adversarial-detector';
+import {
 	type ContentType,
 	type ContextCandidate,
 	rankCandidates,
@@ -199,6 +203,64 @@ export function createSystemEnhancerHook(
 							tryInject(
 								'[SWARM CONFIG] Secretscan gate is DISABLED. Skip secretscan in QA sequence.',
 							);
+						}
+
+						// v6.13.1-hotfix: Agent execution guardrails
+						const activeAgent_hf1 = swarmState.activeAgent.get(
+							_input.sessionID ?? '',
+						);
+						const baseRole = activeAgent_hf1
+							? stripKnownSwarmPrefix(activeAgent_hf1)
+							: null;
+
+						// HF-1: Prevent coder from self-verifying
+						if (baseRole === 'coder' || baseRole === 'test_engineer') {
+							tryInject(
+								'[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands (npm run build, bun test, npx tsc, eslint, etc.). Make ONLY the code changes specified in your task. Verification is handled by the reviewer agent — do not self-verify. If your task explicitly asks you to run a specific command, that is the only exception.',
+							);
+						}
+
+						// v6.13.1-hotfix: Prevent architect from running full test suite
+						// Concurrent or bulk test runs crash OpenCode — architect must delegate or scope narrowly
+						if (baseRole === 'architect' || baseRole === null) {
+							tryInject(
+								'[SWARM CONFIG] You must NEVER run the full test suite or batch test files. If you need to verify changes, run ONLY the specific test files for code YOU modified in this session — one file at a time, strictly serial. Do not run tests from directories or files unrelated to your changes. Do not run bun test without an explicit file path. When possible, delegate test execution to the test_engineer agent instead of running tests yourself.',
+							);
+						}
+
+						// v6.13.2: Same-model adversarial detection
+						if (config.adversarial_detection?.enabled !== false) {
+							const activeAgent_adv = swarmState.activeAgent.get(
+								_input.sessionID ?? '',
+							);
+							if (activeAgent_adv) {
+								const baseRole_adv = stripKnownSwarmPrefix(activeAgent_adv);
+								const pairs_adv = config.adversarial_detection?.pairs ?? [
+									['coder', 'reviewer'],
+								];
+								const policy_adv =
+									config.adversarial_detection?.policy ?? 'warn';
+								for (const [agentA, agentB] of pairs_adv) {
+									if (baseRole_adv === agentB) {
+										const sharedModel = detectAdversarialPair(
+											agentA,
+											agentB,
+											config,
+										);
+										if (sharedModel) {
+											const warningText = formatAdversarialWarning(
+												agentA,
+												agentB,
+												sharedModel,
+												policy_adv,
+											);
+											if (policy_adv !== 'ignore') {
+												tryInject(`[SWARM CONFIG] ${warningText}`);
+											}
+										}
+									}
+								}
+							}
 						}
 
 						// v6.10: Parallel pre-check batch hint — architect-only
@@ -570,6 +632,48 @@ export function createSystemEnhancerHook(
 							priority: 1,
 							metadata: { contentType: 'prose' as ContentType },
 						});
+					}
+
+					// v6.13.2: Same-model adversarial detection
+					if (config.adversarial_detection?.enabled !== false) {
+						const activeAgent_adv_b = swarmState.activeAgent.get(
+							_input.sessionID ?? '',
+						);
+						if (activeAgent_adv_b) {
+							const baseRole_adv_b = stripKnownSwarmPrefix(activeAgent_adv_b);
+							const pairs_adv_b = config.adversarial_detection?.pairs ?? [
+								['coder', 'reviewer'],
+							];
+							const policy_adv_b =
+								config.adversarial_detection?.policy ?? 'warn';
+							for (const [agentA_b, agentB_b] of pairs_adv_b) {
+								if (baseRole_adv_b === agentB_b) {
+									const sharedModel_b = detectAdversarialPair(
+										agentA_b,
+										agentB_b,
+										config,
+									);
+									if (sharedModel_b) {
+										const warningText_b = formatAdversarialWarning(
+											agentA_b,
+											agentB_b,
+											sharedModel_b,
+											policy_adv_b,
+										);
+										if (policy_adv_b !== 'ignore') {
+											candidates.push({
+												id: `candidate-${idCounter++}`,
+												kind: 'agent_context' as ContextCandidate['kind'],
+												text: `[SWARM CONFIG] ${warningText_b}`,
+												tokens: estimateTokens(warningText_b),
+												priority: 2,
+												metadata: { contentType: 'prose' as ContentType },
+											});
+										}
+									}
+								}
+							}
+						}
 					}
 
 					// v6.10: Parallel pre-check batch hint — architect-only

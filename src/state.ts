@@ -83,6 +83,14 @@ export interface AgentSessionState {
 	selfFixAttempted: boolean;
 	/** Phases that have already received a catastrophic zero-reviewer warning */
 	catastrophicPhaseWarnings: Set<number>;
+
+	// Phase completion tracking
+	/** Timestamp of most recent phase completion */
+	lastPhaseCompleteTimestamp: number;
+	/** Phase number of most recent phase completion */
+	lastPhaseCompletePhase: number;
+	/** Set of agents dispatched in current phase (normalized names) */
+	phaseAgentsDispatched: Set<string>;
 }
 
 /**
@@ -195,6 +203,10 @@ export function startAgentSession(
 		partialGateWarningIssued: false,
 		selfFixAttempted: false,
 		catastrophicPhaseWarnings: new Set(),
+		// Phase completion tracking
+		lastPhaseCompleteTimestamp: 0,
+		lastPhaseCompletePhase: 0,
+		phaseAgentsDispatched: new Set(),
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -289,6 +301,16 @@ export function ensureAgentSession(
 		}
 		if (!session.catastrophicPhaseWarnings) {
 			session.catastrophicPhaseWarnings = new Set();
+		}
+		// Phase completion tracking migration safety
+		if (session.lastPhaseCompleteTimestamp === undefined) {
+			session.lastPhaseCompleteTimestamp = 0;
+		}
+		if (session.lastPhaseCompletePhase === undefined) {
+			session.lastPhaseCompletePhase = 0;
+		}
+		if (!session.phaseAgentsDispatched) {
+			session.phaseAgentsDispatched = new Set();
 		}
 
 		session.lastToolCallTime = now;
@@ -425,4 +447,28 @@ export function pruneOldWindows(
 
 	// Rebuild windows object
 	session.windows = Object.fromEntries(toKeep);
+}
+
+/**
+ * Record an agent dispatch for phase completion tracking.
+ * Normalizes the agent name via stripKnownSwarmPrefix before adding to phaseAgentsDispatched.
+ * @param sessionId - Session identifier
+ * @param agentName - Agent name to record (will be normalized)
+ */
+export function recordPhaseAgentDispatch(
+	sessionId: string,
+	agentName: string,
+): void {
+	const session = swarmState.agentSessions.get(sessionId);
+	if (!session) {
+		return;
+	}
+
+	// Ensure phaseAgentsDispatched exists (migration safety)
+	if (!session.phaseAgentsDispatched) {
+		session.phaseAgentsDispatched = new Set();
+	}
+
+	const normalizedName = stripKnownSwarmPrefix(agentName);
+	session.phaseAgentsDispatched.add(normalizedName);
 }

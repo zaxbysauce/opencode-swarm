@@ -35,6 +35,36 @@ Each model needs to know:
 - Tasks need `FILE`, `TASK`, `CONSTRAINT`, and `ACCEPTANCE CRITERIA` fields
 - The Critic reviews the plan before implementation starts
 
+---
+
+## Task Field Reference
+
+Every task in `.swarm/plan.md` must define these four fields:
+
+| Field | Required | Good Example | Bad Example |
+|---|---|---|---|
+| FILE | Yes | `src/auth/login.ts` | `src/auth/` (directory, not file) |
+| TASK | Yes | `Add email format validation to the login handler` | `Update login and add tests` (compound) |
+| CONSTRAINT | No | `Do not modify the session logic` | `Be careful` (not actionable) |
+| ACCEPTANCE CRITERIA | Yes | `Rejects emails missing @; existing tests pass` | `It works` (not verifiable) |
+
+**Rules:**
+- `TASK` must be a single imperative sentence with no "and" connecting two actions.
+- `ACCEPTANCE CRITERIA` must be a bullet list specific enough for the test engineer to write a unit test.
+- `CONSTRAINT` is optional but recommended when the task touches shared code.
+
+### Task Sizing
+
+| Size | Definition | Action |
+|---|---|---|
+| SMALL | 1 file, 1 function or class | Assign directly to plan |
+| MEDIUM | 1 file with multiple functions, or up to 2 files | Plan as-is |
+| LARGE | More than 2 files, or compound concern | **Must be split before adding to plan** |
+
+If you cannot write `TASK + FILE + CONSTRAINT` in three bullet points, the task is too large.
+
+---
+
 ### 3. Generate a Draft Plan
 
 Give one model your requirements + codebase snapshot. Ask for a full plan in the swarm's markdown format. This is your starting point, not the final product.

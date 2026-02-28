@@ -46,6 +46,13 @@ export function createToolSummarizerHook(
 			return;
 		}
 
+		// Skip exempt tools (e.g. retrieve_summary, task) — summarizing their output
+		// creates a retrieval loop where the summary itself gets summarized.
+		const exemptTools = config.exempt_tools ?? ['retrieve_summary', 'task'];
+		if (exemptTools.includes(input.tool)) {
+			return;
+		}
+
 		// Check if output exceeds threshold (with hysteresis)
 		if (!shouldSummarize(output.output, config.threshold_bytes)) {
 			return;

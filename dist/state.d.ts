@@ -75,6 +75,12 @@ export interface AgentSessionState {
     selfFixAttempted: boolean;
     /** Phases that have already received a catastrophic zero-reviewer warning */
     catastrophicPhaseWarnings: Set<number>;
+    /** Timestamp of most recent phase completion */
+    lastPhaseCompleteTimestamp: number;
+    /** Phase number of most recent phase completion */
+    lastPhaseCompletePhase: number;
+    /** Set of agents dispatched in current phase (normalized names) */
+    phaseAgentsDispatched: Set<string>;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
@@ -190,3 +196,10 @@ export declare function getActiveWindow(sessionId: string): InvocationWindow | u
  * @param maxWindows - Maximum number of windows to keep (default 50)
  */
 export declare function pruneOldWindows(sessionId: string, maxAgeMs?: number, maxWindows?: number): void;
+/**
+ * Record an agent dispatch for phase completion tracking.
+ * Normalizes the agent name via stripKnownSwarmPrefix before adding to phaseAgentsDispatched.
+ * @param sessionId - Session identifier
+ * @param agentName - Agent name to record (will be normalized)
+ */
+export declare function recordPhaseAgentDispatch(sessionId: string, agentName: string): void;

@@ -9,6 +9,8 @@ export { extract_code_blocks } from './file-extractor';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { lint } from './lint';
+// Phase completion tracking
+export { phase_complete } from './phase-complete';
 export { pkg_audit } from './pkg-audit';
 export {
 	type PlaceholderFinding,

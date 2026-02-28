@@ -190,12 +190,27 @@ export declare const PipelineConfigSchema: z.ZodObject<{
     parallel_precheck: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type PipelineConfig = z.infer<typeof PipelineConfigSchema>;
+export declare const PhaseCompleteConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
+        reviewer: "reviewer";
+        coder: "coder";
+        test_engineer: "test_engineer";
+    }>>>;
+    require_docs: z.ZodDefault<z.ZodBoolean>;
+    policy: z.ZodDefault<z.ZodEnum<{
+        enforce: "enforce";
+        warn: "warn";
+    }>>;
+}, z.core.$strip>;
+export type PhaseCompleteConfig = z.infer<typeof PhaseCompleteConfigSchema>;
 export declare const SummaryConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     threshold_bytes: z.ZodDefault<z.ZodNumber>;
     max_summary_chars: z.ZodDefault<z.ZodNumber>;
     max_stored_bytes: z.ZodDefault<z.ZodNumber>;
     retention_days: z.ZodDefault<z.ZodNumber>;
+    exempt_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type SummaryConfig = z.infer<typeof SummaryConfigSchema>;
 export declare const ReviewPassesConfigSchema: z.ZodObject<{
@@ -203,6 +218,16 @@ export declare const ReviewPassesConfigSchema: z.ZodObject<{
     security_globs: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
+export declare const AdversarialDetectionConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    policy: z.ZodDefault<z.ZodEnum<{
+        warn: "warn";
+        gate: "gate";
+        ignore: "ignore";
+    }>>;
+    pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
+}, z.core.$strip>;
+export type AdversarialDetectionConfig = z.infer<typeof AdversarialDetectionConfigSchema>;
 export declare const IntegrationAnalysisConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
@@ -367,6 +392,19 @@ export declare const PluginConfigSchema: z.ZodObject<{
     pipeline: z.ZodOptional<z.ZodObject<{
         parallel_precheck: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
+    phase_complete: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
+            reviewer: "reviewer";
+            coder: "coder";
+            test_engineer: "test_engineer";
+        }>>>;
+        require_docs: z.ZodDefault<z.ZodBoolean>;
+        policy: z.ZodDefault<z.ZodEnum<{
+            enforce: "enforce";
+            warn: "warn";
+        }>>;
+    }, z.core.$strip>>;
     qa_retry_limit: z.ZodDefault<z.ZodNumber>;
     inject_phase_reminders: z.ZodDefault<z.ZodBoolean>;
     hooks: z.ZodOptional<z.ZodObject<{
@@ -479,10 +517,20 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_summary_chars: z.ZodDefault<z.ZodNumber>;
         max_stored_bytes: z.ZodDefault<z.ZodNumber>;
         retention_days: z.ZodDefault<z.ZodNumber>;
+        exempt_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     review_passes: z.ZodOptional<z.ZodObject<{
         always_security_review: z.ZodDefault<z.ZodBoolean>;
         security_globs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>;
+    adversarial_detection: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        policy: z.ZodDefault<z.ZodEnum<{
+            warn: "warn";
+            gate: "gate";
+            ignore: "ignore";
+        }>>;
+        pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
     }, z.core.$strip>>;
     integration_analysis: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

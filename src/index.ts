@@ -44,6 +44,7 @@ import {
 	gitingest,
 	imports,
 	lint,
+	phase_complete,
 	pkg_audit,
 	pre_check_batch,
 	retrieve_summary,
@@ -302,6 +303,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			lint,
 			diff,
 			pkg_audit,
+			phase_complete,
 			pre_check_batch,
 			retrieve_summary,
 			schema_drift,
@@ -325,11 +327,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				...((opencodeConfig.command as Record<string, unknown>) || {}),
 				swarm: {
 					// Template is required by OpenCode and always sent to the LLM.
+					// Keep it minimal — instructional text confuses non-frontier models.
 					// The actual command is handled by command.execute.before hook.
-					// The template instructs the LLM to no-op. When OpenCode ships
-					// the noReply option (opencode #9306), this can be simplified.
-					template:
-						'The /swarm command has been processed by the plugin handler. Acknowledge with: "Done." Do not take any further action. User input was: $ARGUMENTS',
+					template: '/swarm $ARGUMENTS',
 					description: 'Swarm management commands',
 				},
 			};

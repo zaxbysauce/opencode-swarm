@@ -310,6 +310,8 @@ Per-agent overrides:
 | build_check | Runs your project's native build/typecheck |
 | quality_budget | Enforces complexity, duplication, and test ratio limits |
 | pre_check_batch | Runs lint, secretscan, SAST, and quality budget in parallel (~15s vs ~60s sequential) |
+| phase_complete | Enforces phase completion, verifies required agents, logs events, and resets state |
+
 
 All tools run locally. No Docker, no network calls, no external APIs.
 
@@ -586,10 +588,29 @@ The following tools can be assigned to agents via overrides:
 | `symbols` | Extract exported symbols |
 | `test_runner` | Run project tests |
 | `todo_extract` | Extract TODO/FIXME comments |
+| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
 
 ---
 
 ## Recent Changes
+
+### v6.13.2 — Pipeline Enforcement
+
+This release adds enforcement-layer tooling and self-healing guardrails:
+
+- **`phase_complete` tool**: Verifies all required agents were dispatched before a phase closes; emits events to `.swarm/events.jsonl`; configurable `enforce`/`warn` policy
+- **Summarization loop fix**: `exempt_tools` config prevents `retrieve_summary` and `task` outputs from being re-summarized (fixes Issue #8)
+- **Same-model adversarial detection**: Warns when coder and reviewer share the same model; `warn`/`gate`/`ignore` policy
+- **Architect test guardrail (HF-1b)**: Prevents architect from running full `bun test` suite — must target specific files one at a time
+- **Docs**: `docs/swarm-briefing.md` (LLM pipeline briefing), Task Field Reference in `docs/planning.md`
+
+### v6.13.1 — Consolidation & Defaults Fix
+
+- **`consolidateSystemMessages`**: Merges multiple system messages into one at index 0
+- **Test isolation helpers**: `createIsolatedTestEnv` and `assertSafeForWrite`
+- **Coder self-verify guardrail (HF-1)**: Coder and test_engineer agents blocked from running build/test/lint
+- **`/swarm` template fix**: `{{arguments}}` → `$ARGUMENTS`
+- **DEFAULT_MODELS update**: `claude-sonnet-4-5` → `claude-sonnet-4-20250514`, `gemini-2.0-flash` → `gemini-2.5-flash`
 
 ### v6.13.0 — Context Efficiency
 
@@ -650,6 +671,8 @@ Upcoming: v6.14 focuses on further context optimization and agent coordination i
 - [Design Rationale](docs/design-rationale.md)
 - [Installation Guide](docs/installation.md)
 - [Linux + Docker Desktop Install Guide](docs/installation-linux-docker.md)
+- [Pre-Swarm Planning Guide](docs/planning.md)
+- [Swarm Briefing for LLMs](docs/swarm-briefing.md)
 
 ---
 
