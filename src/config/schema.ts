@@ -605,6 +605,23 @@ export const ToolFilterConfigSchema = z.object({
 // Type alias for downstream usage
 export type ToolFilterConfig = z.infer<typeof ToolFilterConfigSchema>;
 
+// Plan cursor configuration - controls compressed plan summary injection
+// Enables efficient context management by injecting concise plan cursor instead of full plan
+export const PlanCursorConfigSchema = z.object({
+	// Enable or disable plan cursor injection
+	// When true, injects compressed plan cursor instead of full phase markdown
+	enabled: z.boolean().default(true),
+	// Maximum tokens for plan cursor output
+	// Typical 10-phase plan should fit under this limit
+	max_tokens: z.number().min(500).max(4000).default(1500),
+	// Number of lookahead tasks to include in cursor
+	// Shows upcoming tasks beyond current task
+	lookahead_tasks: z.number().min(0).max(5).default(2),
+});
+
+// Type alias for downstream usage
+export type PlanCursorConfig = z.infer<typeof PlanCursorConfigSchema>;
+
 // Checkpoint configuration
 export const CheckpointConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -697,6 +714,9 @@ export const PluginConfigSchema = z.object({
 
 	// Tool filter configuration - controls which tools each agent is allowed to use
 	tool_filter: ToolFilterConfigSchema.optional(),
+
+	// Plan cursor configuration - controls compressed plan summary injection
+	plan_cursor: PlanCursorConfigSchema.optional(),
 
 	// Evidence configuration
 	evidence: EvidenceConfigSchema.optional(),

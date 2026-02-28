@@ -84,6 +84,31 @@ By default, Swarm uses whatever model OpenCode is configured with. To route diff
     "architect": { "model": "anthropic/claude-opus-4-6" },
     "coder":     { "model": "minimax-coding-plan/MiniMax-M2.5" },
     "reviewer":  { "model": "zai-coding-plan/glm-5" }
+  },
+  "guardrails": {
+    "max_tool_calls": 200,
+    "max_duration_minutes": 30,
+    "profiles": {
+      "coder": { "max_tool_calls": 500 }
+    }
+  },
+  "tool_filter": {
+    "enabled": true,
+    "overrides": {}
+  },
+  "review_passes": {
+    "always_security_review": false,
+    "security_globs": ["**/*auth*", "**/*crypto*", "**/*session*"]
+  },
+  "automation": {
+    "mode": "manual",
+    "capabilities": {
+      "plan_sync": false,
+      "phase_preflight": false,
+      "config_doctor_on_startup": false,
+      "evidence_auto_summaries": false,
+      "decision_drift_detection": false
+    }
   }
 }
 ```
@@ -393,6 +418,98 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
 | `/swarm sync-plan` | Force plan.md regeneration from plan.json |
 
 </details>
+
+---
+
+## Role-Scoped Tool Filtering
+
+Swarm limits which tools each agent can access based on their role. This prevents agents from using tools that aren't appropriate for their responsibilities, reducing errors and keeping agents focused.
+
+### Default Tool Allocations
+
+| Agent | Tools | Count | Rationale |
+|-------|-------|:---:|-----------|
+| **architect** | All 17 tools | 17 | Orchestrator needs full visibility |
+| **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner | 11 | Security-focused QA |
+| **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary | 6 | Write-focused, minimal read tools |
+| **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit | 8 | Testing and verification |
+| **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 9 | Discovery and analysis |
+| **sme** | complexity_hotspots, detect_domains, extract_code_blocks, imports, retrieve_summary, schema_drift, symbols | 7 | Domain expertise research |
+| **critic** | complexity_hotspots, detect_domains, imports, retrieve_summary, symbols | 5 | Plan review, minimal toolset |
+| **docs** | detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 8 | Documentation synthesis |
+| **designer** | extract_code_blocks, retrieve_summary, symbols | 3 | UI-focused, minimal toolset |
+
+### Configuration
+
+Tool filtering is enabled by default. Customize it in your config:
+
+```json
+{
+  "tool_filter": {
+    "enabled": true,
+    "overrides": {
+      "coder": ["diff", "imports", "lint", "symbols", "test_runner"],
+      "reviewer": ["diff", "secretscan", "sast_scan", "symbols"]
+    }
+  }
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable tool filtering globally |
+| `overrides` | Record<string, string[]> | `{}` | Per-agent tool whitelist. Empty array denies all tools. |
+
+### Troubleshooting: Agent Missing a Tool
+
+If an agent reports it doesn't have access to a tool it needs:
+
+1. Check if the tool is in the agent's default allocation (see table above)
+2. Add a custom override in your config:
+
+```json
+{
+  "tool_filter": {
+    "overrides": {
+      "coder": ["diff", "imports", "lint", "symbols", "extract_code_blocks", "retrieve_summary", "test_runner"]
+    }
+  }
+}
+```
+
+3. To completely disable filtering for all agents:
+
+```json
+{
+  "tool_filter": {
+    "enabled": false
+  }
+}
+```
+
+### Available Tools Reference
+
+The following tools can be assigned to agents via overrides:
+
+| Tool | Purpose |
+|------|---------|
+| `checkpoint` | Save/restore git checkpoints |
+| `complexity_hotspots` | Identify high-risk code areas |
+| `detect_domains` | Detect SME domains from text |
+| `diff` | Analyze git diffs and changes |
+| `evidence_check` | Verify task evidence |
+| `extract_code_blocks` | Extract code from markdown |
+| `gitingest` | Ingest external repositories |
+| `imports` | Analyze import relationships |
+| `lint` | Run project linters |
+| `pkg_audit` | Security audit of dependencies |
+| `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
+| `retrieve_summary` | Retrieve summarized tool outputs |
+| `schema_drift` | Detect OpenAPI/schema drift |
+| `secretscan` | Scan for secrets in code |
+| `symbols` | Extract exported symbols |
+| `test_runner` | Run project tests |
+| `todo_extract` | Extract TODO/FIXME comments |
 
 ---
 

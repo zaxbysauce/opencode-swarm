@@ -28,6 +28,7 @@ import {
 	extractCurrentTask,
 	extractCurrentTaskFromPlan,
 	extractDecisions,
+	extractPlanCursor,
 } from './extractors';
 import { estimateTokens, readSwarmFileAsync, safeHook } from './utils';
 
@@ -97,33 +98,27 @@ export function createSystemEnhancerHook(
 
 					if (!scoringEnabled) {
 						// Path A: EXACT LEGACY CODE - do not change
-						// Priority 1: Current phase
+						// Priority 0: Minimal phase header
 						const plan = await loadPlan(directory);
+						let planContent: string | null = null;
+						let phaseHeader = '';
 						if (plan && plan.migration_status !== 'migration_failed') {
-							const currentPhase = extractCurrentPhaseFromPlan(plan);
-							if (currentPhase) {
-								tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
-							}
-							// Priority 2: Current task
-							const currentTask = extractCurrentTaskFromPlan(plan);
-							if (currentTask) {
-								tryInject(`[SWARM CONTEXT] Current task: ${currentTask}`);
-							}
+							phaseHeader = extractCurrentPhaseFromPlan(plan) || '';
+							planContent = await readSwarmFileAsync(directory, 'plan.md');
 						} else {
-							const planContent = await readSwarmFileAsync(
-								directory,
-								'plan.md',
-							);
-							if (planContent) {
-								const currentPhase = extractCurrentPhase(planContent);
-								if (currentPhase) {
-									tryInject(`[SWARM CONTEXT] Current phase: ${currentPhase}`);
-								}
-								const currentTask = extractCurrentTask(planContent);
-								if (currentTask) {
-									tryInject(`[SWARM CONTEXT] Current task: ${currentTask}`);
-								}
-							}
+							planContent = await readSwarmFileAsync(directory, 'plan.md');
+							phaseHeader = planContent
+								? extractCurrentPhase(planContent) || ''
+								: '';
+						}
+						if (phaseHeader) {
+							tryInject(`[SWARM CONTEXT] Phase: ${phaseHeader}`);
+						}
+
+						// Priority 1: Plan cursor (compressed plan summary)
+						if (planContent) {
+							const planCursor = extractPlanCursor(planContent);
+							tryInject(planCursor);
 						}
 
 						// Priority 3: Decisions
@@ -358,6 +353,7 @@ export function createSystemEnhancerHook(
 					const userScoringConfig = config.context_budget?.scoring;
 					const candidates: ContextCandidate[] = [];
 					let idCounter = 0;
+					let planContentForCursor: string | null = null;
 
 					// Build effective config with guaranteed weights (use defaults if user config missing/invalid)
 					const effectiveConfig: ScoringConfig = (
@@ -380,10 +376,13 @@ export function createSystemEnhancerHook(
 						currentPhase = extractCurrentPhaseFromPlan(plan);
 						currentTask = extractCurrentTaskFromPlan(plan);
 					} else {
-						const planContent = await readSwarmFileAsync(directory, 'plan.md');
-						if (planContent) {
-							currentPhase = extractCurrentPhase(planContent);
-							currentTask = extractCurrentTask(planContent);
+						planContentForCursor = await readSwarmFileAsync(
+							directory,
+							'plan.md',
+						);
+						if (planContentForCursor) {
+							currentPhase = extractCurrentPhase(planContentForCursor);
+							currentTask = extractCurrentTask(planContentForCursor);
 						}
 					}
 
@@ -412,6 +411,19 @@ export function createSystemEnhancerHook(
 								contentType: estimateContentType(text),
 								isCurrentTask: true,
 							},
+						});
+					}
+
+					// Plan cursor for scoring path
+					if (planContentForCursor) {
+						const planCursor = extractPlanCursor(planContentForCursor);
+						candidates.push({
+							id: `candidate-${idCounter++}`,
+							kind: 'phase',
+							text: planCursor,
+							tokens: estimateTokens(planCursor),
+							priority: 1,
+							metadata: { contentType: 'markdown' },
 						});
 					}
 
