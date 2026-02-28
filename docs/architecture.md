@@ -260,6 +260,67 @@ All tasks in phase done
 
 ## MODE Labels (v6.11)
 
+### Plan Cursor (v6.13)
+
+The `plan_cursor` config enables a compact representation of the project plan that is injected into the LLM context, keeping the total token count under a configurable limit.
+
+```json
+{
+  "plan_cursor": {
+    "enabled": true,
+    "max_tokens": 1500,
+    "lookahead_tasks": 2
+  }
+}
+```
+
+- **enabled** – When `true` (default) Swarm injects a plan cursor instead of the full `plan.md`.
+- **max_tokens** – Upper bound on tokens emitted for the cursor (default 1500). The cursor includes the current phase summary, the full current task, and up to `lookahead_tasks` upcoming tasks. Earlier phases are reduced to one‑line summaries.
+- **lookahead_tasks** – Number of future tasks to include in full detail (default 2). Set to `0` to show only the current task.
+
+Disabling (`"enabled": false`) falls back to the pre‑v6.13 behavior of injecting the entire plan text.
+
+### Tool Output Truncation (v6.13)
+
+Controls the size of tool outputs sent back to the LLM.
+
+```json
+{
+  "tool_output": {
+    "truncation_enabled": true,
+    "max_lines": 150,
+    "per_tool": {
+      "diff": 200,
+      "symbols": 100
+    }
+  }
+}
+```
+
+- **truncation_enabled** – Global switch (default true).
+- **max_lines** – Default line limit for any tool output.
+- **per_tool** – Overrides `max_lines` for specific tools. The `diff` and `symbols` tools are truncated by default because their outputs can be very large.
+
+When truncation is active, a footer is appended to the output:
+
+```
+---
+[output truncated to {maxLines} lines – use `tool_output.per_tool.<tool>` to adjust]
+```
+
+### Mode Detection (v6.13)
+
+Swarm now explicitly distinguishes five architect modes, which affect what injection blocks are added to the LLM prompt.
+
+| Mode | When Injected |
+|------|----------------|
+| `DISCOVER` | After the explorer finishes scanning the codebase. |
+| `PLAN` | When the architect writes or updates the plan. |
+| `EXECUTE` | During task implementation (the normal pipeline). |
+| `PHASE-WRAP` | After all tasks in a phase are completed, before docs are updated. |
+| `UNKNOWN` | Fallback when the current state does not match any known mode. |
+
+
 The Architect workflow uses explicit **MODE** labels internally to distinguish architect execution phases from project plan phases:
 
 | MODE | Description |
