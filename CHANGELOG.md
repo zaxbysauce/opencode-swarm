@@ -1,5 +1,64 @@
 # Changelog
 
+## [6.14.0](https://github.com/zaxbysauce/opencode-swarm/compare/opencode-swarm-v6.13.1...opencode-swarm-v6.14.0) (2026-02-28)
+
+
+### Features
+
+* agent guardrails circuit breaker (v4.6.0) ([7127233](https://github.com/zaxbysauce/opencode-swarm/commit/7127233bb953d4816c15a5a6128e4ecc4a76e558))
+* canonical plan schema with JSON persistence and migration (v5.0.0 Phase 1) ([79cd855](https://github.com/zaxbysauce/opencode-swarm/commit/79cd85542dc668d9a01f1680dd997731840cbdd0))
+* context injection budget with priority-ordered tryInject (v5.0.0 Phase 5.1) ([8c6db95](https://github.com/zaxbysauce/opencode-swarm/commit/8c6db958c41d8acd51127f5965530a4e61009b32))
+* DX, quality & feature enhancement (v4.4.0) ([e19df7a](https://github.com/zaxbysauce/opencode-swarm/commit/e19df7a814bd7950084a3de7297ea39540a79022))
+* enhanced agent view with guardrail profiles + packaging smoke tests (v5.0.0 Phase 4) ([c4e72bf](https://github.com/zaxbysauce/opencode-swarm/commit/c4e72bf3618a00cfb9d0ac6f973a5d129f195af5))
+* evidence bundles with retention and archiving (v5.0.0 Phase 2) ([25f5b95](https://github.com/zaxbysauce/opencode-swarm/commit/25f5b95ea3eefb87d03b637b624f8f668b63541a))
+* implement per-invocation guardrails for v5.2.0 ([4d55ebf](https://github.com/zaxbysauce/opencode-swarm/commit/4d55ebf99fff151dcd07a5bbf2172b6494b28a6c))
+* implement v6.4 execution planning tools and security hardening ([51ed4c3](https://github.com/zaxbysauce/opencode-swarm/commit/51ed4c3618350956581a75cbd154ed0b3f3f4260))
+* per-agent guardrail profiles with configurable limits (v5.0.0 Phase 3) ([fd3533f](https://github.com/zaxbysauce/opencode-swarm/commit/fd3533f5febf42703cf527bfb25218c52540a725))
+* raise default architect guardrails limits (3x base duration and tool calls) ([f06f371](https://github.com/zaxbysauce/opencode-swarm/commit/f06f37139d3962863d4f86b13cbae729be7f7d88))
+* release v6.8.0 — complete background automation ([c4082f7](https://github.com/zaxbysauce/opencode-swarm/commit/c4082f76ee40df131faa7edc79e17cb73f1e0455))
+* ship v6.7 GUI-first background automation ([f4c3022](https://github.com/zaxbysauce/opencode-swarm/commit/f4c302266ad92e47e41396024a8354b579b6bf4f))
+* **state:** Add shared state module for cross-hook state sharing ([363516d](https://github.com/zaxbysauce/opencode-swarm/commit/363516d87c283d028452c21ae4f544bef302bbac))
+* tech debt cleanup, slash commands, README overhaul (v4.5.0) ([ea24320](https://github.com/zaxbysauce/opencode-swarm/commit/ea24320b2c3f67447e87cd6ddb2d6439d54f59e3))
+* v5.0.0 — verifiable execution with evidence bundles, guardrail profiles, and injection budget ([2a35aec](https://github.com/zaxbysauce/opencode-swarm/commit/2a35aecb08d16df4a61bc1ba46579755b553b273))
+* **v5.1.0:** score-based context injection (opt-in) ([4724329](https://github.com/zaxbysauce/opencode-swarm/commit/4724329d3e7336a69511921acd01479ce931bb4b))
+* **v5.1.2:** /swarm benchmark command with CI gate ([39e3eff](https://github.com/zaxbysauce/opencode-swarm/commit/39e3effbcf8221b1552cdad1caacf603bd98945f))
+* **v5.1.3:** reversible summaries for oversized tool outputs ([fdbd9ee](https://github.com/zaxbysauce/opencode-swarm/commit/fdbd9ee8a444c7f7e557e70c65fe3101069e4d4f))
+* v6.0.0 — Core QA & Security Gates ([d48a5ef](https://github.com/zaxbysauce/opencode-swarm/commit/d48a5ef63521c531f753fc4c20d578dfa989e752))
+* v6.12.0 Anti-Process-Violation Hardening ([40542ed](https://github.com/zaxbysauce/opencode-swarm/commit/40542edc21d6e48dfd8c8548d0cd8af03f6dc408))
+* v6.13.1 system message consolidation + test isolation + config fixes ([d2c6d1c](https://github.com/zaxbysauce/opencode-swarm/commit/d2c6d1cab8ecde703db238ae5af7773cce2a9f5d))
+
+
+### Bug Fixes
+
+* add fourth exemption layer for architect circuit breaker ([28bf07f](https://github.com/zaxbysauce/opencode-swarm/commit/28bf07f8d9372897c0606c6267de190d8cbd80a7))
+* **agents:** harden subagent identity to prevent delegation confusion (v4.3.1) ([9a52471](https://github.com/zaxbysauce/opencode-swarm/commit/9a524717b24a0f8dc574d284f9ac9dd0725cbb18))
+* architect session stuck with 30-minute limit ([4f20a93](https://github.com/zaxbysauce/opencode-swarm/commit/4f20a9384adde29b751bb49002452dd37370ccfc))
+* avoid npm install failure by dropping postinstall hook ([4ed1c18](https://github.com/zaxbysauce/opencode-swarm/commit/4ed1c189860f21a7caca23288efc5953fafb75a4))
+* circuit breaker killing architect sessions — unlimited duration + idle timeout ([634977d](https://github.com/zaxbysauce/opencode-swarm/commit/634977dba2c89d6d5b3838eee8fdad65032e1e14))
+* circuit breaker triggers too early — per-agent profiles and softened messages ([ee1a0be](https://github.com/zaxbysauce/opencode-swarm/commit/ee1a0be0efec712935da4dade588e6d40eb3993f))
+* default unknown agent guardrails to architect limits ([e144bdb](https://github.com/zaxbysauce/opencode-swarm/commit/e144bdbfbfe4ab8c7ff0a629416452f0feb4bc05))
+* guardrails circuit breaker now recognizes prefixed architect agents for any swarm name ([b371e89](https://github.com/zaxbysauce/opencode-swarm/commit/b371e89fc9df6b99fda978ad5d8be776b8b132e0))
+* guardrails disable bypass + prevent unknown orchestrator session (v6.1.2) ([7cc0a11](https://github.com/zaxbysauce/opencode-swarm/commit/7cc0a11bd21b4e096429c26bc5c0cd47a6b736df))
+* guardrails race condition — sessions no longer created with wrong agent name ([00311a9](https://github.com/zaxbysauce/opencode-swarm/commit/00311a9327475fbe513bd607da75f6bccda142ae))
+* prevent architect guardrail duration regression ([96f9e6a](https://github.com/zaxbysauce/opencode-swarm/commit/96f9e6a594f801671b01d0add6ad665cb50a60c3))
+* prevent stale 30-minute guardrail via agent switching; make architect tool limits unlimited ([20207de](https://github.com/zaxbysauce/opencode-swarm/commit/20207de38b8314f468cf76fb2dee50a3a61994e1))
+* prevent stale 30-minute guardrail via agent switching; make architect tool limits unlimited ([370573d](https://github.com/zaxbysauce/opencode-swarm/commit/370573d461058794f7c9c6b68cae3f1e7f5639f4))
+* remove [@agent](https://github.com/agent)_name prefixes from delegation prompts to prevent subagent self-delegation ([4fc9fed](https://github.com/zaxbysauce/opencode-swarm/commit/4fc9fedc8085c08e223d4435e05aa31640b847ac))
+* resolve delegation tracker race condition and bump version to 5.1.8 ([b7c15fe](https://github.com/zaxbysauce/opencode-swarm/commit/b7c15fe221a0294b0f6b9e9e97a08d3f5e3144f0))
+* **security:** defense-in-depth hardening (v4.3.2) ([a232242](https://github.com/zaxbysauce/opencode-swarm/commit/a232242fdf0bb8fd8131e1dade4ab53c4b8af8be))
+* stabilize delegation tracking and ignore swarm data ([0888e11](https://github.com/zaxbysauce/opencode-swarm/commit/0888e11237fadf4452f2394d92fee2e9340fe374))
+* stabilize test-agent prompts and flaky tool tests ([5b9fb4e](https://github.com/zaxbysauce/opencode-swarm/commit/5b9fb4e1cf44cb667920eb5835290330bf9d2b00))
+* Strengthen architect review gate enforcement - explicit STOP on REJECTED verdict ([65db123](https://github.com/zaxbysauce/opencode-swarm/commit/65db1236b0761fbc6c83c71407b8e9645ffa72b3))
+* **tests:** update system-enhancer tests to expect SWARM HINT injection ([58907a6](https://github.com/zaxbysauce/opencode-swarm/commit/58907a6b50bf9bc45796ab030a8b2cbd393f3909))
+* TypeScript errors from optional current_phase ([284bc5f](https://github.com/zaxbysauce/opencode-swarm/commit/284bc5f574ef87210063c0bc8abe3fcd165b5886))
+* update benchmark command and test for InvocationWindow model ([f2fc49d](https://github.com/zaxbysauce/opencode-swarm/commit/f2fc49d4bcb03c5bc4b0f81039975ae6590afcaa))
+* **v5.1.1:** structural architect guardrail exemption + delegation gate hook ([dac7920](https://github.com/zaxbysauce/opencode-swarm/commit/dac7920adfd4d8b1dc3aac610aac84003aa61c7d))
+* **v5.1.5:** architect circuit breaker race condition ([3c1eca1](https://github.com/zaxbysauce/opencode-swarm/commit/3c1eca133e3e83daeb8d6632c63bd1e45b23aa47))
+* **v5.1.6:** harden architect handoff and unknown-agent guardrails ([e11fd4e](https://github.com/zaxbysauce/opencode-swarm/commit/e11fd4e813bd313ff9b21aa2d31cec0ca1270edd))
+* **v5.1.7:** normalize architect identity matching ([615fac5](https://github.com/zaxbysauce/opencode-swarm/commit/615fac5511903b3dd48440aebc7b2e9cdef2cc85))
+* v6.0.1 — guardrails bug fixes (config fallback, session isolation, deep merge, disabled skip) ([a508521](https://github.com/zaxbysauce/opencode-swarm/commit/a508521ea24f78fdb3a8a2ed1493b92d47cca8cd))
+* v6.1.1 — security fix (_loadedFromFile bypass), tech debt cleanup, retrieve_summary registered ([d70f7ea](https://github.com/zaxbysauce/opencode-swarm/commit/d70f7eaff12931c79c3ef3ebac26aca1b8805a59))
+
 ## [6.12.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.12.0...v6.12.1) (2026-02-28)
 
 
