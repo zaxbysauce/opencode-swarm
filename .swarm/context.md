@@ -427,3 +427,28 @@ All 11 tasks completed:
 
 ### Current Status
 - Phase 1: Task 1.1 in progress
+
+---
+
+## Phase Metrics
+
+### v6.13.1 - System Message Consolidation (2026-02-28)
+- **phase_number:** 1
+- **total_tool_calls:** ~50
+- **coder_revisions:** 4 (system message consolidation logic)
+- **reviewer_rejections:** 2 (fast path array mutation, whitespace filtering)
+- **test_failures:** 3 (test expectations, whitespace handling)
+- **security_findings:** 0
+- **integration_issues:** 0
+- **task_count:** 15 (across 5 phases)
+- **task_complexity:** Medium
+- **top_rejection_reasons:**
+  1. Fast path returning original array reference instead of new array
+  2. Whitespace-only system messages not being removed from array
+  3. Test expectations mismatching actual function behavior
+- **lessons_learned:**
+  1. Always verify fast path logic matches main processing loop
+  2. Test edge cases early - whitespace filtering revealed subtle bugs
+  3. Reviewer catches logic bugs that tests miss - both gates needed
+  4. Test isolation helper prevents future config corruption bugs
+  5. Migration layer maintains backward compatibility for v6.12 users
