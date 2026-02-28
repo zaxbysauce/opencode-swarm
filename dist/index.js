@@ -31565,16 +31565,16 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   }
 }
 var DEFAULT_MODELS = {
-  architect: "anthropic/claude-sonnet-4-5",
-  explorer: "google/gemini-2.0-flash",
-  coder: "anthropic/claude-sonnet-4-5",
-  test_engineer: "google/gemini-2.0-flash",
-  sme: "google/gemini-2.0-flash",
-  reviewer: "google/gemini-2.0-flash",
-  critic: "google/gemini-2.0-flash",
-  docs: "google/gemini-2.0-flash",
-  designer: "google/gemini-2.0-flash",
-  default: "google/gemini-2.0-flash"
+  architect: "anthropic/claude-sonnet-4-20250514",
+  explorer: "google/gemini-2.5-flash",
+  coder: "anthropic/claude-sonnet-4-20250514",
+  test_engineer: "google/gemini-2.5-flash",
+  sme: "google/gemini-2.5-flash",
+  reviewer: "google/gemini-2.5-flash",
+  critic: "google/gemini-2.5-flash",
+  docs: "google/gemini-2.5-flash",
+  designer: "google/gemini-2.5-flash",
+  default: "google/gemini-2.5-flash"
 };
 var DEFAULT_SCORING_CONFIG = {
   enabled: false,
@@ -32108,6 +32108,22 @@ function loadRawConfigFromPath(configPath) {
     return { config: null, fileExisted: false, hadError: false };
   }
 }
+function migratePresetsConfig(raw) {
+  if (raw.presets && typeof raw.presets === "object" && !raw.agents) {
+    const presetName = raw.preset || "remote";
+    const presets = raw.presets;
+    const activePreset = presets[presetName] || Object.values(presets)[0];
+    if (activePreset && typeof activePreset === "object") {
+      const migrated = { ...raw, agents: activePreset };
+      delete migrated.preset;
+      delete migrated.presets;
+      delete migrated.swarm_mode;
+      console.warn("[opencode-swarm] Migrated v6.12 presets config to agents format. Consider updating your opencode-swarm.json.");
+      return migrated;
+    }
+  }
+  return raw;
+}
 function loadPluginConfig(directory) {
   const userConfigPath = path.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
   const projectConfigPath = path.join(directory, ".opencode", CONFIG_FILENAME);
@@ -32121,6 +32137,7 @@ function loadPluginConfig(directory) {
   if (rawProjectConfig) {
     mergedRaw = deepMerge(mergedRaw, rawProjectConfig);
   }
+  mergedRaw = migratePresetsConfig(mergedRaw);
   const result = PluginConfigSchema.safeParse(mergedRaw);
   if (!result.success) {
     if (rawUserConfig) {
@@ -37140,7 +37157,18 @@ function consolidateSystemMessages(messages) {
     systemContents.push(trimmedContent);
   }
   if (systemContents.length === 0) {
-    return [...messages];
+    return messages.filter((m) => {
+      if (m.role !== "system") {
+        return true;
+      }
+      if (typeof m.content !== "string" || m.name !== undefined || m.tool_call_id !== undefined) {
+        return true;
+      }
+      if (m.content.trim().length > 0) {
+        return true;
+      }
+      return false;
+    });
   }
   const mergedSystemContent = systemContents.join(`
 
@@ -37153,9 +37181,14 @@ function consolidateSystemMessages(messages) {
     ...Object.fromEntries(Object.entries(firstSystemMessage).filter(([key]) => key !== "role" && key !== "content"))
   });
   for (let i2 = 0;i2 < messages.length; i2++) {
-    if (!systemMessageIndices.includes(i2)) {
-      result.push({ ...messages[i2] });
+    const message = messages[i2];
+    if (systemMessageIndices.includes(i2)) {
+      continue;
     }
+    if (message.role === "system" && typeof message.content === "string" && message.content.trim().length === 0) {
+      continue;
+    }
+    result.push({ ...message });
   }
   return result;
 }
@@ -48474,7 +48507,7 @@ var OpenCodeSwarm = async (ctx) => {
       opencodeConfig.command = {
         ...opencodeConfig.command || {},
         swarm: {
-          template: "{{arguments}}",
+          template: 'The /swarm command has been processed by the plugin handler. Acknowledge with: "Done." Do not take any further action. User input was: $ARGUMENTS',
           description: "Swarm management commands"
         }
       };

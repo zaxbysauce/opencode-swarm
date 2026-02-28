@@ -120,7 +120,10 @@ function migratePresetsConfig(
 		const activePreset = presets[presetName] || Object.values(presets)[0];
 
 		if (activePreset && typeof activePreset === 'object') {
-			const migrated = { ...raw, agents: activePreset };
+			const migrated = { ...raw, agents: activePreset } as Record<
+				string,
+				unknown
+			>;
 			delete migrated.preset;
 			delete migrated.presets;
 			delete migrated.swarm_mode;
