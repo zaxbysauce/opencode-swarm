@@ -163,12 +163,18 @@ All 7 secretscan findings are false positives:
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 19 | 19 | 0 | 4ms |
-| bash | 14 | 14 | 0 | 322ms |
-| edit | 3 | 3 | 0 | 120ms |
-| task | 2 | 2 | 0 | 49322ms |
-| test_runner | 1 | 1 | 0 | 2ms |
-| write | 1 | 1 | 0 | 125ms |
+| grep | 42 | 42 | 0 | 37ms |
+| read | 34 | 34 | 0 | 7ms |
+| bash | 17 | 17 | 0 | 289ms |
+| task | 9 | 9 | 0 | 62473ms |
+| glob | 8 | 8 | 0 | 23ms |
+| edit | 3 | 3 | 0 | 146ms |
+| retrieve_summary | 2 | 2 | 0 | 4ms |
+| todowrite | 1 | 1 | 0 | 13ms |
+| webfetch | 1 | 1 | 0 | 149ms |
+| write | 1 | 1 | 0 | 521ms |
+| lint | 1 | 1 | 0 | 3632ms |
+| invalid | 1 | 1 | 0 | 1ms |
 ## v6.9.0 Release Retrospective (2026-02-25)
 
 ### Summary

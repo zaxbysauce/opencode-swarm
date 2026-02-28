@@ -29,15 +29,15 @@ Create `~/.config/opencode/opencode-swarm.json`:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "explorer": { "model": "google/gemini-2.0-flash" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "sme": { "model": "google/gemini-2.0-flash" },
-    "reviewer": { "model": "google/gemini-2.0-flash" },
-    "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "google/gemini-2.0-flash" },
-    "docs": { "model": "google/gemini-2.0-flash" },
-    "designer": { "model": "google/gemini-2.0-flash" }
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "explorer": { "model": "google/gemini-2.5-flash" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "sme": { "model": "google/gemini-2.5-flash" },
+    "reviewer": { "model": "google/gemini-2.5-flash" },
+    "critic": { "model": "google/gemini-2.5-flash" },
+    "test_engineer": { "model": "google/gemini-2.5-flash" },
+    "docs": { "model": "google/gemini-2.5-flash" },
+    "designer": { "model": "google/gemini-2.5-flash" }
   }
 }
 ```
@@ -71,9 +71,9 @@ Each agent can use a different model:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "explorer": { "model": "google/gemini-2.0-flash" }
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "explorer": { "model": "google/gemini-2.5-flash" }
   }
 }
 ```
@@ -115,9 +115,9 @@ Run multiple independent swarms with different model configurations.
     "cloud": {
       "name": "Cloud",
       "agents": {
-        "architect": { "model": "anthropic/claude-sonnet-4-5" },
-        "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        "sme": { "model": "google/gemini-2.0-flash" },
+        "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+        "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+        "sme": { "model": "google/gemini-2.5-flash" },
         "reviewer": { "model": "openai/gpt-4o" },
         "critic": { "model": "openai/gpt-4o" }
       }
@@ -158,9 +158,9 @@ Run multiple independent swarms with different model configurations.
     "premium": {
       "name": "Premium (Cloud)",
       "agents": {
-        "architect": { "model": "anthropic/claude-sonnet-4-5" },
-        "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        "sme": { "model": "anthropic/claude-sonnet-4-5" },
+        "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+        "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+        "sme": { "model": "anthropic/claude-sonnet-4-20250514" },
         "reviewer": { "model": "openai/gpt-4o" },
         "critic": { "model": "openai/gpt-4o" }
       }
@@ -168,11 +168,11 @@ Run multiple independent swarms with different model configurations.
     "balanced": {
       "name": "Balanced",
       "agents": {
-        "architect": { "model": "anthropic/claude-sonnet-4-5" },
-        "coder": { "model": "google/gemini-2.0-flash" },
-        "sme": { "model": "google/gemini-2.0-flash" },
-        "reviewer": { "model": "google/gemini-2.0-flash" },
-        "critic": { "model": "google/gemini-2.0-flash" }
+        "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+        "coder": { "model": "google/gemini-2.5-flash" },
+        "sme": { "model": "google/gemini-2.5-flash" },
+        "reviewer": { "model": "google/gemini-2.5-flash" },
+        "critic": { "model": "google/gemini-2.5-flash" }
       }
     },
     "local": {
@@ -221,7 +221,7 @@ If you don't use `swarms`, the legacy `agents` config still works:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" }
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" }
   }
 }
 ```
@@ -242,15 +242,15 @@ Use expensive models only where it matters:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "explorer": { "model": "google/gemini-2.0-flash" },
-    "sme": { "model": "google/gemini-2.0-flash" },
-    "reviewer": { "model": "google/gemini-2.0-flash" },
-    "critic": { "model": "google/gemini-2.0-flash" },
-    "test_engineer": { "model": "google/gemini-2.0-flash" },
-    "docs": { "model": "google/gemini-2.0-flash" },
-    "designer": { "model": "google/gemini-2.0-flash" }
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "explorer": { "model": "google/gemini-2.5-flash" },
+    "sme": { "model": "google/gemini-2.5-flash" },
+    "reviewer": { "model": "google/gemini-2.5-flash" },
+    "critic": { "model": "google/gemini-2.5-flash" },
+    "test_engineer": { "model": "google/gemini-2.5-flash" },
+    "docs": { "model": "google/gemini-2.5-flash" },
+    "designer": { "model": "google/gemini-2.5-flash" }
   }
 }
 ```
@@ -262,15 +262,15 @@ Different vendors catch different bugs:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
-    "explorer": { "model": "google/gemini-2.0-flash" },
-    "sme": { "model": "google/gemini-2.0-flash" },
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "explorer": { "model": "google/gemini-2.5-flash" },
+    "sme": { "model": "google/gemini-2.5-flash" },
     "reviewer": { "model": "openai/gpt-4o" },
-    "critic": { "model": "google/gemini-2.0-flash" },
+    "critic": { "model": "google/gemini-2.5-flash" },
     "test_engineer": { "model": "openai/gpt-4o-mini" },
-    "docs": { "model": "google/gemini-2.0-flash" },
-    "designer": { "model": "google/gemini-2.0-flash" }
+    "docs": { "model": "google/gemini-2.5-flash" },
+    "designer": { "model": "google/gemini-2.5-flash" }
   }
 }
 ```
@@ -282,8 +282,8 @@ Use local models for high-volume agents:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
     "explorer": { "model": "ollama/qwen2.5:14b" },
     "sme": { "model": "ollama/qwen2.5:14b" },
     "reviewer": { "model": "ollama/qwen2.5:14b" },
@@ -302,12 +302,12 @@ Single vendor, premium quality:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-sonnet-4-5" },
-    "coder": { "model": "anthropic/claude-sonnet-4-5" },
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "anthropic/claude-sonnet-4-20250514" },
     "explorer": { "model": "anthropic/claude-haiku" },
     "sme": { "model": "anthropic/claude-haiku" },
-    "reviewer": { "model": "anthropic/claude-sonnet-4-5" },
-    "critic": { "model": "anthropic/claude-sonnet-4-5" },
+    "reviewer": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "critic": { "model": "anthropic/claude-sonnet-4-20250514" },
     "test_engineer": { "model": "anthropic/claude-haiku" },
     "docs": { "model": "anthropic/claude-haiku" },
     "designer": { "model": "anthropic/claude-haiku" }
@@ -509,7 +509,7 @@ Monitor and warn about context window usage:
     "critical_threshold": 0.9,
     "model_limits": {
       "default": 128000,
-      "anthropic/claude-sonnet-4-5": 200000
+      "anthropic/claude-sonnet-4-20250514": 200000
     }
   }
 }
@@ -1060,9 +1060,9 @@ Lists all registered agents with their configuration including guardrail profile
 ```
 | Agent          | Model                        | Temp | Read-Only | Guardrails        |
 |----------------|------------------------------|------|-----------|-------------------|
-| architect      | anthropic/claude-sonnet-4-5   | 0.1  | No        | max_tools: 200    |
-| explorer       | google/gemini-2.0-flash      | 0.1  | Yes       | max_tools: 200    |
-| coder          | anthropic/claude-sonnet-4-5   | 0.2  | No        | max_tools: 200    |
+| architect      | anthropic/claude-sonnet-4-20250514   | 0.1  | No        | max_tools: 200    |
+| explorer       | google/gemini-2.5-flash      | 0.1  | Yes       | max_tools: 200    |
+| coder          | anthropic/claude-sonnet-4-20250514   | 0.2  | No        | max_tools: 200    |
 | ...            | ...                          | ...  | ...       | ...               |
 ```
 
