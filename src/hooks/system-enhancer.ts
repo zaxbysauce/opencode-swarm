@@ -99,7 +99,15 @@ export function createSystemEnhancerHook(
 					if (!scoringEnabled) {
 						// Path A: EXACT LEGACY CODE - do not change
 						// Priority 0: Minimal phase header
-						const plan = await loadPlan(directory);
+						let plan = null;
+						try {
+							plan = await loadPlan(directory);
+						} catch (error) {
+							warn(
+								`Failed to load plan: ${error instanceof Error ? error.message : String(error)}`,
+							);
+						}
+						const mode = await detectArchitectMode(directory);
 						let planContent: string | null = null;
 						let phaseHeader = '';
 						if (plan && plan.migration_status !== 'migration_failed') {
@@ -116,13 +124,13 @@ export function createSystemEnhancerHook(
 						}
 
 						// Priority 1: Plan cursor (compressed plan summary)
-						if (planContent) {
+						if (mode !== 'DISCOVER' && planContent) {
 							const planCursor = extractPlanCursor(planContent);
 							tryInject(planCursor);
 						}
 
 						// Priority 3: Decisions
-						if (contextContent) {
+						if (mode !== 'DISCOVER' && contextContent) {
 							const decisions = extractDecisions(contextContent, 200);
 							if (decisions) {
 								tryInject(`[SWARM CONTEXT] Key decisions: ${decisions}`);
@@ -194,23 +202,25 @@ export function createSystemEnhancerHook(
 						}
 
 						// v6.10: Parallel pre-check batch hint — architect-only
-						const sessionId_preflight = _input.sessionID;
-						const activeAgent_preflight = swarmState.activeAgent.get(
-							sessionId_preflight ?? '',
-						);
-						const isArchitectForPreflight =
-							!activeAgent_preflight ||
-							stripKnownSwarmPrefix(activeAgent_preflight) === 'architect';
+						if (mode !== 'DISCOVER') {
+							const sessionId_preflight = _input.sessionID;
+							const activeAgent_preflight = swarmState.activeAgent.get(
+								sessionId_preflight ?? '',
+							);
+							const isArchitectForPreflight =
+								!activeAgent_preflight ||
+								stripKnownSwarmPrefix(activeAgent_preflight) === 'architect';
 
-						if (isArchitectForPreflight) {
-							if (config.pipeline?.parallel_precheck !== false) {
-								tryInject(
-									'[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.',
-								);
-							} else {
-								tryInject(
-									'[SWARM HINT] Parallel pre-check disabled: run lint:check → secretscan → sast_scan → quality_budget sequentially.',
-								);
+							if (isArchitectForPreflight) {
+								if (config.pipeline?.parallel_precheck !== false) {
+									tryInject(
+										'[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.',
+									);
+								} else {
+									tryInject(
+										'[SWARM HINT] Parallel pre-check disabled: run lint:check → secretscan → sast_scan → quality_budget sequentially.',
+									);
+								}
 							}
 						}
 
@@ -285,33 +295,35 @@ export function createSystemEnhancerHook(
 							}
 
 							// v6.2: Soft compaction advisory
-							const compactionConfig = config.compaction_advisory;
-							if (compactionConfig?.enabled !== false && sessionId_retro) {
-								const session = swarmState.agentSessions.get(sessionId_retro);
-								if (session) {
-									const totalToolCalls = Array.from(
-										swarmState.toolAggregates.values(),
-									).reduce((sum, agg) => sum + agg.count, 0);
+							if (mode !== 'DISCOVER') {
+								const compactionConfig = config.compaction_advisory;
+								if (compactionConfig?.enabled !== false && sessionId_retro) {
+									const session = swarmState.agentSessions.get(sessionId_retro);
+									if (session) {
+										const totalToolCalls = Array.from(
+											swarmState.toolAggregates.values(),
+										).reduce((sum, agg) => sum + agg.count, 0);
 
-									const thresholds = compactionConfig?.thresholds ?? [
-										50, 75, 100, 125, 150,
-									];
-									const lastHint = session.lastCompactionHint || 0;
+										const thresholds = compactionConfig?.thresholds ?? [
+											50, 75, 100, 125, 150,
+										];
+										const lastHint = session.lastCompactionHint || 0;
 
-									for (const threshold of thresholds) {
-										if (totalToolCalls >= threshold && lastHint < threshold) {
-											const totalToolCallsPlaceholder =
-												'$' + '{totalToolCalls}';
-											const messageTemplate =
-												compactionConfig?.message ??
-												`[SWARM HINT] Session has ${totalToolCallsPlaceholder} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
-											const message = messageTemplate.replace(
-												totalToolCallsPlaceholder,
-												String(totalToolCalls),
-											);
-											tryInject(message);
-											session.lastCompactionHint = threshold;
-											break;
+										for (const threshold of thresholds) {
+											if (totalToolCalls >= threshold && lastHint < threshold) {
+												const totalToolCallsPlaceholder =
+													'$' + '{totalToolCalls}';
+												const messageTemplate =
+													compactionConfig?.message ??
+													`[SWARM HINT] Session has ${totalToolCallsPlaceholder} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
+												const message = messageTemplate.replace(
+													totalToolCallsPlaceholder,
+													String(totalToolCalls),
+												);
+												tryInject(message);
+												session.lastCompactionHint = threshold;
+												break;
+											}
 										}
 									}
 								}
@@ -319,29 +331,31 @@ export function createSystemEnhancerHook(
 						}
 
 						// v6.7: Decision drift detection — architect-only
-						const automationCapabilities = config.automation?.capabilities;
-						if (
-							automationCapabilities?.decision_drift_detection === true &&
-							_input.sessionID
-						) {
-							const activeAgentForDrift = swarmState.activeAgent.get(
-								_input.sessionID,
-							);
-							const isArchitectForDrift =
-								!activeAgentForDrift ||
-								stripKnownSwarmPrefix(activeAgentForDrift) === 'architect';
+						if (mode !== 'DISCOVER') {
+							const automationCapabilities = config.automation?.capabilities;
+							if (
+								automationCapabilities?.decision_drift_detection === true &&
+								_input.sessionID
+							) {
+								const activeAgentForDrift = swarmState.activeAgent.get(
+									_input.sessionID,
+								);
+								const isArchitectForDrift =
+									!activeAgentForDrift ||
+									stripKnownSwarmPrefix(activeAgentForDrift) === 'architect';
 
-							if (isArchitectForDrift) {
-								try {
-									const driftResult = await analyzeDecisionDrift(directory);
-									if (driftResult.hasDrift) {
-										const driftText = formatDriftForContext(driftResult);
-										if (driftText) {
-											tryInject(driftText);
+								if (isArchitectForDrift) {
+									try {
+										const driftResult = await analyzeDecisionDrift(directory);
+										if (driftResult.hasDrift) {
+											const driftText = formatDriftForContext(driftResult);
+											if (driftText) {
+												tryInject(driftText);
+											}
 										}
+									} catch {
+										// Silently skip if drift analysis fails
 									}
-								} catch {
-									// Silently skip if drift analysis fails
 								}
 							}
 						}
@@ -350,6 +364,7 @@ export function createSystemEnhancerHook(
 					}
 
 					// Path B: Scoring is enabled - build candidates and rank
+					const mode_b = await detectArchitectMode(directory);
 					const userScoringConfig = config.context_budget?.scoring;
 					const candidates: ContextCandidate[] = [];
 					let idCounter = 0;
@@ -368,7 +383,14 @@ export function createSystemEnhancerHook(
 
 					// Build candidates from same sources as legacy
 					// Current phase
-					const plan = await loadPlan(directory);
+					let plan = null;
+					try {
+						plan = await loadPlan(directory);
+					} catch (error) {
+						warn(
+							`Failed to load plan: ${error instanceof Error ? error.message : String(error)}`,
+						);
+					}
 					let currentPhase: string | null = null;
 					let currentTask: string | null = null;
 
@@ -652,40 +674,46 @@ export function createSystemEnhancerHook(
 						}
 
 						// v6.2: Soft compaction advisory
-						const compactionConfig_b = config.compaction_advisory;
-						if (compactionConfig_b?.enabled !== false && sessionId_retro_b) {
-							const session_b = swarmState.agentSessions.get(sessionId_retro_b);
-							if (session_b) {
-								const totalToolCalls_b = Array.from(
-									swarmState.toolAggregates.values(),
-								).reduce((sum, agg) => sum + agg.count, 0);
+						if (mode_b !== 'DISCOVER') {
+							const compactionConfig_b = config.compaction_advisory;
+							if (compactionConfig_b?.enabled !== false && sessionId_retro_b) {
+								const session_b =
+									swarmState.agentSessions.get(sessionId_retro_b);
+								if (session_b) {
+									const totalToolCalls_b = Array.from(
+										swarmState.toolAggregates.values(),
+									).reduce((sum, agg) => sum + agg.count, 0);
 
-								const thresholds_b = compactionConfig_b?.thresholds ?? [
-									50, 75, 100, 125, 150,
-								];
-								const lastHint_b = session_b.lastCompactionHint || 0;
+									const thresholds_b = compactionConfig_b?.thresholds ?? [
+										50, 75, 100, 125, 150,
+									];
+									const lastHint_b = session_b.lastCompactionHint || 0;
 
-								for (const threshold of thresholds_b) {
-									if (totalToolCalls_b >= threshold && lastHint_b < threshold) {
-										const totalToolCallsPlaceholder_b =
-											'$' + '{totalToolCalls}';
-										const messageTemplate_b =
-											compactionConfig_b?.message ??
-											`[SWARM HINT] Session has ${totalToolCallsPlaceholder_b} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
-										const compactionText = messageTemplate_b.replace(
-											totalToolCallsPlaceholder_b,
-											String(totalToolCalls_b),
-										);
-										candidates.push({
-											id: `candidate-${idCounter++}`,
-											kind: 'phase' as ContextCandidate['kind'],
-											text: compactionText,
-											tokens: estimateTokens(compactionText),
-											priority: 1,
-											metadata: { contentType: 'prose' as ContentType },
-										});
-										session_b.lastCompactionHint = threshold;
-										break;
+									for (const threshold of thresholds_b) {
+										if (
+											totalToolCalls_b >= threshold &&
+											lastHint_b < threshold
+										) {
+											const totalToolCallsPlaceholder_b =
+												'$' + '{totalToolCalls}';
+											const messageTemplate_b =
+												compactionConfig_b?.message ??
+												`[SWARM HINT] Session has ${totalToolCallsPlaceholder_b} tool calls. Consider compacting at next phase boundary to maintain context quality.`;
+											const compactionText = messageTemplate_b.replace(
+												totalToolCallsPlaceholder_b,
+												String(totalToolCalls_b),
+											);
+											candidates.push({
+												id: `candidate-${idCounter++}`,
+												kind: 'phase' as ContextCandidate['kind'],
+												text: compactionText,
+												tokens: estimateTokens(compactionText),
+												priority: 1,
+												metadata: { contentType: 'prose' as ContentType },
+											});
+											session_b.lastCompactionHint = threshold;
+											break;
+										}
 									}
 								}
 							}
@@ -792,4 +820,62 @@ function extractAgentContext(
 	}
 
 	return contextSummary;
+}
+
+/**
+ * Architect operational mode derived from plan state.
+ */
+export type ArchitectMode =
+	| 'DISCOVER'
+	| 'PLAN'
+	| 'EXECUTE'
+	| 'PHASE-WRAP'
+	| 'UNKNOWN';
+
+/**
+ * Detect the current architect operational mode based on plan state.
+ *
+ * @param directory - The project directory to check
+ * @returns The current architect mode based on plan state
+ */
+export async function detectArchitectMode(
+	directory: string,
+): Promise<ArchitectMode> {
+	try {
+		const plan = await loadPlan(directory);
+
+		if (!plan) {
+			// No plan exists yet
+			return 'DISCOVER';
+		}
+
+		// Check if there are any in-progress tasks
+		const hasActiveTask =
+			plan.phases?.some((phase) =>
+				phase.tasks?.some((task) => task.status === 'in_progress'),
+			) ?? false;
+
+		if (hasActiveTask) {
+			return 'EXECUTE';
+		}
+
+		// Check if all tasks are complete (no pending tasks)
+		const hasPendingTask =
+			plan.phases?.some((phase) =>
+				phase.tasks?.some((task) => task.status === 'pending'),
+			) ?? false;
+
+		if (!hasPendingTask) {
+			return 'PHASE-WRAP';
+		}
+
+		// Plan exists but no active task - still planning
+		return 'PLAN';
+	} catch (error) {
+		// Fallback for any parsing errors
+		warn(
+			`Failed to detect architect mode: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return 'UNKNOWN';
+	}
 }

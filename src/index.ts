@@ -53,6 +53,7 @@ import {
 	todo_extract,
 } from './tools';
 import { log } from './utils';
+import { truncateToolOutput } from './utils/tool-output';
 
 /**
  * OpenCode Swarm Plugin
@@ -414,6 +415,38 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
 			await toolSummarizerHook?.(input, output);
+
+			// Tool output truncation (after summarizer to avoid double-processing)
+			const toolOutputConfig = config.tool_output;
+			if (
+				toolOutputConfig &&
+				toolOutputConfig.truncation_enabled !== false &&
+				typeof output.output === 'string'
+			) {
+				// Skip structured JSON results
+				const skipTools = [
+					'pre_check_batch',
+					'pkg_audit',
+					'schema_drift',
+					'sbom_generate',
+				];
+				if (!skipTools.includes(input.tool)) {
+					// Check for per-tool override or use default
+					const maxLines =
+						toolOutputConfig.per_tool?.[input.tool] ??
+						toolOutputConfig.max_lines ??
+						150;
+
+					// Only truncate diff and symbols outputs
+					if (input.tool === 'diff' || input.tool === 'symbols') {
+						output.output = truncateToolOutput(
+							output.output,
+							maxLines,
+							input.tool,
+						);
+					}
+				}
+			}
 
 			// Deterministic handoff: when task tool completes, force handoff to architect
 			// This ensures architect takes over even if chat.message is delayed

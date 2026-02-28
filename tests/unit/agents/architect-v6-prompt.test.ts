@@ -838,25 +838,26 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 });
 
 // ============================================
-// Phase 4: ANTI-SELF-CODING RULES (v6.12)
+// Phase 3: ARCHITECT CODING BOUNDARIES (replaces ANTI-SELF-CODING RULES)
 // ============================================
 
-describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
+describe('Architect Prompt Hardening v6.12 - ARCHITECT CODING BOUNDARIES', () => {
 	const agent = createArchitectAgent('test-model');
 	const prompt = agent.config.prompt!;
 
 	describe('Block Structure', () => {
-		it('ANTI-SELF-CODING RULES header exists', () => {
-			expect(prompt).toContain('ANTI-SELF-CODING RULES');
+		it('ARCHITECT CODING BOUNDARIES header exists', () => {
+			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
 		});
 
-		it('Block is positioned after "cannot objectively evaluate their own work"', () => {
-			// The block should appear after the line about gates existing for objectivity
+		it('Block is positioned before "The gates exist because the author cannot objectively evaluate their own work"', () => {
+			// The block should appear before the line about gates existing for objectivity
+			// because ARCHITECT CODING BOUNDARIES is Rule 4, and the gates explanation comes later
 			const gatesReasonPos = prompt.indexOf('The gates exist because the author cannot objectively evaluate their own work');
-			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
+			const architectCodingBoundariesPos = prompt.indexOf('ARCHITECT CODING BOUNDARIES');
 			expect(gatesReasonPos).toBeGreaterThan(-1);
-			expect(antiSelfCodingPos).toBeGreaterThan(-1);
-			expect(antiSelfCodingPos).toBeGreaterThan(gatesReasonPos);
+			expect(architectCodingBoundariesPos).toBeGreaterThan(-1);
+			expect(architectCodingBoundariesPos).toBeLessThan(gatesReasonPos);
 		});
 
 		it('Block indicates these thoughts are WRONG', () => {
@@ -886,8 +887,8 @@ describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
 			expect(prompt).toContain('these are coder tools, not architect tools');
 		});
 
-		it('Pattern 6: "It\'s just adding a column / field / import"', () => {
-			expect(prompt).toContain("It's just adding a column / field / import");
+		it('Pattern 6: "It\'s just a schema change / config flag / one-liner / column / field / import"', () => {
+			expect(prompt).toContain("It's just a schema change / config flag / one-liner / column / field / import");
 		});
 
 		it('Pattern 7: "I\'ll do the simple parts"', () => {
@@ -901,9 +902,8 @@ describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
 			expect(prompt).toContain('Zero {{AGENT_PREFIX}}coder failures on this task = zero justification');
 		});
 
-		it('Rule 4 requires QA_RETRY_LIMIT failures, not 0', () => {
-			expect(prompt).toContain('Rule 4 requires {{QA_RETRY_LIMIT}} failures before you may code');
-			expect(prompt).toContain('Not 0');
+		it('Reaching QA_RETRY_LIMIT triggers escalation', () => {
+			expect(prompt).toContain('Reaching {{QA_RETRY_LIMIT}}: escalate to user with full failure history');
 		});
 
 		it('Self-coding without QA_RETRY_LIMIT failures is Rule 1 violation', () => {
@@ -913,22 +913,22 @@ describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
 
 	describe('Template Variable Syntax', () => {
 		it('Uses {{AGENT_PREFIX}} not hardcoded @', () => {
-			// Verify the template variable syntax in ANTI-SELF-CODING section
-			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
+			// Verify the template variable syntax in ARCHITECT CODING BOUNDARIES section
+			const architectBoundariesPos = prompt.indexOf('ARCHITECT CODING BOUNDARIES');
 			const rule1ViolationPos = prompt.indexOf('Self-coding without {{QA_RETRY_LIMIT}} failures');
-			const antiSelfCodingSection = prompt.slice(antiSelfCodingPos, rule1ViolationPos + 100);
+			const architectSection = prompt.slice(architectBoundariesPos, rule1ViolationPos + 100);
 
-			expect(antiSelfCodingSection).toContain('{{AGENT_PREFIX}}coder');
+			expect(architectSection).toContain('{{AGENT_PREFIX}}coder');
 		});
 
 		it('Uses {{QA_RETRY_LIMIT}} for retry limit variable', () => {
-			const antiSelfCodingPos = prompt.indexOf('ANTI-SELF-CODING RULES');
-			const nextSectionPos = prompt.indexOf('### MODE:', antiSelfCodingPos);
-			const antiSelfCodingSection = nextSectionPos > 0
-				? prompt.slice(antiSelfCodingPos, nextSectionPos)
-				: prompt.slice(antiSelfCodingPos, antiSelfCodingPos + 2000);
+			const architectBoundariesPos = prompt.indexOf('ARCHITECT CODING BOUNDARIES');
+			const neverStorePos = prompt.indexOf('NEVER store your swarm identity', architectBoundariesPos);
+			const architectSection = neverStorePos > 0
+				? prompt.slice(architectBoundariesPos, neverStorePos)
+				: prompt.slice(architectBoundariesPos, architectBoundariesPos + 2000);
 
-			expect(antiSelfCodingSection).toContain('{{QA_RETRY_LIMIT}}');
+			expect(architectSection).toContain('{{QA_RETRY_LIMIT}}');
 		});
 	});
 
@@ -1001,9 +1001,10 @@ describe('Architect Prompt Hardening v6.12 - ANTI-SELF-CODING RULES', () => {
 
 // ============================================
 // Rule 4 Self-Coding Pre-Check Adversarial Tests
+// NOTE: BEFORE SELF-CODING section was removed in Phase 3 - these tests are now obsolete
 // ============================================
 
-describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
+describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 	const agent = createArchitectAgent('test-model');
 	const prompt = agent.config.prompt!;
 
@@ -1108,9 +1109,9 @@ describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 			expect(beforeSelfCodingSection).toContain('ESCALATION:');
 		});
 
-		it('Cannot bypass by weakening DO NOT code', () => {
+		it('Cannot bypass by weakening DO NOT COMMIT', () => {
 			// The exact phrase must be present
-			expect(prompt).toContain('If ANY box is unchecked: DO NOT code. Delegate to {{AGENT_PREFIX}}coder');
+			expect(prompt).toContain('If ANY box is unchecked: DO NOT COMMIT. Return to step 5b');
 		});
 	});
 
@@ -1122,13 +1123,13 @@ describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 		// Attack Vector 1: Removal or renaming of the section header
 		it('Cannot bypass by removing PARTIAL GATE RATIONALIZATIONS section header', () => {
 			// The exact section header must be present
-			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS — running SOME gates is NOT compliance:');
+			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS — automated gates ≠ agent review. Running SOME gates is NOT compliance:');
 		});
 
 		it('Cannot bypass by renaming PARTIAL GATE RATIONALIZATIONS', () => {
 			// Must contain the full phrase, not a weakened version
 			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS');
-			expect(prompt).toContain('running SOME gates is NOT compliance');
+			expect(prompt).toContain('Running SOME gates is NOT compliance');
 		});
 
 		// Attack Vector 2: Weakening the "#1 predictor" phrase
@@ -1333,8 +1334,8 @@ describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 		const prompt = createArchitectAgent('test-model').config.prompt!;
 
 		// Self-coding (Task 1.1)
-		it('ANTI-SELF-CODING RULES block present', () => {
-			expect(prompt).toContain('ANTI-SELF-CODING RULES');
+		it('ARCHITECT CODING BOUNDARIES block present', () => {
+			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
 		});
 
 		it('addresses schema/config rationalization', () => {
@@ -1360,8 +1361,16 @@ describe('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 
 		// Rule 4 self-coding pre-check (Task 1.3)
 		it('Rule 4 has self-coding pre-check', () => {
-			expect(prompt).toContain('BEFORE SELF-CODING');
-			expect(prompt).toContain('ESCALATION: Self-coding task');
+			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
+			expect(prompt).toContain('These thoughts are WRONG and must be ignored:');
+		});
+
+		// Bullet count verification (Phase 3 dedup)
+		it('rationalization bullet count decreased after dedup', () => {
+			// Count ✗ bullets in ARCHITECT CODING BOUNDARIES section (6 bullets)
+			const architectSection = prompt.split('ARCHITECT CODING BOUNDARIES')[1].split('NEVER store')[0];
+			const bulletMatches = architectSection.match(/✗ "/g);
+			expect(bulletMatches).toHaveLength(6);
 		});
 
 		// Self-coding severity (Task 1.1)

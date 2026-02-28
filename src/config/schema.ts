@@ -751,6 +751,15 @@ export const PluginConfigSchema = z.object({
 	// Automation configuration (v6.7 background-first rollout)
 	// Controls background automation mode and per-feature toggles
 	automation: AutomationConfigSchema.optional(),
+
+	// Tool output truncation configuration
+	tool_output: z
+		.object({
+			truncation_enabled: z.boolean().default(true),
+			max_lines: z.number().min(10).max(500).default(150),
+			per_tool: z.record(z.string(), z.number()).optional(),
+		})
+		.optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
