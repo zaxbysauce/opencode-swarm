@@ -6,33 +6,30 @@ on:
     branches: [main]
 
 permissions:
-  contents: write          # create GitHub releases + tags
-  pull-requests: write     # open/update Release PR
-  id-token: write          # npm trusted publishing (OIDC)
+  contents: write
+  pull-requests: write
+  id-token: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.rp.outputs.release_created }}
-      tag_name:        ${{ steps.rp.outputs.tag_name }}
+      releases_created: ${{ steps.rp.outputs.releases_created }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
         with:
-          release-type: node
+          command: manifest
 
   publish-npm:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-
       - run: npm ci
       - run: npm publish --access public
