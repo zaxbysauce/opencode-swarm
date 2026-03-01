@@ -4,11 +4,7 @@ import * as path from 'node:path';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
-import {
-	getLanguageForExtension,
-	getParserForFile,
-	isSupportedFile,
-} from '../lang/registry';
+import { getLanguageForExtension, getParserForFile } from '../lang/registry';
 import type { Parser } from '../lang/runtime';
 
 export interface SyntaxCheckInput {
@@ -122,16 +118,14 @@ export async function syntaxCheck(
 		filesToCheck = filesToCheck.filter((f) => f.additions > 0);
 	}
 
-	// Filter to supported extensions
-	filesToCheck = filesToCheck.filter((f) => isSupportedFile(f.path));
-
 	// Optional: filter by language
 	if (languages?.length) {
-		filesToCheck = filesToCheck.filter((file) =>
-			languages.some((lang) =>
-				file.path.toLowerCase().includes(lang.toLowerCase()),
-			),
-		);
+		const lowerLangs = languages.map((l) => l.toLowerCase());
+		filesToCheck = filesToCheck.filter((file) => {
+			const ext = path.extname(file.path).toLowerCase();
+			const langDef = getLanguageForExtension(ext);
+			return langDef ? lowerLangs.includes(langDef.id.toLowerCase()) : false;
+		});
 	}
 
 	const results: SyntaxCheckFileResult[] = [];

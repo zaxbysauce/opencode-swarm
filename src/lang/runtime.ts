@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { Parser as ParserType } from 'web-tree-sitter';
 // Note: Language must be imported as both type and value for runtime loading
 // TreeSitterParser is imported to use Language.load()
@@ -115,8 +116,9 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 	// Get WASM file name and construct path
 	const wasmFileName = getWasmFileName(normalizedId);
 	const grammarsPath = getGrammarsPath();
-	const wasmPath = new URL(`${grammarsPath}${wasmFileName}`, import.meta.url)
-		.pathname;
+	const wasmPath = fileURLToPath(
+		new URL(`${grammarsPath}${wasmFileName}`, import.meta.url),
+	);
 
 	// Check if file exists before attempting to load
 	const { existsSync } = await import('node:fs');
@@ -163,8 +165,9 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 	try {
 		const wasmFileName = getWasmFileName(normalizedId);
 		const grammarsPath = getGrammarsPath();
-		const wasmPath = new URL(`${grammarsPath}${wasmFileName}`, import.meta.url)
-			.pathname;
+		const wasmPath = fileURLToPath(
+			new URL(`${grammarsPath}${wasmFileName}`, import.meta.url),
+		);
 
 		const { statSync } = await import('node:fs');
 		statSync(wasmPath);

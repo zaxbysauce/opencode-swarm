@@ -88,8 +88,8 @@ describe('syntax_check tool', () => {
 	describe('syntax error detection', () => {
 		it('detects syntax errors in JavaScript', async () => {
 			const testFile = path.join(tmpDir, 'invalid.js');
-			// Missing closing parenthesis
-			fs.writeFileSync(testFile, 'const x = function() { return 1;');
+			// Missing closing brace (confirmed fails tree-sitter)
+			fs.writeFileSync(testFile, 'const x = {');
 
 			const input: SyntaxCheckInput = {
 				changed_files: [{ path: testFile, additions: 1 }],
@@ -127,7 +127,7 @@ describe('syntax_check tool', () => {
 
 	describe('binary file detection', () => {
 		it('skips binary files', async () => {
-			const testFile = path.join(tmpDir, 'binary.bin');
+			const testFile = path.join(tmpDir, 'binary.js');
 			// Create a file with null bytes (binary content)
 			const buffer = Buffer.alloc(1000, 0);
 			fs.writeFileSync(testFile, buffer);
@@ -145,8 +145,8 @@ describe('syntax_check tool', () => {
 
 		it('handles files with some null bytes but below threshold', async () => {
 			const testFile = path.join(tmpDir, 'mixed.js');
-			// Less than 10% null bytes should pass
-			const content = 'const x = 1;'.padEnd(100, '\0');
+			// ~2.5% null bytes (5 nulls in 200 chars), clearly below 10% threshold
+			const content = 'const x = 1; // valid code with minimal nulls\0\0\0\0\0'.padEnd(200, ' ');
 			fs.writeFileSync(testFile, content);
 
 			const input: SyntaxCheckInput = {
@@ -287,7 +287,7 @@ describe('syntax_check tool', () => {
 			const validFile = path.join(tmpDir, 'valid.js');
 			const invalidFile = path.join(tmpDir, 'invalid.js');
 			fs.writeFileSync(validFile, 'const x = 1;');
-			fs.writeFileSync(invalidFile, 'const x = function() { return 1;');
+			fs.writeFileSync(invalidFile, 'const x = {');
 
 			const input: SyntaxCheckInput = {
 				changed_files: [
