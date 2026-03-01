@@ -40,16 +40,12 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-          token: ""
 
       - name: Install dependencies
         run: bun install
 
       - name: Build
         run: bun run build
-
-      - name: Remove npm auth token config
-        run: npm config delete //registry.npmjs.org/:_authToken || true
 
       - name: Publish to npm
         run: npm publish --provenance --access public
