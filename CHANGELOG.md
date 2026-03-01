@@ -12,25 +12,20 @@
 ### Test Coverage
 - 316 new tests across 6 test files covering all five fixes.
 
-## [6.14.0] - 2026-02-28
+## [6.13.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.3...v6.13.4) (2026-03-01)
 
-### New Features
-- **3-OS CI matrix:** New `.github/workflows/ci.yml` runs tests on ubuntu-latest, macos-latest, and windows-latest with `fail-fast: false`.
-- **LLM Provider Guide in README:** Added `## LLM Provider Guide` section explaining free Zen model tier, paid provider table (9 agents), and provider format reference.
-- **Free model defaults (OpenCode Zen):** Default agent models switched to free OpenCode Zen models; no API key required out of the box. `architect` inherits OpenCode UI model selection.
-- **`isSourceCodePath` guardrails helper:** Self-coding detection now skips non-source paths (docs/, README.md, package.json, .github/, .swarm/) to eliminate false positives (Issue #17).
+
+### Features
+
+* v6.13.3 retrospective enforcement & memory improvements ([3ce66cd](https://github.com/zaxbysauce/opencode-swarm/commit/3ce66cd3d2c5319a21682b5a42b8ca103fa3ca26))
+
 
 ### Bug Fixes
-- **npm packaging fix (Issue #6):** Removed `copy-grammars` post-install hook that failed on clean npm installs; grammar copy now runs only at build time.
-- **Cross-platform build scripts:** `clean` and `build` npm scripts now use `node -e "require('fs').rmSync(...)"` instead of `rm -rf` for Windows compatibility.
-- **java-gradle platform command:** `discovery.ts` now uses `gradlew.bat build` on Windows and `./gradlew build` on Unix.
-- **Path normalization in test-runner.ts:** `getTestFilesFromConvention` normalizes backslash paths before matching test directory patterns.
 
-### Test & Quality
-- **Cross-platform test coverage:** New `tests/unit/tools/cross-platform.test.ts` with 20 tests covering path normalization, `isCommandAvailable`, and shell execution patterns.
-- **Safe test directory helpers:** New `tests/helpers/safe-test-dir.ts` with `createSafeTestDir` and `withSafeTestDir` for leak-free filesystem tests.
-- **Test isolation fixes:** `factory.test.ts` and `schema-drift.test.ts` now clean up temp directories correctly in `afterEach`.
-- **Guardrails unit tests:** 34 new tests for `isSourceCodePath` and the self-coding gate condition.
+* add null guard in system-enhancer adversarial afterEach before rmSync ([af49674](https://github.com/zaxbysauce/opencode-swarm/commit/af49674fc2652197cc5c4e9916994faddb028dc0))
+* resolve 10 pre-existing syntax-check test failures ([3460a34](https://github.com/zaxbysauce/opencode-swarm/commit/3460a34bc6b6db5aa83837b7e461a28012c9734e))
+* stop test-plan-sync dirs leaking into project root ([c84cad0](https://github.com/zaxbysauce/opencode-swarm/commit/c84cad0d4675fdf2fd285c88ec03fe4d91d8aab8))
+* use os.tmpdir() in tests to prevent temp dirs leaking into project root ([b32a0e1](https://github.com/zaxbysauce/opencode-swarm/commit/b32a0e103306b36fe6fafd0a8a3d2c893314b59b))
 
 ## [6.13.3] - 2026-02-28
 
