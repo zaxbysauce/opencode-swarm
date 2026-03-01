@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.1...v6.14.2) (2026-03-01)
+
+
+### Bug Fixes
+
+* declare js-yaml devDependency and harden CI/publish workflows ([30e7fdf](https://github.com/zaxbysauce/opencode-swarm/commit/30e7fdf89a1b50ab3b7289023f0e1844b10d88c5))
+
 ## [6.13.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.3...v6.13.4) (2026-03-01)
 
 
