@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.5...v6.14.6) (2026-03-01)
+
+
+### Bug Fixes
+
+* suppress GITHUB_TOKEN injection in setup-node for OIDC npm publish ([923565c](https://github.com/zaxbysauce/opencode-swarm/commit/923565ca1a57c31b34be23610bb89c5c825502dc))
+
 ## [6.14.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.4...v6.14.5) (2026-03-01)
 
 
