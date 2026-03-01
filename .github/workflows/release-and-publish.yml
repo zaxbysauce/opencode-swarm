@@ -23,6 +23,7 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       id-token: write
