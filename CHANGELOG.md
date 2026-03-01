@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.7...v6.14.8) (2026-03-01)
+
+
+### Bug Fixes
+
+* clear setup-node auth token before npm trusted publish ([53ee183](https://github.com/zaxbysauce/opencode-swarm/commit/53ee183c2aedae0d3652119a01008e20f4641fbf))
+
 ## [6.14.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.6...v6.14.7) (2026-03-01)
 
 
