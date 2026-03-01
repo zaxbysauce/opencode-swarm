@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.10](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.9...v6.14.10) (2026-03-01)
+
+
+### Bug Fixes
+
+* force npm trusted publish via OIDC-only auth path ([199dbb5](https://github.com/zaxbysauce/opencode-swarm/commit/199dbb5026d35b76a39c22450115db4804495511))
+
 ## [6.14.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.8...v6.14.9) (2026-03-01)
 
 
