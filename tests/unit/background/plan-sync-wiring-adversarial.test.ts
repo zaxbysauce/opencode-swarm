@@ -14,6 +14,7 @@
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tmpdir } from 'node:os';
 import {
 	AutomationCapabilitiesSchema,
 	AutomationConfigSchema,
@@ -392,7 +393,7 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 
 	beforeEach(() => {
 		resetMockState();
-		tempDir = path.join(process.cwd(), `.test-plan-sync-adversarial-${Date.now()}`);
+		tempDir = path.join(tmpdir(), `.test-plan-sync-adversarial-${Date.now()}`);
 		swarmDir = path.join(tempDir, '.swarm');
 	});
 
@@ -548,7 +549,7 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	beforeEach(async () => {
 		resetMockState();
-		tempDir = path.join(process.cwd(), `.test-plan-sync-lifecycle-${Date.now()}`);
+		tempDir = path.join(tmpdir(), `.test-plan-sync-lifecycle-${Date.now()}`);
 		swarmDir = path.join(tempDir, '.swarm');
 		await Bun.write(path.join(swarmDir, '.gitkeep'), '');
 	});

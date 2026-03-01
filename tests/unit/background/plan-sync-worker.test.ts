@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tmpdir } from 'node:os';
 import {
 	PlanSyncWorker,
 	type PlanSyncWorkerOptions,
@@ -23,7 +24,7 @@ describe('PlanSyncWorker', () => {
 
 	// Helper to create temp directory structure
 	async function setupTempDir(withSwarm = true, withPlanJson = false): Promise<void> {
-		tempDir = path.join(process.cwd(), `.test-plan-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = path.join(tmpdir(), `.test-plan-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		swarmDir = path.join(tempDir, '.swarm');
 		planJsonPath = path.join(swarmDir, 'plan.json');
 
@@ -47,28 +48,9 @@ describe('PlanSyncWorker', () => {
 	async function cleanupTempDir(): Promise<void> {
 		if (tempDir) {
 			try {
-				await Bun.write(path.join(tempDir, 'cleanup-marker'), 'cleanup');
-				const files = await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: tempDir }));
-				for (const file of files.reverse()) {
-					const fullPath = path.join(tempDir, file);
-					try {
-						await Bun.file(fullPath).unlink();
-					} catch {
-						// Ignore cleanup errors
-					}
-				}
-				// Remove directories
-				const dirs = await Array.fromAsync(new Bun.Glob('**/').scan({ cwd: tempDir }));
-				for (const dir of dirs.reverse()) {
-					try {
-						fs.rmdirSync(path.join(tempDir, dir));
-					} catch {
-						// Ignore
-					}
-				}
-				fs.rmdirSync(tempDir);
+				fs.rmSync(tempDir, { recursive: true, force: true });
 			} catch {
-				// Ignore cleanup errors
+				// Ignore cleanup errors (e.g. Windows FSWatcher handle still releasing)
 			}
 		}
 	}

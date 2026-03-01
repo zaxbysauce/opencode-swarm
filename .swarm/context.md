@@ -45,7 +45,7 @@ Swarm: mega
 - Phase 1 (Retrospective Required Gate): COMPLETE
 - Phase 2 (Pre-Phase Retrospective Read): COMPLETE
 - Phase 3 (Schema & Memory Improvements): COMPLETE
-- Phase 4 (Integration Testing & Release): IN PROGRESS
+- Phase 4 (Integration Testing & Release): COMPLETE
 
 ## Lessons Learned (from v6.13.2 + prior sessions)
 - 5 reviewer rejections in v6.13.2: config schema not aligned with existing patterns, dependency graph incorrect/confusing
@@ -54,32 +54,33 @@ Swarm: mega
 - `stripKnownSwarmPrefix` normalization required everywhere agent names are compared
 - The system-enhancer `reviewer_rejections > 2` gate is the ROOT CAUSE of retros being silently discarded — remove it entirely
 - Sonnet 4.6 admitted never reading retrospective files before starting phases — this entire version addresses that
+- Coder agents must not edit .swarm/plan.json — they confuse it with test fixture plan.json files in tests/integration/; write .swarm/ state files directly (architect tool)
 
-## Phase Metrics
+## Phase Metrics (Phase 4 — COMPLETE)
 - phase_number: 4
-- total_tool_calls: 0
-- coder_revisions: 0
+- total_tool_calls: 45
+- coder_revisions: 2
 - reviewer_rejections: 0
 - test_failures: 0
 - security_findings: 0
-- integration_issues: 0
+- integration_issues: 1
 
 ## Agent Activity
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 1383 | 1383 | 0 | 7ms |
-| bash | 1006 | 1006 | 0 | 2069ms |
-| edit | 439 | 439 | 0 | 1341ms |
-| grep | 345 | 345 | 0 | 47ms |
-| task | 161 | 161 | 0 | 166857ms |
-| write | 85 | 85 | 0 | 2678ms |
-| glob | 78 | 78 | 0 | 17ms |
-| retrieve_summary | 69 | 69 | 0 | 3ms |
-| test_runner | 38 | 38 | 0 | 3270ms |
-| todowrite | 28 | 28 | 0 | 6ms |
-| lint | 28 | 28 | 0 | 2827ms |
-| pre_check_batch | 17 | 17 | 0 | 1863ms |
+| read | 1476 | 1476 | 0 | 7ms |
+| bash | 1095 | 1095 | 0 | 1970ms |
+| edit | 472 | 472 | 0 | 1326ms |
+| grep | 368 | 368 | 0 | 49ms |
+| task | 174 | 174 | 0 | 173258ms |
+| write | 97 | 97 | 0 | 2604ms |
+| glob | 91 | 91 | 0 | 18ms |
+| retrieve_summary | 77 | 77 | 0 | 4ms |
+| test_runner | 45 | 45 | 0 | 2779ms |
+| todowrite | 30 | 30 | 0 | 6ms |
+| lint | 30 | 30 | 0 | 2839ms |
+| pre_check_batch | 22 | 22 | 0 | 1963ms |
 | secretscan | 12 | 12 | 0 | 26ms |
 | diff | 11 | 11 | 0 | 11ms |
 | imports | 8 | 8 | 0 | 6ms |
