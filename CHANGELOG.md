@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.4...v6.14.5) (2026-03-01)
+
+
+### Bug Fixes
+
+* restore registry-url to setup-node to enable OIDC npm publish ([7d47e97](https://github.com/zaxbysauce/opencode-swarm/commit/7d47e97312c7091f6869fac60398c138928d13d5))
+
 ## [6.14.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.3...v6.14.4) (2026-03-01)
 
 
