@@ -48,5 +48,8 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Remove npm auth token config
+        run: npm config delete //registry.npmjs.org/:_authToken || true
+
       - name: Publish to npm
         run: npm publish --provenance --access public
