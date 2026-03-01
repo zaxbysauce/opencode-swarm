@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.8...v6.14.9) (2026-03-01)
+
+
+### Bug Fixes
+
+* use minimal npm trusted publisher workflow config ([d014a0c](https://github.com/zaxbysauce/opencode-swarm/commit/d014a0c7f415b871a0e4b6206e6489090f90edde))
+
 ## [6.14.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.7...v6.14.8) (2026-03-01)
 
 
