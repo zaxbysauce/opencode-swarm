@@ -8,24 +8,19 @@ import {
 	ensureAgentSession,
 	recordPhaseAgentDispatch,
 } from '../../src/state';
-
-const { phase_complete } = await import('../../src/tools/phase-complete');
+import { executePhaseComplete } from '../../src/tools/phase-complete';
 
 describe('phase_complete integration — events.jsonl', () => {
 	let tempDir: string;
-	let originalCwd: string;
 
 	beforeEach(() => {
 		resetSwarmState();
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-int-test-'));
-		originalCwd = process.cwd();
-		process.chdir(tempDir);
 		// Create .swarm dir for event writing
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 	});
 
 	afterEach(() => {
-		process.chdir(originalCwd);
 		fs.rmSync(tempDir, { recursive: true, force: true });
 		resetSwarmState();
 	});
@@ -105,11 +100,11 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
-			const result = await phase_complete.execute({
+			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
 				summary: 'Phase 1 complete',
-			});
+			}, tempDir);
 			const parsed = JSON.parse(result);
 
 			// Assert: tool return value
@@ -149,10 +144,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(1);
-			const result = await phase_complete.execute({
+			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed = JSON.parse(result);
 
 			// Assert: tool return value has success: false
@@ -198,11 +193,11 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
-			const result1 = await phase_complete.execute({
+			const result1 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
 				summary: 'Phase 1 complete',
-			});
+			}, tempDir);
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 			expect(parsed1.phase).toBe(1);
@@ -215,11 +210,11 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(2);
-			const result2 = await phase_complete.execute({
+			const result2 = await executePhaseComplete({
 				phase: 2,
 				sessionID,
 				summary: 'Phase 2 complete',
-			});
+			}, tempDir);
 			const parsed2 = JSON.parse(result2);
 			expect(parsed2.success).toBe(true);
 			expect(parsed2.phase).toBe(2);
@@ -265,10 +260,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
-			const result1 = await phase_complete.execute({
+			const result1 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 
@@ -280,10 +275,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(2);
-			const result2 = await phase_complete.execute({
+			const result2 = await executePhaseComplete({
 				phase: 2,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed2 = JSON.parse(result2);
 			// Warn policy - should succeed with warning
 			expect(parsed2.success).toBe(true);
@@ -321,10 +316,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
 			writeRetro(1);
-			const result = await phase_complete.execute({
+			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed = JSON.parse(result);
 
 			// Assert: status success, no warnings, agents_missing empty
@@ -359,10 +354,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(1);
-			const result = await phase_complete.execute({
+			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed = JSON.parse(result);
 
 			// Assert: success is true (warn policy doesn't fail)
@@ -407,10 +402,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			]);
 
 			writeRetro(1);
-			const result = await phase_complete.execute({
+			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
-			});
+			}, tempDir);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -438,13 +433,13 @@ describe('phase_complete integration — events.jsonl', () => {
 			const session1 = 'sess1';
 			ensureAgentSession(session1);
 			writeRetro(1);
-			await phase_complete.execute({ phase: 1, sessionID: session1 });
+			await executePhaseComplete({ phase: 1, sessionID: session1 }, tempDir);
 
 			// Session 2
 			const session2 = 'sess2';
 			ensureAgentSession(session2);
 			writeRetro(1);
-			await phase_complete.execute({ phase: 1, sessionID: session2 });
+			await executePhaseComplete({ phase: 1, sessionID: session2 }, tempDir);
 
 			// Should have 2 events
 			const events = readEvents();

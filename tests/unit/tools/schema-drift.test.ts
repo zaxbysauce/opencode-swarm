@@ -305,15 +305,16 @@ app.delete('/users/:id', handler);
 		});
 
 		it('rejects spec_file outside cwd', async () => {
-			// Create a file in /tmp or another absolute path
-			const externalPath = path.join(os.tmpdir(), 'external-spec.json');
+			// Create a file in a subdirectory of tmpdir (not root)
+			const tmpSubdir = fs.mkdtempSync(path.join(os.tmpdir(), 'schema-drift-test-'));
+			const externalPath = path.join(tmpSubdir, 'external-spec.json');
 			fs.writeFileSync(externalPath, JSON.stringify({ paths: {} }));
 
 			const result = await runSchemaDrift(externalPath);
 			expect(result.error).toBeDefined();
 
 			// Clean up
-			fs.unlinkSync(externalPath);
+			fs.rmSync(tmpSubdir, { recursive: true, force: true });
 		});
 
 		it('rejects spec_file > 10MB', async () => {

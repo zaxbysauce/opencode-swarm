@@ -5,11 +5,10 @@ import * as os from 'node:os';
 import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../src/state';
 import { buildRetroInjection } from '../../src/hooks/system-enhancer';
 
-const { phase_complete } = await import('../../src/tools/phase-complete');
+import { executePhaseComplete } from '../../src/tools/phase-complete';
 
 describe('retrospective gate integration tests', () => {
     let tempDir: string;
-    let originalCwd: string;
     let sessionID: string;
 
     function writeConfig(config: Record<string, unknown>): void {
@@ -57,8 +56,6 @@ describe('retrospective gate integration tests', () => {
 
     beforeEach(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'retro-gate-int-'));
-        originalCwd = process.cwd();
-        process.chdir(tempDir);
 
         // Create required directories
         fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -83,7 +80,6 @@ describe('retrospective gate integration tests', () => {
     });
 
     afterEach(() => {
-        process.chdir(originalCwd);
         if (tempDir) {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
@@ -93,7 +89,7 @@ describe('retrospective gate integration tests', () => {
     describe('phase_complete blocks without retrospective', () => {
         it('should return status blocked with RETROSPECTIVE_MISSING reason when no retro bundle exists', async () => {
             // No agents dispatched, no retro written - only retro gate should matter
-            const result = await phase_complete.execute({ phase: 1, sessionID });
+            const result = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed = JSON.parse(result);
 
             expect(parsed.success).toBe(false);
@@ -106,7 +102,7 @@ describe('retrospective gate integration tests', () => {
     describe('phase_complete succeeds after retrospective is written', () => {
         it('should succeed after a valid retrospective bundle is written', async () => {
             // First call without retro - should block
-            const result1 = await phase_complete.execute({ phase: 1, sessionID });
+            const result1 = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed1 = JSON.parse(result1);
             expect(parsed1.success).toBe(false);
             expect(parsed1.status).toBe('blocked');
@@ -116,7 +112,7 @@ describe('retrospective gate integration tests', () => {
             writeRetro(1);
 
             // Second call with retro - should succeed
-            const result2 = await phase_complete.execute({ phase: 1, sessionID });
+            const result2 = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed2 = JSON.parse(result2);
             expect(parsed2.success).toBe(true);
             expect(parsed2.status).toBe('success');

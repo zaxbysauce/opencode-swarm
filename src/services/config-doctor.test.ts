@@ -843,29 +843,36 @@ describe('Config Doctor Service', () => {
 		});
 
 		it('should allow restore to valid user config path', () => {
-			// Create user config directory
-			const userConfigDir = path.join(
-				process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-				'opencode',
-			);
-			fs.mkdirSync(userConfigDir, { recursive: true });
+			const origXdg = process.env.XDG_CONFIG_HOME;
+			process.env.XDG_CONFIG_HOME = tempDir;
+			try {
+				// Create user config directory using the isolated XDG dir
+				const userConfigDir = path.join(tempDir, 'opencode');
+				fs.mkdirSync(userConfigDir, { recursive: true });
 
-			const content = '{ "user": true }';
-			const userConfigPath = path.join(userConfigDir, 'opencode-swarm.json');
+				const content = '{ "user": true }';
+				const userConfigPath = path.join(userConfigDir, 'opencode-swarm.json');
 
-			const backup: ConfigBackup = {
-				createdAt: Date.now(),
-				configPath: userConfigPath,
-				content,
-				contentHash:
-					'4530062bf0eeb64169f72c350fc709175b5719f2ef11017eefea9613c3ba568d', // SHA-256
-			};
+				const backup: ConfigBackup = {
+					createdAt: Date.now(),
+					configPath: userConfigPath,
+					content,
+					contentHash:
+						'4530062bf0eeb64169f72c350fc709175b5719f2ef11017eefea9613c3ba568d', // SHA-256
+				};
 
-			const backupPath = writeBackupArtifact(tempDir, backup);
+				const backupPath = writeBackupArtifact(tempDir, backup);
 
-			// Should succeed - valid user config path
-			const restoredPath = restoreFromBackup(backupPath, tempDir);
-			expect(restoredPath).not.toBeNull();
+				// Should succeed - valid user config path
+				const restoredPath = restoreFromBackup(backupPath, tempDir);
+				expect(restoredPath).not.toBeNull();
+			} finally {
+				if (origXdg === undefined) {
+					delete process.env.XDG_CONFIG_HOME;
+				} else {
+					process.env.XDG_CONFIG_HOME = origXdg;
+				}
+			}
 		});
 
 		// Backward compatibility: test that old numeric hashes still work

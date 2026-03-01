@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi, beforeAll } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -34,6 +34,10 @@ describe('Gate Workflow Integration Tests', () => {
 
 	beforeEach(() => {
 		testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-workflow-test-'));
+	});
+
+	afterAll(() => {
+		process.chdir(originalCwd);
 	});
 
 	afterEach(async () => {

@@ -18,7 +18,7 @@ import { ensureAgentSession, swarmState } from '../state';
 /**
  * Arguments for the phase_complete tool
  */
-interface PhaseCompleteArgs {
+export interface PhaseCompleteArgs {
 	/** The phase number being completed */
 	phase: number;
 	/** Optional summary of the phase */
@@ -118,7 +118,10 @@ function isValidRetroEntry(
  * Execute the phase_complete tool
  * Gathers data, enforces policy, writes event, resets state
  */
-async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
+export async function executePhaseComplete(
+	args: PhaseCompleteArgs,
+	workingDirectory?: string,
+): Promise<string> {
 	// Extract arguments
 	const phase = Number(args.phase);
 	const summary = args.summary;
@@ -180,8 +183,8 @@ async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
 	const agentsDispatched = Array.from(allAgents).sort();
 
 	// Load plugin config for policy enforcement
-	const directory = process.cwd();
-	const { config } = loadPluginConfigWithMeta(directory);
+	const dir = workingDirectory ?? process.cwd();
+	const { config } = loadPluginConfigWithMeta(dir);
 	let phaseCompleteConfig: PhaseCompleteConfig;
 	try {
 		phaseCompleteConfig = PhaseCompleteConfigSchema.parse(
@@ -221,7 +224,7 @@ async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
 	}
 
 	// Retrospective gate: require a valid retro bundle for this phase
-	const retroBundle = await loadEvidence(directory, `retro-${phase}`);
+	const retroBundle = await loadEvidence(dir, `retro-${phase}`);
 	let retroFound = false;
 
 	if (retroBundle !== null) {
@@ -233,10 +236,10 @@ async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
 
 	if (!retroFound) {
 		// Fallback: scan all task IDs for any retro-N matching this phase
-		const allTaskIds = await listEvidenceTaskIds(directory);
+		const allTaskIds = await listEvidenceTaskIds(dir);
 		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
 		for (const taskId of retroTaskIds) {
-			const bundle = await loadEvidence(directory, taskId);
+			const bundle = await loadEvidence(dir, taskId);
 			if (bundle === null) continue;
 			retroFound =
 				bundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ??
@@ -311,7 +314,7 @@ async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
 	};
 
 	try {
-		const eventsPath = validateSwarmPath(directory, 'events.jsonl');
+		const eventsPath = validateSwarmPath(dir, 'events.jsonl');
 		fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8');
 	} catch (writeError) {
 		warnings.push(

@@ -335,6 +335,7 @@ function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 	const testFiles: string[] = [];
 
 	for (const file of sourceFiles) {
+		const normalizedPath = file.replace(/\\/g, '/');
 		const basename = path.basename(file);
 		const dirname = path.dirname(file);
 
@@ -342,7 +343,10 @@ function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 		if (
 			hasCompoundTestExtension(basename) ||
 			basename.includes('.spec.') ||
-			basename.includes('.test.')
+			basename.includes('.test.') ||
+			normalizedPath.includes('/__tests__/') ||
+			normalizedPath.includes('/tests/') ||
+			normalizedPath.includes('/test/')
 		) {
 			if (!testFiles.includes(file)) {
 				testFiles.push(file);

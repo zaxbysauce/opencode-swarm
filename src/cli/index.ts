@@ -87,12 +87,16 @@ async function install(): Promise<number> {
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
 		const defaultConfig = {
 			// Must match PluginConfigSchema in src/config/schema.ts
+			// v6.14: free OpenCode Zen models; architect inherits OpenCode UI selection
 			agents: {
-				architect: { model: 'anthropic/claude-sonnet-4-20250514' },
-				coder: { model: 'anthropic/claude-sonnet-4-20250514' },
-				sme: { model: 'google/gemini-2.5-flash' },
-				reviewer: { model: 'google/gemini-2.5-flash' },
-				test_engineer: { model: 'google/gemini-2.5-flash' },
+				coder: { model: 'opencode/minimax-m2.5-free' },
+				reviewer: { model: 'opencode/big-pickle' },
+				test_engineer: { model: 'opencode/gpt-5-nano' },
+				explorer: { model: 'opencode/trinity-large-preview-free' },
+				sme: { model: 'opencode/trinity-large-preview-free' },
+				critic: { model: 'opencode/trinity-large-preview-free' },
+				docs: { model: 'opencode/trinity-large-preview-free' },
+				designer: { model: 'opencode/trinity-large-preview-free' },
 			},
 			max_iterations: 5,
 		};

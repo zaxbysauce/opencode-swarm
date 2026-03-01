@@ -17,33 +17,33 @@ import {
 	isAutoSummaryEnabled,
 	type EvidenceSummaryArtifact,
 	type PhaseBlocker,
-} from '../../src/services/evidence-summary-service';
+} from '../../../src/services/evidence-summary-service';
 import {
 	EvidenceSummaryIntegration,
 	createEvidenceSummaryIntegration,
 	type EvidenceSummaryIntegrationConfig,
-} from '../../src/background/evidence-summary-integration';
+} from '../../../src/background/evidence-summary-integration';
 import {
 	AutomationEventBus,
 	getGlobalEventBus,
 	resetGlobalEventBus,
-} from '../../src/background/event-bus';
-import { sanitizeTaskId } from '../../src/evidence/manager';
-import type { Plan } from '../../src/config/plan-schema';
-import type { EvidenceBundle } from '../../src/config/evidence-schema';
+} from '../../../src/background/event-bus';
+import { sanitizeTaskId } from '../../../src/evidence/manager';
+import type { Plan } from '../../../src/config/plan-schema';
+import type { EvidenceBundle } from '../../../src/config/evidence-schema';
 
 // Mocks
-jest.mock('../../src/plan/manager', () => ({
+jest.mock('../../../src/plan/manager', () => ({
 	loadPlanJsonOnly: jest.fn(),
 }));
 
-jest.mock('../../src/evidence/manager', () => ({
+jest.mock('../../../src/evidence/manager', () => ({
 	loadEvidence: jest.fn(),
 	listEvidenceTaskIds: jest.fn(),
 }));
 
-import { loadPlanJsonOnly } from '../../src/plan/manager';
-import { loadEvidence, listEvidenceTaskIds } from '../../src/evidence/manager';
+import { loadPlanJsonOnly } from '../../../src/plan/manager';
+import { loadEvidence, listEvidenceTaskIds } from '../../../src/evidence/manager';
 
 const mockLoadPlanJsonOnly = loadPlanJsonOnly as jest.MockedFunction<
 	typeof loadPlanJsonOnly

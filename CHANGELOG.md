@@ -1,5 +1,25 @@
 # Changelog
 
+## [6.14.0] - 2026-02-28
+
+### New Features
+- **3-OS CI matrix:** New `.github/workflows/ci.yml` runs tests on ubuntu-latest, macos-latest, and windows-latest with `fail-fast: false`.
+- **LLM Provider Guide in README:** Added `## LLM Provider Guide` section explaining free Zen model tier, paid provider table (9 agents), and provider format reference.
+- **Free model defaults (OpenCode Zen):** Default agent models switched to free OpenCode Zen models; no API key required out of the box. `architect` inherits OpenCode UI model selection.
+- **`isSourceCodePath` guardrails helper:** Self-coding detection now skips non-source paths (docs/, README.md, package.json, .github/, .swarm/) to eliminate false positives (Issue #17).
+
+### Bug Fixes
+- **npm packaging fix (Issue #6):** Removed `copy-grammars` post-install hook that failed on clean npm installs; grammar copy now runs only at build time.
+- **Cross-platform build scripts:** `clean` and `build` npm scripts now use `node -e "require('fs').rmSync(...)"` instead of `rm -rf` for Windows compatibility.
+- **java-gradle platform command:** `discovery.ts` now uses `gradlew.bat build` on Windows and `./gradlew build` on Unix.
+- **Path normalization in test-runner.ts:** `getTestFilesFromConvention` normalizes backslash paths before matching test directory patterns.
+
+### Test & Quality
+- **Cross-platform test coverage:** New `tests/unit/tools/cross-platform.test.ts` with 20 tests covering path normalization, `isCommandAvailable`, and shell execution patterns.
+- **Safe test directory helpers:** New `tests/helpers/safe-test-dir.ts` with `createSafeTestDir` and `withSafeTestDir` for leak-free filesystem tests.
+- **Test isolation fixes:** `factory.test.ts` and `schema-drift.test.ts` now clean up temp directories correctly in `afterEach`.
+- **Guardrails unit tests:** 34 new tests for `isSourceCodePath` and the self-coding gate condition.
+
 ## [6.13.3] - 2026-02-28
 
 ### Bug Fixes

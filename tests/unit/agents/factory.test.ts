@@ -6,16 +6,21 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 let originalXDG: string | undefined;
+let tempDir: string | undefined;
 
 beforeEach(() => {
     originalXDG = process.env.XDG_CONFIG_HOME;
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'factory-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'factory-test-'));
     process.env.XDG_CONFIG_HOME = tempDir;
 });
 
 afterEach(() => {
     if (originalXDG === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = originalXDG;
+    if (tempDir) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        tempDir = undefined;
+    }
 });
 
 describe('createAgents', () => {

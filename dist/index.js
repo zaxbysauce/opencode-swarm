@@ -30200,9 +30200,10 @@ function hasCompoundTestExtension(filename) {
 function getTestFilesFromConvention(sourceFiles) {
   const testFiles = [];
   for (const file3 of sourceFiles) {
+    const normalizedPath = file3.replace(/\\/g, "/");
     const basename2 = path12.basename(file3);
     const dirname4 = path12.dirname(file3);
-    if (hasCompoundTestExtension(basename2) || basename2.includes(".spec.") || basename2.includes(".test.")) {
+    if (hasCompoundTestExtension(basename2) || basename2.includes(".spec.") || basename2.includes(".test.") || normalizedPath.includes("/__tests__/") || normalizedPath.includes("/tests/") || normalizedPath.includes("/test/")) {
       if (!testFiles.includes(file3)) {
         testFiles.push(file3);
       }
@@ -31582,16 +31583,15 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   }
 }
 var DEFAULT_MODELS = {
-  architect: "anthropic/claude-sonnet-4-20250514",
-  explorer: "google/gemini-2.5-flash",
-  coder: "anthropic/claude-sonnet-4-20250514",
-  test_engineer: "google/gemini-2.5-flash",
-  sme: "google/gemini-2.5-flash",
-  reviewer: "google/gemini-2.5-flash",
-  critic: "google/gemini-2.5-flash",
-  docs: "google/gemini-2.5-flash",
-  designer: "google/gemini-2.5-flash",
-  default: "google/gemini-2.5-flash"
+  explorer: "opencode/trinity-large-preview-free",
+  coder: "opencode/minimax-m2.5-free",
+  reviewer: "opencode/big-pickle",
+  test_engineer: "opencode/gpt-5-nano",
+  sme: "opencode/trinity-large-preview-free",
+  critic: "opencode/trinity-large-preview-free",
+  docs: "opencode/trinity-large-preview-free",
+  designer: "opencode/trinity-large-preview-free",
+  default: "opencode/trinity-large-preview-free"
 };
 var DEFAULT_SCORING_CONFIG = {
   enabled: false,
@@ -32543,6 +32543,15 @@ TASK GRANULARITY RULES:
 - Litmus test: If you cannot write TASK + FILE + constraint in 3 bullet points, the task is too large. Split it.
 - NEVER write a task with compound verbs: "implement X and add Y and update Z" = 3 tasks, not 1. Split before writing to plan.
 - Coder receives ONE task. You make ALL scope decisions in the plan. Coder makes zero scope decisions.
+
+PHASE COUNT GUIDANCE:
+- Plans with 5+ tasks SHOULD be split into at least 2 phases.
+- Plans with 10+ tasks MUST be split into at least 3 phases.
+- Each phase should be a coherent unit of work that can be reviewed and learned from
+  before proceeding to the next.
+- Single-phase plans are acceptable ONLY for small projects (1-4 tasks).
+- Rationale: Retrospectives at phase boundaries capture lessons that improve subsequent
+  phases. A single-phase plan gets zero iterative learning benefit.
 
 Create .swarm/context.md
 - Decisions, patterns, SME cache, file map
@@ -36881,6 +36890,26 @@ function isOutsideSwarmDir(filePath) {
   const relative2 = path15.relative(swarmDir, resolved);
   return relative2.startsWith("..") || path15.isAbsolute(relative2);
 }
+function isSourceCodePath(filePath) {
+  if (!filePath)
+    return false;
+  const normalized = filePath.replace(/\\/g, "/");
+  const nonSourcePatterns = [
+    /^README(\..+)?$/i,
+    /\/README(\..+)?$/i,
+    /^CHANGELOG(\..+)?$/i,
+    /\/CHANGELOG(\..+)?$/i,
+    /^package\.json$/,
+    /\/package\.json$/,
+    /^\.github\//,
+    /\/\.github\//,
+    /^docs\//,
+    /\/docs\//,
+    /^\.swarm\//,
+    /\/\.swarm\//
+  ];
+  return !nonSourcePatterns.some((pattern) => pattern.test(normalized));
+}
 function isGateTool(toolName) {
   const normalized = toolName.replace(/^[^:]+[:.]/, "");
   const gateTools = [
@@ -36926,7 +36955,7 @@ function createGuardrailsHooks(config3) {
       if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
         const args2 = output.args;
         const targetPath = args2?.filePath ?? args2?.path ?? args2?.file ?? args2?.target;
-        if (typeof targetPath === "string" && isOutsideSwarmDir(targetPath)) {
+        if (typeof targetPath === "string" && isOutsideSwarmDir(targetPath) && isSourceCodePath(targetPath)) {
           const session2 = swarmState.agentSessions.get(input.sessionID);
           if (session2) {
             session2.architectWriteCount++;
@@ -38749,7 +38778,10 @@ var ECOSYSTEMS = [
     buildFiles: ["build.gradle", "build.gradle.kts", "gradle.properties"],
     toolchainCommands: ["gradle", "gradlew"],
     commands: [
-      { command: "./gradlew build", priority: 1 },
+      {
+        command: process.platform === "win32" ? "gradlew.bat build" : "./gradlew build",
+        priority: 1
+      },
       { command: "gradle build", priority: 2 }
     ]
   },
@@ -40815,7 +40847,7 @@ function normalizeAgentsFromDelegations(delegations) {
 function isValidRetroEntry(entry, phase) {
   return entry.type === "retrospective" && "phase_number" in entry && entry.phase_number === phase && "verdict" in entry && entry.verdict === "pass";
 }
-async function executePhaseComplete(args2) {
+async function executePhaseComplete(args2, workingDirectory) {
   const phase = Number(args2.phase);
   const summary = args2.summary;
   const sessionID = args2.sessionID;
@@ -40846,8 +40878,8 @@ async function executePhaseComplete(args2) {
   const trackedAgents = session.phaseAgentsDispatched ?? new Set;
   const allAgents = new Set([...delegationAgents, ...trackedAgents]);
   const agentsDispatched = Array.from(allAgents).sort();
-  const directory = process.cwd();
-  const { config: config3 } = loadPluginConfigWithMeta(directory);
+  const dir = workingDirectory ?? process.cwd();
+  const { config: config3 } = loadPluginConfigWithMeta(dir);
   let phaseCompleteConfig;
   try {
     phaseCompleteConfig = PhaseCompleteConfigSchema.parse(config3.phase_complete ?? {});
@@ -40873,16 +40905,16 @@ async function executePhaseComplete(args2) {
       warnings: []
     }, null, 2);
   }
-  const retroBundle = await loadEvidence(directory, `retro-${phase}`);
+  const retroBundle = await loadEvidence(dir, `retro-${phase}`);
   let retroFound = false;
   if (retroBundle !== null) {
     retroFound = retroBundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ?? false;
   }
   if (!retroFound) {
-    const allTaskIds = await listEvidenceTaskIds(directory);
+    const allTaskIds = await listEvidenceTaskIds(dir);
     const retroTaskIds = allTaskIds.filter((id) => id.startsWith("retro-"));
     for (const taskId of retroTaskIds) {
-      const bundle = await loadEvidence(directory, taskId);
+      const bundle = await loadEvidence(dir, taskId);
       if (bundle === null)
         continue;
       retroFound = bundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ?? false;
@@ -40936,7 +40968,7 @@ async function executePhaseComplete(args2) {
     summary: safeSummary ?? null
   };
   try {
-    const eventsPath = validateSwarmPath(directory, "events.jsonl");
+    const eventsPath = validateSwarmPath(dir, "events.jsonl");
     fs17.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch (writeError) {

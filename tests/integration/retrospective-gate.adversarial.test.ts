@@ -5,11 +5,10 @@ import * as os from 'node:os';
 import { resetSwarmState, ensureAgentSession } from '../../src/state';
 import { buildRetroInjection } from '../../src/hooks/system-enhancer';
 
-const { phase_complete } = await import('../../src/tools/phase-complete');
+import { executePhaseComplete } from '../../src/tools/phase-complete';
 
 describe('retrospective gate adversarial tests', () => {
     let tempDir: string;
-    let originalCwd: string;
     let sessionID: string;
 
     const validEntry = {
@@ -61,8 +60,6 @@ describe('retrospective gate adversarial tests', () => {
 
     beforeEach(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'retro-gate-adv-'));
-        originalCwd = process.cwd();
-        process.chdir(tempDir);
 
         // Create required directories
         fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -87,7 +84,6 @@ describe('retrospective gate adversarial tests', () => {
     });
 
     afterEach(() => {
-        process.chdir(originalCwd);
         if (tempDir) {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
@@ -99,7 +95,7 @@ describe('retrospective gate adversarial tests', () => {
             // Write malformed JSON (missing closing brace, invalid syntax)
             writeRetroEvidenceFile('retro-1', '{not json');
 
-            const result = await phase_complete.execute({ phase: 1, sessionID });
+            const result = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed = JSON.parse(result);
 
             expect(parsed.success).toBe(false);
@@ -114,7 +110,7 @@ describe('retrospective gate adversarial tests', () => {
             // Write valid bundle with wrong type
             writeValidBundle(1, { type: 'review' });
 
-            const result = await phase_complete.execute({ phase: 1, sessionID });
+            const result = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed = JSON.parse(result);
 
             expect(parsed.success).toBe(false);
@@ -129,7 +125,7 @@ describe('retrospective gate adversarial tests', () => {
             // Write valid bundle but with failing verdict
             writeValidBundle(1, { verdict: 'fail' });
 
-            const result = await phase_complete.execute({ phase: 1, sessionID });
+            const result = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed = JSON.parse(result);
 
             expect(parsed.success).toBe(false);
@@ -144,7 +140,7 @@ describe('retrospective gate adversarial tests', () => {
             // Write Phase 2 retro but trying to complete Phase 1
             writeValidBundle(2);
 
-            const result = await phase_complete.execute({ phase: 1, sessionID });
+            const result = await executePhaseComplete({ phase: 1, sessionID }, tempDir);
             const parsed = JSON.parse(result);
 
             expect(parsed.success).toBe(false);

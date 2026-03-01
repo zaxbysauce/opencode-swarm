@@ -173,8 +173,15 @@ describe('PlanSyncWorker non-fatal error handling', () => {
 
 describe('PlanSyncWorker integration with plugin config', () => {
 	let testDir: string;
+	let xdgConfigHome: string;
+	let originalXdgConfigHome: string | undefined;
 
 	beforeEach(() => {
+		// Isolate user config directory to avoid pollution from real user config
+		originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		xdgConfigHome = mkdtempSync(path.join(tmpdir(), 'xdg-config-test-'));
+		process.env.XDG_CONFIG_HOME = xdgConfigHome;
+
 		// Create a temp directory for each test
 		testDir = mkdtempSync(path.join(tmpdir(), 'plan-sync-test-'));
 		
@@ -184,6 +191,18 @@ describe('PlanSyncWorker integration with plugin config', () => {
 	});
 
 	afterEach(() => {
+		// Restore XDG_CONFIG_HOME
+		if (originalXdgConfigHome === undefined) {
+			delete process.env.XDG_CONFIG_HOME;
+		} else {
+			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+		}
+		try {
+			rmSync(xdgConfigHome, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+
 		// Clean up temp directory
 		try {
 			rmSync(testDir, { recursive: true, force: true });

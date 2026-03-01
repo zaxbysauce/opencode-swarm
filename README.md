@@ -76,7 +76,7 @@ This checks that everything is wired up correctly.
 
 ### Configure Models (Optional)
 
-By default, Swarm uses whatever model OpenCode is configured with. To route different agents to different models (recommended), create `.opencode/swarm.json` in your project:
+By default, Swarm v6.14+ uses free OpenCode Zen models (no API key required). You can override any agent's model by creating `.opencode/swarm.json` in your project. See the [LLM Provider Guide](#llm-provider-guide) for all options.
 
 ```json
 {
@@ -126,6 +126,60 @@ Just tell OpenCode what you want to build. Swarm handles the rest.
 Use `/swarm status` at any time to see where things stand.
 
 ---
+
+## LLM Provider Guide
+
+Swarm works with any LLM provider supported by OpenCode. Different agents benefit from different models — the architect needs strong reasoning, the coder needs strong code generation, and the reviewer benefits from a model different from the coder (to catch blind spots).
+
+### Free Tier (OpenCode Zen Models)
+
+OpenCode Zen provides free models via the `opencode/` provider prefix. These are excellent starting points and require no API key:
+
+```json
+{
+  "agents": {
+    "coder":        { "model": "opencode/minimax-m2.5-free" },
+    "reviewer":     { "model": "opencode/big-pickle" },
+    "test_engineer":{ "model": "opencode/gpt-5-nano" },
+    "explorer":     { "model": "opencode/trinity-large-preview-free" },
+    "sme":          { "model": "opencode/trinity-large-preview-free" },
+    "critic":       { "model": "opencode/trinity-large-preview-free" },
+    "docs":         { "model": "opencode/trinity-large-preview-free" },
+    "designer":     { "model": "opencode/trinity-large-preview-free" }
+  }
+}
+```
+
+> Save this configuration to `.opencode/swarm.json` in your project root (or `~/.config/opencode/opencode-swarm.json` for global config).
+
+> **Note:** The `architect` key is intentionally omitted — it inherits whatever model you have selected in the OpenCode UI for maximum reasoning quality.
+
+### Paid Providers
+
+For production use, mix providers to maximize quality across writing vs. reviewing:
+
+| Agent | Recommended Model | Why |
+|---|---|---|
+| `architect` | OpenCode UI selection | Needs strongest reasoning |
+| `coder` | `minimax-coding-plan/MiniMax-M2.5` | Fast, accurate code generation |
+| `reviewer` | `zai-coding-plan/glm-5` | Different training data from coder |
+| `test_engineer` | `minimax-coding-plan/MiniMax-M2.5` | Same strengths as coder |
+| `explorer` | `google/gemini-2.5-flash` | Fast read-heavy analysis |
+| `sme` | `kimi-for-coding/k2p5` | Strong domain expertise |
+| `critic` | `zai-coding-plan/glm-5` | Independent plan review |
+| `docs` | `zai-coding-plan/glm-4.7-flash` | Fast, cost-effective documentation generation |
+| `designer` | `kimi-for-coding/k2p5` | Strong UI/UX generation capabilities |
+
+### Provider Formats
+
+| Provider | Format | Example |
+|---|---|---|
+| OpenCode Zen (free) | `opencode/<model>` | `opencode/trinity-large-preview-free` |
+| Anthropic | `anthropic/<model>` | `anthropic/claude-opus-4-6` |
+| Google | `google/<model>` | `google/gemini-2.5-flash` |
+| Z.ai | `zai-coding-plan/<model>` | `zai-coding-plan/glm-5` |
+| MiniMax | `minimax-coding-plan/<model>` | `minimax-coding-plan/MiniMax-M2.5` |
+| Kimi | `kimi-for-coding/<model>` | `kimi-for-coding/k2p5` |
 
 ## Useful Commands
 
@@ -381,6 +435,35 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
 
 ### Automation
 
+## Mode Detection (v6.13)
+
+Swarm now explicitly distinguishes five architect modes:
+
+- **`DISCOVER`** — After the explorer finishes scanning the codebase.
+- **`PLAN`** — When the architect writes or updates the plan.
+- **`EXECUTE`** — During task implementation (the normal pipeline).
+- **`PHASE-WRAP`** — After all tasks in a phase are completed, before docs are updated.
+- **`UNKNOWN`** — Fallback when the current state does not match any known mode.
+
+Each mode determines which injection blocks are added to the LLM prompt (e.g., plan cursor is injected in `PLAN`, tool output truncation in `EXECUTE`, etc.).
+
+Default mode: `manual`. No background automation — all actions require explicit slash commands.
+
+Modes:
+
+- `manual` — No background automation. All actions via slash commands (default).
+- `hybrid` — Background automation for safe operations, manual for sensitive ones.
+- `auto` — Full background automation.
+
+Capability defaults:
+
+- `plan_sync`: `true` — Background plan synchronization using `fs.watch` with debounced writes (300ms) and 2-second polling fallback
+- `phase_preflight`: `false` — Phase preflight checks before agent execution (opt-in)
+- `config_doctor_on_startup`: `false` — Validate configuration on startup
+- `config_doctor_autofix`: `false` — Auto-fix for config doctor (opt-in, security-sensitive)
+- `evidence_auto_summaries`: `true` — Automatic summaries for evidence bundles
+- `decision_drift_detection`: `true` — Detect drift between planned and actual decisions
+
 ## Plan Cursor (v6.13)
 
 The `plan_cursor` config compresses the plan that is injected into the LLM context.
@@ -428,37 +511,6 @@ When truncation is active, a footer is appended:
 ---
 [output truncated to {maxLines} lines – use `tool_output.per_tool.<tool>` to adjust]
 ```
-
-## Mode Detection (v6.13)
-
-Swarm now explicitly distinguishes five architect modes:
-
-| Mode | When Injected |
-|------|----------------|
-| `DISCOVER` | After the explorer finishes scanning the codebase. |
-| `PLAN` | When the architect writes or updates the plan. |
-| `EXECUTE` | During task implementation (the normal pipeline). |
-| `PHASE-WRAP` | After all tasks in a phase are completed, before docs are updated. |
-| `UNKNOWN` | Fallback when the current state does not match any known mode. |
-
-Each mode determines which injection blocks are added to the LLM prompt (e.g., plan cursor is injected in `PLAN`, tool output truncation in `EXECUTE`, etc.).
-
-Default mode: `manual`. No background automation — all actions require explicit slash commands.
-
-Modes:
-
-- `manual` — No background automation. All actions via slash commands (default).
-- `hybrid` — Background automation for safe operations, manual for sensitive ones.
-- `auto` — Full background automation.
-
-Capability defaults:
-
-- `plan_sync`: `true` — Background plan synchronization using `fs.watch` with debounced writes (300ms) and 2-second polling fallback
-- `phase_preflight`: `false` — Phase preflight checks before agent execution (opt-in)
-- `config_doctor_on_startup`: `false` — Validate configuration on startup
-- `config_doctor_autofix`: `false` — Auto-fix for config doctor (opt-in, security-sensitive)
-- `evidence_auto_summaries`: `true` — Automatic summaries for evidence bundles
-- `decision_drift_detection`: `true` — Detect drift between planned and actual decisions
 
 ---
 
@@ -671,6 +723,7 @@ Upcoming: v6.14 focuses on further context optimization and agent coordination i
 - [Design Rationale](docs/design-rationale.md)
 - [Installation Guide](docs/installation.md)
 - [Linux + Docker Desktop Install Guide](docs/installation-linux-docker.md)
+- [LLM Operator Installation Guide](docs/installation-llm-operator.md)
 - [Pre-Swarm Planning Guide](docs/planning.md)
 - [Swarm Briefing for LLMs](docs/swarm-briefing.md)
 

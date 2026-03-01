@@ -78,7 +78,13 @@ const ECOSYSTEMS: EcosystemConfig[] = [
 		buildFiles: ['build.gradle', 'build.gradle.kts', 'gradle.properties'],
 		toolchainCommands: ['gradle', 'gradlew'],
 		commands: [
-			{ command: './gradlew build', priority: 1 },
+			{
+				command:
+					process.platform === 'win32'
+						? 'gradlew.bat build'
+						: './gradlew build',
+				priority: 1,
+			},
 			{ command: 'gradle build', priority: 2 },
 		],
 	},

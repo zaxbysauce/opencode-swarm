@@ -54,4 +54,18 @@ describe('packaging smoke tests', () => {
         // But should be at least 1KB (non-empty)
         expect(stats.size).toBeGreaterThan(1 * 1024);
     });
+
+    test('package.json has no postinstall script', async () => {
+        const pkg = await import(path.join(ROOT, 'package.json'), { with: { type: 'json' } });
+        expect(pkg.default?.scripts?.postinstall).toBeUndefined();
+    });
+
+    test('dist/lang/grammars/ directory exists with WASM files', () => {
+        const grammarsDir = path.join(ROOT, 'dist/lang/grammars');
+        expect(existsSync(grammarsDir)).toBe(true);
+        // Should contain at least one .wasm file
+        const { readdirSync } = require('node:fs');
+        const wasmFiles = readdirSync(grammarsDir).filter((f: string) => f.endsWith('.wasm'));
+        expect(wasmFiles.length).toBeGreaterThan(0);
+    });
 });

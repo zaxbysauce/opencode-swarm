@@ -92,6 +92,33 @@ function isOutsideSwarmDir(filePath: string): boolean {
 }
 
 /**
+ * v6.14: Detects if a file path is source code (not docs, config, or metadata).
+ * Used to gate self-coding detection so that architect edits to README.md,
+ * package.json, .github/, CHANGELOG.md etc. don't trigger false positives.
+ */
+function isSourceCodePath(filePath: string): boolean {
+	if (!filePath) return false;
+	// Normalize separators for cross-platform matching
+	const normalized = filePath.replace(/\\/g, '/');
+	// Paths that are NOT source code (docs, config, metadata, CI)
+	const nonSourcePatterns = [
+		/^README(\..+)?$/i,
+		/\/README(\..+)?$/i,
+		/^CHANGELOG(\..+)?$/i,
+		/\/CHANGELOG(\..+)?$/i,
+		/^package\.json$/,
+		/\/package\.json$/,
+		/^\.github\//,
+		/\/\.github\//,
+		/^docs\//,
+		/\/docs\//,
+		/^\.swarm\//,
+		/\/\.swarm\//,
+	];
+	return !nonSourcePatterns.some((pattern) => pattern.test(normalized));
+}
+
+/**
  * v6.12: Detects if a tool is a Stage A automated gate tool
  */
 function isGateTool(toolName: string): boolean {
@@ -182,7 +209,11 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 				const args = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
-				if (typeof targetPath === 'string' && isOutsideSwarmDir(targetPath)) {
+				if (
+					typeof targetPath === 'string' &&
+					isOutsideSwarmDir(targetPath) &&
+					isSourceCodePath(targetPath)
+				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
 					if (session) {
 						session.architectWriteCount++;

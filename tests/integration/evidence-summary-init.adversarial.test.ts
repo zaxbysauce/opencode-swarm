@@ -18,8 +18,15 @@ import { AutomationConfigSchema } from '../../src/config/schema';
 
 describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 	let testDir: string;
+	let originalXdgConfigHome: string | undefined;
+	let xdgIsolatedDir: string;
 
 	beforeEach(() => {
+		// Save and isolate XDG_CONFIG_HOME to prevent reading real user config
+		originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		xdgIsolatedDir = mkdtempSync(path.join(tmpdir(), 'evidence-adversarial-xdg-'));
+		process.env.XDG_CONFIG_HOME = xdgIsolatedDir;
+
 		// Create a temp directory for each test
 		testDir = mkdtempSync(path.join(tmpdir(), 'evidence-adversarial-'));
 		
@@ -32,6 +39,20 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 		// Clean up temp directory
 		try {
 			rmSync(testDir, { recursive: true, force: true });
+		} catch (e) {
+			// Ignore cleanup errors
+		}
+
+		// Restore XDG_CONFIG_HOME
+		if (originalXdgConfigHome === undefined) {
+			delete process.env.XDG_CONFIG_HOME;
+		} else {
+			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+		}
+
+		// Clean up isolated XDG directory
+		try {
+			rmSync(xdgIsolatedDir, { recursive: true, force: true });
 		} catch (e) {
 			// Ignore cleanup errors
 		}

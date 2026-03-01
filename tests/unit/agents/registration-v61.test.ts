@@ -52,16 +52,16 @@ describe('v6.1 Agent Registration Constants', () => {
 	});
 
 	describe('DEFAULT_MODELS', () => {
-		test('DEFAULT_MODELS has "docs" key with "google/gemini-2.0-flash"', () => {
-			expect(DEFAULT_MODELS.docs).toBe('google/gemini-2.0-flash');
+		test('DEFAULT_MODELS has "docs" key with "opencode/trinity-large-preview-free"', () => {
+			expect(DEFAULT_MODELS.docs).toBe('opencode/trinity-large-preview-free');
 		});
 
-		test('DEFAULT_MODELS has "designer" key with "google/gemini-2.0-flash"', () => {
-			expect(DEFAULT_MODELS.designer).toBe('google/gemini-2.0-flash');
+		test('DEFAULT_MODELS has "designer" key with "opencode/trinity-large-preview-free"', () => {
+			expect(DEFAULT_MODELS.designer).toBe('opencode/trinity-large-preview-free');
 		});
 
-		test('DEFAULT_MODELS has "architect" key', () => {
-			expect(DEFAULT_MODELS.architect).toBeDefined();
+		test('DEFAULT_MODELS does NOT have "architect" key (inherits OpenCode UI selection)', () => {
+			expect(DEFAULT_MODELS).not.toHaveProperty('architect');
 		});
 
 		test('DEFAULT_MODELS has "default" fallback key', () => {

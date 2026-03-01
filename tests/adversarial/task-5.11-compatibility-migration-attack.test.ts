@@ -11,7 +11,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtemp, writeFile, rm, mkdir, readFile, symlink, unlink, stat } from 'node:fs/promises';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { loadPluginConfig, loadPluginConfigWithMeta } from '../../src/config/loader';
@@ -85,12 +85,27 @@ async function readPlanMd(dir: string): Promise<string | null> {
 
 describe('ATTACK: Malformed legacy config', () => {
 	let tempDir: string;
+	let xdgConfigHome: string;
+	let originalXdgConfigHome: string | undefined;
 
 	beforeEach(async () => {
+		// Isolate user config to prevent real user config pollution
+		originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		xdgConfigHome = mkdtempSync(join(tmpdir(), 'xdg-config-attack-'));
+		process.env.XDG_CONFIG_HOME = xdgConfigHome;
+
 		tempDir = await createTestDir('config-attack');
 	});
 
 	afterEach(async () => {
+		// Restore XDG_CONFIG_HOME
+		if (originalXdgConfigHome === undefined) {
+			delete process.env.XDG_CONFIG_HOME;
+		} else {
+			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+		}
+		try { rmSync(xdgConfigHome, { recursive: true, force: true }); } catch { /* ignore */ }
+
 		if (existsSync(tempDir)) {
 			await rm(tempDir, { recursive: true, force: true });
 		}
@@ -555,12 +570,27 @@ Phase: 1 [IN PROGRESS]
 
 describe('ATTACK: Fallback behavior abuse', () => {
 	let tempDir: string;
+	let xdgConfigHome: string;
+	let originalXdgConfigHome: string | undefined;
 
 	beforeEach(async () => {
+		// Isolate user config to prevent real user config pollution
+		originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		xdgConfigHome = mkdtempSync(join(tmpdir(), 'xdg-fallback-attack-'));
+		process.env.XDG_CONFIG_HOME = xdgConfigHome;
+
 		tempDir = await createTestDir('fallback-attack');
 	});
 
 	afterEach(async () => {
+		// Restore XDG_CONFIG_HOME
+		if (originalXdgConfigHome === undefined) {
+			delete process.env.XDG_CONFIG_HOME;
+		} else {
+			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+		}
+		try { rmSync(xdgConfigHome, { recursive: true, force: true }); } catch { /* ignore */ }
+
 		if (existsSync(tempDir)) {
 			await rm(tempDir, { recursive: true, force: true });
 		}

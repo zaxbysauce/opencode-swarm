@@ -89,7 +89,9 @@ describe('constants.ts', () => {
 
     describe('DEFAULT_MODELS', () => {
         it('has entries for all agents in ALL_AGENT_NAMES', () => {
+            // v6.14: architect intentionally omitted from DEFAULT_MODELS (inherits OpenCode UI selection)
             for (const agent of ALL_AGENT_NAMES) {
+                if (agent === 'architect') continue; // architect is not in DEFAULT_MODELS
                 expect(DEFAULT_MODELS).toHaveProperty(agent);
                 expect(typeof DEFAULT_MODELS[agent]).toBe('string');
             }
@@ -107,9 +109,9 @@ describe('constants.ts', () => {
             }
         });
 
-        it('has exactly 10 entries (9 agents + default)', () => {
-            // v6.1: added docs and designer models
-            expect(Object.keys(DEFAULT_MODELS)).toHaveLength(10);
+        it('has exactly 9 entries (8 subagents + default, no architect)', () => {
+            // v6.14: architect removed - inherits OpenCode UI selection instead
+            expect(Object.keys(DEFAULT_MODELS)).toHaveLength(9);
         });
     });
 });

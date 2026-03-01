@@ -130,26 +130,25 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 }
 
 // Default models for each agent/category
+// v6.14: switched to free OpenCode Zen models; architect key intentionally
+// omitted so it inherits the OpenCode UI model selection.
 export const DEFAULT_MODELS: Record<string, string> = {
-	// Orchestrator — needs strong reasoning
-	architect: 'anthropic/claude-sonnet-4-20250514',
+	// Explorer — fast read-heavy analysis
+	explorer: 'opencode/trinity-large-preview-free',
 
-	// Explorer — fast/cheap for file discovery
-	explorer: 'google/gemini-2.5-flash',
+	// Pipeline agents — differentiated models for writing vs reviewing
+	coder: 'opencode/minimax-m2.5-free',
+	reviewer: 'opencode/big-pickle',
+	test_engineer: 'opencode/gpt-5-nano',
 
-	// Pipeline agents
-	coder: 'anthropic/claude-sonnet-4-20250514',
-	test_engineer: 'google/gemini-2.5-flash',
-
-	// SME, Reviewer, Critic, Docs, Designer — fast/cheap
-	sme: 'google/gemini-2.5-flash',
-	reviewer: 'google/gemini-2.5-flash',
-	critic: 'google/gemini-2.5-flash',
-	docs: 'google/gemini-2.5-flash',
-	designer: 'google/gemini-2.5-flash',
+	// SME, Critic, Docs, Designer — reasoning/general tasks
+	sme: 'opencode/trinity-large-preview-free',
+	critic: 'opencode/trinity-large-preview-free',
+	docs: 'opencode/trinity-large-preview-free',
+	designer: 'opencode/trinity-large-preview-free',
 
 	// Fallback
-	default: 'google/gemini-2.5-flash',
+	default: 'opencode/trinity-large-preview-free',
 };
 
 // Check if agent is in QA category
