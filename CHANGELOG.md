@@ -1,6 +1,6 @@
 # Changelog
 
-## [6.14.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.2...v6.14.0) (2026-03-01)
+## [6.13.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.3...v6.13.4) (2026-03-01)
 
 
 ### Features
