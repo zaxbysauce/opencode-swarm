@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.0...v6.14.1) (2026-03-01)
+
+
+### Bug Fixes
+
+* v6.14.1 — architect placeholder prevention via save_plan tool and prompt hardening ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
+
 ## [6.14.1] - 2026-03-01
 
 ### Bug Fixes
