@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.2...v6.14.3) (2026-03-01)
+
+
+### Bug Fixes
+
+* switch publish-npm to OIDC trusted publishing (remove NPM_TOKEN, add provenance) ([5cfa728](https://github.com/zaxbysauce/opencode-swarm/commit/5cfa728537c1f07eb5d7d6475fee96f44e9d5764))
+
 ## [6.14.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.1...v6.14.2) (2026-03-01)
 
 
