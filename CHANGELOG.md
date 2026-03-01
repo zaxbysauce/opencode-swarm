@@ -1,27 +1,5 @@
 # Changelog
 
-## [6.14.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.0...v6.14.1) (2026-03-01)
-
-### Root Cause
-
-The Architect agent was writing `.swarm/plan.md` with literal bracket-template placeholders (`[task]`, `[Project]`, `[date]`) instead of real plan content. This happened because the prompt included bracket-placeholder examples in the FILES section template, and there was no validation gate to reject stub plans before they were saved.
-
-### Bug Fixes
-
-* **`save_plan` MCP tool (P0):** New `save_plan` tool that the Architect calls to write `plan.md`. Validates plan content against `PlanSchema` and rejects any plan containing bracket-template placeholders (`[task]`, `[Project]`, `[date]`, `[reason]`, `[description]`) before writing to disk. Registered in `AGENT_TOOL_MAP` for the architect agent. ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
-
-* **Architect prompt template hardening (P0):** Replaced all bracket-placeholder examples in the `FILES` section of `architect.ts` with `<angle-bracket>` schema slots. Added a FILE FORMAT RULES warning block directly above the template. Valid status tokens (`[COMPLETE]`, `[IN PROGRESS]`, `[BLOCKED]`, `[SMALL]`, `[MEDIUM]`, `[LARGE]`, `[x]`, `[ ]`) are preserved. ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
-
-* **Architect MODE:PLAN now calls `save_plan` (P1):** MODE:PLAN section updated to instruct the Architect to call `save_plan` with `title`, `swarm_id`, and `phases` arguments. Includes a concrete example call and a coder-delegation fallback for environments where the tool is unavailable. ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
-
-* **`migrateLegacyPlan` parser hardening (P1):** Parser in `src/plan/manager.ts` now handles `###` subsection headers, numbered-list tasks (`1. Description`), and checkbox tasks without `N.M:` prefix — all auto-generate IDs. Emits `console.warn` when zero phases are parsed from a non-empty document. ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
-
-* **`placeholder_scan` detects bracket placeholders in `.swarm/plan.md` (P2):** Extended `placeholder_scan` tool to scan `.swarm/plan.md` for bracket-template placeholders (`[task]`, `[Project]`, `[date]`, `[reason]`, `[description]`). Valid tokens (`[x]`, `[ ]`, `[COMPLETE]`, etc.) are not flagged. ([1541efd](https://github.com/zaxbysauce/opencode-swarm/commit/1541efd0de0ad2f13510956393b494ce3b09aae9))
-
-### Test Coverage
-
-* 316 new tests across 6 new test files: `save-plan.test.ts` (47), `save-plan-adversarial.test.ts` (26), `placeholder-scan-plan.test.ts` (71), `migrate-legacy-plan-hardening.test.ts` (44), `architect-prompt-template.test.ts` (31), `architect-prompt-adversarial.test.ts` (97)
-
 ## [6.13.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.13.3...v6.13.4) (2026-03-01)
 
 
