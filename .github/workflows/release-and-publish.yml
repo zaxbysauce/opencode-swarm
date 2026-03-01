@@ -39,6 +39,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm
+        run: npm i -g npm@11.5.2
+
+      - name: Configure npm for registry
+        run: |
+          npm --version
+          npm config set registry https://registry.npmjs.org/
 
       - name: Install dependencies
         run: bun install
@@ -47,4 +56,12 @@ jobs:
         run: bun run build
 
       - name: Publish to npm
-        run: npm publish --provenance --access public --registry=https://registry.npmjs.org/
+        run: |
+          echo "Trying OIDC trusted publishing..."
+          if npm publish --provenance --access public; then
+            exit 0
+          fi
+          echo "OIDC publish failed; retrying with NPM_TOKEN fallback..."
+          NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
