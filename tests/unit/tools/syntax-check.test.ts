@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { syntaxCheck, type SyntaxCheckInput } from '../../../src/tools/syntax-check';
@@ -16,15 +17,15 @@ describe('syntax_check tool', () => {
 
 	beforeEach(async () => {
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(originalCwd, 'syntax-check-test-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'syntax-check-test-'));
 		process.chdir(tmpDir);
 	});
 
 	afterEach(() => {
+		process.chdir(originalCwd);
 		if (tmpDir && fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
-		process.chdir(originalCwd);
 		vi.clearAllMocks();
 	});
 

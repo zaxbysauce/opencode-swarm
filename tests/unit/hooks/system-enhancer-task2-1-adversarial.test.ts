@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 // Import the functions to test
@@ -18,7 +19,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 	beforeEach(() => {
 		// Create a temporary directory
-		tempDir = fs.mkdtempSync(path.join(process.cwd(), 'test-adversarial-'));
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-adversarial-'));
 	});
 
 	afterEach(() => {

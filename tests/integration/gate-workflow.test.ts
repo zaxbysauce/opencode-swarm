@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'bun:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { syntaxCheck, type SyntaxCheckInput } from '../../src/tools/syntax-check';
@@ -32,7 +33,7 @@ describe('Gate Workflow Integration Tests', () => {
 	});
 
 	beforeEach(() => {
-		testDir = fs.mkdtempSync(path.join(originalCwd, 'gate-workflow-test-'));
+		testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-workflow-test-'));
 	});
 
 	afterEach(async () => {

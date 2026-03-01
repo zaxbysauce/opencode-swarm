@@ -10,18 +10,19 @@ describe('todo_extract tool', () => {
 	let originalCwd: string;
 
 	beforeEach(async () => {
-		// Create a temp directory for each test inside cwd to pass path validation
+		// Create temp dir in os.tmpdir() (not project root), then chdir into it
+		// so the tool's cwd-based path validation accepts paths within tmpDir.
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(originalCwd, 'todo-extract-test-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'todo-extract-test-'));
+		process.chdir(tmpDir);
 	});
 
 	afterEach(() => {
-		// Clean up temp directory
+		// Restore cwd BEFORE rmSync — deleting the current directory fails on Windows
+		process.chdir(originalCwd);
 		if (tmpDir && fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
-		// Restore cwd
-		process.chdir(originalCwd);
 	});
 
 	// ============ Verification Tests ============
