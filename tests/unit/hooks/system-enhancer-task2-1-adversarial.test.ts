@@ -24,10 +24,12 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 	afterEach(() => {
 		// Clean up temp directory
-		try {
-			fs.rmSync(tempDir, { recursive: true, force: true });
-		} catch {
-			// Ignore cleanup errors
+		if (tempDir && fs.existsSync(tempDir)) {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore cleanup errors
+			}
 		}
 	});
 
