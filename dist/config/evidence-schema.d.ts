@@ -191,6 +191,30 @@ export declare const RetrospectiveEvidenceSchema: z.ZodObject<{
     }>;
     top_rejection_reasons: z.ZodDefault<z.ZodArray<z.ZodString>>;
     lessons_learned: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    user_directives: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        directive: z.ZodString;
+        category: z.ZodEnum<{
+            tooling: "tooling";
+            code_style: "code_style";
+            architecture: "architecture";
+            process: "process";
+            other: "other";
+        }>;
+        scope: z.ZodEnum<{
+            project: "project";
+            session: "session";
+            global: "global";
+        }>;
+    }, z.core.$strip>>>;
+    approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        approach: z.ZodString;
+        result: z.ZodEnum<{
+            success: "success";
+            failure: "failure";
+            partial: "partial";
+        }>;
+        abandoned_reason: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type RetrospectiveEvidence = z.infer<typeof RetrospectiveEvidenceSchema>;
 export declare const SyntaxEvidenceSchema: z.ZodObject<{
@@ -242,9 +266,9 @@ export declare const PlaceholderEvidenceSchema: z.ZodObject<{
         line: z.ZodNumber;
         kind: z.ZodEnum<{
             string: "string";
+            other: "other";
             comment: "comment";
             function_body: "function_body";
-            other: "other";
         }>;
         excerpt: z.ZodString;
         rule_id: z.ZodString;
@@ -535,6 +559,30 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     }>;
     top_rejection_reasons: z.ZodDefault<z.ZodArray<z.ZodString>>;
     lessons_learned: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    user_directives: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        directive: z.ZodString;
+        category: z.ZodEnum<{
+            tooling: "tooling";
+            code_style: "code_style";
+            architecture: "architecture";
+            process: "process";
+            other: "other";
+        }>;
+        scope: z.ZodEnum<{
+            project: "project";
+            session: "session";
+            global: "global";
+        }>;
+    }, z.core.$strip>>>;
+    approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        approach: z.ZodString;
+        result: z.ZodEnum<{
+            success: "success";
+            failure: "failure";
+            partial: "partial";
+        }>;
+        abandoned_reason: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>, z.ZodObject<{
     task_id: z.ZodString;
     timestamp: z.ZodString;
@@ -582,9 +630,9 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         line: z.ZodNumber;
         kind: z.ZodEnum<{
             string: "string";
+            other: "other";
             comment: "comment";
             function_body: "function_body";
-            other: "other";
         }>;
         excerpt: z.ZodString;
         rule_id: z.ZodString;
@@ -870,6 +918,30 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
         }>;
         top_rejection_reasons: z.ZodDefault<z.ZodArray<z.ZodString>>;
         lessons_learned: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        user_directives: z.ZodDefault<z.ZodArray<z.ZodObject<{
+            directive: z.ZodString;
+            category: z.ZodEnum<{
+                tooling: "tooling";
+                code_style: "code_style";
+                architecture: "architecture";
+                process: "process";
+                other: "other";
+            }>;
+            scope: z.ZodEnum<{
+                project: "project";
+                session: "session";
+                global: "global";
+            }>;
+        }, z.core.$strip>>>;
+        approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{
+            approach: z.ZodString;
+            result: z.ZodEnum<{
+                success: "success";
+                failure: "failure";
+                partial: "partial";
+            }>;
+            abandoned_reason: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>, z.ZodObject<{
         task_id: z.ZodString;
         timestamp: z.ZodString;
@@ -917,9 +989,9 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
             line: z.ZodNumber;
             kind: z.ZodEnum<{
                 string: "string";
+                other: "other";
                 comment: "comment";
                 function_body: "function_body";
-                other: "other";
             }>;
             excerpt: z.ZodString;
             rule_id: z.ZodString;

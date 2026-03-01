@@ -11,6 +11,7 @@ import {
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
+import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { validateSwarmPath } from '../hooks/utils';
 import { ensureAgentSession, swarmState } from '../state';
 
@@ -95,6 +96,22 @@ function normalizeAgentsFromDelegations(
 	}
 
 	return agents;
+}
+
+/**
+ * Type guard for valid retrospective entries matching a specific phase
+ */
+function isValidRetroEntry(
+	entry: { type: string; [key: string]: unknown },
+	phase: number,
+): boolean {
+	return (
+		entry.type === 'retrospective' &&
+		'phase_number' in entry &&
+		(entry as { phase_number?: unknown }).phase_number === phase &&
+		'verdict' in entry &&
+		(entry as { verdict?: unknown }).verdict === 'pass'
+	);
 }
 
 /**
@@ -197,6 +214,50 @@ async function executePhaseComplete(args: PhaseCompleteArgs): Promise<string> {
 				agentsDispatched,
 				agentsMissing: [],
 				warnings: [],
+			},
+			null,
+			2,
+		);
+	}
+
+	// Retrospective gate: require a valid retro bundle for this phase
+	const retroBundle = await loadEvidence(directory, `retro-${phase}`);
+	let retroFound = false;
+
+	if (retroBundle !== null) {
+		// Check entries for a valid retrospective
+		retroFound =
+			retroBundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ??
+			false;
+	}
+
+	if (!retroFound) {
+		// Fallback: scan all task IDs for any retro-N matching this phase
+		const allTaskIds = await listEvidenceTaskIds(directory);
+		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
+		for (const taskId of retroTaskIds) {
+			const bundle = await loadEvidence(directory, taskId);
+			if (bundle === null) continue;
+			retroFound =
+				bundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ??
+				false;
+			if (retroFound) break;
+		}
+	}
+
+	if (!retroFound) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase,
+				status: 'blocked' as const,
+				reason: 'RETROSPECTIVE_MISSING',
+				message: `Phase ${phase} cannot be completed: no valid retrospective evidence found. Write a retrospective bundle at .swarm/evidence/retro-${phase}/evidence.json with type='retrospective', phase_number=${phase}, verdict='pass' before calling phase_complete.`,
+				agentsDispatched: [],
+				agentsMissing: [],
+				warnings: [
+					`Retrospective missing for phase ${phase}. Write a retro bundle with verdict='pass' at .swarm/evidence/retro-${phase}/evidence.json`,
+				],
 			},
 			null,
 			2,

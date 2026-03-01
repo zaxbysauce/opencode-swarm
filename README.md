@@ -310,7 +310,7 @@ Per-agent overrides:
 | build_check | Runs your project's native build/typecheck |
 | quality_budget | Enforces complexity, duplication, and test ratio limits |
 | pre_check_batch | Runs lint, secretscan, SAST, and quality budget in parallel (~15s vs ~60s sequential) |
-| phase_complete | Enforces phase completion, verifies required agents, logs events, and resets state |
+| phase_complete | Enforces phase completion, verifies required agents, requires a valid retrospective evidence bundle, logs events, and resets state |
 
 
 All tools run locally. No Docker, no network calls, no external APIs.

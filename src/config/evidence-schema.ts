@@ -118,6 +118,31 @@ export const RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
 	// Qualitative findings (structured)
 	top_rejection_reasons: z.array(z.string()).default([]),
 	lessons_learned: z.array(z.string()).max(5).default([]),
+	user_directives: z
+		.array(
+			z.object({
+				directive: z.string().min(1),
+				category: z.enum([
+					'tooling',
+					'code_style',
+					'architecture',
+					'process',
+					'other',
+				]),
+				scope: z.enum(['session', 'project', 'global']),
+			}),
+		)
+		.default([]),
+	approaches_tried: z
+		.array(
+			z.object({
+				approach: z.string().min(1),
+				result: z.enum(['success', 'failure', 'partial']),
+				abandoned_reason: z.string().optional(),
+			}),
+		)
+		.max(10)
+		.default([]),
 });
 export type RetrospectiveEvidence = z.infer<typeof RetrospectiveEvidenceSchema>;
 

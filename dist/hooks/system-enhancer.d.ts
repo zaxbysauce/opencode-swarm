@@ -7,6 +7,13 @@
  */
 import type { PluginConfig } from '../config';
 /**
+ * Build a retrospective injection string for the architect system message.
+ * Tier 1: direct phase-scoped lookup for same-plan previous phase.
+ * Tier 2: cross-project historical lessons (Phase 1 only).
+ * Returns null if no valid retrospective found.
+ */
+export declare function buildRetroInjection(directory: string, currentPhaseNumber: number, currentPlanTitle?: string): Promise<string | null>;
+/**
  * Creates the experimental.chat.system.transform hook for system enhancement.
  */
 export declare function createSystemEnhancerHook(config: PluginConfig, directory: string): Record<string, unknown>;

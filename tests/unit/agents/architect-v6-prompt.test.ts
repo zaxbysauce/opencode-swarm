@@ -1471,6 +1471,45 @@ describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 				'Have I delegated to {{AGENT_PREFIX}}reviewer at least once this phase?',
 			);
 		});
+
+		// v6.13.3 Retrospective enforcement (Task 2.6)
+		describe('v6.13.3 retrospective and briefing sections', () => {
+			it('contains RETROSPECTIVE GATE section', () => {
+				expect(prompt).toContain('RETROSPECTIVE GATE');
+			});
+
+			it('contains PRE-PHASE BRIEFING section', () => {
+				expect(prompt).toContain('PRE-PHASE BRIEFING');
+			});
+
+			it('RETROSPECTIVE GATE appears before phase_complete', () => {
+				const retroPos = prompt.indexOf('RETROSPECTIVE GATE');
+				const phaseCompletePos = prompt.indexOf('phase_complete');
+				expect(retroPos).toBeLessThan(phaseCompletePos);
+			});
+
+			it('PRE-PHASE BRIEFING appears before MODE: PLAN', () => {
+				const briefingPos = prompt.indexOf('PRE-PHASE BRIEFING');
+				const planModePos = prompt.indexOf('MODE: PLAN');
+				expect(briefingPos).toBeLessThan(planModePos);
+			});
+
+			it('mentions retro task_id convention', () => {
+				expect(prompt).toMatch(/retro-\{|\bretro-\d+\b|retro-\{phase/);
+			});
+
+			it('PRE-PHASE BRIEFING has Phase 1 and Phase 2+ paths', () => {
+				expect(prompt).toContain('Phase 2+');
+				expect(prompt).toContain('Phase 1');
+			});
+
+			it('contains PHASE-WRAP mode or phase count guidance', () => {
+				const hasPhaseWrap = prompt.includes('PHASE-WRAP');
+				const hasPhaseCount = prompt.includes('PHASE COUNT');
+				const hasMinimum = prompt.includes('minimum');
+				expect(hasPhaseWrap || hasPhaseCount || hasMinimum).toBe(true);
+			});
+		});
 	});
 	});
 });

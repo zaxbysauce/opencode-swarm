@@ -695,7 +695,7 @@ Extracts `TODO`, `FIXME`, and `HACK` annotations across the codebase using regex
 **Safety**: Validates paths against workspace root, rejects shell metacharacters, enforces file size limits
 
 ### `evidence_check` — Completeness Auditor
-Audits completed tasks in `.swarm/evidence/` against required evidence types (review, test, diff, approval). Identifies missing evidence before marking a phase complete.
+Audits completed tasks in `.swarm/evidence/` against required evidence types (review, test, diff, approval) and ensures a valid retrospective evidence bundle exists before a phase can be completed.
 
 **Usage**: Phase 6 (phase complete) to verify every task has sufficient QA artifacts
 
@@ -1413,3 +1413,30 @@ evidenceCommand.execute(async (args) => {
 - No breaking changes to existing configs
 - Clear visibility via status artifacts
 - Graceful degradation on failures
+
+---
+
+## Recommended .swarm/ Memory Architecture (v6.14+)
+
+Research findings (Claude Code, Windsurf, JetBrains, Trajectory Miner) support
+separating `.swarm/context.md` into distinct concerns:
+
+```
+.swarm/
+├── context.md          ← Human-authored rules & architecture (static, version-controlled)
+├── patterns.md         ← Agent-discovered patterns (auto-updated, 200-line limit)
+├── plan.json / plan.md ← Current plan state
+├── evidence/
+│   ├── retro-1/evidence.json   ← Phase 1 retrospective
+│   ├── retro-2/evidence.json   ← Phase 2 retrospective
+│   └── {task-id}/evidence.json ← Task-level evidence bundles
+└── events.jsonl        ← Event log
+```
+
+Key principles:
+- Static rules (`context.md`) always override auto-learned patterns (`patterns.md`)
+- Retrospectives are keyed by `retro-{phase_number}` convention
+- User directives with `scope: project` are persisted to `context.md`
+- Agent-discovered patterns require 2+ session frequency before persisting
+
+> **Note:** The actual restructuring of `context.md` is deferred to v6.14. This section documents the target architecture for planning purposes.

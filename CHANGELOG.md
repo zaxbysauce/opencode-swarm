@@ -1,5 +1,33 @@
 # Changelog
 
+## [6.13.3] - 2026-02-28
+
+### Bug Fixes
+- **Retrospective gate:** `phase_complete` now requires a retrospective evidence bundle
+  before allowing phase completion. Agents can no longer skip retrospectives.
+- **Phase-scoped retro injection:** System enhancer now reads the previous phase's
+  retrospective by phase number (not random recent file) and always injects lessons —
+  not just when `reviewer_rejections > 2`.
+- **Deduplicated retro logic:** Extracted shared retrospective injection function from
+  duplicated Path A / Path B code in system-enhancer.ts.
+
+### Improvements
+- **User directive capture:** New `user_directives` field in RetrospectiveEvidence schema
+  captures user corrections with category and persistence scope.
+- **Approach tracking:** New `approaches_tried` field tracks what was attempted and why
+  approaches were abandoned, enabling future trajectory mining.
+- **Pre-phase briefing:** Architect prompt now requires reading previous phase retrospective
+  and printing a briefing acknowledgment before starting any new phase.
+- **Coder retro injection:** Coder agent now receives condensed lessons_learned from the
+  previous phase's retrospective.
+- **Cross-project memory:** Phase 1 of any project now receives historical lessons from
+  up to 3 recent retrospectives from prior projects in the same workspace, including
+  carried-forward user directives.
+- **Phase count guidance:** Architect prompt now discourages single-phase plans for large
+  task sets (5+ tasks → 2+ phases, 10+ tasks → 3+ phases).
+- **Plan ID tagging:** Retrospectives now include `plan_id` in metadata for reliable
+  cross-project vs. same-plan filtering.
+
 ## [6.13.2] - 2026-02-28
 
 ### Added

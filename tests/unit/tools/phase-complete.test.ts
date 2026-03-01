@@ -8,6 +8,52 @@ import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmSta
 // Import the tool after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
 
+/**
+ * Helper function to write a valid retro bundle for a phase
+ */
+function writeRetroBundle(
+	directory: string,
+	phaseNumber: number,
+	verdict: 'pass' | 'fail' = 'pass',
+): void {
+	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	fs.mkdirSync(retroDir, { recursive: true });
+
+	const retroBundle = {
+		schema_version: '1.0.0',
+		task_id: `retro-${phaseNumber}`,
+		entries: [
+			{
+				task_id: `retro-${phaseNumber}`,
+				type: 'retrospective',
+				timestamp: new Date().toISOString(),
+				agent: 'architect',
+				verdict: verdict,
+				summary: 'Phase retrospective',
+				metadata: {},
+				phase_number: phaseNumber,
+				total_tool_calls: 10,
+				coder_revisions: 1,
+				reviewer_rejections: 0,
+				test_failures: 0,
+				security_findings: 0,
+				integration_issues: 0,
+				task_count: 5,
+				task_complexity: 'moderate',
+				top_rejection_reasons: [],
+				lessons_learned: ['Lesson 1'],
+			},
+		],
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	};
+
+	fs.writeFileSync(
+		path.join(retroDir, 'evidence.json'),
+		JSON.stringify(retroBundle, null, 2),
+	);
+}
+
 describe('phase_complete tool', () => {
 	let tempDir: string;
 	let originalCwd: string;
@@ -15,14 +61,19 @@ describe('phase_complete tool', () => {
 	beforeEach(() => {
 		// Reset state before each test
 		resetSwarmState();
-		
+
 		// Create temp directory
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-test-'));
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
-		
-		// Create .swarm directory for event file tests
+
+		// Create .swarm directory and evidence directory structure
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+
+		// Write retro bundles for phases 1 and 2 (tests use these phases)
+		writeRetroBundle(tempDir, 1, 'pass');
+		writeRetroBundle(tempDir, 2, 'pass');
 	});
 
 	afterEach(() => {
@@ -497,10 +548,10 @@ describe('phase_complete tool', () => {
 		});
 
 		test('adds warning when event file write fails', async () => {
-			// Don't create .swarm directory to cause write failure
-			// (we already created it in beforeEach, so remove it)
+			// Remove .swarm directory to cause event file write failure
 			fs.rmSync(path.join(tempDir, '.swarm'), { recursive: true });
-			
+
+			// Create config
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -511,13 +562,22 @@ describe('phase_complete tool', () => {
 							policy: 'enforce'
 						}})
 			);
-			
+
 			ensureAgentSession('sess1');
-			
+
+			// Create .swarm directory structure with evidence (required by retrospective gate)
+			// The .swarm directory itself will exist, so the retro check will pass,
+			// but we'll make the events.jsonl unwritable to cause the warning
+			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+			writeRetroBundle(tempDir, 1, 'pass');
+
+			// Create events.jsonl as a directory instead of file to cause write failure
+			fs.mkdirSync(path.join(tempDir, '.swarm', 'events.jsonl'), { recursive: true });
+
 			// This should NOT crash - just add a warning
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.warnings.length).toBeGreaterThan(0);
 			expect(parsed.warnings[0]).toContain('failed to write phase complete event');

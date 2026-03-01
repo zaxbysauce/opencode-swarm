@@ -14001,7 +14001,23 @@ var init_evidence_schema = __esm(() => {
     task_count: exports_external.number().int().min(1),
     task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]),
     top_rejection_reasons: exports_external.array(exports_external.string()).default([]),
-    lessons_learned: exports_external.array(exports_external.string()).max(5).default([])
+    lessons_learned: exports_external.array(exports_external.string()).max(5).default([]),
+    user_directives: exports_external.array(exports_external.object({
+      directive: exports_external.string().min(1),
+      category: exports_external.enum([
+        "tooling",
+        "code_style",
+        "architecture",
+        "process",
+        "other"
+      ]),
+      scope: exports_external.enum(["session", "project", "global"])
+    })).default([]),
+    approaches_tried: exports_external.array(exports_external.object({
+      approach: exports_external.string().min(1),
+      result: exports_external.enum(["success", "failure", "partial"]),
+      abandoned_reason: exports_external.string().optional()
+    })).max(10).default([])
   });
   SyntaxEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("syntax"),
@@ -31423,7 +31439,7 @@ var init_preflight_integration = __esm(() => {
 });
 
 // src/index.ts
-import * as path32 from "path";
+import * as path31 from "path";
 
 // src/tools/tool-names.ts
 var TOOL_NAMES = [
@@ -32481,6 +32497,37 @@ Identify 1-3 relevant domains from the task requirements.
 Call {{AGENT_PREFIX}}sme once per domain, serially. Max 3 SME calls per project phase.
 Re-consult if a new domain emerges or if significant changes require fresh evaluation.
 Cache guidance in context.md.
+### MODE: PRE-PHASE BRIEFING (Required Before Starting Any Phase)
+
+Before creating or resuming any plan, you MUST read the previous phase's retrospective.
+
+**Phase 2+ (continuing a multi-phase project):**
+1. Check \`.swarm/evidence/retro-{N-1}/evidence.json\` for the previous phase's retrospective
+2. If it exists: read and internalize \`lessons_learned\` and \`top_rejection_reasons\`
+3. If it does NOT exist: note this as a process gap, but proceed
+4. Print a briefing acknowledgment:
+\`\`\`
+\u2192 BRIEFING: Read Phase {N-1} retrospective.
+Key lessons: {list 1-3 most relevant lessons}
+Applying to Phase {N}: {one sentence on how you'll apply them}
+\`\`\`
+
+**Phase 1 (starting any new project):**
+1. Scan \`.swarm/evidence/\` for any \`retro-*\` bundles from prior projects
+2. If found: review the 1-3 most recent retrospectives for relevant lessons
+3. Pay special attention to \`user_directives\` \u2014 these carry across projects
+4. Print a briefing acknowledgment:
+\`\`\`
+\u2192 BRIEFING: Reviewed {N} historical retrospectives from this workspace.
+Relevant lessons: {list applicable lessons}
+User directives carried forward: {list any persistent directives}
+\`\`\`
+   OR if no historical retros exist:
+\`\`\`
+\u2192 BRIEFING: No historical retrospectives found. Starting fresh.
+\`\`\`
+
+This briefing is a HARD REQUIREMENT for ALL phases. Skipping it is a process violation.
 
 ### MODE: PLAN
 
@@ -32633,6 +32680,54 @@ PRE-COMMIT RULE \u2014 Before ANY commit or push:
   Filling this checklist from memory ("I think I ran it") is INVALID. Each value must come from actual tool/agent output in this session.
 
     5o. Update plan.md [x], proceed to next task.
+
+## \u26D4 RETROSPECTIVE GATE
+
+**MANDATORY before calling phase_complete.** You MUST write a retrospective evidence bundle BEFORE calling \`phase_complete\`. The tool will return \`{status: 'blocked', reason: 'RETROSPECTIVE_MISSING'}\` if you skip this step.
+
+**How to write the retrospective:**
+
+Use the evidence manager tool to write a bundle at \`retro-{N}\` (where N is the phase number being completed):
+
+\`\`\`json
+{
+  "type": "retrospective",
+  "phase_number": <N>,
+  "verdict": "pass",
+  "reviewer_rejections": <count>,
+  "coder_revisions": <count>,
+  "test_failures": <count>,
+  "security_findings": <count>,
+  "lessons_learned": ["lesson 1 (max 5)", "lesson 2"],
+  "top_rejection_reasons": ["reason 1"],
+  "user_directives": [],
+  "approaches_tried": [],
+  "task_complexity": "low|medium|high",
+  "timestamp": "<ISO 8601>",
+  "agent": "architect",
+  "metadata": { "plan_id": "<current plan title from .swarm/plan.json>" }
+}
+\`\`\`
+
+**Required field rules:**
+- \`verdict\` MUST be \`"pass"\` \u2014 a verdict of \`"fail"\` or missing verdict blocks phase_complete
+- \`phase_number\` MUST match the phase number you are completing
+- \`lessons_learned\` should be 3-5 concrete, actionable items from this phase
+- Write the bundle as task_id \`retro-{N}\` (e.g., \`retro-1\` for Phase 1, \`retro-2\` for Phase 2)
+- \`metadata.plan_id\` should be set to the current project's plan title (from \`.swarm/plan.json\` header). This enables cross-project filtering in the retrospective injection system.
+
+### Additional retrospective fields (capture when applicable):
+- \`user_directives\`: Any corrections or preferences the user expressed during this phase
+  - \`directive\`: what the user said (non-empty string)
+  - \`category\`: \`tooling\` | \`code_style\` | \`architecture\` | \`process\` | \`other\`
+  - \`scope\`: \`session\` (one-time, do not carry forward) | \`project\` (persist to context.md) | \`global\` (user preference)
+- \`approaches_tried\`: Approaches attempted during this phase (max 10)
+  - \`approach\`: what was tried (non-empty string)
+  - \`result\`: \`success\` | \`failure\` | \`partial\`
+  - \`abandoned_reason\`: why it was abandoned (required when result is \`failure\` or \`partial\`)
+
+**\u26A0\uFE0F WARNING:** Calling \`phase_complete(N)\` without a valid \`retro-N\` bundle will be BLOCKED. The error response will be:
+\`{ "status": "blocked", "reason": "RETROSPECTIVE_MISSING" }\`
 
 ### MODE: PHASE-WRAP
 1. {{AGENT_PREFIX}}explorer - Rescan
@@ -37344,8 +37439,7 @@ ${originalText}`;
   };
 }
 // src/hooks/system-enhancer.ts
-import * as fs11 from "fs";
-import * as path17 from "path";
+init_manager();
 init_manager2();
 
 // src/services/decision-drift-analyzer.ts
@@ -37722,6 +37816,170 @@ function estimateContentType(text) {
   }
   return "prose";
 }
+async function buildRetroInjection(directory, currentPhaseNumber, currentPlanTitle) {
+  try {
+    const prevPhase = currentPhaseNumber - 1;
+    if (prevPhase >= 1) {
+      const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
+      if (bundle && bundle.entries.length > 0) {
+        const retroEntry = bundle.entries.find((entry) => entry.type === "retrospective");
+        if (retroEntry && retroEntry.verdict !== "fail") {
+          const lessons = retroEntry.lessons_learned ?? [];
+          const rejections = retroEntry.top_rejection_reasons ?? [];
+          const nonSessionDirectives = (retroEntry.user_directives ?? []).filter((d) => d.scope !== "session");
+          let block = `## Previous Phase Retrospective (Phase ${prevPhase})
+**Outcome:** ${retroEntry.summary ?? "Phase completed."}
+**Rejection reasons:** ${rejections.join(", ") || "None"}
+**Lessons learned:**
+${lessons.map((l) => `- ${l}`).join(`
+`)}
+
+\u26A0\uFE0F Apply these lessons to the current phase. Do not repeat the same mistakes.`;
+          if (nonSessionDirectives.length > 0) {
+            const top5 = nonSessionDirectives.slice(0, 5);
+            block += `
+
+## User Directives (from Phase ${prevPhase})
+${top5.map((d) => `- [${d.category}] ${d.directive}`).join(`
+`)}`;
+          }
+          return block;
+        }
+      }
+      const taskIds = await listEvidenceTaskIds(directory);
+      const retroIds = taskIds.filter((id) => id.startsWith("retro-"));
+      let latestRetro = null;
+      for (const taskId of retroIds) {
+        const b = await loadEvidence(directory, taskId);
+        if (b && b.entries.length > 0) {
+          for (const entry of b.entries) {
+            if (entry.type === "retrospective") {
+              const retro = entry;
+              if (retro.verdict !== "fail") {
+                if (latestRetro === null || retro.phase_number > latestRetro.phase) {
+                  latestRetro = { entry: retro, phase: retro.phase_number };
+                }
+              }
+            }
+          }
+        }
+      }
+      if (latestRetro) {
+        const { entry, phase } = latestRetro;
+        const lessons = entry.lessons_learned ?? [];
+        const rejections = entry.top_rejection_reasons ?? [];
+        const nonSessionDirectives = (entry.user_directives ?? []).filter((d) => d.scope !== "session");
+        let block = `## Previous Phase Retrospective (Phase ${phase})
+**Outcome:** ${entry.summary ?? "Phase completed."}
+**Rejection reasons:** ${rejections.join(", ") || "None"}
+**Lessons learned:**
+${lessons.map((l) => `- ${l}`).join(`
+`)}
+
+\u26A0\uFE0F Apply these lessons to the current phase. Do not repeat the same mistakes.`;
+        if (nonSessionDirectives.length > 0) {
+          const top5 = nonSessionDirectives.slice(0, 5);
+          block += `
+
+## User Directives (from Phase ${phase})
+${top5.map((d) => `- [${d.category}] ${d.directive}`).join(`
+`)}`;
+        }
+        return block;
+      }
+      return null;
+    }
+    const allTaskIds = await listEvidenceTaskIds(directory);
+    const allRetroIds = allTaskIds.filter((id) => id.startsWith("retro-"));
+    if (allRetroIds.length === 0) {
+      return null;
+    }
+    const allRetros = [];
+    const cutoffMs = 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    for (const taskId of allRetroIds) {
+      const b = await loadEvidence(directory, taskId);
+      if (!b)
+        continue;
+      for (const e of b.entries) {
+        if (e.type === "retrospective") {
+          const retro = e;
+          if (retro.verdict === "fail")
+            continue;
+          if (currentPlanTitle && typeof retro.metadata === "object" && retro.metadata !== null && "plan_id" in retro.metadata && retro.metadata.plan_id === currentPlanTitle)
+            continue;
+          const ts = retro.timestamp ?? b.created_at;
+          const ageMs = now - new Date(ts).getTime();
+          if (isNaN(ageMs) || ageMs > cutoffMs)
+            continue;
+          allRetros.push({ entry: retro, timestamp: ts });
+        }
+      }
+    }
+    if (allRetros.length === 0) {
+      return null;
+    }
+    allRetros.sort((a, b) => {
+      const ta = new Date(a.timestamp).getTime();
+      const tb = new Date(b.timestamp).getTime();
+      if (isNaN(ta) && isNaN(tb))
+        return 0;
+      if (isNaN(ta))
+        return 1;
+      if (isNaN(tb))
+        return -1;
+      return tb - ta;
+    });
+    const top3 = allRetros.slice(0, 3);
+    const lines = [
+      "## Historical Lessons (from recent prior projects)"
+    ];
+    lines.push("Most recent retrospectives in this workspace:");
+    const allCarriedDirectives = [];
+    for (const { entry, timestamp } of top3) {
+      const date9 = timestamp.split("T")[0] ?? "unknown";
+      const summary = entry.summary ?? `Phase ${entry.phase_number} completed`;
+      const topLesson = entry.lessons_learned?.[0] ?? "No lessons recorded";
+      lines.push(`- Phase ${entry.phase_number} (${date9}): ${summary}`);
+      lines.push(`  Key lesson: ${topLesson}`);
+      const nonSession = (entry.user_directives ?? []).filter((d) => d.scope !== "session");
+      allCarriedDirectives.push(...nonSession);
+    }
+    if (allCarriedDirectives.length > 0) {
+      const top5 = allCarriedDirectives.slice(0, 5);
+      lines.push("User directives carried forward:");
+      for (const d of top5) {
+        lines.push(`- [${d.category}] ${d.directive}`);
+      }
+    }
+    const tier2Block = lines.join(`
+`);
+    return tier2Block.length <= 800 ? tier2Block : `${tier2Block.substring(0, 797)}...`;
+  } catch {
+    return null;
+  }
+}
+async function buildCoderRetroInjection(directory, currentPhaseNumber) {
+  try {
+    const prevPhase = currentPhaseNumber - 1;
+    if (prevPhase < 1)
+      return null;
+    const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
+    if (!bundle || bundle.entries.length === 0)
+      return null;
+    const retroEntry = bundle.entries.find((entry) => entry.type === "retrospective");
+    if (!retroEntry || retroEntry.verdict === "fail")
+      return null;
+    const lessons = retroEntry.lessons_learned ?? [];
+    const summaryLine = `[SWARM RETROSPECTIVE] From Phase ${prevPhase}:${retroEntry.summary ? " " + retroEntry.summary : ""}`;
+    const allLines = [summaryLine, ...lessons];
+    const text = allLines.join(`
+`);
+    return text.length <= 400 ? text : `${text.substring(0, 397)}...`;
+  } catch {
+    return null;
+  }
+}
 function createSystemEnhancerHook(config3, directory) {
   const enabled = config3.hooks?.system_enhancer !== false;
   if (!enabled) {
@@ -37841,43 +38099,27 @@ function createSystemEnhancerHook(config3, directory) {
               }
             }
           }
+          if (baseRole === "coder") {
+            try {
+              const currentPhaseNum_coder = plan2?.current_phase ?? 1;
+              const coderRetro = await buildCoderRetroInjection(directory, currentPhaseNum_coder);
+              if (coderRetro) {
+                tryInject(coderRetro);
+              }
+            } catch {}
+          }
           const sessionId_retro = _input.sessionID;
           const activeAgent_retro = swarmState.activeAgent.get(sessionId_retro ?? "");
           const isArchitect2 = !activeAgent_retro || stripKnownSwarmPrefix(activeAgent_retro) === "architect";
           if (isArchitect2) {
             try {
-              const evidenceDir = path17.join(directory, ".swarm", "evidence");
-              if (fs11.existsSync(evidenceDir)) {
-                const files = fs11.readdirSync(evidenceDir).filter((f) => f.endsWith(".json")).sort().reverse();
-                for (const file3 of files.slice(0, 5)) {
-                  let content;
-                  try {
-                    content = JSON.parse(fs11.readFileSync(path17.join(evidenceDir, file3), "utf-8"));
-                  } catch {
-                    continue;
-                  }
-                  if (content !== null && typeof content === "object" && content.type === "retrospective") {
-                    const retro = content;
-                    const hints = [];
-                    if (retro.reviewer_rejections > 2) {
-                      hints.push(`Phase ${retro.phase_number} had ${retro.reviewer_rejections} reviewer rejections.`);
-                    }
-                    if (retro.top_rejection_reasons.length > 0) {
-                      hints.push(`Common rejection reasons: ${retro.top_rejection_reasons.join(", ")}.`);
-                    }
-                    if (retro.lessons_learned.length > 0) {
-                      hints.push(`Lessons: ${retro.lessons_learned.join("; ")}.`);
-                    }
-                    if (hints.length > 0) {
-                      const retroHint = `[SWARM RETROSPECTIVE] From Phase ${retro.phase_number}: ${hints.join(" ")}`;
-                      if (retroHint.length <= 800) {
-                        tryInject(retroHint);
-                      } else {
-                        tryInject(`${retroHint.substring(0, 800)}...`);
-                      }
-                    }
-                    break;
-                  }
+              const currentPhaseNum = plan2?.current_phase ?? 1;
+              const retroText = await buildRetroInjection(directory, currentPhaseNum, plan2?.title ?? undefined);
+              if (retroText) {
+                if (retroText.length <= 1600) {
+                  tryInject(retroText);
+                } else {
+                  tryInject(`${retroText.substring(0, 1600)}...`);
                 }
               }
             } catch {}
@@ -38137,43 +38379,18 @@ function createSystemEnhancerHook(config3, directory) {
         const isArchitect_b = !activeAgent_retro_b || stripKnownSwarmPrefix(activeAgent_retro_b) === "architect";
         if (isArchitect_b) {
           try {
-            const evidenceDir_b = path17.join(directory, ".swarm", "evidence");
-            if (fs11.existsSync(evidenceDir_b)) {
-              const files_b = fs11.readdirSync(evidenceDir_b).filter((f) => f.endsWith(".json")).sort().reverse();
-              for (const file3 of files_b.slice(0, 5)) {
-                let content_b;
-                try {
-                  content_b = JSON.parse(fs11.readFileSync(path17.join(evidenceDir_b, file3), "utf-8"));
-                } catch {
-                  continue;
-                }
-                if (content_b !== null && typeof content_b === "object" && content_b.type === "retrospective") {
-                  const retro_b = content_b;
-                  const hints_b = [];
-                  if (retro_b.reviewer_rejections > 2) {
-                    hints_b.push(`Phase ${retro_b.phase_number} had ${retro_b.reviewer_rejections} reviewer rejections.`);
-                  }
-                  if (retro_b.top_rejection_reasons.length > 0) {
-                    hints_b.push(`Common rejection reasons: ${retro_b.top_rejection_reasons.join(", ")}.`);
-                  }
-                  if (retro_b.lessons_learned.length > 0) {
-                    hints_b.push(`Lessons: ${retro_b.lessons_learned.join("; ")}.`);
-                  }
-                  if (hints_b.length > 0) {
-                    const retroHint_b = `[SWARM RETROSPECTIVE] From Phase ${retro_b.phase_number}: ${hints_b.join(" ")}`;
-                    const retroText = retroHint_b.length <= 800 ? retroHint_b : `${retroHint_b.substring(0, 800)}...`;
-                    candidates.push({
-                      id: `candidate-${idCounter++}`,
-                      kind: "phase",
-                      text: retroText,
-                      tokens: estimateTokens(retroText),
-                      priority: 2,
-                      metadata: { contentType: "prose" }
-                    });
-                  }
-                  break;
-                }
-              }
+            const currentPhaseNum_b = plan?.current_phase ?? 1;
+            const retroText_b = await buildRetroInjection(directory, currentPhaseNum_b, plan?.title ?? undefined);
+            if (retroText_b) {
+              const text = retroText_b.length <= 1600 ? retroText_b : `${retroText_b.substring(0, 1597)}...`;
+              candidates.push({
+                id: `candidate-${idCounter++}`,
+                kind: "phase",
+                text,
+                tokens: estimateTokens(text),
+                priority: 2,
+                metadata: { contentType: "prose" }
+              });
             }
           } catch {}
           if (mode_b !== "DISCOVER") {
@@ -38210,6 +38427,24 @@ function createSystemEnhancerHook(config3, directory) {
               }
             }
           }
+        }
+        const activeAgent_coder_b = swarmState.activeAgent.get(_input.sessionID ?? "");
+        const isCoder_b = activeAgent_coder_b && stripKnownSwarmPrefix(activeAgent_coder_b) === "coder";
+        if (isCoder_b) {
+          try {
+            const currentPhaseNum_coder_b = plan?.current_phase ?? 1;
+            const coderRetro_b = await buildCoderRetroInjection(directory, currentPhaseNum_coder_b);
+            if (coderRetro_b) {
+              candidates.push({
+                id: `candidate-${idCounter++}`,
+                kind: "agent_context",
+                text: coderRetro_b,
+                tokens: estimateTokens(coderRetro_b),
+                priority: 2,
+                metadata: { contentType: "prose" }
+              });
+            }
+          } catch {}
         }
         const automationCapabilities_b = config3.automation?.capabilities;
         if (automationCapabilities_b?.decision_drift_detection === true && sessionId_retro_b) {
@@ -38465,8 +38700,8 @@ init_dist();
 
 // src/build/discovery.ts
 init_dist();
-import * as fs12 from "fs";
-import * as path18 from "path";
+import * as fs11 from "fs";
+import * as path17 from "path";
 var ECOSYSTEMS = [
   {
     ecosystem: "node",
@@ -38578,18 +38813,18 @@ function findBuildFiles(workingDir, patterns) {
     if (pattern.includes("*")) {
       const dir = workingDir;
       try {
-        const files = fs12.readdirSync(dir);
+        const files = fs11.readdirSync(dir);
         const matches = files.filter((f) => {
           const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
           return regex.test(f);
         });
         if (matches.length > 0) {
-          return path18.join(dir, matches[0]);
+          return path17.join(dir, matches[0]);
         }
       } catch {}
     } else {
-      const filePath = path18.join(workingDir, pattern);
-      if (fs12.existsSync(filePath)) {
+      const filePath = path17.join(workingDir, pattern);
+      if (fs11.existsSync(filePath)) {
         return filePath;
       }
     }
@@ -38597,12 +38832,12 @@ function findBuildFiles(workingDir, patterns) {
   return null;
 }
 function getRepoDefinedScripts(workingDir, scripts) {
-  const packageJsonPath = path18.join(workingDir, "package.json");
-  if (!fs12.existsSync(packageJsonPath)) {
+  const packageJsonPath = path17.join(workingDir, "package.json");
+  if (!fs11.existsSync(packageJsonPath)) {
     return [];
   }
   try {
-    const content = fs12.readFileSync(packageJsonPath, "utf-8");
+    const content = fs11.readFileSync(packageJsonPath, "utf-8");
     const pkg = JSON.parse(content);
     if (!pkg.scripts || typeof pkg.scripts !== "object") {
       return [];
@@ -38638,8 +38873,8 @@ function findAllBuildFiles(workingDir) {
         const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
-        const filePath = path18.join(workingDir, pattern);
-        if (fs12.existsSync(filePath)) {
+        const filePath = path17.join(workingDir, pattern);
+        if (fs11.existsSync(filePath)) {
           allBuildFiles.add(filePath);
         }
       }
@@ -38649,9 +38884,9 @@ function findAllBuildFiles(workingDir) {
 }
 function findFilesRecursive(dir, regex, results) {
   try {
-    const entries = fs12.readdirSync(dir, { withFileTypes: true });
+    const entries = fs11.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path18.join(dir, entry.name);
+      const fullPath = path17.join(dir, entry.name);
       if (entry.isDirectory() && !["node_modules", ".git", "dist", "build", "target"].includes(entry.name)) {
         findFilesRecursive(fullPath, regex, results);
       } else if (entry.isFile() && regex.test(entry.name)) {
@@ -38892,8 +39127,8 @@ var build_check = tool({
 // src/tools/checkpoint.ts
 init_tool();
 import { spawnSync } from "child_process";
-import * as fs13 from "fs";
-import * as path19 from "path";
+import * as fs12 from "fs";
+import * as path18 from "path";
 var CHECKPOINT_LOG_PATH = ".swarm/checkpoints.json";
 var MAX_LABEL_LENGTH = 100;
 var GIT_TIMEOUT_MS = 30000;
@@ -38944,13 +39179,13 @@ function validateLabel(label) {
   return null;
 }
 function getCheckpointLogPath() {
-  return path19.join(process.cwd(), CHECKPOINT_LOG_PATH);
+  return path18.join(process.cwd(), CHECKPOINT_LOG_PATH);
 }
 function readCheckpointLog() {
   const logPath = getCheckpointLogPath();
   try {
-    if (fs13.existsSync(logPath)) {
-      const content = fs13.readFileSync(logPath, "utf-8");
+    if (fs12.existsSync(logPath)) {
+      const content = fs12.readFileSync(logPath, "utf-8");
       const parsed = JSON.parse(content);
       if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
         return { version: 1, checkpoints: [] };
@@ -38962,13 +39197,13 @@ function readCheckpointLog() {
 }
 function writeCheckpointLog(log2) {
   const logPath = getCheckpointLogPath();
-  const dir = path19.dirname(logPath);
-  if (!fs13.existsSync(dir)) {
-    fs13.mkdirSync(dir, { recursive: true });
+  const dir = path18.dirname(logPath);
+  if (!fs12.existsSync(dir)) {
+    fs12.mkdirSync(dir, { recursive: true });
   }
   const tempPath = `${logPath}.tmp`;
-  fs13.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
-  fs13.renameSync(tempPath, logPath);
+  fs12.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
+  fs12.renameSync(tempPath, logPath);
 }
 function gitExec(args2) {
   const result = spawnSync("git", args2, {
@@ -39168,8 +39403,8 @@ var checkpoint = tool({
 });
 // src/tools/complexity-hotspots.ts
 init_dist();
-import * as fs14 from "fs";
-import * as path20 from "path";
+import * as fs13 from "fs";
+import * as path19 from "path";
 var MAX_FILE_SIZE_BYTES2 = 256 * 1024;
 var DEFAULT_DAYS = 90;
 var DEFAULT_TOP_N = 20;
@@ -39297,11 +39532,11 @@ function estimateComplexity(content) {
 }
 function getComplexityForFile(filePath) {
   try {
-    const stat = fs14.statSync(filePath);
+    const stat = fs13.statSync(filePath);
     if (stat.size > MAX_FILE_SIZE_BYTES2) {
       return null;
     }
-    const content = fs14.readFileSync(filePath, "utf-8");
+    const content = fs13.readFileSync(filePath, "utf-8");
     return estimateComplexity(content);
   } catch {
     return null;
@@ -39312,7 +39547,7 @@ async function analyzeHotspots(days, topN, extensions) {
   const extSet = new Set(extensions.map((e) => e.startsWith(".") ? e : `.${e}`));
   const filteredChurn = new Map;
   for (const [file3, count] of churnMap) {
-    const ext = path20.extname(file3).toLowerCase();
+    const ext = path19.extname(file3).toLowerCase();
     if (extSet.has(ext)) {
       filteredChurn.set(file3, count);
     }
@@ -39322,8 +39557,8 @@ async function analyzeHotspots(days, topN, extensions) {
   let analyzedFiles = 0;
   for (const [file3, churnCount] of filteredChurn) {
     let fullPath = file3;
-    if (!fs14.existsSync(fullPath)) {
-      fullPath = path20.join(cwd, file3);
+    if (!fs13.existsSync(fullPath)) {
+      fullPath = path19.join(cwd, file3);
     }
     const complexity = getComplexityForFile(fullPath);
     if (complexity !== null) {
@@ -39481,14 +39716,14 @@ function validateBase(base) {
 function validatePaths(paths) {
   if (!paths)
     return null;
-  for (const path21 of paths) {
-    if (!path21 || path21.length === 0) {
+  for (const path20 of paths) {
+    if (!path20 || path20.length === 0) {
       return "empty path not allowed";
     }
-    if (path21.length > MAX_PATH_LENGTH) {
+    if (path20.length > MAX_PATH_LENGTH) {
       return `path exceeds maximum length of ${MAX_PATH_LENGTH}`;
     }
-    if (SHELL_METACHARACTERS2.test(path21)) {
+    if (SHELL_METACHARACTERS2.test(path20)) {
       return "path contains shell metacharacters";
     }
   }
@@ -39551,8 +39786,8 @@ var diff = tool({
         if (parts2.length >= 3) {
           const additions = parseInt(parts2[0], 10) || 0;
           const deletions = parseInt(parts2[1], 10) || 0;
-          const path21 = parts2[2];
-          files.push({ path: path21, additions, deletions });
+          const path20 = parts2[2];
+          files.push({ path: path20, additions, deletions });
         }
       }
       const contractChanges = [];
@@ -39780,8 +40015,8 @@ Use these as DOMAIN values when delegating to @sme.`;
 });
 // src/tools/evidence-check.ts
 init_dist();
-import * as fs15 from "fs";
-import * as path21 from "path";
+import * as fs14 from "fs";
+import * as path20 from "path";
 var MAX_FILE_SIZE_BYTES3 = 1024 * 1024;
 var MAX_EVIDENCE_FILES = 1000;
 var EVIDENCE_DIR = ".swarm/evidence";
@@ -39804,9 +40039,9 @@ function validateRequiredTypes(input) {
   return null;
 }
 function isPathWithinSwarm(filePath, cwd) {
-  const normalizedCwd = path21.resolve(cwd);
-  const swarmPath = path21.join(normalizedCwd, ".swarm");
-  const normalizedPath = path21.resolve(filePath);
+  const normalizedCwd = path20.resolve(cwd);
+  const swarmPath = path20.join(normalizedCwd, ".swarm");
+  const normalizedPath = path20.resolve(filePath);
   return normalizedPath.startsWith(swarmPath);
 }
 function parseCompletedTasks(planContent) {
@@ -39822,12 +40057,12 @@ function parseCompletedTasks(planContent) {
 }
 function readEvidenceFiles(evidenceDir, _cwd) {
   const evidence = [];
-  if (!fs15.existsSync(evidenceDir) || !fs15.statSync(evidenceDir).isDirectory()) {
+  if (!fs14.existsSync(evidenceDir) || !fs14.statSync(evidenceDir).isDirectory()) {
     return evidence;
   }
   let files;
   try {
-    files = fs15.readdirSync(evidenceDir);
+    files = fs14.readdirSync(evidenceDir);
   } catch {
     return evidence;
   }
@@ -39836,14 +40071,14 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     if (!VALID_EVIDENCE_FILENAME_REGEX.test(filename)) {
       continue;
     }
-    const filePath = path21.join(evidenceDir, filename);
+    const filePath = path20.join(evidenceDir, filename);
     try {
-      const resolvedPath = path21.resolve(filePath);
-      const evidenceDirResolved = path21.resolve(evidenceDir);
+      const resolvedPath = path20.resolve(filePath);
+      const evidenceDirResolved = path20.resolve(evidenceDir);
       if (!resolvedPath.startsWith(evidenceDirResolved)) {
         continue;
       }
-      const stat = fs15.lstatSync(filePath);
+      const stat = fs14.lstatSync(filePath);
       if (!stat.isFile()) {
         continue;
       }
@@ -39852,7 +40087,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let fileStat;
     try {
-      fileStat = fs15.statSync(filePath);
+      fileStat = fs14.statSync(filePath);
       if (fileStat.size > MAX_FILE_SIZE_BYTES3) {
         continue;
       }
@@ -39861,7 +40096,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let content;
     try {
-      content = fs15.readFileSync(filePath, "utf-8");
+      content = fs14.readFileSync(filePath, "utf-8");
     } catch {
       continue;
     }
@@ -39946,7 +40181,7 @@ var evidence_check = tool({
       return JSON.stringify(errorResult, null, 2);
     }
     const requiredTypes = requiredTypesValue.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
-    const planPath = path21.join(cwd, PLAN_FILE);
+    const planPath = path20.join(cwd, PLAN_FILE);
     if (!isPathWithinSwarm(planPath, cwd)) {
       const errorResult = {
         error: "plan file path validation failed",
@@ -39960,7 +40195,7 @@ var evidence_check = tool({
     }
     let planContent;
     try {
-      planContent = fs15.readFileSync(planPath, "utf-8");
+      planContent = fs14.readFileSync(planPath, "utf-8");
     } catch {
       const result2 = {
         message: "No completed tasks found in plan.",
@@ -39978,7 +40213,7 @@ var evidence_check = tool({
       };
       return JSON.stringify(result2, null, 2);
     }
-    const evidenceDir = path21.join(cwd, EVIDENCE_DIR);
+    const evidenceDir = path20.join(cwd, EVIDENCE_DIR);
     const evidence = readEvidenceFiles(evidenceDir, cwd);
     const { tasksWithFullEvidence, gaps } = analyzeGaps(completedTasks, evidence, requiredTypes);
     const completeness = completedTasks.length > 0 ? Math.round(tasksWithFullEvidence.length / completedTasks.length * 100) / 100 : 1;
@@ -39994,8 +40229,8 @@ var evidence_check = tool({
 });
 // src/tools/file-extractor.ts
 init_tool();
-import * as fs16 from "fs";
-import * as path22 from "path";
+import * as fs15 from "fs";
+import * as path21 from "path";
 var EXT_MAP = {
   python: ".py",
   py: ".py",
@@ -40057,8 +40292,8 @@ var extract_code_blocks = tool({
   execute: async (args2) => {
     const { content, output_dir, prefix } = args2;
     const targetDir = output_dir || process.cwd();
-    if (!fs16.existsSync(targetDir)) {
-      fs16.mkdirSync(targetDir, { recursive: true });
+    if (!fs15.existsSync(targetDir)) {
+      fs15.mkdirSync(targetDir, { recursive: true });
     }
     const pattern = /```(\w*)\n([\s\S]*?)```/g;
     const matches = [...content.matchAll(pattern)];
@@ -40073,16 +40308,16 @@ var extract_code_blocks = tool({
       if (prefix) {
         filename = `${prefix}_${filename}`;
       }
-      let filepath = path22.join(targetDir, filename);
-      const base = path22.basename(filepath, path22.extname(filepath));
-      const ext = path22.extname(filepath);
+      let filepath = path21.join(targetDir, filename);
+      const base = path21.basename(filepath, path21.extname(filepath));
+      const ext = path21.extname(filepath);
       let counter = 1;
-      while (fs16.existsSync(filepath)) {
-        filepath = path22.join(targetDir, `${base}_${counter}${ext}`);
+      while (fs15.existsSync(filepath)) {
+        filepath = path21.join(targetDir, `${base}_${counter}${ext}`);
         counter++;
       }
       try {
-        fs16.writeFileSync(filepath, code.trim(), "utf-8");
+        fs15.writeFileSync(filepath, code.trim(), "utf-8");
         savedFiles.push(filepath);
       } catch (error93) {
         errors5.push(`Failed to save ${filename}: ${error93 instanceof Error ? error93.message : String(error93)}`);
@@ -40190,8 +40425,8 @@ var gitingest = tool({
 });
 // src/tools/imports.ts
 init_dist();
-import * as fs17 from "fs";
-import * as path23 from "path";
+import * as fs16 from "fs";
+import * as path22 from "path";
 var MAX_FILE_PATH_LENGTH2 = 500;
 var MAX_SYMBOL_LENGTH = 256;
 var MAX_FILE_SIZE_BYTES4 = 1024 * 1024;
@@ -40245,7 +40480,7 @@ function validateSymbolInput(symbol3) {
   return null;
 }
 function isBinaryFile2(filePath, buffer) {
-  const ext = path23.extname(filePath).toLowerCase();
+  const ext = path22.extname(filePath).toLowerCase();
   if (ext === ".json" || ext === ".md" || ext === ".txt") {
     return false;
   }
@@ -40269,15 +40504,15 @@ function parseImports(content, targetFile, targetSymbol) {
   const imports = [];
   let _resolvedTarget;
   try {
-    _resolvedTarget = path23.resolve(targetFile);
+    _resolvedTarget = path22.resolve(targetFile);
   } catch {
     _resolvedTarget = targetFile;
   }
-  const targetBasename = path23.basename(targetFile, path23.extname(targetFile));
+  const targetBasename = path22.basename(targetFile, path22.extname(targetFile));
   const targetWithExt = targetFile;
   const targetWithoutExt = targetFile.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
-  const normalizedTargetWithExt = path23.normalize(targetWithExt).replace(/\\/g, "/");
-  const normalizedTargetWithoutExt = path23.normalize(targetWithoutExt).replace(/\\/g, "/");
+  const normalizedTargetWithExt = path22.normalize(targetWithExt).replace(/\\/g, "/");
+  const normalizedTargetWithoutExt = path22.normalize(targetWithoutExt).replace(/\\/g, "/");
   const importRegex = /import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`]+)['"`]|import\s+['"`]([^'"`]+)['"`]|require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
   for (let match = importRegex.exec(content);match !== null; match = importRegex.exec(content)) {
     const modulePath = match[1] || match[2] || match[3];
@@ -40300,9 +40535,9 @@ function parseImports(content, targetFile, targetSymbol) {
     }
     const _normalizedModule = modulePath.replace(/^\.\//, "").replace(/^\.\.\\/, "../");
     let isMatch = false;
-    const _targetDir = path23.dirname(targetFile);
-    const targetExt = path23.extname(targetFile);
-    const targetBasenameNoExt = path23.basename(targetFile, targetExt);
+    const _targetDir = path22.dirname(targetFile);
+    const targetExt = path22.extname(targetFile);
+    const targetBasenameNoExt = path22.basename(targetFile, targetExt);
     const moduleNormalized = modulePath.replace(/\\/g, "/").replace(/^\.\//, "");
     const moduleName = modulePath.split(/[/\\]/).pop() || "";
     const moduleNameNoExt = moduleName.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
@@ -40359,7 +40594,7 @@ var SKIP_DIRECTORIES2 = new Set([
 function findSourceFiles2(dir, files = [], stats = { skippedDirs: [], skippedFiles: 0, fileErrors: [] }) {
   let entries;
   try {
-    entries = fs17.readdirSync(dir);
+    entries = fs16.readdirSync(dir);
   } catch (e) {
     stats.fileErrors.push({
       path: dir,
@@ -40370,13 +40605,13 @@ function findSourceFiles2(dir, files = [], stats = { skippedDirs: [], skippedFil
   entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   for (const entry of entries) {
     if (SKIP_DIRECTORIES2.has(entry)) {
-      stats.skippedDirs.push(path23.join(dir, entry));
+      stats.skippedDirs.push(path22.join(dir, entry));
       continue;
     }
-    const fullPath = path23.join(dir, entry);
+    const fullPath = path22.join(dir, entry);
     let stat;
     try {
-      stat = fs17.statSync(fullPath);
+      stat = fs16.statSync(fullPath);
     } catch (e) {
       stats.fileErrors.push({
         path: fullPath,
@@ -40387,7 +40622,7 @@ function findSourceFiles2(dir, files = [], stats = { skippedDirs: [], skippedFil
     if (stat.isDirectory()) {
       findSourceFiles2(fullPath, files, stats);
     } else if (stat.isFile()) {
-      const ext = path23.extname(fullPath).toLowerCase();
+      const ext = path22.extname(fullPath).toLowerCase();
       if (SUPPORTED_EXTENSIONS.includes(ext)) {
         files.push(fullPath);
       }
@@ -40443,8 +40678,8 @@ var imports = tool({
       return JSON.stringify(errorResult, null, 2);
     }
     try {
-      const targetFile = path23.resolve(file3);
-      if (!fs17.existsSync(targetFile)) {
+      const targetFile = path22.resolve(file3);
+      if (!fs16.existsSync(targetFile)) {
         const errorResult = {
           error: `target file not found: ${file3}`,
           target: file3,
@@ -40454,7 +40689,7 @@ var imports = tool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const targetStat = fs17.statSync(targetFile);
+      const targetStat = fs16.statSync(targetFile);
       if (!targetStat.isFile()) {
         const errorResult = {
           error: "target must be a file, not a directory",
@@ -40465,7 +40700,7 @@ var imports = tool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const baseDir = path23.dirname(targetFile);
+      const baseDir = path22.dirname(targetFile);
       const scanStats = {
         skippedDirs: [],
         skippedFiles: 0,
@@ -40480,12 +40715,12 @@ var imports = tool({
         if (consumers.length >= MAX_CONSUMERS)
           break;
         try {
-          const stat = fs17.statSync(filePath);
+          const stat = fs16.statSync(filePath);
           if (stat.size > MAX_FILE_SIZE_BYTES4) {
             skippedFileCount++;
             continue;
           }
-          const buffer = fs17.readFileSync(filePath);
+          const buffer = fs16.readFileSync(filePath);
           if (isBinaryFile2(filePath, buffer)) {
             skippedFileCount++;
             continue;
@@ -40554,7 +40789,8 @@ init_lint();
 
 // src/tools/phase-complete.ts
 init_tool();
-import * as fs18 from "fs";
+import * as fs17 from "fs";
+init_manager();
 init_utils2();
 function getDelegationsSince(sessionID, sinceTimestamp) {
   const chain = swarmState.delegationChains.get(sessionID);
@@ -40575,6 +40811,9 @@ function normalizeAgentsFromDelegations(delegations) {
     agents.add(normalizedTo);
   }
   return agents;
+}
+function isValidRetroEntry(entry, phase) {
+  return entry.type === "retrospective" && "phase_number" in entry && entry.phase_number === phase && "verdict" in entry && entry.verdict === "pass";
 }
 async function executePhaseComplete(args2) {
   const phase = Number(args2.phase);
@@ -40634,6 +40873,37 @@ async function executePhaseComplete(args2) {
       warnings: []
     }, null, 2);
   }
+  const retroBundle = await loadEvidence(directory, `retro-${phase}`);
+  let retroFound = false;
+  if (retroBundle !== null) {
+    retroFound = retroBundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ?? false;
+  }
+  if (!retroFound) {
+    const allTaskIds = await listEvidenceTaskIds(directory);
+    const retroTaskIds = allTaskIds.filter((id) => id.startsWith("retro-"));
+    for (const taskId of retroTaskIds) {
+      const bundle = await loadEvidence(directory, taskId);
+      if (bundle === null)
+        continue;
+      retroFound = bundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ?? false;
+      if (retroFound)
+        break;
+    }
+  }
+  if (!retroFound) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      status: "blocked",
+      reason: "RETROSPECTIVE_MISSING",
+      message: `Phase ${phase} cannot be completed: no valid retrospective evidence found. Write a retrospective bundle at .swarm/evidence/retro-${phase}/evidence.json with type='retrospective', phase_number=${phase}, verdict='pass' before calling phase_complete.`,
+      agentsDispatched: [],
+      agentsMissing: [],
+      warnings: [
+        `Retrospective missing for phase ${phase}. Write a retro bundle with verdict='pass' at .swarm/evidence/retro-${phase}/evidence.json`
+      ]
+    }, null, 2);
+  }
   const effectiveRequired = [...phaseCompleteConfig.required_agents];
   if (phaseCompleteConfig.require_docs && !effectiveRequired.includes("docs")) {
     effectiveRequired.push("docs");
@@ -40667,7 +40937,7 @@ async function executePhaseComplete(args2) {
   };
   try {
     const eventsPath = validateSwarmPath(directory, "events.jsonl");
-    fs18.appendFileSync(eventsPath, `${JSON.stringify(event)}
+    fs17.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch (writeError) {
     warnings.push(`Warning: failed to write phase complete event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
@@ -40717,8 +40987,8 @@ var phase_complete = tool({
 });
 // src/tools/pkg-audit.ts
 init_dist();
-import * as fs19 from "fs";
-import * as path24 from "path";
+import * as fs18 from "fs";
+import * as path23 from "path";
 var MAX_OUTPUT_BYTES5 = 52428800;
 var AUDIT_TIMEOUT_MS = 120000;
 function isValidEcosystem(value) {
@@ -40736,13 +41006,13 @@ function validateArgs3(args2) {
 function detectEcosystems() {
   const ecosystems = [];
   const cwd = process.cwd();
-  if (fs19.existsSync(path24.join(cwd, "package.json"))) {
+  if (fs18.existsSync(path23.join(cwd, "package.json"))) {
     ecosystems.push("npm");
   }
-  if (fs19.existsSync(path24.join(cwd, "pyproject.toml")) || fs19.existsSync(path24.join(cwd, "requirements.txt"))) {
+  if (fs18.existsSync(path23.join(cwd, "pyproject.toml")) || fs18.existsSync(path23.join(cwd, "requirements.txt"))) {
     ecosystems.push("pip");
   }
-  if (fs19.existsSync(path24.join(cwd, "Cargo.toml"))) {
+  if (fs18.existsSync(path23.join(cwd, "Cargo.toml"))) {
     ecosystems.push("cargo");
   }
   return ecosystems;
@@ -42650,11 +42920,11 @@ var Module2 = (() => {
       throw toThrow;
     }, "quit_");
     var scriptDirectory = "";
-    function locateFile(path25) {
+    function locateFile(path24) {
       if (Module["locateFile"]) {
-        return Module["locateFile"](path25, scriptDirectory);
+        return Module["locateFile"](path24, scriptDirectory);
       }
-      return scriptDirectory + path25;
+      return scriptDirectory + path24;
     }
     __name(locateFile, "locateFile");
     var readAsync, readBinary;
@@ -44468,7 +44738,7 @@ var SUPPORTED_PARSER_EXTENSIONS = new Set([
 ]);
 // src/tools/pre-check-batch.ts
 init_dist();
-import * as path27 from "path";
+import * as path26 from "path";
 
 // node_modules/yocto-queue/index.js
 class Node2 {
@@ -44634,8 +44904,8 @@ init_lint();
 init_manager();
 
 // src/quality/metrics.ts
-import * as fs20 from "fs";
-import * as path25 from "path";
+import * as fs19 from "fs";
+import * as path24 from "path";
 var MAX_FILE_SIZE_BYTES5 = 256 * 1024;
 var MIN_DUPLICATION_LINES = 10;
 function estimateCyclomaticComplexity(content) {
@@ -44673,11 +44943,11 @@ function estimateCyclomaticComplexity(content) {
 }
 function getComplexityForFile2(filePath) {
   try {
-    const stat = fs20.statSync(filePath);
+    const stat = fs19.statSync(filePath);
     if (stat.size > MAX_FILE_SIZE_BYTES5) {
       return null;
     }
-    const content = fs20.readFileSync(filePath, "utf-8");
+    const content = fs19.readFileSync(filePath, "utf-8");
     return estimateCyclomaticComplexity(content);
   } catch {
     return null;
@@ -44687,8 +44957,8 @@ async function computeComplexityDelta(files, workingDir) {
   let totalComplexity = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
-    if (!fs20.existsSync(fullPath)) {
+    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    if (!fs19.existsSync(fullPath)) {
       continue;
     }
     const complexity = getComplexityForFile2(fullPath);
@@ -44809,8 +45079,8 @@ function countGoExports(content) {
 }
 function getExportCountForFile(filePath) {
   try {
-    const content = fs20.readFileSync(filePath, "utf-8");
-    const ext = path25.extname(filePath).toLowerCase();
+    const content = fs19.readFileSync(filePath, "utf-8");
+    const ext = path24.extname(filePath).toLowerCase();
     switch (ext) {
       case ".ts":
       case ".tsx":
@@ -44836,8 +45106,8 @@ async function computePublicApiDelta(files, workingDir) {
   let totalExports = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
-    if (!fs20.existsSync(fullPath)) {
+    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    if (!fs19.existsSync(fullPath)) {
       continue;
     }
     const exports = getExportCountForFile(fullPath);
@@ -44870,16 +45140,16 @@ async function computeDuplicationRatio(files, workingDir) {
   let duplicateLines = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
-    if (!fs20.existsSync(fullPath)) {
+    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    if (!fs19.existsSync(fullPath)) {
       continue;
     }
     try {
-      const stat = fs20.statSync(fullPath);
+      const stat = fs19.statSync(fullPath);
       if (stat.size > MAX_FILE_SIZE_BYTES5) {
         continue;
       }
-      const content = fs20.readFileSync(fullPath, "utf-8");
+      const content = fs19.readFileSync(fullPath, "utf-8");
       const lines = content.split(`
 `).filter((line) => line.trim().length > 0);
       if (lines.length < MIN_DUPLICATION_LINES) {
@@ -44903,8 +45173,8 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename5 = path25.basename(filePath);
-  const _ext = path25.extname(filePath).toLowerCase();
+  const basename5 = path24.basename(filePath);
+  const _ext = path24.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
     ".spec.",
@@ -44946,31 +45216,31 @@ function shouldExcludeFile(filePath, excludeGlobs) {
 async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
   let testLines = 0;
   let codeLines = 0;
-  const srcDir = path25.join(workingDir, "src");
-  if (fs20.existsSync(srcDir)) {
+  const srcDir = path24.join(workingDir, "src");
+  if (fs19.existsSync(srcDir)) {
     await scanDirectoryForLines(srcDir, enforceGlobs, excludeGlobs, false, (lines) => {
       codeLines += lines;
     });
   }
   const possibleSrcDirs = ["lib", "app", "source", "core"];
   for (const dir of possibleSrcDirs) {
-    const dirPath = path25.join(workingDir, dir);
-    if (fs20.existsSync(dirPath)) {
+    const dirPath = path24.join(workingDir, dir);
+    if (fs19.existsSync(dirPath)) {
       await scanDirectoryForLines(dirPath, enforceGlobs, excludeGlobs, false, (lines) => {
         codeLines += lines;
       });
     }
   }
-  const testsDir = path25.join(workingDir, "tests");
-  if (fs20.existsSync(testsDir)) {
+  const testsDir = path24.join(workingDir, "tests");
+  if (fs19.existsSync(testsDir)) {
     await scanDirectoryForLines(testsDir, ["**"], ["node_modules", "dist"], true, (lines) => {
       testLines += lines;
     });
   }
   const possibleTestDirs = ["test", "__tests__", "specs"];
   for (const dir of possibleTestDirs) {
-    const dirPath = path25.join(workingDir, dir);
-    if (fs20.existsSync(dirPath) && dirPath !== testsDir) {
+    const dirPath = path24.join(workingDir, dir);
+    if (fs19.existsSync(dirPath) && dirPath !== testsDir) {
       await scanDirectoryForLines(dirPath, ["**"], ["node_modules", "dist"], true, (lines) => {
         testLines += lines;
       });
@@ -44982,9 +45252,9 @@ async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
 }
 async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTestScan, callback) {
   try {
-    const entries = fs20.readdirSync(dirPath, { withFileTypes: true });
+    const entries = fs19.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path25.join(dirPath, entry.name);
+      const fullPath = path24.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === ".git") {
           continue;
@@ -44992,7 +45262,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
         await scanDirectoryForLines(fullPath, includeGlobs, excludeGlobs, isTestScan, callback);
       } else if (entry.isFile()) {
         const relativePath = fullPath.replace(`${process.cwd()}/`, "");
-        const ext = path25.extname(entry.name).toLowerCase();
+        const ext = path24.extname(entry.name).toLowerCase();
         const validExts = [
           ".ts",
           ".tsx",
@@ -45030,7 +45300,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
             continue;
         }
         try {
-          const content = fs20.readFileSync(fullPath, "utf-8");
+          const content = fs19.readFileSync(fullPath, "utf-8");
           const lines = countCodeLines(content);
           callback(lines);
         } catch {}
@@ -45246,8 +45516,8 @@ async function qualityBudget(input, directory) {
 
 // src/tools/sast-scan.ts
 init_manager();
-import * as fs21 from "fs";
-import * as path26 from "path";
+import * as fs20 from "fs";
+import * as path25 from "path";
 import { extname as extname7 } from "path";
 
 // src/sast/rules/c.ts
@@ -46110,17 +46380,17 @@ var SEVERITY_ORDER = {
 };
 function shouldSkipFile(filePath) {
   try {
-    const stats = fs21.statSync(filePath);
+    const stats = fs20.statSync(filePath);
     if (stats.size > MAX_FILE_SIZE_BYTES6) {
       return { skip: true, reason: "file too large" };
     }
     if (stats.size === 0) {
       return { skip: true, reason: "empty file" };
     }
-    const fd = fs21.openSync(filePath, "r");
+    const fd = fs20.openSync(filePath, "r");
     const buffer = Buffer.alloc(8192);
-    const bytesRead = fs21.readSync(fd, buffer, 0, 8192, 0);
-    fs21.closeSync(fd);
+    const bytesRead = fs20.readSync(fd, buffer, 0, 8192, 0);
+    fs20.closeSync(fd);
     if (bytesRead > 0) {
       let nullCount = 0;
       for (let i2 = 0;i2 < bytesRead; i2++) {
@@ -46159,7 +46429,7 @@ function countBySeverity(findings) {
 }
 function scanFileWithTierA(filePath, language) {
   try {
-    const content = fs21.readFileSync(filePath, "utf-8");
+    const content = fs20.readFileSync(filePath, "utf-8");
     const findings = executeRulesSync(filePath, content, language);
     return findings.map((f) => ({
       rule_id: f.rule_id,
@@ -46202,8 +46472,8 @@ async function sastScan(input, directory, config3) {
   const engine = semgrepAvailable ? "tier_a+tier_b" : "tier_a";
   const filesByLanguage = new Map;
   for (const filePath of changed_files) {
-    const resolvedPath = path26.isAbsolute(filePath) ? filePath : path26.resolve(directory, filePath);
-    if (!fs21.existsSync(resolvedPath)) {
+    const resolvedPath = path25.isAbsolute(filePath) ? filePath : path25.resolve(directory, filePath);
+    if (!fs20.existsSync(resolvedPath)) {
       _filesSkipped++;
       continue;
     }
@@ -46311,10 +46581,10 @@ function validatePath(inputPath, baseDir) {
   if (!inputPath || inputPath.length === 0) {
     return "path is required";
   }
-  const resolved = path27.resolve(baseDir, inputPath);
-  const baseResolved = path27.resolve(baseDir);
-  const relative3 = path27.relative(baseResolved, resolved);
-  if (relative3.startsWith("..") || path27.isAbsolute(relative3)) {
+  const resolved = path26.resolve(baseDir, inputPath);
+  const baseResolved = path26.resolve(baseDir);
+  const relative3 = path26.relative(baseResolved, resolved);
+  if (relative3.startsWith("..") || path26.isAbsolute(relative3)) {
     return "path traversal detected";
   }
   return null;
@@ -46436,7 +46706,7 @@ async function runPreCheckBatch(input) {
         warn(`pre_check_batch: Invalid file path: ${file3}`);
         continue;
       }
-      changedFiles.push(path27.resolve(directory, file3));
+      changedFiles.push(path26.resolve(directory, file3));
     }
   } else {
     changedFiles = [];
@@ -46626,8 +46896,8 @@ var retrieve_summary = tool({
 // src/tools/sbom-generate.ts
 init_dist();
 init_manager();
-import * as fs22 from "fs";
-import * as path28 from "path";
+import * as fs21 from "fs";
+import * as path27 from "path";
 
 // src/sbom/detectors/dart.ts
 function parsePubspecLock(content) {
@@ -47472,9 +47742,9 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs22.readdirSync(dir, { withFileTypes: true });
+      const entries = fs21.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path28.join(dir, entry.name);
+        const fullPath = path27.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -47484,7 +47754,7 @@ function findManifestFiles(rootDir) {
           for (const pattern of patterns) {
             const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
             if (new RegExp(regex, "i").test(entry.name)) {
-              manifestFiles.push(path28.relative(cwd, fullPath));
+              manifestFiles.push(path27.relative(cwd, fullPath));
               break;
             }
           }
@@ -47501,14 +47771,14 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs22.readdirSync(dir, { withFileTypes: true });
+      const entries = fs21.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path28.join(dir, entry.name);
+        const fullPath = path27.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
             if (new RegExp(regex, "i").test(entry.name)) {
-              found.push(path28.relative(workingDir, fullPath));
+              found.push(path27.relative(workingDir, fullPath));
               break;
             }
           }
@@ -47521,11 +47791,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path28.dirname(file3);
+    let currentDir = path27.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path28.sep) {
-        dirs.add(path28.join(workingDir, currentDir));
-        const parent = path28.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path27.sep) {
+        dirs.add(path27.join(workingDir, currentDir));
+        const parent = path27.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -47539,7 +47809,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs22.mkdirSync(outputDir, { recursive: true });
+    fs21.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -47632,11 +47902,11 @@ var sbom_generate = tool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path28.isAbsolute(manifestFile) ? manifestFile : path28.join(workingDir, manifestFile);
-        if (!fs22.existsSync(fullPath)) {
+        const fullPath = path27.isAbsolute(manifestFile) ? manifestFile : path27.join(workingDir, manifestFile);
+        if (!fs21.existsSync(fullPath)) {
           continue;
         }
-        const content = fs22.readFileSync(fullPath, "utf-8");
+        const content = fs21.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -47649,8 +47919,8 @@ var sbom_generate = tool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path28.join(outputDir, filename);
-    fs22.writeFileSync(outputPath, bomJson, "utf-8");
+    const outputPath = path27.join(outputDir, filename);
+    fs21.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -47691,8 +47961,8 @@ var sbom_generate = tool({
 });
 // src/tools/schema-drift.ts
 init_dist();
-import * as fs23 from "fs";
-import * as path29 from "path";
+import * as fs22 from "fs";
+import * as path28 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -47724,28 +47994,28 @@ function normalizePath(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path29.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path29.sep) ? cwd : cwd + path29.sep;
+    const resolvedPath = path28.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path28.sep) ? cwd : cwd + path28.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path29.extname(resolvedPath).toLowerCase();
+    const ext = path28.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs23.statSync(resolvedPath);
+    const stats = fs22.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs23.existsSync(resolvedPath)) {
+    if (!fs22.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path29.resolve(cwd, candidate);
-    if (fs23.existsSync(candidatePath)) {
-      const stats = fs23.statSync(candidatePath);
+    const candidatePath = path28.resolve(cwd, candidate);
+    if (fs22.existsSync(candidatePath)) {
+      const stats = fs22.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -47754,8 +48024,8 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs23.readFileSync(specFile, "utf-8");
-  const ext = path29.extname(specFile).toLowerCase();
+  const content = fs22.readFileSync(specFile, "utf-8");
+  const ext = path28.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -47821,12 +48091,12 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs23.readdirSync(dir, { withFileTypes: true });
+      entries = fs22.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path29.join(dir, entry.name);
+      const fullPath = path28.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -47836,7 +48106,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path29.extname(entry.name).toLowerCase();
+        const ext = path28.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -47854,7 +48124,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs23.readFileSync(filePath, "utf-8");
+  const content = fs22.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -48004,8 +48274,8 @@ init_secretscan();
 
 // src/tools/symbols.ts
 init_tool();
-import * as fs24 from "fs";
-import * as path30 from "path";
+import * as fs23 from "fs";
+import * as path29 from "path";
 var MAX_FILE_SIZE_BYTES7 = 1024 * 1024;
 var WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsControlCharacters(str) {
@@ -48034,11 +48304,11 @@ function containsWindowsAttacks(str) {
 }
 function isPathInWorkspace(filePath, workspace) {
   try {
-    const resolvedPath = path30.resolve(workspace, filePath);
-    const realWorkspace = fs24.realpathSync(workspace);
-    const realResolvedPath = fs24.realpathSync(resolvedPath);
-    const relativePath = path30.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path30.isAbsolute(relativePath)) {
+    const resolvedPath = path29.resolve(workspace, filePath);
+    const realWorkspace = fs23.realpathSync(workspace);
+    const realResolvedPath = fs23.realpathSync(resolvedPath);
+    const relativePath = path29.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path29.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -48050,17 +48320,17 @@ function validatePathForRead(filePath, workspace) {
   return isPathInWorkspace(filePath, workspace);
 }
 function extractTSSymbols(filePath, cwd) {
-  const fullPath = path30.join(cwd, filePath);
+  const fullPath = path29.join(cwd, filePath);
   if (!validatePathForRead(fullPath, cwd)) {
     return [];
   }
   let content;
   try {
-    const stats = fs24.statSync(fullPath);
+    const stats = fs23.statSync(fullPath);
     if (stats.size > MAX_FILE_SIZE_BYTES7) {
       throw new Error(`File too large: ${stats.size} bytes (max: ${MAX_FILE_SIZE_BYTES7})`);
     }
-    content = fs24.readFileSync(fullPath, "utf-8");
+    content = fs23.readFileSync(fullPath, "utf-8");
   } catch {
     return [];
   }
@@ -48202,17 +48472,17 @@ function extractTSSymbols(filePath, cwd) {
   });
 }
 function extractPythonSymbols(filePath, cwd) {
-  const fullPath = path30.join(cwd, filePath);
+  const fullPath = path29.join(cwd, filePath);
   if (!validatePathForRead(fullPath, cwd)) {
     return [];
   }
   let content;
   try {
-    const stats = fs24.statSync(fullPath);
+    const stats = fs23.statSync(fullPath);
     if (stats.size > MAX_FILE_SIZE_BYTES7) {
       throw new Error(`File too large: ${stats.size} bytes (max: ${MAX_FILE_SIZE_BYTES7})`);
     }
-    content = fs24.readFileSync(fullPath, "utf-8");
+    content = fs23.readFileSync(fullPath, "utf-8");
   } catch {
     return [];
   }
@@ -48284,7 +48554,7 @@ var symbols = tool({
       }, null, 2);
     }
     const cwd = process.cwd();
-    const ext = path30.extname(file3);
+    const ext = path29.extname(file3);
     if (containsControlCharacters(file3)) {
       return JSON.stringify({
         file: file3,
@@ -48352,8 +48622,8 @@ init_test_runner();
 
 // src/tools/todo-extract.ts
 init_dist();
-import * as fs25 from "fs";
-import * as path31 from "path";
+import * as fs24 from "fs";
+import * as path30 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS2 = new Set([
@@ -48424,9 +48694,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path31.resolve(paths);
-    const normalizedCwd = path31.resolve(cwd);
-    const normalizedResolved = path31.resolve(resolvedPath);
+    const resolvedPath = path30.resolve(paths);
+    const normalizedCwd = path30.resolve(cwd);
+    const normalizedResolved = path30.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -48442,13 +48712,13 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path31.extname(filePath).toLowerCase();
+  const ext = path30.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
 function findSourceFiles3(dir, files = []) {
   let entries;
   try {
-    entries = fs25.readdirSync(dir);
+    entries = fs24.readdirSync(dir);
   } catch {
     return files;
   }
@@ -48457,10 +48727,10 @@ function findSourceFiles3(dir, files = []) {
     if (SKIP_DIRECTORIES3.has(entry)) {
       continue;
     }
-    const fullPath = path31.join(dir, entry);
+    const fullPath = path30.join(dir, entry);
     let stat;
     try {
-      stat = fs25.statSync(fullPath);
+      stat = fs24.statSync(fullPath);
     } catch {
       continue;
     }
@@ -48553,7 +48823,7 @@ var todo_extract = tool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs25.existsSync(scanPath)) {
+    if (!fs24.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -48563,13 +48833,13 @@ var todo_extract = tool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat = fs25.statSync(scanPath);
+    const stat = fs24.statSync(scanPath);
     if (stat.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path31.extname(scanPath)}`,
+          error: `unsupported file extension: ${path30.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -48582,11 +48852,11 @@ var todo_extract = tool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs25.statSync(filePath);
+        const fileStat = fs24.statSync(filePath);
         if (fileStat.size > MAX_FILE_SIZE_BYTES8) {
           continue;
         }
-        const content = fs25.readFileSync(filePath, "utf-8");
+        const content = fs24.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -48684,7 +48954,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path32.resolve(ctx.directory, ".swarm");
+    const swarmDir = path31.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {

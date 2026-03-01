@@ -75,6 +75,44 @@ describe('phase_complete integration — adversarial scenarios', () => {
 		fs.writeFileSync(eventsPath, content, 'utf-8');
 	}
 
+	/**
+	 * Helper to write retrospective evidence bundle for a phase
+	 */
+	function writeRetro(phase: number): void {
+		const evidence = {
+			schema_version: '1.0.0',
+			task_id: `retro-${phase}`,
+			entries: [
+				{
+					task_id: `retro-${phase}`,
+					type: 'retrospective',
+					timestamp: '2026-01-01T00:00:00.000Z',
+					agent: 'architect',
+					verdict: 'pass',
+					summary: `Test phase ${phase} complete`,
+					phase_number: phase,
+					total_tool_calls: 0,
+					coder_revisions: 0,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					task_count: 1,
+					task_complexity: 'simple',
+					top_rejection_reasons: [],
+					lessons_learned: ['Test lesson'],
+					user_directives: [],
+					approaches_tried: [],
+				},
+			],
+			created_at: '2026-01-01T00:00:00.000Z',
+			updated_at: '2026-01-01T00:00:00.000Z',
+		};
+		const retroDir = path.join(tempDir, '.swarm', 'evidence', `retro-${phase}`);
+		fs.mkdirSync(retroDir, { recursive: true });
+		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
+	}
+
 	describe('1. Concurrent event appends', () => {
 		it('two phase_complete calls back-to-back to same session — both events appear, no corruption', async () => {
 			// Config: no required agents to simplify
@@ -95,6 +133,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
 			// Call phase_complete twice back-to-back
+			writeRetro(1);
 			const result1 = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -105,6 +144,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
+			writeRetro(2);
 			const result2 = await phase_complete.execute({
 				phase: 2,
 				sessionID,
@@ -156,6 +196,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const sessionID = 'sess1';
 			ensureAgentSession(sessionID);
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -203,6 +244,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const sessionID = 'sess1';
 			ensureAgentSession(sessionID);
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -244,6 +286,9 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			const sessionID = 'sess1';
 			ensureAgentSession(sessionID);
+
+			// Write retro BEFORE making .swarm read-only
+			writeRetro(1);
 
 			// Make .swarm directory read-only
 			const swarmDir = path.join(tempDir, '.swarm');
@@ -291,6 +336,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			// First call: phase=3
 			recordPhaseAgentDispatch(sessionID, 'coder');
+			writeRetro(3);
 			const result1 = await phase_complete.execute({
 				phase: 3,
 				sessionID,
@@ -303,6 +349,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			// Second call: phase=1 (out of order)
 			recordPhaseAgentDispatch(sessionID, 'coder');
+			writeRetro(1);
 			const result2 = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -344,6 +391,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// Create a very long summary (1000 characters)
 			const longSummary = 'A'.repeat(1000);
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -380,6 +428,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// Create summary with JSONL-breaking characters
 			const dangerousSummary = 'Line 1\nLine 2\\Backslash"Quote"';
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -424,6 +473,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const sessionID = 'sess1';
 			ensureAgentSession(sessionID);
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -456,6 +506,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const session1 = 'sess1';
 			ensureAgentSession(session1);
 			recordPhaseAgentDispatch(session1, 'coder');
+			writeRetro(1);
 			await phase_complete.execute({
 				phase: 1,
 				sessionID: session1,
@@ -474,6 +525,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			// Session 1, Phase 2 (back to session 1)
 			recordPhaseAgentDispatch(session1, 'coder');
+			writeRetro(2);
 			await phase_complete.execute({
 				phase: 2,
 				sessionID: session1,
@@ -528,6 +580,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'extra_agent_1');
 			recordPhaseAgentDispatch(sessionID, 'extra_agent_2');
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,

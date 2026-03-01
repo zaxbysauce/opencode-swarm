@@ -12,6 +12,7 @@ import type { PluginConfig } from '../config';
 import { DEFAULT_SCORING_CONFIG } from '../config/constants';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { loadPlan } from '../plan/manager';
 import { analyzeDecisionDrift, formatDriftForContext } from '../services';
 import { swarmState } from '../state';
@@ -55,6 +56,229 @@ function estimateContentType(text: string): ContentType {
 		return 'markdown';
 	}
 	return 'prose';
+}
+
+/**
+ * Build a retrospective injection string for the architect system message.
+ * Tier 1: direct phase-scoped lookup for same-plan previous phase.
+ * Tier 2: cross-project historical lessons (Phase 1 only).
+ * Returns null if no valid retrospective found.
+ */
+export async function buildRetroInjection(
+	directory: string,
+	currentPhaseNumber: number,
+	currentPlanTitle?: string,
+): Promise<string | null> {
+	try {
+		const prevPhase = currentPhaseNumber - 1;
+
+		// Tier 1: direct lookup for previous phase in same plan (Phase 2+ only)
+		if (prevPhase >= 1) {
+			const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
+			if (bundle && bundle.entries.length > 0) {
+				const retroEntry = bundle.entries.find(
+					(entry): entry is RetrospectiveEvidence =>
+						entry.type === 'retrospective',
+				);
+
+				if (retroEntry && retroEntry.verdict !== 'fail') {
+					const lessons = retroEntry.lessons_learned ?? [];
+					const rejections = retroEntry.top_rejection_reasons ?? [];
+					const nonSessionDirectives = (
+						retroEntry.user_directives ?? []
+					).filter((d) => d.scope !== 'session');
+
+					let block = `## Previous Phase Retrospective (Phase ${prevPhase})
+**Outcome:** ${retroEntry.summary ?? 'Phase completed.'}
+**Rejection reasons:** ${rejections.join(', ') || 'None'}
+**Lessons learned:**
+${lessons.map((l) => `- ${l}`).join('\n')}
+
+⚠️ Apply these lessons to the current phase. Do not repeat the same mistakes.`;
+
+					if (nonSessionDirectives.length > 0) {
+						const top5 = nonSessionDirectives.slice(0, 5);
+						block += `\n\n## User Directives (from Phase ${prevPhase})\n${top5.map((d) => `- [${d.category}] ${d.directive}`).join('\n')}`;
+					}
+
+					return block;
+				}
+			}
+
+			// Fallback: scan all evidence for any retro
+			const taskIds = await listEvidenceTaskIds(directory);
+			const retroIds = taskIds.filter((id) => id.startsWith('retro-'));
+
+			let latestRetro: {
+				entry: RetrospectiveEvidence;
+				phase: number;
+			} | null = null;
+
+			for (const taskId of retroIds) {
+				const b = await loadEvidence(directory, taskId);
+				if (b && b.entries.length > 0) {
+					for (const entry of b.entries) {
+						if (entry.type === 'retrospective') {
+							const retro = entry as RetrospectiveEvidence;
+							if (retro.verdict !== 'fail') {
+								if (
+									latestRetro === null ||
+									retro.phase_number > latestRetro.phase
+								) {
+									latestRetro = { entry: retro, phase: retro.phase_number };
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (latestRetro) {
+				const { entry, phase } = latestRetro;
+				const lessons = entry.lessons_learned ?? [];
+				const rejections = entry.top_rejection_reasons ?? [];
+				const nonSessionDirectives = (entry.user_directives ?? []).filter(
+					(d) => d.scope !== 'session',
+				);
+
+				let block = `## Previous Phase Retrospective (Phase ${phase})
+**Outcome:** ${entry.summary ?? 'Phase completed.'}
+**Rejection reasons:** ${rejections.join(', ') || 'None'}
+**Lessons learned:**
+${lessons.map((l) => `- ${l}`).join('\n')}
+
+⚠️ Apply these lessons to the current phase. Do not repeat the same mistakes.`;
+
+				if (nonSessionDirectives.length > 0) {
+					const top5 = nonSessionDirectives.slice(0, 5);
+					block += `\n\n## User Directives (from Phase ${phase})\n${top5.map((d) => `- [${d.category}] ${d.directive}`).join('\n')}`;
+				}
+
+				return block;
+			}
+
+			// Tier 1 found nothing for Phase 2+ → no injection
+			return null;
+		}
+
+		// Tier 2: cross-project historical lessons (Phase 1 ONLY)
+		const allTaskIds = await listEvidenceTaskIds(directory);
+		const allRetroIds = allTaskIds.filter((id) => id.startsWith('retro-'));
+
+		if (allRetroIds.length === 0) {
+			return null;
+		}
+
+		interface RetroEntry {
+			entry: RetrospectiveEvidence;
+			timestamp: string;
+		}
+		const allRetros: RetroEntry[] = [];
+		const cutoffMs = 30 * 24 * 60 * 60 * 1000;
+		const now = Date.now();
+
+		for (const taskId of allRetroIds) {
+			const b = await loadEvidence(directory, taskId);
+			if (!b) continue;
+			for (const e of b.entries) {
+				if (e.type === 'retrospective') {
+					const retro = e as RetrospectiveEvidence;
+					if (retro.verdict === 'fail') continue;
+					// Filter out retros from the current project (same plan_id)
+					if (
+						currentPlanTitle &&
+						typeof retro.metadata === 'object' &&
+						retro.metadata !== null &&
+						'plan_id' in retro.metadata &&
+						retro.metadata.plan_id === currentPlanTitle
+					)
+						continue;
+					const ts = retro.timestamp ?? b.created_at;
+					const ageMs = now - new Date(ts).getTime();
+					if (isNaN(ageMs) || ageMs > cutoffMs) continue;
+					allRetros.push({ entry: retro, timestamp: ts });
+				}
+			}
+		}
+
+		if (allRetros.length === 0) {
+			return null;
+		}
+
+		allRetros.sort((a, b) => {
+			const ta = new Date(a.timestamp).getTime();
+			const tb = new Date(b.timestamp).getTime();
+			if (isNaN(ta) && isNaN(tb)) return 0;
+			if (isNaN(ta)) return 1;
+			if (isNaN(tb)) return -1;
+			return tb - ta;
+		});
+		const top3 = allRetros.slice(0, 3);
+
+		const lines: string[] = [
+			'## Historical Lessons (from recent prior projects)',
+		];
+		lines.push('Most recent retrospectives in this workspace:');
+		const allCarriedDirectives: Array<{ category: string; directive: string }> =
+			[];
+		for (const { entry, timestamp } of top3) {
+			const date = timestamp.split('T')[0] ?? 'unknown';
+			const summary = entry.summary ?? `Phase ${entry.phase_number} completed`;
+			const topLesson = entry.lessons_learned?.[0] ?? 'No lessons recorded';
+			lines.push(`- Phase ${entry.phase_number} (${date}): ${summary}`);
+			lines.push(`  Key lesson: ${topLesson}`);
+			const nonSession = (entry.user_directives ?? []).filter(
+				(d) => d.scope !== 'session',
+			);
+			allCarriedDirectives.push(...nonSession);
+		}
+		if (allCarriedDirectives.length > 0) {
+			const top5 = allCarriedDirectives.slice(0, 5);
+			lines.push('User directives carried forward:');
+			for (const d of top5) {
+				lines.push(`- [${d.category}] ${d.directive}`);
+			}
+		}
+
+		const tier2Block = lines.join('\n');
+		return tier2Block.length <= 800
+			? tier2Block
+			: `${tier2Block.substring(0, 797)}...`;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Build a condensed retrospective injection for the coder agent.
+ * Only injects Tier 1 lessons_learned bullets. No Tier 2 cross-project history.
+ * Capped at 400 chars.
+ */
+async function buildCoderRetroInjection(
+	directory: string,
+	currentPhaseNumber: number,
+): Promise<string | null> {
+	try {
+		const prevPhase = currentPhaseNumber - 1;
+		if (prevPhase < 1) return null;
+
+		const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
+		if (!bundle || bundle.entries.length === 0) return null;
+
+		const retroEntry = bundle.entries.find(
+			(entry): entry is RetrospectiveEvidence => entry.type === 'retrospective',
+		);
+
+		if (!retroEntry || retroEntry.verdict === 'fail') return null;
+
+		const lessons = retroEntry.lessons_learned ?? [];
+		const summaryLine = `[SWARM RETROSPECTIVE] From Phase ${prevPhase}:${retroEntry.summary ? ' ' + retroEntry.summary : ''}`;
+		const allLines = [summaryLine, ...lessons];
+		const text = allLines.join('\n');
+		return text.length <= 400 ? text : `${text.substring(0, 397)}...`;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -286,6 +510,22 @@ export function createSystemEnhancerHook(
 							}
 						}
 
+						// v6.13.3: Coder retrospective injection — condensed Tier 1 lessons only
+						if (baseRole === 'coder') {
+							try {
+								const currentPhaseNum_coder = plan?.current_phase ?? 1;
+								const coderRetro = await buildCoderRetroInjection(
+									directory,
+									currentPhaseNum_coder,
+								);
+								if (coderRetro) {
+									tryInject(coderRetro);
+								}
+							} catch {
+								// Silently skip
+							}
+						}
+
 						// v6.2: Retrospective injection — architect-only, most recent retro
 						const sessionId_retro = _input.sessionID;
 						const activeAgent_retro = swarmState.activeAgent.get(
@@ -297,59 +537,17 @@ export function createSystemEnhancerHook(
 
 						if (isArchitect) {
 							try {
-								const evidenceDir = path.join(directory, '.swarm', 'evidence');
-								if (fs.existsSync(evidenceDir)) {
-									const files = fs
-										.readdirSync(evidenceDir)
-										.filter((f) => f.endsWith('.json'))
-										.sort()
-										.reverse();
-
-									for (const file of files.slice(0, 5)) {
-										let content: unknown;
-										try {
-											content = JSON.parse(
-												fs.readFileSync(path.join(evidenceDir, file), 'utf-8'),
-											);
-										} catch {
-											// Skip malformed evidence files
-											continue;
-										}
-										if (
-											content !== null &&
-											typeof content === 'object' &&
-											(content as Record<string, unknown>).type ===
-												'retrospective'
-										) {
-											const retro = content as RetrospectiveEvidence;
-											const hints: string[] = [];
-
-											if (retro.reviewer_rejections > 2) {
-												hints.push(
-													`Phase ${retro.phase_number} had ${retro.reviewer_rejections} reviewer rejections.`,
-												);
-											}
-											if (retro.top_rejection_reasons.length > 0) {
-												hints.push(
-													`Common rejection reasons: ${retro.top_rejection_reasons.join(', ')}.`,
-												);
-											}
-											if (retro.lessons_learned.length > 0) {
-												hints.push(
-													`Lessons: ${retro.lessons_learned.join('; ')}.`,
-												);
-											}
-
-											if (hints.length > 0) {
-												const retroHint = `[SWARM RETROSPECTIVE] From Phase ${retro.phase_number}: ${hints.join(' ')}`;
-												if (retroHint.length <= 800) {
-													tryInject(retroHint);
-												} else {
-													tryInject(`${retroHint.substring(0, 800)}...`);
-												}
-											}
-											break;
-										}
+								const currentPhaseNum = plan?.current_phase ?? 1;
+								const retroText = await buildRetroInjection(
+									directory,
+									currentPhaseNum,
+									plan?.title ?? undefined,
+								);
+								if (retroText) {
+									if (retroText.length <= 1600) {
+										tryInject(retroText);
+									} else {
+										tryInject(`${retroText.substring(0, 1600)}...`);
 									}
 								}
 							} catch {
@@ -700,7 +898,7 @@ export function createSystemEnhancerHook(
 						});
 					}
 
-					// v6.2: Retrospective injection — architect-only, most recent retro
+					// v6.13.3: Retrospective injection — architect-only, phase-scoped Tier 1
 					const sessionId_retro_b = _input.sessionID;
 					const activeAgent_retro_b = swarmState.activeAgent.get(
 						sessionId_retro_b ?? '',
@@ -711,67 +909,25 @@ export function createSystemEnhancerHook(
 
 					if (isArchitect_b) {
 						try {
-							const evidenceDir_b = path.join(directory, '.swarm', 'evidence');
-							if (fs.existsSync(evidenceDir_b)) {
-								const files_b = fs
-									.readdirSync(evidenceDir_b)
-									.filter((f) => f.endsWith('.json'))
-									.sort()
-									.reverse();
-
-								for (const file of files_b.slice(0, 5)) {
-									let content_b: unknown;
-									try {
-										content_b = JSON.parse(
-											fs.readFileSync(path.join(evidenceDir_b, file), 'utf-8'),
-										);
-									} catch {
-										// Skip malformed evidence files
-										continue;
-									}
-									if (
-										content_b !== null &&
-										typeof content_b === 'object' &&
-										(content_b as Record<string, unknown>).type ===
-											'retrospective'
-									) {
-										const retro_b = content_b as RetrospectiveEvidence;
-										const hints_b: string[] = [];
-
-										if (retro_b.reviewer_rejections > 2) {
-											hints_b.push(
-												`Phase ${retro_b.phase_number} had ${retro_b.reviewer_rejections} reviewer rejections.`,
-											);
-										}
-										if (retro_b.top_rejection_reasons.length > 0) {
-											hints_b.push(
-												`Common rejection reasons: ${retro_b.top_rejection_reasons.join(', ')}.`,
-											);
-										}
-										if (retro_b.lessons_learned.length > 0) {
-											hints_b.push(
-												`Lessons: ${retro_b.lessons_learned.join('; ')}.`,
-											);
-										}
-
-										if (hints_b.length > 0) {
-											const retroHint_b = `[SWARM RETROSPECTIVE] From Phase ${retro_b.phase_number}: ${hints_b.join(' ')}`;
-											const retroText =
-												retroHint_b.length <= 800
-													? retroHint_b
-													: `${retroHint_b.substring(0, 800)}...`;
-											candidates.push({
-												id: `candidate-${idCounter++}`,
-												kind: 'phase' as ContextCandidate['kind'],
-												text: retroText,
-												tokens: estimateTokens(retroText),
-												priority: 2,
-												metadata: { contentType: 'prose' as ContentType },
-											});
-										}
-										break;
-									}
-								}
+							const currentPhaseNum_b = plan?.current_phase ?? 1;
+							const retroText_b = await buildRetroInjection(
+								directory,
+								currentPhaseNum_b,
+								plan?.title ?? undefined,
+							);
+							if (retroText_b) {
+								const text =
+									retroText_b.length <= 1600
+										? retroText_b
+										: `${retroText_b.substring(0, 1597)}...`;
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'phase' as ContextCandidate['kind'],
+									text,
+									tokens: estimateTokens(text),
+									priority: 2,
+									metadata: { contentType: 'prose' as ContentType },
+								});
 							}
 						} catch {
 							// Silently skip if evidence dir missing or unreadable
@@ -821,6 +977,35 @@ export function createSystemEnhancerHook(
 									}
 								}
 							}
+						}
+					}
+
+					// v6.13.3: Coder retrospective injection (Path B) — condensed Tier 1 lessons only
+					const activeAgent_coder_b = swarmState.activeAgent.get(
+						_input.sessionID ?? '',
+					);
+					const isCoder_b =
+						activeAgent_coder_b &&
+						stripKnownSwarmPrefix(activeAgent_coder_b) === 'coder';
+					if (isCoder_b) {
+						try {
+							const currentPhaseNum_coder_b = plan?.current_phase ?? 1;
+							const coderRetro_b = await buildCoderRetroInjection(
+								directory,
+								currentPhaseNum_coder_b,
+							);
+							if (coderRetro_b) {
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'agent_context' as ContextCandidate['kind'],
+									text: coderRetro_b,
+									tokens: estimateTokens(coderRetro_b),
+									priority: 2,
+									metadata: { contentType: 'prose' as ContentType },
+								});
+							}
+						} catch {
+							// Silently skip
 						}
 					}
 

@@ -54,6 +54,44 @@ describe('phase_complete integration — events.jsonl', () => {
 		);
 	}
 
+	/**
+	 * Helper to write retrospective evidence bundle for retrospective gate
+	 */
+	function writeRetro(phase: number): void {
+		const evidence = {
+			schema_version: '1.0.0',
+			task_id: `retro-${phase}`,
+			entries: [
+				{
+					task_id: `retro-${phase}`,
+					type: 'retrospective',
+					timestamp: '2026-01-01T00:00:00.000Z',
+					agent: 'architect',
+					verdict: 'pass',
+					summary: `Test phase ${phase} complete`,
+					phase_number: phase,
+					total_tool_calls: 0,
+					coder_revisions: 0,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					task_count: 1,
+					task_complexity: 'simple',
+					top_rejection_reasons: [],
+					lessons_learned: ['Test lesson'],
+					user_directives: [],
+					approaches_tried: [],
+				},
+			],
+			created_at: '2026-01-01T00:00:00.000Z',
+			updated_at: '2026-01-01T00:00:00.000Z',
+		};
+		const retroDir = path.join(tempDir, '.swarm', 'evidence', `retro-${phase}`);
+		fs.mkdirSync(retroDir, { recursive: true });
+		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
+	}
+
 	describe('1. Full successful architect session', () => {
 		it('writes correct event with all agents dispatched', async () => {
 			// Use default config: required_agents: [coder, reviewer, test_engineer], require_docs: true
@@ -66,6 +104,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'test_engineer');
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -109,6 +148,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			// Simulate: architect delegates to coder only (no reviewer, no test_engineer, no docs)
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -157,6 +197,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'test_engineer');
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
+			writeRetro(1);
 			const result1 = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -173,6 +214,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'test_engineer');
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
+			writeRetro(2);
 			const result2 = await phase_complete.execute({
 				phase: 2,
 				sessionID,
@@ -222,6 +264,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'test_engineer');
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
+			writeRetro(1);
 			const result1 = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -236,6 +279,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			// === Phase 2: dispatch ONLY coder ===
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
+			writeRetro(2);
 			const result2 = await phase_complete.execute({
 				phase: 2,
 				sessionID,
@@ -276,6 +320,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -313,6 +358,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			// Dispatch only coder
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -360,6 +406,7 @@ describe('phase_complete integration — events.jsonl', () => {
 				{ from: 'architect', to: 'reviewer', timestamp: Date.now() - 3000 },
 			]);
 
+			writeRetro(1);
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID,
@@ -390,11 +437,13 @@ describe('phase_complete integration — events.jsonl', () => {
 			// Session 1
 			const session1 = 'sess1';
 			ensureAgentSession(session1);
+			writeRetro(1);
 			await phase_complete.execute({ phase: 1, sessionID: session1 });
 
 			// Session 2
 			const session2 = 'sess2';
 			ensureAgentSession(session2);
+			writeRetro(1);
 			await phase_complete.execute({ phase: 1, sessionID: session2 });
 
 			// Should have 2 events
