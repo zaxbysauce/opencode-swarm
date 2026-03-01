@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.14.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.6...v6.14.7) (2026-03-01)
+
+
+### Bug Fixes
+
+* set npm environment on publish job for trusted publisher OIDC ([c47b8e6](https://github.com/zaxbysauce/opencode-swarm/commit/c47b8e6975e96d45775bbcb51bb8646bc9b99fee))
+
 ## [6.14.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.5...v6.14.6) (2026-03-01)
 
 
