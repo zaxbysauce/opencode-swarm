@@ -419,9 +419,9 @@ export function migrateLegacyPlan(planContent: string, swarmId?: string): Plan {
 			continue;
 		}
 
-		// Parse phase headers: ## Phase N: Name [STATUS] or ## Phase N [STATUS]
+		// Parse phase headers: ## Phase N: Name [STATUS] or ### Phase N [STATUS]
 		const phaseMatch = trimmed.match(
-			/^##\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i,
+			/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i,
 		);
 		if (phaseMatch) {
 			// Save previous phase if exists
@@ -510,6 +510,102 @@ export function migrateLegacyPlan(planContent: string, swarmId?: string): Plan {
 
 			currentPhase.tasks.push(task);
 		}
+
+		// Fallback: Parse numbered list tasks (1. Description [SIZE])
+		const numberedTaskMatch = trimmed.match(
+			/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/,
+		);
+		if (numberedTaskMatch && currentPhase !== null) {
+			const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+			let description = numberedTaskMatch[2].trim();
+			const sizeText = numberedTaskMatch[3]?.toLowerCase() || 'small';
+
+			// Check for dependencies in description: (depends: X.Y, X.Z)
+			const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+			const depends: string[] = [];
+			if (dependsMatch) {
+				const depsText = dependsMatch[1];
+				depends.push(...depsText.split(',').map((d) => d.trim()));
+				description = description.substring(0, dependsMatch.index).trim();
+			}
+
+			// Parse size
+			const sizeMap: Record<string, Task['size']> = {
+				small: 'small',
+				medium: 'medium',
+				large: 'large',
+			};
+
+			const task: Task = {
+				id: taskId,
+				phase: currentPhase.id,
+				status: 'pending',
+				size: sizeMap[sizeText] || 'small',
+				description,
+				depends,
+				acceptance: undefined,
+				files_touched: [],
+				evidence_path: undefined,
+				blocked_reason: undefined,
+			};
+
+			currentPhase.tasks.push(task);
+		}
+
+		// Fallback: Parse checkbox tasks without N.M: prefix
+		const noPrefixTaskMatch = trimmed.match(
+			/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i,
+		);
+		if (noPrefixTaskMatch && currentPhase !== null) {
+			const checkbox = noPrefixTaskMatch[1].toLowerCase();
+			const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+			let description = noPrefixTaskMatch[2].trim();
+			const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || 'small';
+			let blockedReason: string | undefined;
+
+			// Check for dependencies in description: (depends: X.Y, X.Z)
+			const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+			const depends: string[] = [];
+			if (dependsMatch) {
+				const depsText = dependsMatch[1];
+				depends.push(...depsText.split(',').map((d) => d.trim()));
+				description = description.substring(0, dependsMatch.index).trim();
+			}
+
+			// Parse status from checkbox
+			let status: Task['status'] = 'pending';
+			if (checkbox === 'x') {
+				status = 'completed';
+			} else if (checkbox === 'blocked') {
+				status = 'blocked';
+				const blockedReasonMatch = noPrefixTaskMatch[4];
+				if (blockedReasonMatch) {
+					blockedReason = blockedReasonMatch.trim();
+				}
+			}
+
+			// Parse size
+			const sizeMap: Record<string, Task['size']> = {
+				small: 'small',
+				medium: 'medium',
+				large: 'large',
+			};
+
+			const task: Task = {
+				id: taskId,
+				phase: currentPhase.id,
+				status,
+				size: sizeMap[sizeText] || 'small',
+				description,
+				depends,
+				acceptance: undefined,
+				files_touched: [],
+				evidence_path: undefined,
+				blocked_reason: blockedReason,
+			};
+
+			currentPhase.tasks.push(task);
+		}
 	}
 
 	// Add final phase
@@ -521,6 +617,9 @@ export function migrateLegacyPlan(planContent: string, swarmId?: string): Plan {
 	let migrationStatus: Plan['migration_status'] = 'migrated';
 	if (phases.length === 0) {
 		// Zero phases parsed - migration failed
+		console.warn(
+			`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(' | ')}`,
+		);
 		migrationStatus = 'migration_failed';
 		phases.push({
 			id: 1,

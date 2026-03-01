@@ -94,6 +94,18 @@ const DEFAULT_CODE_PATTERNS = [
 	{ pattern: /return\s+nil\s*;/, rule_id: 'placeholder/code-stub-return' },
 ];
 
+// Plan file bracket-placeholder patterns (detect template placeholders in .swarm/plan.md)
+const PLAN_PLACEHOLDER_PATTERNS = [
+	{ pattern: /\[task\]/gi, rule_id: 'placeholder/plan-bracket-task' },
+	{ pattern: /\[Project\]/g, rule_id: 'placeholder/plan-bracket-project' },
+	{ pattern: /\[date\]/g, rule_id: 'placeholder/plan-bracket-date' },
+	{ pattern: /\[reason\]/g, rule_id: 'placeholder/plan-bracket-reason' },
+	{
+		pattern: /\[description\]/gi,
+		rule_id: 'placeholder/plan-bracket-description',
+	},
+];
+
 // Test file patterns (to skip) - based on path patterns
 // Note: patterns check for the directory in the path
 const TEST_PATH_PATTERNS = [
@@ -196,6 +208,51 @@ function isAllowedByGlobs(filePath: string, allowGlobs?: string[]): boolean {
 function isParserSupported(filePath: string): boolean {
 	const ext = path.extname(filePath).toLowerCase();
 	return SUPPORTED_PARSER_EXTENSIONS.has(ext);
+}
+
+/**
+ * Check if a file is a plan file (.swarm/plan.md) that should be scanned
+ * for bracket-placeholder patterns
+ */
+function isPlanFile(filePath: string): boolean {
+	const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
+	return (
+		normalizedPath.endsWith('.swarm/plan.md') ||
+		normalizedPath.includes('/.swarm/plan.md')
+	);
+}
+
+/**
+ * Scan a plan file (.swarm/plan.md) for bracket-placeholder patterns
+ * that indicate the architect reproduced the template literally
+ */
+function scanPlanFileForPlaceholders(
+	content: string,
+	filePath: string,
+): PlaceholderFinding[] {
+	const findings: PlaceholderFinding[] = [];
+	const lines = content.split('\n');
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const lineNumber = i + 1;
+
+		for (const { pattern, rule_id } of PLAN_PLACEHOLDER_PATTERNS) {
+			if (pattern.test(line)) {
+				findings.push({
+					path: filePath,
+					line: lineNumber,
+					kind: 'other',
+					excerpt: line.substring(0, 100),
+					rule_id,
+				});
+			}
+			// Reset regex lastIndex for global patterns
+			pattern.lastIndex = 0;
+		}
+	}
+
+	return findings;
 }
 
 /**
@@ -481,9 +538,11 @@ export async function placeholderScan(
 
 		filesScanned++;
 
-		// Use parser if supported, otherwise regex fallback
+		// Use plan-specific scanner for .swarm/plan.md, parser for supported languages, regex fallback otherwise
 		let fileFindings: PlaceholderFinding[];
-		if (isParserSupported(filePath)) {
+		if (isPlanFile(filePath)) {
+			fileFindings = scanPlanFileForPlaceholders(content, filePath);
+		} else if (isParserSupported(filePath)) {
 			fileFindings = await scanWithParser(content, filePath, denyPatterns);
 		} else {
 			fileFindings = scanWithRegex(content, filePath, denyPatterns);

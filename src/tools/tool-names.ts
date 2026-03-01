@@ -28,7 +28,8 @@ export type ToolName =
 	| 'gitingest'
 	| 'retrieve_summary'
 	| 'extract_code_blocks'
-	| 'phase_complete';
+	| 'phase_complete'
+	| 'save_plan';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -56,6 +57,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'retrieve_summary',
 	'extract_code_blocks',
 	'phase_complete',
+	'save_plan',
 ] as const;
 
 /** Set for O(1) tool name validation */

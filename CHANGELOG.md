@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.14.1] - 2026-03-01
+
+### Bug Fixes
+- **`save_plan` MCP tool (P0):** New `save_plan` tool validates plan content against `PlanSchema` and rejects bracket-template placeholders (`[task]`, `[Project]`, `[date]`, `[reason]`, `[description]`) before writing, preventing the Architect from saving stub plans.
+- **Architect prompt template hardening (P0):** Replaced bracket-placeholder examples in the `FILES` section of `architect.ts` with `<angle-bracket>` schema slots and added a ⚠️ FILE FORMAT RULES warning; preserved valid format tokens `[COMPLETE]`, `[IN PROGRESS]`, `[BLOCKED]`, `[SMALL]`, `[MEDIUM]`, `[LARGE]`, `[x]`, `[ ]`.
+- **`migrateLegacyPlan` parser hardening (P1):** Parser now handles `###` section headers, numbered-list tasks (`1. Description`), and checkbox tasks without `N.M:` prefix (all auto-generate IDs); emits `console.warn` when zero phases are parsed.
+- **Architect `MODE:PLAN` update (P1):** `MODE:PLAN` section now instructs the Architect to call `save_plan` with `title`, `swarm_id`, and `phases` arguments, with a coder-delegation fallback if the tool is unavailable.
+- **`placeholder_scan` plan file support (P2):** Extended `placeholder_scan` to detect bracket-template placeholders in `.swarm/plan.md`, catching `[task]`, `[Project]`, `[date]`, `[reason]`, and `[description]` patterns.
+
+### Test Coverage
+- 316 new tests across 6 test files covering all five fixes.
+
 ## [6.14.0] - 2026-02-28
 
 ### New Features

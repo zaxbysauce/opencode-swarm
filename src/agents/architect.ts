@@ -339,10 +339,21 @@ This briefing is a HARD REQUIREMENT for ALL phases. Skipping it is a process vio
 
 ### MODE: PLAN
 
-Create .swarm/plan.md
-- Phases with discrete tasks
-- Dependencies (depends: X.Y)
-- Acceptance criteria per task
+Use the \`save_plan\` tool to create the implementation plan. Required parameters:
+- \`title\`: The real project name from the spec (NOT a placeholder like [Project])
+- \`swarm_id\`: The swarm identifier (e.g. "mega", "local", "paid")
+- \`phases\`: Array of phases, each with \`id\` (number), \`name\` (string), and \`tasks\` (array)
+- Each task needs: \`id\` (e.g. "1.1"), \`description\` (real content from spec — bracket placeholders like [task] will be REJECTED)
+- Optional task fields: \`size\` (small/medium/large), \`depends\` (array of task IDs), \`acceptance\` (string)
+
+Example call:
+save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
+
+⚠️ If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
+TASK: Write the implementation plan to .swarm/plan.md
+FILE: .swarm/plan.md
+INPUT: [provide the complete plan content below]
+CONSTRAINT: Write EXACTLY the content provided. Do not modify, summarize, or interpret.
 
 TASK GRANULARITY RULES:
 - SMALL task: 1 file, 1 function/class/component, 1 logical concern. Delegate as-is.
@@ -361,8 +372,7 @@ PHASE COUNT GUIDANCE:
 - Rationale: Retrospectives at phase boundaries capture lessons that improve subsequent
   phases. A single-phase plan gets zero iterative learning benefit.
 
-Create .swarm/context.md
-- Decisions, patterns, SME cache, file map
+Also create .swarm/context.md with: decisions made, patterns identified, SME cache entries, and relevant file map.
 
 ### MODE: CRITIC-GATE
 Delegate plan to {{AGENT_PREFIX}}critic for review BEFORE any implementation begins.
@@ -573,19 +583,21 @@ Mark [BLOCKED] in plan.md, skip to next unblocked task, inform user.
 
 ## FILES
 
+⚠️ FILE FORMAT RULES: Every value in angle brackets below MUST be real content derived from the spec or codebase analysis. NEVER write literal bracket-placeholder text like "[task]", "[Project]", "[date]", "[reason]" — those are template slots in this example, NOT values to reproduce. Status tags like [COMPLETE], [IN PROGRESS], [BLOCKED], [SMALL], [MEDIUM], [LARGE], and checkboxes [x]/[ ] are valid format elements and must be reproduced exactly.
+
 .swarm/plan.md:
 \`\`\`
-# [Project]
+# <real project name derived from the spec>
 Swarm: {{SWARM_ID}}
-Phase: [N] | Updated: [date]
+Phase: <current phase number> | Updated: <today's date in ISO format>
 
-## Phase 1 [COMPLETE]
-- [x] 1.1: [task] [SMALL]
+## Phase 1: <descriptive phase name> [COMPLETE]
+- [x] 1.1: <specific completed task description from spec> [SMALL]
 
-## Phase 2 [IN PROGRESS]  
-- [x] 2.1: [task] [MEDIUM]
-- [ ] 2.2: [task] (depends: 2.1) ← CURRENT
-- [BLOCKED] 2.3: [task] - [reason]
+## Phase 2: <descriptive phase name> [IN PROGRESS]
+- [x] 2.1: <specific task description from spec> [MEDIUM]
+- [ ] 2.2: <specific task description from spec> (depends: 2.1) ← CURRENT
+- [BLOCKED] 2.3: <specific task description from spec> - <reason for blockage>
 \`\`\`
 
 .swarm/context.md:
@@ -594,14 +606,14 @@ Phase: [N] | Updated: [date]
 Swarm: {{SWARM_ID}}
 
 ## Decisions
-- [decision]: [rationale]
+- <specific technical decision made>: <rationale for the decision>
 
 ## SME Cache
-### [domain]
-- [guidance]
+### <domain name e.g. security, cross-platform>
+- <specific guidance from the SME consultation>
 
 ## Patterns
-- [pattern]: [usage]
+- <pattern name>: <how and when to use it in this codebase>
 \`\`\``;
 
 export function createArchitectAgent(

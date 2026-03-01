@@ -9,6 +9,8 @@ export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { lint } from './lint';
 export { phase_complete } from './phase-complete';
+export { save_plan } from './save-plan';
+export type { SavePlanArgs, SavePlanResult } from './save-plan';
 export { pkg_audit } from './pkg-audit';
 export { type PlaceholderFinding, type PlaceholderScanInput, type PlaceholderScanResult, placeholderScan, } from './placeholder-scan';
 export { type PreCheckBatchInput, type PreCheckBatchResult, pre_check_batch, runPreCheckBatch, type ToolResult, } from './pre-check-batch';

@@ -14816,7 +14816,7 @@ function migrateLegacyPlan(planContent, swarmId) {
       }
       continue;
     }
-    const phaseMatch = trimmed.match(/^##\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
+    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
     if (phaseMatch) {
       if (currentPhase !== null) {
         phases.push(currentPhase);
@@ -14884,12 +14884,87 @@ function migrateLegacyPlan(planContent, swarmId) {
       };
       currentPhase.tasks.push(task);
     }
+    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
+    if (numberedTaskMatch && currentPhase !== null) {
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = numberedTaskMatch[2].trim();
+      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status: "pending",
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: undefined
+      };
+      currentPhase.tasks.push(task);
+    }
+    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (noPrefixTaskMatch && currentPhase !== null) {
+      const checkbox = noPrefixTaskMatch[1].toLowerCase();
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = noPrefixTaskMatch[2].trim();
+      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = noPrefixTaskMatch[4];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
   }
   if (currentPhase !== null) {
     phases.push(currentPhase);
   }
   let migrationStatus = "migrated";
   if (phases.length === 0) {
+    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
     migrationStatus = "migration_failed";
     phases.push({
       id: 1,
@@ -31440,7 +31515,7 @@ var init_preflight_integration = __esm(() => {
 });
 
 // src/index.ts
-import * as path31 from "path";
+import * as path32 from "path";
 
 // src/tools/tool-names.ts
 var TOOL_NAMES = [
@@ -31467,7 +31542,8 @@ var TOOL_NAMES = [
   "gitingest",
   "retrieve_summary",
   "extract_code_blocks",
-  "phase_complete"
+  "phase_complete",
+  "save_plan"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -31500,6 +31576,7 @@ var AGENT_TOOL_MAP = {
     "pkg_audit",
     "pre_check_batch",
     "retrieve_summary",
+    "save_plan",
     "schema_drift",
     "secretscan",
     "symbols",
@@ -32531,10 +32608,21 @@ This briefing is a HARD REQUIREMENT for ALL phases. Skipping it is a process vio
 
 ### MODE: PLAN
 
-Create .swarm/plan.md
-- Phases with discrete tasks
-- Dependencies (depends: X.Y)
-- Acceptance criteria per task
+Use the \`save_plan\` tool to create the implementation plan. Required parameters:
+- \`title\`: The real project name from the spec (NOT a placeholder like [Project])
+- \`swarm_id\`: The swarm identifier (e.g. "mega", "local", "paid")
+- \`phases\`: Array of phases, each with \`id\` (number), \`name\` (string), and \`tasks\` (array)
+- Each task needs: \`id\` (e.g. "1.1"), \`description\` (real content from spec \u2014 bracket placeholders like [task] will be REJECTED)
+- Optional task fields: \`size\` (small/medium/large), \`depends\` (array of task IDs), \`acceptance\` (string)
+
+Example call:
+save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
+
+\u26A0\uFE0F If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
+TASK: Write the implementation plan to .swarm/plan.md
+FILE: .swarm/plan.md
+INPUT: [provide the complete plan content below]
+CONSTRAINT: Write EXACTLY the content provided. Do not modify, summarize, or interpret.
 
 TASK GRANULARITY RULES:
 - SMALL task: 1 file, 1 function/class/component, 1 logical concern. Delegate as-is.
@@ -32553,8 +32641,7 @@ PHASE COUNT GUIDANCE:
 - Rationale: Retrospectives at phase boundaries capture lessons that improve subsequent
   phases. A single-phase plan gets zero iterative learning benefit.
 
-Create .swarm/context.md
-- Decisions, patterns, SME cache, file map
+Also create .swarm/context.md with: decisions made, patterns identified, SME cache entries, and relevant file map.
 
 ### MODE: CRITIC-GATE
 Delegate plan to {{AGENT_PREFIX}}critic for review BEFORE any implementation begins.
@@ -32765,19 +32852,21 @@ Mark [BLOCKED] in plan.md, skip to next unblocked task, inform user.
 
 ## FILES
 
+\u26A0\uFE0F FILE FORMAT RULES: Every value in angle brackets below MUST be real content derived from the spec or codebase analysis. NEVER write literal bracket-placeholder text like "[task]", "[Project]", "[date]", "[reason]" \u2014 those are template slots in this example, NOT values to reproduce. Status tags like [COMPLETE], [IN PROGRESS], [BLOCKED], [SMALL], [MEDIUM], [LARGE], and checkboxes [x]/[ ] are valid format elements and must be reproduced exactly.
+
 .swarm/plan.md:
 \`\`\`
-# [Project]
+# <real project name derived from the spec>
 Swarm: {{SWARM_ID}}
-Phase: [N] | Updated: [date]
+Phase: <current phase number> | Updated: <today's date in ISO format>
 
-## Phase 1 [COMPLETE]
-- [x] 1.1: [task] [SMALL]
+## Phase 1: <descriptive phase name> [COMPLETE]
+- [x] 1.1: <specific completed task description from spec> [SMALL]
 
-## Phase 2 [IN PROGRESS]  
-- [x] 2.1: [task] [MEDIUM]
-- [ ] 2.2: [task] (depends: 2.1) \u2190 CURRENT
-- [BLOCKED] 2.3: [task] - [reason]
+## Phase 2: <descriptive phase name> [IN PROGRESS]
+- [x] 2.1: <specific task description from spec> [MEDIUM]
+- [ ] 2.2: <specific task description from spec> (depends: 2.1) \u2190 CURRENT
+- [BLOCKED] 2.3: <specific task description from spec> - <reason for blockage>
 \`\`\`
 
 .swarm/context.md:
@@ -32786,14 +32875,14 @@ Phase: [N] | Updated: [date]
 Swarm: {{SWARM_ID}}
 
 ## Decisions
-- [decision]: [rationale]
+- <specific technical decision made>: <rationale for the decision>
 
 ## SME Cache
-### [domain]
-- [guidance]
+### <domain name e.g. security, cross-platform>
+- <specific guidance from the SME consultation>
 
 ## Patterns
-- [pattern]: [usage]
+- <pattern name>: <how and when to use it in this codebase>
 \`\`\``;
 function createArchitectAgent(model, customPrompt, customAppendPrompt) {
   let prompt = ARCHITECT_PROMPT;
@@ -41017,10 +41106,108 @@ var phase_complete = tool({
     return executePhaseComplete(phaseCompleteArgs);
   }
 });
+// src/tools/save-plan.ts
+init_tool();
+init_manager2();
+import * as path23 from "path";
+function detectPlaceholderContent(args2) {
+  const issues = [];
+  const placeholderPattern = /^\[\w[\w\s]*\]$/;
+  if (placeholderPattern.test(args2.title.trim())) {
+    issues.push(`Plan title appears to be a template placeholder: "${args2.title}"`);
+  }
+  for (const phase of args2.phases) {
+    if (placeholderPattern.test(phase.name.trim())) {
+      issues.push(`Phase ${phase.id} name appears to be a template placeholder: "${phase.name}"`);
+    }
+    for (const task of phase.tasks) {
+      if (placeholderPattern.test(task.description.trim())) {
+        issues.push(`Task ${task.id} description appears to be a template placeholder: "${task.description}"`);
+      }
+    }
+  }
+  return issues;
+}
+async function executeSavePlan(args2) {
+  const placeholderIssues = detectPlaceholderContent(args2);
+  if (placeholderIssues.length > 0) {
+    return {
+      success: false,
+      message: "Plan rejected: contains template placeholder content",
+      errors: placeholderIssues
+    };
+  }
+  const plan = {
+    schema_version: "1.0.0",
+    title: args2.title,
+    swarm: args2.swarm_id,
+    migration_status: "native",
+    current_phase: args2.phases[0]?.id,
+    phases: args2.phases.map((phase) => {
+      return {
+        id: phase.id,
+        name: phase.name,
+        status: "pending",
+        tasks: phase.tasks.map((task) => {
+          return {
+            id: task.id,
+            phase: phase.id,
+            status: "pending",
+            size: task.size ?? "small",
+            description: task.description,
+            depends: task.depends ?? [],
+            acceptance: task.acceptance,
+            files_touched: []
+          };
+        })
+      };
+    })
+  };
+  const tasksCount = plan.phases.reduce((acc, phase) => acc + phase.tasks.length, 0);
+  const dir = args2.working_directory ?? process.cwd();
+  try {
+    await savePlan(dir, plan);
+    return {
+      success: true,
+      message: "Plan saved successfully",
+      plan_path: path23.join(dir, ".swarm", "plan.json"),
+      phases_count: plan.phases.length,
+      tasks_count: tasksCount
+    };
+  } catch (error93) {
+    return {
+      success: false,
+      message: "Failed to save plan",
+      errors: [String(error93)]
+    };
+  }
+}
+var save_plan = tool({
+  description: "Save a structured implementation plan to .swarm/plan.json and .swarm/plan.md. " + "Task descriptions and phase names MUST contain real content from the spec \u2014 " + "bracket placeholders like [task] or [Project] will be rejected.",
+  args: {
+    title: tool.schema.string().min(1).describe("Plan title \u2014 the REAL project name from the spec. NOT a placeholder like [Project]."),
+    swarm_id: tool.schema.string().min(1).describe('Swarm identifier (e.g. "mega")'),
+    phases: tool.schema.array(tool.schema.object({
+      id: tool.schema.number().int().positive().describe("Phase number, starting at 1"),
+      name: tool.schema.string().min(1).describe("Descriptive phase name derived from the spec"),
+      tasks: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M format, e.g. "1.1"').describe('Task ID in N.M format, e.g. "1.1", "2.3"'),
+        description: tool.schema.string().min(1).describe("Specific task description from the spec. NOT a placeholder like [task]."),
+        size: tool.schema.enum(["small", "medium", "large"]).optional().describe("Task size estimate (default: small)"),
+        depends: tool.schema.array(tool.schema.string()).optional().describe('Task IDs this task depends on, e.g. ["1.1", "1.2"]'),
+        acceptance: tool.schema.string().optional().describe("Acceptance criteria for this task")
+      })).min(1).describe("Tasks in this phase")
+    })).min(1).describe("Implementation phases"),
+    working_directory: tool.schema.string().optional().describe("Working directory (defaults to process.cwd())")
+  },
+  execute: async (args2) => {
+    return JSON.stringify(await executeSavePlan(args2), null, 2);
+  }
+});
 // src/tools/pkg-audit.ts
 init_dist();
 import * as fs18 from "fs";
-import * as path23 from "path";
+import * as path24 from "path";
 var MAX_OUTPUT_BYTES5 = 52428800;
 var AUDIT_TIMEOUT_MS = 120000;
 function isValidEcosystem(value) {
@@ -41038,13 +41225,13 @@ function validateArgs3(args2) {
 function detectEcosystems() {
   const ecosystems = [];
   const cwd = process.cwd();
-  if (fs18.existsSync(path23.join(cwd, "package.json"))) {
+  if (fs18.existsSync(path24.join(cwd, "package.json"))) {
     ecosystems.push("npm");
   }
-  if (fs18.existsSync(path23.join(cwd, "pyproject.toml")) || fs18.existsSync(path23.join(cwd, "requirements.txt"))) {
+  if (fs18.existsSync(path24.join(cwd, "pyproject.toml")) || fs18.existsSync(path24.join(cwd, "requirements.txt"))) {
     ecosystems.push("pip");
   }
-  if (fs18.existsSync(path23.join(cwd, "Cargo.toml"))) {
+  if (fs18.existsSync(path24.join(cwd, "Cargo.toml"))) {
     ecosystems.push("cargo");
   }
   return ecosystems;
@@ -42952,11 +43139,11 @@ var Module2 = (() => {
       throw toThrow;
     }, "quit_");
     var scriptDirectory = "";
-    function locateFile(path24) {
+    function locateFile(path25) {
       if (Module["locateFile"]) {
-        return Module["locateFile"](path24, scriptDirectory);
+        return Module["locateFile"](path25, scriptDirectory);
       }
-      return scriptDirectory + path24;
+      return scriptDirectory + path25;
     }
     __name(locateFile, "locateFile");
     var readAsync, readBinary;
@@ -44770,7 +44957,7 @@ var SUPPORTED_PARSER_EXTENSIONS = new Set([
 ]);
 // src/tools/pre-check-batch.ts
 init_dist();
-import * as path26 from "path";
+import * as path27 from "path";
 
 // node_modules/yocto-queue/index.js
 class Node2 {
@@ -44937,7 +45124,7 @@ init_manager();
 
 // src/quality/metrics.ts
 import * as fs19 from "fs";
-import * as path24 from "path";
+import * as path25 from "path";
 var MAX_FILE_SIZE_BYTES5 = 256 * 1024;
 var MIN_DUPLICATION_LINES = 10;
 function estimateCyclomaticComplexity(content) {
@@ -44989,7 +45176,7 @@ async function computeComplexityDelta(files, workingDir) {
   let totalComplexity = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
     if (!fs19.existsSync(fullPath)) {
       continue;
     }
@@ -45112,7 +45299,7 @@ function countGoExports(content) {
 function getExportCountForFile(filePath) {
   try {
     const content = fs19.readFileSync(filePath, "utf-8");
-    const ext = path24.extname(filePath).toLowerCase();
+    const ext = path25.extname(filePath).toLowerCase();
     switch (ext) {
       case ".ts":
       case ".tsx":
@@ -45138,7 +45325,7 @@ async function computePublicApiDelta(files, workingDir) {
   let totalExports = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
     if (!fs19.existsSync(fullPath)) {
       continue;
     }
@@ -45172,7 +45359,7 @@ async function computeDuplicationRatio(files, workingDir) {
   let duplicateLines = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path24.isAbsolute(file3) ? file3 : path24.join(workingDir, file3);
+    const fullPath = path25.isAbsolute(file3) ? file3 : path25.join(workingDir, file3);
     if (!fs19.existsSync(fullPath)) {
       continue;
     }
@@ -45205,8 +45392,8 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename5 = path24.basename(filePath);
-  const _ext = path24.extname(filePath).toLowerCase();
+  const basename5 = path25.basename(filePath);
+  const _ext = path25.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
     ".spec.",
@@ -45248,7 +45435,7 @@ function shouldExcludeFile(filePath, excludeGlobs) {
 async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
   let testLines = 0;
   let codeLines = 0;
-  const srcDir = path24.join(workingDir, "src");
+  const srcDir = path25.join(workingDir, "src");
   if (fs19.existsSync(srcDir)) {
     await scanDirectoryForLines(srcDir, enforceGlobs, excludeGlobs, false, (lines) => {
       codeLines += lines;
@@ -45256,14 +45443,14 @@ async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
   }
   const possibleSrcDirs = ["lib", "app", "source", "core"];
   for (const dir of possibleSrcDirs) {
-    const dirPath = path24.join(workingDir, dir);
+    const dirPath = path25.join(workingDir, dir);
     if (fs19.existsSync(dirPath)) {
       await scanDirectoryForLines(dirPath, enforceGlobs, excludeGlobs, false, (lines) => {
         codeLines += lines;
       });
     }
   }
-  const testsDir = path24.join(workingDir, "tests");
+  const testsDir = path25.join(workingDir, "tests");
   if (fs19.existsSync(testsDir)) {
     await scanDirectoryForLines(testsDir, ["**"], ["node_modules", "dist"], true, (lines) => {
       testLines += lines;
@@ -45271,7 +45458,7 @@ async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
   }
   const possibleTestDirs = ["test", "__tests__", "specs"];
   for (const dir of possibleTestDirs) {
-    const dirPath = path24.join(workingDir, dir);
+    const dirPath = path25.join(workingDir, dir);
     if (fs19.existsSync(dirPath) && dirPath !== testsDir) {
       await scanDirectoryForLines(dirPath, ["**"], ["node_modules", "dist"], true, (lines) => {
         testLines += lines;
@@ -45286,7 +45473,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
   try {
     const entries = fs19.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path24.join(dirPath, entry.name);
+      const fullPath = path25.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === ".git") {
           continue;
@@ -45294,7 +45481,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
         await scanDirectoryForLines(fullPath, includeGlobs, excludeGlobs, isTestScan, callback);
       } else if (entry.isFile()) {
         const relativePath = fullPath.replace(`${process.cwd()}/`, "");
-        const ext = path24.extname(entry.name).toLowerCase();
+        const ext = path25.extname(entry.name).toLowerCase();
         const validExts = [
           ".ts",
           ".tsx",
@@ -45549,7 +45736,7 @@ async function qualityBudget(input, directory) {
 // src/tools/sast-scan.ts
 init_manager();
 import * as fs20 from "fs";
-import * as path25 from "path";
+import * as path26 from "path";
 import { extname as extname7 } from "path";
 
 // src/sast/rules/c.ts
@@ -46504,7 +46691,7 @@ async function sastScan(input, directory, config3) {
   const engine = semgrepAvailable ? "tier_a+tier_b" : "tier_a";
   const filesByLanguage = new Map;
   for (const filePath of changed_files) {
-    const resolvedPath = path25.isAbsolute(filePath) ? filePath : path25.resolve(directory, filePath);
+    const resolvedPath = path26.isAbsolute(filePath) ? filePath : path26.resolve(directory, filePath);
     if (!fs20.existsSync(resolvedPath)) {
       _filesSkipped++;
       continue;
@@ -46613,10 +46800,10 @@ function validatePath(inputPath, baseDir) {
   if (!inputPath || inputPath.length === 0) {
     return "path is required";
   }
-  const resolved = path26.resolve(baseDir, inputPath);
-  const baseResolved = path26.resolve(baseDir);
-  const relative3 = path26.relative(baseResolved, resolved);
-  if (relative3.startsWith("..") || path26.isAbsolute(relative3)) {
+  const resolved = path27.resolve(baseDir, inputPath);
+  const baseResolved = path27.resolve(baseDir);
+  const relative3 = path27.relative(baseResolved, resolved);
+  if (relative3.startsWith("..") || path27.isAbsolute(relative3)) {
     return "path traversal detected";
   }
   return null;
@@ -46738,7 +46925,7 @@ async function runPreCheckBatch(input) {
         warn(`pre_check_batch: Invalid file path: ${file3}`);
         continue;
       }
-      changedFiles.push(path26.resolve(directory, file3));
+      changedFiles.push(path27.resolve(directory, file3));
     }
   } else {
     changedFiles = [];
@@ -46929,7 +47116,7 @@ var retrieve_summary = tool({
 init_dist();
 init_manager();
 import * as fs21 from "fs";
-import * as path27 from "path";
+import * as path28 from "path";
 
 // src/sbom/detectors/dart.ts
 function parsePubspecLock(content) {
@@ -47776,7 +47963,7 @@ function findManifestFiles(rootDir) {
     try {
       const entries = fs21.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path27.join(dir, entry.name);
+        const fullPath = path28.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -47786,7 +47973,7 @@ function findManifestFiles(rootDir) {
           for (const pattern of patterns) {
             const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
             if (new RegExp(regex, "i").test(entry.name)) {
-              manifestFiles.push(path27.relative(cwd, fullPath));
+              manifestFiles.push(path28.relative(cwd, fullPath));
               break;
             }
           }
@@ -47805,12 +47992,12 @@ function findManifestFilesInDirs(directories, workingDir) {
     try {
       const entries = fs21.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path27.join(dir, entry.name);
+        const fullPath = path28.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
             if (new RegExp(regex, "i").test(entry.name)) {
-              found.push(path27.relative(workingDir, fullPath));
+              found.push(path28.relative(workingDir, fullPath));
               break;
             }
           }
@@ -47823,11 +48010,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path27.dirname(file3);
+    let currentDir = path28.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path27.sep) {
-        dirs.add(path27.join(workingDir, currentDir));
-        const parent = path27.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path28.sep) {
+        dirs.add(path28.join(workingDir, currentDir));
+        const parent = path28.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -47934,7 +48121,7 @@ var sbom_generate = tool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path27.isAbsolute(manifestFile) ? manifestFile : path27.join(workingDir, manifestFile);
+        const fullPath = path28.isAbsolute(manifestFile) ? manifestFile : path28.join(workingDir, manifestFile);
         if (!fs21.existsSync(fullPath)) {
           continue;
         }
@@ -47951,7 +48138,7 @@ var sbom_generate = tool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path27.join(outputDir, filename);
+    const outputPath = path28.join(outputDir, filename);
     fs21.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
@@ -47994,7 +48181,7 @@ var sbom_generate = tool({
 // src/tools/schema-drift.ts
 init_dist();
 import * as fs22 from "fs";
-import * as path28 from "path";
+import * as path29 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -48026,12 +48213,12 @@ function normalizePath(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path28.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path28.sep) ? cwd : cwd + path28.sep;
+    const resolvedPath = path29.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path29.sep) ? cwd : cwd + path29.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path28.extname(resolvedPath).toLowerCase();
+    const ext = path29.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
@@ -48045,7 +48232,7 @@ function discoverSpecFile(cwd, specFileArg) {
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path28.resolve(cwd, candidate);
+    const candidatePath = path29.resolve(cwd, candidate);
     if (fs22.existsSync(candidatePath)) {
       const stats = fs22.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
@@ -48057,7 +48244,7 @@ function discoverSpecFile(cwd, specFileArg) {
 }
 function parseSpec(specFile) {
   const content = fs22.readFileSync(specFile, "utf-8");
-  const ext = path28.extname(specFile).toLowerCase();
+  const ext = path29.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -48128,7 +48315,7 @@ function extractRoutes(cwd) {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path28.join(dir, entry.name);
+      const fullPath = path29.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -48138,7 +48325,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path28.extname(entry.name).toLowerCase();
+        const ext = path29.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -48307,7 +48494,7 @@ init_secretscan();
 // src/tools/symbols.ts
 init_tool();
 import * as fs23 from "fs";
-import * as path29 from "path";
+import * as path30 from "path";
 var MAX_FILE_SIZE_BYTES7 = 1024 * 1024;
 var WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsControlCharacters(str) {
@@ -48336,11 +48523,11 @@ function containsWindowsAttacks(str) {
 }
 function isPathInWorkspace(filePath, workspace) {
   try {
-    const resolvedPath = path29.resolve(workspace, filePath);
+    const resolvedPath = path30.resolve(workspace, filePath);
     const realWorkspace = fs23.realpathSync(workspace);
     const realResolvedPath = fs23.realpathSync(resolvedPath);
-    const relativePath = path29.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path29.isAbsolute(relativePath)) {
+    const relativePath = path30.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path30.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -48352,7 +48539,7 @@ function validatePathForRead(filePath, workspace) {
   return isPathInWorkspace(filePath, workspace);
 }
 function extractTSSymbols(filePath, cwd) {
-  const fullPath = path29.join(cwd, filePath);
+  const fullPath = path30.join(cwd, filePath);
   if (!validatePathForRead(fullPath, cwd)) {
     return [];
   }
@@ -48504,7 +48691,7 @@ function extractTSSymbols(filePath, cwd) {
   });
 }
 function extractPythonSymbols(filePath, cwd) {
-  const fullPath = path29.join(cwd, filePath);
+  const fullPath = path30.join(cwd, filePath);
   if (!validatePathForRead(fullPath, cwd)) {
     return [];
   }
@@ -48586,7 +48773,7 @@ var symbols = tool({
       }, null, 2);
     }
     const cwd = process.cwd();
-    const ext = path29.extname(file3);
+    const ext = path30.extname(file3);
     if (containsControlCharacters(file3)) {
       return JSON.stringify({
         file: file3,
@@ -48655,7 +48842,7 @@ init_test_runner();
 // src/tools/todo-extract.ts
 init_dist();
 import * as fs24 from "fs";
-import * as path30 from "path";
+import * as path31 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS2 = new Set([
@@ -48726,9 +48913,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path30.resolve(paths);
-    const normalizedCwd = path30.resolve(cwd);
-    const normalizedResolved = path30.resolve(resolvedPath);
+    const resolvedPath = path31.resolve(paths);
+    const normalizedCwd = path31.resolve(cwd);
+    const normalizedResolved = path31.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -48744,7 +48931,7 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path30.extname(filePath).toLowerCase();
+  const ext = path31.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
 function findSourceFiles3(dir, files = []) {
@@ -48759,7 +48946,7 @@ function findSourceFiles3(dir, files = []) {
     if (SKIP_DIRECTORIES3.has(entry)) {
       continue;
     }
-    const fullPath = path30.join(dir, entry);
+    const fullPath = path31.join(dir, entry);
     let stat;
     try {
       stat = fs24.statSync(fullPath);
@@ -48871,7 +49058,7 @@ var todo_extract = tool({
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path30.extname(scanPath)}`,
+          error: `unsupported file extension: ${path31.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -48986,7 +49173,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path31.resolve(ctx.directory, ".swarm");
+    const swarmDir = path32.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -49092,6 +49279,7 @@ var OpenCodeSwarm = async (ctx) => {
       phase_complete,
       pre_check_batch,
       retrieve_summary,
+      save_plan,
       schema_drift,
       secretscan,
       symbols,

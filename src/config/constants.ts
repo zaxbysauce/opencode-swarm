@@ -39,6 +39,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'pkg_audit',
 		'pre_check_batch',
 		'retrieve_summary',
+		'save_plan',
 		'schema_drift',
 		'secretscan',
 		'symbols',
