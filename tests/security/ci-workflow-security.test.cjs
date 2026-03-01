@@ -47,6 +47,7 @@ class WorkflowSecurityTester {
    * - github.event.commits[*].author.email
    * - github.event.head_commit.message
    * - github.event.pull_request.*.body
+   * Note: matrix.* values are excluded as they are author-controlled (defined in strategy.matrix)
    */
   testExpressionInjection() {
     const testName = 'Expression Injection Risks';
@@ -58,8 +59,7 @@ class WorkflowSecurityTester {
       'github.event.pull_request',
       'github.event.issue',
       'github.event.comment',
-      'github.event.review',
-      'matrix' // Check if matrix values could be manipulated
+      'github.event.review'
     ];
 
     function checkExpressions(obj, path = '') {
