@@ -2,6 +2,13 @@
 
 ## [6.14.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.11...v6.14.12) (2026-03-02)
 
+
+### Bug Fixes
+
+* harden context enforcement and stabilize cross-platform CI ([7e4cf0a](https://github.com/zaxbysauce/opencode-swarm/commit/7e4cf0a513e5dc1cd13ff3f7645d25a1942a9e2c))
+
+## [6.14.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.11...v6.14.12) (2026-03-02)
+
 ### Features
 
 * Hard context enforcement with priority pruning and agent‑switch reset (src/hooks/context-budget.ts)
