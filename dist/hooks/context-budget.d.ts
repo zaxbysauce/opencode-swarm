@@ -10,6 +10,9 @@ interface MessageInfo {
     role: string;
     agent?: string;
     sessionID?: string;
+    modelID?: string;
+    providerID?: string;
+    [key: string]: unknown;
 }
 interface MessagePart {
     type: string;

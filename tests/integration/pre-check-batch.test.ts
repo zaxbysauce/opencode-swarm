@@ -6,13 +6,14 @@ import { type ToolContext } from '@opencode-ai/plugin';
 import { pre_check_batch } from '../../src/tools/pre-check-batch';
 
 // Helper to create a mock ToolContext
-function createMockContext(dir: string): ToolContext {
+function createMockContext(dir?: string): ToolContext {
+	const d = dir ?? process.cwd();
 	return {
 		sessionID: 'test-session',
 		messageID: 'test-message',
 		agent: 'test-agent',
-		directory: dir,
-		worktree: dir,
+		directory: d,
+		worktree: d,
 		abort: new AbortController().signal,
 		metadata: () => {},
 		ask: async () => {},
@@ -31,13 +32,28 @@ describe('pre_check_batch integration', () => {
 		const projectBin = path.join(originalCwd, 'node_modules', '.bin');
 		process.env.PATH = projectBin + path.delimiter + originalPath;
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-integration-'));
+		fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+		fs.writeFileSync(
+			path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+			'{}\n',
+		);
 		process.chdir(tempDir);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		process.chdir(originalCwd);
 		process.env.PATH = originalPath;
-		fs.rmSync(tempDir, { recursive: true, force: true });
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+				break;
+			} catch (err: unknown) {
+				const code = (err as NodeJS.ErrnoException).code;
+				if (attempt < 2 && code === 'EBUSY') {
+					await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+				}
+			}
+		}
 	});
 
 	test('tool is registered and callable', async () => {
@@ -63,13 +79,13 @@ describe('pre_check_batch integration', () => {
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 
 		// Measure wall clock time
 		const startTime = Date.now();
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: ['test0.ts', 'test1.ts', 'test2.ts', 'test3.ts'],
 			},
 			mockContext,
@@ -107,10 +123,10 @@ var x = 1;
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: ['bad-code.js'],
 			},
 			mockContext,
@@ -148,10 +164,10 @@ export const password = "super-secret-password-123";
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: ['config.ts'],
 			},
 			mockContext,
@@ -197,10 +213,10 @@ function xss(input: string) {
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: ['vulnerable.ts'],
 				sast_threshold: 'medium',
 			},
@@ -229,12 +245,12 @@ function xss(input: string) {
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 
 		// Try to access a file outside the directory
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: ['../../../etc/passwd'],
 			},
 			mockContext,
@@ -279,12 +295,12 @@ function xss(input: string) {
 			'[core]\n\trepositoryformatversion = 0\n',
 		);
 
-		const mockContext = createMockContext(tempDir);
+		const mockContext = createMockContext();
 
 		// Call should throw error about exceeding max files
 		const result = await pre_check_batch.execute(
 			{
-				directory: tempDir,
+				directory: '.',
 				files: files,
 			},
 			mockContext,

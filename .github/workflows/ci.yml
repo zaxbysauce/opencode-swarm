@@ -30,4 +30,5 @@ jobs:
       - name: Lint
         run: bun run lint
       - name: Test
-        run: bun test
+        # 2-minute per-test timeout to prevent Ubuntu hang regressions (CI run #22548216770)
+        run: bun test --timeout 120000

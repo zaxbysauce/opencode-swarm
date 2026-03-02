@@ -161,7 +161,14 @@ export const ContextBudgetConfigSchema = z.object({
 		.record(z.string(), z.number().min(1000))
 		.default({ default: 128000 }),
 	max_injection_tokens: z.number().min(100).max(50000).default(4000),
+	tracked_agents: z.array(z.string()).default(['architect']),
 	scoring: ScoringConfigSchema.optional(),
+	enforce: z.boolean().default(true),
+	prune_target: z.number().min(0).max(1).default(0.7),
+	preserve_last_n_turns: z.number().min(0).max(100).default(4),
+	recent_window: z.number().min(1).max(100).default(10),
+	enforce_on_agent_switch: z.boolean().default(true),
+	tool_output_mask_threshold: z.number().min(100).max(100000).default(2000),
 });
 
 export type ContextBudgetConfig = z.infer<typeof ContextBudgetConfigSchema>;

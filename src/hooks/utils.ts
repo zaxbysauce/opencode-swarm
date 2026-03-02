@@ -62,6 +62,18 @@ export function validateSwarmPath(directory: string, filename: string): string {
 		throw new Error('Invalid filename: path traversal detected');
 	}
 
+	// Reject Windows absolute paths on all platforms
+	// On POSIX, path.resolve treats C:\foo as relative, which can bypass
+	// escape checks unless explicitly blocked.
+	if (/^[A-Za-z]:[\\/]/.test(filename)) {
+		throw new Error('Invalid filename: path escapes .swarm directory');
+	}
+
+	// Reject POSIX absolute paths
+	if (filename.startsWith('/')) {
+		throw new Error('Invalid filename: path escapes .swarm directory');
+	}
+
 	// Resolve the base directory and the requested file
 	const baseDir = path.normalize(path.resolve(directory, '.swarm'));
 	const resolved = path.normalize(path.resolve(baseDir, filename));

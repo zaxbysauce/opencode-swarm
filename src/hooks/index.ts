@@ -14,7 +14,24 @@ export {
 	extractPatterns,
 } from './extractors';
 export { createGuardrailsHooks } from './guardrails';
+export {
+	classifyMessage,
+	classifyMessages,
+	containsPlanContent,
+	isDuplicateToolRead,
+	isStaleError,
+	isToolResult,
+	MessagePriority,
+	type MessagePriorityType,
+	type MessageWithParts,
+} from './message-priority';
 export { consolidateSystemMessages } from './messages-transform';
+export {
+	extractModelInfo,
+	NATIVE_MODEL_LIMITS,
+	PROVIDER_CAPS,
+	resolveModelLimit,
+} from './model-limits';
 export { createPhaseMonitorHook } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
 export { createSystemEnhancerHook } from './system-enhancer';

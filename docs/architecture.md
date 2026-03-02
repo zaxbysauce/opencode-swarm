@@ -747,6 +747,15 @@ All five tools follow strict security practices:
 
 ## Context Pruning
 
+The context pruning system now incorporates several new controls introduced in v6.14.12:
+
+- **Provider‑aware model limits** – token limits are looked up per model via `context_budget.model_limits` (e.g., a higher limit for Claude Sonnet). This allows the system to adapt the budget based on the active provider.
+- **Priority‑based pruning tiers** – messages are classified using the `MessagePriority` tiers (CRITICAL, HIGH, MEDIUM, LOW, DISPOSABLE). Lower‑priority messages are removed first when the token budget is exceeded.
+- **Agent‑switch enforcement** – when `enforce_on_agent_switch` is true, a hard context reset is triggered whenever the active agent changes (e.g., from `explorer` to `coder`).
+- **Tool‑output masking** – large tool outputs are masked/truncated once they exceed `tool_output_mask_threshold` tokens, preventing budget overruns.
+
+These enhancements work together to keep the architect’s context within limits while preserving the most important information.
+
 Context pruning manages the architect's context window to prevent overflow.
 
 ### Token Budget Tracker

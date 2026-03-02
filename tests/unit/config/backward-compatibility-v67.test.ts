@@ -61,6 +61,32 @@ function createTestPlan(overrides?: Partial<Plan>): Plan {
 const SWARM_DIR = '.swarm';
 const CONFIG_FILE = '.opencode/opencode-swarm.json';
 
+let originalXdgConfigHome: string | undefined;
+let isolatedXdgConfigHome: string;
+
+beforeEach(async () => {
+	originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+	isolatedXdgConfigHome = path.join(
+		os.tmpdir(),
+		`swarm-backcompat-xdg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
+	await mkdir(path.join(isolatedXdgConfigHome, 'opencode'), {
+		recursive: true,
+	});
+	process.env.XDG_CONFIG_HOME = isolatedXdgConfigHome;
+});
+
+afterEach(async () => {
+	if (originalXdgConfigHome === undefined) {
+		delete process.env.XDG_CONFIG_HOME;
+	} else {
+		process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+	}
+	if (isolatedXdgConfigHome) {
+		await rm(isolatedXdgConfigHome, { recursive: true, force: true });
+	}
+});
+
 /**
  * Create a temporary test directory with optional swarm structure
  */

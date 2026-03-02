@@ -948,6 +948,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			session!.reviewerCallCount.set(2, 1);
 			session!.reviewerCallCount.set(3, 1);
 			session!.reviewerCallCount.set(4, 1);
+			session!.reviewerCallCount.set(5, 1);
 
 			// Transform messages - should NOT add warning because all gates passed
 			const messages = [
@@ -986,6 +987,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			session!.reviewerCallCount.set(2, 1);
 			session!.reviewerCallCount.set(3, 1);
 			session!.reviewerCallCount.set(4, 1);
+			session!.reviewerCallCount.set(5, 1);
 
 			// Transform messages - SHOULD add warning
 			const messages = [

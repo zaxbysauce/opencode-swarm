@@ -119,6 +119,21 @@ function isSourceCodePath(filePath: string): boolean {
 }
 
 /**
+ * Detect obvious traversal segments regardless of destination file type.
+ * This ensures paths like `.swarm/../../../etc/passwd` are still treated as
+ * architect direct edits when they escape the .swarm boundary.
+ */
+function hasTraversalSegments(filePath: string): boolean {
+	if (!filePath) return false;
+	const normalized = filePath.replace(/\\/g, '/');
+	return (
+		normalized.startsWith('..') ||
+		normalized.includes('/../') ||
+		normalized.endsWith('/..')
+	);
+}
+
+/**
  * v6.12: Detects if a tool is a Stage A automated gate tool
  */
 function isGateTool(toolName: string): boolean {
@@ -205,14 +220,74 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 		 */
 		toolBefore: async (input, output) => {
 			// v6.12: Self-coding detection — MUST be first, before any exemptions
-			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+			// ISSUE #17 FIX: tool.execute.before fires before chat.message updates activeAgent
+			// from "architect" to "coder". This causes false positives when a delegated coder
+			// uses edit/write tools. The delegationActive flag (maintained by delegation-tracker.ts)
+			// is deterministic and correctly indicates when a subagent is active. We check it FIRST
+			// to skip self-coding detection entirely for delegated tool calls.
+			const currentSession = swarmState.agentSessions.get(input.sessionID);
+			if (currentSession?.delegationActive) {
+				// A subagent is using this tool — not the architect
+				// Skip self-coding detection entirely for this tool call
+			} else if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				const args = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
+
+				// Fallback: apply_patch / patch tools send args as a single diff string
+				// Parse file paths from patch content
+				if (
+					!targetPath &&
+					(input.tool === 'apply_patch' || input.tool === 'patch')
+				) {
+					const patchText = (args?.input ??
+						args?.patch ??
+						(Array.isArray(args?.cmd) ? args.cmd[1] : undefined)) as
+						| string
+						| undefined;
+
+					if (typeof patchText === 'string') {
+						// Match "*** Update File: <path>", "*** Add File: <path>", "*** Delete File: <path>"
+						const patchPathPattern =
+							/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
+						// Match "+++ b/<path>" (standard unified diff format)
+						const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
+						const paths = new Set<string>();
+						let match: RegExpExecArray | null;
+
+						while ((match = patchPathPattern.exec(patchText)) !== null) {
+							paths.add(match[1].trim());
+						}
+						while ((match = diffPathPattern.exec(patchText)) !== null) {
+							const p = match[1].trim();
+							if (p !== '/dev/null') paths.add(p);
+						}
+
+						for (const p of paths) {
+							if (
+								isOutsideSwarmDir(p) &&
+								(isSourceCodePath(p) || hasTraversalSegments(p))
+							) {
+								const session = swarmState.agentSessions.get(input.sessionID);
+								if (session) {
+									session.architectWriteCount++;
+									warn('Architect direct code edit detected via apply_patch', {
+										tool: input.tool,
+										sessionID: input.sessionID,
+										targetPath: p,
+										writeCount: session.architectWriteCount,
+									});
+								}
+								break; // One increment per tool call is sufficient
+							}
+						}
+					}
+				}
+
 				if (
 					typeof targetPath === 'string' &&
 					isOutsideSwarmDir(targetPath) &&
-					isSourceCodePath(targetPath)
+					(isSourceCodePath(targetPath) || hasTraversalSegments(targetPath))
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
 					if (session) {

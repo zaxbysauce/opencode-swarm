@@ -14352,6 +14352,12 @@ function validateSwarmPath(directory, filename) {
   if (/\.\.[/\\]/.test(filename)) {
     throw new Error("Invalid filename: path traversal detected");
   }
+  if (/^[A-Za-z]:[\\/]/.test(filename)) {
+    throw new Error("Invalid filename: path escapes .swarm directory");
+  }
+  if (filename.startsWith("/")) {
+    throw new Error("Invalid filename: path escapes .swarm directory");
+  }
   const baseDir = path2.normalize(path2.resolve(directory, ".swarm"));
   const resolved = path2.normalize(path2.resolve(baseDir, filename));
   if (process.platform === "win32") {
@@ -31805,7 +31811,14 @@ var ContextBudgetConfigSchema = exports_external.object({
   critical_threshold: exports_external.number().min(0).max(1).default(0.9),
   model_limits: exports_external.record(exports_external.string(), exports_external.number().min(1000)).default({ default: 128000 }),
   max_injection_tokens: exports_external.number().min(100).max(50000).default(4000),
-  scoring: ScoringConfigSchema.optional()
+  tracked_agents: exports_external.array(exports_external.string()).default(["architect"]),
+  scoring: ScoringConfigSchema.optional(),
+  enforce: exports_external.boolean().default(true),
+  prune_target: exports_external.number().min(0).max(1).default(0.7),
+  preserve_last_n_turns: exports_external.number().min(0).max(100).default(4),
+  recent_window: exports_external.number().min(1).max(100).default(10),
+  enforce_on_agent_switch: exports_external.boolean().default(true),
+  tool_output_mask_threshold: exports_external.number().min(100).max(1e5).default(2000)
 });
 var EvidenceConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
@@ -36710,7 +36723,231 @@ function createCompactionCustomizerHook(config3, directory) {
   };
 }
 // src/hooks/context-budget.ts
+init_utils();
+
+// src/hooks/message-priority.ts
+var MessagePriority = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+  DISPOSABLE: 4
+};
+function containsPlanContent(text) {
+  if (!text)
+    return false;
+  const lowerText = text.toLowerCase();
+  return lowerText.includes(".swarm/plan") || lowerText.includes(".swarm/context") || lowerText.includes("swarm/plan.md") || lowerText.includes("swarm/context.md");
+}
+function isToolResult(message) {
+  if (!message?.info)
+    return false;
+  const role = message.info.role;
+  const toolName = message.info.toolName;
+  return role === "assistant" && !!toolName;
+}
+function isDuplicateToolRead(current, previous) {
+  if (!current?.info || !previous?.info)
+    return false;
+  const currentTool = current.info.toolName;
+  const previousTool = previous.info.toolName;
+  if (currentTool !== previousTool)
+    return false;
+  const isReadTool = currentTool?.toLowerCase().includes("read") && previousTool?.toLowerCase().includes("read");
+  if (!isReadTool)
+    return false;
+  const currentArgs = current.info.toolArgs;
+  const previousArgs = previous.info.toolArgs;
+  if (!currentArgs || !previousArgs)
+    return false;
+  const currentKeys = Object.keys(currentArgs);
+  const previousKeys = Object.keys(previousArgs);
+  if (currentKeys.length === 0 || previousKeys.length === 0)
+    return false;
+  const firstKey = currentKeys[0];
+  return currentArgs[firstKey] === previousArgs[firstKey];
+}
+function isStaleError(text, turnsAgo) {
+  if (!text)
+    return false;
+  if (turnsAgo <= 6)
+    return false;
+  const lowerText = text.toLowerCase();
+  const errorPatterns = [
+    "error:",
+    "failed to",
+    "could not",
+    "unable to",
+    "exception",
+    "errno",
+    "cannot read",
+    "not found",
+    "access denied",
+    "timeout"
+  ];
+  return errorPatterns.some((pattern) => lowerText.includes(pattern));
+}
+function extractMessageText(message) {
+  if (!message?.parts || message.parts.length === 0)
+    return "";
+  return message.parts.map((part) => part?.text || "").join("");
+}
+function classifyMessage(message, index, totalMessages, recentWindowSize = 10) {
+  const role = message?.info?.role;
+  const text = extractMessageText(message);
+  if (containsPlanContent(text)) {
+    return MessagePriority.CRITICAL;
+  }
+  if (role === "system") {
+    return MessagePriority.CRITICAL;
+  }
+  if (role === "user") {
+    return MessagePriority.HIGH;
+  }
+  if (isToolResult(message)) {
+    const positionFromEnd = totalMessages - 1 - index;
+    if (positionFromEnd < recentWindowSize) {
+      return MessagePriority.MEDIUM;
+    }
+    if (isStaleError(text, positionFromEnd)) {
+      return MessagePriority.DISPOSABLE;
+    }
+    return MessagePriority.LOW;
+  }
+  if (role === "assistant") {
+    const positionFromEnd = totalMessages - 1 - index;
+    if (positionFromEnd < recentWindowSize) {
+      return MessagePriority.MEDIUM;
+    }
+    if (isStaleError(text, positionFromEnd)) {
+      return MessagePriority.DISPOSABLE;
+    }
+    return MessagePriority.LOW;
+  }
+  return MessagePriority.LOW;
+}
+function classifyMessages(messages, recentWindowSize = 10) {
+  const results = [];
+  const totalMessages = messages.length;
+  for (let i2 = 0;i2 < messages.length; i2++) {
+    const message = messages[i2];
+    const priority = classifyMessage(message, i2, totalMessages, recentWindowSize);
+    if (i2 > 0) {
+      const current = messages[i2];
+      const previous = messages[i2 - 1];
+      if (isDuplicateToolRead(current, previous)) {
+        if (results[i2 - 1] >= MessagePriority.MEDIUM) {
+          results[i2 - 1] = MessagePriority.DISPOSABLE;
+        }
+      }
+    }
+    results.push(priority);
+  }
+  return results;
+}
+
+// src/hooks/model-limits.ts
+init_utils();
+var NATIVE_MODEL_LIMITS = {
+  "claude-sonnet-4": 200000,
+  "claude-opus-4": 200000,
+  "claude-haiku-4": 200000,
+  "gpt-5": 400000,
+  "gpt-5.1-codex": 400000,
+  "gpt-5.1": 264000,
+  "gpt-4.1": 1047576,
+  "gemini-2.5-pro": 1048576,
+  "gemini-2.5-flash": 1048576,
+  o3: 200000,
+  "o4-mini": 200000,
+  "deepseek-r1": 163840,
+  "deepseek-chat": 163840,
+  "qwen3.5": 131072
+};
+var PROVIDER_CAPS = {
+  copilot: 128000,
+  "github-copilot": 128000
+};
+function extractModelInfo(messages) {
+  if (!messages || messages.length === 0) {
+    return {};
+  }
+  for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+    const message = messages[i2];
+    if (!message?.info)
+      continue;
+    if (message.info.role === "assistant") {
+      const modelID = message.info.modelID;
+      const providerID = message.info.providerID;
+      if (modelID || providerID) {
+        return {
+          ...modelID ? { modelID } : {},
+          ...providerID ? { providerID } : {}
+        };
+      }
+    }
+  }
+  return {};
+}
+var loggedFirstCalls = new Set;
+function resolveModelLimit(modelID, providerID, configOverrides = {}) {
+  const normalizedModelID = modelID ?? "";
+  const normalizedProviderID = providerID ?? "";
+  if (normalizedProviderID && normalizedModelID) {
+    const providerModelKey = `${normalizedProviderID}/${normalizedModelID}`;
+    if (configOverrides[providerModelKey] !== undefined) {
+      logFirstCall(normalizedModelID, normalizedProviderID, "override(provider/model)", configOverrides[providerModelKey]);
+      return configOverrides[providerModelKey];
+    }
+  }
+  if (normalizedModelID && configOverrides[normalizedModelID] !== undefined) {
+    logFirstCall(normalizedModelID, normalizedProviderID, "override(model)", configOverrides[normalizedModelID]);
+    return configOverrides[normalizedModelID];
+  }
+  if (normalizedProviderID && PROVIDER_CAPS[normalizedProviderID] !== undefined) {
+    const cap = PROVIDER_CAPS[normalizedProviderID];
+    logFirstCall(normalizedModelID, normalizedProviderID, "provider_cap", cap);
+    return cap;
+  }
+  if (normalizedModelID) {
+    const matchedLimit = findNativeLimit(normalizedModelID);
+    if (matchedLimit !== undefined) {
+      logFirstCall(normalizedModelID, normalizedProviderID, "native", matchedLimit);
+      return matchedLimit;
+    }
+  }
+  if (configOverrides.default !== undefined) {
+    logFirstCall(normalizedModelID, normalizedProviderID, "default_override", configOverrides.default);
+    return configOverrides.default;
+  }
+  logFirstCall(normalizedModelID, normalizedProviderID, "fallback", 128000);
+  return 128000;
+}
+function findNativeLimit(modelID) {
+  if (NATIVE_MODEL_LIMITS[modelID] !== undefined) {
+    return NATIVE_MODEL_LIMITS[modelID];
+  }
+  let bestMatch;
+  for (const key of Object.keys(NATIVE_MODEL_LIMITS)) {
+    if (modelID.startsWith(key)) {
+      if (!bestMatch || key.length > bestMatch.length) {
+        bestMatch = key;
+      }
+    }
+  }
+  return bestMatch ? NATIVE_MODEL_LIMITS[bestMatch] : undefined;
+}
+function logFirstCall(modelID, providerID, source, limit) {
+  const key = `${modelID || "unknown"}::${providerID || "unknown"}`;
+  if (!loggedFirstCalls.has(key)) {
+    loggedFirstCalls.add(key);
+    warn(`[model-limits] Resolved limit for ${modelID || "(no model)"}@${providerID || "(no provider)"}: ${limit} (source: ${source})`);
+  }
+}
+
+// src/hooks/context-budget.ts
 init_utils2();
+var lastSeenAgent;
 function createContextBudgetHandler(config3) {
   const enabled = config3.context_budget?.enabled !== false;
   if (!enabled) {
@@ -36718,14 +36955,19 @@ function createContextBudgetHandler(config3) {
   }
   const warnThreshold = config3.context_budget?.warn_threshold ?? 0.7;
   const criticalThreshold = config3.context_budget?.critical_threshold ?? 0.9;
-  const modelLimits = config3.context_budget?.model_limits ?? {
-    default: 128000
-  };
-  const modelLimit = modelLimits.default ?? 128000;
-  return async (_input, output) => {
+  const modelLimitsConfig = config3.context_budget?.model_limits ?? {};
+  const loggedLimits = new Set;
+  const handler = async (_input, output) => {
     const messages = output?.messages;
     if (!messages || messages.length === 0)
       return;
+    const { modelID, providerID } = extractModelInfo(messages);
+    const modelLimit = resolveModelLimit(modelID, providerID, modelLimitsConfig);
+    const cacheKey = `${modelID || "unknown"}::${providerID || "unknown"}`;
+    if (!loggedLimits.has(cacheKey)) {
+      loggedLimits.add(cacheKey);
+      warn(`[swarm] Context budget: model=${modelID || "unknown"} provider=${providerID || "unknown"} limit=${modelLimit}`);
+    }
     let totalTokens = 0;
     for (const message of messages) {
       if (!message?.parts)
@@ -36737,6 +36979,79 @@ function createContextBudgetHandler(config3) {
       }
     }
     const usagePercent = totalTokens / modelLimit;
+    let baseAgent;
+    for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+      const msg = messages[i2];
+      if (msg?.info?.role === "user" && msg?.info?.agent) {
+        baseAgent = stripKnownSwarmPrefix(msg.info.agent);
+        break;
+      }
+    }
+    let ratio = usagePercent;
+    if (lastSeenAgent !== undefined && baseAgent !== undefined && baseAgent !== lastSeenAgent) {
+      const enforceOnSwitch = config3.context_budget?.enforce_on_agent_switch ?? true;
+      if (enforceOnSwitch && usagePercent > (config3.context_budget?.warn_threshold ?? 0.7)) {
+        warn(`[swarm] Agent switch detected: ${lastSeenAgent} \u2192 ${baseAgent}, enforcing context budget`, {
+          from: lastSeenAgent,
+          to: baseAgent
+        });
+        ratio = 1;
+      }
+    }
+    lastSeenAgent = baseAgent;
+    if (ratio >= criticalThreshold) {
+      const enforce = config3.context_budget?.enforce ?? true;
+      if (enforce) {
+        const targetTokens = modelLimit * (config3.context_budget?.prune_target ?? 0.7);
+        const recentWindow = config3.context_budget?.recent_window ?? 10;
+        const priorities = classifyMessages(output.messages || [], recentWindow);
+        const toolMaskThreshold = config3.context_budget?.tool_output_mask_threshold ?? 2000;
+        let toolMaskFreedTokens = 0;
+        const maskedIndices = new Set;
+        for (let i2 = 0;i2 < (output.messages || []).length; i2++) {
+          const msg = (output.messages || [])[i2];
+          if (shouldMaskToolOutput(msg, i2, (output.messages || []).length, recentWindow, toolMaskThreshold)) {
+            toolMaskFreedTokens += maskToolOutput(msg, toolMaskThreshold);
+            maskedIndices.add(i2);
+          }
+        }
+        if (toolMaskFreedTokens > 0) {
+          totalTokens -= toolMaskFreedTokens;
+          warn(`[swarm] Tool output masking: masked ${maskedIndices.size} tool results, freed ~${toolMaskFreedTokens} tokens`, {
+            maskedCount: maskedIndices.size,
+            freedTokens: toolMaskFreedTokens
+          });
+        }
+        const preserveLastNTurns = config3.context_budget?.preserve_last_n_turns ?? 4;
+        const removableMessages = identifyRemovableMessages(output.messages || [], priorities, preserveLastNTurns);
+        let freedTokens = 0;
+        const toRemove = new Set;
+        for (const idx of removableMessages) {
+          if (totalTokens - freedTokens <= targetTokens)
+            break;
+          toRemove.add(idx);
+          freedTokens += estimateTokens(extractMessageText2(output.messages[idx]));
+        }
+        const beforeTokens = totalTokens;
+        if (toRemove.size > 0) {
+          const actualFreedTokens = applyObservationMasking(output.messages || [], toRemove);
+          totalTokens -= actualFreedTokens;
+          warn(`[swarm] Context enforcement: pruned ${toRemove.size} messages, freed ${actualFreedTokens} tokens (${beforeTokens}\u2192${totalTokens} of ${modelLimit})`, {
+            pruned: toRemove.size,
+            freedTokens: actualFreedTokens,
+            before: beforeTokens,
+            after: totalTokens,
+            limit: modelLimit
+          });
+        } else if (removableMessages.length === 0 && totalTokens > targetTokens) {
+          warn(`[swarm] Context enforcement: no removable messages found but still ${totalTokens} tokens (target: ${targetTokens})`, {
+            currentTokens: totalTokens,
+            targetTokens,
+            limit: modelLimit
+          });
+        }
+      }
+    }
     let lastUserMessageIndex = -1;
     for (let i2 = messages.length - 1;i2 >= 0; i2--) {
       if (messages[i2]?.info?.role === "user") {
@@ -36749,8 +37064,10 @@ function createContextBudgetHandler(config3) {
     const lastUserMessage = messages[lastUserMessageIndex];
     if (!lastUserMessage?.parts)
       return;
-    const agent = lastUserMessage.info?.agent;
-    if (agent && agent !== "architect")
+    const trackedAgents = config3.context_budget?.tracked_agents ?? [
+      "architect"
+    ];
+    if (baseAgent && !trackedAgents.includes(baseAgent))
       return;
     const textPartIndex = lastUserMessage.parts.findIndex((p) => p?.type === "text" && p.text !== undefined);
     if (textPartIndex === -1)
@@ -36771,6 +37088,110 @@ function createContextBudgetHandler(config3) {
       lastUserMessage.parts[textPartIndex].text = `${warningText}${originalText}`;
     }
   };
+  return handler;
+}
+function identifyRemovableMessages(messages, priorities, preserveLastNTurns) {
+  let turnCount = 0;
+  const protectedIndices = new Set;
+  for (let i2 = messages.length - 1;i2 >= 0 && turnCount < preserveLastNTurns * 2; i2--) {
+    const role = messages[i2]?.info?.role;
+    if (role === "user" || role === "assistant") {
+      protectedIndices.add(i2);
+      if (role === "user")
+        turnCount++;
+    }
+  }
+  let lastUserIdx = -1;
+  let lastAssistantIdx = -1;
+  for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+    const role = messages[i2]?.info?.role;
+    if (role === "user" && lastUserIdx === -1) {
+      lastUserIdx = i2;
+    }
+    if (role === "assistant" && lastAssistantIdx === -1) {
+      lastAssistantIdx = i2;
+    }
+    if (lastUserIdx !== -1 && lastAssistantIdx !== -1)
+      break;
+  }
+  if (lastUserIdx !== -1)
+    protectedIndices.add(lastUserIdx);
+  if (lastAssistantIdx !== -1)
+    protectedIndices.add(lastAssistantIdx);
+  const HIGH = MessagePriority.HIGH;
+  const MEDIUM = MessagePriority.MEDIUM;
+  const LOW = MessagePriority.LOW;
+  const DISPOSABLE = MessagePriority.DISPOSABLE;
+  const byPriority = [[], [], [], [], []];
+  for (let i2 = 0;i2 < priorities.length; i2++) {
+    const priority = priorities[i2];
+    if (!protectedIndices.has(i2) && priority > HIGH) {
+      byPriority[priority].push(i2);
+    }
+  }
+  return [...byPriority[DISPOSABLE], ...byPriority[LOW], ...byPriority[MEDIUM]];
+}
+function applyObservationMasking(messages, toRemove) {
+  let actualFreedTokens = 0;
+  for (const idx of toRemove) {
+    const msg = messages[idx];
+    if (msg?.parts) {
+      for (const part of msg.parts) {
+        if (part.type === "text" && part.text) {
+          const originalTokens = estimateTokens(part.text);
+          const placeholder = `[Context pruned \u2014 message from turn ${idx}, ~${originalTokens} tokens freed. Use retrieve_summary if needed.]`;
+          const maskedTokens = estimateTokens(placeholder);
+          part.text = placeholder;
+          actualFreedTokens += originalTokens - maskedTokens;
+        }
+      }
+    }
+  }
+  return actualFreedTokens;
+}
+function extractMessageText2(msg) {
+  if (!msg?.parts)
+    return "";
+  return msg.parts.filter((p) => p.type === "text" && p.text).map((p) => p.text).join(`
+`);
+}
+function extractToolName(text) {
+  const match = text.match(/^(read_file|write|edit|apply_patch|task|bun|npm|git|bash|glob|grep|mkdir|cp|mv|rm)\b/i);
+  return match?.[1];
+}
+function shouldMaskToolOutput(msg, index, totalMessages, recentWindowSize, threshold) {
+  if (!isToolResult(msg))
+    return false;
+  const text = extractMessageText2(msg);
+  if (text.includes("[Tool output masked") || text.includes("[Context pruned")) {
+    return false;
+  }
+  const toolName = extractToolName(text);
+  if (toolName && ["retrieve_summary", "task"].includes(toolName.toLowerCase())) {
+    return false;
+  }
+  const age = totalMessages - 1 - index;
+  return age > recentWindowSize || text.length > threshold;
+}
+function maskToolOutput(msg, threshold) {
+  if (!msg?.parts)
+    return 0;
+  let freedTokens = 0;
+  for (const part of msg.parts) {
+    if (part.type === "text" && part.text) {
+      if (part.text.includes("[Tool output masked") || part.text.includes("[Context pruned")) {
+        continue;
+      }
+      const originalTokens = estimateTokens(part.text);
+      const toolName = extractToolName(part.text) || "unknown";
+      const excerpt = part.text.substring(0, 200).replace(/\n/g, " ");
+      const placeholder = `[Tool output masked \u2014 ${toolName} returned ~${originalTokens} tokens. First 200 chars: "${excerpt}..." Use retrieve_summary if needed.]`;
+      const maskedTokens = estimateTokens(placeholder);
+      part.text = placeholder;
+      freedTokens += originalTokens - maskedTokens;
+    }
+  }
+  return freedTokens;
 }
 // src/hooks/delegation-gate.ts
 function extractTaskLine(text) {
@@ -36999,6 +37420,12 @@ function isSourceCodePath(filePath) {
   ];
   return !nonSourcePatterns.some((pattern) => pattern.test(normalized));
 }
+function hasTraversalSegments(filePath) {
+  if (!filePath)
+    return false;
+  const normalized = filePath.replace(/\\/g, "/");
+  return normalized.startsWith("..") || normalized.includes("/../") || normalized.endsWith("/..");
+}
 function isGateTool(toolName) {
   const normalized = toolName.replace(/^[^:]+[:.]/, "");
   const gateTools = [
@@ -37041,10 +37468,43 @@ function createGuardrailsHooks(config3) {
   const inputArgsByCallID = new Map;
   return {
     toolBefore: async (input, output) => {
-      if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+      const currentSession = swarmState.agentSessions.get(input.sessionID);
+      if (currentSession?.delegationActive) {} else if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
         const args2 = output.args;
         const targetPath = args2?.filePath ?? args2?.path ?? args2?.file ?? args2?.target;
-        if (typeof targetPath === "string" && isOutsideSwarmDir(targetPath) && isSourceCodePath(targetPath)) {
+        if (!targetPath && (input.tool === "apply_patch" || input.tool === "patch")) {
+          const patchText = args2?.input ?? args2?.patch ?? (Array.isArray(args2?.cmd) ? args2.cmd[1] : undefined);
+          if (typeof patchText === "string") {
+            const patchPathPattern = /\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
+            const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
+            const paths = new Set;
+            let match;
+            while ((match = patchPathPattern.exec(patchText)) !== null) {
+              paths.add(match[1].trim());
+            }
+            while ((match = diffPathPattern.exec(patchText)) !== null) {
+              const p = match[1].trim();
+              if (p !== "/dev/null")
+                paths.add(p);
+            }
+            for (const p of paths) {
+              if (isOutsideSwarmDir(p) && (isSourceCodePath(p) || hasTraversalSegments(p))) {
+                const session2 = swarmState.agentSessions.get(input.sessionID);
+                if (session2) {
+                  session2.architectWriteCount++;
+                  warn("Architect direct code edit detected via apply_patch", {
+                    tool: input.tool,
+                    sessionID: input.sessionID,
+                    targetPath: p,
+                    writeCount: session2.architectWriteCount
+                  });
+                }
+                break;
+              }
+            }
+          }
+        }
+        if (typeof targetPath === "string" && isOutsideSwarmDir(targetPath) && (isSourceCodePath(targetPath) || hasTraversalSegments(targetPath))) {
           const session2 = swarmState.agentSessions.get(input.sessionID);
           if (session2) {
             session2.architectWriteCount++;

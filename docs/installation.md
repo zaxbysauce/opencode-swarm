@@ -499,6 +499,46 @@ Control which hooks are active:
 
 ## Context Budget Configuration
 
+The context budget system now includes several additional controls to fine‑tune how token usage is managed and enforced. The full schema (see `src/config/schema.ts`) supports the following options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable token budget tracking and warnings |
+| `warn_threshold` | number | `0.7` | Inject warning message at this percentage of token limit |
+| `critical_threshold` | number | `0.9` | Inject critical warning at this percentage of token limit |
+| `model_limits` | object | `{ "default": 128000 }` | Token limits per model. Use `"default"` as fallback. |
+| `max_injection_tokens` | number | `4000` | Maximum tokens for system prompt injection. Priority‑ordered: phase → task → decisions → agent context |
+| `tracked_agents` | string[] | `["architect"]` | List of agents whose messages count toward the budget |
+| `enforce` | boolean | `true` | When `true` the system will abort or truncate messages that exceed the critical threshold |
+| `prune_target` | number | `0.7` | Target token usage after pruning (as a fraction of the model limit) |
+| `preserve_last_n_turns` | number | `4` | Number of recent message turns to keep intact during pruning |
+| `recent_window` | number | `10` | How many recent turns are considered for priority‑based pruning |
+| `enforce_on_agent_switch` | boolean | `true` | Enforce a hard context reset when the active agent changes (e.g., from `explorer` to `coder`) |
+| `tool_output_mask_threshold` | number | `2000` | Minimum token count at which tool output is masked/truncated to stay within the budget |
+
+These fields give operators granular control over context budgeting, enabling both soft warnings and hard enforcement policies.
+
+```json
+{
+  "context_budget": {
+    "enabled": true,
+    "warn_threshold": 0.7,
+    "critical_threshold": 0.9,
+    "model_limits": {
+      "default": 128000,
+      "anthropic/claude-sonnet-4-20250514": 200000
+    },
+    "tracked_agents": ["architect"],
+    "enforce": true,
+    "prune_target": 0.7,
+    "preserve_last_n_turns": 4,
+    "recent_window": 10,
+    "enforce_on_agent_switch": true,
+    "tool_output_mask_threshold": 2000
+  }
+}
+```
+
 Monitor and warn about context window usage:
 
 ```json

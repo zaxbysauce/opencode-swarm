@@ -1,5 +1,20 @@
 # Changelog
 
+## [6.14.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.11...v6.14.12) (2026-03-02)
+
+### Features
+
+* Hard context enforcement with priority pruning and agent‑switch reset (src/hooks/context-budget.ts)
+* Provider‑aware model limit resolution (src/hooks/model-limits.ts)
+* Message priority classification tiers (src/hooks/message-priority.ts)
+* Windows absolute path validation in utils (src/hooks/utils.ts)
+* CI test timeout safeguard to prevent hangs ( .github/workflows/ci.yml )
+
+### Bug Fixes
+
+* Guardrails fixes for delegation and self‑coding detection
+* Minor stability improvements
+
 ## [6.14.11](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.10...v6.14.11) (2026-03-01)
 
 

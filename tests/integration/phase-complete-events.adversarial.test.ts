@@ -289,6 +289,30 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const swarmDir = path.join(tempDir, '.swarm');
 			fs.chmodSync(swarmDir, 0o444);
 
+			// Pre-check: verify chmod actually blocks writes (not always effective on some macOS CI)
+			const probePath = path.join(swarmDir, '.write-probe');
+			let chmodEffective = false;
+			try {
+				fs.writeFileSync(probePath, 'test', 'utf-8');
+			} catch {
+				chmodEffective = true;
+			} finally {
+				try {
+					fs.unlinkSync(probePath);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+
+			// If chmod didn't block writes, restore permissions and skip test
+			if (!chmodEffective) {
+				fs.chmodSync(swarmDir, 0o755);
+				console.warn(
+					'SKIP: chmod(0o444) does not block writes on this system (possibly macOS with SIP)',
+				);
+				return;
+			}
+
 			try {
 				const result = await executePhaseComplete({
 					phase: 1,

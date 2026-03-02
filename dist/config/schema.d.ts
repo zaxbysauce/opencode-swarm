@@ -99,6 +99,7 @@ export declare const ContextBudgetConfigSchema: z.ZodObject<{
     critical_threshold: z.ZodDefault<z.ZodNumber>;
     model_limits: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodNumber>>;
     max_injection_tokens: z.ZodDefault<z.ZodNumber>;
+    tracked_agents: z.ZodDefault<z.ZodArray<z.ZodString>>;
     scoring: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         max_candidates: z.ZodDefault<z.ZodNumber>;
@@ -126,6 +127,12 @@ export declare const ContextBudgetConfigSchema: z.ZodObject<{
             json: z.ZodDefault<z.ZodNumber>;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
+    enforce: z.ZodDefault<z.ZodBoolean>;
+    prune_target: z.ZodDefault<z.ZodNumber>;
+    preserve_last_n_turns: z.ZodDefault<z.ZodNumber>;
+    recent_window: z.ZodDefault<z.ZodNumber>;
+    enforce_on_agent_switch: z.ZodDefault<z.ZodBoolean>;
+    tool_output_mask_threshold: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type ContextBudgetConfig = z.infer<typeof ContextBudgetConfigSchema>;
 export declare const EvidenceConfigSchema: z.ZodObject<{
@@ -451,6 +458,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         critical_threshold: z.ZodDefault<z.ZodNumber>;
         model_limits: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodNumber>>;
         max_injection_tokens: z.ZodDefault<z.ZodNumber>;
+        tracked_agents: z.ZodDefault<z.ZodArray<z.ZodString>>;
         scoring: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodDefault<z.ZodBoolean>;
             max_candidates: z.ZodDefault<z.ZodNumber>;
@@ -478,6 +486,12 @@ export declare const PluginConfigSchema: z.ZodObject<{
                 json: z.ZodDefault<z.ZodNumber>;
             }, z.core.$strip>>;
         }, z.core.$strip>>;
+        enforce: z.ZodDefault<z.ZodBoolean>;
+        prune_target: z.ZodDefault<z.ZodNumber>;
+        preserve_last_n_turns: z.ZodDefault<z.ZodNumber>;
+        recent_window: z.ZodDefault<z.ZodNumber>;
+        enforce_on_agent_switch: z.ZodDefault<z.ZodBoolean>;
+        tool_output_mask_threshold: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     guardrails: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	checkSemgrepAvailable,
@@ -160,10 +162,15 @@ describe('Semgrep Integration', () => {
 		});
 
 		it('should check bundled rules in project root', () => {
-			// The bundled rules should exist in the project
-			const result = hasBundledRules(process.cwd());
-			// This should be true since we created .swarm/semgrep-rules/
-			expect(result).toBe(true);
+			const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'semgrep-rules-'));
+			try {
+				const rulesDir = path.join(tempRoot, '.swarm', 'semgrep-rules');
+				fs.mkdirSync(rulesDir, { recursive: true });
+				const result = hasBundledRules(tempRoot);
+				expect(result).toBe(true);
+			} finally {
+				fs.rmSync(tempRoot, { recursive: true, force: true });
+			}
 		});
 	});
 
