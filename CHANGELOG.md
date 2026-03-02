@@ -2,6 +2,13 @@
 
 ## [6.15.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.12...v6.15.0) (2026-03-02)
 
+
+### Features
+
+* add requirements-driven planning pipeline (v6.15.0) ([c2b6262](https://github.com/zaxbysauce/opencode-swarm/commit/c2b6262b62ebaa77b96fee13bae86b84f41576aa))
+
+## [6.15.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.12...v6.15.0) (2026-03-02)
+
 ### Features
 
 * SPECIFY mode for Architect — generate structured requirement specs (FR-###, SC-###) from feature descriptions (src/agents/architect.ts)
