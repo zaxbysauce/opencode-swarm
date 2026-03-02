@@ -1515,9 +1515,388 @@ describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 				const hasPhaseCount = prompt.includes('PHASE COUNT');
 				const hasMinimum = prompt.includes('minimum');
 				expect(hasPhaseWrap || hasPhaseCount || hasMinimum).toBe(true);
-			});
 		});
 	});
+});
+
+// ============================================
+// TASK 1.1: EXPLICIT COMMAND OVERRIDE (Priority 0) - Adversarial Tests
+// ============================================
+
+describe('Architect Prompt v6.14 - Task 1.1 EXPLICIT COMMAND OVERRIDE (Priority 0)', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	describe('Attack Vector 1: Phrase Ambiguity - Bare "specify" in ambiguous context', () => {
+		it('Priority 0 exists with correct label', () => {
+			expect(prompt).toContain('0. **EXPLICIT COMMAND OVERRIDE**');
+		});
+
+		it('Priority 0 contains note about bare "specify" resolving via CLARIFY', () => {
+			expect(prompt).toContain('Note: bare "specify" in an ambiguous context');
+			expect(prompt).toContain('should resolve via CLARIFY (priority 4)');
+		});
+
+		it('Priority 0 mentions "specify what this does" example', () => {
+			expect(prompt).toContain('specify what this does');
+		});
+
+		it('Priority 0 instructs to use context to determine intent', () => {
+			expect(prompt).toContain('use context to determine intent');
+		});
+
+		it('ADVERSARIAL: "specify what this does" does NOT appear in explicit trigger phrases', () => {
+			// The phrase should appear only in the NOTE, not in the trigger list
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// Verify it appears in the note
+			expect(priority0Section).toContain('Note: bare "specify" in an ambiguous context');
+
+			// Count occurrences - "specify what this does" should appear once in the NOTE,
+			// NOT in the trigger phrase list
+			const matches = priority0Section.match(/specify what this does/g);
+			expect(matches).toBeTruthy();
+			if (matches) {
+				expect(matches.length).toBe(1);
+			}
+		});
+
+		it('ADVERSARIAL: Bare "specify" requires context disambiguation', () => {
+			// Attack vector: Without the context check, bare "specify" could trigger SPECIFY
+			// when the user actually wants clarification about existing code
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// The prompt should explicitly require context determination
+			expect(priority0Section).toContain('use context to determine intent');
+			expect(priority0Section).toContain('ambiguous context');
+		});
+	});
+
+	describe('Attack Vector 2: Missing Keywords - Common spec-creation phrases', () => {
+		it('Priority 0 includes "write a spec" trigger phrase', () => {
+			expect(prompt).toContain('"write a spec"');
+		});
+
+		it('Priority 0 includes "create a spec" trigger phrase', () => {
+			expect(prompt).toContain('"create a spec"');
+		});
+
+		it('Priority 0 includes "define requirements" trigger phrase', () => {
+			expect(prompt).toContain('"define requirements"');
+		});
+
+		it('Priority 0 includes "list requirements" trigger phrase', () => {
+			expect(prompt).toContain('"list requirements"');
+		});
+
+		it('Priority 0 includes "define a feature" trigger phrase', () => {
+			expect(prompt).toContain('"define a feature"');
+		});
+
+		it('Priority 0 includes "I have requirements" trigger phrase', () => {
+			expect(prompt).toContain('"I have requirements"');
+		});
+
+		it('ADVERSARIAL: "let\'s spec this out" NOT in priority 0 (fallback to CLARIFY)', () => {
+			// Attack vector: If "let's spec this out" were in priority 0, it would trigger SPECIFY
+			// even when the user is just brainstorming and hasn't made a firm decision
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// "let's spec this out" should NOT appear in priority 0
+			expect(priority0Section).not.toContain("let's spec this out");
+			expect(priority0Section).not.toContain("lets spec this out");
+		});
+
+		it('ADVERSARIAL: "I need a spec" NOT in priority 0 (fallback to CLARIFY)', () => {
+			// Attack vector: "I need a spec" is an expression of need, not a command to create
+			// It should route through CLARIFY to confirm the user wants to create now
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			expect(priority0Section).not.toContain('I need a spec');
+		});
+
+		it('ADVERSARIAL: "let\'s write specs" NOT in priority 0 (fallback to CLARIFY)', () => {
+			// Attack vector: "let's write specs" is a suggestion, not a direct command
+			// It should route through CLARIFY or DISCOVER first
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			expect(priority0Section).not.toContain("let's write specs");
+			expect(priority0Section).not.toContain("lets write specs");
+		});
+
+		it('ADVERSARIAL: "specify [something about spec/requirements]" pattern exists', () => {
+			// This is a catch-all pattern that should trigger priority 0
+			expect(prompt).toContain('specify [something about spec/requirements]');
+		});
+	});
+
+	describe('Attack Vector 3: Overlap Conflicts - "/swarm clarify" routing', () => {
+		it('Priority 0 mentions "/swarm clarify" command', () => {
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+			expect(priority0Section).toContain('/swarm clarify');
+		});
+
+		it('Priority 0 mentions CLARIFY-SPEC as possible mode for clarify', () => {
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+			expect(priority0Section).toContain('MODE: CLARIFY-SPEC');
+			expect(priority0Section).toContain('if spec.md exists and user says "clarify"');
+		});
+
+		it('Priority 3 (CLARIFY-SPEC) also mentions "/swarm clarify"', () => {
+			const priority3Section = prompt.substring(
+				prompt.indexOf('3. **CLARIFY-SPEC**'),
+				prompt.indexOf('4. **CLARIFY**')
+			);
+			expect(priority3Section).toContain('/swarm clarify');
+			expect(priority3Section).toContain('Enter MODE: CLARIFY-SPEC');
+		});
+
+		it('ADVERSARIAL: PRIORITY RULES clarify "/swarm clarify" routing', () => {
+			// Attack vector: Without clear rules, "/swarm clarify" could ambiguously trigger
+			// either priority 0 or priority 3. The rules must clarify the routing.
+			const priorityRulesSection = prompt.substring(
+				prompt.indexOf('PRIORITY RULES:'),
+				prompt.indexOf('### MODE: SPECIFY')
+			);
+
+			// The rules should explicitly state that explicit /swarm clarify commands
+			// are handled by the EXPLICIT COMMAND OVERRIDE
+			expect(priorityRulesSection).toContain('EXPLICIT COMMAND OVERRIDE (priority 0)');
+			expect(priorityRulesSection).toContain('/swarm clarify');
+		});
+
+		it('ADVERSARIAL: "/swarm clarify" routes to CLARIFY-SPEC (not SPECIFY)', () => {
+			// Attack vector: If "/swarm clarify" routed to SPECIFY instead of CLARIFY-SPEC,
+			// it would create ambiguity about whether to create or refine an existing spec
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// Priority 0 should mention CLARIFY-SPEC for "/swarm clarify"
+			expect(priority0Section).toContain('MODE: CLARIFY-SPEC');
+
+			// Priority 0 should NOT route "/swarm clarify" to MODE: SPECIFY without conditions
+			// The section should say "Enter MODE: SPECIFY (or MODE: CLARIFY-SPEC if spec.md exists and user says "clarify")"
+			expect(priority0Section).toContain('Enter MODE: SPECIFY (or MODE: CLARIFY-SPEC');
+		});
+
+		it('ADVERSARIAL: Explicit commands override RESUME', () => {
+			// Attack vector: Without this rule, an incomplete plan could cause "/swarm clarify"
+			// to incorrectly route to RESUME instead of CLARIFY-SPEC
+			const priorityRulesSection = prompt.substring(
+				prompt.indexOf('PRIORITY RULES:'),
+				prompt.indexOf('### MODE: SPECIFY')
+			);
+
+			// Must state that explicit spec commands always override RESUME
+			expect(priorityRulesSection).toContain('always overrides RESUME');
+			expect(priorityRulesSection).toContain('explicit spec command always wins');
+		});
+	});
+
+	describe('Attack Vector 4: Guard Condition - Removing "RESUME always wins"', () => {
+		it('Old "RESUME always wins" phrase removed from priority 1', () => {
+			const priority1Section = prompt.substring(
+				prompt.indexOf('1. **RESUME**'),
+				prompt.indexOf('2. **SPECIFY**')
+			);
+
+			// The old phrasing should NOT exist
+			expect(priority1Section).not.toContain('RESUME always wins');
+		});
+
+		it('New guard condition: "user has NOT issued an explicit spec command"', () => {
+			const priority1Section = prompt.substring(
+				prompt.indexOf('1. **RESUME**'),
+				prompt.indexOf('2. **SPECIFY**')
+			);
+
+			// The new guard condition must be present
+			expect(priority1Section).toContain('user has NOT issued an explicit spec command');
+			expect(priority1Section).toContain('(see priority 0)');
+		});
+
+		it('PRIORITY RULES clarify new guard condition', () => {
+			const priorityRulesSection = prompt.substring(
+				prompt.indexOf('PRIORITY RULES:'),
+				prompt.indexOf('### MODE: SPECIFY')
+			);
+
+			// Must explain the new guard condition clearly
+			expect(priorityRulesSection).toContain('RESUME wins over SPECIFY (priority 2)');
+			expect(priorityRulesSection).toContain('when no explicit spec command is present');
+			expect(priorityRulesSection).toContain('never accidentally routed to SPECIFY');
+		});
+
+		it('ADVERSARIAL: RESUME does NOT trigger if explicit spec command issued', () => {
+			// Attack vector: Without this guard, "/swarm specify" on a project with an
+			// incomplete plan could incorrectly route to RESUME instead of SPECIFY
+			const priority1Section = prompt.substring(
+				prompt.indexOf('1. **RESUME**'),
+				prompt.indexOf('2. **SPECIFY**')
+			);
+
+			// The RESUME condition must explicitly check for the absence of spec commands
+			expect(priority1Section).toContain('AND the user has NOT issued an explicit spec command');
+		});
+
+		it('ADVERSARIAL: Guard condition prevents incorrect RESUME routing', () => {
+			// Attack vector: The guard ensures RESUME only fires when truly continuing
+			// existing work, not when the user explicitly wants to create a new spec
+			const priorityRulesSection = prompt.substring(
+				prompt.indexOf('PRIORITY RULES:'),
+				prompt.indexOf('### MODE: SPECIFY')
+			);
+
+			// The rules should explicitly state this protection
+			expect(priorityRulesSection).toContain('a user continuing existing work is never accidentally routed to SPECIFY');
+		});
+	});
+
+	describe('Attack Vector 5: Boundary - "requirements" keyword regression', () => {
+		it('Priority 0 includes "define requirements" trigger', () => {
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+			expect(priority0Section).toContain('"define requirements"');
+		});
+
+		it('Priority 0 includes "list requirements" trigger', () => {
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+			expect(priority0Section).toContain('"list requirements"');
+		});
+
+		it('ADVERSARIAL: Standalone "requirements" NOT in priority 0', () => {
+			// Attack vector: If "requirements" were a standalone trigger, it would be too broad
+			// and could incorrectly trigger SPECIFY for queries like "what are the requirements?"
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// Check that "requirements" appears only within the specific phrases
+			// Count standalone occurrences (not within "define requirements" or "list requirements")
+			const fullText = priority0Section;
+			const defineCount = (fullText.match(/define requirements/g) || []).length;
+			const listCount = (fullText.match(/list requirements/g) || []).length;
+
+			// Find all "requirements" mentions and verify they're part of the trigger phrases
+			const requirementsMatches = fullText.match(/requirements/g);
+			expect(requirementsMatches).toBeTruthy();
+			if (requirementsMatches) {
+				// All "requirements" mentions should be accounted for by the trigger phrases
+				expect(requirementsMatches.length).toBe(defineCount + listCount);
+			}
+		});
+
+		it('ADVERSARIAL: "I have requirements" triggers priority 0', () => {
+			// This is an explicit trigger phrase in priority 0
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+			expect(priority0Section).toContain('"I have requirements"');
+		});
+
+		it('ADVERSARIAL: "requirements" without verb does NOT trigger priority 0', () => {
+			// Attack vector: A bare "requirements" word without "define" or "list" should not
+			// trigger SPECIFY. Phrases like "check requirements" or "verify requirements"
+			// should route differently (likely CLARIFY or DISCOVER)
+			const priority0Section = prompt.substring(
+				prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**'),
+				prompt.indexOf('1. **RESUME**')
+			);
+
+			// The section should only contain "requirements" within the specific trigger phrases
+			// It should NOT contain bare references to just "requirements"
+			const hasBareRequirements = /\brequirements\b(?!\s*and|requirements")/.test(priority0Section);
+			expect(hasBareRequirements).toBe(false);
+		});
+
+		it('MODE: SPECIFY activation includes the trigger phrases', () => {
+			// Verify that MODE: SPECIFY section lists the same trigger phrases as priority 0
+			const specifyModeSection = prompt.substring(
+				prompt.indexOf('### MODE: SPECIFY'),
+				prompt.indexOf('1. Check if')
+			);
+
+			// MODE: SPECIFY should list the explicit triggers
+			expect(specifyModeSection).toContain('user asks to "specify"');
+			expect(specifyModeSection).toContain('"define requirements"');
+			expect(specifyModeSection).toContain('"write a spec"');
+			expect(specifyModeSection).toContain('"define a feature"');
+		});
+	});
+
+	describe('Integration Tests - Priority Order Enforcement', () => {
+		it('All priority levels (0-6) are present in correct order', () => {
+			const workflowSection = prompt.substring(
+				prompt.indexOf('### MODE DETECTION (Priority Order)'),
+				prompt.indexOf('PRIORITY RULES:')
+			);
+
+			expect(workflowSection).toContain('0. **EXPLICIT COMMAND OVERRIDE**');
+			expect(workflowSection).toContain('1. **RESUME**');
+			expect(workflowSection).toContain('2. **SPECIFY**');
+			expect(workflowSection).toContain('3. **CLARIFY-SPEC**');
+			expect(workflowSection).toContain('4. **CLARIFY**');
+			expect(workflowSection).toContain('5. **DISCOVER**');
+			expect(workflowSection).toContain('6. All other modes');
+		});
+
+		it('PRIORITY RULES section exists after priority levels', () => {
+			const priorityRulesPos = prompt.indexOf('PRIORITY RULES:');
+			const priority0Pos = prompt.indexOf('0. **EXPLICIT COMMAND OVERRIDE**');
+			expect(priorityRulesPos).toBeGreaterThan(priority0Pos);
+		});
+
+		it('PRIORITY RULES explicitly state "FIRST matching rule wins"', () => {
+			const workflowSection = prompt.substring(
+				prompt.indexOf('### MODE DETECTION (Priority Order)'),
+				prompt.indexOf('PRIORITY RULES:')
+			);
+			expect(workflowSection).toContain('the FIRST matching rule wins');
+		});
+
+		it('ADVERSARIAL: Priority 0 explicitly wins over everything', () => {
+			// Attack vector: Without explicit "wins over everything" language, the priority
+			// order could be ambiguous
+			const priorityRulesSection = prompt.substring(
+				prompt.indexOf('PRIORITY RULES:'),
+				prompt.indexOf('### MODE: SPECIFY')
+			);
+
+			expect(priorityRulesSection).toContain('wins over everything');
+			expect(priorityRulesSection).toContain('EXPLICIT COMMAND OVERRIDE (priority 0)');
+		});
+	});
+});
 	});
 });
 
@@ -1789,12 +2168,82 @@ describe('MODE: SPECIFY (v6.15 Task 7.1)', () => {
 		expect(specifySection).toContain('The user\'s plan is the starting point, not a draft to replace');
 	});
 
-	it('PRIORITY RULES: RESUME always wins over SPECIFY', () => {
-		expect(prompt).toContain('RESUME always wins — a user with an in-progress plan never accidentally triggers SPECIFY');
+	it('PRIORITY RULES: EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything', () => {
+		expect(prompt).toContain('EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything');
 	});
 
-	it('PRIORITY RULES: SPECIFY fires before DISCOVER when no spec exists', () => {
-		expect(prompt).toContain('SPECIFY fires before DISCOVER when no spec exists');
+	it('PRIORITY RULES: RESUME wins over SPECIFY when no explicit spec command present', () => {
+		expect(prompt).toContain('RESUME wins over SPECIFY (priority 2) and all other modes when no explicit spec command is present');
+	});
+
+	it('PRIORITY RULES: SPECIFY (priority 2) fires only for new projects', () => {
+		expect(prompt).toContain('SPECIFY (priority 2) fires only for new projects with no spec and no plan');
+	});
+
+	// ============================================
+	// MODE DETECTION - Priority 0 EXPLICIT COMMAND OVERRIDE (Task 1.1)
+	// ============================================
+
+	describe('MODE DETECTION - Priority 0 EXPLICIT COMMAND OVERRIDE (Task 1.1)', () => {
+		it('Priority 0 section contains EXPLICIT COMMAND OVERRIDE header', () => {
+			expect(prompt).toContain('0. **EXPLICIT COMMAND OVERRIDE**');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE lists /swarm specify command', () => {
+			expect(prompt).toContain('/swarm specify');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE lists /swarm clarify command', () => {
+			expect(prompt).toContain('/swarm clarify');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "write a spec" phrase', () => {
+			expect(prompt).toContain('write a spec');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "create a spec" phrase', () => {
+			expect(prompt).toContain('create a spec');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "define requirements" phrase', () => {
+			expect(prompt).toContain('define requirements');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "list requirements" phrase', () => {
+			expect(prompt).toContain('list requirements');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "define a feature" phrase', () => {
+			expect(prompt).toContain('define a feature');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE contains "I have requirements" phrase', () => {
+			expect(prompt).toContain('I have requirements');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE states it fires BEFORE RESUME', () => {
+			expect(prompt).toContain('This override fires BEFORE RESUME');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE states explicit spec command always wins', () => {
+			expect(prompt).toContain('an explicit spec command always wins');
+		});
+
+		it('EXPLICIT COMMAND OVERRIDE works even if plan.md has incomplete tasks', () => {
+			expect(prompt).toContain('even if plan.md has incomplete tasks');
+		});
+
+		it('PRIORITY RULES section reiterates priority 0 wins over everything', () => {
+			expect(prompt).toContain('EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything');
+		});
+
+		it('PRIORITY RULES states explicit spec-creation language overrides RESUME', () => {
+			expect(prompt).toContain('always overrides RESUME');
+		});
+
+		it('RESUME priority 1 is gated on explicit spec command check', () => {
+			expect(prompt).toContain('1. **RESUME** — `.swarm/plan.md` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0)');
+		});
 	});
 });
 
@@ -1937,6 +2386,225 @@ describe('SOFT SPEC GATE in MODE: PLAN (v6.15 Task 7.2)', () => {
 		expect(planSection).toContain('do NOT modify any planning behavior');
 		expect(planSection).toContain('This is a SOFT gate');
 	});
+
+	// v6.16 Task 1.2: STALE SPEC DETECTION in SPEC GATE
+	describe('v6.16 Task 1.2 - STALE SPEC DETECTION in SPEC GATE', () => {
+		const agent = createArchitectAgent('test-model');
+		const prompt = agent.config.prompt!;
+
+		const planStart = prompt.indexOf('### MODE: PLAN');
+		const planEnd = prompt.indexOf('### MODE: CRITIC-GATE', planStart);
+		const planSection = planStart >= 0 && planEnd > planStart
+			? prompt.slice(planStart, planEnd)
+			: '';
+
+		it('SPEC GATE contains NOTE about heuristic detection', () => {
+			expect(planSection).toContain('NOTE: Stale detection is intentionally heuristic');
+			expect(planSection).toContain('compare headings');
+			expect(planSection).toContain('false positives are acceptable');
+			expect(planSection).toContain('this is a SOFT gate');
+			expect(planSection).toContain('When in doubt, ask the user');
+		});
+
+		it('STALE SPEC DETECTION block exists in SPEC GATE', () => {
+			expect(planSection).toContain('STALE SPEC DETECTION');
+		});
+
+	it('STALE SPEC DETECTION compares spec heading against current planning context', () => {
+			expect(planSection).toContain('Read the spec and compare its first heading');
+			expect(planSection).toContain('or feature description');
+			expect(planSection).toContain('against the current planning context');
+			expect(planSection).toContain('the user\'s request and any existing plan.md title/phase names');
+		});
+
+	it('STALE SPEC DETECTION triggers when spec heading does NOT match current work', () => {
+			expect(planSection).toContain('does NOT match');
+			expect(planSection).toContain('current work being planned');
+			expect(planSection).toContain('treat the spec as potentially stale');
+		});
+
+		it('Option 1: Archive and create new spec', () => {
+			expect(planSection).toContain('Archive and create new spec');
+			expect(planSection).toContain('attempt to rename .swarm/spec.md to .swarm/spec-archive/spec-{YYYY-MM-DD}.md');
+			expect(planSection).toContain('(create the directory if needed)');
+			expect(planSection).toContain('if archival succeeds: enter MODE: SPECIFY and skip the "spec already exists" prompt');
+			expect(planSection).toContain('if archival fails: inform user of the failure and offer: retry archival, or proceed with option 2, or proceed with option 3');
+		});
+
+		it('Option 2: Keep existing spec', () => {
+			expect(planSection).toContain('Keep existing spec');
+			expect(planSection).toContain('use spec.md as-is');
+			expect(planSection).toContain('proceed with planning below');
+		});
+
+		it('Option 3: Skip spec entirely', () => {
+			expect(planSection).toContain('Skip spec entirely');
+			expect(planSection).toContain('proceed to planning below ignoring the existing spec');
+		});
+
+		it('STALE SPEC DETECTION offers exactly three options', () => {
+			expect(planSection).toContain('offer three options');
+			// Count option markers
+			const optionMatches = planSection.match(/^\s*\d+\.\s*\*\*/gm);
+			expect(optionMatches).toBeTruthy();
+			// Should have exactly 3 numbered options in stale detection section
+			const staleSectionStart = planSection.indexOf('STALE SPEC DETECTION');
+			const staleSectionEnd = planSection.indexOf('proceed with spec:', staleSectionStart);
+			const staleSection = staleSectionStart >= 0 && staleSectionEnd > staleSectionStart
+				? planSection.slice(staleSectionStart, staleSectionEnd)
+				: '';
+			const optionMarkers = staleSection.match(/^\s*\d+\./gm);
+			expect(optionMarkers).toBeTruthy();
+			if (optionMarkers) {
+				expect(optionMarkers.length).toBe(3);
+			}
+		});
+
+		it('proceed normally sub-steps are properly indented', () => {
+			expect(planSection).toContain('proceed with spec:');
+			expect(planSection).toContain('Read it and use it as the primary input for planning');
+			expect(planSection).toContain('Cross-reference requirements (FR-###) when decomposing tasks');
+			expect(planSection).toContain('Ensure every FR-### maps to at least one task');
+			expect(planSection).toContain('flag it as a potential gold-plating risk');
+		});
+
+		it('STALE SPEC DETECTION activates on heading mismatch (e.g., "user authentication" vs "payment integration")', () => {
+			expect(planSection).toContain('spec describes "user authentication" but user is asking to plan "payment integration"');
+			expect(planSection).toContain('spec heading or feature description does NOT match');
+		});
+
+		it('ADVERSARIAL: STALE SPEC DETECTION cannot be bypassed by removing NOTE', () => {
+			// Attack vector: Removing the NOTE about heuristic detection would make the gate appear
+			// strict when it's actually a soft gate
+			expect(planSection).toContain('NOTE: Stale detection is intentionally heuristic');
+			expect(planSection).toContain('false positives are acceptable');
+		});
+
+		it('ADVERSARIAL: STALE SPEC DETECTION preserves all three options', () => {
+			// Attack vector: If options are removed, the architect would have no way to handle
+			// stale specs other than always creating new ones or always keeping old ones
+			expect(planSection).toContain('Archive and create new spec');
+			expect(planSection).toContain('Keep existing spec');
+			expect(planSection).toContain('Skip spec entirely');
+		});
+
+		it('ADVERSARIAL: STALE SPEC DETECTION maintains "proceed with spec" path', () => {
+			// Attack vector: Removing the "proceed with spec" path would break planning when
+			// the spec is actually current (not stale)
+			expect(planSection).toContain('proceed with spec:');
+			expect(planSection).toContain('If the spec appears current');
+			expect(planSection).toContain('OR user chose option 2 above');
+		});
+
+		it('FIX VERIFICATION: Option 1 archival error handling mentions "archival fails"', () => {
+			// Fix 1: The option 1 archival error handling now mentions "archival fails"
+			expect(planSection).toContain('archival fails');
+			expect(planSection).toContain('inform user of the failure');
+		});
+
+		it('FIX VERIFICATION: Option 3 "proceed without spec" branch has its own condition', () => {
+			// Fix 2: The option 3 "proceed without spec" branch is now explicitly handled with its own condition
+			expect(planSection).toContain('If user chose option 3 above, proceed without spec');
+			expect(planSection).toContain('skip all spec-based steps and proceed directly to planning');
+		});
+	});
+});
+
+// ============================================
+// Task 1.3: Spec Archival Instructions in MODE: SPECIFY
+// ============================================
+
+describe('Task 1.3 - Spec Archival Instructions in MODE: SPECIFY', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	// Find the MODE: SPECIFY section
+	const specifyModeStart = prompt.indexOf('### MODE: SPECIFY');
+	const specifyModeEnd = prompt.indexOf('### MODE: CLARIFY-SPEC');
+	const specifyModeSection = prompt.slice(specifyModeStart, specifyModeEnd);
+
+	describe('Archive path references .swarm/spec-archive/', () => {
+		it('contains .swarm/spec-archive/ path', () => {
+			expect(specifyModeSection).toContain('.swarm/spec-archive/');
+		});
+
+		it('mentions creating the archive directory', () => {
+			expect(specifyModeSection).toContain('create `.swarm/spec-archive/` directory');
+		});
+	});
+
+	describe('Version-based archive naming', () => {
+		it('contains spec-v{version}.md pattern for version-based naming', () => {
+			expect(specifyModeSection).toContain('spec-v{version}.md');
+		});
+
+		it('extracts version from spec heading patterns', () => {
+			expect(specifyModeSection).toContain('v{semver}');
+			expect(specifyModeSection).toContain('Version {semver}');
+		});
+
+		it('extracts version from package.json as fallback', () => {
+			expect(specifyModeSection).toContain('package.json version');
+		});
+
+		it('specifies version extraction priority order', () => {
+			expect(specifyModeSection).toContain('priority order');
+		});
+	});
+
+	describe('Fallback date-based naming', () => {
+		it('contains spec-{YYYY-MM-DD}.md pattern for date fallback', () => {
+			expect(specifyModeSection).toContain('spec-{YYYY-MM-DD}.md');
+		});
+
+		it('states date fallback when version cannot be determined', () => {
+			expect(specifyModeSection).toContain('if version cannot be determined');
+		});
+	});
+
+	describe('Archive location logging', () => {
+		it('mentions logging archive location to user', () => {
+			expect(specifyModeSection).toContain('log the archive location to the user');
+		});
+
+		it('contains example log message', () => {
+			expect(specifyModeSection).toContain('Archived existing spec to .swarm/spec-archive/spec-v{version}.md');
+		});
+	});
+
+	describe('Bypass for stale spec archival path', () => {
+		it('contains condition to skip archival check for stale spec path', () => {
+			expect(specifyModeSection).toContain('If this is called from the stale spec archival path');
+			expect(specifyModeSection).toContain('skip this check');
+		});
+	});
+
+	describe('Archive FIRST instruction placement', () => {
+		it('ARCHIVE FIRST instruction appears before generation (step 2)', () => {
+			const archiveFirstPos = specifyModeSection.indexOf('ARCHIVE FIRST');
+			const step2Pos = specifyModeSection.indexOf('2. Delegate to');
+			expect(archiveFirstPos).toBeGreaterThan(-1);
+			expect(step2Pos).toBeGreaterThan(-1);
+			expect(archiveFirstPos).toBeLessThan(step2Pos);
+		});
+	});
+
+	describe('ADVERSARIAL: Archive bypass protection', () => {
+		it('bypass condition is specific to stale spec archival path only', () => {
+			// The bypass should only apply when called from MODE: PLAN's stale spec archival path
+			expect(specifyModeSection).toContain('MODE: PLAN option 1');
+		});
+
+		it('cannot bypass archival by removing archive check', () => {
+			// The archive check must exist
+			expect(specifyModeSection).toContain('Check if `.swarm/spec.md` already exists');
+		});
+
+		it('ARCHIVE FIRST is mandatory on overwrite path', () => {
+			// The overwrite path MUST archive first
+			expect(specifyModeSection).toContain('Overwrite → ARCHIVE FIRST');
+		});
+	});
 });
 
 // ============================================
@@ -2026,5 +2694,120 @@ describe('MODE: PHASE-WRAP — drift-check delegation (v6.15 Task 7.5)', () => {
 
 	it('DRIFT-CHECK delegation uses agent prefix pattern', () => {
 		expect(phaseWrapSection).toContain('{{AGENT_PREFIX}}critic');
+	});
+});
+
+// ============================================
+// Task 1.4: PLAN INGESTION DETECTION in MODE: PLAN SPEC GATE
+// ============================================
+
+describe('Task 1.4 - PLAN INGESTION DETECTION in MODE: PLAN SPEC GATE', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	const planStart = prompt.indexOf('### MODE: PLAN');
+	const planEnd = prompt.indexOf('### MODE: CRITIC-GATE', planStart);
+	const planSection = planStart >= 0 && planEnd > planStart
+		? prompt.slice(planStart, planEnd)
+		: '';
+
+	describe('Verification Tests', () => {
+		it('PLAN INGESTION DETECTION text is present in MODE: PLAN', () => {
+			expect(planSection).toContain('PLAN INGESTION DETECTION');
+		});
+
+		it('Soft gate language ("SOFT gate") is present', () => {
+			expect(planSection).toContain('SOFT gate');
+			expect(planSection).toMatch(/This is a SOFT gate/);
+		});
+
+		it('Plan ingestion phrases are listed (ingest this plan, implement this plan, etc.)', () => {
+			expect(planSection).toContain('ingest this plan');
+			expect(planSection).toContain('implement this plan');
+			expect(planSection).toContain('prepare for implementation');
+			expect(planSection).toContain('here is a plan');
+			expect(planSection).toContain("here's the plan");
+		});
+
+		it('Two-option offer with spec generation is present', () => {
+			expect(planSection).toContain('Generate spec from this plan first');
+			expect(planSection).toContain('enter EXTERNAL PLAN IMPORT PATH in MODE: SPECIFY');
+			expect(planSection).toContain('reverse-engineer a spec.md from the provided plan');
+			expect(planSection).toContain('then return to planning');
+		});
+
+		it('Two-option offer with skip is present', () => {
+			expect(planSection).toContain('Skip spec and proceed with the provided plan');
+			expect(planSection).toContain('proceed directly to plan ingestion and planning without creating a spec');
+		});
+
+		it('Option 2 always lets the user proceed without a spec', () => {
+			// Find the soft gate statement that confirms option 2 bypass
+			const ingestionSection = planSection.slice(
+				planSection.indexOf('PLAN INGESTION DETECTION'),
+				planSection.indexOf('If no plan ingestion detected:')
+			);
+			expect(ingestionSection).toContain('option 2 always lets the user proceed without a spec');
+		});
+	});
+
+	describe('Adversarial Tests', () => {
+		it('ADVERSARIAL: Bare "plan" word alone does not trigger detection', () => {
+			// The phrase "plan" alone should NOT be in the trigger list
+			const triggerSection = planSection.slice(
+				planSection.indexOf('phrases like'),
+				planSection.indexOf(')' , planSection.indexOf('phrases like'))
+			);
+			// Verify "plan" as a standalone word is NOT in the trigger phrases
+			const hasBarePlan = /"plan"/.test(triggerSection);
+			const hasQuotedPlanWithContext = /"(ingest|implement|prepare for).*plan"/.test(triggerSection);
+			
+			// Should have context phrases, not bare "plan"
+			expect(hasBarePlan).toBe(false);
+			expect(hasQuotedPlanWithContext).toBe(true);
+		});
+
+		it('ADVERSARIAL: Option 2 explicitly allows bypass (cannot be gated)', () => {
+			// Verify that option 2 explicitly says the user can proceed without creating a spec
+			const ingestionSection = planSection.slice(
+				planSection.indexOf('PLAN INGESTION DETECTION'),
+				planSection.indexOf('If no plan ingestion detected:')
+			);
+			
+			// Must contain the explicit bypass language
+			expect(ingestionSection).toContain('proceed directly to plan ingestion and planning without creating a spec');
+			expect(ingestionSection).toContain('option 2 always lets the user proceed without a spec');
+			
+			// Must be in a soft gate context
+			expect(ingestionSection).toMatch(/SOFT gate/);
+		});
+
+		it('ADVERSARIAL: Plan ingestion detection cannot be bypassed by removing the phrase list', () => {
+			// All 5 phrases must be present
+			const triggerStart = planSection.indexOf('phrases like');
+			const triggerEnd = planSection.indexOf(')', triggerStart);
+			const triggerSection = planSection.slice(triggerStart, triggerEnd);
+			
+			const requiredPhrases = [
+				'ingest this plan',
+				'implement this plan',
+				'prepare for implementation',
+				'here is a plan',
+				"here's the plan"
+			];
+			
+			for (const phrase of requiredPhrases) {
+				expect(triggerSection).toContain(phrase);
+			}
+		});
+
+		it('ADVERSARIAL: Spec generation path includes clear return-to-planning instruction', () => {
+			// Verify that option 1 says "then return to planning" to ensure flow clarity
+			const ingestionSection = planSection.slice(
+				planSection.indexOf('PLAN INGESTION DETECTION'),
+				planSection.indexOf('If no plan ingestion detected:')
+			);
+			expect(ingestionSection).toContain('then return to planning');
+		});
 	});
 });
