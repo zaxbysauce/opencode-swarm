@@ -2,6 +2,13 @@
 
 ## [6.16.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.15.0...v6.16.0) (2026-03-02)
 
+
+### Features
+
+* add multi-language support with 11 language profiles (v6.16.0) ([bf33f8e](https://github.com/zaxbysauce/opencode-swarm/commit/bf33f8e2dc66dc9d55b598e1425f05748f25189a))
+
+## [6.16.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.15.0...v6.16.0) (2026-03-02)
+
 ### Features
 
 * **Multi-Language Support (11 languages, 3 tiers)** — Language profile abstraction in `src/lang/profiles.ts` covering TypeScript/JS, Python, Rust, Go (Tier 1), Java, Kotlin, C#/.NET, C/C++, Swift (Tier 2), Dart/Flutter, Ruby (Tier 3)
