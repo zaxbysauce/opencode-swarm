@@ -30,7 +30,7 @@ dist/tools/build-check.d.ts
 dist/tools/pre-check-batch.d.ts
 dist/tools/quality-budget.d.ts
 dist/tools/sbom-generate.d.ts
-# Swarm phase spec/planning scratch files
-v6.*-*.md
-v6.*.md
+# Swarm phase spec/planning scratch files (root-level only, not docs/releases/)
+/v6.*-*.md
+/v6.*.md
 
