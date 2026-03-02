@@ -226,3 +226,39 @@ Use the built-in pipeline when:
 - You want a fast spec without switching tools
 - Your requirements are clear enough to capture in one session
 - You're extending an existing codebase where the spec can be grounded in the current code
+
+---
+
+## Multi-Language Projects
+
+OpenCode Swarm v6.16+ automatically detects project languages by scanning for language-specific marker files (e.g., `package.json`, `Cargo.toml`, `go.mod`, `pubspec.yaml`) and file extensions. No configuration is required for single-language projects.
+
+### Auto-Detection
+
+Language detection runs transparently during tool execution. The `detectProjectLanguages(projectDir)` function returns active profiles sorted by tier. Tier 1 languages (TypeScript/JS, Python, Rust, Go) have the richest tool coverage; Tier 2 and Tier 3 languages have progressively lighter coverage.
+
+### Monorepo Support
+
+For monorepos with multiple language subdirectories, all detected languages are activated. Tool commands run for each detected ecosystem independently — a Go + TypeScript monorepo runs both `go test` and `bun test`, for example.
+
+### Profile-Driven Tool Resolution
+
+Each language profile specifies its own build commands, test frameworks, lint tools, audit command, and SAST rules. The swarm picks the highest-priority tool whose binary is on PATH. If no binary is found, the step is skipped with a soft warning — the pipeline continues.
+
+### Optional External Tools
+
+Some tools require manual installation and are not bundled:
+
+| Tool | Language | Install |
+|------|----------|---------|
+| `govulncheck` | Go (Tier 1) | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
+| `ktlint` | Kotlin | Download from [ktlint releases](https://github.com/pinterest/ktlint/releases) |
+| `bundle-audit` | Ruby | `gem install bundler-audit` |
+| `cppcheck` | C / C++ | `brew install cppcheck` or `apt install cppcheck` |
+| `swiftlint` | Swift | `brew install swiftlint` |
+
+Missing binaries produce a soft warning only — the pipeline never hard-fails on a missing tool.
+
+### Language-Specific Prompt Injection
+
+The coder and reviewer agents automatically receive language-specific constraints and review checklists derived from the task's target file paths. See [Swarm Briefing for LLMs](./swarm-briefing.md) for details.

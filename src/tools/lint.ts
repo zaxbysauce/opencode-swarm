@@ -1,5 +1,8 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { isCommandAvailable } from '../build/discovery';
+import { warn } from '../utils';
 
 // ============ Constants ============
 export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
@@ -7,11 +10,24 @@ export const MAX_COMMAND_LENGTH = 500;
 export const SUPPORTED_LINTERS = ['biome', 'eslint'] as const;
 export type SupportedLinter = (typeof SUPPORTED_LINTERS)[number];
 
+// Additional linter types (non-JS/TS)
+export type AdditionalLinter =
+	| 'ruff'
+	| 'clippy'
+	| 'golangci-lint'
+	| 'checkstyle'
+	| 'ktlint'
+	| 'dotnet-format'
+	| 'cppcheck'
+	| 'swiftlint'
+	| 'dart-analyze'
+	| 'rubocop';
+
 // ============ Response Types ============
 export interface LintSuccessResult {
 	success: true;
 	mode: 'fix' | 'check';
-	linter: SupportedLinter;
+	linter: SupportedLinter | AdditionalLinter;
 	command: string[];
 	exitCode: number;
 	output: string;
@@ -21,7 +37,7 @@ export interface LintSuccessResult {
 export interface LintErrorResult {
 	success: false;
 	mode: 'fix' | 'check';
-	linter?: SupportedLinter;
+	linter?: SupportedLinter | AdditionalLinter;
 	command?: string[];
 	exitCode?: number;
 	output?: string;
@@ -81,6 +97,231 @@ export function getLinterCommand(
 			}
 			return isWindows ? [eslintBin, '.'] : [eslintBin, '.'];
 	}
+}
+
+/**
+ * Build the shell command for an additional (non-JS/TS) linter.
+ * cppcheck has no --fix mode; csharp and some others behave differently.
+ */
+export function getAdditionalLinterCommand(
+	linter: AdditionalLinter,
+	mode: 'fix' | 'check',
+	cwd: string,
+): string[] {
+	// Detect gradlew wrapper for checkstyle (use .bat extension on Windows)
+	const gradlewName = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
+	const gradlew = fs.existsSync(path.join(cwd, gradlewName))
+		? path.join(cwd, gradlewName)
+		: null;
+	switch (linter) {
+		case 'ruff':
+			return mode === 'fix'
+				? ['ruff', 'check', '--fix', '.']
+				: ['ruff', 'check', '.'];
+		case 'clippy':
+			return mode === 'fix'
+				? ['cargo', 'clippy', '--fix', '--allow-dirty']
+				: ['cargo', 'clippy'];
+		case 'golangci-lint':
+			return mode === 'fix'
+				? ['golangci-lint', 'run', '--fix']
+				: ['golangci-lint', 'run'];
+		case 'checkstyle':
+			// Gradle project: prefer gradlew, else gradle; Maven project: mvn
+			if (gradlew) {
+				return [gradlew, 'checkstyleMain'];
+			}
+			if (isCommandAvailable('gradle')) {
+				return ['gradle', 'checkstyleMain'];
+			}
+			return ['mvn', 'checkstyle:check'];
+		case 'ktlint':
+			return mode === 'fix' ? ['ktlint', '--format'] : ['ktlint'];
+		case 'dotnet-format':
+			return mode === 'fix'
+				? ['dotnet', 'format']
+				: ['dotnet', 'format', '--verify-no-changes'];
+		case 'cppcheck':
+			// cppcheck has no fix mode; always check
+			return ['cppcheck', '--enable=all', '.'];
+		case 'swiftlint':
+			return mode === 'fix' ? ['swiftlint', '--fix'] : ['swiftlint'];
+		case 'dart-analyze':
+			return mode === 'fix' ? ['dart', 'fix'] : ['dart', 'analyze'];
+		case 'rubocop': {
+			// prefer bundle exec rubocop if bundler available
+			const useBundle = isCommandAvailable('bundle');
+			const base = useBundle ? ['bundle', 'exec', 'rubocop'] : ['rubocop'];
+			return mode === 'fix' ? [...base, '-A'] : base;
+		}
+	}
+}
+
+// ============ Additional Linter Detectors ============
+
+/** Detect ruff (Python fast linter) */
+function detectRuff(cwd: string): boolean {
+	// ruff.toml OR pyproject.toml with [tool.ruff] section OR ruff binary present
+	if (fs.existsSync(path.join(cwd, 'ruff.toml')))
+		return isCommandAvailable('ruff');
+	try {
+		const pyproject = path.join(cwd, 'pyproject.toml');
+		if (fs.existsSync(pyproject)) {
+			const content = fs.readFileSync(pyproject, 'utf-8');
+			if (content.includes('[tool.ruff]')) return isCommandAvailable('ruff');
+		}
+	} catch {
+		// ignore
+	}
+	return false;
+}
+
+/** Detect clippy (Rust linter) */
+function detectClippy(cwd: string): boolean {
+	// Cargo.toml exists AND cargo binary on PATH (clippy is a cargo subcommand)
+	return (
+		fs.existsSync(path.join(cwd, 'Cargo.toml')) && isCommandAvailable('cargo')
+	);
+}
+
+/** Detect golangci-lint (Go linter) */
+function detectGolangciLint(cwd: string): boolean {
+	// go.mod exists AND golangci-lint binary on PATH
+	return (
+		fs.existsSync(path.join(cwd, 'go.mod')) &&
+		isCommandAvailable('golangci-lint')
+	);
+}
+
+/** Detect checkstyle (Java linter via mvn or checkstyle jar) */
+function detectCheckstyle(cwd: string): boolean {
+	// Maven: pom.xml + mvn binary; Gradle: build.gradle(.kts) + gradlew or gradle binary
+	const hasMaven = fs.existsSync(path.join(cwd, 'pom.xml'));
+	const hasGradle =
+		fs.existsSync(path.join(cwd, 'build.gradle')) ||
+		fs.existsSync(path.join(cwd, 'build.gradle.kts'));
+	const hasBinary =
+		(hasMaven && isCommandAvailable('mvn')) ||
+		(hasGradle &&
+			(fs.existsSync(path.join(cwd, 'gradlew')) ||
+				isCommandAvailable('gradle')));
+	return (hasMaven || hasGradle) && hasBinary;
+}
+
+/** Detect ktlint (Kotlin linter) */
+function detectKtlint(cwd: string): boolean {
+	// build.gradle.kts, build.gradle (Groovy DSL), or .kt/.kts files in root dir
+	const hasKotlin =
+		fs.existsSync(path.join(cwd, 'build.gradle.kts')) ||
+		fs.existsSync(path.join(cwd, 'build.gradle')) ||
+		(() => {
+			try {
+				return fs
+					.readdirSync(cwd)
+					.some((f) => f.endsWith('.kt') || f.endsWith('.kts'));
+			} catch {
+				return false;
+			}
+		})();
+	return hasKotlin && isCommandAvailable('ktlint');
+}
+
+/** Detect dotnet-format (C#/.NET linter) */
+function detectDotnetFormat(cwd: string): boolean {
+	// Note: Only scans the root directory for .csproj/.sln files.
+	// Deeply nested .NET projects may require running from the solution root.
+	try {
+		const files = fs.readdirSync(cwd);
+		const hasCsproj = files.some(
+			(f) => f.endsWith('.csproj') || f.endsWith('.sln'),
+		);
+		return hasCsproj && isCommandAvailable('dotnet');
+	} catch {
+		return false;
+	}
+}
+
+/** Detect cppcheck (C/C++ static analyzer) */
+function detectCppcheck(cwd: string): boolean {
+	// CMakeLists.txt is definitive; also scan root and common src/ subdirectory for C/C++ files
+	if (fs.existsSync(path.join(cwd, 'CMakeLists.txt'))) {
+		return isCommandAvailable('cppcheck');
+	}
+	try {
+		const dirsToCheck = [cwd, path.join(cwd, 'src')];
+		const hasCpp = dirsToCheck.some((dir) => {
+			try {
+				return fs
+					.readdirSync(dir)
+					.some((f) => /\.(c|cpp|cc|cxx|h|hpp)$/.test(f));
+			} catch {
+				return false;
+			}
+		});
+		return hasCpp && isCommandAvailable('cppcheck');
+	} catch {
+		return false;
+	}
+}
+
+/** Detect swiftlint (Swift linter) */
+function detectSwiftlint(cwd: string): boolean {
+	// Package.swift exists AND swiftlint binary on PATH
+	return (
+		fs.existsSync(path.join(cwd, 'Package.swift')) &&
+		isCommandAvailable('swiftlint')
+	);
+}
+
+/** Detect dart analyze (Dart/Flutter linter) */
+function detectDartAnalyze(cwd: string): boolean {
+	// pubspec.yaml exists AND dart binary on PATH
+	return (
+		fs.existsSync(path.join(cwd, 'pubspec.yaml')) &&
+		(isCommandAvailable('dart') || isCommandAvailable('flutter'))
+	);
+}
+
+/** Detect rubocop (Ruby linter) */
+function detectRubocop(cwd: string): boolean {
+	// Gemfile, gems.rb (Bundler 2 alternative), or .rubocop.yml config
+	return (
+		(fs.existsSync(path.join(cwd, 'Gemfile')) ||
+			fs.existsSync(path.join(cwd, 'gems.rb')) ||
+			fs.existsSync(path.join(cwd, '.rubocop.yml'))) &&
+		(isCommandAvailable('rubocop') || isCommandAvailable('bundle'))
+	);
+}
+
+/**
+ * Detect the first available additional (non-JS/TS) linter for the current project.
+ * Returns null when no additional linter is detected or its binary is unavailable.
+ */
+export function detectAdditionalLinter(
+	cwd: string,
+):
+	| 'ruff'
+	| 'clippy'
+	| 'golangci-lint'
+	| 'checkstyle'
+	| 'ktlint'
+	| 'dotnet-format'
+	| 'cppcheck'
+	| 'swiftlint'
+	| 'dart-analyze'
+	| 'rubocop'
+	| null {
+	if (detectRuff(cwd)) return 'ruff';
+	if (detectClippy(cwd)) return 'clippy';
+	if (detectGolangciLint(cwd)) return 'golangci-lint';
+	if (detectCheckstyle(cwd)) return 'checkstyle';
+	if (detectKtlint(cwd)) return 'ktlint';
+	if (detectDotnetFormat(cwd)) return 'dotnet-format';
+	if (detectCppcheck(cwd)) return 'cppcheck';
+	if (detectSwiftlint(cwd)) return 'swiftlint';
+	if (detectDartAnalyze(cwd)) return 'dart-analyze';
+	if (detectRubocop(cwd)) return 'rubocop';
+	return null;
 }
 
 // ============ Linter Detection ============
@@ -215,10 +456,87 @@ export async function runLint(
 	}
 }
 
+/**
+ * Run an additional (non-JS/TS) linter.
+ * Follows the same structure as runLint() but uses getAdditionalLinterCommand().
+ */
+export async function runAdditionalLint(
+	linter: AdditionalLinter,
+	mode: 'fix' | 'check',
+	cwd: string,
+): Promise<LintResult> {
+	const command = getAdditionalLinterCommand(linter, mode, cwd);
+
+	const commandStr = command.join(' ');
+	if (commandStr.length > MAX_COMMAND_LENGTH) {
+		return {
+			success: false,
+			mode,
+			linter,
+			command,
+			error: 'Command exceeds maximum allowed length',
+		};
+	}
+
+	try {
+		const proc = Bun.spawn(command, {
+			stdout: 'pipe',
+			stderr: 'pipe',
+			cwd,
+		});
+
+		const [stdout, stderr] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+
+		const exitCode = await proc.exited;
+
+		let output = stdout;
+		if (stderr) {
+			output += (output ? '\n' : '') + stderr;
+		}
+
+		if (output.length > MAX_OUTPUT_BYTES) {
+			output = `${output.slice(0, MAX_OUTPUT_BYTES)}\n... (output truncated)`;
+		}
+
+		const result: LintSuccessResult = {
+			success: true,
+			mode,
+			linter,
+			command,
+			exitCode,
+			output,
+		};
+
+		if (exitCode === 0) {
+			result.message = `${linter} ${mode} completed successfully with no issues`;
+		} else if (mode === 'fix') {
+			result.message = `${linter} fix completed with exit code ${exitCode}. Run check mode to see remaining issues.`;
+		} else {
+			result.message = `${linter} check found issues (exit code ${exitCode}).`;
+		}
+
+		return result;
+	} catch (error) {
+		return {
+			success: false,
+			mode,
+			linter,
+			command,
+			error:
+				error instanceof Error
+					? `Execution failed: ${error.message}`
+					: 'Execution failed: unknown error',
+		};
+	}
+}
+
 // ============ Tool Definition ============
 export const lint: ReturnType<typeof tool> = tool({
 	description:
-		'Run project linter in check or fix mode. Supports biome and eslint. Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.',
+		'Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.',
 	args: {
 		mode: tool.schema
 			.enum(['fix', 'check'])
@@ -238,22 +556,32 @@ export const lint: ReturnType<typeof tool> = tool({
 		}
 
 		const { mode } = args;
+		const cwd = process.cwd();
 
-		// Detect available linter
+		// Primary: detect Biome or ESLint (JS/TS projects)
 		const linter = await detectAvailableLinter();
-
-		if (!linter) {
-			const errorResult: LintErrorResult = {
-				success: false,
-				mode,
-				error: 'No linter found. Install biome or eslint to use this tool.',
-				message: 'Run: npm install -D @biomejs/biome eslint',
-			};
-			return JSON.stringify(errorResult, null, 2);
+		if (linter) {
+			const result = await runLint(linter, mode);
+			return JSON.stringify(result, null, 2);
 		}
 
-		// Run the linter
-		const result = await runLint(linter, mode);
-		return JSON.stringify(result, null, 2);
+		// Fallback: detect additional language linters (Python, Rust, Go, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby)
+		const additionalLinter = detectAdditionalLinter(cwd);
+		if (additionalLinter) {
+			warn(`[lint] Using ${additionalLinter} linter for this project`);
+			const result = await runAdditionalLint(additionalLinter, mode, cwd);
+			return JSON.stringify(result, null, 2);
+		}
+
+		// No linter found
+		const errorResult: LintErrorResult = {
+			success: false,
+			mode,
+			error:
+				'No linter found. Install biome or eslint for JS/TS projects, or a supported linter for your language (ruff, cargo clippy, golangci-lint, ktlint, dotnet format, cppcheck, swiftlint, dart analyze, rubocop).',
+			message:
+				'For JS/TS: npm install -D @biomejs/biome eslint\nFor Python: pip install ruff\nFor Rust: rustup component add clippy',
+		};
+		return JSON.stringify(errorResult, null, 2);
 	},
 });

@@ -1,6 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { detectProjectLanguages } from '../lang/detector';
+import { LANGUAGE_REGISTRY } from '../lang/profiles';
+import { warn } from '../utils';
 
 // ============ Types ============
 
@@ -119,6 +122,24 @@ const ECOSYSTEMS: EcosystemConfig[] = [
 		],
 	},
 ];
+
+/**
+ * Maps LanguageProfile IDs to the ECOSYSTEMS ecosystem names they cover.
+ * Used for de-duplication between profile-driven and fallback detection.
+ */
+const PROFILE_TO_ECOSYSTEM_NAMES: Record<string, string[]> = {
+	typescript: ['node'],
+	python: ['python'],
+	rust: ['rust'],
+	go: ['go'],
+	java: ['java-maven', 'java-gradle'],
+	kotlin: ['java-gradle'],
+	csharp: ['dotnet'],
+	cpp: ['cpp'],
+	swift: ['swift'],
+	dart: ['dart'],
+	ruby: [],
+};
 
 // ============ Toolchain Detection Cache ============
 
@@ -310,6 +331,78 @@ function findFilesRecursive(
 	}
 }
 
+// ============ Profile-Driven Build Discovery ============
+
+/**
+ * Discover build commands using language profiles (primary detection path)
+ */
+export async function discoverBuildCommandsFromProfiles(
+	workingDir: string,
+): Promise<BuildDiscoveryResult> {
+	const commands: BuildCommand[] = [];
+	const skipped: { ecosystem: string; reason: string }[] = [];
+
+	// Get detected profiles sorted by tier (lower tier = higher confidence)
+	const detectedProfiles = await detectProjectLanguages(workingDir);
+
+	for (const profile of detectedProfiles) {
+		// Get the full profile from registry
+		const fullProfile = LANGUAGE_REGISTRY.get(profile.id);
+		if (!fullProfile) {
+			warn(
+				`[build-discovery] profile ${profile.id} not found in registry, skipping`,
+			);
+			continue;
+		}
+
+		// Sort commands by priority (lower = higher priority)
+		const sortedCommands = [...fullProfile.build.commands].sort(
+			(a, b) => a.priority - b.priority,
+		);
+
+		// Find first available binary
+		let foundCommand = false;
+		for (const cmd of sortedCommands) {
+			// Skip command if its detectFile is specified but not present
+			if (cmd.detectFile) {
+				const detectFilePath = path.join(workingDir, cmd.detectFile);
+				if (!fs.existsSync(detectFilePath)) {
+					continue;
+				}
+			}
+			// Check if binary is available on PATH
+			// Derive binary name from first word of command string
+			const binaryName = cmd.cmd.split(' ')[0];
+			if (isCommandAvailable(binaryName)) {
+				commands.push({
+					ecosystem: fullProfile.id,
+					command: cmd.cmd,
+					cwd: workingDir,
+					priority: cmd.priority,
+				});
+				foundCommand = true;
+				break; // Only pick the first/highest-priority available binary
+			}
+		}
+
+		if (!foundCommand) {
+			const triedBinaries = sortedCommands
+				.map((c) => c.name || c.cmd.split(' ')[0])
+				.join(', ');
+			const reason = `No binary available for profile ${fullProfile.id}: tried ${triedBinaries}`;
+			skipped.push({
+				ecosystem: fullProfile.id,
+				reason,
+			});
+			warn(
+				`[build-discovery] profile ${fullProfile.id}: no binary available, skipping`,
+			);
+		}
+	}
+
+	return { commands, skipped };
+}
+
 // ============ Main Discovery Function ============
 
 /**
@@ -325,11 +418,31 @@ export async function discoverBuildCommands(
 	// Get files to check based on scope
 	const _filesToCheck = filterByScope(workingDir, scope, changedFiles);
 
-	const commands: BuildCommand[] = [];
-	const skipped: { ecosystem: string; reason: string }[] = [];
+	// ============ Profile-driven detection (primary path) ============
+	const profileResult = await discoverBuildCommandsFromProfiles(workingDir);
+	const profileCommands = profileResult.commands;
+	const profileSkipped = profileResult.skipped;
 
-	// Process each ecosystem
+	// Build the set of ecosystem names already covered by profile detection
+	const coveredEcosystems = new Set<string>();
+	for (const cmd of profileCommands) {
+		const ecosystemNames = PROFILE_TO_ECOSYSTEM_NAMES[cmd.ecosystem] ?? [];
+		for (const name of ecosystemNames) {
+			coveredEcosystems.add(name);
+		}
+	}
+
+	// ============ Ecosystem-based detection (fallback) ============
+	const commands: BuildCommand[] = [...profileCommands];
+	const skipped: { ecosystem: string; reason: string }[] = [...profileSkipped];
+
+	// Process each ecosystem, skipping those already covered by profiles
 	for (const ecosystem of ECOSYSTEMS) {
+		// Skip if this ecosystem is already handled by profile detection
+		if (coveredEcosystems.has(ecosystem.ecosystem)) {
+			continue;
+		}
+
 		// Check if toolchain is available
 		if (!checkToolchain(ecosystem.toolchainCommands)) {
 			skipped.push({

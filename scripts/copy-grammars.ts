@@ -21,6 +21,28 @@ const SOURCE_DIR = join(
 const TARGET_DIR = join(process.cwd(), 'src', 'lang', 'grammars');
 const DIST_TARGET_DIR = join(process.cwd(), 'dist', 'lang', 'grammars');
 
+/**
+ * Vendored grammar WASM files committed directly to src/lang/grammars/.
+ * These grammars are NOT from @vscode/tree-sitter-wasm and must be rebuilt manually.
+ *
+ * To rebuild (requires emscripten or Docker):
+ *   bun add -d tree-sitter-kotlin@0.3.8 tree-sitter-swift@0.7.1 tree-sitter-dart@1.0.0
+ *   bunx tree-sitter build --wasm node_modules/tree-sitter-kotlin
+ *   bunx tree-sitter build --wasm node_modules/tree-sitter-swift
+ *   bunx tree-sitter build --wasm node_modules/tree-sitter-dart
+ *   mv tree-sitter-kotlin.wasm tree-sitter-swift.wasm tree-sitter-dart.wasm src/lang/grammars/
+ *
+ * Alternatively, download prebuilt WASM from each grammar's GitHub releases:
+ *   - tree-sitter-kotlin.wasm: https://github.com/fwcd/tree-sitter-kotlin/releases/tag/0.3.8
+ *   - tree-sitter-swift.wasm:  https://github.com/alex-pinkus/tree-sitter-swift/releases/tag/0.7.1
+ *   - tree-sitter-dart.wasm:   copied from node_modules/tree-sitter-dart/tree-sitter-dart.wasm
+ */
+const VENDORED_GRAMMARS = [
+	'tree-sitter-kotlin.wasm',
+	'tree-sitter-swift.wasm',
+	'tree-sitter-dart.wasm',
+] as const;
+
 function copyGrammars(): void {
 	// Ensure target directory exists
 	if (!existsSync(TARGET_DIR)) {
@@ -75,6 +97,22 @@ function copyGrammars(): void {
 	console.log(
 		`\nGrammar copy complete: ${copied + 1} files copied, ${skipped} skipped`,
 	);
+
+	// Verify vendored grammars are present in target directory
+	let vendoredMissing = 0;
+	for (const vendored of VENDORED_GRAMMARS) {
+		const vendoredPath = join(TARGET_DIR, vendored);
+		if (!existsSync(vendoredPath)) {
+			console.warn(`Warning: Vendored grammar missing: ${vendored}`);
+			console.warn('  See comment above VENDORED_GRAMMARS for rebuild instructions.');
+			vendoredMissing++;
+		} else {
+			console.log(`Vendored: ${vendored} (present)`);
+		}
+	}
+	if (vendoredMissing > 0) {
+		console.warn(`\n${vendoredMissing} vendored grammar(s) missing — syntax-check will skip these languages.`);
+	}
 }
 
 /**

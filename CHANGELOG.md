@@ -1,5 +1,20 @@
 # Changelog
 
+## [6.16.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.15.0...v6.16.0) (2026-03-02)
+
+### Features
+
+* **Multi-Language Support (11 languages, 3 tiers)** — Language profile abstraction in `src/lang/profiles.ts` covering TypeScript/JS, Python, Rust, Go (Tier 1), Java, Kotlin, C#/.NET, C/C++, Swift (Tier 2), Dart/Flutter, Ruby (Tier 3)
+* **Profile-driven build detection** — `discoverBuildCommandsFromProfiles()` in `src/build/discovery.ts` picks highest-priority build binary per language profile; existing detection preserved as fallback
+* **Profile-driven test framework detection** — 9 new detect functions in `src/tools/test-runner.ts`; 16 frameworks total (Go, Java/Maven, Java/Gradle, Kotlin, C#, CMake/ctest, Swift, Dart, Ruby RSpec/minitest)
+* **Profile-driven lint detection** — `detectAdditionalLinter()` in `src/tools/lint.ts`; 10 detector functions (golangci-lint, Checkstyle, ktlint, dotnet-format, cppcheck, swiftlint, dart analyze, RuboCop, scalafmt, buf)
+* **Package audit expansion** — govulncheck (Go), dotnet list package (C#), bundle-audit (Ruby), dart pub outdated (Dart) in `src/tools/pkg-audit.ts`; all 7 auditors normalized to unified result format
+* **Semgrep SAST integration** — profile-driven language dispatch in `src/tools/sast-scan.ts`; auto-mode (`semgrep --config auto --lang`) for languages without native rulesets; soft warning when semgrep binary absent
+* **Language-aware prompt injection** — coder and reviewer agents receive language-specific constraints and review checklists from task file paths via `getProfileForFile()` in `src/hooks/system-enhancer.ts`; both Path A and Path B inject for coder + reviewer
+* **New Tree-sitter grammars** — Kotlin, Swift, Dart WASM grammars vendored in `src/lang/grammars/`; `LANGUAGE_WASM_MAP` updated in `src/lang/runtime.ts`
+* **Graceful degradation** — all profile-driven tools skip with a soft warning when required binary is not on PATH; never a hard gate failure
+* **200+ new tests** — `tests/unit/lang/`, `tests/integration/lang/`, `tests/unit/tools/`, `tests/unit/hooks/` covering profiles, detector, tool integration, and prompt injection
+
 ## [6.15.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.12...v6.15.0) (2026-03-02)
 
 
@@ -571,7 +586,7 @@ Optional enhancement: Semgrep (only if already installed on PATH)
 - 12 total evidence types
 - 1,100+ tests passing
 - 63 SAST rules
-- 9 supported languages
+- 11 supported languages
 
 ---
 

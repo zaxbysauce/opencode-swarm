@@ -13,6 +13,7 @@ import { DEFAULT_SCORING_CONFIG } from '../config/constants';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import { getProfileForFile } from '../lang/detector';
 import { loadPlan } from '../plan/manager';
 import { analyzeDecisionDrift, formatDriftForContext } from '../services';
 import { swarmState } from '../state';
@@ -282,6 +283,80 @@ async function buildCoderRetroInjection(
 }
 
 /**
+ * Build language-specific coder constraints block from task file paths.
+ * Returns null if no language profile is found for the task files.
+ */
+function buildLanguageCoderConstraints(
+	currentTaskText: string | null,
+): string | null {
+	if (!currentTaskText) return null;
+
+	// Extract file paths from task text (e.g. "src/tools/lint.ts")
+	const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+	if (filePaths.length === 0) return null;
+
+	// Collect unique constraints across all task file paths (max 10 total)
+	const allConstraints: string[] = [];
+	const seenConstraints = new Set<string>();
+	let languageLabel = '';
+
+	for (const filePath of filePaths) {
+		const profile = getProfileForFile(filePath);
+		if (!profile) continue;
+		if (!languageLabel) {
+			languageLabel = profile.displayName;
+		}
+		for (const constraint of profile.prompts.coderConstraints) {
+			if (!seenConstraints.has(constraint) && allConstraints.length < 10) {
+				seenConstraints.add(constraint);
+				allConstraints.push(constraint);
+			}
+		}
+	}
+
+	if (allConstraints.length === 0) return null;
+
+	return `[LANGUAGE-SPECIFIC CONSTRAINTS — ${languageLabel}]\n${allConstraints.map((c) => `- ${c}`).join('\n')}`;
+}
+
+/**
+ * Build language-specific reviewer checklist block from task file paths.
+ * Returns null if no language profile is found for the task files.
+ */
+function buildLanguageReviewerChecklist(
+	currentTaskText: string | null,
+): string | null {
+	if (!currentTaskText) return null;
+
+	// Extract file paths from task text (e.g. "src/tools/lint.ts")
+	const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+	if (filePaths.length === 0) return null;
+
+	// Collect unique checklist items across all task file paths (max 10 total)
+	const allItems: string[] = [];
+	const seenItems = new Set<string>();
+	let languageLabel = '';
+
+	for (const filePath of filePaths) {
+		const profile = getProfileForFile(filePath);
+		if (!profile) continue;
+		if (!languageLabel) {
+			languageLabel = profile.displayName;
+		}
+		for (const item of profile.prompts.reviewerChecklist) {
+			if (!seenItems.has(item) && allItems.length < 10) {
+				seenItems.add(item);
+				allItems.push(item);
+			}
+		}
+	}
+
+	if (allItems.length === 0) return null;
+
+	return `[LANGUAGE-SPECIFIC REVIEW CHECKLIST — ${languageLabel}]\n${allItems.map((i) => `- [ ] ${i}`).join('\n')}`;
+}
+
+/**
  * Creates the experimental.chat.system.transform hook for system enhancement.
  */
 export function createSystemEnhancerHook(
@@ -523,6 +598,32 @@ export function createSystemEnhancerHook(
 								}
 							} catch {
 								// Silently skip
+							}
+						}
+
+						// v6.16: Language-specific coder constraints injection
+						if (baseRole === 'coder') {
+							const taskText_lang_a =
+								plan && plan.migration_status !== 'migration_failed'
+									? extractCurrentTaskFromPlan(plan)
+									: null;
+							const langConstraints_a =
+								buildLanguageCoderConstraints(taskText_lang_a);
+							if (langConstraints_a) {
+								tryInject(langConstraints_a);
+							}
+						}
+
+						// v6.16: Language-specific reviewer checklist injection
+						if (baseRole === 'reviewer') {
+							const taskText_rev_a =
+								plan && plan.migration_status !== 'migration_failed'
+									? extractCurrentTaskFromPlan(plan)
+									: null;
+							const revChecklist_a =
+								buildLanguageReviewerChecklist(taskText_rev_a);
+							if (revChecklist_a) {
+								tryInject(revChecklist_a);
 							}
 						}
 
@@ -1006,6 +1107,49 @@ export function createSystemEnhancerHook(
 							}
 						} catch {
 							// Silently skip
+						}
+					}
+
+					// v6.16: Language-specific coder constraints injection (Path B)
+					if (isCoder_b) {
+						const taskText_lang_b =
+							plan && plan.migration_status !== 'migration_failed'
+								? extractCurrentTaskFromPlan(plan)
+								: null;
+						const langConstraints_b =
+							buildLanguageCoderConstraints(taskText_lang_b);
+						if (langConstraints_b) {
+							candidates.push({
+								id: `candidate-${idCounter++}`,
+								kind: 'agent_context' as ContextCandidate['kind'],
+								text: langConstraints_b,
+								tokens: estimateTokens(langConstraints_b),
+								priority: 2,
+								metadata: { contentType: 'prose' as ContentType },
+							});
+						}
+					}
+
+					// v6.16: Language-specific reviewer checklist injection (Path B)
+					const isReviewer_b =
+						activeAgent_coder_b &&
+						stripKnownSwarmPrefix(activeAgent_coder_b) === 'reviewer';
+					if (isReviewer_b) {
+						const taskText_rev_b =
+							plan && plan.migration_status !== 'migration_failed'
+								? extractCurrentTaskFromPlan(plan)
+								: null;
+						const revChecklist_b =
+							buildLanguageReviewerChecklist(taskText_rev_b);
+						if (revChecklist_b) {
+							candidates.push({
+								id: `candidate-${idCounter++}`,
+								kind: 'agent_context' as ContextCandidate['kind'],
+								text: revChecklist_b,
+								tokens: estimateTokens(revChecklist_b),
+								priority: 2,
+								metadata: { contentType: 'prose' as ContentType },
+							});
 						}
 					}
 

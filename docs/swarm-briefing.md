@@ -150,4 +150,51 @@ Violating these rules degrades the spec's value as a requirements document and m
 When `.swarm/spec.md` exists and you ask the architect to plan:
 1. Each `FR-###` requirement must map to at least one plan task
 2. Plan tasks with no corresponding `FR-###` are flagged as potential gold-plating
+
 3. `/swarm analyze` produces a full coverage table: requirements → tasks, gaps, and gold-plating risks
+
+---
+
+## Language-Aware Prompt Injection (v6.16+)
+
+The system enhancer automatically injects language-specific context into agent prompts based on the source files referenced in the current task.
+
+### What Is Injected
+
+**Coder agent** receives a `[LANGUAGE-SPECIFIC CONSTRAINTS — <Language>]` block:
+- Up to 10 constraints extracted from the matched language profile's `coderConstraints`
+- Injected after existing prompt hardening; does not replace any guardrail blocks
+- Example (TypeScript task): *"Use explicit return types on all exported functions"*
+
+**Reviewer agent** receives a `[LANGUAGE-SPECIFIC REVIEW CHECKLIST — <Language>]` block:
+- Up to 10 checklist items in `- [ ] item` checkbox format
+- Injected additively — does not interfere with adversarial-detection warnings
+- Example (Python task): *"- [ ] Verify all functions have type annotations"*
+
+### When Is It Triggered
+
+- Task text contains `src/` file paths with known language extensions (`.ts`, `.py`, `.rs`, `.go`, `.java`, `.kt`, `.cs`, `.cpp`, `.swift`, `.dart`, `.rb`, etc.)
+- Language is resolved from the file extension via `getProfileForFile()`
+- Multi-language tasks: constraints from all detected languages are merged, capped at 10 total lines
+
+### Agents Affected
+
+| Agent | Injection | Content |
+|-------|-----------|---------|
+| coder | `coderConstraints` block | Language-specific coding rules |
+| reviewer | `reviewerChecklist` block | Language-specific review items |
+| architect, test_engineer, others | Not injected | — |
+
+### Interaction with Other Injections
+
+Language injection is **additive**. It does not interfere with:
+- Adversarial detection warnings
+- Compaction hints
+- Guardrail injections
+- Budget / scoring blocks
+
+Both Path A (non-scoring) and Path B (scoring/budget) code paths inject language context.
+
+### Customization
+
+Language constraints and checklists live in `src/lang/profiles.ts` per language profile, under `profile.prompts.coderConstraints` and `profile.prompts.reviewerChecklist`. To add or modify rules: edit the relevant profile's arrays. Changes take effect immediately — no rebuild required for the prompt injection path.

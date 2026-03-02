@@ -357,7 +357,7 @@ Per-agent overrides:
 
 | Tool | What It Does |
 |------|-------------|
-| syntax_check | Tree-sitter validation across 9+ languages |
+| syntax_check | Tree-sitter validation across 11 languages |
 | placeholder_scan | Catches TODOs, FIXMEs, stubs, placeholder text |
 | sast_scan | Offline security analysis, 63+ rules, 9 languages |
 | sbom_generate | CycloneDX dependency tracking, 8 ecosystems |
@@ -709,6 +709,33 @@ bun test
 4. **Different models catch different bugs.** The coder's blind spot is the reviewer's strength.
 5. **Save everything to disk.** Any session, any model, any day, pick up where you left off.
 6. **Document failures.** Rejections and retries are recorded. After 5 failures, it escalates to you.
+
+---
+
+## Supported Languages
+
+OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three quality tiers. All tools use graceful degradation — if a binary is not on PATH, the tool skips with a soft warning rather than a hard failure.
+
+| Language | Tier | Syntax | Build | Test | Lint | Audit | SAST |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| TypeScript / JavaScript | 1 | ✅ | ✅ | ✅ | ✅ Biome / ESLint | ✅ npm audit | ✅ Semgrep |
+| Python | 1 | ✅ | ✅ | ✅ pytest | ✅ ruff | ✅ pip-audit | ✅ Semgrep |
+| Rust | 1 | ✅ | ✅ | ✅ cargo test | ✅ clippy | ✅ cargo audit | ✅ Semgrep |
+| Go | 1 | ✅ | ✅ | ✅ go test | ✅ golangci-lint | ✅ govulncheck | ✅ Semgrep |
+| Java | 2 | ✅ | ✅ Gradle / Maven | ✅ JUnit | ✅ Checkstyle | — | ✅ Semgrep |
+| Kotlin | 2 | ✅ | ✅ Gradle | ✅ JUnit | ✅ ktlint | — | 🔶 Semgrep beta |
+| C# / .NET | 2 | ✅ | ✅ dotnet build | ✅ dotnet test | ✅ dotnet format | ✅ dotnet list | ✅ Semgrep |
+| C / C++ | 2 | ✅ | ✅ cmake / make | ✅ ctest | ✅ cppcheck | — | 🔶 Semgrep exp. |
+| Swift | 2 | ✅ | ✅ swift build | ✅ swift test | ✅ swiftlint | — | 🔶 Semgrep exp. |
+| Dart / Flutter | 3 | ✅ | ✅ dart pub | ✅ dart test | ✅ dart analyze | ✅ dart pub outdated | — |
+| Ruby | 3 | ✅ | — | ✅ RSpec / minitest | ✅ RuboCop | ✅ bundle-audit | 🔶 Semgrep exp. |
+
+**Tier definitions:**
+- **Tier 1** — Full pipeline: all tools integrated and tested end-to-end.
+- **Tier 2** — Strong coverage: most tools integrated; some optional (audit, SAST).
+- **Tier 3** — Basic coverage: core tools integrated; advanced tooling limited.
+
+> All binaries are optional. Missing tools produce a soft warning and skip — the pipeline never hard-fails on a missing linter or auditor.
 
 ---
 

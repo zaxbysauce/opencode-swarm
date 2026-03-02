@@ -9,6 +9,7 @@ import { extname } from 'node:path';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
+import { getProfileForFile } from '../lang/detector';
 import { getLanguageForExtension } from '../lang/registry';
 import { executeRulesSync } from '../sast/rules/index';
 import { isSemgrepAvailable, runSemgrep } from '../sast/semgrep';
@@ -232,6 +233,12 @@ export async function sastScan(
 
 	// Process each file
 	for (const filePath of changed_files) {
+		// Skip non-string or empty entries
+		if (typeof filePath !== 'string' || !filePath) {
+			_filesSkipped++;
+			continue;
+		}
+
 		// Resolve relative paths
 		const resolvedPath = path.isAbsolute(filePath)
 			? filePath
@@ -250,27 +257,57 @@ export async function sastScan(
 			continue;
 		}
 
-		// Get language from extension
+		// Get language from extension — try profile first, fall back to old registry
 		const ext = extname(resolvedPath).toLowerCase();
+		const profile = getProfileForFile(resolvedPath);
 		const langDef = getLanguageForExtension(ext);
 
-		if (!langDef) {
-			// Unsupported language
+		// Skip if neither registry knows about this file type
+		if (!profile && !langDef) {
 			_filesSkipped++;
 			continue;
 		}
 
-		const language = langDef.id;
+		const language = profile?.id ?? langDef!.id;
 
-		// Run Tier A rules (always)
-		const tierAFindings = scanFileWithTierA(resolvedPath, language);
-		allFindings.push(...tierAFindings);
+		// Run Tier A rules (always, when nativeRuleSet is defined OR old registry knows the language)
+		const hasNativeRules = profile
+			? profile.sast.nativeRuleSet !== null
+			: !!langDef;
+		if (hasNativeRules) {
+			const tierAFindings = scanFileWithTierA(resolvedPath, language);
+			allFindings.push(...tierAFindings);
+		}
 
-		// Add to language bucket for Semgrep
+		// Add to Semgrep language bucket
+		// - If profile has nativeRuleSet: use existing local-rules-only Semgrep (bucket key = language)
+		// - If profile has nativeRuleSet === null and semgrepSupport !== 'none': use auto mode (bucket key = 'auto:<lang>')
+		// - If profile has nativeRuleSet === null and semgrepSupport === 'none': skip Semgrep for this file
+		// - If no profile: fall back to old behavior (add to language bucket)
 		if (semgrepAvailable) {
-			const existing = filesByLanguage.get(language) || [];
-			existing.push(resolvedPath);
-			filesByLanguage.set(language, existing);
+			if (
+				profile &&
+				profile.sast.nativeRuleSet === null &&
+				profile.sast.semgrepSupport !== 'none'
+			) {
+				// Language has no native rules but Semgrep supports it — use auto mode
+				const bucketKey = `auto:${profile.id}`;
+				const existing = filesByLanguage.get(bucketKey) || [];
+				existing.push(resolvedPath);
+				filesByLanguage.set(bucketKey, existing);
+			} else if (
+				!(
+					profile &&
+					profile.sast.nativeRuleSet === null &&
+					profile.sast.semgrepSupport === 'none'
+				)
+			) {
+				// Language has native rules or no profile — use local rules (existing behavior)
+				// Skip if profile explicitly has no Semgrep support
+				const existing = filesByLanguage.get(language) || [];
+				existing.push(resolvedPath);
+				filesByLanguage.set(language, existing);
+			}
 		}
 
 		filesScanned++;
@@ -287,13 +324,25 @@ export async function sastScan(
 	// Run Semgrep if available and we have files
 	if (semgrepAvailable && filesByLanguage.size > 0) {
 		try {
-			// Flatten files for Semgrep
-			const allFilesForSemgrep = Array.from(filesByLanguage.values()).flat();
+			for (const [bucketKey, bucketFiles] of filesByLanguage.entries()) {
+				if (bucketFiles.length === 0) continue;
 
-			if (allFilesForSemgrep.length > 0) {
-				const semgrepResult = await runSemgrep({
-					files: allFilesForSemgrep,
-				});
+				let semgrepResult: Awaited<ReturnType<typeof runSemgrep>>;
+
+				if (bucketKey.startsWith('auto:')) {
+					// Profile-driven auto mode: --config auto --lang <lang>
+					const lang = bucketKey.slice('auto:'.length);
+					semgrepResult = await runSemgrep({
+						files: bucketFiles,
+						lang,
+						useAutoConfig: true,
+					});
+				} else {
+					// Existing local-rules mode
+					semgrepResult = await runSemgrep({
+						files: bucketFiles,
+					});
+				}
 
 				if (semgrepResult.findings.length > 0) {
 					// Add Semgrep findings

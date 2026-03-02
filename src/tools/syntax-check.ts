@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
+import { getProfileForFile } from '../lang/detector';
 import { getLanguageForExtension, getParserForFile } from '../lang/registry';
 import type { Parser } from '../lang/runtime';
 
@@ -124,7 +125,9 @@ export async function syntaxCheck(
 		filesToCheck = filesToCheck.filter((file) => {
 			const ext = path.extname(file.path).toLowerCase();
 			const langDef = getLanguageForExtension(ext);
-			return langDef ? lowerLangs.includes(langDef.id.toLowerCase()) : false;
+			const fileProfile = getProfileForFile(file.path);
+			const langId = fileProfile?.id || langDef?.id;
+			return langId ? lowerLangs.includes(langId.toLowerCase()) : false;
 		});
 	}
 
@@ -147,9 +150,22 @@ export async function syntaxCheck(
 		};
 
 		try {
-			// Get parser for file
-			const parser = await getParserForFile(filePath);
-
+			// Try profile-driven grammar resolution first (supports Tier 1–3 languages)
+			const profile = getProfileForFile(filePath);
+			const grammarId = profile?.treeSitter?.grammarId;
+			let parser: Parser | null = null;
+			if (grammarId) {
+				const { loadGrammar } = await import('../lang/runtime');
+				try {
+					parser = await loadGrammar(grammarId);
+				} catch {
+					parser = null;
+				}
+			}
+			// Fallback: use existing registry-based resolution for languages not in profiles
+			if (!parser) {
+				parser = await getParserForFile(filePath);
+			}
 			if (!parser) {
 				result.skipped_reason = 'unsupported_language';
 				skippedCount++;
@@ -184,10 +200,10 @@ export async function syntaxCheck(
 				continue;
 			}
 
-			// Extract language from extension
+			// Resolve language ID: prefer profile, fall back to registry
 			const ext = path.extname(filePath).toLowerCase();
 			const langDef = getLanguageForExtension(ext);
-			result.language = langDef?.id || 'unknown';
+			result.language = profile?.id || langDef?.id || 'unknown';
 
 			// Parse and extract errors
 			const errors = extractSyntaxErrors(parser, content);

@@ -37,7 +37,7 @@ async function initTreeSitter(): Promise<void> {
 }
 
 /**
- * Map of language IDs to WASM file names in @vscode/tree-sitter-wasm
+ * Map of language IDs to WASM file names. Entries from @vscode/tree-sitter-wasm are copied by copy-grammars.ts; kotlin/swift/dart entries are vendored directly in src/lang/grammars/.
  */
 const LANGUAGE_WASM_MAP: Record<string, string> = {
 	javascript: 'tree-sitter-javascript.wasm',
@@ -55,21 +55,34 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
 	ruby: 'tree-sitter-ruby.wasm',
 	php: 'tree-sitter-php.wasm',
 	java: 'tree-sitter-java.wasm',
+	kotlin: 'tree-sitter-kotlin.wasm',
+	swift: 'tree-sitter-swift.wasm',
+	dart: 'tree-sitter-dart.wasm',
 };
 
 /**
- * Get the WASM file path for a given language ID
- * @param languageId - Language identifier
- * @returns WASM file name
+ * Sanitize a language ID to prevent path traversal and control character injection.
+ * Strips control characters (ASCII 0-31, 127), path-separator characters,
+ * Windows-reserved chars, and Unicode fullwidth/punctuation ranges.
  */
+function sanitizeLanguageId(languageId: string): string {
+	// Strip control chars (ASCII 0-31, 127), path separators (/, \),
+	// Windows-reserved chars (:, *, ?, ", <, >, |), and Unicode fullwidth/punctuation ranges
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional sanitization
+	return languageId
+		.replace(/[\x00-\x1f\x7f/\\:?*"<>|]/g, '')
+		.replace(/[\u2000-\u206f\uff00-\uffef]/g, '');
+}
+
 function getWasmFileName(languageId: string): string {
+	const sanitized = sanitizeLanguageId(languageId).toLowerCase();
 	// Check if there's a direct mapping
-	if (LANGUAGE_WASM_MAP[languageId.toLowerCase()]) {
-		return LANGUAGE_WASM_MAP[languageId.toLowerCase()];
+	if (LANGUAGE_WASM_MAP[sanitized]) {
+		return LANGUAGE_WASM_MAP[sanitized];
 	}
 
 	// Fallback: try tree-sitter-{languageId}.wasm
-	return `tree-sitter-${languageId.toLowerCase()}.wasm`;
+	return `tree-sitter-${sanitized}.wasm`;
 }
 
 /**
@@ -100,7 +113,15 @@ function getGrammarsPath(): string {
  * @throws Error if WASM file not found or failed to load
  */
 export async function loadGrammar(languageId: string): Promise<ParserType> {
-	const normalizedId = languageId.toLowerCase();
+	if (typeof languageId !== 'string' || languageId.length > 100) {
+		throw new Error(
+			`Invalid languageId: must be a string of at most 100 characters`,
+		);
+	}
+	const normalizedId = sanitizeLanguageId(languageId).toLowerCase();
+	if (normalizedId.length === 0) {
+		throw new Error(`Invalid languageId: empty after sanitization`);
+	}
 
 	// Return cached parser if available
 	if (parserCache.has(normalizedId)) {
@@ -154,7 +175,13 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
  * @returns true if grammar is available
  */
 export async function isGrammarAvailable(languageId: string): Promise<boolean> {
-	const normalizedId = languageId.toLowerCase();
+	if (typeof languageId !== 'string' || languageId.length > 100) {
+		return false;
+	}
+	const normalizedId = sanitizeLanguageId(languageId).toLowerCase();
+	if (normalizedId.length === 0) {
+		return false;
+	}
 
 	// If already cached, it's available
 	if (parserCache.has(normalizedId)) {

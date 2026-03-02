@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { isCommandAvailable } from '../build/discovery';
+import { warn } from '../utils';
 
 // ============ Constants ============
 export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
@@ -17,6 +19,15 @@ export const SUPPORTED_FRAMEWORKS = [
 	'pytest',
 	'cargo',
 	'pester',
+	'go-test',
+	'maven',
+	'gradle',
+	'dotnet-test',
+	'ctest',
+	'swift-test',
+	'dart-test',
+	'rspec',
+	'minitest',
 ] as const;
 
 export type TestFramework = (typeof SUPPORTED_FRAMEWORKS)[number] | 'none';
@@ -194,6 +205,95 @@ function hasDevDependency(
 	return hasPackageJsonDependency(devDeps, ...patterns);
 }
 
+// ============ Additional Test Framework Detectors ============
+
+/** Detect Go test runner (go test ./...) */
+function detectGoTest(cwd: string): boolean {
+	// check: go.mod exists AND go binary on PATH
+	return fs.existsSync(path.join(cwd, 'go.mod')) && isCommandAvailable('go');
+}
+
+/** Detect Java/Maven test runner (mvn test) */
+function detectJavaMaven(cwd: string): boolean {
+	// check: pom.xml exists AND mvn binary on PATH
+	return fs.existsSync(path.join(cwd, 'pom.xml')) && isCommandAvailable('mvn');
+}
+
+/** Detect Java/Gradle or Kotlin/Gradle test runner (gradlew test) */
+function detectGradle(cwd: string): boolean {
+	// check: build.gradle or build.gradle.kts exists AND (gradlew script OR gradle binary)
+	const hasBuildFile =
+		fs.existsSync(path.join(cwd, 'build.gradle')) ||
+		fs.existsSync(path.join(cwd, 'build.gradle.kts'));
+	const hasGradlew =
+		fs.existsSync(path.join(cwd, 'gradlew')) ||
+		fs.existsSync(path.join(cwd, 'gradlew.bat'));
+	return hasBuildFile && (hasGradlew || isCommandAvailable('gradle'));
+}
+
+/** Detect C#/.NET test runner (dotnet test) */
+function detectDotnetTest(cwd: string): boolean {
+	// check: any .csproj file exists AND dotnet binary on PATH
+	try {
+		const files = fs.readdirSync(cwd);
+		const hasCsproj = files.some((f) => f.endsWith('.csproj'));
+		return hasCsproj && isCommandAvailable('dotnet');
+	} catch {
+		return false;
+	}
+}
+
+/** Detect C/C++ CTest runner */
+function detectCTest(cwd: string): boolean {
+	// ctest works from build directory; accept both source and build directories
+	const hasSource = fs.existsSync(path.join(cwd, 'CMakeLists.txt'));
+	const hasBuildCache =
+		fs.existsSync(path.join(cwd, 'CMakeCache.txt')) ||
+		fs.existsSync(path.join(cwd, 'build', 'CMakeCache.txt'));
+	return (hasSource || hasBuildCache) && isCommandAvailable('ctest');
+}
+
+/** Detect Swift test runner (swift test) */
+function detectSwiftTest(cwd: string): boolean {
+	// check: Package.swift exists AND swift binary on PATH
+	return (
+		fs.existsSync(path.join(cwd, 'Package.swift')) &&
+		isCommandAvailable('swift')
+	);
+}
+
+/** Detect Dart/Flutter test runner (dart test or flutter test) */
+function detectDartTest(cwd: string): boolean {
+	// check: pubspec.yaml exists AND (dart or flutter binary on PATH)
+	return (
+		fs.existsSync(path.join(cwd, 'pubspec.yaml')) &&
+		(isCommandAvailable('dart') || isCommandAvailable('flutter'))
+	);
+}
+
+/** Detect Ruby/RSpec test runner */
+function detectRSpec(cwd: string): boolean {
+	// Require .rspec file OR (Gemfile + spec/ dir) for Ruby specificity
+	const hasRSpecFile = fs.existsSync(path.join(cwd, '.rspec'));
+	const hasGemfile = fs.existsSync(path.join(cwd, 'Gemfile'));
+	const hasSpecDir = fs.existsSync(path.join(cwd, 'spec'));
+	const hasRSpec = hasRSpecFile || (hasGemfile && hasSpecDir);
+	return (
+		hasRSpec && (isCommandAvailable('bundle') || isCommandAvailable('rspec'))
+	);
+}
+
+/** Detect Ruby/Minitest test runner */
+function detectMinitest(cwd: string): boolean {
+	// Require test/ dir + Ruby-specific markers (Gemfile or Rakefile)
+	return (
+		fs.existsSync(path.join(cwd, 'test')) &&
+		(fs.existsSync(path.join(cwd, 'Gemfile')) ||
+			fs.existsSync(path.join(cwd, 'Rakefile'))) &&
+		isCommandAvailable('ruby')
+	);
+}
+
 export async function detectTestFramework(
 	cwd?: string,
 ): Promise<TestFramework> {
@@ -298,6 +398,17 @@ export async function detectTestFramework(
 	} catch {
 		// Ignore errors
 	}
+
+	// Profile-driven detection for additional languages (soft warning on missing binary)
+	if (detectGoTest(baseDir)) return 'go-test';
+	if (detectJavaMaven(baseDir)) return 'maven';
+	if (detectGradle(baseDir)) return 'gradle';
+	if (detectDotnetTest(baseDir)) return 'dotnet-test';
+	if (detectCTest(baseDir)) return 'ctest';
+	if (detectSwiftTest(baseDir)) return 'swift-test';
+	if (detectDartTest(baseDir)) return 'dart-test';
+	if (detectRSpec(baseDir)) return 'rspec';
+	if (detectMinitest(baseDir)) return 'minitest';
 
 	return 'none';
 }
@@ -536,6 +647,7 @@ function buildTestCommand(
 	scope: 'all' | 'convention' | 'graph',
 	files: string[],
 	coverage: boolean,
+	baseDir: string,
 ): string[] | null {
 	switch (framework) {
 		case 'bun': {
@@ -610,6 +722,61 @@ function buildTestCommand(
 			}
 			return ['pwsh', '-Command', 'Invoke-Pester'];
 		}
+		case 'go-test':
+			// Note: 'files' param not forwarded — go test does not support arbitrary file paths;
+			// use package paths (./...) for full suite
+			return ['go', 'test', './...'];
+		case 'maven':
+			return ['mvn', 'test'];
+		case 'gradle': {
+			const isWindows = process.platform === 'win32';
+			const hasGradlewBat = fs.existsSync(path.join(baseDir, 'gradlew.bat'));
+			const hasGradlew = fs.existsSync(path.join(baseDir, 'gradlew'));
+			if (hasGradlewBat && isWindows) return ['gradlew.bat', 'test'];
+			if (hasGradlew) return ['./gradlew', 'test'];
+			return ['gradle', 'test'];
+		}
+		case 'dotnet-test':
+			return ['dotnet', 'test'];
+		case 'ctest': {
+			// Detect actual build directory by looking for CMakeCache.txt in common locations
+			// Fall back to 'build' (CMake default); ctest will emit a clear error if not found
+			const buildDirCandidates = [
+				'build',
+				'_build',
+				'cmake-build-debug',
+				'cmake-build-release',
+				'out',
+			];
+			const actualBuildDir =
+				buildDirCandidates.find((d) =>
+					fs.existsSync(path.join(baseDir, d, 'CMakeCache.txt')),
+				) ?? 'build';
+			return ['ctest', '--test-dir', actualBuildDir];
+		}
+		case 'swift-test':
+			// Note: 'files' param not forwarded — swift test does not support arbitrary file paths
+			return ['swift', 'test'];
+		case 'dart-test':
+			// Prefer flutter test for Flutter projects; fall back to dart test
+			// Note: 'files' param not forwarded — dart/flutter test use package-level filtering only
+			return isCommandAvailable('flutter')
+				? ['flutter', 'test']
+				: ['dart', 'test'];
+		case 'rspec':
+			// Use bundle exec when bundler is available, otherwise fall back to rspec directly
+			return isCommandAvailable('bundle')
+				? ['bundle', 'exec', 'rspec']
+				: ['rspec'];
+		case 'minitest':
+			// Use ruby -e with Dir.glob to avoid platform-specific shell glob expansion
+			// Note: 'files' param not forwarded — minitest uses directory-level glob patterns
+			return [
+				'ruby',
+				'-Itest',
+				'-e',
+				'Dir.glob("test/**/*_test.rb").sort.each { |f| require_relative f }',
+			];
 		default:
 			return null;
 	}
@@ -725,6 +892,130 @@ function parseTestOutput(
 			totals.total = totals.passed + totals.failed + totals.skipped;
 			break;
 		}
+		case 'go-test': {
+			// Go test: "--- PASS: TestFoo" / "--- FAIL: TestFoo" / "ok  pkg  0.001s"
+			const passMatches = [...output.matchAll(/--- PASS:/g)];
+			const failMatches = [...output.matchAll(/--- FAIL:/g)];
+			const skipMatches = [...output.matchAll(/--- SKIP:/g)];
+			totals.passed = passMatches.length;
+			totals.failed = failMatches.length;
+			totals.skipped = skipMatches.length;
+			totals.total = totals.passed + totals.failed + totals.skipped;
+			// coverage: "coverage: 83.3% of statements"
+			const covMatch = output.match(/coverage:\s*(\d+\.?\d*)\s*%/);
+			if (covMatch) coveragePercent = parseFloat(covMatch[1]);
+			break;
+		}
+		case 'maven': {
+			// Maven surefire: "Tests run: 10, Failures: 0, Errors: 0, Skipped: 0"
+			const mavenMatch = output.match(
+				/Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)/,
+			);
+			if (mavenMatch) {
+				const total = parseInt(mavenMatch[1], 10);
+				const failures = parseInt(mavenMatch[2], 10);
+				const errors = parseInt(mavenMatch[3], 10);
+				const skipped = parseInt(mavenMatch[4], 10);
+				totals.failed = failures + errors;
+				totals.skipped = skipped;
+				totals.passed = total - totals.failed - skipped;
+				totals.total = total;
+			}
+			break;
+		}
+		case 'gradle': {
+			// Gradle: "X tests completed, Y failed, Z skipped"
+			const gradleMatch = output.match(
+				/(\d+) tests? completed(?:,\s*(\d+) failed)?(?:,\s*(\d+) skipped)?/,
+			);
+			if (gradleMatch) {
+				totals.total = parseInt(gradleMatch[1], 10);
+				totals.failed = gradleMatch[2] ? parseInt(gradleMatch[2], 10) : 0;
+				totals.skipped = gradleMatch[3] ? parseInt(gradleMatch[3], 10) : 0;
+				totals.passed = totals.total - totals.failed - totals.skipped;
+			}
+			break;
+		}
+		case 'dotnet-test': {
+			// dotnet test: "Passed: 5, Failed: 0, Skipped: 0"
+			const passMatch = output.match(/Passed[!:]?\s*(\d+)/i);
+			const failMatch = output.match(/Failed[!:]?\s*(\d+)/i);
+			const skipMatch = output.match(/Skipped[!:]?\s*(\d+)/i);
+			if (passMatch) totals.passed = parseInt(passMatch[1], 10);
+			if (failMatch) totals.failed = parseInt(failMatch[1], 10);
+			if (skipMatch) totals.skipped = parseInt(skipMatch[1], 10);
+			totals.total = totals.passed + totals.failed + totals.skipped;
+			break;
+		}
+		case 'ctest': {
+			// CTest: "X% tests passed, Y tests failed out of Z"
+			const ctestMatch = output.match(/(\d+) tests? failed out of (\d+)/);
+			if (ctestMatch) {
+				totals.failed = parseInt(ctestMatch[1], 10);
+				totals.total = parseInt(ctestMatch[2], 10);
+				totals.passed = totals.total - totals.failed;
+			} else {
+				const allPassMatch = output.match(/100% tests passed.*?(\d+) tests?/);
+				if (allPassMatch) {
+					totals.total = parseInt(allPassMatch[1], 10);
+					totals.passed = totals.total;
+				}
+			}
+			break;
+		}
+		case 'swift-test': {
+			// Swift: "Test Suite ... passed ... (X tests, Y failures)"
+			const swiftMatch = output.match(
+				/Executed (\d+) tests?,\s*with (\d+) failures?/,
+			);
+			if (swiftMatch) {
+				totals.total = parseInt(swiftMatch[1], 10);
+				totals.failed = parseInt(swiftMatch[2], 10);
+				totals.passed = totals.total - totals.failed;
+			}
+			break;
+		}
+		case 'dart-test': {
+			// Dart: "+X: All tests passed!" or "+X -Y: Some tests failed"
+			const dartPassMatch = output.match(/\+(\d+):\s*All tests passed/);
+			const dartMixMatch = output.match(/\+(\d+)\s+-(\d+):/);
+			if (dartPassMatch) {
+				totals.passed = parseInt(dartPassMatch[1], 10);
+				totals.total = totals.passed;
+			} else if (dartMixMatch) {
+				totals.passed = parseInt(dartMixMatch[1], 10);
+				totals.failed = parseInt(dartMixMatch[2], 10);
+				totals.total = totals.passed + totals.failed;
+			}
+			break;
+		}
+		case 'rspec': {
+			// RSpec: "X examples, Y failures" or "X examples, Y failures, Z pending"
+			const rspecMatch = output.match(
+				/(\d+) examples?,\s*(\d+) failures?(?:,\s*(\d+) pending)?/,
+			);
+			if (rspecMatch) {
+				totals.total = parseInt(rspecMatch[1], 10);
+				totals.failed = parseInt(rspecMatch[2], 10);
+				totals.skipped = rspecMatch[3] ? parseInt(rspecMatch[3], 10) : 0;
+				totals.passed = totals.total - totals.failed - totals.skipped;
+			}
+			break;
+		}
+		case 'minitest': {
+			// Minitest: "X runs, Y assertions, Z failures, W errors, V skips"
+			const minitestMatch = output.match(
+				/(\d+) runs?,\s*\d+ assertions?,\s*(\d+) failures?,\s*(\d+) errors?,\s*(\d+) skips?/,
+			);
+			if (minitestMatch) {
+				totals.total = parseInt(minitestMatch[1], 10);
+				totals.failed =
+					parseInt(minitestMatch[2], 10) + parseInt(minitestMatch[3], 10);
+				totals.skipped = parseInt(minitestMatch[4], 10);
+				totals.passed = totals.total - totals.failed - totals.skipped;
+			}
+			break;
+		}
 		default:
 			break;
 	}
@@ -742,7 +1033,13 @@ export async function runTests(
 	cwd?: string,
 ): Promise<TestResult> {
 	// Build the command
-	const command = buildTestCommand(framework, scope, files, coverage);
+	const command = buildTestCommand(
+		framework,
+		scope,
+		files,
+		coverage,
+		cwd ?? process.cwd(),
+	);
 
 	if (!command) {
 		return {
@@ -818,6 +1115,7 @@ export async function runTests(
 		const { totals, coveragePercent } = parseTestOutput(framework, output);
 
 		// Determine success based on exit code and failures
+		const isTimeout = exitCode === -1;
 		const testPassed = exitCode === 0 && totals.failed === 0;
 
 		if (testPassed) {
@@ -852,8 +1150,12 @@ export async function runTests(
 				duration_ms,
 				totals,
 				rawOutput: output,
-				error: `Tests failed with ${totals.failed} failures`,
-				message: `${framework} tests failed (${totals.failed}/${totals.total} failed)`,
+				error: isTimeout
+					? `Tests timed out after ${timeout_ms}ms`
+					: `Tests failed with ${totals.failed} failures`,
+				message: isTimeout
+					? `${framework} tests timed out after ${timeout_ms}ms`
+					: `${framework} tests failed (${totals.failed}/${totals.total} failed)`,
 			};
 
 			if (coveragePercent !== undefined) {
@@ -892,6 +1194,22 @@ const SOURCE_EXTENSIONS = new Set([
 	'.rs',
 	'.ps1',
 	'.psm1',
+	// Additional language support (Tier 1 & 2)
+	'.go',
+	'.java',
+	'.kt',
+	'.kts',
+	'.cs',
+	'.c',
+	'.h',
+	'.cpp',
+	'.hpp',
+	'.cc',
+	'.cxx',
+	'.swift',
+	'.dart',
+	'.rb',
+	'.pyi',
 ]);
 
 const SKIP_DIRECTORIES = new Set([
@@ -910,6 +1228,15 @@ const SKIP_DIRECTORIES = new Set([
 	'__pycache__',
 	'.pytest_cache',
 	'target',
+	// Additional language build/cache directories
+	'.gradle',
+	'.dart_tool',
+	'.build',
+	'Pods',
+	'bin',
+	'obj',
+	'.bundle',
+	'.tox',
 ]);
 
 function findSourceFiles(dir: string, files: string[] = []): string[] {
@@ -951,7 +1278,7 @@ function findSourceFiles(dir: string, files: string[] = []): string[] {
 // ============ Tool Definition ============
 export const test_runner: ReturnType<typeof tool> = tool({
 	description:
-		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, and pester. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, or "graph" to find related tests via imports.',
+		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, or "graph" to find related tests via imports.',
 	args: {
 		scope: tool.schema
 			.enum(['all', 'convention', 'graph'])
@@ -1047,7 +1374,7 @@ export const test_runner: ReturnType<typeof tool> = tool({
 				scope,
 				error: 'No test framework detected',
 				message:
-					'No supported test framework found. Install bun, vitest, jest, mocha, pytest, cargo, or pester.',
+					'No supported test framework found. Install bun, vitest, jest, mocha, pytest, cargo, pester, or a supported language test runner (go test, maven, gradle, dotnet test, ctest, swift test, dart test, rspec, minitest).',
 				totals: {
 					passed: 0,
 					failed: 0,

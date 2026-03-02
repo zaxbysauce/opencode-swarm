@@ -23,6 +23,10 @@ export interface SemgrepOptions {
 	timeoutMs?: number;
 	/** Working directory for Semgrep execution */
 	cwd?: string;
+	/** Language identifier for --lang flag (used with useAutoConfig) */
+	lang?: string;
+	/** When true, use --config auto instead of local rulesDir (for profile-driven languages) */
+	useAutoConfig?: boolean;
 }
 
 /**
@@ -253,13 +257,15 @@ export async function runSemgrep(
 	}
 
 	// Build the Semgrep command arguments (safe array, no shell injection)
-	// Use local rules only (no --config auto or remote rulesets)
-	const args = [
-		`--config=./${rulesDir}`,
+	const args: string[] = [
+		options.useAutoConfig ? '--config=auto' : `--config=./${rulesDir}`,
 		'--json',
 		'--quiet', // Only output findings
-		...files,
 	];
+	if (options.lang) {
+		args.push(`--lang=${options.lang}`);
+	}
+	args.push(...files);
 
 	try {
 		const result = await executeWithTimeout('semgrep', args, {

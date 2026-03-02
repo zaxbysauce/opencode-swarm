@@ -15,6 +15,10 @@ export interface SemgrepOptions {
     timeoutMs?: number;
     /** Working directory for Semgrep execution */
     cwd?: string;
+    /** Language identifier for --lang flag (used with useAutoConfig) */
+    lang?: string;
+    /** When true, use --config auto instead of local rulesDir (for profile-driven languages) */
+    useAutoConfig?: boolean;
 }
 /**
  * Result from Semgrep execution
