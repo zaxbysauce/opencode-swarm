@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.16.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.16.0...v6.16.1) (2026-03-02)
+
+
+### Bug Fixes
+
+* add spec lifecycle fixes — explicit override, stale detection, archival, plan ingestion gate (v6.16.1) ([6c94b6c](https://github.com/zaxbysauce/opencode-swarm/commit/6c94b6c3e00826af59dab961cfe15c5bf72ca436))
+
 ## [6.16.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.15.0...v6.16.0) (2026-03-02)
 
 ### Features
