@@ -84,3 +84,37 @@ jobs:
           else
             echo "No release notes file found at $NOTES_FILE — skipping"
           fi
+
+  update-pr-notes:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Update release PR body from docs/releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --label "autorelease: pending" --json number -q '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No autorelease PR found — skipping"
+            exit 0
+          fi
+          VERSION=$(gh pr view "$PR_NUMBER" --json title -q '.title' | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "No version found in PR title — skipping"
+            exit 0
+          fi
+          NOTES_FILE="docs/releases/v${VERSION}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "Found release notes at $NOTES_FILE — updating PR #$PR_NUMBER body"
+            gh pr edit "$PR_NUMBER" --body-file "$NOTES_FILE"
+          else
+            echo "No release notes file found at $NOTES_FILE — skipping"
+          fi
