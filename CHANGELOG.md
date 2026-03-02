@@ -1,5 +1,20 @@
 # Changelog
 
+## [6.15.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.12...v6.15.0) (2026-03-02)
+
+### Features
+
+* SPECIFY mode for Architect — generate structured requirement specs (FR-###, SC-###) from feature descriptions (src/agents/architect.ts)
+* CLARIFY-SPEC mode for Architect — resolve spec ambiguities one question at a time, max 8 questions (src/agents/architect.ts)
+* Soft Spec Gate in PLAN mode — warns when planning without a spec and offers to create one or skip (src/agents/architect.ts)
+* ANALYZE mode for Critic — audit plans against specs for gaps and gold-plating with FR-### coverage table (src/agents/critic.ts)
+* DRIFT-CHECK mode for Critic — automatic requirement drift detection at phase boundaries in PHASE-WRAP (src/agents/critic.ts, src/agents/architect.ts)
+* Project Governance — auto-detect MUST/SHOULD rules from project-instructions.md in DISCOVER mode (src/agents/architect.ts)
+* Research Caching for SME — cache external URL lookups in context.md ## Research Sources to avoid redundant fetches (src/agents/sme.ts)
+* External plan import path in SPECIFY mode — reverse-engineer spec from existing plan and validate task format (src/agents/architect.ts)
+* New commands: /swarm specify, /swarm clarify, /swarm analyze (src/commands/specify.ts, src/commands/clarify.ts, src/commands/analyze.ts)
+* Automated release notes pipeline — update-release-notes CI job populates GitHub release body from docs/releases/{tag}.md (.github/workflows/release-and-publish.yml)
+
 ## [6.14.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.14.11...v6.14.12) (2026-03-02)
 
 

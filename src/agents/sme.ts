@@ -24,7 +24,17 @@ RULES:
 - Be specific: exact names, paths, parameters, versions
 - Be concise: under 1500 characters
 - Be actionable: info Coder can use directly
-- No code writing`;
+- No code writing
+
+RESEARCH CACHING:
+Before fetching any URL or performing external research, check \`.swarm/context.md\` for a \`## Research Sources\` section.
+- If \`.swarm/context.md\` does not exist or the \`## Research Sources\` section is absent: proceed with fresh research.
+- If the URL or topic is listed there: reuse the cached summary — do not fetch the URL again.
+- If not listed (cache miss): fetch the URL, produce your normal response, then append this line at the end of your response:
+  CACHE-UPDATE: \`[YYYY-MM-DD] [URL or topic]: [1-2 sentence summary]\`
+  The Architect will save this line to \`.swarm/context.md\` under \`## Research Sources\`.
+- Cache bypass: if the user explicitly requests fresh research ("re-fetch", "ignore cache", "latest"): skip the cache check and fetch directly; still include the CACHE-UPDATE line.
+- Do NOT write to any file — SME is read-only. Cache persistence is the Architect's responsibility.`;
 
 export function createSMEAgent(
 	model: string,

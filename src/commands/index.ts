@@ -2,8 +2,10 @@ import type { AgentDefinition } from '../agents';
 import { loadPluginConfig } from '../config/loader';
 import { GuardrailsConfigSchema } from '../config/schema';
 import { handleAgentsCommand } from './agents';
+import { handleAnalyzeCommand } from './analyze';
 import { handleArchiveCommand } from './archive';
 import { handleBenchmarkCommand } from './benchmark';
+import { handleClarifyCommand } from './clarify';
 import { handleConfigCommand } from './config';
 import { handleDiagnoseCommand } from './diagnose';
 import { handleDoctorCommand } from './doctor';
@@ -17,13 +19,16 @@ import { handlePlanCommand } from './plan';
 import { handlePreflightCommand } from './preflight';
 import { handleResetCommand } from './reset';
 import { handleRetrieveCommand } from './retrieve';
+import { handleSpecifyCommand } from './specify';
 import { handleStatusCommand } from './status';
 import { handleSyncPlanCommand } from './sync-plan';
 
 // Re-export individual handlers
 export { handleAgentsCommand } from './agents';
+export { handleAnalyzeCommand } from './analyze';
 export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
+export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
@@ -34,6 +39,7 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
+export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
 
@@ -56,6 +62,9 @@ const HELP_TEXT = [
 	'- `/swarm export` — Export plan and context as JSON',
 	'- `/swarm reset --confirm` — Clear swarm state files',
 	'- `/swarm retrieve <id>` — Retrieve full output from a summary',
+	'- `/swarm clarify [topic]` — Clarify and refine an existing feature specification',
+	'- `/swarm analyze` — Analyze spec.md vs plan.md for requirement coverage gaps',
+	'- `/swarm specify [description]` — Generate or import a feature specification',
 ].join('\n');
 
 /**
@@ -144,6 +153,15 @@ export function createSwarmCommandHandler(
 				break;
 			case 'retrieve':
 				text = await handleRetrieveCommand(directory, args);
+				break;
+			case 'clarify':
+				text = await handleClarifyCommand(directory, args);
+				break;
+			case 'analyze':
+				text = await handleAnalyzeCommand(directory, args);
+				break;
+			case 'specify':
+				text = await handleSpecifyCommand(directory, args);
 				break;
 			default:
 				text = HELP_TEXT;

@@ -179,3 +179,50 @@ Both produce the same output: a structured `.swarm/plan.md` the Architect can ex
 6. Drop `plan.md` into `.swarm/` and start the Architect
 
 Planning cost: $0 | Planning time: 1-2 hours | Payoff: fewer retries, lower API spend
+
+---
+
+## The Built-In Spec Pipeline
+
+If you prefer to plan inside OpenCode rather than in a separate tool, the swarm has a built-in spec pipeline. It guides you from raw requirements through a validated spec to a complete implementation plan — all without leaving your current session.
+
+### The Three Commands
+
+| Command | When to Use | What It Does |
+|---------|-------------|--------------|
+| `/swarm specify [description]` | You have a feature idea but no spec yet | Generates `.swarm/spec.md` with FR-### requirements, SC-### success criteria, and user scenarios |
+| `/swarm clarify [topic]` | Your spec has `[NEEDS CLARIFICATION]` markers or vague language | Asks targeted questions one at a time, updates spec.md after each accepted answer |
+| `/swarm analyze` | You have both a spec and a plan and want a coverage check | Maps FR-### requirements to plan tasks, flags gaps (untasked requirements) and gold-plating (untasked work) |
+
+### The Workflow
+
+**Starting from scratch:**
+1. `/swarm specify <feature description>` → architect generates spec.md
+2. If spec has `[NEEDS CLARIFICATION]` markers → `/swarm clarify` to resolve them
+3. Tell the architect to start planning → PLAN mode reads spec.md and cross-references FR-### automatically
+4. Optionally `/swarm analyze` after planning to verify coverage
+
+**Importing an existing plan:**
+If you already have a plan (e.g. from a prior tool or another session), you can use `/swarm specify` with the plan pasted in — the architect will reverse-engineer a spec from it, validate the plan's format, and surface any gaps.
+
+**Without a spec:**
+Planning works fine without a spec. When you enter PLAN mode without a spec.md, the architect offers to create one first or skip straight to planning. If you skip, planning behavior is identical to prior versions — no behavioral change.
+
+### Spec Format
+
+The spec lives at `.swarm/spec.md`. It contains:
+- **Functional requirements** numbered `FR-001`, `FR-002`… — what users need, written with MUST/SHOULD language
+- **Success criteria** numbered `SC-001`, `SC-002`… — measurable, technology-agnostic outcomes
+- **User scenarios** with Given/When/Then acceptance criteria
+- **`[NEEDS CLARIFICATION]` markers** for areas where uncertainty could change scope
+
+The spec deliberately contains NO technology choices, file paths, or implementation details. It captures *what* and *why*, not *how* — leaving HOW to the plan.
+
+### Relationship to the Existing Multi-Model Approach
+
+The built-in spec pipeline is an **alternative path**, not a replacement. The [multi-model planning approach](./planning.md) using external tools (Claude.ai, ChatGPT) remains fully supported and is often the right choice for complex features where you want to iterate on requirements before opening OpenCode.
+
+Use the built-in pipeline when:
+- You want a fast spec without switching tools
+- Your requirements are clear enough to capture in one session
+- You're extending an existing codebase where the spec can be grounded in the current code

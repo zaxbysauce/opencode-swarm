@@ -1,7 +1,9 @@
 import type { AgentDefinition } from '../agents';
 export { handleAgentsCommand } from './agents';
+export { handleAnalyzeCommand } from './analyze';
 export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
+export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
@@ -12,6 +14,7 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
+export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
 /**

@@ -93,3 +93,61 @@ ACCEPTANCE CRITERIA:
 - **Task lines** use `- [ ] N.M: description [SIZE] (depends: N.X)`.
 - **Acceptance criteria** must be specific enough for the test engineer to
   verify with a unit test or integration test.
+
+---
+
+## The Spec File: `.swarm/spec.md`
+
+Before writing a plan, you can optionally write a spec. The spec captures *what* users need and *why*, without any implementation details. The architect uses it to validate plans for completeness and catch gold-plating.
+
+### Spec Structure
+
+```markdown
+# [Feature Name]
+
+## Feature Description
+A 2–4 sentence description of the feature: what users will be able to do and what problem it solves. No technology choices. No implementation details.
+
+## User Scenarios
+Given [context], when [action], then [outcome].
+
+## Functional Requirements
+- FR-001 [MUST]: [requirement — independently testable, no HOW]
+- FR-002 [SHOULD]: [requirement]
+
+## Success Criteria
+- SC-001: [measurable outcome — technology-agnostic]
+- SC-002: [measurable outcome]
+
+## Key Entities (if data is involved)
+- [Entity name]: [brief description — no schema or field definitions]
+
+## Edge Cases and Known Failure Modes
+- [edge case or failure mode]
+
+## Open Questions
+- [NEEDS CLARIFICATION]: [question — max 3 markers]
+```
+
+### Naming Conventions
+
+- **`FR-###`** — Functional Requirements: what the system MUST or SHOULD do
+- **`SC-###`** — Success Criteria: how you know the feature is working
+- **`[NEEDS CLARIFICATION]`** — Uncertainty marker placed by the architect when an assumption could change scope, security impact, or core behavior. Use `/swarm clarify` to resolve.
+
+### What the Spec MUST NOT Contain
+
+The spec is technology-agnostic by design. It must not contain:
+- Technology stack, framework, or library names
+- File paths, API endpoint designs, database schema
+- Implementation details ("using React", "via REST API", "stored in PostgreSQL")
+- Any "how to build" language
+
+Violating these rules degrades the spec's value as a requirements document and makes it harder for the architect to evaluate plans objectively.
+
+### How It Connects to the Plan
+
+When `.swarm/spec.md` exists and you ask the architect to plan:
+1. Each `FR-###` requirement must map to at least one plan task
+2. Plan tasks with no corresponding `FR-###` are flagged as potential gold-plating
+3. `/swarm analyze` produces a full coverage table: requirements → tasks, gaps, and gold-plating risks

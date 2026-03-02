@@ -683,8 +683,8 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 
 	// Phase 2 - MODE Labels
 	describe('MODE Labels', () => {
-		const modes = ['MODE: RESUME', 'MODE: CLARIFY', 'MODE: DISCOVER', 'MODE: CONSULT',
-					   'MODE: PLAN', 'MODE: CRITIC-GATE', 'MODE: EXECUTE', 'MODE: PHASE-WRAP'];
+		const modes = ['MODE: SPECIFY', 'MODE: CLARIFY-SPEC', 'MODE: RESUME', 'MODE: CLARIFY', 'MODE: DISCOVER', 'MODE: CONSULT',
+					   'MODE: PRE-PHASE BRIEFING', 'MODE: PLAN', 'MODE: CRITIC-GATE', 'MODE: EXECUTE', 'MODE: PHASE-WRAP'];
 
 		modes.forEach(mode => {
 			it(`${mode} present`, () => {
@@ -697,7 +697,14 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 			const workflowStart = prompt.indexOf('## WORKFLOW');
 			const workflowSection = prompt.slice(workflowStart);
 
-			const positions = modes.map(m => workflowSection.indexOf(m));
+			// Search for exact section headers to avoid substring matches
+			// Use \n for most modes, but handle PRE-PHASE BRIEFING which has text on same line
+			const positions = modes.map(m => {
+				if (m === 'MODE: PRE-PHASE BRIEFING') {
+					return workflowSection.indexOf(`### ${m} `);
+				}
+				return workflowSection.indexOf(`### ${m}\n`);
+			});
 
 			// All MODE labels should be found in WORKFLOW section
 			positions.forEach((pos, i) => {
@@ -1511,5 +1518,513 @@ describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 			});
 		});
 	});
+	});
+});
+
+// ============================================
+// MODE: DISCOVER — Governance Detection Adversarial
+// ============================================
+
+describe('MODE: DISCOVER — governance detection adversarial', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	// Extract the MODE: DISCOVER block for targeted testing
+	const discoverStart = prompt.indexOf('### MODE: DISCOVER');
+	const discoverEnd = prompt.indexOf('### MODE: CONSULT', discoverStart);
+	const discoverSection = discoverStart >= 0 && discoverEnd > discoverStart
+		? prompt.slice(discoverStart, discoverEnd)
+		: '';
+
+	describe('Attack Vector 1: No code execution of MUST rules', () => {
+		it('Governance step MUST NOT instruct to execute MUST rules as code', () => {
+			// The governance step should only write a summary, not execute code
+			// Check for phrases like "execute MUST rules", "apply MUST rules", etc.
+			// But NOT "extract MUST" which is about reading/extracting rules, not executing them
+			expect(discoverSection).not.toMatch(/execute\s+(the\s+)?MUST|apply\s+(the\s+)?MUST|implement\s+(the\s+)?MUST|enforce\s+(the\s+)?MUST\s+as\s+code/i);
+		});
+
+		it('Governance step explicitly states it writes a summary only', () => {
+			// Should contain language indicating summary extraction, not enforcement
+			expect(discoverSection).toMatch(/Write the extracted rules as a summary|extract.*summary|write.*summary/i);
+		});
+
+		it('ADVERSARIAL: Step does NOT contain phrases suggesting code enforcement', () => {
+			// These phrases would indicate step tries to execute/enforce rules
+			const enforcementPhrases = [
+				/enforce\s+(the\s+)?MUST\s+rules/i,
+				/apply\s+(the\s+)?MUST\s+rules\s+to\s+code/i,
+				/validate\s+code\s+against\s+MUST/i,
+				/check\s+compliance\s+against\s+MUST/i,
+				/run\s+MUST\s+rules\s+as\s+code/i,
+				/execute\s+(the\s+)?MUST\s+constraints/i
+			];
+			for (const phrase of enforcementPhrases) {
+				expect(discoverSection).not.toMatch(phrase);
+			}
+		});
+
+		it('ADVERSARIAL: Step clarifies it only writes summary, not executes', () => {
+			// The step should clearly distinguish between reading and writing summary vs executing
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// Should use terms like "extract", "write", "summary"
+			expect(governanceContext).toMatch(/Write the extracted rules as a summary|extract|write.*summary/i);
+		});
+	});
+
+	describe('Attack Vector 2: Prompt injection resistance', () => {
+		it('Governance step uses proper tool escaping (no unescaped ${...} in governance context)', () => {
+			// Check that governance context doesn't contain unescaped template expressions
+			// ${...} expressions could allow prompt injection
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// Check for ${...} pattern (but not in comments or strings)
+			const unescapedVars = governanceContext.match(/\$\{[^}]+\}/g);
+			expect(unescapedVars).toBeNull();
+		});
+
+		it('ADVERSARIAL: No dynamic interpolation of governance file content', () => {
+			// The step should not try to interpolate governance file content directly
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// Should use "read" and "extract", not interpolation
+			expect(governanceContext).not.toMatch(/\$\{.*governance.*\}/i);
+			expect(governanceContext).not.toMatch(/\$\{.*instructions.*\}/i);
+		});
+	});
+
+	describe('Attack Vector 3: Does NOT overwrite entire context.md', () => {
+		it('Governance step explicitly states append behavior for existing section', () => {
+			// Should clarify it appends to ## Project Governance section, not overwrite entire file
+			expect(discoverSection).toMatch(/append.*## Project Governance|append if the section already exists/i);
+		});
+
+		it('Governance step specifies section header ## Project Governance', () => {
+			// Should explicitly mention the section it targets
+			expect(discoverSection).toContain('## Project Governance');
+		});
+
+		it('ADVERSARIAL: Step does NOT contain phrases suggesting full file overwrite', () => {
+			// These phrases would indicate step overwrites entire context.md
+			const overwritePhrases = [
+				/overwrite.*context\.md/i,
+				/replace.*context\.md/i,
+				/write.*entire.*context\.md/i,
+				/update.*context\.md.*completely/i,
+				/replace.*file/i
+			];
+			for (const phrase of overwritePhrases) {
+				expect(discoverSection).not.toMatch(phrase);
+			}
+		});
+
+		it('ADVERSARIAL: Step uses "append if" language for existing section', () => {
+			// Should explicitly handle "already exists" case with append
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			expect(governanceContext).toMatch(/append.*exists|append if|create it if not/i);
+		});
+	});
+
+	describe('Attack Vector 4: No external URL fetching or network requests', () => {
+		it('Governance step does NOT claim to fetch external URLs', () => {
+			// The step should only read local files
+			expect(discoverSection).not.toMatch(/fetch.*url|fetch.*https?:|download|external.*url/i);
+		});
+
+		it('Governance step uses only local file operations (glob, read)', () => {
+			// Should only reference local tools like glob and read
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			expect(governanceContext).toMatch(/glob|read/i);
+		});
+
+		it('ADVERSARIAL: Step does NOT contain network-related verbs', () => {
+			// These verbs would indicate network operations
+			const networkVerbs = [
+				/fetch/i,
+				/download/i,
+				/request/i,
+				/curl/i,
+				/wget/i,
+				/http/i,
+				/https/i,
+				/api.*call/i,
+				/external.*request/i
+			];
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			for (const verb of networkVerbs) {
+				expect(governanceContext).not.toMatch(new RegExp(verb));
+			}
+		});
+
+		it('ADVERSARIAL: Step explicitly mentions reading local files only', () => {
+			// Should use language like "read it" referring to local file
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			expect(governanceContext).toMatch(/read it|read.*file/i);
+		});
+	});
+
+	describe('Attack Vector 5: Silent skip ONLY when no file found (not when found)', () => {
+		it('Governance step handles file found case (must not skip silently)', () => {
+			// When a file IS found, it should process it (not skip)
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// Should contain actions for when file is found
+			expect(governanceContext).toMatch(/found:|read it|extract/i);
+		});
+
+		it('Governance step explicitly states skip when no file found', () => {
+			// Silent skip should only be for "not found" case
+			expect(discoverSection).toMatch(/no governance file|not found.*skip/i);
+		});
+
+		it('ADVERSARIAL: Step does NOT say "skip silently" for found case', () => {
+			// Silent skip should be conditioned on "no file found", not "if found"
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// The phrase "skip" should be associated with "no file" or "not found"
+			const skipNotSentences = governanceContext.split('.').filter(s =>
+				s.toLowerCase().includes('skip') &&
+				!s.toLowerCase().includes('no') &&
+				!s.toLowerCase().includes('not found') &&
+				!s.toLowerCase().includes('if no')
+			);
+			expect(skipNotSentences.length).toBe(0);
+		});
+
+		it('ADVERSARIAL: Found case has explicit actions (read, extract, write)', () => {
+			// When file is found, specific actions must be described
+			const governanceIdx = discoverSection.indexOf('governance files');
+			const governanceContext = discoverSection.slice(governanceIdx, governanceIdx + 500);
+			// Should contain action verbs for the found case
+			expect(governanceContext).toMatch(/read|extract|write/i);
+		});
+
+		it('ADVERSARIAL: Skip condition is explicitly tied to "no file found"', () => {
+			// The skip instruction should clearly link to "no governance file"
+			expect(discoverSection).toMatch(/no governance file.*skip|if no.*skip|not found.*skip/i);
+		});
+	});
+});
+
+// ============================================
+// MODE: SPECIFY (v6.15 Task 7.1)
+// ============================================
+
+describe('MODE: SPECIFY (v6.15 Task 7.1)', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	const specifyStart = prompt.indexOf('### MODE: SPECIFY');
+	const specifyEnd = prompt.indexOf('### MODE: CLARIFY-SPEC', specifyStart);
+	const specifySection = prompt.slice(specifyStart, specifyEnd);
+
+	it('MODE: SPECIFY section exists in prompt', () => {
+		expect(specifyStart).toBeGreaterThan(-1);
+		expect(specifyEnd).toBeGreaterThan(specifyStart);
+	});
+
+	it('SPECIFY activates on /swarm specify invocation', () => {
+		expect(specifySection).toContain('/swarm specify');
+	});
+
+	it('SPECIFY activates when no spec.md and no plan.md exist', () => {
+		expect(specifySection).toContain('no `.swarm/spec.md` exists and no `.swarm/plan.md` exists');
+	});
+
+	it('SPECIFY checks if spec.md already exists before generating', () => {
+		expect(specifySection).toContain('Check if `.swarm/spec.md` already exists');
+		expect(specifySection).toContain('A spec already exists');
+	});
+
+	it('SPECIFY delegates to explorer for codebase context', () => {
+		expect(specifySection).toContain('Delegate to `{{AGENT_PREFIX}}explorer` to scan the codebase');
+	});
+
+	it('SPECIFY delegates to sme for domain research', () => {
+		expect(specifySection).toContain('Delegate to `{{AGENT_PREFIX}}sme` for domain research');
+	});
+
+	it('SPECIFY generates spec.md with FR-### requirements', () => {
+		expect(specifySection).toContain('Functional requirements numbered FR-001, FR-002');
+	});
+
+	it('SPECIFY generates spec.md with SC-### success criteria', () => {
+		expect(specifySection).toContain('Success criteria numbered SC-001, SC-002');
+	});
+
+	it('SPECIFY uses WHAT/WHY language, not HOW', () => {
+		expect(specifySection).toContain('Feature description: WHAT users need and WHY — never HOW to implement');
+	});
+
+	it('SPECIFY uses [NEEDS CLARIFICATION] markers', () => {
+		expect(specifySection).toContain('[NEEDS CLARIFICATION]');
+	});
+
+	it('SPEC CONTENT RULES prohibit technology stack', () => {
+		expect(specifySection).toContain('Technology stack, framework choices, library names');
+		expect(specifySection).toContain('MUST NOT contain');
+	});
+
+	it('SPEC CONTENT RULES prohibit file paths and implementation details', () => {
+		expect(specifySection).toContain('File paths, API endpoint designs, database schema, code structure');
+		expect(specifySection).toContain('Implementation details');
+	});
+
+	it('EXTERNAL PLAN IMPORT PATH exists and derives FR-### from tasks', () => {
+		expect(specifySection).toContain('EXTERNAL PLAN IMPORT PATH');
+		expect(specifySection).toContain('Derive FR-### functional requirements from task descriptions');
+	});
+
+	it('EXTERNAL PLAN IMPORT PATH validates swarm task format', () => {
+		expect(specifySection).toContain('Validate the provided plan against swarm task format requirements');
+	});
+
+	it('EXTERNAL PLAN IMPORT PATH surfaces suggestions, does not silently rewrite', () => {
+		expect(specifySection).toContain('Surface ALL changes as suggestions — do not silently rewrite');
+		expect(specifySection).toContain('The user\'s plan is the starting point, not a draft to replace');
+	});
+
+	it('PRIORITY RULES: RESUME always wins over SPECIFY', () => {
+		expect(prompt).toContain('RESUME always wins — a user with an in-progress plan never accidentally triggers SPECIFY');
+	});
+
+	it('PRIORITY RULES: SPECIFY fires before DISCOVER when no spec exists', () => {
+		expect(prompt).toContain('SPECIFY fires before DISCOVER when no spec exists');
+	});
+});
+
+// ============================================
+// MODE: CLARIFY-SPEC (v6.15 Task 7.2)
+// ============================================
+
+describe('MODE: CLARIFY-SPEC (v6.15 Task 7.2)', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	const clarifySpecStart = prompt.indexOf('### MODE: CLARIFY-SPEC');
+	const clarifySpecEnd = prompt.indexOf('### MODE: RESUME', clarifySpecStart);
+	const clarifySpecSection = clarifySpecStart >= 0 && clarifySpecEnd > clarifySpecStart
+		? prompt.slice(clarifySpecStart, clarifySpecEnd)
+		: '';
+
+	it('MODE: CLARIFY-SPEC section exists in prompt', () => {
+		expect(clarifySpecStart).toBeGreaterThan(-1);
+		expect(clarifySpecEnd).toBeGreaterThan(clarifySpecStart);
+	});
+
+	it('CLARIFY-SPEC activates on /swarm clarify invocation', () => {
+		expect(clarifySpecSection).toContain('/swarm clarify');
+	});
+
+	it('CLARIFY-SPEC activates when spec.md has [NEEDS CLARIFICATION] markers', () => {
+		expect(clarifySpecSection).toContain('[NEEDS CLARIFICATION]');
+	});
+
+	it('CLARIFY-SPEC activates on transition from SPECIFY with open markers', () => {
+		expect(clarifySpecSection).toContain('transitions from MODE: SPECIFY');
+		expect(clarifySpecSection).toContain('open markers');
+	});
+
+	it('CLARIFY-SPEC NEVER creates a spec (no-spec case: tells user "No spec found" and stops)', () => {
+		expect(clarifySpecSection).toContain('CLARIFY-SPEC must NEVER create a spec');
+		expect(clarifySpecSection).toContain('No spec found');
+		expect(clarifySpecSection).toContain('Use `/swarm specify` to generate one first');
+	});
+
+	it('CLARIFY-SPEC reads spec.md as first step', () => {
+		expect(clarifySpecSection).toContain('Read `.swarm/spec.md`');
+	});
+
+	it('CLARIFY-SPEC scans for vague adjectives beyond explicit markers', () => {
+		expect(clarifySpecSection).toContain('Vague adjectives');
+		expect(clarifySpecSection).toContain('fast', 'secure', 'user-friendly');
+		expect(clarifySpecSection).toContain('without measurable targets');
+	});
+
+	it('CLARIFY-SPEC delegates to sme for domain research on ambiguous areas', () => {
+		expect(clarifySpecSection).toContain('Delegate to `{{AGENT_PREFIX}}sme`');
+		expect(clarifySpecSection).toContain('domain research on ambiguous areas');
+	});
+
+	it('CLARIFY-SPEC presents questions ONE AT A TIME (one question at a time language)', () => {
+		expect(clarifySpecSection).toContain('Present questions to the user ONE AT A TIME');
+		expect(clarifySpecSection).toContain('One question at a time');
+	});
+
+	it('CLARIFY-SPEC max 8 questions per session', () => {
+		expect(clarifySpecSection).toContain('max 8 per session');
+		expect(clarifySpecSection).toContain('Max 8 questions per session');
+	});
+
+	it('CLARIFY-SPEC offers multiple-choice options for each question', () => {
+		expect(clarifySpecSection).toContain('Offer 2–4 multiple-choice options');
+	});
+
+	it('After each answer: immediately updates spec.md with the resolution', () => {
+		expect(clarifySpecSection).toContain('Immediately update `.swarm/spec.md` with the resolution');
+	});
+
+	it('CLARIFY-SPEC RULES: never ask multiple questions in the same message', () => {
+		expect(clarifySpecSection).toContain('One question at a time — never ask multiple questions in the same message');
+	});
+
+	it('CLARIFY-SPEC RULES: do not create or overwrite the spec file — only refine', () => {
+		expect(clarifySpecSection).toContain('Do not create or overwrite the spec file — only refine what exists');
+	});
+});
+
+// ============================================
+// SOFT SPEC GATE in MODE: PLAN (v6.15 Task 7.2)
+// ============================================
+
+describe('SOFT SPEC GATE in MODE: PLAN (v6.15 Task 7.2)', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	const planStart = prompt.indexOf('### MODE: PLAN');
+	const planEnd = prompt.indexOf('### MODE: CRITIC-GATE', planStart);
+	const planSection = planStart >= 0 && planEnd > planStart
+		? prompt.slice(planStart, planEnd)
+		: '';
+
+	it('SPEC GATE exists in MODE: PLAN section', () => {
+		expect(planSection).toContain('SPEC GATE');
+	});
+
+	it('Gate is soft (SOFT GATE or "soft" language present)', () => {
+		expect(planSection).toMatch(/SOFT gate/i);
+	});
+
+	it('When no spec.md: warns user with spec creation offer', () => {
+		expect(planSection).toContain('If `.swarm/spec.md` does NOT exist:');
+		expect(planSection).toContain('Warn:');
+		expect(planSection).toContain('Would you like to create one first?');
+	});
+
+	it('Warning message references spec helping with requirements coverage', () => {
+		expect(planSection).toContain('spec helps ensure the plan covers all requirements');
+	});
+
+	it('Offers "Create a spec first" option → MODE: SPECIFY transition', () => {
+		expect(planSection).toContain('Create a spec first');
+		expect(planSection).toContain('transition to MODE: SPECIFY');
+	});
+
+	it('Offers "Skip and plan directly" option → proceeds unchanged', () => {
+		expect(planSection).toContain('Skip and plan directly');
+		expect(planSection).toContain('continue with the steps below unchanged');
+	});
+
+	it('When spec.md exists: cross-references FR-### requirements', () => {
+		expect(planSection).toContain('Cross-reference requirements (FR-###)');
+	});
+
+	it('When spec.md exists: ensures every FR-### maps to at least one task', () => {
+		expect(planSection).toContain('Ensure every FR-### maps to at least one task');
+	});
+
+	it('Gold-plating risk: tasks with no FR-### are flagged', () => {
+		expect(planSection).toContain('If a task has no corresponding FR-###, flag it as a potential gold-plating risk');
+	});
+
+	it('Skip path: "proceed to the steps below exactly as before" / no modification to planning behavior', () => {
+		expect(planSection).toContain('proceed to the steps below exactly as before');
+		expect(planSection).toContain('do NOT modify any planning behavior');
+		expect(planSection).toContain('This is a SOFT gate');
+	});
+});
+
+// ============================================
+// MODE: PHASE-WRAP — drift-check delegation (v6.15 Task 7.5)
+// ============================================
+
+describe('MODE: PHASE-WRAP — drift-check delegation (v6.15 Task 7.5)', () => {
+	const agent = createArchitectAgent('test-model');
+	const prompt = agent.config.prompt!;
+
+	const phaseWrapStart = prompt.indexOf('### MODE: PHASE-WRAP');
+	const phaseWrapEnd = prompt.indexOf('### Blockers', phaseWrapStart);
+	const phaseWrapSection = prompt.slice(phaseWrapStart, phaseWrapEnd);
+
+	it('PHASE-WRAP section exists in prompt', () => {
+		expect(prompt.indexOf('### MODE: PHASE-WRAP')).toBeGreaterThan(-1);
+	});
+
+	it('Step 5.5 exists in PHASE-WRAP', () => {
+		expect(phaseWrapSection).toContain('5.5.');
+	});
+
+	it('Step 5.5 references spec.md existence check', () => {
+		expect(phaseWrapSection).toContain('.swarm/spec.md');
+	});
+
+	it('Step 5.5 delegates critic with DRIFT-CHECK context', () => {
+		expect(phaseWrapSection).toContain('DRIFT-CHECK');
+	});
+
+	it('Step 5.5 delegation includes phase number', () => {
+		expect(phaseWrapSection).toContain('phase number');
+	});
+
+	it('Step 5.5 delegation includes completed task IDs and descriptions', () => {
+		expect(phaseWrapSection).toContain('completed task IDs');
+	});
+
+	it('Step 5.5 delegation includes evidence path', () => {
+		expect(phaseWrapSection).toContain('.swarm/evidence/');
+	});
+
+	it('Step 5.5 surfaces SIGNIFICANT DRIFT as warning to user', () => {
+		expect(phaseWrapSection).toContain('SIGNIFICANT DRIFT');
+	});
+
+	it('Step 5.5 is conditional on spec.md existence (skip if absent)', () => {
+		expect(phaseWrapSection).toContain('skip silently');
+	});
+
+	it('PHASE-WRAP steps appear in correct numeric order (1, 2, 3, 4, 4.5, 5, 5.5, 6, 7)', () => {
+		expect(phaseWrapSection).toContain('1.');
+		expect(phaseWrapSection).toContain('2.');
+		expect(phaseWrapSection).toContain('3.');
+		expect(phaseWrapSection).toContain('4.');
+		expect(phaseWrapSection).toContain('4.5.');
+		expect(phaseWrapSection).toContain('5.');
+		expect(phaseWrapSection).toContain('5.5.');
+		expect(phaseWrapSection).toContain('6.');
+		expect(phaseWrapSection).toContain('7.');
+
+		// Verify order
+		const pos1 = phaseWrapSection.indexOf('1.');
+		const pos2 = phaseWrapSection.indexOf('2.');
+		const pos3 = phaseWrapSection.indexOf('3.');
+		const pos4 = phaseWrapSection.indexOf('4.');
+		const pos4_5 = phaseWrapSection.indexOf('4.5.');
+		const pos5 = phaseWrapSection.indexOf('5.');
+		const pos5_5 = phaseWrapSection.indexOf('5.5.');
+		const pos6 = phaseWrapSection.indexOf('6.');
+		const pos7 = phaseWrapSection.indexOf('7.');
+
+		expect(pos1).toBeGreaterThan(-1);
+		expect(pos2).toBeGreaterThan(pos1);
+		expect(pos3).toBeGreaterThan(pos2);
+		expect(pos4).toBeGreaterThan(pos3);
+		expect(pos4_5).toBeGreaterThan(pos4);
+		expect(pos5).toBeGreaterThan(pos4_5);
+		expect(pos5_5).toBeGreaterThan(pos5);
+		expect(pos6).toBeGreaterThan(pos5_5);
+		expect(pos7).toBeGreaterThan(pos6);
+	});
+
+	it('CATASTROPHIC VIOLATION CHECK present in PHASE-WRAP', () => {
+		expect(phaseWrapSection).toContain('CATASTROPHIC VIOLATION CHECK');
+	});
+
+	it('DRIFT-CHECK delegation uses agent prefix pattern', () => {
+		expect(phaseWrapSection).toContain('{{AGENT_PREFIX}}critic');
 	});
 });

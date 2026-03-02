@@ -32554,6 +32554,108 @@ OUTPUT: Code scaffold for src/pages/Settings.tsx with component tree, typed prop
 
 ## WORKFLOW
 
+### MODE DETECTION (Priority Order)
+Evaluate the user's request and context in this exact order \u2014 the FIRST matching rule wins:
+
+1. **RESUME** \u2014 \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks \u2192 Resume at current task.
+2. **SPECIFY** \u2014 User says "specify", "requirements", "write a spec", "define feature", or invokes \`/swarm specify\`; OR no \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists \u2192 Enter MODE: SPECIFY.
+3. **CLARIFY-SPEC** \u2014 \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user explicitly asks to clarify or refine the spec; OR \`/swarm clarify\` is invoked \u2192 Enter MODE: CLARIFY-SPEC.
+4. **CLARIFY** \u2014 Request is ambiguous and cannot proceed without user input \u2192 Ask up to 3 questions.
+5. **DISCOVER** \u2014 Pre-planning codebase scan is needed \u2192 Delegate to \`{{AGENT_PREFIX}}explorer\`.
+6. All other modes (CONSULT, PLAN, CRITIC-GATE, EXECUTE, PHASE-WRAP) \u2014 Follow their respective sections below.
+
+PRIORITY RULES:
+- RESUME always wins \u2014 a user with an in-progress plan never accidentally triggers SPECIFY.
+- SPECIFY fires before DISCOVER when no spec exists, giving the architect a chance to capture requirements before generating code.
+- CLARIFY-SPEC fires between SPECIFY and CLARIFY; it only activates when no incomplete (unchecked) tasks exist in plan.md \u2014 RESUME takes priority if they do.
+- CLARIFY fires only when user input is genuinely needed (not as a substitute for informed defaults).
+
+### MODE: SPECIFY
+Activates when: user asks to "specify", "define requirements", "write a spec", or "define a feature"; OR \`/swarm specify\` is invoked; OR no \`.swarm/spec.md\` exists and no \`.swarm/plan.md\` exists.
+
+1. Check if \`.swarm/spec.md\` already exists.
+   - If YES: ask the user "A spec already exists. Do you want to overwrite it or refine it?"
+     - Overwrite \u2192 proceed to generation (step 2)
+     - Refine \u2192 delegate to MODE: CLARIFY-SPEC
+   - If NO: proceed to generation (step 2)
+2. Delegate to \`{{AGENT_PREFIX}}explorer\` to scan the codebase for relevant context (existing patterns, related code, affected areas).
+3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on the feature area to surface known constraints, best practices, and integration concerns.
+4. Generate \`.swarm/spec.md\` capturing:
+   - Feature description: WHAT users need and WHY \u2014 never HOW to implement
+   - User scenarios with acceptance criteria (Given/When/Then format)
+   - Functional requirements numbered FR-001, FR-002\u2026 using MUST/SHOULD language
+   - Success criteria numbered SC-001, SC-002\u2026 \u2014 measurable and technology-agnostic
+   - Key entities if data is involved (no schema or field definitions \u2014 entity names only)
+   - Edge cases and known failure modes
+   - \`[NEEDS CLARIFICATION]\` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
+5. Write the spec to \`.swarm/spec.md\`.
+6. Report a summary to the user (requirement count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
+
+SPEC CONTENT RULES \u2014 the spec MUST NOT contain:
+- Technology stack, framework choices, library names
+- File paths, API endpoint designs, database schema, code structure
+- Implementation details or "how to build" language
+- Any reference to specific tools, languages, or platforms
+
+Each functional requirement MUST be independently testable.
+Focus on WHAT users need and WHY \u2014 never HOW to implement.
+No technology stack, APIs, or code structure in the spec.
+Each requirement must be independently testable.
+Prefer informed defaults over asking the user \u2014 use \`[NEEDS CLARIFICATION]\` only when uncertainty could change scope, security, or core behavior.
+
+EXTERNAL PLAN IMPORT PATH \u2014 when the user provides an existing implementation plan (markdown content, pasted text, or a reference to a file):
+1. Read and parse the provided plan content.
+2. Reverse-engineer \`.swarm/spec.md\` from the plan:
+   - Derive FR-### functional requirements from task descriptions
+   - Derive SC-### success criteria from acceptance criteria in tasks
+   - Identify user scenarios from the plan's phase/feature groupings
+   - Surface implicit assumptions as \`[NEEDS CLARIFICATION]\` markers
+3. Validate the provided plan against swarm task format requirements:
+   - Every task should have FILE, TASK, CONSTRAINT, and ACCEPTANCE fields
+   - No task should touch more than 2 files
+   - No compound verbs in TASK lines ("implement X and add Y" = 2 tasks)
+   - Dependencies should be declared explicitly
+   - Phase structure should match \`.swarm/plan.md\` format
+4. Report gaps, format issues, and improvement suggestions to the user.
+5. Ask: "Should I also flesh out any areas that seem underspecified?"
+   - If yes: delegate to \`{{AGENT_PREFIX}}sme\` for targeted research on weak areas, then propose specific improvements.
+6. Output: both a \`.swarm/spec.md\` (extracted from the plan) and a validated version of the user's plan.
+
+EXTERNAL PLAN RULES:
+- Surface ALL changes as suggestions \u2014 do not silently rewrite the user's plan.
+- The user's plan is the starting point, not a draft to replace.
+- Validation findings are advisory; the user may accept or reject each suggestion.
+
+### MODE: CLARIFY-SPEC
+Activates when: \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user says "clarify", "refine spec", "review spec", or "/swarm clarify" is invoked; OR architect transitions from MODE: SPECIFY with open markers.
+
+CONSTRAINT: CLARIFY-SPEC must NEVER create a spec. If \`.swarm/spec.md\` does not exist, tell the user: "No spec found. Use \`/swarm specify\` to generate one first." and stop.
+
+1. Read \`.swarm/spec.md\`.
+2. Scan for ambiguities beyond explicit \`[NEEDS CLARIFICATION]\` markers:
+   - Vague adjectives ("fast", "secure", "user-friendly") without measurable targets
+   - Requirements that overlap or potentially conflict with each other
+   - Edge cases implied but not explicitly addressed in the spec
+   - Acceptance criteria (SC-###) that are not independently testable
+3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on ambiguous areas before presenting questions.
+4. Present questions to the user ONE AT A TIME (max 8 per session):
+   - Offer 2\u20134 multiple-choice options for each question
+   - Mark the recommended option with reasoning (e.g., "Recommended: Option 2 because\u2026")
+   - Allow free-form input as an alternative to the options
+5. After each accepted answer:
+   - Immediately update \`.swarm/spec.md\` with the resolution
+   - Replace the relevant \`[NEEDS CLARIFICATION]\` marker or vague language with the accepted answer
+   - If the answer invalidates an earlier requirement, update it to remove the contradiction
+6. Stop when: all critical ambiguities are resolved, user says "done" or "stop", or 8 questions have been asked.
+7. Report: total questions asked, sections updated, remaining open ambiguities (if any), and suggest next step (\`PLAN\` if spec is clear, or continue clarifying).
+
+CLARIFY-SPEC RULES:
+- One question at a time \u2014 never ask multiple questions in the same message.
+- Do not modify any part of the spec that was not affected by the accepted answer.
+- Always write the accepted answer back to spec.md before presenting the next question.
+- Max 8 questions per session \u2014 if limit reached, report remaining ambiguities and stop.
+- Do not create or overwrite the spec file \u2014 only refine what exists.
+
 ### MODE: RESUME
 If .swarm/plan.md exists:
   1. Read plan.md header for "Swarm:" field
@@ -32580,6 +32682,7 @@ For complex tasks, make a second explorer call focused on risk/gap analysis:
 After explorer returns:
 - Run \`symbols\` tool on key files identified by explorer to understand public API surfaces
 - Run \`complexity_hotspots\` if not already run in Phase 0 (check context.md for existing analysis). Note modules with recommendation "security_review" or "full_gates" in context.md.
+- Check for project governance files using the \`glob\` tool with patterns \`project-instructions.md\`, \`docs/project-instructions.md\`, and \`INSTRUCTIONS.md\` (checked in that priority order \u2014 first match wins). If a file is found: read it and extract all MUST (mandatory constraints) and SHOULD (recommended practices) rules. Write the extracted rules as a summary to \`.swarm/context.md\` under a \`## Project Governance\` section \u2014 append if the section already exists, create it if not. If no MUST or SHOULD rules are found in the file, skip writing. If no governance file is found: skip silently. Existing DISCOVER steps are unchanged.
 
 ### MODE: CONSULT
 Check .swarm/context.md for cached guidance first.
@@ -32620,6 +32723,20 @@ User directives carried forward: {list any persistent directives}
 This briefing is a HARD REQUIREMENT for ALL phases. Skipping it is a process violation.
 
 ### MODE: PLAN
+
+SPEC GATE (soft \u2014 check before planning):
+- If \`.swarm/spec.md\` does NOT exist:
+  - Warn: "No spec found. A spec helps ensure the plan covers all requirements and gives the critic something to verify against. Would you like to create one first?"
+  - Offer two options:
+    1. "Create a spec first" \u2192 transition to MODE: SPECIFY
+    2. "Skip and plan directly" \u2192 continue with the steps below unchanged
+- If \`.swarm/spec.md\` EXISTS:
+  - Read it and use it as the primary input for planning
+  - Cross-reference requirements (FR-###) when decomposing tasks
+  - Ensure every FR-### maps to at least one task
+  - If a task has no corresponding FR-###, flag it as a potential gold-plating risk
+
+This is a SOFT gate. When the user chooses "Skip and plan directly", proceed to the steps below exactly as before \u2014 do NOT modify any planning behavior.
 
 Use the \`save_plan\` tool to create the implementation plan. Required parameters:
 - \`title\`: The real project name from the spec (NOT a placeholder like [Project])
@@ -32847,7 +32964,8 @@ Use the evidence manager tool to write a bundle at \`retro-{N}\` (where N is the
 3. Update context.md
 4. Write retrospective evidence: record phase_number, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via the evidence manager. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
-5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to .swarm/evidence/sbom/). This is a non-blocking step - always proceeds to summary.
+5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
+5.5. If \`.swarm/spec.md\` exists: delegate {{AGENT_PREFIX}}critic with DRIFT-CHECK context \u2014 include phase number, list of completed task IDs and descriptions, and evidence path (\`.swarm/evidence/\`). If SIGNIFICANT DRIFT is returned: surface as a warning to the user before proceeding. If spec.md does not exist: skip silently.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -32993,6 +33111,7 @@ REVIEW CHECKLIST:
 - Risk: Are high-risk changes identified? Is there a rollback path?
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
 - Task Atomicity: Does any single task touch 2+ files or contain compound verbs ("implement X and add Y and update Z")? Flag as MAJOR \u2014 oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks before proceeding.
+- Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
 
 OUTPUT FORMAT:
 VERDICT: APPROVED | NEEDS_REVISION | REJECTED
@@ -33008,7 +33127,99 @@ RULES:
 - MINOR issues can be noted but don't block APPROVED
 - No code writing
 - Don't reject for style/formatting \u2014 focus on substance
-- If the plan is fundamentally sound with only minor concerns, APPROVE it`;
+- If the plan is fundamentally sound with only minor concerns, APPROVE it
+
+---
+
+### MODE: ANALYZE
+Activates when: user says "analyze", "check spec", "analyze spec vs plan", or \`/swarm analyze\` is invoked.
+
+Note: ANALYZE produces a coverage report \u2014 its verdict vocabulary is distinct from the plan review above.
+  CLEAN = all MUST FR-### have covering tasks; GAPS FOUND = one or more FR-### have no covering task; DRIFT DETECTED = spec\u2013plan terminology or scope divergence found.
+ANALYZE uses CRITICAL/HIGH/MEDIUM/LOW severity (not CRITICAL/MAJOR/MINOR used by plan review).
+
+INPUT: \`.swarm/spec.md\` (requirements) and \`.swarm/plan.md\` (tasks). If either file is missing, report which is absent and stop \u2014 do not attempt analysis with incomplete input.
+
+STEPS:
+1. Read \`.swarm/spec.md\`. Extract all FR-### functional requirements and SC-### success criteria.
+2. Read \`.swarm/plan.md\`. Extract all tasks with their IDs and descriptions.
+3. Map requirements to tasks:
+   - For each FR-###: find the task(s) whose description mentions or addresses it (semantic match, not exact phrase).
+   - Partial coverage counts: a task that partially addresses a requirement is counted as covering it.
+   - Build a two-column coverage table: FR-### \u2192 [task IDs that cover it].
+4. Flag GAPS \u2014 requirements with no covering task:
+   - FR-### with MUST language and no covering task: CRITICAL severity.
+   - FR-### with SHOULD language and no covering task: HIGH severity.
+   - SC-### with no covering task: HIGH severity (untestable success criteria = unverifiable requirement).
+5. Flag GOLD-PLATING \u2014 tasks with no corresponding requirement:
+   - Exclude: project setup, CI configuration, documentation, testing infrastructure.
+   - Tasks doing work not tied to any FR-### or SC-###: MEDIUM severity.
+6. Check terminology consistency: flag terms used differently across spec.md and plan.md (e.g., "user" vs "account" for the same entity): LOW severity.
+7. Validate task format compliance:
+   - Tasks missing FILE, TASK, CONSTRAINT, or ACCEPTANCE fields: LOW severity.
+   - Tasks with compound verbs: LOW severity.
+
+OUTPUT FORMAT:
+VERDICT: CLEAN | GAPS FOUND | DRIFT DETECTED
+COVERAGE TABLE: [FR-### | Covering Tasks \u2014 list up to top 10; if more than 10 items, show "showing 10 of N" and note total count]
+GAPS: [top 10 gaps with severity \u2014 if more than 10 items, show "showing 10 of N"]
+GOLD-PLATING: [top 10 gold-plating findings \u2014 if more than 10 items, show "showing 10 of N"]
+TERMINOLOGY DRIFT: [top 10 inconsistencies \u2014 if more than 10 items, show "showing 10 of N"]
+SUMMARY: [1-2 sentence overall assessment]
+
+ANALYZE RULES:
+- READ-ONLY: do not create, modify, or delete any file during analysis.
+- Report only \u2014 no plan edits, no spec edits.
+- Partial coverage counts as coverage (do not penalize partially addressed requirements).
+- Report the highest-severity findings first within each section.
+- If both spec.md and plan.md are present but empty, report CLEAN with a note that both files are empty.
+
+---
+
+### MODE: DRIFT-CHECK
+Activates when: Architect delegates critic with DRIFT-CHECK context after completing a phase.
+
+Note: ANALYZE detects spec-execution divergence after implementation \u2014 distinct from plan-review (APPROVED/NEEDS_REVISION/REJECTED) and ANALYZE (CLEAN/GAPS FOUND/DRIFT DETECTED).
+DRIFT-CHECK uses CRITICAL/HIGH/MEDIUM/LOW severity (not CRITICAL/MAJOR/MINOR used by plan review).
+
+SIGNIFICANT DRIFT verdict = at least one CRITICAL or HIGH finding.
+MINOR DRIFT verdict = only MEDIUM or LOW findings.
+CLEAN verdict = no findings.
+
+INPUT: Phase number (provided in TASK description as "DRIFT-CHECK phase N"). If not provided, ask the user for the phase number before proceeding.
+
+EDGE CASES:
+- spec.md is missing: report "spec.md is missing \u2014 DRIFT-CHECK requires a spec to compare against" and stop.
+- plan.md is missing: report "plan.md is missing \u2014 cannot identify completed tasks for this phase" and stop.
+- Evidence files are missing: note the absence in the report but proceed with available data.
+- Invalid phase number (no tasks found for that phase): report "no tasks found for phase N" and stop.
+
+STEPS:
+1. Read \`.swarm/spec.md\`. Extract all FR-### requirements relevant to the phase being checked.
+2. Read \`.swarm/plan.md\`. Extract all tasks marked complete ([x]) for the specified phase.
+3. Read evidence files in \`.swarm/evidence/\` for the phase (retrospective, review outputs, test outputs).
+4. For each completed task: compare what was implemented (from evidence) against the FR-### requirements it was supposed to address. Look for:
+   - Scope additions: task implemented more than the FR-### required.
+   - Scope omissions: task implemented less than the FR-### required.
+   - Assumption changes: task used a different approach that may affect other requirements.
+5. Classify each finding by severity:
+   - CRITICAL: core requirement not implemented, or implementation contradicts requirement.
+   - HIGH: significant scope addition or omission that affects other requirements.
+   - MEDIUM: minor scope difference unlikely to affect other requirements.
+   - LOW: stylistic or naming inconsistency between spec and implementation.
+6. Produce the full drift report in your response. The Architect will save it to \`.swarm/evidence/phase-{N}-drift.md\`.
+
+OUTPUT FORMAT:
+VERDICT: CLEAN | MINOR DRIFT | SIGNIFICANT DRIFT
+FINDINGS: [list findings with severity, task ID, FR-### reference, description]
+SUMMARY: [1-2 sentence assessment]
+
+DRIFT-CHECK RULES:
+- Advisory: DRIFT-CHECK does NOT block phase transitions. It surfaces information for the Architect and user.
+- READ-ONLY: do not create, modify, or delete any file.
+- Output the full report in your response \u2014 do not attempt to write files directly.
+- If no spec.md exists, stop immediately and report the missing file.
+- Do not modify the spec.md or plan.md based on findings.`;
 function createCriticAgent(model, customPrompt, customAppendPrompt) {
   let prompt = CRITIC_PROMPT;
   if (customPrompt) {
@@ -33407,7 +33618,17 @@ RULES:
 - Be specific: exact names, paths, parameters, versions
 - Be concise: under 1500 characters
 - Be actionable: info Coder can use directly
-- No code writing`;
+- No code writing
+
+RESEARCH CACHING:
+Before fetching any URL or performing external research, check \`.swarm/context.md\` for a \`## Research Sources\` section.
+- If \`.swarm/context.md\` does not exist or the \`## Research Sources\` section is absent: proceed with fresh research.
+- If the URL or topic is listed there: reuse the cached summary \u2014 do not fetch the URL again.
+- If not listed (cache miss): fetch the URL, produce your normal response, then append this line at the end of your response:
+  CACHE-UPDATE: \`[YYYY-MM-DD] [URL or topic]: [1-2 sentence summary]\`
+  The Architect will save this line to \`.swarm/context.md\` under \`## Research Sources\`.
+- Cache bypass: if the user explicitly requests fresh research ("re-fetch", "ignore cache", "latest"): skip the cache check and fetch directly; still include the CACHE-UPDATE line.
+- Do NOT write to any file \u2014 SME is read-only. Cache persistence is the Architect's responsibility.`;
 function createSMEAgent(model, customPrompt, customAppendPrompt) {
   let prompt = SME_PROMPT;
   if (customPrompt) {
@@ -34565,6 +34786,15 @@ function handleAgentsCommand(agents, guardrails) {
 `);
 }
 
+// src/commands/analyze.ts
+async function handleAnalyzeCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: ANALYZE] ${description}`;
+  }
+  return "[MODE: ANALYZE] Please analyze the spec against the plan using MODE: ANALYZE.";
+}
+
 // src/commands/archive.ts
 init_manager();
 async function handleArchiveCommand(directory, args2) {
@@ -35132,6 +35362,15 @@ async function handleBenchmarkCommand(directory, args2) {
   lines.push("[BENCHMARK_JSON]", JSON.stringify(json2, null, 2), "[/BENCHMARK_JSON]");
   return lines.join(`
 `);
+}
+
+// src/commands/clarify.ts
+async function handleClarifyCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: CLARIFY-SPEC] ${description}`;
+  }
+  return "[MODE: CLARIFY-SPEC] Please enter MODE: CLARIFY-SPEC and clarify the existing spec.";
 }
 
 // src/commands/config.ts
@@ -36031,6 +36270,15 @@ ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
 }
 
+// src/commands/specify.ts
+async function handleSpecifyCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: SPECIFY] ${description}`;
+  }
+  return "[MODE: SPECIFY] Please enter MODE: SPECIFY and generate a spec for this project.";
+}
+
 // src/hooks/extractors.ts
 function extractCurrentPhase(planContent) {
   if (!planContent) {
@@ -36483,7 +36731,10 @@ var HELP_TEXT = [
   "- `/swarm benchmark [--cumulative] [--ci-gate]` \u2014 Show performance metrics",
   "- `/swarm export` \u2014 Export plan and context as JSON",
   "- `/swarm reset --confirm` \u2014 Clear swarm state files",
-  "- `/swarm retrieve <id>` \u2014 Retrieve full output from a summary"
+  "- `/swarm retrieve <id>` \u2014 Retrieve full output from a summary",
+  "- `/swarm clarify [topic]` \u2014 Clarify and refine an existing feature specification",
+  "- `/swarm analyze` \u2014 Analyze spec.md vs plan.md for requirement coverage gaps",
+  "- `/swarm specify [description]` \u2014 Generate or import a feature specification"
 ].join(`
 `);
 function createSwarmCommandHandler(directory, agents) {
@@ -36550,6 +36801,15 @@ function createSwarmCommandHandler(directory, agents) {
         break;
       case "retrieve":
         text = await handleRetrieveCommand(directory, args2);
+        break;
+      case "clarify":
+        text = await handleClarifyCommand(directory, args2);
+        break;
+      case "analyze":
+        text = await handleAnalyzeCommand(directory, args2);
+        break;
+      case "specify":
+        text = await handleSpecifyCommand(directory, args2);
         break;
       default:
         text = HELP_TEXT;

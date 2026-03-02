@@ -546,6 +546,9 @@ When truncation is active, a footer is appended:
 | `/swarm preflight` | Run phase preflight checks |
 | `/swarm config doctor [--fix]` | Config validation with optional auto-fix |
 | `/swarm sync-plan` | Force plan.md regeneration from plan.json |
+| `/swarm specify [description]` | Generate or import a feature specification |
+| `/swarm clarify [topic]` | Clarify and refine an existing feature specification |
+| `/swarm analyze` | Analyze spec.md vs plan.md for requirement coverage gaps |
 
 </details>
 
