@@ -37454,27 +37454,30 @@ OUTPUT: Code scaffold for src/pages/Settings.tsx with component tree, typed prop
 ### MODE DETECTION (Priority Order)
 Evaluate the user's request and context in this exact order \u2014 the FIRST matching rule wins:
 
-1. **RESUME** \u2014 \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks \u2192 Resume at current task.
-2. **SPECIFY** \u2014 User says "specify", "requirements", "write a spec", "define feature", or invokes \`/swarm specify\`; OR no \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists \u2192 Enter MODE: SPECIFY.
+0. **EXPLICIT COMMAND OVERRIDE** \u2014 User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements" \u2192 Enter MODE: SPECIFY (or MODE: CLARIFY-SPEC if spec.md exists and user says "clarify"). This override fires BEFORE RESUME \u2014 an explicit spec command always wins, even if plan.md has incomplete tasks. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override \u2014 use context to determine intent.
+1. **RESUME** \u2014 \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0) \u2192 Resume at current task.
+2. **SPECIFY** \u2014 No \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists \u2192 Enter MODE: SPECIFY.
 3. **CLARIFY-SPEC** \u2014 \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user explicitly asks to clarify or refine the spec; OR \`/swarm clarify\` is invoked \u2192 Enter MODE: CLARIFY-SPEC.
 4. **CLARIFY** \u2014 Request is ambiguous and cannot proceed without user input \u2192 Ask up to 3 questions.
 5. **DISCOVER** \u2014 Pre-planning codebase scan is needed \u2192 Delegate to \`{{AGENT_PREFIX}}explorer\`.
 6. All other modes (CONSULT, PLAN, CRITIC-GATE, EXECUTE, PHASE-WRAP) \u2014 Follow their respective sections below.
 
 PRIORITY RULES:
-- RESUME always wins \u2014 a user with an in-progress plan never accidentally triggers SPECIFY.
-- SPECIFY fires before DISCOVER when no spec exists, giving the architect a chance to capture requirements before generating code.
-- CLARIFY-SPEC fires between SPECIFY and CLARIFY; it only activates when no incomplete (unchecked) tasks exist in plan.md \u2014 RESUME takes priority if they do.
+- EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything \u2014 an explicit \`/swarm specify\` or \`/swarm clarify\` command, or explicit spec-creation language ("specify", "write a spec", "create a spec", "define requirements", "define a feature") always overrides RESUME.
+- RESUME wins over SPECIFY (priority 2) and all other modes when no explicit spec command is present \u2014 a user continuing existing work is never accidentally routed to SPECIFY.
+- SPECIFY (priority 2) fires only for new projects with no spec and no plan.
+- CLARIFY-SPEC fires between SPECIFY and CLARIFY; it only activates when no explicit spec command is present and no incomplete (unchecked) tasks exist in plan.md \u2014 RESUME takes priority if they do.
 - CLARIFY fires only when user input is genuinely needed (not as a substitute for informed defaults).
 
 ### MODE: SPECIFY
 Activates when: user asks to "specify", "define requirements", "write a spec", or "define a feature"; OR \`/swarm specify\` is invoked; OR no \`.swarm/spec.md\` exists and no \`.swarm/plan.md\` exists.
 
 1. Check if \`.swarm/spec.md\` already exists.
-   - If YES: ask the user "A spec already exists. Do you want to overwrite it or refine it?"
-     - Overwrite \u2192 proceed to generation (step 2)
+   - If YES (and this is not a call from the stale spec archival path in MODE: PLAN): ask the user "A spec already exists. Do you want to overwrite it or refine it?"
+     - Overwrite \u2192 ARCHIVE FIRST: read the existing spec, extract version (priority order): (1) from spec heading, look for patterns like "v{semver}" or "Version {semver}" in the first H1/H2; (2) from package.json version field in project root; create \`.swarm/spec-archive/\` directory if it does not exist; copy existing spec.md to \`.swarm/spec-archive/spec-v{version}.md\`; if version cannot be determined, use date-based fallback: \`.swarm/spec-archive/spec-{YYYY-MM-DD}.md\`; log the archive location to the user ("Archived existing spec to .swarm/spec-archive/spec-v{version}.md"); then proceed to generation (step 2)
      - Refine \u2192 delegate to MODE: CLARIFY-SPEC
    - If NO: proceed to generation (step 2)
+   - If this is called from the stale spec archival path (MODE: PLAN option 1) \u2014 archival was already completed; skip this check and proceed directly to generation (step 2)
 2. Delegate to \`{{AGENT_PREFIX}}explorer\` to scan the codebase for relevant context (existing patterns, related code, affected areas).
 3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on the feature area to surface known constraints, best practices, and integration concerns.
 4. Generate \`.swarm/spec.md\` capturing:
@@ -37623,15 +37626,28 @@ This briefing is a HARD REQUIREMENT for ALL phases. Skipping it is a process vio
 
 SPEC GATE (soft \u2014 check before planning):
 - If \`.swarm/spec.md\` does NOT exist:
-  - Warn: "No spec found. A spec helps ensure the plan covers all requirements and gives the critic something to verify against. Would you like to create one first?"
-  - Offer two options:
-    1. "Create a spec first" \u2192 transition to MODE: SPECIFY
-    2. "Skip and plan directly" \u2192 continue with the steps below unchanged
+  - PLAN INGESTION DETECTION: Check if the user is providing an external plan (indicators: markdown content with Phase/Task structure, or phrases like "ingest this plan", "implement this plan", "prepare for implementation", "here is a plan", "here's the plan"):
+    - If plan ingestion is detected AND no spec.md exists: offer this choice FIRST before any planning:
+      1. "Generate spec from this plan first" \u2192 enter EXTERNAL PLAN IMPORT PATH in MODE: SPECIFY to reverse-engineer a spec.md from the provided plan, then return to planning
+      2. "Skip spec and proceed with the provided plan" \u2192 proceed directly to plan ingestion and planning without creating a spec
+    - This is a SOFT gate \u2014 option 2 always lets the user proceed without a spec
+  - If no plan ingestion detected: Warn: "No spec found. A spec helps ensure the plan covers all requirements and gives the critic something to verify against. Would you like to create one first?"
+    - Offer two options:
+      1. "Create a spec first" \u2192 transition to MODE: SPECIFY
+      2. "Skip and plan directly" \u2192 continue with the steps below unchanged
 - If \`.swarm/spec.md\` EXISTS:
-  - Read it and use it as the primary input for planning
-  - Cross-reference requirements (FR-###) when decomposing tasks
-  - Ensure every FR-### maps to at least one task
-  - If a task has no corresponding FR-###, flag it as a potential gold-plating risk
+  - NOTE: Stale detection is intentionally heuristic (compare headings) \u2014 false positives are acceptable because this is a SOFT gate. When in doubt, ask the user.
+  - Read the spec and compare its first heading (or feature description) against the current planning context (the user's request and any existing plan.md title/phase names)
+  - STALE SPEC DETECTION: If the spec heading or feature description does NOT match the current work being planned (e.g., spec describes "user authentication" but user is asking to plan "payment integration"), treat the spec as potentially stale and offer three options:
+    1. **Archive and create new spec** \u2192 attempt to rename .swarm/spec.md to .swarm/spec-archive/spec-{YYYY-MM-DD}.md (create the directory if needed); if archival succeeds: enter MODE: SPECIFY and skip the "spec already exists" prompt; if archival fails: inform user of the failure and offer: retry archival, or proceed with option 2, or proceed with option 3
+    2. **Keep existing spec** \u2192 use spec.md as-is and proceed with planning below
+    3. **Skip spec entirely** \u2192 proceed to planning below ignoring the existing spec
+  - If the spec appears current (heading matches the work being planned) OR user chose option 2 above, proceed with spec:
+    - Read it and use it as the primary input for planning
+    - Cross-reference requirements (FR-###) when decomposing tasks
+    - Ensure every FR-### maps to at least one task
+    - If a task has no corresponding FR-###, flag it as a potential gold-plating risk
+  - If user chose option 3 above, proceed without spec: skip all spec-based steps and proceed directly to planning
 
 This is a SOFT gate. When the user chooses "Skip and plan directly", proceed to the steps below exactly as before \u2014 do NOT modify any planning behavior.
 
@@ -43175,6 +43191,7 @@ ${originalText}`;
 }
 // src/hooks/system-enhancer.ts
 init_manager();
+init_detector();
 init_manager2();
 
 // src/services/decision-drift-analyzer.ts
@@ -43715,6 +43732,64 @@ async function buildCoderRetroInjection(directory, currentPhaseNumber) {
     return null;
   }
 }
+function buildLanguageCoderConstraints(currentTaskText) {
+  if (!currentTaskText)
+    return null;
+  const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+  if (filePaths.length === 0)
+    return null;
+  const allConstraints = [];
+  const seenConstraints = new Set;
+  let languageLabel = "";
+  for (const filePath of filePaths) {
+    const profile = getProfileForFile(filePath);
+    if (!profile)
+      continue;
+    if (!languageLabel) {
+      languageLabel = profile.displayName;
+    }
+    for (const constraint of profile.prompts.coderConstraints) {
+      if (!seenConstraints.has(constraint) && allConstraints.length < 10) {
+        seenConstraints.add(constraint);
+        allConstraints.push(constraint);
+      }
+    }
+  }
+  if (allConstraints.length === 0)
+    return null;
+  return `[LANGUAGE-SPECIFIC CONSTRAINTS \u2014 ${languageLabel}]
+${allConstraints.map((c) => `- ${c}`).join(`
+`)}`;
+}
+function buildLanguageReviewerChecklist(currentTaskText) {
+  if (!currentTaskText)
+    return null;
+  const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+  if (filePaths.length === 0)
+    return null;
+  const allItems = [];
+  const seenItems = new Set;
+  let languageLabel = "";
+  for (const filePath of filePaths) {
+    const profile = getProfileForFile(filePath);
+    if (!profile)
+      continue;
+    if (!languageLabel) {
+      languageLabel = profile.displayName;
+    }
+    for (const item of profile.prompts.reviewerChecklist) {
+      if (!seenItems.has(item) && allItems.length < 10) {
+        seenItems.add(item);
+        allItems.push(item);
+      }
+    }
+  }
+  if (allItems.length === 0)
+    return null;
+  return `[LANGUAGE-SPECIFIC REVIEW CHECKLIST \u2014 ${languageLabel}]
+${allItems.map((i2) => `- [ ] ${i2}`).join(`
+`)}`;
+}
 function createSystemEnhancerHook(config3, directory) {
   const enabled = config3.hooks?.system_enhancer !== false;
   if (!enabled) {
@@ -43842,6 +43917,20 @@ function createSystemEnhancerHook(config3, directory) {
                 tryInject(coderRetro);
               }
             } catch {}
+          }
+          if (baseRole === "coder") {
+            const taskText_lang_a = plan2 && plan2.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan2) : null;
+            const langConstraints_a = buildLanguageCoderConstraints(taskText_lang_a);
+            if (langConstraints_a) {
+              tryInject(langConstraints_a);
+            }
+          }
+          if (baseRole === "reviewer") {
+            const taskText_rev_a = plan2 && plan2.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan2) : null;
+            const revChecklist_a = buildLanguageReviewerChecklist(taskText_rev_a);
+            if (revChecklist_a) {
+              tryInject(revChecklist_a);
+            }
           }
           const sessionId_retro = _input.sessionID;
           const activeAgent_retro = swarmState.activeAgent.get(sessionId_retro ?? "");
@@ -44180,6 +44269,35 @@ function createSystemEnhancerHook(config3, directory) {
               });
             }
           } catch {}
+        }
+        if (isCoder_b) {
+          const taskText_lang_b = plan && plan.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan) : null;
+          const langConstraints_b = buildLanguageCoderConstraints(taskText_lang_b);
+          if (langConstraints_b) {
+            candidates.push({
+              id: `candidate-${idCounter++}`,
+              kind: "agent_context",
+              text: langConstraints_b,
+              tokens: estimateTokens(langConstraints_b),
+              priority: 2,
+              metadata: { contentType: "prose" }
+            });
+          }
+        }
+        const isReviewer_b = activeAgent_coder_b && stripKnownSwarmPrefix(activeAgent_coder_b) === "reviewer";
+        if (isReviewer_b) {
+          const taskText_rev_b = plan && plan.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan) : null;
+          const revChecklist_b = buildLanguageReviewerChecklist(taskText_rev_b);
+          if (revChecklist_b) {
+            candidates.push({
+              id: `candidate-${idCounter++}`,
+              kind: "agent_context",
+              text: revChecklist_b,
+              tokens: estimateTokens(revChecklist_b),
+              priority: 2,
+              metadata: { contentType: "prose" }
+            });
+          }
         }
         const automationCapabilities_b = config3.automation?.capabilities;
         if (automationCapabilities_b?.decision_drift_detection === true && sessionId_retro_b) {
@@ -49397,6 +49515,10 @@ async function sastScan(input, directory, config3) {
   const engine = semgrepAvailable ? "tier_a+tier_b" : "tier_a";
   const filesByLanguage = new Map;
   for (const filePath of changed_files) {
+    if (typeof filePath !== "string" || !filePath) {
+      _filesSkipped++;
+      continue;
+    }
     const resolvedPath = path26.isAbsolute(filePath) ? filePath : path26.resolve(directory, filePath);
     if (!fs21.existsSync(resolvedPath)) {
       _filesSkipped++;
@@ -49426,7 +49548,7 @@ async function sastScan(input, directory, config3) {
         const existing = filesByLanguage.get(bucketKey) || [];
         existing.push(resolvedPath);
         filesByLanguage.set(bucketKey, existing);
-      } else {
+      } else if (!(profile && profile.sast.nativeRuleSet === null && profile.sast.semgrepSupport === "none")) {
         const existing = filesByLanguage.get(language) || [];
         existing.push(resolvedPath);
         filesByLanguage.set(language, existing);
