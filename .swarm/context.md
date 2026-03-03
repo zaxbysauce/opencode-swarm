@@ -101,14 +101,22 @@ Swarm: mega
 - Test paths: tests/unit/ prefix (NOT test/) — existing codebase convention
 - JSONL files: one JSON object per line, skip lines that fail JSON.parse with a warning log
 
-## Phase Metrics (reset — v6.17 Phase 1 starting)
-- phase_number: 1
+## Phase Metrics (reset after v6.17.2)
+- phase_number: 0
 - total_tool_calls: 0
 - coder_revisions: 0
 - reviewer_rejections: 0
 - test_failures: 0
 - security_findings: 0
 - integration_issues: 0
+
+## v6.17.2 Retrospective Summary (2026-03-03)
+- Status: COMPLETE — commit 847b0e4 pushed to origin/main
+- Version: 6.17.2 (patch — fix: prefix)
+- Key lesson 1: Backticks inside TS template literals must be escaped as \\` — specify explicitly in coder delegation
+- Key lesson 2: A CLI subcommand that FIXES a discoverability gap is a patch release (fix:), not a minor feature (feat:)
+- Key lesson 3: Plan titles should use codename not version number — avoid stale titles when version is revised
+- Retro evidence: .swarm/evidence/retro-v6.17.2/evidence.json
 
 ## v6.16.1 Retrospective Summary (2026-03-02)
 - Status: COMPLETE — commit 6c94b6c pushed to origin/main (force-amended from 0066e82)
@@ -121,25 +129,24 @@ Swarm: mega
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 966 | 966 | 0 | 7ms |
-| bash | 947 | 947 | 0 | 3436ms |
-| edit | 536 | 536 | 0 | 1025ms |
-| grep | 243 | 243 | 0 | 263ms |
-| task | 225 | 225 | 0 | 150511ms |
-| write | 81 | 81 | 0 | 2252ms |
-| glob | 73 | 73 | 0 | 29ms |
-| todowrite | 68 | 68 | 0 | 5ms |
-| pre_check_batch | 56 | 56 | 0 | 2493ms |
-| retrieve_summary | 54 | 54 | 0 | 2ms |
-| lint | 46 | 46 | 0 | 2878ms |
-| diff | 22 | 22 | 0 | 12ms |
-| apply_patch | 10 | 10 | 0 | 1128ms |
-| test_runner | 10 | 10 | 0 | 13486ms |
-| phase_complete | 6 | 6 | 0 | 2ms |
-| invalid | 5 | 5 | 0 | 1ms |
-| symbols | 4 | 4 | 0 | 1ms |
-| checkpoint | 3 | 3 | 0 | 5ms |
-| save_plan | 2 | 2 | 0 | 6ms |
-| secretscan | 1 | 1 | 0 | 5323ms |
-| todo_extract | 1 | 1 | 0 | 0ms |
-| imports | 1 | 1 | 0 | 3ms |
+| invalid | 419 | 419 | 0 | 2ms |
+| read | 393 | 393 | 0 | 8ms |
+| bash | 328 | 328 | 0 | 3025ms |
+| edit | 217 | 217 | 0 | 841ms |
+| task | 96 | 96 | 0 | 130837ms |
+| grep | 76 | 76 | 0 | 845ms |
+| glob | 42 | 42 | 0 | 54ms |
+| write | 30 | 30 | 0 | 2493ms |
+| retrieve_summary | 23 | 23 | 0 | 5ms |
+| pre_check_batch | 18 | 18 | 0 | 1259ms |
+| todowrite | 14 | 14 | 0 | 4ms |
+| test_runner | 10 | 10 | 0 | 14964ms |
+| diff | 9 | 9 | 0 | 12ms |
+| lint | 7 | 7 | 0 | 2966ms |
+| secretscan | 6 | 6 | 0 | 49ms |
+| phase_complete | 4 | 4 | 0 | 4ms |
+| save_plan | 2 | 2 | 0 | 5ms |
+| todo_extract | 2 | 2 | 0 | 1ms |
+| imports | 2 | 2 | 0 | 3ms |
+| symbols | 1 | 1 | 0 | 2ms |
+| mystatus | 1 | 1 | 0 | 1183ms |

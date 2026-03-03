@@ -372,12 +372,13 @@ describe('Gate Workflow Integration Tests', () => {
 			await saveEvidence(testDir, 'test-task', syntaxEvidence);
 
 			// Load it back
-			const bundle = await loadEvidence(testDir, 'test-task');
+			const result = await loadEvidence(testDir, 'test-task');
 
-			expect(bundle).not.toBeNull();
-			expect(bundle?.task_id).toBe('test-task');
-			expect(bundle?.entries).toHaveLength(1);
-			expect(bundle?.entries[0]?.type).toBe('syntax');
+			expect(result.status).toBe('found');
+			const bundle = result.bundle;
+			expect(bundle.task_id).toBe('test-task');
+			expect(bundle.entries).toHaveLength(1);
+			expect(bundle.entries[0]?.type).toBe('syntax');
 		});
 
 		it('lists all evidence task IDs', async () => {
@@ -437,8 +438,8 @@ describe('Gate Workflow Integration Tests', () => {
 			expect(deleted).toBe(true);
 
 			// Verify it's gone
-			const bundle = await loadEvidence(testDir, 'delete-me');
-			expect(bundle).toBeNull();
+			const result = await loadEvidence(testDir, 'delete-me');
+			expect(result.status).toBe('not_found');
 		});
 
 		it('accumulates evidence across gates', async () => {
@@ -462,11 +463,11 @@ describe('Gate Workflow Integration Tests', () => {
 			await placeholderScan({ changed_files: [file1, file2] }, testDir);
 
 			// Both gates should have saved evidence
-			const syntaxEvidence = await loadEvidence(testDir, 'syntax_check');
-			const placeholderEvidence = await loadEvidence(testDir, 'placeholder_scan');
+			const syntaxResult = await loadEvidence(testDir, 'syntax_check');
+			const placeholderResult = await loadEvidence(testDir, 'placeholder_scan');
 
-			expect(syntaxEvidence).not.toBeNull();
-			expect(placeholderEvidence).not.toBeNull();
+			expect(syntaxResult.status).toBe('found');
+			expect(placeholderResult.status).toBe('found');
 		});
 	});
 
@@ -575,11 +576,11 @@ describe('Gate Workflow Integration Tests', () => {
 			await placeholderScan({ changed_files: [goodFile] }, testDir);
 
 			// Evidence should be accumulated
-			const syntaxEvidence = await loadEvidence(testDir, 'syntax_check');
-			const placeholderEvidence = await loadEvidence(testDir, 'placeholder_scan');
+			const syntaxResult = await loadEvidence(testDir, 'syntax_check');
+			const placeholderResult = await loadEvidence(testDir, 'placeholder_scan');
 
-			expect(syntaxEvidence).not.toBeNull();
-			expect(placeholderEvidence).not.toBeNull();
+			expect(syntaxResult.status).toBe('found');
+			expect(placeholderResult.status).toBe('found');
 		});
 	});
 
@@ -599,8 +600,9 @@ describe('Gate Workflow Integration Tests', () => {
 			};
 			await saveEvidence(testDir, 'review-1', reviewEvidence);
 
-			const bundle = await loadEvidence(testDir, 'review-1');
-			expect(bundle?.entries[0]?.type).toBe('review');
+			const result = await loadEvidence(testDir, 'review-1');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.type).toBe('review');
 		});
 
 		it('can save approval evidence', async () => {
@@ -614,8 +616,9 @@ describe('Gate Workflow Integration Tests', () => {
 			};
 			await saveEvidence(testDir, 'approval-1', approvalEvidence);
 
-			const bundle = await loadEvidence(testDir, 'approval-1');
-			expect(bundle?.entries[0]?.verdict).toBe('approved');
+			const result = await loadEvidence(testDir, 'approval-1');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.verdict).toBe('approved');
 		});
 
 		it('can save rejection evidence', async () => {
@@ -629,8 +632,9 @@ describe('Gate Workflow Integration Tests', () => {
 			};
 			await saveEvidence(testDir, 'rejection-1', rejectionEvidence);
 
-			const bundle = await loadEvidence(testDir, 'rejection-1');
-			expect(bundle?.entries[0]?.verdict).toBe('rejected');
+			const result = await loadEvidence(testDir, 'rejection-1');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.verdict).toBe('rejected');
 		});
 	});
 
@@ -710,9 +714,9 @@ describe('Gate Workflow Integration Tests', () => {
 
 			await syntaxCheck({ changed_files: [{ path: filePath, additions: 1 }], mode: 'changed' }, testDir);
 
-			const bundle = await loadEvidence(testDir, 'syntax_check');
-			expect(bundle).not.toBeNull();
-			expect(bundle?.entries[0]?.type).toBe('syntax');
+			const result = await loadEvidence(testDir, 'syntax_check');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.type).toBe('syntax');
 		});
 
 		it('evidence flows from placeholder scan to aggregation', async () => {
@@ -720,9 +724,9 @@ describe('Gate Workflow Integration Tests', () => {
 
 			await placeholderScan({ changed_files: [filePath] }, testDir);
 
-			const bundle = await loadEvidence(testDir, 'placeholder_scan');
-			expect(bundle).not.toBeNull();
-			expect(bundle?.entries[0]?.type).toBe('placeholder');
+			const result = await loadEvidence(testDir, 'placeholder_scan');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.type).toBe('placeholder');
 		});
 
 		it('verifies verdict correctness', async () => {
@@ -730,8 +734,9 @@ describe('Gate Workflow Integration Tests', () => {
 
 			await placeholderScan({ changed_files: [filePath] }, testDir);
 
-			const bundle = await loadEvidence(testDir, 'placeholder_scan');
-			expect(bundle?.entries[0]?.verdict).toBe('fail');
+			const result = await loadEvidence(testDir, 'placeholder_scan');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries[0]?.verdict).toBe('fail');
 		});
 	});
 });

@@ -107,9 +107,9 @@ export async function getTaskEvidenceData(
 	directory: string,
 	taskId: string,
 ): Promise<TaskEvidenceData> {
-	const bundle = await loadEvidence(directory, taskId);
+	const result = await loadEvidence(directory, taskId);
 
-	if (!bundle) {
+	if (result.status !== 'found') {
 		return {
 			hasEvidence: false,
 			taskId,
@@ -120,15 +120,15 @@ export async function getTaskEvidenceData(
 	}
 
 	const entries: EvidenceEntryData[] = [];
-	for (let i = 0; i < bundle.entries.length; i++) {
-		entries.push(formatEvidenceEntry(i + 1, bundle.entries[i]));
+	for (let i = 0; i < result.bundle.entries.length; i++) {
+		entries.push(formatEvidenceEntry(i + 1, result.bundle.entries[i]));
 	}
 
 	return {
 		hasEvidence: true,
 		taskId,
-		createdAt: bundle.created_at,
-		updatedAt: bundle.updated_at,
+		createdAt: result.bundle.created_at,
+		updatedAt: result.bundle.updated_at,
 		entries,
 	};
 }
@@ -148,12 +148,12 @@ export async function getEvidenceListData(
 	const tasks: EvidenceListData['tasks'] = [];
 
 	for (const taskId of taskIds) {
-		const bundle = await loadEvidence(directory, taskId);
-		if (bundle) {
+		const result = await loadEvidence(directory, taskId);
+		if (result.status === 'found') {
 			tasks.push({
 				taskId,
-				entryCount: bundle.entries.length,
-				lastUpdated: bundle.updated_at,
+				entryCount: result.bundle.entries.length,
+				lastUpdated: result.bundle.updated_at,
 			});
 		} else {
 			tasks.push({

@@ -222,7 +222,8 @@ async function buildTaskSummary(
 	task: Task | undefined,
 	taskId: string,
 ): Promise<TaskEvidenceSummary> {
-	const bundle = await loadEvidence('.', taskId);
+	const result = await loadEvidence('.', taskId);
+	const bundle = result.status === 'found' ? result.bundle : null;
 	const phase = task?.phase ?? 0;
 	const status = getTaskStatus(task, bundle);
 	const evidenceCheck = isEvidenceComplete(bundle);

@@ -107,10 +107,11 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(bundle.entries[0].summary).toBe('Test summary');
 
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).not.toBeNull();
-		expect(loaded?.task_id).toBe('1.1');
-		expect(loaded?.entries.length).toBe(1);
-		expect(loaded?.entries[0].summary).toBe('Test summary');
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.task_id).toBe('1.1');
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].summary).toBe('Test summary');
 	});
 
 	it('save appends to existing bundle', async () => {
@@ -125,12 +126,14 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(bundle2.entries[1].summary).toBe('Second entry');
 
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded?.entries.length).toBe(2);
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.entries.length).toBe(2);
 	});
 
 	it('load returns null when no evidence exists', async () => {
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).toBeNull();
+		expect(loaded.status).toBe('not_found');
 	});
 
 	it('save with invalid task ID throws', async () => {
@@ -229,14 +232,14 @@ describe('deleteEvidence', () => {
 
 		// Verify it exists
 		let loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).not.toBeNull();
+		expect(loaded.status).toBe('found');
 
 		// Delete it
 		await deleteEvidence(tempDir, '1.1');
 
 		// Verify it's gone
 		loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).toBeNull();
+		expect(loaded.status).toBe('not_found');
 	});
 
 	it('invalid task ID throws', async () => {
@@ -398,9 +401,10 @@ describe('All 12 evidence types can be saved and loaded', () => {
 		expect(saved.entries[0].type).toBe(type);
 
 		const loaded = await loadEvidence(tempDir, taskId);
-		expect(loaded).not.toBeNull();
-		expect(loaded?.entries.length).toBe(1);
-		expect(loaded?.entries[0].type).toBe(type);
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].type).toBe(type);
 	});
 });
 

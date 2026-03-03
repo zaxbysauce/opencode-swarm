@@ -92,31 +92,33 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	}
 
 	/**
-	 * Test 1: loadEvidence returns null (not throws) when evidence.json is empty string
+	 * Test 1: loadEvidence returns invalid_schema (not throws) when evidence.json is empty string
 	 */
-	it('loadEvidence returns null (not throws) when evidence.json is empty string', async () => {
+	it('loadEvidence returns invalid_schema (not throws) when evidence.json is empty string', async () => {
 		const taskId = 'retro-1';
 		writeEvidenceFile(taskId, ''); // Empty string
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).toBeNull();
+		// File exists but is unparseable — returns invalid_schema, not not_found
+		expect(result.status).toBe('invalid_schema');
 	});
 
 	/**
-	 * Test 2: loadEvidence returns null (not throws) when evidence.json contains `null`
+	 * Test 2: loadEvidence returns invalid_schema (not throws) when evidence.json contains `null`
 	 */
-	it('loadEvidence returns null (not throws) when evidence.json contains null', async () => {
+	it('loadEvidence returns invalid_schema (not throws) when evidence.json contains null', async () => {
 		const taskId = 'retro-2';
 		writeEvidenceFile(taskId, 'null'); // JSON null
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).toBeNull();
+		// File exists but fails schema validation — returns invalid_schema, not not_found
+		expect(result.status).toBe('invalid_schema');
 	});
 
 	/**
-	 * Test 3: loadEvidence returns null when entries array contains non-retrospective types
+	 * Test 3: loadEvidence returns 'found' status when entries array contains non-retrospective types
 	 */
 	it('loadEvidence returns null when entries array contains non-retrospective types', async () => {
 		const taskId = 'retro-3';
@@ -136,9 +138,9 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).not.toBeNull();
-		expect(result?.entries).toHaveLength(1);
-		expect(result?.entries[0].type).toBe('test'); // Bundle still loads with non-retro entries
+		expect(result.status).toBe('found');
+		expect(result.bundle.entries).toHaveLength(1);
+		expect(result.bundle.entries[0].type).toBe('test'); // Bundle still loads with non-retro entries
 	});
 
 	/**
@@ -193,8 +195,8 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).not.toBeNull();
-		const retroEntry = result?.entries.find((e) => e.type === 'retrospective');
+		expect(result.status).toBe('found');
+		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.lessons_learned[0].length).toBe(10000);
@@ -212,8 +214,8 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).not.toBeNull();
-		const retroEntry = result?.entries.find((e) => e.type === 'retrospective');
+		expect(result.status).toBe('found');
+		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.lessons_learned).toEqual([]);
@@ -235,8 +237,8 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		const result = await loadEvidence(tempDir, taskId);
 
 		// The bundle should load successfully
-		expect(result).not.toBeNull();
-		const retro = result?.entries.find((e) => e.type === 'retrospective');
+		expect(result.status).toBe('found');
+		const retro = result.bundle.entries.find((e) => e.type === 'retrospective');
 		expect(retro).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retro.phase_number).toBe(0);
@@ -315,19 +317,20 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	});
 
 	/**
-	 * Additional Test 11: loadEvidence returns null when bundle is malformed JSON
+	 * Additional Test 11: loadEvidence returns invalid_schema when bundle is malformed JSON
 	 */
-	it('loadEvidence returns null when bundle is malformed JSON', async () => {
+	it('loadEvidence returns invalid_schema when bundle is malformed JSON', async () => {
 		const taskId = 'retro-11';
 		writeEvidenceFile(taskId, '{ invalid json }');
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).toBeNull();
+		// File exists but is unparseable — returns invalid_schema, not not_found
+		expect(result.status).toBe('invalid_schema');
 	});
 
 	/**
-	 * Additional Test 12: loadEvidence returns null when bundle fails schema validation
+	 * Additional Test 12: loadEvidence returns invalid_schema when bundle fails schema validation
 	 */
 	it('loadEvidence returns null when bundle fails schema validation', async () => {
 		const taskId = 'retro-12';
@@ -341,7 +344,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).toBeNull();
+		expect(result.status).toBe('invalid_schema');
 	});
 
 	/**
@@ -376,8 +379,8 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		const result = await loadEvidence(tempDir, taskId);
 
 		// Bundle should still load
-		expect(result).not.toBeNull();
-		const retroEntry = result?.entries.find((e) => e.type === 'retrospective');
+		expect(result.status).toBe('found');
+		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.verdict).toBe('fail');
@@ -398,10 +401,10 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).not.toBeNull();
+		expect(result.status).toBe('found');
 		// Zod by default strips unknown fields, so these should be undefined
 		// @ts-expect-error - checking extra field
-		expect(result.extra_field).toBeUndefined();
+		expect((result.bundle as any).extra_field).toBeUndefined();
 	});
 
 	/**
@@ -414,8 +417,8 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		expect(result).not.toBeNull();
-		expect(result?.entries).toEqual([]);
+		expect(result.status).toBe('found');
+		expect(result.bundle.entries).toEqual([]);
 	});
 
 	/**

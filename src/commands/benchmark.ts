@@ -116,9 +116,9 @@ export async function handleBenchmarkCommand(
 		let totalTestToCodeRatio = 0;
 		let qualityEvidenceCount = 0;
 		for (const tid of await listEvidenceTaskIds(directory)) {
-			const b = await loadEvidence(directory, tid);
-			if (!b) continue;
-			for (const e of b.entries) {
+			const result = await loadEvidence(directory, tid);
+			if (result.status !== 'found') continue;
+			for (const e of result.bundle.entries) {
 				// Skip unknown evidence types gracefully with warning
 				if (!isValidEvidenceType(e.type)) {
 					warn(`Unknown evidence type '${e.type}' in task ${tid}, skipping`);

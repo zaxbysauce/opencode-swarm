@@ -1,5 +1,6 @@
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import * as path from 'node:path';
+import { ZodError } from 'zod';
 import {
 	type BuildEvidence,
 	EVIDENCE_MAX_JSON_BYTES,
@@ -14,6 +15,17 @@ import {
 } from '../config/evidence-schema';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { warn } from '../utils';
+
+/**
+ * Discriminated union returned by loadEvidence.
+ * - 'found': file exists and passed Zod schema validation
+ * - 'not_found': file does not exist on disk
+ * - 'invalid_schema': file exists but failed Zod validation; errors contains field names
+ */
+export type LoadEvidenceResult =
+	| { status: 'found'; bundle: EvidenceBundle }
+	| { status: 'not_found' }
+	| { status: 'invalid_schema'; errors: string[] };
 
 /**
  * All valid evidence types (12 total)
@@ -220,12 +232,12 @@ export async function saveEvidence(
 
 /**
  * Load evidence bundle for a task.
- * Returns null if file doesn't exist or validation fails.
+ * Returns a LoadEvidenceResult discriminated union.
  */
 export async function loadEvidence(
 	directory: string,
 	taskId: string,
-): Promise<EvidenceBundle | null> {
+): Promise<LoadEvidenceResult> {
 	// Validate task ID
 	const sanitizedTaskId = sanitizeTaskId(taskId);
 
@@ -236,19 +248,23 @@ export async function loadEvidence(
 	// Read file
 	const content = await readSwarmFileAsync(directory, relativePath);
 	if (content === null) {
-		return null;
+		return { status: 'not_found' };
 	}
 
 	// Parse and validate
 	try {
 		const parsed = JSON.parse(content);
 		const validated = EvidenceBundleSchema.parse(parsed);
-		return validated;
+		return { status: 'found', bundle: validated };
 	} catch (error) {
 		warn(
 			`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error instanceof Error ? error.message : String(error)}`,
 		);
-		return null;
+		const errors =
+			error instanceof ZodError
+				? error.issues.map((e) => e.path.join('.') + ': ' + e.message)
+				: [String(error)];
+		return { status: 'invalid_schema', errors };
 	}
 }
 
@@ -361,13 +377,13 @@ export async function archiveEvidence(
 	const remainingBundles: Array<{ taskId: string; updatedAt: string }> = [];
 
 	for (const taskId of taskIds) {
-		const bundle = await loadEvidence(directory, taskId);
-		if (!bundle) {
+		const result = await loadEvidence(directory, taskId);
+		if (result.status !== 'found') {
 			continue;
 		}
 
 		// Archive if the bundle hasn't been updated since the cutoff
-		if (bundle.updated_at < cutoffIso) {
+		if (result.bundle.updated_at < cutoffIso) {
 			const deleted = await deleteEvidence(directory, taskId);
 			if (deleted) {
 				archived.push(taskId);
@@ -376,7 +392,7 @@ export async function archiveEvidence(
 			// Track remaining bundles for maxBundles enforcement
 			remainingBundles.push({
 				taskId,
-				updatedAt: bundle.updated_at,
+				updatedAt: result.bundle.updated_at,
 			});
 		}
 	}

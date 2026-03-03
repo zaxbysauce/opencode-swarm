@@ -8,7 +8,7 @@
 
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
-import { warn } from '../utils';
+import { log, warn } from '../utils';
 import {
 	classifyMessages,
 	isToolResult,
@@ -85,7 +85,8 @@ export function createContextBudgetHandler(config: PluginConfig) {
 		const cacheKey = `${modelID || 'unknown'}::${providerID || 'unknown'}`;
 		if (!loggedLimits.has(cacheKey)) {
 			loggedLimits.add(cacheKey);
-			warn(
+			// Startup diagnostic: debug-gated, not a warning (once per model/provider combination)
+			log(
 				`[swarm] Context budget: model=${modelID || 'unknown'} provider=${providerID || 'unknown'} limit=${modelLimit}`,
 			);
 		}

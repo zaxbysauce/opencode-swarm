@@ -1,3 +1,4 @@
+export type { LoadEvidenceResult } from './manager';
 export {
 	archiveEvidence,
 	deleteEvidence,

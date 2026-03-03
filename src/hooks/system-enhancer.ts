@@ -75,9 +75,9 @@ export async function buildRetroInjection(
 
 		// Tier 1: direct lookup for previous phase in same plan (Phase 2+ only)
 		if (prevPhase >= 1) {
-			const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
-			if (bundle && bundle.entries.length > 0) {
-				const retroEntry = bundle.entries.find(
+			const result1 = await loadEvidence(directory, `retro-${prevPhase}`);
+			if (result1.status === 'found' && result1.bundle.entries.length > 0) {
+				const retroEntry = result1.bundle.entries.find(
 					(entry): entry is RetrospectiveEvidence =>
 						entry.type === 'retrospective',
 				);
@@ -116,9 +116,9 @@ ${lessons.map((l) => `- ${l}`).join('\n')}
 			} | null = null;
 
 			for (const taskId of retroIds) {
-				const b = await loadEvidence(directory, taskId);
-				if (b && b.entries.length > 0) {
-					for (const entry of b.entries) {
+				const r = await loadEvidence(directory, taskId);
+				if (r.status === 'found' && r.bundle.entries.length > 0) {
+					for (const entry of r.bundle.entries) {
 						if (entry.type === 'retrospective') {
 							const retro = entry as RetrospectiveEvidence;
 							if (retro.verdict !== 'fail') {
@@ -180,8 +180,8 @@ ${lessons.map((l) => `- ${l}`).join('\n')}
 
 		for (const taskId of allRetroIds) {
 			const b = await loadEvidence(directory, taskId);
-			if (!b) continue;
-			for (const e of b.entries) {
+			if (b.status !== 'found') continue;
+			for (const e of b.bundle.entries) {
 				if (e.type === 'retrospective') {
 					const retro = e as RetrospectiveEvidence;
 					if (retro.verdict === 'fail') continue;
@@ -194,7 +194,7 @@ ${lessons.map((l) => `- ${l}`).join('\n')}
 						retro.metadata.plan_id === currentPlanTitle
 					)
 						continue;
-					const ts = retro.timestamp ?? b.created_at;
+					const ts = retro.timestamp ?? b.bundle.created_at;
 					const ageMs = now - new Date(ts).getTime();
 					if (isNaN(ageMs) || ageMs > cutoffMs) continue;
 					allRetros.push({ entry: retro, timestamp: ts });
@@ -263,10 +263,11 @@ async function buildCoderRetroInjection(
 		const prevPhase = currentPhaseNumber - 1;
 		if (prevPhase < 1) return null;
 
-		const bundle = await loadEvidence(directory, `retro-${prevPhase}`);
-		if (!bundle || bundle.entries.length === 0) return null;
+		const result = await loadEvidence(directory, `retro-${prevPhase}`);
+		if (result.status !== 'found' || result.bundle.entries.length === 0)
+			return null;
 
-		const retroEntry = bundle.entries.find(
+		const retroEntry = result.bundle.entries.find(
 			(entry): entry is RetrospectiveEvidence => entry.type === 'retrospective',
 		);
 

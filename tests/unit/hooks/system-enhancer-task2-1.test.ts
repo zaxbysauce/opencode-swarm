@@ -81,33 +81,33 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			);
 
 			// Load the bundle
-			const bundle = await loadEvidence(tempDir, 'retro-1');
+			const result = await loadEvidence(tempDir, 'retro-1');
 
 			// Assert bundle is loaded correctly
-			expect(bundle).not.toBeNull();
-			expect(bundle?.task_id).toBe('retro-1');
-			expect(bundle?.entries.length).toBe(1);
-			expect(bundle?.entries[0].type).toBe('retrospective');
+			expect(result.status).toBe('found');
+			expect(result.bundle.task_id).toBe('retro-1');
+			expect(result.bundle.entries.length).toBe(1);
+			expect(result.bundle.entries[0].type).toBe('retrospective');
 		});
 
-		it('returns null when the directory does not exist', async () => {
+		it('returns not_found when the directory does not exist', async () => {
 			// Try to load from non-existent directory
-			const bundle = await loadEvidence(tempDir, 'retro-99');
+			const result = await loadEvidence(tempDir, 'retro-99');
 
-			// Should return null
-			expect(bundle).toBeNull();
+			// Should return not_found
+			expect(result.status).toBe('not_found');
 		});
 
-		it('returns null for retro with verdict "fail" (when filtered by caller)', async () => {
+		it('returns bundle for retro with verdict "fail" (when filtered by caller)', async () => {
 			// Create retro-2 bundle with fail verdict
 			await createRetroBundle(2, 'fail', [], [], 'Phase 2 failed.');
 
 			// Load the bundle - should still load the data
-			const bundle = await loadEvidence(tempDir, 'retro-2');
+			const result = await loadEvidence(tempDir, 'retro-2');
 
 			// The bundle should load successfully (loadEvidence doesn't filter by verdict)
-			expect(bundle).not.toBeNull();
-			const entry = getRetrospectiveEntry(bundle!);
+			expect(result.status).toBe('found');
+			const entry = getRetrospectiveEntry(result.bundle);
 			expect(entry?.verdict).toBe('fail');
 			// But caller (buildRetroInjection) should skip it
 		});
@@ -123,11 +123,11 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			);
 
 			// Load the bundle
-			const bundle = await loadEvidence(tempDir, 'retro-1');
+			const result = await loadEvidence(tempDir, 'retro-1');
 
 			// Assert all fields are loaded correctly
-			expect(bundle).not.toBeNull();
-			const entry = getRetrospectiveEntry(bundle!);
+			expect(result.status).toBe('found');
+			const entry = getRetrospectiveEntry(result.bundle);
 			expect(entry?.type).toBe('retrospective');
 			expect((entry as any).phase_number).toBe(1);
 			expect((entry as any).lessons_learned).toEqual(['lesson A', 'lesson B']);
@@ -146,26 +146,26 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			);
 
 			// Load the bundle
-			const bundle = await loadEvidence(tempDir, 'retro-1');
+			const result = await loadEvidence(tempDir, 'retro-1');
 
 			// Assert bundle loads with fail verdict intact
-			expect(bundle).not.toBeNull();
-			const entry = getRetrospectiveEntry(bundle!);
+			expect(result.status).toBe('found');
+			const entry = getRetrospectiveEntry(result.bundle);
 			expect(entry?.verdict).toBe('fail');
 			expect((entry as any).lessons_learned).toEqual(['lesson about failure']);
 			expect((entry as any).top_rejection_reasons).toEqual(['reason for failure']);
 		});
 
-		it('returns null when evidence.json has invalid schema', async () => {
+		it('returns invalid_schema when evidence.json has invalid schema', async () => {
 			// Create directory with invalid JSON
 			const taskDir = join(tempDir, '.swarm', 'evidence', 'retro-1');
 			await mkdir(taskDir, { recursive: true });
 			const bundlePath = join(taskDir, 'evidence.json');
 			await writeFile(bundlePath, '{ invalid json }');
 
-			// Load should return null due to validation failure
-			const bundle = await loadEvidence(tempDir, 'retro-1');
-			expect(bundle).toBeNull();
+			// Load should return invalid_schema due to validation failure
+			const result = await loadEvidence(tempDir, 'retro-1');
+			expect(result.status).toBe('invalid_schema');
 		});
 	});
 
@@ -224,10 +224,10 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			);
 
 			// Load and validate
-			const bundle = await loadEvidence(tempDir, 'retro-1');
-			expect(bundle).not.toBeNull();
+			const result = await loadEvidence(tempDir, 'retro-1');
+			expect(result.status).toBe('found');
 
-			const entry = getRetrospectiveEntry(bundle!);
+			const entry = getRetrospectiveEntry(result.bundle);
 			expect(entry?.type).toBe('retrospective');
 			expect(entry?.task_id).toBe('retro-1');
 			expect(entry?.agent).toBe('architect');
@@ -292,11 +292,11 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			await writeFile(bundlePath, JSON.stringify(bundle, null, 2));
 
 			// Load and verify both entries
-			const loaded = await loadEvidence(tempDir, 'retro-1');
-			expect(loaded).not.toBeNull();
-			expect(loaded?.entries.length).toBe(2);
-			expect(loaded?.entries[0].type).toBe('retrospective');
-			expect(loaded?.entries[1].type).toBe('note');
+			const result = await loadEvidence(tempDir, 'retro-1');
+			expect(result.status).toBe('found');
+			expect(result.bundle.entries.length).toBe(2);
+			expect(result.bundle.entries[0].type).toBe('retrospective');
+			expect(result.bundle.entries[1].type).toBe('note');
 		});
 	});
 });

@@ -120,20 +120,20 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		expect(sourceContent).not.toContain('const files_b = fs.readdirSync');
 	});
 
-	// Test 6: loadEvidence correctly returns null for missing task IDs
-	it('Test 6: loadEvidence correctly returns null for missing task IDs', async () => {
+	// Test 6: loadEvidence correctly returns not_found for missing task IDs
+	it('Test 6: loadEvidence correctly returns not_found for missing task IDs', async () => {
 		// Create a valid retro bundle
 		await createRetroBundle(1, 'pass', ['lesson A']);
 
 		// Try to load a non-existent task ID
 		const result = await loadEvidence(tempDir, 'nonexistent-task');
 
-		// Should return null
-		expect(result).toBeNull();
+		// Should return not_found status
+		expect(result.status).toBe('not_found');
 	});
 
-	// Test 7: A retro bundle with no entries returns null from loadEvidence
-	it('Test 7: A retro bundle with no entries returns null from loadEvidence', async () => {
+	// Test 7: A retro bundle with no entries returns found status from loadEvidence
+	it('Test 7: A retro bundle with no entries returns found status from loadEvidence', async () => {
 		// Create a bundle with empty entries array
 		const taskDir = join(tempDir, '.swarm', 'evidence', 'retro-1');
 		await mkdir(taskDir, { recursive: true });
@@ -149,14 +149,14 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		const bundlePath = join(taskDir, 'evidence.json');
 		await writeFile(bundlePath, JSON.stringify(bundle, null, 2));
 
-		// Load the bundle - should return null (no retrospective entry found)
+		// Load the bundle - should return found status (bundle is valid)
 		const result = await loadEvidence(tempDir, 'retro-1');
 
 		// The bundle itself is loaded successfully (it's valid)
 		// but for our purposes, we're testing that the evidence manager
 		// handles it correctly
-		expect(result).not.toBeNull();
-		expect(result?.entries).toEqual([]);
+		expect(result.status).toBe('found');
+		expect(result.bundle.entries).toEqual([]);
 	});
 
 	// Test 8: listEvidenceTaskIds with mixed directory contents returns all IDs
@@ -188,14 +188,15 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		await createRetroBundle(3, 'pass', [], ['reason X'], 'Phase 3 completed.');
 
 		// Load the bundle
-		const bundle = await loadEvidence(tempDir, 'retro-3');
+		const result = await loadEvidence(tempDir, 'retro-3');
 
 		// Bundle should be loaded
-		expect(bundle).not.toBeNull();
-		expect(bundle?.task_id).toBe('retro-3');
+		expect(result.status).toBe('found');
+		const bundle = result.bundle;
+		expect(bundle.task_id).toBe('retro-3');
 
 		// Get the retrospective entry
-		const retroEntry = bundle?.entries.find(
+		const retroEntry = bundle.entries.find(
 			(e): e is any => e.type === 'retrospective',
 		);
 
@@ -217,12 +218,13 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		);
 
 		// Verify we can load the phase 5 bundle directly
-		const bundle = await loadEvidence(tempDir, 'retro-5');
-		expect(bundle).not.toBeNull();
-		expect(bundle?.task_id).toBe('retro-5');
+		const result = await loadEvidence(tempDir, 'retro-5');
+		expect(result.status).toBe('found');
+		const bundle = result.bundle;
+		expect(bundle.task_id).toBe('retro-5');
 
 		// Get the retrospective entry
-		const retroEntry = bundle?.entries.find(
+		const retroEntry = bundle.entries.find(
 			(e): e is any => e.type === 'retrospective',
 		);
 
@@ -232,7 +234,7 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 
 		// Verify phase 4 doesn't exist
 		const bundle4 = await loadEvidence(tempDir, 'retro-4');
-		expect(bundle4).toBeNull();
+		expect(bundle4.status).toBe('not_found');
 
 		// List all task IDs - should include retro-5
 		const allTaskIds = await listEvidenceTaskIds(tempDir);

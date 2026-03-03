@@ -224,14 +224,17 @@ export async function executePhaseComplete(
 	}
 
 	// Retrospective gate: require a valid retro bundle for this phase
-	const retroBundle = await loadEvidence(dir, `retro-${phase}`);
+	const retroResult = await loadEvidence(dir, `retro-${phase}`);
 	let retroFound = false;
+	let invalidSchemaErrors: string[] = [];
 
-	if (retroBundle !== null) {
-		// Check entries for a valid retrospective
+	if (retroResult.status === 'found') {
 		retroFound =
-			retroBundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ??
-			false;
+			retroResult.bundle.entries?.some((entry) =>
+				isValidRetroEntry(entry, phase),
+			) ?? false;
+	} else if (retroResult.status === 'invalid_schema') {
+		invalidSchemaErrors = retroResult.errors;
 	}
 
 	if (!retroFound) {
@@ -239,27 +242,68 @@ export async function executePhaseComplete(
 		const allTaskIds = await listEvidenceTaskIds(dir);
 		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
 		for (const taskId of retroTaskIds) {
-			const bundle = await loadEvidence(dir, taskId);
-			if (bundle === null) continue;
+			const bundleResult = await loadEvidence(dir, taskId);
+			if (bundleResult.status !== 'found') {
+				if (bundleResult.status === 'invalid_schema') {
+					invalidSchemaErrors.push(...bundleResult.errors);
+				}
+				continue;
+			}
 			retroFound =
-				bundle.entries?.some((entry) => isValidRetroEntry(entry, phase)) ??
-				false;
+				bundleResult.bundle.entries?.some((entry) =>
+					isValidRetroEntry(entry, phase),
+				) ?? false;
 			if (retroFound) break;
 		}
 	}
 
 	if (!retroFound) {
+		const schemaErrorDetail =
+			invalidSchemaErrors.length > 0
+				? ` Schema validation failed: ${invalidSchemaErrors.join('; ')}.`
+				: '';
 		return JSON.stringify(
 			{
 				success: false,
 				phase,
 				status: 'blocked' as const,
 				reason: 'RETROSPECTIVE_MISSING',
-				message: `Phase ${phase} cannot be completed: no valid retrospective evidence found. Write a retrospective bundle at .swarm/evidence/retro-${phase}/evidence.json with type='retrospective', phase_number=${phase}, verdict='pass' before calling phase_complete.`,
+				message: `Phase ${phase} cannot be completed: no valid retrospective evidence found.${schemaErrorDetail} Write a retrospective bundle at .swarm/evidence/retro-${phase}/evidence.json before calling phase_complete.`,
 				agentsDispatched: [],
 				agentsMissing: [],
 				warnings: [
-					`Retrospective missing for phase ${phase}. Write a retro bundle with verdict='pass' at .swarm/evidence/retro-${phase}/evidence.json`,
+					`Retrospective missing for phase ${phase}.${schemaErrorDetail} Use this template:`,
+					JSON.stringify(
+						{
+							schema_version: '1.0.0',
+							task_id: `retro-${phase}`,
+							created_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+							entries: [
+								{
+									task_id: `retro-${phase}`,
+									type: 'retrospective',
+									timestamp: new Date().toISOString(),
+									agent: 'architect',
+									verdict: 'pass',
+									summary: `Phase ${phase} completed.`,
+									phase_number: phase,
+									total_tool_calls: 0,
+									coder_revisions: 0,
+									reviewer_rejections: 0,
+									test_failures: 0,
+									security_findings: 0,
+									integration_issues: 0,
+									task_count: 1,
+									task_complexity: 'simple',
+									top_rejection_reasons: [],
+									lessons_learned: [],
+								},
+							],
+						},
+						null,
+						2,
+					),
 				],
 			},
 			null,
