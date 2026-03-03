@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.17.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.16.1...v6.17.0) (2026-03-03)
+
+
+### Features
+
+* add two-tier cross-project knowledge base (v6.17.0) ([6f0e90d](https://github.com/zaxbysauce/opencode-swarm/commit/6f0e90d8aea5590d1fc1f613b5a894667a931779))
+
 ## [6.16.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.16.0...v6.16.1) (2026-03-02)
 
 
