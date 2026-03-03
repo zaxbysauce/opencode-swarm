@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.17.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.2...v6.17.3) (2026-03-03)
+
+
+### Bug Fixes
+
+* diagnostic signal fidelity — warn→log reclassification and loadEvidence discriminated union (v6.17.3) ([986eed5](https://github.com/zaxbysauce/opencode-swarm/commit/986eed540328eb0803d70fdf9e7b61ebef22839a))
+
 ## [6.17.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.1...v6.17.2) (2026-03-03)
 
 
