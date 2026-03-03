@@ -8,7 +8,7 @@
  * - Copilot caps ALL models at 128k prompt, regardless of native limit
  */
 
-import { warn } from '../utils';
+import { log } from '../utils';
 
 /**
  * Native model context limits (in tokens) when used on their native platform.
@@ -257,7 +257,7 @@ function logFirstCall(
 	const key = `${modelID || 'unknown'}::${providerID || 'unknown'}`;
 	if (!loggedFirstCalls.has(key)) {
 		loggedFirstCalls.add(key);
-		warn(
+		log(
 			`[model-limits] Resolved limit for ${modelID || '(no model)'}@${providerID || '(no provider)'}: ${limit} (source: ${source})`,
 		);
 	}
