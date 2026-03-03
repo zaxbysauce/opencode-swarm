@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.17.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.0...v6.17.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* wire knowledge migrate command, retrieval outcomes, and dark matter persistence (v6.17.1) ([98ce920](https://github.com/zaxbysauce/opencode-swarm/commit/98ce920dee309ba61aa8f92bb8a5d5ed4a5fb1ec))
+
 ## [6.17.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.16.1...v6.17.0) (2026-03-03)
 
 
