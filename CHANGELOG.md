@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.17.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.1...v6.17.2) (2026-03-03)
+
+
+### Bug Fixes
+
+* add bunx run subcommand for out-of-session plugin invocation (v6.17.2) ([847b0e4](https://github.com/zaxbysauce/opencode-swarm/commit/847b0e489f77370d64ea070739a5828732636a19))
+
 ## [6.17.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.0...v6.17.1) (2026-03-03)
 
 
