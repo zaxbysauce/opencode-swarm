@@ -3,6 +3,32 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import {
+	handleAgentsCommand,
+	handleAnalyzeCommand,
+	handleArchiveCommand,
+	handleBenchmarkCommand,
+	handleClarifyCommand,
+	handleConfigCommand,
+	handleDarkMatterCommand,
+	handleDiagnoseCommand,
+	handleDoctorCommand,
+	handleEvidenceCommand,
+	handleEvidenceSummaryCommand,
+	handleExportCommand,
+	handleHistoryCommand,
+	handleKnowledgeMigrateCommand,
+	handleKnowledgeQuarantineCommand,
+	handleKnowledgeRestoreCommand,
+	handlePlanCommand,
+	handlePreflightCommand,
+	handleResetCommand,
+	handleRetrieveCommand,
+	handleSpecifyCommand,
+	handleStatusCommand,
+	handleSyncPlanCommand,
+} from '../commands/index.js';
+
 const CONFIG_DIR = path.join(
 	process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
 	'opencode',
@@ -231,6 +257,7 @@ Usage: bunx opencode-swarm [command] [OPTIONS]
 Commands:
   install     Install and configure the plugin (default)
   uninstall   Remove the plugin from OpenCode config
+  run         Run a plugin command directly (for use outside OpenCode)
 
 Options:
   --clean     Also remove config files and custom prompts (with uninstall)
@@ -253,6 +280,9 @@ Examples:
   bunx opencode-swarm uninstall
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
+  bunx opencode-swarm run status
+  bunx opencode-swarm run knowledge migrate
+  bunx opencode-swarm run dark-matter
 `);
 }
 
@@ -273,6 +303,9 @@ async function main(): Promise<void> {
 	} else if (command === 'uninstall') {
 		const exitCode = await uninstall();
 		process.exit(exitCode);
+	} else if (command === 'run') {
+		const exitCode = await run(args.slice(1));
+		process.exit(exitCode);
 	} else {
 		console.error(`Unknown command: ${command}`);
 		console.error('Run with --help for usage information');
@@ -284,3 +317,158 @@ main().catch((err) => {
 	console.error('Fatal error:', err);
 	process.exit(1);
 });
+
+/**
+ * Dispatch function for routing argv tokens to plugin command handlers.
+ * Used by the "run" subcommand entry point.
+ */
+export async function run(args: string[]): Promise<number> {
+	const cwd = process.cwd();
+
+	// Handle empty args
+	if (!args || args.length === 0) {
+		console.error(
+			'Usage: bunx opencode-swarm run <command> [args]\nRun "bunx opencode-swarm --help" for a list of commands.',
+		);
+		return 1;
+	}
+
+	const subcommand = args[0];
+
+	// Dispatch table
+	switch (subcommand) {
+		case 'status': {
+			const result = await handleStatusCommand(cwd, {});
+			console.log(result);
+			return 0;
+		}
+		case 'plan': {
+			const result = await handlePlanCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'agents': {
+			const result = handleAgentsCommand({}, undefined);
+			console.log(result);
+			return 0;
+		}
+		case 'archive': {
+			const result = await handleArchiveCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'history': {
+			const result = await handleHistoryCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'config': {
+			if (args[1] === 'doctor') {
+				const result = await handleDoctorCommand(cwd, args.slice(2));
+				console.log(result);
+			} else {
+				const result = await handleConfigCommand(cwd, args.slice(1));
+				console.log(result);
+			}
+			return 0;
+		}
+		case 'doctor': {
+			const result = await handleDoctorCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'evidence': {
+			if (args[1] === 'summary') {
+				const result = await handleEvidenceSummaryCommand(cwd);
+				console.log(result);
+			} else {
+				const result = await handleEvidenceCommand(cwd, args.slice(1));
+				console.log(result);
+			}
+			return 0;
+		}
+		case 'diagnose': {
+			const result = await handleDiagnoseCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'preflight': {
+			const result = await handlePreflightCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'sync-plan': {
+			const result = await handleSyncPlanCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'benchmark': {
+			const result = await handleBenchmarkCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'export': {
+			const result = await handleExportCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'reset': {
+			const result = await handleResetCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'retrieve': {
+			const result = await handleRetrieveCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'clarify': {
+			const result = await handleClarifyCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'analyze': {
+			const result = await handleAnalyzeCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'specify': {
+			const result = await handleSpecifyCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'dark-matter': {
+			const result = await handleDarkMatterCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'knowledge': {
+			const knowledgeSubcmd = args[1];
+			if (knowledgeSubcmd === 'migrate') {
+				const result = await handleKnowledgeMigrateCommand(cwd, args.slice(2));
+				console.log(result);
+			} else if (knowledgeSubcmd === 'quarantine') {
+				const result = await handleKnowledgeQuarantineCommand(
+					cwd,
+					args.slice(2),
+				);
+				console.log(result);
+			} else if (knowledgeSubcmd === 'restore') {
+				const result = await handleKnowledgeRestoreCommand(cwd, args.slice(2));
+				console.log(result);
+			} else {
+				console.error(
+					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
+				);
+				return 1;
+			}
+			return 0;
+		}
+		default: {
+			console.error(
+				`Unknown command: ${args[0]}\nRun "bunx opencode-swarm run" with no args for help.`,
+			);
+			return 1;
+		}
+	}
+}

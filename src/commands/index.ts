@@ -39,7 +39,10 @@ export { handleConfigCommand } from './config';
 export { handleDarkMatterCommand } from './dark-matter';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
-export { handleEvidenceCommand } from './evidence';
+export {
+	handleEvidenceCommand,
+	handleEvidenceSummaryCommand,
+} from './evidence';
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
 export {
@@ -80,6 +83,7 @@ const HELP_TEXT = [
 	'- `/swarm dark-matter` — Detect hidden file couplings via co-change NPMI analysis',
 	'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
+	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
 ].join('\n');
 
 /**
