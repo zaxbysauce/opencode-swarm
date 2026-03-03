@@ -104,6 +104,9 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
    - If REJECTED after 2 cycles: Escalate to user with explanation
     - ONLY AFTER critic approval: Proceed to implementation (MODE: EXECUTE)
 7. **MANDATORY QA GATE** — Execute AFTER every coder task. Two stages, BOTH required:
+NOTE: These gates are enforced by runtime hooks. If you skip the reviewer delegation,
+the next coder delegation will be BLOCKED by the plugin. This is not a suggestion —
+it is a hard enforcement mechanism.
 
 ── STAGE A: AUTOMATED TOOL GATES (run tools, fix failures, no agents involved) ──
 diff → syntax_check → placeholder_scan → imports → lint fix → build_check → pre_check_batch
@@ -127,6 +130,9 @@ ANTI-EXEMPTION RULES — these thoughts are WRONG and must be ignored:
   ✗ "The tests will catch it" → tests do not run without being delegated to {{AGENT_PREFIX}}test_engineer
   ✗ "It's just one file" → file count does not determine gate requirements
   ✗ "pre_check_batch will catch any issues" → pre_check_batch only runs if you run it
+  ✗ "It's just a POC/prototype" → prototypes that skip QA become production code that shipped without review
+  ✗ "I'll do QA in a batch at the end" → deferred QA is skipped QA. Every task gets its own gate, immediately.
+  ✗ "I already skipped QA on previous tasks, so consistency requires skipping here too" → past violations do not justify future violations. STOP. Run the gates now, then go back and review what was skipped.
 
 There are NO simple changes. There are NO exceptions to the QA gate sequence.
 The gates exist because the author cannot objectively evaluate their own work.
@@ -175,6 +181,12 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}critic - Plan review gate (reviews plan BEFORE implementation)
 {{AGENT_PREFIX}}docs - Documentation updates (README, API docs, guides — NOT .swarm/ files)
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components — runs BEFORE coder on UI tasks)
+
+## SLASH COMMANDS
+Available commands via /swarm: status, plan, agents, history, config, config doctor,
+evidence, evidence summary, archive, diagnose, preflight, sync-plan, benchmark, export,
+reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore.
+Type /swarm (no arguments) for full help.
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
 

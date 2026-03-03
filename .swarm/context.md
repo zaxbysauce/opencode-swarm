@@ -2,12 +2,13 @@
 Swarm: mega
 
 ## Project Overview
-- Name: opencode-swarm v6.16.1 — Spec Lifecycle Fixes + Issue Cleanup
-- Type: TypeScript/Bun OpenCode plugin — architect prompt improvements + guardrails fix
-- Goals: Fix RESUME overriding explicit spec commands; add stale spec detection; add spec archival; fix plan ingestion spec gate; fix Issue #17 guardrail false positive; investigate/close Issue #22
-- Baseline: v6.16.0 (multi-language support, shipped)
-- Target Release: v6.16.1
-- Source Plan: v6.16.1-spec-lifecycle-fixes.md
+- Name: opencode-swarm v6.17 — Two-Tier Cross-Project Knowledge Base
+- Type: TypeScript/Bun OpenCode plugin — persistent knowledge system with per-project (swarm) and cross-project (hive) tiers
+- Goals: Capture lessons across sessions; auto-promote lessons through candidate→established→promoted→hive lifecycle; inject hive/swarm learnings into architect context; quarantine bad rules; dark-matter co-change NPMI analysis; QA gate hardening
+- Baseline: v6.16.1 (spec lifecycle fixes, shipped)
+- Target Release: v6.17.0
+- Source Plan: v6.17-two-tier-knowledge-base-v6.md
+- Commit Prefix: feat: (minor release — new user-facing features)
 
 ## Release Workflow (MANDATORY — read before every version bump)
 
@@ -18,68 +19,90 @@ Swarm: mega
 ### Correct release checklist (per version bump)
 - [ ] Create `docs/releases/v{version}.md` with full feature descriptions (follow v6.15.0.md pattern)
 - [ ] Commit it alongside the implementation work BEFORE pushing
-- [ ] Use `feat:` conventional commit — release-please picks up the version bump
+- [ ] Choose commit prefix based on semver intent — see Conventional Commit → Semver table below
 - [ ] Do NOT edit CHANGELOG.md
 
-## Key Problems Being Solved
+### ⚠️ Conventional Commit → Semver Mapping (release-please)
 
-| # | Bug / Gap | Fix | Files |
-|---|-----------|-----|-------|
-| 1 | RESUME unconditionally wins over SPECIFY — explicit /swarm specify blocked on projects with incomplete plan.md | Explicit intent override as priority 0 in mode detection | src/agents/architect.ts |
-| 2 | No stale spec detection | Scope comparison between spec.md and plan.md; soft offer to replace | src/agents/architect.ts |
-| 3 | No spec archival | Archive to .swarm/spec-archive/spec-v{version}.md before replacement | src/agents/architect.ts |
-| 4 | Plan ingestion without spec gate incomplete | Soft gate on plan ingestion path | src/agents/architect.ts |
-| 5 | Issue #17 — architect direct edit false positive | Suppress guardrail warning during active coder delegation | src/hooks/guardrails.ts |
-| 6 | Issue #22 — placeholder plan content | Investigate; fix if confirmed broken in v6.16 | src/agents/architect.ts, src/tools/save-plan.ts |
+| Commit prefix | Version bump | Example result | Use when |
+|---------------|-------------|----------------|----------|
+| `fix:` | **patch** (x.y.Z) | 6.16.0 → 6.16.1 | Bug fixes, prompt tweaks, verification-only, doc patches |
+| `feat:` | **minor** (x.Y.0) | 6.16.0 → 6.17.0 | New user-facing features, new modes, new commands |
+| `feat!:` or `BREAKING CHANGE:` | **major** (X.0.0) | 6.16.0 → 7.0.0 | Breaking API/behavior changes |
 
-## Decisions
+**RULE:** v6.17.0 is a minor release — commit prefix MUST be `feat:`.
 
-### Phase 0 (Pending — to be filled after investigation)
-- Issue #22 verdict: pending (Task 0.3)
-- Guardrails delegation state mechanism: pending (Task 0.2)
+## Architecture Decisions
 
-### Architecture
-- Spec lifecycle fixes are ALL in the ARCHITECT_PROMPT string in src/agents/architect.ts (no new code files)
-- Guardrails fix is delegation-awareness ONLY in toolBefore() — isSourceCodePath() must not be touched
-- Task 4.1 creates docs/releases/v6.16.1.md (NOT CHANGELOG.md — release-please owns CHANGELOG)
+### Core Design
+- inferTags() lives in knowledge-store.ts (NOT curator) — avoids curator→validator→inferTags circular dependency
+- proper-lockfile used ONLY in rewriteKnowledge() for full-file rewrites; appendKnowledge() uses OS-level atomic append
+- resolveHiveKnowledgePath() is inline 15-line resolver — NO env-paths dependency
+  - win32: LOCALAPPDATA/opencode-swarm/Data/shared-learnings.jsonl
+  - darwin: ~/Library/Application Support/opencode-swarm/shared-learnings.jsonl
+  - linux: XDG_DATA_HOME or ~/.local/share/opencode-swarm/shared-learnings.jsonl
+- /swarm knowledge quarantine and restore registered as stubs in Phase 6, replaced in Phase 9 (task 9.12)
+- Task 8.1 depends on [1.2, 1.3] only — curator (3.1) not needed for co-change analyzer
 
-### Files That Will Change
-| File | Action | Tasks |
-|------|--------|-------|
-| src/agents/architect.ts | Modify ARCHITECT_PROMPT (mode detection + spec lifecycle) | 1.1, 1.2, 1.3, 1.4, 1.5 (conditional) |
-| src/hooks/guardrails.ts | Add delegation-awareness to toolBefore() | 2.1 |
-| tests/unit/agents/architect-v6-prompt.test.ts | Add new tests | 3.1, 3.2, 3.3 |
-| tests/unit/hooks/guardrails.test.ts | Add new tests (create if needed) | 3.4 |
-| docs/releases/v6.16.1.md | Create release notes | 4.1 |
-| package.json | Version 6.16.1 | 4.2 |
+### Files Being Created
+| File | Phase |
+|------|-------|
+| src/hooks/knowledge-types.ts | Phase 1 (1.2) |
+| src/hooks/knowledge-store.ts | Phase 1 (1.3) |
+| src/hooks/knowledge-validator.ts | Phase 2 (2.1) |
+| src/hooks/knowledge-curator.ts | Phase 3 (3.1, 3.3) |
+| src/hooks/hive-promoter.ts | Phase 4 (4.1) |
+| src/hooks/knowledge-reader.ts | Phase 5 (5.1) |
+| src/hooks/knowledge-injector.ts | Phase 5 (5.3) |
+| src/hooks/knowledge-migrator.ts | Phase 7 (7.1) |
+| src/tools/co-change-analyzer.ts | Phase 8 (8.1) |
+| docs/releases/v6.17.0.md | Phase 10 (10.1) |
+
+### Files Being Modified
+| File | Phase | What changes |
+|------|-------|-------------|
+| src/config/schema.ts | Phase 6 (6.1) | Add KnowledgeConfig block |
+| src/index.ts | Phase 6 (6.2), 8 (8.3), 9 (9.12) | Register hooks + commands |
+| src/hooks/delegation-gate.ts | Phase 9 (9.1) | QA skip tracking |
+| src/hooks/guardrails.ts | Phase 9 (9.3, 9.4) | Per-task gate tracking |
+| src/agents/architect.ts | Phase 9 (9.6) | SLASH COMMANDS + anti-exemption rules |
+| src/services/diagnose-service.ts | Phase 9 (9.8) | 7 new health checks |
+| package.json | Phase 1 (1.1), Phase 10 (10.2) | Add proper-lockfile; bump to 6.17.0 |
 
 ### Files That Will NOT Change
-- src/lang/ (all language profile files — v6.16 work, not touched)
+- src/lang/ (all language profile files)
 - src/build/discovery.ts
-- src/tools/ (all tool files — v6.16 work, not touched)
 - src/hooks/system-enhancer.ts
 - CHANGELOG.md (release-please owns it)
 
 ## SME Cache
 
-### architect-prompt
-- All spec lifecycle behaviors are purely prompt-level changes in ARCHITECT_PROMPT — no new code modules needed
-- Stale spec detection is intentionally heuristic (compare headings) — false positives are acceptable because gate is soft
-- Intent override must be keyword-specific to avoid false positives on conversational "clarify" usage
+### knowledge-store
+- proper-lockfile: lock on DIRECTORY (not individual file) to prevent concurrent writers on full-file rewrites
+- appendKnowledge uses OS-level atomic append — no lock needed for append-only JSONL operations
+- FIFO cap enforcement: slice to keep last N entries when appending to rejected/quarantine files
+- Jaccard bigram threshold 0.6 for near-duplicate detection; normalize() lowercases + strips punctuation
 
-### guardrails
-- delegation-tracker.ts or state.ts tracks active delegations — check these in Task 0.2 before implementing
-- isSourceCodePath() must not change — only the warning trigger path
-- Fix must not create false negatives (suppress real architect self-coding)
+### v6.17-knowledge-system
+- KnowledgeCategory is union type (not enum) for simpler JSON round-trip and forward compatibility
+- MessageWithParts shape must match what context-budget.ts and guardrails.ts currently use — check those files during 1.2
+- Three-layer validation: Layer 1 = structural, Layer 2 = content safety (blocklists), Layer 3 = semantic (contradiction, vagueness)
+- Promotion lifecycle: candidate (raw) → established (3 phase confirmations) → promoted (3 phases OR 90 days) → hive-eligible → hive candidate → hive established (3 project confirmations)
+
+### cross-platform
+- On Windows, LOCALAPPDATA env var reliably set; fall back to C:\Users\<user>\AppData\Local if missing
+- Test process.platform mocking: vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+- Path normalization: use path.join() everywhere, never string concatenation for paths
 
 ## Patterns
-- Test framework: vitest (NOT jest/mocha/bun:test) — use bun test to run vitest files
-- Architect prompt changes: edit ARCHITECT_PROMPT string directly in src/agents/architect.ts
-- Evidence files: write to .swarm/evidence/ as .md files
-- QA gate for prompt-only tasks: pre_check_batch may report false positives on Windows absolute paths — use individual tools if needed
+- Test framework: vitest (NOT jest/mocha/bun:test) — use `bun test <specific-file>` to run tests
+- Hook factory pattern: createXxxHook(directory, config) wrapped in safeHook() for fire-and-forget error suppression
+- Evidence files: write to .swarm/evidence/ as .md or .json files
+- Test paths: tests/unit/ prefix (NOT test/) — existing codebase convention
+- JSONL files: one JSON object per line, skip lines that fail JSON.parse with a warning log
 
-## Phase Metrics (reset at phase start)
-- phase_number: 0
+## Phase Metrics (reset — v6.17 Phase 1 starting)
+- phase_number: 1
 - total_tool_calls: 0
 - coder_revisions: 0
 - reviewer_rejections: 0
@@ -87,27 +110,36 @@ Swarm: mega
 - security_findings: 0
 - integration_issues: 0
 
-## Project Governance (from project-instructions.md — check if exists)
+## v6.16.1 Retrospective Summary (2026-03-02)
+- Status: COMPLETE — commit 6c94b6c pushed to origin/main (force-amended from 0066e82)
+- Key lessons carried forward: patch releases need `fix:` prefix not `feat:`; Phase 0 audits prevent unnecessary changes; inline test coverage from verification passes satisfies test tasks
+
+## Project Governance
 - No governance file found in this workspace; using default swarm rules
 
 ## Agent Activity
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 265 | 265 | 0 | 5ms |
-| bash | 201 | 201 | 0 | 179ms |
-| edit | 65 | 65 | 0 | 837ms |
-| task | 65 | 65 | 0 | 55502ms |
-| grep | 60 | 60 | 0 | 156ms |
-| glob | 38 | 38 | 0 | 1960ms |
-| retrieve_summary | 36 | 36 | 0 | 3ms |
-| write | 24 | 24 | 0 | 389ms |
-| todowrite | 21 | 21 | 0 | 30ms |
-| save_plan | 6 | 6 | 0 | 14ms |
+| read | 966 | 966 | 0 | 7ms |
+| bash | 947 | 947 | 0 | 3436ms |
+| edit | 536 | 536 | 0 | 1025ms |
+| grep | 243 | 243 | 0 | 263ms |
+| task | 225 | 225 | 0 | 150511ms |
+| write | 81 | 81 | 0 | 2252ms |
+| glob | 73 | 73 | 0 | 29ms |
+| todowrite | 68 | 68 | 0 | 5ms |
+| pre_check_batch | 56 | 56 | 0 | 2493ms |
+| retrieve_summary | 54 | 54 | 0 | 2ms |
+| lint | 46 | 46 | 0 | 2878ms |
+| diff | 22 | 22 | 0 | 12ms |
+| apply_patch | 10 | 10 | 0 | 1128ms |
+| test_runner | 10 | 10 | 0 | 13486ms |
+| phase_complete | 6 | 6 | 0 | 2ms |
 | invalid | 5 | 5 | 0 | 1ms |
-| diff | 3 | 3 | 0 | 19ms |
-| pre_check_batch | 3 | 3 | 0 | 1ms |
-| secretscan | 3 | 3 | 0 | 6ms |
-| lint | 3 | 3 | 0 | 3036ms |
-| test_runner | 2 | 2 | 0 | 40877ms |
-| mystatus | 1 | 1 | 0 | 1280ms |
+| symbols | 4 | 4 | 0 | 1ms |
+| checkpoint | 3 | 3 | 0 | 5ms |
+| save_plan | 2 | 2 | 0 | 6ms |
+| secretscan | 1 | 1 | 0 | 5323ms |
+| todo_extract | 1 | 1 | 0 | 0ms |
+| imports | 1 | 1 | 0 | 3ms |

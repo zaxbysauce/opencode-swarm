@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
@@ -92,6 +94,316 @@ async function checkEvidenceCompleteness(
 		name: 'Evidence',
 		status: '✅',
 		detail: 'No completed tasks yet',
+	};
+}
+
+/**
+ * Check 1: Swarm Identity Match - verifies plan.swarm matches active environment
+ */
+async function checkSwarmIdentity(plan: Plan | null): Promise<HealthCheck> {
+	const activeSwarmId = process.env.OPENCODE_SWARM_ID;
+
+	// If plan exists but environment variable is not set
+	if (plan && !activeSwarmId) {
+		return {
+			name: 'Swarm Identity',
+			status: '❌',
+			detail: 'Plan exists but OPENCODE_SWARM_ID not set in environment',
+		};
+	}
+
+	// Only return "No conflict detected" when BOTH !plan AND !activeSwarmId
+	if (!plan && !activeSwarmId) {
+		return {
+			name: 'Swarm Identity',
+			status: '✅',
+			detail: 'No conflict detected',
+		};
+	}
+
+	// Handle case where no plan but env var is set
+	if (!plan) {
+		return {
+			name: 'Swarm Identity',
+			status: '✅',
+			detail: `No plan, but OPENCODE_SWARM_ID is '${activeSwarmId}'`,
+		};
+	}
+
+	if (plan && plan.swarm !== activeSwarmId) {
+		return {
+			name: 'Swarm Identity',
+			status: '❌',
+			detail: `Swarm identity mismatch: plan says '${plan.swarm}', active is '${activeSwarmId}'`,
+		};
+	}
+
+	return {
+		name: 'Swarm Identity',
+		status: '✅',
+		detail: `Swarm identity consistent: '${plan!.swarm}'`,
+	};
+}
+
+/**
+ * Check 2: Phase Boundary Correctness - verifies tasks are in correct phases
+ */
+async function checkPhaseBoundaries(plan: Plan | null): Promise<HealthCheck> {
+	if (!plan) {
+		return {
+			name: 'Phase Boundaries',
+			status: '✅',
+			detail: 'No plan to validate',
+		};
+	}
+
+	const mismatches: string[] = [];
+	for (const phase of plan.phases) {
+		for (const task of phase.tasks) {
+			const taskPhaseNum = parseInt(task.id.split('.')[0], 10);
+			if (isNaN(taskPhaseNum)) {
+				mismatches.push(`Task ${task.id} has invalid phase number`);
+			} else if (taskPhaseNum !== phase.id) {
+				mismatches.push(`Task ${task.id} found under Phase ${phase.id}`);
+			}
+		}
+	}
+
+	if (mismatches.length === 0) {
+		return {
+			name: 'Phase Boundaries',
+			status: '✅',
+			detail: 'All tasks correctly aligned to phases',
+		};
+	}
+
+	return {
+		name: 'Phase Boundaries',
+		status: '❌',
+		detail: mismatches.join('; '),
+	};
+}
+
+/**
+ * Check 3: Orphaned Evidence Tasks - finds evidence entries not in plan
+ */
+async function checkOrphanedEvidence(
+	directory: string,
+	plan: Plan | null,
+): Promise<HealthCheck> {
+	if (!plan) {
+		return {
+			name: 'Orphaned Evidence',
+			status: '✅',
+			detail: 'No plan to cross-reference',
+		};
+	}
+
+	const planTaskIds = new Set<string>();
+	for (const phase of plan.phases) {
+		for (const task of phase.tasks) {
+			planTaskIds.add(task.id);
+		}
+	}
+
+	try {
+		const evidenceTaskIds = await listEvidenceTaskIds(directory);
+		const orphaned = evidenceTaskIds.filter(
+			(id) => !planTaskIds.has(id) && !/^retro-/.test(id),
+		);
+
+		if (orphaned.length === 0) {
+			return {
+				name: 'Orphaned Evidence',
+				status: '✅',
+				detail: 'All evidence entries reference valid plan tasks',
+			};
+		}
+
+		return {
+			name: 'Orphaned Evidence',
+			status: '❌',
+			detail: `Evidence for [${orphaned.join(', ')}] not in plan`,
+		};
+	} catch {
+		return {
+			name: 'Orphaned Evidence',
+			status: '❌',
+			detail: 'Could not read evidence directory',
+		};
+	}
+}
+
+/**
+ * Check 4: Plan Sync - verifies plan.json and plan.md task counts match
+ */
+async function checkPlanSync(
+	directory: string,
+	plan: Plan | null,
+): Promise<HealthCheck> {
+	if (!plan) {
+		return {
+			name: 'Plan Sync',
+			status: '✅',
+			detail: 'No plan.json present',
+		};
+	}
+
+	try {
+		let jsonTaskCount = 0;
+		for (const phase of plan.phases) {
+			jsonTaskCount += phase.tasks.length;
+		}
+
+		const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
+		if (!planMdContent) {
+			return {
+				name: 'Plan Sync',
+				status: '✅',
+				detail: 'plan.md not present',
+			};
+		}
+
+		const mdTaskCount = (planMdContent.match(/^- \[[ xX~]/gm) || []).length;
+
+		if (jsonTaskCount === mdTaskCount) {
+			return {
+				name: 'Plan Sync',
+				status: '✅',
+				detail: `plan.json and plan.md both have ${jsonTaskCount} tasks`,
+			};
+		}
+
+		return {
+			name: 'Plan Sync',
+			status: '❌',
+			detail: `plan.json: ${jsonTaskCount} tasks, plan.md: ${mdTaskCount} — run /swarm sync-plan`,
+		};
+	} catch {
+		return {
+			name: 'Plan Sync',
+			status: '❌',
+			detail: 'Could not compare plan files',
+		};
+	}
+}
+
+/**
+ * Check 5: Config Backup Accumulation - checks for excessive backup files
+ */
+async function checkConfigBackups(directory: string): Promise<HealthCheck> {
+	try {
+		const files = readdirSync(directory);
+		const backupCount = files.filter((f) =>
+			/\.opencode-swarm\.yaml\.bak/.test(f),
+		).length;
+
+		if (backupCount <= 5) {
+			return {
+				name: 'Config Backups',
+				status: '✅',
+				detail: `${backupCount} backup file(s) — within acceptable range`,
+			};
+		}
+
+		if (backupCount <= 19) {
+			return {
+				name: 'Config Backups',
+				status: '❌',
+				detail: `${backupCount} backup config files found — consider cleanup`,
+			};
+		}
+
+		return {
+			name: 'Config Backups',
+			status: '❌',
+			detail: `${backupCount} backup config files found — cleanup required`,
+		};
+	} catch {
+		return {
+			name: 'Config Backups',
+			status: '✅',
+			detail: 'Could not check backup files',
+		};
+	}
+}
+
+/**
+ * Check 6: Git Repository - verifies git version control is present
+ */
+async function checkGitRepository(directory: string): Promise<HealthCheck> {
+	try {
+		if (!existsSync(directory) || !statSync(directory).isDirectory()) {
+			return {
+				name: 'Git Repository',
+				status: '❌',
+				detail: 'Invalid directory — cannot check git status',
+			};
+		}
+		execSync('git rev-parse --git-dir', { cwd: directory, stdio: 'pipe' });
+		return {
+			name: 'Git Repository',
+			status: '✅',
+			detail: 'Git repository detected',
+		};
+	} catch {
+		return {
+			name: 'Git Repository',
+			status: '❌',
+			detail: 'Not a git repository — version control recommended',
+		};
+	}
+}
+
+/**
+ * Check 7: Spec Staleness - verifies spec.md title matches plan.title
+ */
+async function checkSpecStaleness(
+	directory: string,
+	plan: Plan | null,
+): Promise<HealthCheck> {
+	const specContent = await readSwarmFileAsync(directory, 'spec.md');
+
+	if (!specContent) {
+		return {
+			name: 'Spec Staleness',
+			status: '✅',
+			detail: 'No spec file present',
+		};
+	}
+
+	if (!plan) {
+		return {
+			name: 'Spec Staleness',
+			status: '✅',
+			detail: 'No plan to compare spec against',
+		};
+	}
+
+	const titleMatch = specContent.match(/^#\s+(.+)$/m);
+	if (!titleMatch) {
+		return {
+			name: 'Spec Staleness',
+			status: '✅',
+			detail: 'Spec title not detectable',
+		};
+	}
+
+	const specTitle = titleMatch[1]!.trim();
+	const planTitle = plan.title.trim();
+
+	if (specTitle.toLowerCase() === planTitle.toLowerCase()) {
+		return {
+			name: 'Spec Staleness',
+			status: '✅',
+			detail: 'Spec and plan titles are aligned',
+		};
+	}
+
+	return {
+		name: 'Spec Staleness',
+		status: '❌',
+		detail: `Spec/plan title mismatch: spec says '${specTitle}', plan says '${planTitle}'`,
 	};
 }
 
@@ -208,6 +520,27 @@ export async function getDiagnoseData(
 			detail: 'Invalid configuration',
 		});
 	}
+
+	// Check: Swarm Identity
+	checks.push(await checkSwarmIdentity(plan));
+
+	// Check: Phase Boundaries
+	checks.push(await checkPhaseBoundaries(plan));
+
+	// Check: Orphaned Evidence
+	checks.push(await checkOrphanedEvidence(directory, plan));
+
+	// Check: Plan Sync
+	checks.push(await checkPlanSync(directory, plan));
+
+	// Check: Config Backups
+	checks.push(await checkConfigBackups(directory));
+
+	// Check: Git Repository
+	checks.push(await checkGitRepository(directory));
+
+	// Check: Spec Staleness
+	checks.push(await checkSpecStaleness(directory, plan));
 
 	const passCount = checks.filter((c) => c.status === '✅').length;
 	const totalCount = checks.length;

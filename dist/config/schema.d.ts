@@ -381,6 +381,24 @@ declare const AutomationConfigSchemaBase: z.ZodObject<{
 }, z.core.$strip>;
 export type AutomationConfig = z.infer<typeof AutomationConfigSchemaBase>;
 export declare const AutomationConfigSchema: z.ZodType<AutomationConfig>;
+export declare const KnowledgeConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    swarm_max_entries: z.ZodDefault<z.ZodNumber>;
+    hive_max_entries: z.ZodDefault<z.ZodNumber>;
+    auto_promote_days: z.ZodDefault<z.ZodNumber>;
+    max_inject_count: z.ZodDefault<z.ZodNumber>;
+    dedup_threshold: z.ZodDefault<z.ZodNumber>;
+    scope_filter: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    hive_enabled: z.ZodDefault<z.ZodBoolean>;
+    rejected_max_entries: z.ZodDefault<z.ZodNumber>;
+    validation_enabled: z.ZodDefault<z.ZodBoolean>;
+    evergreen_confidence: z.ZodDefault<z.ZodNumber>;
+    evergreen_utility: z.ZodDefault<z.ZodNumber>;
+    low_utility_threshold: z.ZodDefault<z.ZodNumber>;
+    min_retrievals_for_utility: z.ZodDefault<z.ZodNumber>;
+    schema_version: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -608,6 +626,23 @@ export declare const PluginConfigSchema: z.ZodObject<{
             decision_drift_detection: boolean;
         };
     }, unknown>>>;
+    knowledge: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        swarm_max_entries: z.ZodDefault<z.ZodNumber>;
+        hive_max_entries: z.ZodDefault<z.ZodNumber>;
+        auto_promote_days: z.ZodDefault<z.ZodNumber>;
+        max_inject_count: z.ZodDefault<z.ZodNumber>;
+        dedup_threshold: z.ZodDefault<z.ZodNumber>;
+        scope_filter: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        hive_enabled: z.ZodDefault<z.ZodBoolean>;
+        rejected_max_entries: z.ZodDefault<z.ZodNumber>;
+        validation_enabled: z.ZodDefault<z.ZodBoolean>;
+        evergreen_confidence: z.ZodDefault<z.ZodNumber>;
+        evergreen_utility: z.ZodDefault<z.ZodNumber>;
+        low_utility_threshold: z.ZodDefault<z.ZodNumber>;
+        min_retrievals_for_utility: z.ZodDefault<z.ZodNumber>;
+        schema_version: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
     tool_output: z.ZodOptional<z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;
         max_lines: z.ZodDefault<z.ZodNumber>;

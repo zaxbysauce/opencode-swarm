@@ -179,6 +179,15 @@ function isAgentDelegation(
 }
 
 /**
+ * v6.17 Task 9.3: Get the current task ID for a session.
+ * Falls back to `${sessionId}:unknown` if currentTaskId is not set.
+ */
+function getCurrentTaskId(sessionId: string): string {
+	const session = swarmState.agentSessions.get(sessionId);
+	return session?.currentTaskId ?? `${sessionId}:unknown`;
+}
+
+/**
  * Creates guardrails hooks for circuit breaker protection
  * @param config Guardrails configuration
  * @returns Tool before/after hooks and messages transform hook
@@ -554,7 +563,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 				// Track gate tools
 				if (isGateTool(input.tool)) {
 					// v6.12: Use session-aware task ID to avoid cross-session collisions
-					const taskId = `${input.sessionID}:current`;
+					const taskId = getCurrentTaskId(input.sessionID);
 					if (!session.gateLog.has(taskId)) {
 						session.gateLog.set(taskId, new Set());
 					}
@@ -604,6 +613,20 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					}
 					const count = session.reviewerCallCount.get(currentPhase) ?? 0;
 					session.reviewerCallCount.set(currentPhase, count + 1);
+				}
+
+				// v6.17 Task 9.3: Track currentTaskId when coder delegation completes
+				// Sync currentTaskId from lastCoderDelegationTaskId so gate tracking is per-task
+				if (
+					delegation.isDelegation &&
+					delegation.targetAgent === 'coder' &&
+					session.lastCoderDelegationTaskId
+				) {
+					session.currentTaskId = session.lastCoderDelegationTaskId;
+					// Reset partial gate warning for this task so re-delegation gets fresh warning
+					session.partialGateWarningsIssuedForTask?.delete(
+						session.currentTaskId,
+					);
 				}
 			}
 
@@ -696,16 +719,14 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 				: session
 					? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME
 					: false;
-			if (
-				isArchitectSessionForGates &&
-				session &&
-				session.gateLog.size > 0 &&
-				!session.partialGateWarningIssued
-			) {
+			if (isArchitectSessionForGates && session) {
 				// v6.12: Use session-aware task ID for gate log lookup
-				const taskId = `${sessionId}:current`;
-				const gates = session.gateLog.get(taskId);
-				if (gates) {
+				const taskId = getCurrentTaskId(sessionId);
+				// Only warn once per task ID (not once per session)
+				if (!session.partialGateWarningsIssuedForTask.has(taskId)) {
+					const gates = session.gateLog.get(taskId);
+					// v6.17 Task 9.3: Warn if task has no gates logged (gates is undefined)
+					// or if task has partial gates (gates exists but incomplete)
 					// v6.12: Check ALL required Stage A gates (not just pre_check_batch)
 					// Required gates: diff, syntax_check, placeholder_scan, lint, pre_check_batch
 					// Optional gates: imports, build_check, secretscan, sast_scan, quality_budget
@@ -717,9 +738,15 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 						'pre_check_batch',
 					];
 					const missingGates: string[] = [];
-					for (const gate of REQUIRED_GATES) {
-						if (!gates.has(gate)) {
-							missingGates.push(gate);
+					// If gates is undefined (no gates logged for this task), all required gates are missing
+					// If gates exists, check which ones are missing
+					if (!gates) {
+						missingGates.push(...REQUIRED_GATES);
+					} else {
+						for (const gate of REQUIRED_GATES) {
+							if (!gates.has(gate)) {
+								missingGates.push(gate);
+							}
 						}
 					}
 					// Check if reviewer or test_engineer delegations exist (via reviewerCallCount)
@@ -748,8 +775,8 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 									'reviewer/test_engineer (no delegations this phase)',
 								);
 							}
-							// v6.12: Set flag to warn only once per session
-							session.partialGateWarningIssued = true;
+							// Mark this task ID as warned
+							session.partialGateWarningsIssuedForTask.add(taskId);
 							textPart.text =
 								`⚠️ PARTIAL GATE VIOLATION: Task may be marked complete but missing gates: [${missing.join(', ')}].\n` +
 								`The QA gate is ALL steps or NONE. Revert any ✓ marks and run the missing gates.\n\n` +

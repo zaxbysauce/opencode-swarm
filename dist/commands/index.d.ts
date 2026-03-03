@@ -5,6 +5,7 @@ export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
 export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
+export { handleDarkMatterCommand } from './dark-matter';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
 export { handleEvidenceCommand } from './evidence';

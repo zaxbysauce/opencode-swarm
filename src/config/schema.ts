@@ -713,6 +713,42 @@ export type AutomationConfig = z.infer<typeof AutomationConfigSchemaBase>;
 export const AutomationConfigSchema: z.ZodType<AutomationConfig> =
 	AutomationConfigSchemaBase;
 
+// Knowledge base configuration (v6.17 two-tier cross-project knowledge)
+export const KnowledgeConfigSchema = z.object({
+	/** Enable/disable the knowledge system entirely */
+	enabled: z.boolean().default(true),
+	/** Maximum entries to keep in the swarm (per-project) knowledge store */
+	swarm_max_entries: z.number().min(1).max(10000).default(100),
+	/** Maximum entries to keep in the hive (cross-project) knowledge store */
+	hive_max_entries: z.number().min(1).max(100000).default(200),
+	/** Days after which a swarm entry is eligible for auto-promotion to hive */
+	auto_promote_days: z.number().min(1).max(3650).default(90),
+	/** Maximum number of knowledge entries to inject into context per phase */
+	max_inject_count: z.number().min(0).max(50).default(5),
+	/** Jaccard bigram threshold for near-duplicate detection (0-1) */
+	dedup_threshold: z.number().min(0).max(1).default(0.6),
+	/** Scope tags to include when filtering lessons for injection */
+	scope_filter: z.array(z.string()).default(['global']),
+	/** Enable hive (cross-project) tier for reading and promotion */
+	hive_enabled: z.boolean().default(true),
+	/** Maximum rejected lessons to retain in the rejected log */
+	rejected_max_entries: z.number().min(1).max(1000).default(20),
+	/** Enable structural/content/semantic validation on new lessons */
+	validation_enabled: z.boolean().default(true),
+	/** Confidence threshold above which a lesson is treated as evergreen */
+	evergreen_confidence: z.number().min(0).max(1).default(0.9),
+	/** Utility score above which a lesson is retained without review */
+	evergreen_utility: z.number().min(0).max(1).default(0.8),
+	/** Utility score below which a lesson is flagged for potential removal */
+	low_utility_threshold: z.number().min(0).max(1).default(0.3),
+	/** Minimum retrieval events required before utility scoring is applied */
+	min_retrievals_for_utility: z.number().min(1).max(100).default(3),
+	/** Schema version for the knowledge store format */
+	schema_version: z.number().int().min(1).default(1),
+});
+
+export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -790,6 +826,9 @@ export const PluginConfigSchema = z.object({
 	// Automation configuration (v6.7 background-first rollout)
 	// Controls background automation mode and per-feature toggles
 	automation: AutomationConfigSchema.optional(),
+
+	// Knowledge base configuration (v6.17 two-tier cross-project knowledge)
+	knowledge: KnowledgeConfigSchema.optional(),
 
 	// Tool output truncation configuration
 	tool_output: z

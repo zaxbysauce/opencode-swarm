@@ -484,6 +484,23 @@ Control which hooks are active:
     "delegation_tracker": false,
     "agent_awareness_max_chars": 300
   }
+},
+"knowledge": {
+  "enabled": true,
+  "swarm_max_entries": 100,
+  "hive_max_entries": 1000,
+  "auto_promote_days": 30,
+  "max_inject_count": 5,
+  "dedup_threshold": 0.6,
+  "scope_filter": ["global"],
+  "hive_enabled": true,
+  "rejected_max_entries": 200,
+  "validation_enabled": true,
+  "evergreen_confidence": 0.8,
+  "evergreen_utility": 0.5,
+  "low_utility_threshold": 0.2,
+  "min_retrievals_for_utility": 3,
+  "schema_version": "v6.17"
 }
 ```
 

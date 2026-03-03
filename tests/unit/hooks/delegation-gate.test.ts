@@ -48,7 +48,7 @@ describe('delegation gate hook', () => {
 		const messages = makeMessages('coder\nTASK: Add validation\nFILE: src/test.ts', 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toBe(originalText);
 	});
@@ -62,7 +62,7 @@ describe('delegation gate hook', () => {
 		const messages = makeMessages(longText, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toBe(originalText);
 	});
@@ -76,7 +76,7 @@ describe('delegation gate hook', () => {
 		const messages = makeMessages(longText, 'coder');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toBe(originalText);
 	});
@@ -89,7 +89,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: Add validation\nINPUT: ' + 'a'.repeat(4000) + '\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('exceeds recommended size');
@@ -102,7 +102,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(longText, 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives detected');
@@ -115,7 +115,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: Add validation\nFILE: src/test.ts\n\nTASK: Add tests';
 		const messages = makeMessages(longText, 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Multiple TASK: sections detected');
@@ -128,7 +128,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
@@ -142,7 +142,7 @@ describe('delegation gate hook', () => {
 		const messages = makeMessages(cleanText, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toBe(originalText);
 	});
@@ -155,7 +155,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: ' + 'a'.repeat(5000);
 		const messages = makeMessages(longText, undefined);
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 	});
@@ -168,7 +168,7 @@ describe('delegation gate hook', () => {
 		const longText = 'coder\nTASK: ' + 'a'.repeat(150) + '\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('⚠️ BATCH DETECTED');
 		expect(messages.messages[0].parts[0].text).toContain('limit 100');
@@ -187,7 +187,7 @@ describe('delegation gate hook', () => {
 
 		const messages = makeMessages('coder\nTASK: Implement feature B\nFILE: src/b.ts', 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('PROTOCOL VIOLATION');
 		expect(messages.messages[0].parts[0].text).toContain('reviewer');
@@ -213,7 +213,7 @@ describe('delegation gate hook', () => {
 		const messages = makeMessages(cleanText, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		// No PROTOCOL VIOLATION warning should be added
 		expect(messages.messages[0].parts[0].text).not.toContain('PROTOCOL VIOLATION');
@@ -234,7 +234,7 @@ describe('delegation gate hook', () => {
 
 		const messages = makeMessages('coder\nTASK: Another task\nFILE: src/another.ts', 'architect');
 
-		await hook({}, messages);
+		await hook.messagesTransform({}, messages);
 
 		expect(messages.messages[0].parts[0].text).toContain('PROTOCOL VIOLATION');
 	});
@@ -255,7 +255,7 @@ describe('delegation gate hook', () => {
 			// Architect sends a non-coder message with a task
 			const messages = makeMessages('TASK: Fix the validation logic', 'architect');
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			expect(messages.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
 			expect(messages.messages[0].parts[0].text).toContain('zero coder delegations');
@@ -274,7 +274,7 @@ describe('delegation gate hook', () => {
 			const messages = makeMessages('TASK: Fix the validation logic', 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			// No warning because task matches coder delegation
 			expect(messages.messages[0].parts[0].text).toBe(originalText);
@@ -291,7 +291,7 @@ describe('delegation gate hook', () => {
 			const messages = makeMessages('TASK: Check the logs', 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			expect(messages.messages[0].parts[0].text).toBe(originalText);
 		});
@@ -308,7 +308,7 @@ describe('delegation gate hook', () => {
 			const messages = makeMessages('coder\nTASK: Implement feature\nFILE: src/feature.ts', 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			// No DELEGATION VIOLATION warning (just clean coder delegation)
 			expect(messages.messages[0].parts[0].text).not.toContain('DELEGATION VIOLATION');
@@ -321,7 +321,7 @@ describe('delegation gate hook', () => {
 
 			// Send a coder delegation
 			const messages1 = makeMessages('coder\nTASK: Task Alpha\nFILE: src/alpha.ts', 'architect');
-			await hook({}, messages1);
+			await hook.messagesTransform({}, messages1);
 
 			// Verify task ID was tracked
 			const session = ensureAgentSession('test-session');
@@ -334,7 +334,7 @@ describe('delegation gate hook', () => {
 
 			// Send a non-coder message
 			const messages = makeMessages('TASK: Review this please', 'architect');
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
 			// Task ID should not be tracked (it's not a coder delegation)
@@ -347,7 +347,7 @@ describe('delegation gate hook', () => {
 
 			// First: architect delegates to coder for Task A
 			const messages1 = makeMessages('coder\nTASK: Task A\nFILE: src/a.ts', 'architect');
-			await hook({}, messages1);
+			await hook.messagesTransform({}, messages1);
 
 			// Architect writes some files (simulated)
 			const session = ensureAgentSession('test-session');
@@ -355,7 +355,7 @@ describe('delegation gate hook', () => {
 
 			// Now architect sends non-coder message with different task
 			const messages2 = makeMessages('TASK: Task B - fix the bug', 'architect');
-			await hook({}, messages2);
+			await hook.messagesTransform({}, messages2);
 
 			// Should warn because Task B differs from last coder delegation (Task A)
 			expect(messages2.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
@@ -373,27 +373,218 @@ describe('delegation gate hook', () => {
 			const messages = makeMessages('Just checking the status of the build', 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			expect(messages.messages[0].parts[0].text).toBe(originalText);
 		});
 
-		it('should not warn when sessionID is missing', async () => {
+	it('should not warn when sessionID is missing', async () => {
+		const config = makeConfig();
+		const hook = createDelegationGateHook(config);
+
+		// No sessionID
+		const messages = {
+			messages: [{
+				info: { role: 'user' as const, agent: 'architect' },
+				parts: [{ type: 'text', text: 'TASK: Do something' }],
+			}],
+		};
+		const originalText = messages.messages[0].parts[0].text;
+
+		await hook.messagesTransform({}, messages);
+
+		expect(messages.messages[0].parts[0].text).toBe(originalText);
+	});
+	});
+
+	// ============================================
+	// QA Skip Hard-Block Enforcement Tests (v6.17)
+	// ============================================
+
+	describe('QA skip hard-block enforcement', () => {
+		it('first coder delegation issues warning not error: After one coder delegation with no reviewer/test_engineer, a second coder delegation prepends a warning to the message text but does NOT throw', async () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			// No sessionID
-			const messages = {
-				messages: [{
-					info: { role: 'user' as const, agent: 'architect' },
-					parts: [{ type: 'text', text: 'TASK: Do something' }],
-				}],
+			// Setup delegation chain with 2 coder delegations (architect→coder→architect→coder)
+			// This simulates the case where the first coder delegation happened, and now architect is delegating to coder again without QA
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // Second coder without reviewer in between
+			]);
+
+			// Setup session with initial state
+			const session = ensureAgentSession('test-session');
+			session.qaSkipCount = 0;
+			session.qaSkipTaskIds = [];
+			session.lastCoderDelegationTaskId = '1.1';
+
+			const messages = makeMessages('mega_coder\nTASK: 1.2\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+
+			// Should NOT throw - call directly without expect().resolves
+			await hook.messagesTransform({}, messages);
+
+			// Should prepend warning to message text
+			expect(messages.messages[0].parts[0].text).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(messages.messages[0].parts[0].text).toContain('Previous coder task completed, but QA gate was skipped');
+
+			// Should increment qaSkipCount
+			expect(session.qaSkipCount).toBe(1);
+
+			// Should track the skipped task ID
+			expect(session.qaSkipTaskIds).toEqual(['1.2']);
+		});
+
+		it('second consecutive coder delegation throws hard-block Error: After two coder delegations without reviewer/test_engineer, a third coder delegation throws an Error', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Setup delegation chain with multiple coder delegations without reviewer/test_engineer
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // First skip (task 1.2)
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 5 },  // Second skip (task 1.3) - this should throw
+			]);
+
+			// Setup session with one QA skip already counted
+			const session = ensureAgentSession('test-session');
+			session.qaSkipCount = 1;  // Already skipped once
+			session.qaSkipTaskIds = ['1.2'];  // Previous skipped task
+			session.lastCoderDelegationTaskId = '1.2';
+
+			const messages = makeMessages('mega_coder\nTASK: 1.3\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+
+			// Should throw Error with "QA GATE ENFORCEMENT"
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('QA GATE ENFORCEMENT');
+		});
+
+		it('thrown error message names skipped task IDs: The thrown error message contains the task IDs that were skipped', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
+			]);
+
+			const session = ensureAgentSession('test-session');
+			session.qaSkipCount = 1;
+			session.qaSkipTaskIds = ['1.2', '1.3'];  // Multiple skipped tasks
+			session.lastCoderDelegationTaskId = '1.3';
+
+			const messages = makeMessages('mega_coder\nTASK: 1.4\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+
+			// Should throw Error containing the skipped task IDs
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('1.2, 1.3');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('Skipped tasks: [1.2, 1.3]');
+		});
+
+		it('reviewer delegation resets counter so next coder does not throw: After reviewer delegation detected in toolAfter, qaSkipCount resets and next coder can proceed without throw', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Setup: previous QA skip state
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'reviewer', timestamp: 5 },  // Reviewer delegation should reset
+			]);
+
+			const session = ensureAgentSession('test-session');
+			session.qaSkipCount = 2;
+			session.qaSkipTaskIds = ['1.2', '1.3'];
+			session.lastCoderDelegationTaskId = '1.3';
+
+			// Simulate toolAfter detecting reviewer delegation
+			const toolAfterInput = {
+				tool: 'tool.execute.Task',
+				sessionID: 'test-session',
+				callID: 'call-123',
 			};
-			const originalText = messages.messages[0].parts[0].text;
+			const toolAfterOutput = {};
+			await hook.toolAfter(toolAfterInput, toolAfterOutput);
 
-			await hook({}, messages);
+			// Counter should be reset
+			expect(session.qaSkipCount).toBe(0);
+			expect(session.qaSkipTaskIds).toEqual([]);
 
-			expect(messages.messages[0].parts[0].text).toBe(originalText);
+			// Now add a new coder delegation - should NOT throw
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'reviewer', timestamp: 5 },
+				{ from: 'reviewer', to: 'architect', timestamp: 6 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 7 },  // New coder after reviewer
+			]);
+
+			const messages = makeMessages('mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+
+			// Should NOT throw - call directly without expect().resolves
+			await hook.messagesTransform({}, messages);
+
+			// Should warn (first skip after reset)
+			expect(messages.messages[0].parts[0].text).toContain('⚠️ PROTOCOL VIOLATION');
+		});
+
+		it('test_engineer delegation resets counter so next coder does not throw: Same as above but for test_engineer', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Setup: previous QA skip state
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'test_engineer', timestamp: 5 },  // test_engineer delegation should reset
+			]);
+
+			const session = ensureAgentSession('test-session');
+			session.qaSkipCount = 2;
+			session.qaSkipTaskIds = ['1.2', '1.3'];
+			session.lastCoderDelegationTaskId = '1.3';
+
+			// Simulate toolAfter detecting test_engineer delegation
+			const toolAfterInput = {
+				tool: 'tool.execute.Task',
+				sessionID: 'test-session',
+				callID: 'call-123',
+			};
+			const toolAfterOutput = {};
+			await hook.toolAfter(toolAfterInput, toolAfterOutput);
+
+			// Counter should be reset
+			expect(session.qaSkipCount).toBe(0);
+			expect(session.qaSkipTaskIds).toEqual([]);
+
+			// Now add a new coder delegation - should NOT throw
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'test_engineer', timestamp: 5 },
+				{ from: 'test_engineer', to: 'architect', timestamp: 6 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 7 },  // New coder after test_engineer
+			]);
+
+			const messages = makeMessages('mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+
+			// Should NOT throw - call directly without expect().resolves
+			await hook.messagesTransform({}, messages);
+
+			// Should warn (first skip after reset)
+			expect(messages.messages[0].parts[0].text).toContain('⚠️ PROTOCOL VIOLATION');
 		});
 	});
 });

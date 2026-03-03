@@ -71,18 +71,26 @@ export interface AgentSessionState {
 	architectWriteCount: number;
 	/** Last task ID that was delegated to coder (for zero-delegation detection) */
 	lastCoderDelegationTaskId: string | null;
+	/** Current task ID being worked on (set when coder delegation fires, used for per-task gate tracking) */
+	currentTaskId: string | null;
 	/** Gate names observed for current task (taskId → Set of gates) */
 	gateLog: Map<string, Set<string>>;
 	/** Reviewer delegations per phase (phaseNumber → count) */
 	reviewerCallCount: Map<number, number>;
 	/** Last gate failure for self-fix detection */
 	lastGateFailure: { tool: string; taskId: string; timestamp: number } | null;
-	/** Whether partial gate warning has been issued for this session */
-	partialGateWarningIssued: boolean;
+	/** Task IDs for which partial gate warning has already been issued (prevents per-task spam) */
+	partialGateWarningsIssuedForTask: Set<string>;
 	/** Whether architect attempted self-fix write after gate failure */
 	selfFixAttempted: boolean;
 	/** Phases that have already received a catastrophic zero-reviewer warning */
 	catastrophicPhaseWarnings: Set<number>;
+
+	// QA Skip Hard-Block Enforcement (v6.17)
+	/** Number of consecutive coder delegations without reviewer/test_engineer between them */
+	qaSkipCount: number;
+	/** Task IDs skipped without QA (for audit trail), reset when reviewer/test_engineer fires */
+	qaSkipTaskIds: string[];
 
 	// Phase completion tracking
 	/** Timestamp of most recent phase completion */
@@ -197,16 +205,20 @@ export function startAgentSession(
 		// v6.12 Anti-Process-Violation Detection
 		architectWriteCount: 0,
 		lastCoderDelegationTaskId: null,
+		currentTaskId: null,
 		gateLog: new Map(),
 		reviewerCallCount: new Map(),
 		lastGateFailure: null,
-		partialGateWarningIssued: false,
+		partialGateWarningsIssuedForTask: new Set(),
 		selfFixAttempted: false,
 		catastrophicPhaseWarnings: new Set(),
 		// Phase completion tracking
 		lastPhaseCompleteTimestamp: 0,
 		lastPhaseCompletePhase: 0,
 		phaseAgentsDispatched: new Set(),
+		// QA Skip Hard-Block Enforcement (v6.17)
+		qaSkipCount: 0,
+		qaSkipTaskIds: [],
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -284,6 +296,9 @@ export function ensureAgentSession(
 		if (session.lastCoderDelegationTaskId === undefined) {
 			session.lastCoderDelegationTaskId = null;
 		}
+		if (session.currentTaskId === undefined) {
+			session.currentTaskId = null;
+		}
 		if (!session.gateLog) {
 			session.gateLog = new Map();
 		}
@@ -293,8 +308,8 @@ export function ensureAgentSession(
 		if (session.lastGateFailure === undefined) {
 			session.lastGateFailure = null;
 		}
-		if (session.partialGateWarningIssued === undefined) {
-			session.partialGateWarningIssued = false;
+		if (!session.partialGateWarningsIssuedForTask) {
+			session.partialGateWarningsIssuedForTask = new Set();
 		}
 		if (session.selfFixAttempted === undefined) {
 			session.selfFixAttempted = false;
@@ -311,6 +326,13 @@ export function ensureAgentSession(
 		}
 		if (!session.phaseAgentsDispatched) {
 			session.phaseAgentsDispatched = new Set();
+		}
+		// QA Skip Hard-Block Enforcement migration safety (v6.17)
+		if (session.qaSkipCount === undefined) {
+			session.qaSkipCount = 0;
+		}
+		if (!session.qaSkipTaskIds) {
+			session.qaSkipTaskIds = [];
 		}
 
 		session.lastToolCallTime = now;

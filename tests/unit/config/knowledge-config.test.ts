@@ -1,0 +1,316 @@
+import { describe, it, expect } from 'vitest';
+import {
+	KnowledgeConfigSchema,
+	KnowledgeConfig,
+	PluginConfigSchema,
+} from '../../../src/config/schema.js';
+
+describe('KnowledgeConfigSchema', () => {
+	describe('default values', () => {
+		it('should produce all 15 defaults when parsing empty object', () => {
+			const result = KnowledgeConfigSchema.parse({});
+
+			expect(result).toEqual({
+				enabled: true,
+				swarm_max_entries: 100,
+				hive_max_entries: 200,
+				auto_promote_days: 90,
+				max_inject_count: 5,
+				dedup_threshold: 0.6,
+				scope_filter: ['global'],
+				hive_enabled: true,
+				rejected_max_entries: 20,
+				validation_enabled: true,
+				evergreen_confidence: 0.9,
+				evergreen_utility: 0.8,
+				low_utility_threshold: 0.3,
+				min_retrievals_for_utility: 3,
+				schema_version: 1,
+			});
+		});
+
+		it('should accept partial overrides and merge with defaults', () => {
+			const result = KnowledgeConfigSchema.parse({
+				enabled: false,
+				max_inject_count: 10,
+			});
+
+			expect(result.enabled).toBe(false);
+			expect(result.max_inject_count).toBe(10);
+			expect(result.swarm_max_entries).toBe(100); // default
+			expect(result.dedup_threshold).toBe(0.6); // default
+		});
+	});
+
+	describe('custom values', () => {
+		it('should succeed when parsing a full config with all fields set', () => {
+			const fullConfig = {
+				enabled: false,
+				swarm_max_entries: 500,
+				hive_max_entries: 1000,
+				auto_promote_days: 30,
+				max_inject_count: 10,
+				dedup_threshold: 0.8,
+				scope_filter: ['global', 'project'],
+				hive_enabled: false,
+				rejected_max_entries: 50,
+				validation_enabled: false,
+				evergreen_confidence: 0.95,
+				evergreen_utility: 0.85,
+				low_utility_threshold: 0.25,
+				min_retrievals_for_utility: 5,
+				schema_version: 2,
+			};
+
+			const result = KnowledgeConfigSchema.parse(fullConfig);
+
+			expect(result).toEqual(fullConfig);
+		});
+
+		it('should accept valid boundary values', () => {
+			const boundaryConfig = {
+				enabled: false,
+				swarm_max_entries: 1, // min
+				hive_max_entries: 100000, // max
+				auto_promote_days: 3650, // max
+				max_inject_count: 0, // min
+				dedup_threshold: 0, // min
+				rejected_max_entries: 1, // min
+				evergreen_confidence: 1, // max
+				evergreen_utility: 1, // max
+				low_utility_threshold: 0, // min
+				min_retrievals_for_utility: 1, // min
+				schema_version: 1, // min
+			};
+
+			const result = KnowledgeConfigSchema.parse(boundaryConfig);
+
+			expect(result.swarm_max_entries).toBe(1);
+			expect(result.hive_max_entries).toBe(100000);
+			expect(result.auto_promote_days).toBe(3650);
+			expect(result.max_inject_count).toBe(0);
+			expect(result.dedup_threshold).toBe(0);
+			expect(result.rejected_max_entries).toBe(1);
+			expect(result.evergreen_confidence).toBe(1);
+			expect(result.evergreen_utility).toBe(1);
+			expect(result.low_utility_threshold).toBe(0);
+			expect(result.min_retrievals_for_utility).toBe(1);
+			expect(result.schema_version).toBe(1);
+		});
+	});
+
+	describe('PluginConfig integration', () => {
+		it('should succeed when knowledge field is omitted (optional)', () => {
+			const result = PluginConfigSchema.parse({});
+
+			expect(result.knowledge).toBeUndefined();
+		});
+
+		it('should succeed when knowledge field is undefined', () => {
+			const result = PluginConfigSchema.parse({
+				knowledge: undefined,
+			});
+
+			expect(result.knowledge).toBeUndefined();
+		});
+
+		it('should not break existing PluginConfig fields', () => {
+			const result = PluginConfigSchema.parse({
+				max_iterations: 7,
+				inject_phase_reminders: false,
+			});
+
+			expect(result.max_iterations).toBe(7);
+			expect(result.inject_phase_reminders).toBe(false);
+			expect(result.knowledge).toBeUndefined();
+		});
+	});
+
+	describe('PluginConfig with knowledge', () => {
+		it('should merge defaults when knowledge is provided with partial values', () => {
+			const result = PluginConfigSchema.parse({
+				knowledge: {
+					enabled: false,
+					max_inject_count: 0,
+				},
+			});
+
+			expect(result.knowledge).toBeDefined();
+			expect(result.knowledge!.enabled).toBe(false);
+			expect(result.knowledge!.max_inject_count).toBe(0);
+			expect(result.knowledge!.swarm_max_entries).toBe(100); // default
+			expect(result.knowledge!.dedup_threshold).toBe(0.6); // default
+		});
+
+		it('should accept full knowledge config', () => {
+			const fullConfig = {
+				knowledge: {
+					enabled: false,
+					swarm_max_entries: 500,
+					hive_max_entries: 1000,
+					auto_promote_days: 30,
+					max_inject_count: 10,
+					dedup_threshold: 0.8,
+					scope_filter: ['global', 'project'],
+					hive_enabled: false,
+					rejected_max_entries: 50,
+					validation_enabled: false,
+					evergreen_confidence: 0.95,
+					evergreen_utility: 0.85,
+					low_utility_threshold: 0.25,
+					min_retrievals_for_utility: 5,
+					schema_version: 2,
+				},
+			};
+
+			const result = PluginConfigSchema.parse(fullConfig);
+
+			expect(result.knowledge).toEqual(fullConfig.knowledge);
+		});
+	});
+
+	describe('type export', () => {
+		it('should allow KnowledgeConfig as a TypeScript type annotation', () => {
+			const config: KnowledgeConfig = {
+				enabled: true,
+				swarm_max_entries: 100,
+				hive_max_entries: 200,
+				auto_promote_days: 90,
+				max_inject_count: 5,
+				dedup_threshold: 0.6,
+				scope_filter: ['global'],
+				hive_enabled: true,
+				rejected_max_entries: 20,
+				validation_enabled: true,
+				evergreen_confidence: 0.9,
+				evergreen_utility: 0.8,
+				low_utility_threshold: 0.3,
+				min_retrievals_for_utility: 3,
+				schema_version: 1,
+			};
+
+			// Type check - this should compile
+			expect(config).toBeDefined();
+		});
+
+		it('should accept parsed config as KnowledgeConfig type', () => {
+			const parsed = KnowledgeConfigSchema.parse({});
+
+			// Type check - this should compile
+			const typed: KnowledgeConfig = parsed;
+			expect(typed.enabled).toBe(true);
+		});
+	});
+
+	describe('adversarial cases - schema validation failures', () => {
+		it('should FAIL when schema_version is 0 (min: 1)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ schema_version: 0 });
+			}).toThrow();
+		});
+
+		it('should FAIL when swarm_max_entries is 0 (min: 1)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ swarm_max_entries: 0 });
+			}).toThrow();
+		});
+
+		it('should FAIL when dedup_threshold is 1.5 (max: 1)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ dedup_threshold: 1.5 });
+			}).toThrow();
+		});
+
+		it('should FAIL when dedup_threshold is -0.1 (min: 0)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ dedup_threshold: -0.1 });
+			}).toThrow();
+		});
+
+		it('should FAIL when max_inject_count is -1 (min: 0)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ max_inject_count: -1 });
+			}).toThrow();
+		});
+
+		it('should FAIL when hive_max_entries is 100001 (max: 100000)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ hive_max_entries: 100001 });
+			}).toThrow();
+		});
+
+		it('should FAIL when schema_version is 1.5 (.int() constraint)', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ schema_version: 1.5 });
+			}).toThrow();
+		});
+
+		it('should FAIL when scope_filter is a string instead of array', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ scope_filter: 'global' as any });
+			}).toThrow();
+		});
+
+		it('should FAIL when enabled is a string instead of boolean', () => {
+			expect(() => {
+				KnowledgeConfigSchema.parse({ enabled: 'yes' as any });
+			}).toThrow();
+		});
+
+		it('should FAIL when knowledge is null in PluginConfig (optional means undefined, not null)', () => {
+			expect(() => {
+				PluginConfigSchema.parse({ knowledge: null as any });
+			}).toThrow();
+		});
+	});
+
+	describe('additional edge cases', () => {
+		it('should accept empty scope_filter array', () => {
+			const result = KnowledgeConfigSchema.parse({
+				scope_filter: [],
+			});
+
+			expect(result.scope_filter).toEqual([]);
+		});
+
+		it('should accept multiple scope tags', () => {
+			const result = KnowledgeConfigSchema.parse({
+				scope_filter: ['global', 'project', 'module', 'function'],
+			});
+
+			expect(result.scope_filter).toEqual(['global', 'project', 'module', 'function']);
+		});
+
+		it('should accept swarm_max_entries at max value (10000)', () => {
+			const result = KnowledgeConfigSchema.parse({
+				swarm_max_entries: 10000,
+			});
+
+			expect(result.swarm_max_entries).toBe(10000);
+		});
+
+		it('should accept rejected_max_entries at max value (1000)', () => {
+			const result = KnowledgeConfigSchema.parse({
+				rejected_max_entries: 1000,
+			});
+
+			expect(result.rejected_max_entries).toBe(1000);
+		});
+
+		it('should accept min_retrievals_for_utility at max value (100)', () => {
+			const result = KnowledgeConfigSchema.parse({
+				min_retrievals_for_utility: 100,
+			});
+
+			expect(result.min_retrievals_for_utility).toBe(100);
+		});
+
+		it('should accept max_inject_count at max value (50)', () => {
+			const result = KnowledgeConfigSchema.parse({
+				max_inject_count: 50,
+			});
+
+			expect(result.max_inject_count).toBe(50);
+		});
+	});
+});

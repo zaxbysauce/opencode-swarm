@@ -14,6 +14,7 @@ import { ORCHESTRATOR_NAME } from './config/constants';
 import {
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
+	KnowledgeConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
 } from './config/schema';
@@ -32,6 +33,9 @@ import {
 	createToolSummarizerHook,
 	safeHook,
 } from './hooks';
+import { createHivePromoterHook } from './hooks/hive-promoter.js';
+import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
+import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
 import { shouldRunOnStartup } from './services/config-doctor';
 import { ensureAgentSession, swarmState } from './state';
 import {
@@ -81,7 +85,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
-	const delegationGateHandler = createDelegationGateHook(config);
+	const delegationGateHooks = createDelegationGateHook(config);
 	// Fail-secure: honor explicit guardrails.enabled === false first (highest priority),
 	// then fall back to file-loaded config. When no config file exists, use config defaults
 	// (which now have guardrails enabled due to fail-secure loader behavior).
@@ -138,6 +142,19 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		summaryConfig,
 		ctx.directory,
 	);
+
+	// v6.17 Knowledge system hooks — fire-and-forget, wrapped in safeHook
+	const knowledgeConfig = KnowledgeConfigSchema.parse(config.knowledge ?? {});
+	const knowledgeCuratorHook = knowledgeConfig.enabled
+		? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig)
+		: undefined;
+	const hivePromoterHook =
+		knowledgeConfig.enabled && knowledgeConfig.hive_enabled
+			? createHivePromoterHook(ctx.directory, knowledgeConfig)
+			: undefined;
+	const knowledgeInjectorHook = knowledgeConfig.enabled
+		? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
+		: undefined;
 
 	// Parse automation config (v6.7 feature flags)
 	// Read flags without activating - scaffold only for now
@@ -278,6 +295,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			delegationTracker: config.hooks?.delegation_tracker === true,
 			guardrails: guardrailsConfig.enabled,
 			toolSummarizer: summaryConfig.enabled,
+			knowledge: knowledgeConfig.enabled,
 		},
 		// v6.7 automation flags (scaffold only - not yet active)
 		automation: {
@@ -334,6 +352,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm $ARGUMENTS',
 					description: 'Swarm management commands',
 				},
+				// Knowledge management commands registered as stubs (full impl in Phase 9 task 9.12)
+				// /swarm knowledge quarantine <id> [reason]  — move a lesson to quarantine
+				// /swarm knowledge restore <id>              — restore a quarantined lesson
 			};
 
 			log('Config applied', {
@@ -348,7 +369,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				pipelineHook['experimental.chat.messages.transform'],
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
-				delegationGateHandler,
+				delegationGateHooks.messagesTransform,
+				knowledgeInjectorHook, // v6.17 knowledge injection
 				// Final transformation: consolidate multiple system messages into one
 				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {
 					if (output.messages) {
@@ -430,6 +452,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
+			await safeHook(delegationGateHooks.toolAfter)(input, output);
+			// v6.17 Knowledge hooks — after guardrails, before summarizer
+			if (knowledgeCuratorHook)
+				await safeHook(knowledgeCuratorHook)(input, output);
+			if (hivePromoterHook) await safeHook(hivePromoterHook)(input, output);
 			await toolSummarizerHook?.(input, output);
 
 			// Tool output truncation (after summarizer to avoid double-processing)

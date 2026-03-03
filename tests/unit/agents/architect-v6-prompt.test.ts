@@ -2810,4 +2810,39 @@ describe('Task 1.4 - PLAN INGESTION DETECTION in MODE: PLAN SPEC GATE', () => {
 			expect(ingestionSection).toContain('then return to planning');
 		});
 	});
+
+	// ============================================
+	// Phase 9: Task 15D - QA Gate Hardening & Anti-Exemption Rules
+	// ============================================
+
+	describe('Phase 9 Task 15D - QA Gate Hardening & Slash Commands', () => {
+		const prompt = createArchitectAgent('test-model').config.prompt!;
+
+		it('contains ## SLASH COMMANDS section with all available commands', () => {
+			expect(prompt).toContain('## SLASH COMMANDS');
+			expect(prompt).toContain('knowledge quarantine');
+			expect(prompt).toContain('knowledge restore');
+			expect(prompt).toContain('dark-matter');
+			expect(prompt).toContain('/swarm');
+		});
+
+		it('contains POC/prototype anti-exemption rule', () => {
+			expect(prompt).toContain("It's just a POC/prototype");
+			expect(prompt).toContain('prototypes that skip QA become production code');
+		});
+
+		it('contains batch-QA-at-end anti-exemption rule', () => {
+			expect(prompt).toContain("I'll do QA in a batch at the end");
+			expect(prompt).toContain('deferred QA is skipped QA');
+		});
+
+		it('contains past-violation consistency anti-exemption rule', () => {
+			expect(prompt).toContain('past violations do not justify future violations');
+		});
+
+		it('contains runtime enforcement hint in MANDATORY QA GATE section', () => {
+			expect(prompt).toContain('enforced by runtime hooks');
+			expect(prompt).toContain('BLOCKED by the plugin');
+		});
+	});
 });

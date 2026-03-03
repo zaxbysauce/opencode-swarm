@@ -202,8 +202,8 @@ export declare const RetrospectiveEvidenceSchema: z.ZodObject<{
         }>;
         scope: z.ZodEnum<{
             project: "project";
-            session: "session";
             global: "global";
+            session: "session";
         }>;
     }, z.core.$strip>>>;
     approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -570,8 +570,8 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         }>;
         scope: z.ZodEnum<{
             project: "project";
-            session: "session";
             global: "global";
+            session: "session";
         }>;
     }, z.core.$strip>>>;
     approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -929,8 +929,8 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
             }>;
             scope: z.ZodEnum<{
                 project: "project";
-                session: "session";
                 global: "global";
+                session: "session";
             }>;
         }, z.core.$strip>>>;
         approaches_tried: z.ZodDefault<z.ZodArray<z.ZodObject<{

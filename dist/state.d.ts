@@ -59,6 +59,8 @@ export interface AgentSessionState {
     architectWriteCount: number;
     /** Last task ID that was delegated to coder (for zero-delegation detection) */
     lastCoderDelegationTaskId: string | null;
+    /** Current task ID being worked on (set when coder delegation fires, used for per-task gate tracking) */
+    currentTaskId: string | null;
     /** Gate names observed for current task (taskId → Set of gates) */
     gateLog: Map<string, Set<string>>;
     /** Reviewer delegations per phase (phaseNumber → count) */
@@ -69,12 +71,16 @@ export interface AgentSessionState {
         taskId: string;
         timestamp: number;
     } | null;
-    /** Whether partial gate warning has been issued for this session */
-    partialGateWarningIssued: boolean;
+    /** Task IDs for which partial gate warning has already been issued (prevents per-task spam) */
+    partialGateWarningsIssuedForTask: Set<string>;
     /** Whether architect attempted self-fix write after gate failure */
     selfFixAttempted: boolean;
     /** Phases that have already received a catastrophic zero-reviewer warning */
     catastrophicPhaseWarnings: Set<number>;
+    /** Number of consecutive coder delegations without reviewer/test_engineer between them */
+    qaSkipCount: number;
+    /** Task IDs skipped without QA (for audit trail), reset when reviewer/test_engineer fires */
+    qaSkipTaskIds: string[];
     /** Timestamp of most recent phase completion */
     lastPhaseCompleteTimestamp: number;
     /** Phase number of most recent phase completion */

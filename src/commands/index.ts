@@ -7,6 +7,7 @@ import { handleArchiveCommand } from './archive';
 import { handleBenchmarkCommand } from './benchmark';
 import { handleClarifyCommand } from './clarify';
 import { handleConfigCommand } from './config';
+import { handleDarkMatterCommand } from './dark-matter';
 import { handleDiagnoseCommand } from './diagnose';
 import { handleDoctorCommand } from './doctor';
 import {
@@ -15,6 +16,10 @@ import {
 } from './evidence';
 import { handleExportCommand } from './export';
 import { handleHistoryCommand } from './history';
+import {
+	handleKnowledgeQuarantineCommand,
+	handleKnowledgeRestoreCommand,
+} from './knowledge';
 import { handlePlanCommand } from './plan';
 import { handlePreflightCommand } from './preflight';
 import { handleResetCommand } from './reset';
@@ -30,11 +35,16 @@ export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
 export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
+export { handleDarkMatterCommand } from './dark-matter';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
 export { handleEvidenceCommand } from './evidence';
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
+export {
+	handleKnowledgeQuarantineCommand,
+	handleKnowledgeRestoreCommand,
+} from './knowledge';
 export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';
@@ -65,6 +75,9 @@ const HELP_TEXT = [
 	'- `/swarm clarify [topic]` — Clarify and refine an existing feature specification',
 	'- `/swarm analyze` — Analyze spec.md vs plan.md for requirement coverage gaps',
 	'- `/swarm specify [description]` — Generate or import a feature specification',
+	'- `/swarm dark-matter` — Detect hidden file couplings via co-change NPMI analysis',
+	'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
+	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 ].join('\n');
 
 /**
@@ -163,6 +176,28 @@ export function createSwarmCommandHandler(
 			case 'specify':
 				text = await handleSpecifyCommand(directory, args);
 				break;
+			case 'dark-matter':
+				text = await handleDarkMatterCommand(directory, args);
+				break;
+			case 'knowledge': {
+				const [knowledgeSubcmd, ...knowledgeArgs] = args;
+				if (knowledgeSubcmd === 'quarantine') {
+					text = await handleKnowledgeQuarantineCommand(
+						directory,
+						knowledgeArgs,
+					);
+				} else if (knowledgeSubcmd === 'restore') {
+					text = await handleKnowledgeRestoreCommand(directory, knowledgeArgs);
+				} else {
+					text = [
+						'## Knowledge Commands',
+						'',
+						'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
+						'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
+					].join('\n');
+				}
+				break;
+			}
 			default:
 				text = HELP_TEXT;
 				break;
