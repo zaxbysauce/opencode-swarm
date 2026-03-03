@@ -1,5 +1,6 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 
+import { updateRetrievalOutcome } from './knowledge-reader.js';
 import {
 	appendKnowledge,
 	appendRejectedLesson,
@@ -401,6 +402,8 @@ export function createKnowledgeCuratorHook(
 			directory,
 			config,
 		);
+
+		await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
 	};
 
 	return safeHook(handler);

@@ -1,5 +1,5 @@
 /** Three-layer validation gate for the opencode-swarm v6.17 knowledge system. */
-import type { KnowledgeCategory } from './knowledge-types.js';
+import type { KnowledgeCategory, KnowledgeEntryBase } from './knowledge-types.js';
 export interface ValidationResult {
     valid: boolean;
     layer: 1 | 2 | 3 | null;
@@ -14,3 +14,15 @@ export declare function validateLesson(candidate: string, existingLessons: strin
     scope: string;
     confidence: number;
 }): ValidationResult;
+export interface QuarantinedEntry extends KnowledgeEntryBase {
+    quarantine_reason: string;
+    quarantined_at: string;
+    reported_by: 'architect' | 'user' | 'auto';
+}
+export interface EntryHealthResult {
+    healthy: boolean;
+    concern?: string;
+}
+export declare function auditEntryHealth(entry: KnowledgeEntryBase): EntryHealthResult;
+export declare function quarantineEntry(directory: string, entryId: string, reason: string, reportedBy: 'architect' | 'user' | 'auto'): Promise<void>;
+export declare function restoreEntry(directory: string, entryId: string): Promise<void>;

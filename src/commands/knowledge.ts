@@ -1,3 +1,5 @@
+import { KnowledgeConfigSchema } from '../config/schema.js';
+import { migrateContextToKnowledge } from '../hooks/knowledge-migrator.js';
 import { quarantineEntry, restoreEntry } from '../hooks/knowledge-validator.js';
 
 /**
@@ -53,5 +55,41 @@ export async function handleKnowledgeRestoreCommand(
 	} catch (error) {
 		console.warn('[knowledge-command] restoreEntry error:', error);
 		return `❌ Failed to restore entry. Check the entry ID and try again.`;
+	}
+}
+
+/**
+ * Handles /swarm knowledge migrate [directory] command.
+ * Triggers one-time migration from .swarm/context.md to .swarm/knowledge.jsonl.
+ */
+export async function handleKnowledgeMigrateCommand(
+	directory: string,
+	args: string[],
+): Promise<string> {
+	const targetDir = args[0] || directory;
+
+	try {
+		const result = await migrateContextToKnowledge(
+			targetDir,
+			KnowledgeConfigSchema.parse({}),
+		);
+
+		if (result.skippedReason) {
+			switch (result.skippedReason) {
+				case 'sentinel-exists':
+					return '⏭ Migration already completed for this project. Delete .swarm/.knowledge-migrated to re-run.';
+				case 'no-context-file':
+					return 'ℹ️ No .swarm/context.md found — nothing to migrate.';
+				case 'empty-context':
+					return 'ℹ️ .swarm/context.md is empty — nothing to migrate.';
+				default:
+					return '⚠️ Migration skipped for an unknown reason.';
+			}
+		}
+
+		return `✅ Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
+	} catch (error) {
+		console.warn('[knowledge-command] migrateContextToKnowledge error:', error);
+		return '❌ Migration failed. Check .swarm/context.md is readable.';
 	}
 }

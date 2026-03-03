@@ -40,11 +40,19 @@ const mockQuarantineEntry = vi.fn<
 >();
 const mockNormalize = vi.fn<[string], string>();
 
+// Create local mock variable for knowledge-reader
+const mockUpdateRetrievalOutcome = vi.fn<[string, string, boolean], Promise<void>>();
+
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
 		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
 	quarantineEntry: (...args: unknown[]) =>
 		mockQuarantineEntry(...(args as [string, string, string, 'architect' | 'user' | 'auto'])),
+}));
+
+vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
+	updateRetrievalOutcome: (...args: unknown[]) =>
+		mockUpdateRetrievalOutcome(...(args as [string, string, boolean])),
 }));
 
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
@@ -133,6 +141,7 @@ describe('knowledge-curator', () => {
 		mockValidateLesson.mockReturnValue({ valid: true, layer: null, reason: null, severity: null });
 		mockQuarantineEntry.mockResolvedValue(undefined);
 		mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+		mockUpdateRetrievalOutcome.mockResolvedValue(undefined);
 	});
 
 	describe('createKnowledgeCuratorHook', () => {
@@ -845,6 +854,185 @@ Phase: 1
 				'Retracted by architect: Second rule to retract',
 				'architect',
 			);
+		});
+	});
+
+	describe('updateRetrievalOutcome wiring', () => {
+		test('updateRetrievalOutcome is called with correct arguments after curation', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+Phase: 7
+
+### Lessons Learned
+- Always use TypeScript strict mode
+`;
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-update',
+			};
+
+			await hook(input, {});
+
+			// Expected: updateRetrievalOutcome called with directory, "Phase 7", and true
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledTimes(1);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 7', true);
+
+			// Also ensure curation happened
+			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
+		});
+
+		test('updateRetrievalOutcome is called even when curation returns zero new entries', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+Phase: 3
+
+### Lessons Learned
+- Lesson will be rejected
+`;
+
+			// Make validation fail so no entries are stored
+			mockValidateLesson.mockReturnValueOnce({
+				valid: false,
+				layer: 1,
+				reason: 'test rejection',
+				severity: 'error',
+			});
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-zero-entries',
+			};
+
+			await hook(input, {});
+
+			// Expected: updateRetrievalOutcome still called even though no entries were stored
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledTimes(1);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 3', true);
+
+			// Confirm no entries were stored
+			expect(mockAppendKnowledge).not.toHaveBeenCalled();
+		});
+
+		test('updateRetrievalOutcome errors are swallowed by safeHook', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+Phase: 5
+
+### Lessons Learned
+- Test lesson
+`;
+
+			// Make updateRetrievalOutcome throw
+			mockUpdateRetrievalOutcome.mockRejectedValueOnce(new Error('knowledge-reader failed'));
+
+			// Make safeHook wrap the function to catch errors (the real behavior)
+			mockSafeHook.mockImplementation((fn: unknown) => {
+				return async (...args: unknown[]) => {
+					try {
+						await (fn as (input: unknown, output: unknown) => Promise<void>)(args[0], args[1]);
+					} catch {
+						// Swallow the error
+					}
+				};
+			});
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-error-swallow',
+			};
+
+			// Expected: hook should NOT throw (safeHook catches errors)
+			await expect(hook(input, {})).resolves.toBeUndefined();
+
+			// Confirm updateRetrievalOutcome was called (even though it threw)
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledTimes(1);
+
+			// Curation should have completed successfully
+			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
+		});
+
+		test('phase number is correctly interpolated for single-digit phases', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+Phase: 1
+
+### Lessons Learned
+- First phase lesson
+`;
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-phase-1',
+			};
+
+			await hook(input, {});
+
+			// Expected: "Phase 1" (not "Phase 01" or "Phase  1")
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 1', true);
+		});
+
+		test('phase number is correctly interpolated for multi-digit phases', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+Phase: 12
+
+### Lessons Learned
+- Multi-digit phase lesson
+`;
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-phase-12',
+			};
+
+			await hook(input, {});
+
+			// Expected: "Phase 12" (not "Phase 12" or other formatting)
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 12', true);
+		});
+
+		test('phase number defaults to 1 when Phase: header is missing', async () => {
+			const planContent = `# Test Project
+Swarm: mega
+
+### Lessons Learned
+- Lesson without phase header
+`;
+
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+
+			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-no-phase',
+			};
+
+			await hook(input, {});
+
+			// Expected: Falls back to "Phase 1" when Phase: header not found
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 1', true);
 		});
 	});
 });

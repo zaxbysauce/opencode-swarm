@@ -11,6 +11,7 @@ export { handleDoctorCommand } from './doctor';
 export { handleEvidenceCommand } from './evidence';
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
+export { handleKnowledgeQuarantineCommand, handleKnowledgeRestoreCommand, } from './knowledge';
 export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';

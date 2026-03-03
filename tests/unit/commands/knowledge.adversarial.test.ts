@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
+	handleKnowledgeMigrateCommand,
 } from '../../../src/commands/knowledge.js';
 
 // Mock knowledge-validator hooks using local mock variable pattern
@@ -11,6 +12,20 @@ const mockRestoreEntry = vi.fn();
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	quarantineEntry: mockQuarantineEntry,
 	restoreEntry: mockRestoreEntry,
+}));
+
+// Mock knowledge-migrator and config/schema
+const mockMigrateContextToKnowledge = vi.fn();
+const mockKnowledgeConfigSchemaParse = vi.fn();
+
+vi.mock('../../../src/hooks/knowledge-migrator.js', () => ({
+	migrateContextToKnowledge: mockMigrateContextToKnowledge,
+}));
+
+vi.mock('../../../src/config/schema.js', () => ({
+	KnowledgeConfigSchema: {
+		parse: mockKnowledgeConfigSchemaParse,
+	},
 }));
 
 describe('Adversarial Security Tests for knowledge.ts', () => {
@@ -201,45 +216,256 @@ describe('Adversarial Security Tests for knowledge.ts', () => {
 		});
 	});
 
-	describe('Reason parameter attacks (pass through tests)', () => {
-		it('17. Extremely long reason (10000 chars) should pass to underlying function', async () => {
-			mockQuarantineEntry.mockResolvedValueOnce(undefined);
-			const longReason = 'x'.repeat(10000);
-			const validId = 'valid-123';
+		describe('Reason parameter attacks (pass through tests)', () => {
+			it('17. Extremely long reason (10000 chars) should pass to underlying function', async () => {
+				mockQuarantineEntry.mockResolvedValueOnce(undefined);
+				const longReason = 'x'.repeat(10000);
+				const validId = 'valid-123';
 
-			const result = await handleKnowledgeQuarantineCommand(testDirectory, [
-				validId,
-				longReason,
-			]);
+				const result = await handleKnowledgeQuarantineCommand(testDirectory, [
+					validId,
+					longReason,
+				]);
 
-			// Should call the underlying function with the long reason
-			expect(mockQuarantineEntry).toHaveBeenCalledWith(
-				testDirectory,
-				validId,
-				longReason,
-				'user'
-			);
-			expect(result).toBe(`✅ Entry ${validId} quarantined successfully.`);
-		});
+				// Should call the underlying function with the long reason
+				expect(mockQuarantineEntry).toHaveBeenCalledWith(
+					testDirectory,
+					validId,
+					longReason,
+					'user'
+				);
+				expect(result).toBe(`✅ Entry ${validId} quarantined successfully.`);
+			});
 
-		it('18. Control characters in reason should pass to underlying function', async () => {
-			mockQuarantineEntry.mockResolvedValueOnce(undefined);
-			const reasonWithControls = 'reason\x1b[31m\x00with\x07controls\n\r';
-			const validId = 'valid-123';
+			it('18. Control characters in reason should pass to underlying function', async () => {
+				mockQuarantineEntry.mockResolvedValueOnce(undefined);
+				const reasonWithControls = 'reason\x1b[31m\x00with\x07controls\n\r';
+				const validId = 'valid-123';
 
-			const result = await handleKnowledgeQuarantineCommand(testDirectory, [
-				validId,
-				reasonWithControls,
-			]);
+				const result = await handleKnowledgeQuarantineCommand(testDirectory, [
+					validId,
+					reasonWithControls,
+				]);
 
-			// Should call the underlying function with control characters intact
-			expect(mockQuarantineEntry).toHaveBeenCalledWith(
-				testDirectory,
-				validId,
-				reasonWithControls,
-				'user'
-			);
-			expect(result).toBe(`✅ Entry ${validId} quarantined successfully.`);
+				// Should call the underlying function with control characters intact
+				expect(mockQuarantineEntry).toHaveBeenCalledWith(
+					testDirectory,
+					validId,
+					reasonWithControls,
+					'user'
+				);
+				expect(result).toBe(`✅ Entry ${validId} quarantined successfully.`);
+			});
 		});
 	});
-});
+
+	describe('Adversarial Security Tests for handleKnowledgeMigrateCommand', () => {
+		const testDirectory = '/test/directory';
+
+		beforeEach(() => {
+			vi.clearAllMocks();
+			// Default: schema parse succeeds with empty object
+			mockKnowledgeConfigSchemaParse.mockReturnValue({});
+			// Default: migration succeeds
+			mockMigrateContextToKnowledge.mockResolvedValue({
+				entriesMigrated: 5,
+				entriesDropped: 1,
+				entriesTotal: 6,
+				skippedReason: undefined,
+			});
+		});
+
+		describe('Path and directory attacks', () => {
+			it('19. Path traversal in args[0] (../../../etc/passwd) should not crash or leak path', async () => {
+				// Simulate the function returning error with the malicious path
+				mockMigrateContextToKnowledge.mockRejectedValue(
+					new Error('ENOENT: no such file or directory, open ../../../etc/passwd')
+				);
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, [
+					'../../../etc/passwd',
+				]);
+
+				// Should return generic error message WITHOUT the path
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+				expect(result).not.toContain('../../../etc/passwd');
+				expect(result).not.toContain('/etc/passwd');
+				expect(result).not.toContain('ENOENT');
+			});
+
+			it('20. Null/undefined args[0] should fall back to directory', async () => {
+				const result = await handleKnowledgeMigrateCommand(testDirectory, [
+					null as any,
+				]);
+
+				// Should use the fallback directory
+				expect(mockMigrateContextToKnowledge).toHaveBeenCalledWith(
+					testDirectory,
+					{}
+				);
+				expect(result).toBe(
+					'✅ Migration complete: 5 entries added, 1 dropped (validation/dedup), 6 total processed.'
+				);
+			});
+
+			it('21. Empty string args[0] should fall back to directory', async () => {
+				const result = await handleKnowledgeMigrateCommand(testDirectory, ['']);
+
+				// Should use the fallback directory since '' is falsy
+				expect(mockMigrateContextToKnowledge).toHaveBeenCalledWith(
+					testDirectory,
+					{}
+				);
+				expect(result).toBe(
+					'✅ Migration complete: 5 entries added, 1 dropped (validation/dedup), 6 total processed.'
+				);
+			});
+
+			it('22. Very long directory string (10000 chars) should not hang or crash', async () => {
+				const longDirectory = 'a'.repeat(10000);
+				const result = await handleKnowledgeMigrateCommand(longDirectory, []);
+
+				// Should not hang or crash - just pass through
+				expect(mockMigrateContextToKnowledge).toHaveBeenCalledWith(
+					longDirectory,
+					{}
+				);
+				expect(result).toBe(
+					'✅ Migration complete: 5 entries added, 1 dropped (validation/dedup), 6 total processed.'
+				);
+			});
+
+			it('23. args[0] is a non-string (123) should not throw', async () => {
+				const result = await handleKnowledgeMigrateCommand(testDirectory, [
+					123 as any,
+				]);
+
+				// Should use the non-string value or fall back - implementation uses args[0] || directory
+				// Since 123 is truthy, it gets passed to migrateContextToKnowledge
+				expect(mockMigrateContextToKnowledge).toHaveBeenCalledWith(123, {});
+				expect(result).toBe(
+					'✅ Migration complete: 5 entries added, 1 dropped (validation/dedup), 6 total processed.'
+				);
+			});
+		});
+
+		describe('Error handling and information disclosure', () => {
+			it('24. migrateContextToKnowledge throws with sensitive path in error message', async () => {
+				// Simulate an error containing a sensitive path
+				const sensitiveError = new Error(
+					'Error: ENOENT /home/user/.ssh/known_hosts'
+				);
+				mockMigrateContextToKnowledge.mockRejectedValueOnce(sensitiveError);
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				// Return value must NOT contain the sensitive path
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+				expect(result).not.toContain('/home/user/.ssh/known_hosts');
+				expect(result).not.toContain('.ssh');
+				expect(result).not.toContain('known_hosts');
+			});
+
+			it('25. migrateContextToKnowledge throws a non-Error value (string "oops")', async () => {
+				// Throw a plain string instead of an Error object
+				mockMigrateContextToKnowledge.mockRejectedValueOnce('oops');
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				// Should still return the generic failure message without crashing
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+			});
+
+			it('26. migrateContextToKnowledge throws null/undefined', async () => {
+				// Throw null - worst case
+				mockMigrateContextToKnowledge.mockRejectedValueOnce(null);
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				// Should still return the generic failure message without crashing
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+			});
+
+			it('27. KnowledgeConfigSchema.parse throws should be caught', async () => {
+				// Simulate schema validation throwing
+				mockKnowledgeConfigSchemaParse.mockImplementation(() => {
+					throw new Error('ZodError: Invalid config at swarm_max_entries');
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				// Should be caught and return generic error
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+				expect(result).not.toContain('ZodError');
+				expect(result).not.toContain('swarm_max_entries');
+			});
+
+			it('28. KnowledgeConfigSchema.parse throws non-Error value', async () => {
+				// Throw a plain string
+				mockKnowledgeConfigSchemaParse.mockImplementation(() => {
+					throw 'schema parse failed';
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				// Should be caught and return generic error
+				expect(result).toBe('❌ Migration failed. Check .swarm/context.md is readable.');
+			});
+		});
+
+		describe('Successful migration paths', () => {
+			it('29. Migration with sentinel-exists skip reason', async () => {
+				mockMigrateContextToKnowledge.mockResolvedValueOnce({
+					entriesMigrated: 0,
+					entriesDropped: 0,
+					entriesTotal: 0,
+					skippedReason: 'sentinel-exists',
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				expect(result).toBe(
+					'⏭ Migration already completed for this project. Delete .swarm/.knowledge-migrated to re-run.'
+				);
+			});
+
+			it('30. Migration with no-context-file skip reason', async () => {
+				mockMigrateContextToKnowledge.mockResolvedValueOnce({
+					entriesMigrated: 0,
+					entriesDropped: 0,
+					entriesTotal: 0,
+					skippedReason: 'no-context-file',
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				expect(result).toBe('ℹ️ No .swarm/context.md found — nothing to migrate.');
+			});
+
+			it('31. Migration with empty-context skip reason', async () => {
+				mockMigrateContextToKnowledge.mockResolvedValueOnce({
+					entriesMigrated: 0,
+					entriesDropped: 0,
+					entriesTotal: 0,
+					skippedReason: 'empty-context',
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				expect(result).toBe('ℹ️ .swarm/context.md is empty — nothing to migrate.');
+			});
+
+			it('32. Migration with unknown skip reason', async () => {
+				mockMigrateContextToKnowledge.mockResolvedValueOnce({
+					entriesMigrated: 0,
+					entriesDropped: 0,
+					entriesTotal: 0,
+					skippedReason: 'unknown-reason',
+				});
+
+				const result = await handleKnowledgeMigrateCommand(testDirectory, []);
+
+				expect(result).toBe('⚠️ Migration skipped for an unknown reason.');
+			});
+		});
+	});

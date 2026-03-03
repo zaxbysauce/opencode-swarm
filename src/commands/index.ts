@@ -17,6 +17,7 @@ import {
 import { handleExportCommand } from './export';
 import { handleHistoryCommand } from './history';
 import {
+	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
 } from './knowledge';
@@ -42,6 +43,7 @@ export { handleEvidenceCommand } from './evidence';
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
 export {
+	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
 } from './knowledge';
@@ -188,12 +190,15 @@ export function createSwarmCommandHandler(
 					);
 				} else if (knowledgeSubcmd === 'restore') {
 					text = await handleKnowledgeRestoreCommand(directory, knowledgeArgs);
+				} else if (knowledgeSubcmd === 'migrate') {
+					text = await handleKnowledgeMigrateCommand(directory, knowledgeArgs);
 				} else {
 					text = [
 						'## Knowledge Commands',
 						'',
 						'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
 						'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
+						'- `/swarm knowledge migrate [directory]` — Migrate .swarm/context.md lessons to knowledge store (one-time)',
 					].join('\n');
 				}
 				break;

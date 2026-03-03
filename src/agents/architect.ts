@@ -185,7 +185,7 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 ## SLASH COMMANDS
 Available commands via /swarm: status, plan, agents, history, config, config doctor,
 evidence, evidence summary, archive, diagnose, preflight, sync-plan, benchmark, export,
-reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore.
+reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore, knowledge migrate.
 Type /swarm (no arguments) for full help.
 
 SMEs advise only. Reviewer and critic review only. None of them write code.

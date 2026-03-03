@@ -4,10 +4,44 @@ import type { CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
 // Mock the co-change-analyzer module
 const mockDetectDarkMatter = mock(async () => []);
 const mockFormatDarkMatterOutput = mock(() => '');
+const mockDarkMatterToKnowledgeEntries = mock(() => []);
+
+// Mock the knowledge-store module with all common exports
+const mockAppendKnowledge = mock(async () => {});
+const mockResolveSwarmKnowledgePath = mock(() => '/test/dir/.swarm/knowledge.jsonl');
+const mockReadKnowledge = mock(async () => []);
+const mockReadRejectedLessons = mock(async () => []);
+const mockRewriteKnowledge = mock(async () => {});
+const mockAppendRejectedLesson = mock(async () => {});
+const mockNormalize = mock((text: string) => text);
+const mockWordBigrams = mock(() => new Set());
+const mockJaccardBigram = mock(() => 0);
+const mockFindNearDuplicate = mock(() => undefined);
+const mockComputeConfidence = mock(() => 0.5);
+const mockInferTags = mock(() => []);
 
 mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 	detectDarkMatter: mockDetectDarkMatter,
 	formatDarkMatterOutput: mockFormatDarkMatterOutput,
+	darkMatterToKnowledgeEntries: mockDarkMatterToKnowledgeEntries,
+}));
+
+mock.module('../../../src/hooks/knowledge-store.js', () => ({
+	resolveSwarmKnowledgePath: mockResolveSwarmKnowledgePath,
+	resolveSwarmRejectedPath: mock(() => '/test/dir/.swarm/knowledge-rejected.jsonl'),
+	resolveHiveKnowledgePath: mock(() => '/hive/shared-learnings.jsonl'),
+	resolveHiveRejectedPath: mock(() => '/hive/shared-learnings-rejected.jsonl'),
+	readKnowledge: mockReadKnowledge,
+	readRejectedLessons: mockReadRejectedLessons,
+	appendKnowledge: mockAppendKnowledge,
+	rewriteKnowledge: mockRewriteKnowledge,
+	appendRejectedLesson: mockAppendRejectedLesson,
+	normalize: mockNormalize,
+	wordBigrams: mockWordBigrams,
+	jaccardBigram: mockJaccardBigram,
+	findNearDuplicate: mockFindNearDuplicate,
+	computeConfidence: mockComputeConfidence,
+	inferTags: mockInferTags,
 }));
 
 // Import AFTER mock setup

@@ -1,5 +1,11 @@
+import path from 'node:path';
+import {
+	appendKnowledge,
+	resolveSwarmKnowledgePath,
+} from '../hooks/knowledge-store.js';
 import type { DarkMatterOptions } from '../tools/co-change-analyzer.js';
 import {
+	darkMatterToKnowledgeEntries,
 	detectDarkMatter,
 	formatDarkMatterOutput,
 } from '../tools/co-change-analyzer.js';
@@ -32,5 +38,25 @@ export async function handleDarkMatterCommand(
 	}
 
 	const pairs = await detectDarkMatter(directory, options);
-	return formatDarkMatterOutput(pairs);
+	const output = formatDarkMatterOutput(pairs);
+
+	// Persist dark matter findings as swarm knowledge entries
+	if (pairs.length > 0) {
+		try {
+			const projectName = path.basename(path.resolve(directory));
+			const entries = darkMatterToKnowledgeEntries(pairs, projectName);
+			if (entries.length > 0) {
+				const knowledgePath = resolveSwarmKnowledgePath(directory);
+				for (const entry of entries) {
+					await appendKnowledge(knowledgePath, entry);
+				}
+				return `${output}\n\n[${entries.length} dark matter finding(s) saved to .swarm/knowledge.jsonl]`;
+			}
+		} catch (err) {
+			console.warn('dark-matter: failed to save knowledge entries:', err);
+			return output;
+		}
+	}
+
+	return output;
 }
