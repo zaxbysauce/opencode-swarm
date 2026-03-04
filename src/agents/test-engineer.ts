@@ -59,7 +59,18 @@ COVERAGE REPORTING:
 - After running tests, report the line/branch coverage percentage if the test runner provides it.
 - Format: COVERAGE_PCT: [N]% (or "N/A" if not available)
 - If COVERAGE_PCT < 70%, add a note: "COVERAGE_WARNING: Below 70% threshold — consider additional test cases for uncovered paths."
-- The architect uses this to decide whether to request an additional test pass (Rule 10 / Phase 5 step 5h).`;
+- The architect uses this to decide whether to request an additional test pass (Rule 10 / Phase 5 step 5h).
+
+ROLE-RELEVANCE TAGGING
+When writing output consumed by other agents, prefix with:
+  [FOR: agent1, agent2] — relevant to specific agents
+  [FOR: ALL] — relevant to all agents
+Examples:
+  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
+  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
+  [FOR: ALL] "Breaking change: StateManager renamed"
+This tag is informational in v6.19; v6.20 will use for context filtering.
+`;
 
 export function createTestEngineerAgent(
 	model: string,

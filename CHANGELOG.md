@@ -1,5 +1,37 @@
 # Changelog
 
+## v6.19.0 — Prompt-Quality & Adversarial Robustness Update
+
+### Added
+- **Critic Sounding Board mode** — Architect consults critic before escalating to user (UNNECESSARY/REPHRASE/APPROVED/RESOLVE verdicts)
+- **Architect Escalation Discipline** — Three-tier escalation hierarchy (self-resolve → critic → user)
+- **Adversarial detector patterns** — PRECEDENT_MANIPULATION, SELF_REVIEW, CONTENT_EXEMPTION, GATE_DELEGATION_BYPASS, VELOCITY_RATIONALIZATION
+- **Intent reconstruction in mega-reviewer** — Reconstructs developer intent before evaluating changes
+- **Complexity-scaled review depth** — TRIVIAL/MODERATE/COMPLEX classification determines review thoroughness
+- **SME confidence-gated routing** — Architect routes LOW-confidence results to second opinion or user flag
+- **meta.summary convention** — Agents include one-line summaries in state events for downstream consumption
+- **Role-relevance tagging** — Agents tag outputs with [FOR: agent1, agent2] for future context filtering
+- **Cross-agent verbosity controls** — Response length scales to finding complexity
+
+### Improved
+- **Critic DRIFT-CHECK** with trajectory-level evaluation, first-error focus, anti-rubber-stamp bias
+- **Mega-reviewer three-tier review structure** (correctness → safety → quality)
+- **SME confidence levels and staleness awareness**
+
+### Added (Hotfix)
+- **Coder self-audit checklist** — Pre-completion verification
+- **Gate authority block** — Architect cannot self-judge task completion
+- **Retry circuit breaker** — Architect intervenes after 3 coder rejections to simplify approach
+- **Spec-writing discipline for destructive operations** — Mandatory error strategy, message accuracy, platform compatibility
+- **SME platform awareness** — Cross-platform verification required for OS-interaction APIs
+
+### JSONL Events
+- `sounding_board_consulted` — Every sounding board invocation
+- `architect_loop_detected` — Third occurrence of same impasse
+- `precedent_manipulation_detected` — Highest-severity adversarial pattern
+- `coder_self_audit` — End of every task
+- `coder_retry_circuit_breaker` — Coder task rejected 3 times
+
 ## [6.18.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.3...v6.18.0) (2026-03-04)
 
 

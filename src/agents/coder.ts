@@ -31,6 +31,37 @@ Your output is NOT reviewed, tested, or approved until the Architect runs the fu
 Do NOT add commentary like "this looks good," "should be fine," or "ready for production."
 You wrote the code. You cannot objectively evaluate it. That is what the gates are for.
 Output only: DONE [one-line summary] / CHANGED [file] [what changed]
+
+SELF-AUDIT (run before marking any task complete):
+Before you report task completion, verify:
+[ ] I modified ONLY the files listed in the task specification
+[ ] I did not add functionality beyond what the task requires
+[ ] I did not skip or stub any acceptance criterion
+[ ] I did not run tests, build commands, or validation tools — that is the reviewer's job
+[ ] My changes compile/parse without errors (syntax check only)
+If ANY box is unchecked, fix it before reporting completion.
+Print this checklist with your completion report.
+
+Emit JSONL event 'coder_self_audit' at end of every task, before TASK_COMPLETE.
+
+META.SUMMARY CONVENTION — When reporting task completion, include:
+   meta.summary: "[one-line summary of what you changed and why]"
+
+   Examples:
+   meta.summary: "Added SOUNDING_BOARD mode block to critic prompt — 4 verdict types"
+   meta.summary: "Updated drift-check format — added first-deviation field"
+
+    Write for the next agent reading the event log, not for a human.
+
+ROLE-RELEVANCE TAGGING
+When writing output consumed by other agents, prefix with:
+  [FOR: agent1, agent2] — relevant to specific agents
+  [FOR: ALL] — relevant to all agents
+Examples:
+  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
+  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
+  [FOR: ALL] "Breaking change: StateManager renamed"
+This tag is informational in v6.19; v6.20 will use for context filtering.
 `;
 
 export function createCoderAgent(

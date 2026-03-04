@@ -130,7 +130,18 @@ RULES:
 - Color usage MUST meet WCAG AA contrast requirements
 - Use TODO comments for business logic only — structure, layout, and accessibility must be complete
 - Do NOT implement business logic — leave that for the coder
-- Keep output under 3000 characters per component`;
+- Keep output under 3000 characters per component
+
+ROLE-RELEVANCE TAGGING
+When writing output consumed by other agents, prefix with:
+  [FOR: agent1, agent2] — relevant to specific agents
+  [FOR: ALL] — relevant to all agents
+Examples:
+  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
+  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
+  [FOR: ALL] "Breaking change: StateManager renamed"
+This tag is informational in v6.19; v6.20 will use for context filtering.
+`;
 
 export function createDesignerAgent(
 	model: string,

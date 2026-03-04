@@ -708,6 +708,37 @@ These hooks are advisory (warnings only) and help maintain workflow discipline d
 
 ---
 
+## v6.19 Features
+
+### Critic Sounding Board
+Before escalating to the user, the Architect consults the critic in SOUNDING_BOARD mode. The critic returns one of four verdicts: UNNECESSARY, REPHRASE, APPROVED, or RESOLVE.
+
+### Escalation Discipline
+Three-tier escalation hierarchy ensures systematic problem resolution:
+1. **Tier 1**: Self-resolve using existing context
+2. **Tier 2**: Critic consultation via sounding board
+3. **Tier 3**: User escalation (requires critic APPROVED)
+
+### Retry Circuit Breaker
+After 3 coder rejections, the Architect intervenes to simplify the approach rather than adding more logic.
+
+### Intent Reconstruction
+The mega-reviewer reconstructs developer intent from task specs and diffs before evaluating changes.
+
+### Complexity-Scaled Review
+Changes classified as TRIVIAL, MODERATE, or COMPLEX receive appropriate review depth:
+- TRIVIAL → Tier 1 only
+- MODERATE → Tiers 1-2
+- COMPLEX → All three tiers
+
+### meta.summary Convention
+Agents include one-line summaries in state events for downstream consumption by other agents.
+
+### Role-Relevance Tagging
+Agents prefix outputs with [FOR: agent1, agent2] tags to prepare for v6.20's automatic context filtering.
+
+---
+
 ## Testing
 
 6,000+ tests. Unit, integration, adversarial, and smoke. Zero additional test dependencies.
