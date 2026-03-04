@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.19.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.0...v6.19.1) (2026-03-04)
+
+
+### Bug Fixes
+
+* **release:** realign release-please baseline to v6.19.0 ([02c505a](https://github.com/zaxbysauce/opencode-swarm/commit/02c505a0aa73aca0c9a96c288f04dc6d3cbdedf2))
+
 ## [6.19.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.18.1...v6.19.0) (2026-03-04)
 
 
