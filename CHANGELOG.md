@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.18.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.3...v6.18.0) (2026-03-04)
+
+
+### Features
+
+* robustness, discoverability & intelligence expansion (v6.18.0) ([f5fd2ef](https://github.com/zaxbysauce/opencode-swarm/commit/f5fd2ef7667165101aeaa76fd8b2209193c79ad3))
+
 ## [6.17.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.2...v6.17.3) (2026-03-03)
 
 
