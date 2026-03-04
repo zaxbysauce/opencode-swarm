@@ -1,5 +1,20 @@
 import { type BuildEvidence, type Evidence, type EvidenceBundle, type PlaceholderEvidence, type QualityBudgetEvidence, type SastEvidence, type SbomEvidence, type SyntaxEvidence } from '../config/evidence-schema';
 /**
+ * Discriminated union returned by loadEvidence.
+ * - 'found': file exists and passed Zod schema validation
+ * - 'not_found': file does not exist on disk
+ * - 'invalid_schema': file exists but failed Zod validation; errors contains field names
+ */
+export type LoadEvidenceResult = {
+    status: 'found';
+    bundle: EvidenceBundle;
+} | {
+    status: 'not_found';
+} | {
+    status: 'invalid_schema';
+    errors: string[];
+};
+/**
  * All valid evidence types (12 total)
  */
 export declare const VALID_EVIDENCE_TYPES: readonly ["review", "test", "diff", "approval", "note", "retrospective", "syntax", "placeholder", "sast", "sbom", "build", "quality_budget"];
@@ -33,9 +48,9 @@ export declare function sanitizeTaskId(taskId: string): string;
 export declare function saveEvidence(directory: string, taskId: string, evidence: Evidence): Promise<EvidenceBundle>;
 /**
  * Load evidence bundle for a task.
- * Returns null if file doesn't exist or validation fails.
+ * Returns a LoadEvidenceResult discriminated union.
  */
-export declare function loadEvidence(directory: string, taskId: string): Promise<EvidenceBundle | null>;
+export declare function loadEvidence(directory: string, taskId: string): Promise<LoadEvidenceResult>;
 /**
  * List all task IDs that have evidence bundles.
  * Returns sorted array of valid task IDs.

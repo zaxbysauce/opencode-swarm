@@ -1,3 +1,4 @@
+import { renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import {
 	type Phase,
@@ -160,7 +161,21 @@ async function regeneratePlanMarkdown(
 	const markdown = derivePlanMarkdown(plan);
 	// Prepend hash as comment for sync detection
 	const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
-	await Bun.write(path.join(swarmDir, 'plan.md'), markdownWithHash);
+	const mdPath = path.join(swarmDir, 'plan.md');
+	const mdTempPath = path.join(
+		swarmDir,
+		`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+	);
+	try {
+		await Bun.write(mdTempPath, markdownWithHash);
+		renameSync(mdTempPath, mdPath);
+	} finally {
+		try {
+			unlinkSync(mdTempPath);
+		} catch {
+			/* already renamed or never created */
+		}
+	}
 }
 
 /**
@@ -246,20 +261,42 @@ export async function savePlan(directory: string, plan: Plan): Promise<void> {
 
 	const swarmDir = path.resolve(directory, '.swarm');
 	const planPath = path.join(swarmDir, 'plan.json');
-	const tempPath = path.join(swarmDir, `plan.json.tmp.${Date.now()}`);
+	const tempPath = path.join(
+		swarmDir,
+		`plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+	);
 
-	// Write to temp
-	await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+	// Write to temp and atomically rename
+	try {
+		await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+		renameSync(tempPath, planPath);
+	} finally {
+		try {
+			unlinkSync(tempPath);
+		} catch {
+			/* already renamed or never created */
+		}
+	}
 
-	// Atomic rename
-	const { renameSync } = await import('node:fs');
-	renameSync(tempPath, planPath);
-
-	// Derive and write markdown (with content hash for sync detection)
+	// Derive and write markdown atomically (with content hash for sync detection)
 	const contentHash = computePlanContentHash(validated);
 	const markdown = derivePlanMarkdown(validated);
 	const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
-	await Bun.write(path.join(swarmDir, 'plan.md'), markdownWithHash);
+	const mdPath = path.join(swarmDir, 'plan.md');
+	const mdTempPath = path.join(
+		swarmDir,
+		`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+	);
+	try {
+		await Bun.write(mdTempPath, markdownWithHash);
+		renameSync(mdTempPath, mdPath);
+	} finally {
+		try {
+			unlinkSync(mdTempPath);
+		} catch {
+			/* already renamed or never created */
+		}
+	}
 }
 
 /**

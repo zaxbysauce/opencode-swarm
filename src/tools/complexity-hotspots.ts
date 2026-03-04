@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_FILE_SIZE_BYTES = 256 * 1024; // 256KB per file
@@ -360,7 +361,7 @@ async function analyzeHotspots(
 }
 
 // ============ Tool Definition ============
-export const complexity_hotspots: ReturnType<typeof tool> = tool({
+export const complexity_hotspots: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Identify high-risk code hotspots by combining git churn frequency with cyclomatic complexity estimates. Returns files with their churn count, complexity score, risk score, and recommended review level.',
 	args: {
@@ -383,7 +384,7 @@ export const complexity_hotspots: ReturnType<typeof tool> = tool({
 				'Comma-separated extensions to include (default: "ts,tsx,js,jsx,py,rs,ps1")',
 			),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
+	async execute(args: unknown, _directory: string): Promise<string> {
 		// Safe args extraction
 		let daysInput: number | undefined;
 		let topNInput: number | undefined;

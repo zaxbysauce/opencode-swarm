@@ -1,8 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
@@ -1276,7 +1277,7 @@ function findSourceFiles(dir: string, files: string[] = []): string[] {
 }
 
 // ============ Tool Definition ============
-export const test_runner: ReturnType<typeof tool> = tool({
+export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, or "graph" to find related tests via imports.',
 	args: {
@@ -1299,11 +1300,9 @@ export const test_runner: ReturnType<typeof tool> = tool({
 			.optional()
 			.describe('Timeout in milliseconds (default 60000, max 300000)'),
 	},
-	async execute(args: unknown, context: unknown): Promise<string> {
-		const ctx = context as ToolContext;
-		const rawDir = ctx?.directory || ctx?.worktree || process.cwd();
-		// Normalize whitespace-only strings back to process.cwd()
-		const workingDir = rawDir.trim() || process.cwd();
+	async execute(args: unknown, directory: string): Promise<string> {
+		// Normalize whitespace-only strings back to empty string (will use directory param)
+		const workingDir = directory.trim() || directory;
 		// Validate workingDir to prevent path traversal, injection, and abuse
 		// Length check FIRST — before any regex operations (defense against ReDoS)
 		if (workingDir.length > 4096) {

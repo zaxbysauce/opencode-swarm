@@ -1,9 +1,11 @@
 import * as fs from 'node:fs';
+import { resetAutomationManager } from '../background/manager';
 import { validateSwarmPath } from '../hooks/utils';
 
 /**
  * Handles the /swarm reset command.
  * Clears plan.md and context.md from .swarm/ directory.
+ * Stops background automation and resets in-memory queues.
  * Requires --confirm flag as a safety gate.
  */
 export async function handleResetCommand(
@@ -39,6 +41,16 @@ export async function handleResetCommand(
 		} catch {
 			results.push(`- ❌ Failed to delete ${filename}`);
 		}
+	}
+
+	// Stop background automation and reset in-memory queues
+	try {
+		resetAutomationManager();
+		results.push(
+			'- ✅ Stopped background automation (in-memory queues cleared)',
+		);
+	} catch {
+		results.push('- ⏭️ Background automation not running (skipped)');
 	}
 
 	// Clean up summaries directory

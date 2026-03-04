@@ -11,8 +11,6 @@ export { imports } from './imports';
 export { lint } from './lint';
 // Phase completion tracking
 export { phase_complete } from './phase-complete';
-export { save_plan } from './save-plan';
-export type { SavePlanArgs, SavePlanResult } from './save-plan';
 export { pkg_audit } from './pkg-audit';
 export {
 	type PlaceholderFinding,
@@ -38,8 +36,11 @@ export {
 	type SastScanFinding,
 	type SastScanInput,
 	type SastScanResult,
+	sast_scan,
 	sastScan,
 } from './sast-scan';
+export type { SavePlanArgs, SavePlanResult } from './save-plan';
+export { save_plan } from './save-plan';
 export {
 	type SbomGenerateInput,
 	type SbomGenerateResult,

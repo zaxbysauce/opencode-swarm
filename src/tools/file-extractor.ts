@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { createSwarmTool } from './create-tool';
 
 // Language to extension mapping
 const EXT_MAP: Record<string, string> = {
@@ -78,7 +79,7 @@ export function extractFilename(
 /**
  * Extract code blocks from content and save to files
  */
-export const extract_code_blocks: ToolDefinition = tool({
+export const extract_code_blocks: ToolDefinition = createSwarmTool({
 	description:
 		'Extract code blocks from text content and save them to files. ' +
 		'Parses markdown-style code fences (```language...```) and saves each block. ' +
@@ -96,13 +97,22 @@ export const extract_code_blocks: ToolDefinition = tool({
 			.optional()
 			.describe('Optional prefix for generated filenames'),
 	},
-	execute: async (args) => {
-		const { content, output_dir, prefix } = args;
-		const targetDir = output_dir || process.cwd();
+	execute: async (args: unknown, directory: string) => {
+		const { content, output_dir, prefix } = args as {
+			content?: string;
+			output_dir?: string;
+			prefix?: string;
+		};
+		const targetDir = output_dir || directory;
 
 		// Ensure output directory exists
 		if (!fs.existsSync(targetDir)) {
 			fs.mkdirSync(targetDir, { recursive: true });
+		}
+
+		// Validate content
+		if (!content) {
+			return 'Error: content is required';
 		}
 
 		// Extract code blocks

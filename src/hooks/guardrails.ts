@@ -79,12 +79,11 @@ function isArchitect(sessionId: string): boolean {
 /**
  * Detects if a file path is outside the .swarm/ directory
  */
-function isOutsideSwarmDir(filePath: string): boolean {
+function isOutsideSwarmDir(filePath: string, directory: string): boolean {
 	if (!filePath) return false;
 	// Use path.resolve to normalize the path (handles .., ., and separators)
-	const cwd = process.cwd();
-	const swarmDir = path.resolve(cwd, '.swarm');
-	const resolved = path.resolve(cwd, filePath);
+	const swarmDir = path.resolve(directory, '.swarm');
+	const resolved = path.resolve(directory, filePath);
 	// Check if resolved path is inside .swarm/ directory
 	const relative = path.relative(swarmDir, resolved);
 	// If relative path starts with '..', it's outside .swarm/
@@ -189,10 +188,14 @@ function getCurrentTaskId(sessionId: string): string {
 
 /**
  * Creates guardrails hooks for circuit breaker protection
+ * @param directory Working directory (from plugin init context)
  * @param config Guardrails configuration
  * @returns Tool before/after hooks and messages transform hook
  */
-export function createGuardrailsHooks(config: GuardrailsConfig): {
+export function createGuardrailsHooks(
+	directory: string,
+	config: GuardrailsConfig,
+): {
 	toolBefore: (
 		input: { tool: string; sessionID: string; callID: string },
 		output: { args: unknown },
@@ -274,7 +277,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 
 						for (const p of paths) {
 							if (
-								isOutsideSwarmDir(p) &&
+								isOutsideSwarmDir(p, directory) &&
 								(isSourceCodePath(p) || hasTraversalSegments(p))
 							) {
 								const session = swarmState.agentSessions.get(input.sessionID);
@@ -295,7 +298,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 
 				if (
 					typeof targetPath === 'string' &&
-					isOutsideSwarmDir(targetPath) &&
+					isOutsideSwarmDir(targetPath, directory) &&
 					(isSourceCodePath(targetPath) || hasTraversalSegments(targetPath))
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
@@ -603,7 +606,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					// v6.12: Get current phase from plan
 					let currentPhase = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(process.cwd());
+						const plan = await loadPlan(directory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhase = extractPhaseNumber(phaseString);
@@ -753,7 +756,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 					// v6.12: Check for CURRENT phase, not just any phase
 					let currentPhaseForCheck = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(process.cwd());
+						const plan = await loadPlan(directory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhaseForCheck = extractPhaseNumber(phaseString);
@@ -794,7 +797,7 @@ export function createGuardrailsHooks(config: GuardrailsConfig): {
 				session.catastrophicPhaseWarnings
 			) {
 				try {
-					const plan = await loadPlan(process.cwd());
+					const plan = await loadPlan(directory);
 					if (plan?.phases) {
 						for (const phase of plan.phases) {
 							if (phase.status === 'complete') {

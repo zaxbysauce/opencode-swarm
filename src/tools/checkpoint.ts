@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const CHECKPOINT_LOG_PATH = '.swarm/checkpoints.json';
@@ -99,15 +100,15 @@ function validateLabel(label: string): string | null {
 /**
  * Get the checkpoint log file path (absolute)
  */
-function getCheckpointLogPath(): string {
-	return path.join(process.cwd(), CHECKPOINT_LOG_PATH);
+function getCheckpointLogPath(directory: string): string {
+	return path.join(directory, CHECKPOINT_LOG_PATH);
 }
 
 /**
  * Read existing checkpoint log or create empty one
  */
-function readCheckpointLog(): CheckpointLog {
-	const logPath = getCheckpointLogPath();
+function readCheckpointLog(directory: string): CheckpointLog {
+	const logPath = getCheckpointLogPath(directory);
 	try {
 		if (fs.existsSync(logPath)) {
 			const content = fs.readFileSync(logPath, 'utf-8');
@@ -127,8 +128,8 @@ function readCheckpointLog(): CheckpointLog {
 /**
  * Write checkpoint log atomically
  */
-function writeCheckpointLog(log: CheckpointLog): void {
-	const logPath = getCheckpointLogPath();
+function writeCheckpointLog(log: CheckpointLog, directory: string): void {
+	const logPath = getCheckpointLogPath(directory);
 	const dir = path.dirname(logPath);
 	// Ensure .swarm directory exists
 	if (!fs.existsSync(dir)) {
@@ -185,10 +186,10 @@ function isGitRepo(): boolean {
 /**
  * Handle 'save' action - create checkpoint commit and log it
  */
-function handleSave(label: string): string {
+function handleSave(label: string, directory: string): string {
 	try {
 		// Check for duplicate label before saving
-		const log = readCheckpointLog();
+		const log = readCheckpointLog(directory);
 		const existingCheckpoint = log.checkpoints.find((c) => c.label === label);
 		if (existingCheckpoint) {
 			return JSON.stringify(
@@ -218,7 +219,7 @@ function handleSave(label: string): string {
 			sha: newSha,
 			timestamp,
 		});
-		writeCheckpointLog(log);
+		writeCheckpointLog(log, directory);
 
 		return JSON.stringify(
 			{
@@ -251,10 +252,10 @@ function handleSave(label: string): string {
 /**
  * Handle 'restore' action - soft reset to saved SHA
  */
-function handleRestore(label: string): string {
+function handleRestore(label: string, directory: string): string {
 	try {
 		// Find the checkpoint
-		const log = readCheckpointLog();
+		const log = readCheckpointLog(directory);
 		const checkpoint = log.checkpoints.find((c) => c.label === label);
 
 		if (!checkpoint) {
@@ -303,8 +304,8 @@ function handleRestore(label: string): string {
 /**
  * Handle 'list' action - return all checkpoints
  */
-function handleList(): string {
-	const log = readCheckpointLog();
+function handleList(directory: string): string {
+	const log = readCheckpointLog(directory);
 
 	// Sort by timestamp descending (most recent first) for display
 	const sorted = [...log.checkpoints].sort((a, b) =>
@@ -326,9 +327,9 @@ function handleList(): string {
 /**
  * Handle 'delete' action - remove entry from log (git commit remains)
  */
-function handleDelete(label: string): string {
+function handleDelete(label: string, directory: string): string {
 	try {
-		const log = readCheckpointLog();
+		const log = readCheckpointLog(directory);
 		const initialLength = log.checkpoints.length;
 
 		// Filter out the checkpoint with matching label
@@ -347,7 +348,7 @@ function handleDelete(label: string): string {
 		}
 
 		// Write updated log (git commit remains)
-		writeCheckpointLog(log);
+		writeCheckpointLog(log, directory);
 
 		return JSON.stringify(
 			{
@@ -378,7 +379,7 @@ function handleDelete(label: string): string {
 
 // ============ Tool Definition ============
 
-export const checkpoint: ToolDefinition = tool({
+export const checkpoint: ToolDefinition = createSwarmTool({
 	description:
 		'Save, restore, list, and delete git checkpoints. ' +
 		'Use save to create a named snapshot, restore to return to a checkpoint (soft reset), ' +
@@ -393,7 +394,7 @@ export const checkpoint: ToolDefinition = tool({
 			.optional()
 			.describe('Checkpoint label (required for save, restore, delete)'),
 	},
-	execute: async (args) => {
+	execute: async (args, directory) => {
 		// Validate we're in a git repository
 		if (!isGitRepo()) {
 			return JSON.stringify(
@@ -469,13 +470,13 @@ export const checkpoint: ToolDefinition = tool({
 		// Execute the action
 		switch (action) {
 			case 'save':
-				return handleSave(label!);
+				return handleSave(label!, directory);
 			case 'restore':
-				return handleRestore(label!);
+				return handleRestore(label!, directory);
 			case 'list':
-				return handleList();
+				return handleList(directory);
 			case 'delete':
-				return handleDelete(label!);
+				return handleDelete(label!, directory);
 			default:
 				// This should never happen due to validation above
 				return JSON.stringify(

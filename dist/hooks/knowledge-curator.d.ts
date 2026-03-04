@@ -1,6 +1,11 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 import type { KnowledgeConfig } from './knowledge-types.js';
 /**
+ * Check if the input is a write operation targeting an evidence file.
+ * Exported for testing purposes only.
+ */
+export declare function isWriteToEvidenceFile(input: unknown): boolean;
+/**
  * Curate and store swarm knowledge entries from lessons.
  */
 export declare function curateAndStoreSwarm(lessons: string[], projectName: string, phaseInfo: {

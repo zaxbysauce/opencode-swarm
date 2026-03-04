@@ -33,10 +33,15 @@ import {
 	createToolSummarizerHook,
 	safeHook,
 } from './hooks';
+import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
+import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
 import { createHivePromoterHook } from './hooks/hive-promoter.js';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
+import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { shouldRunOnStartup } from './services/config-doctor';
+import { loadSnapshot } from './session/snapshot-reader.js';
+import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import {
 	checkpoint,
@@ -74,6 +79,8 @@ import { truncateToolOutput } from './utils/tool-output';
  */
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
+	// v6.18 Session persistence — restore state from previous session (non-blocking)
+	await loadSnapshot(ctx.directory);
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
 	const pipelineHook = createPipelineTrackerHook(config);
@@ -136,7 +143,10 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		config,
 		guardrailsConfig.enabled,
 	);
-	const guardrailsHooks = createGuardrailsHooks(guardrailsConfig);
+	const guardrailsHooks = createGuardrailsHooks(
+		ctx.directory,
+		guardrailsConfig,
+	);
 	const summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});
 	const toolSummarizerHook = createToolSummarizerHook(
 		summaryConfig,
@@ -155,6 +165,15 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const knowledgeInjectorHook = knowledgeConfig.enabled
 		? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
 		: undefined;
+
+	// v6.18 Steering acknowledgment hook — auto-acknowledges unconsumed steering directives
+	const steeringConsumedHook = createSteeringConsumedHook(ctx.directory);
+
+	// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
+	const coChangeSuggesterHook = createCoChangeSuggesterHook(ctx.directory);
+	const darkMatterDetectorHook = createDarkMatterDetectorHook(ctx.directory);
+	// v6.18 Session persistence — write state snapshot after each tool call
+	const snapshotWriterHook = createSnapshotWriterHook(ctx.directory);
 
 	// Parse automation config (v6.7 feature flags)
 	// Read flags without activating - scaffold only for now
@@ -352,9 +371,87 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm $ARGUMENTS',
 					description: 'Swarm management commands',
 				},
-				// Knowledge management commands registered as stubs (full impl in Phase 9 task 9.12)
-				// /swarm knowledge quarantine <id> [reason]  — move a lesson to quarantine
-				// /swarm knowledge restore <id>              — restore a quarantined lesson
+				// Individual subcommands for discoverability by weaker models (Haiku-class)
+				'swarm-status': {
+					template: '/swarm status',
+					description: 'Show current swarm status and active phase',
+				},
+				'swarm-plan': {
+					template: '/swarm plan $ARGUMENTS',
+					description: 'View or filter the current execution plan',
+				},
+				'swarm-agents': {
+					template: '/swarm agents',
+					description: 'List registered swarm agents',
+				},
+				'swarm-history': {
+					template: '/swarm history',
+					description: 'Show completed phases summary',
+				},
+				'swarm-config': {
+					template: '/swarm config $ARGUMENTS',
+					description: 'Show or validate configuration',
+				},
+				'swarm-evidence': {
+					template: '/swarm evidence $ARGUMENTS',
+					description: 'View evidence bundles and summaries',
+				},
+				'swarm-archive': {
+					template: '/swarm archive',
+					description: 'Archive old evidence bundles',
+				},
+				'swarm-diagnose': {
+					template: '/swarm diagnose',
+					description: 'Run health checks on swarm state',
+				},
+				'swarm-preflight': {
+					template: '/swarm preflight',
+					description: 'Run preflight automation checks',
+				},
+				'swarm-sync-plan': {
+					template: '/swarm sync-plan',
+					description: 'Sync plan.json with plan.md',
+				},
+				'swarm-benchmark': {
+					template: '/swarm benchmark',
+					description: 'Show performance metrics',
+				},
+				'swarm-export': {
+					template: '/swarm export',
+					description: 'Export plan and context as JSON',
+				},
+				'swarm-reset': {
+					template: '/swarm reset --confirm',
+					description: 'Clear swarm state (requires --confirm)',
+				},
+				'swarm-rollback': {
+					template: '/swarm rollback $ARGUMENTS',
+					description: 'Restore swarm state to a checkpoint',
+				},
+				'swarm-retrieve': {
+					template: '/swarm retrieve $ARGUMENTS',
+					description: 'Retrieve full output from summary',
+				},
+				'swarm-clarify': {
+					template: '/swarm clarify $ARGUMENTS',
+					description: 'Clarify and refine a feature specification',
+				},
+				'swarm-analyze': {
+					template: '/swarm analyze',
+					description: 'Analyze spec vs plan for coverage gaps',
+				},
+				'swarm-specify': {
+					template: '/swarm specify $ARGUMENTS',
+					description: 'Generate or import a feature specification',
+				},
+				'swarm-dark-matter': {
+					template: '/swarm dark-matter',
+					description: 'Detect hidden file couplings',
+				},
+				'swarm-knowledge': {
+					template: '/swarm knowledge $ARGUMENTS',
+					description: 'Knowledge management (quarantine/restore/migrate)',
+				},
 			};
 
 			log('Config applied', {
@@ -457,6 +554,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			if (knowledgeCuratorHook)
 				await safeHook(knowledgeCuratorHook)(input, output);
 			if (hivePromoterHook) await safeHook(hivePromoterHook)(input, output);
+			// v6.18 Steering acknowledgment — auto-acknowledges unconsumed directives
+			await safeHook(steeringConsumedHook)(input, output);
+			// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
+			await safeHook(coChangeSuggesterHook)(input, output);
+			await safeHook(darkMatterDetectorHook)(input, output);
+			// v6.18 Session persistence — write snapshot after each tool call
+			await snapshotWriterHook(input, output);
 			await toolSummarizerHook?.(input, output);
 
 			// Tool output truncation (after summarizer to avoid double-processing)

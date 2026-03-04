@@ -187,7 +187,7 @@ For production use, mix providers to maximize quality across writing vs. reviewi
 |---------|-------------|
 | `/swarm status` | Where am I? Current phase, task progress |
 | `/swarm plan` | Show the full project plan |
-| `/swarm diagnose` | Health check, is everything configured right? |
+| `/swarm diagnose` | Health check for swarm state, including config parsing, grammar files, checkpoint manifest, events stream integrity, and steering directive staleness |
 | `/swarm evidence 2.1` | Show review/test results for a specific task |
 | `/swarm history` | What's been completed so far |
 | `/swarm reset --confirm` | Start over (clears all swarm state) |

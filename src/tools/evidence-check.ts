@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB per evidence file
@@ -239,7 +240,7 @@ function analyzeGaps(
 }
 
 // ============ Tool Definition ============
-export const evidence_check: ReturnType<typeof tool> = tool({
+export const evidence_check: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Verify completed tasks in the plan have required evidence. Reads .swarm/plan.md for completed tasks and .swarm/evidence/ for evidence files. Returns JSON with completeness ratio and gaps for tasks missing required evidence types.',
 	args: {
@@ -250,7 +251,7 @@ export const evidence_check: ReturnType<typeof tool> = tool({
 				'Comma-separated evidence types required per task (default: "review,test")',
 			),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Safe args extraction
 		let requiredTypesInput: string | undefined;
 		try {
@@ -266,7 +267,7 @@ export const evidence_check: ReturnType<typeof tool> = tool({
 		}
 
 		// Get current working directory
-		const cwd = process.cwd();
+		const cwd = directory;
 
 		// Validate required_types
 		const requiredTypesValue = requiredTypesInput || 'review,test';

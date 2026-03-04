@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_TEXT_LENGTH = 200;
@@ -229,7 +230,7 @@ function parseTodoComments(
 }
 
 // ============ Tool Definition ============
-export const todo_extract: ReturnType<typeof tool> = tool({
+export const todo_extract: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Scan the codebase for TODO/FIXME/HACK/XXX/WARN/NOTE comments. Returns JSON with count by priority and sorted entries. Useful for identifying pending tasks and code issues.',
 	args: {
@@ -244,7 +245,7 @@ export const todo_extract: ReturnType<typeof tool> = tool({
 				'Comma-separated tags to search for (default: TODO,FIXME,HACK,XXX,WARN,NOTE)',
 			),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Safe args extraction
 		let paths: string | undefined;
 		let tags: string | undefined;
@@ -259,7 +260,7 @@ export const todo_extract: ReturnType<typeof tool> = tool({
 		}
 
 		// Get current working directory
-		const cwd = process.cwd();
+		const cwd = directory;
 
 		// Validate tags
 		const tagsInput = tags || 'TODO,FIXME,HACK,XXX,WARN,NOTE';

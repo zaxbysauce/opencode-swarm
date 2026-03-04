@@ -16,6 +16,8 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
+export { handleRollbackCommand } from './rollback';
+export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';

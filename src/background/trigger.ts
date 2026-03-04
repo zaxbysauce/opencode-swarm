@@ -2,7 +2,7 @@
  * Phase-Boundary Preflight Trigger
  *
  * Detects phase-boundary conditions and triggers preflight requests.
- * This is the plumbing/scaffold for Task 5.5 - full preflight logic comes in Task 5.6.
+ * Manages phase transitions and queues preflight checks via the automation event bus.
  */
 
 import type { AutomationConfig } from '../config/schema';

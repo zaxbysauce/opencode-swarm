@@ -15,6 +15,7 @@ import {
 	detectComponents,
 	type SbomComponent,
 } from '../sbom/detectors/index';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 
@@ -260,7 +261,7 @@ function validateArgs(args: unknown): args is SbomGenerateInput {
 
 // ============ Tool Implementation ============
 
-export const sbom_generate: ReturnType<typeof tool> = tool({
+export const sbom_generate: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Generate Software Bill of Materials (SBOM) by scanning project for dependency manifests. Uses CycloneDX format. Supports scanning entire project or only changed files.',
 	args: {
@@ -278,7 +279,7 @@ export const sbom_generate: ReturnType<typeof tool> = tool({
 			.optional()
 			.describe('Output directory for SBOM (default: .swarm/evidence/sbom/)'),
 	},
-	async execute(args: unknown, context: unknown): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Validate arguments
 		if (!validateArgs(args)) {
 			const errorResult: SbomGenerateResult = {
@@ -303,12 +304,8 @@ export const sbom_generate: ReturnType<typeof tool> = tool({
 		const changedFiles = obj.changed_files;
 		const outputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
 
-		// Get directory from context
-		const ctx = context as {
-			directory?: string;
-			worktree?: string;
-		};
-		const workingDir = ctx?.directory || ctx?.worktree || process.cwd();
+		// Get directory from createSwarmTool
+		const workingDir = directory;
 
 		// Find manifest files based on scope
 		let manifestFiles: string[] = [];

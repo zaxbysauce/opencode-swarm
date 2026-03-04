@@ -47,7 +47,7 @@ export declare function detectPlaceholderContent(args: SavePlanArgs): string[];
  * @param args - The save plan arguments
  * @returns SavePlanResult with success status and details
  */
-export declare function executeSavePlan(args: SavePlanArgs): Promise<SavePlanResult>;
+export declare function executeSavePlan(args: SavePlanArgs, fallbackDir?: string): Promise<SavePlanResult>;
 /**
  * Tool definition for save_plan
  */

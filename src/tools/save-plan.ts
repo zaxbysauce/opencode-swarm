@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
 import { savePlan } from '../plan/manager';
+import { createSwarmTool } from './create-tool';
 
 /**
  * Arguments for the save_plan tool
@@ -91,6 +92,7 @@ export function detectPlaceholderContent(args: SavePlanArgs): string[] {
  */
 export async function executeSavePlan(
 	args: SavePlanArgs,
+	fallbackDir?: string,
 ): Promise<SavePlanResult> {
 	// Step 1: Detect placeholder content
 	const placeholderIssues = detectPlaceholderContent(args);
@@ -137,7 +139,7 @@ export async function executeSavePlan(
 	);
 
 	// Step 3: Determine working directory
-	const dir = args.working_directory ?? process.cwd();
+	const dir = args.working_directory ?? fallbackDir ?? process.cwd();
 
 	// Step 4: Save the plan
 	try {
@@ -161,7 +163,7 @@ export async function executeSavePlan(
 /**
  * Tool definition for save_plan
  */
-export const save_plan: ToolDefinition = tool({
+export const save_plan: ToolDefinition = createSwarmTool({
 	description:
 		'Save a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
 		'Task descriptions and phase names MUST contain real content from the spec — ' +
@@ -233,7 +235,11 @@ export const save_plan: ToolDefinition = tool({
 			.optional()
 			.describe('Working directory (defaults to process.cwd())'),
 	},
-	execute: async (args) => {
-		return JSON.stringify(await executeSavePlan(args as SavePlanArgs), null, 2);
+	execute: async (args: unknown, _directory: string) => {
+		return JSON.stringify(
+			await executeSavePlan(args as SavePlanArgs, _directory),
+			null,
+			2,
+		);
 	},
 });

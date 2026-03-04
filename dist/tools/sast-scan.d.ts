@@ -2,6 +2,7 @@
  * SAST Scan Tool - Static Application Security Testing
  * Integrates Tier A rules (offline) and optional Semgrep (Tier B)
  */
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 export interface SastScanInput {
@@ -50,3 +51,10 @@ export interface SastScanFinding {
  * - Tier B: Semgrep (optional, if available on PATH)
  */
 export declare function sastScan(input: SastScanInput, directory: string, config?: PluginConfig): Promise<SastScanResult>;
+/**
+ * SAST Scan tool - Static Application Security Testing
+ * Scans changed files for security vulnerabilities using:
+ * - Tier A: Built-in pattern-based rules (always runs)
+ * - Tier B: Semgrep (optional, if available on PATH)
+ */
+export declare const sast_scan: ToolDefinition;

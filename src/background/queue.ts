@@ -3,6 +3,7 @@
  *
  * Provides a simple but powerful queue abstraction for background automation.
  * Supports priorities, retry logic, and in-memory persistence only.
+ * NOTE: This queue does NOT persist across restarts — all items are lost when the process exits.
  */
 
 import { type AutomationEventBus, getGlobalEventBus } from './event-bus';

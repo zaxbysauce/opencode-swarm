@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
@@ -408,6 +409,275 @@ async function checkSpecStaleness(
 }
 
 /**
+ * Check A: Config Parseability - verifies project config is valid JSON
+ */
+async function checkConfigParseability(
+	directory: string,
+): Promise<HealthCheck> {
+	const configPath = path.join(directory, '.opencode/opencode-swarm.json');
+
+	if (!existsSync(configPath)) {
+		return {
+			name: 'Config Parseability',
+			status: '✅',
+			detail: 'No project config file present (using defaults)',
+		};
+	}
+
+	try {
+		const content = readFileSync(configPath, 'utf-8');
+		JSON.parse(content);
+		return {
+			name: 'Config Parseability',
+			status: '✅',
+			detail: 'Project config is valid JSON',
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error';
+		return {
+			name: 'Config Parseability',
+			status: '❌',
+			detail: `Project config at .opencode/opencode-swarm.json is not valid JSON: ${message}`,
+		};
+	}
+}
+
+/**
+ * Check B: Grammar WASM Files - verifies tree-sitter grammar files exist
+ */
+async function checkGrammarWasmFiles(): Promise<HealthCheck> {
+	const grammarFiles = [
+		'tree-sitter-javascript.wasm',
+		'tree-sitter-typescript.wasm',
+		'tree-sitter-python.wasm',
+		'tree-sitter-go.wasm',
+		'tree-sitter-rust.wasm',
+		'tree-sitter-cpp.wasm',
+		'tree-sitter-c-sharp.wasm',
+		'tree-sitter-css.wasm',
+		'tree-sitter-html.wasm',
+		'tree-sitter-json.wasm',
+		'tree-sitter-bash.wasm',
+		'tree-sitter-ruby.wasm',
+		'tree-sitter-php.wasm',
+		'tree-sitter-java.wasm',
+		'tree-sitter-kotlin.wasm',
+		'tree-sitter-swift.wasm',
+		'tree-sitter-dart.wasm',
+	];
+
+	// Determine dev vs production path
+	// Check for src/services in the path (more specific than just 'src')
+	const isDev =
+		import.meta.dir.includes('src/services') ||
+		import.meta.dir.includes('src\\services');
+	const grammarDir = isDev
+		? path.join(import.meta.dir, '../../dist/lang/grammars/')
+		: path.join(import.meta.dir, '../lang/grammars/');
+
+	const missing: string[] = [];
+	for (const file of grammarFiles) {
+		if (!existsSync(path.join(grammarDir, file))) {
+			missing.push(file);
+		}
+	}
+
+	if (missing.length === 0) {
+		return {
+			name: 'Grammar WASM Files',
+			status: '✅',
+			detail: 'All 17 grammar WASM files present',
+		};
+	}
+
+	return {
+		name: 'Grammar WASM Files',
+		status: '❌',
+		detail: `${missing.length} grammar WASM file(s) missing: ${missing.join(', ')}`,
+	};
+}
+
+/**
+ * Check C: Checkpoint Manifest Validity - validates .swarm/checkpoints.json
+ */
+async function checkCheckpointManifest(
+	directory: string,
+): Promise<HealthCheck> {
+	const manifestPath = path.join(directory, '.swarm/checkpoints.json');
+
+	if (!existsSync(manifestPath)) {
+		return {
+			name: 'Checkpoint Manifest',
+			status: '✅',
+			detail: 'No checkpoint manifest (no checkpoints saved)',
+		};
+	}
+
+	try {
+		const content = readFileSync(manifestPath, 'utf-8');
+		const parsed = JSON.parse(content);
+
+		if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
+			return {
+				name: 'Checkpoint Manifest',
+				status: '❌',
+				detail: "checkpoints.json missing 'checkpoints' array",
+			};
+		}
+
+		let invalidCount = 0;
+		for (const cp of parsed.checkpoints) {
+			if (
+				typeof cp.label !== 'string' ||
+				typeof cp.sha !== 'string' ||
+				typeof cp.timestamp !== 'string'
+			) {
+				invalidCount++;
+			}
+		}
+
+		if (invalidCount > 0) {
+			return {
+				name: 'Checkpoint Manifest',
+				status: '❌',
+				detail: `${invalidCount} checkpoint(s) have invalid structure (missing label/sha/timestamp)`,
+			};
+		}
+
+		return {
+			name: 'Checkpoint Manifest',
+			status: '✅',
+			detail: `Checkpoint manifest valid — ${parsed.checkpoints.length} checkpoint(s)`,
+		};
+	} catch (err) {
+		if (err instanceof SyntaxError) {
+			return {
+				name: 'Checkpoint Manifest',
+				status: '❌',
+				detail: 'checkpoints.json is not valid JSON',
+			};
+		}
+		return {
+			name: 'Checkpoint Manifest',
+			status: '❌',
+			detail: 'Could not read checkpoint manifest',
+		};
+	}
+}
+
+/**
+ * Check D: Event Stream Integrity - validates .swarm/events.jsonl has no malformed JSON
+ */
+async function checkEventStreamIntegrity(
+	directory: string,
+): Promise<HealthCheck> {
+	const eventsPath = path.join(directory, '.swarm/events.jsonl');
+
+	if (!existsSync(eventsPath)) {
+		return {
+			name: 'Event Stream',
+			status: '✅',
+			detail: 'No events.jsonl present',
+		};
+	}
+
+	try {
+		const content = readFileSync(eventsPath, 'utf-8');
+		const lines = content.split('\n').filter((line) => line.trim() !== '');
+
+		let malformedCount = 0;
+		for (const line of lines) {
+			try {
+				JSON.parse(line);
+			} catch {
+				malformedCount++;
+			}
+		}
+
+		if (malformedCount === 0) {
+			return {
+				name: 'Event Stream',
+				status: '✅',
+				detail: `events.jsonl is valid — ${lines.length} event(s)`,
+			};
+		}
+
+		return {
+			name: 'Event Stream',
+			status: '❌',
+			detail: `events.jsonl has ${malformedCount} malformed line(s) — possible data corruption`,
+		};
+	} catch {
+		return {
+			name: 'Event Stream',
+			status: '❌',
+			detail: 'Could not read events.jsonl',
+		};
+	}
+}
+
+/**
+ * Check E: Steering Directive Staleness - checks for unconsumed steering directives
+ */
+async function checkSteeringDirectives(
+	directory: string,
+): Promise<HealthCheck> {
+	const eventsPath = path.join(directory, '.swarm/events.jsonl');
+
+	if (!existsSync(eventsPath)) {
+		return {
+			name: 'Steering Directives',
+			status: '✅',
+			detail: 'No events.jsonl — no steering directives to check',
+		};
+	}
+
+	try {
+		const content = readFileSync(eventsPath, 'utf-8');
+		const lines = content.split('\n').filter((line) => line.trim() !== '');
+
+		const directivesIssued: string[] = [];
+		const consumedIds = new Set<string>();
+
+		for (const line of lines) {
+			try {
+				const parsed = JSON.parse(line);
+				if (parsed.type === 'steering-directive' && parsed.directiveId) {
+					directivesIssued.push(parsed.directiveId);
+				}
+				if (parsed.type === 'steering-consumed' && parsed.directiveId) {
+					consumedIds.add(parsed.directiveId);
+				}
+			} catch {
+				// Skip malformed lines
+			}
+		}
+
+		const unconsumed = directivesIssued.filter((id) => !consumedIds.has(id));
+
+		if (unconsumed.length === 0) {
+			return {
+				name: 'Steering Directives',
+				status: '✅',
+				detail: 'All steering directives acknowledged (or none issued)',
+			};
+		}
+
+		return {
+			name: 'Steering Directives',
+			status: '❌',
+			detail: `${unconsumed.length} steering directive(s) not yet acknowledged`,
+		};
+	} catch {
+		return {
+			name: 'Steering Directives',
+			status: '❌',
+			detail: 'Could not read events.jsonl',
+		};
+	}
+}
+
+/**
  * Get diagnose data from the swarm directory.
  * Returns structured health checks for GUI, background flows, or commands.
  */
@@ -541,6 +811,21 @@ export async function getDiagnoseData(
 
 	// Check: Spec Staleness
 	checks.push(await checkSpecStaleness(directory, plan));
+
+	// Check: Config Parseability
+	checks.push(await checkConfigParseability(directory));
+
+	// Check: Grammar WASM Files
+	checks.push(await checkGrammarWasmFiles());
+
+	// Check: Checkpoint Manifest
+	checks.push(await checkCheckpointManifest(directory));
+
+	// Check: Event Stream Integrity
+	checks.push(await checkEventStreamIntegrity(directory));
+
+	// Check: Steering Directives
+	checks.push(await checkSteeringDirectives(directory));
 
 	const passCount = checks.filter((c) => c.status === '✅').length;
 	const totalCount = checks.length;

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { createSwarmTool } from './create-tool';
 
 interface SymbolInfo {
 	name: string;
@@ -418,7 +419,7 @@ function extractPythonSymbols(filePath: string, cwd: string): SymbolInfo[] {
 
 // ============ Tool Definition ============
 
-export const symbols: ToolDefinition = tool({
+export const symbols: ToolDefinition = createSwarmTool({
 	description:
 		'Extract all exported symbols from a source file: functions with signatures, ' +
 		'classes with public members, interfaces, types, enums, constants. ' +
@@ -437,13 +438,14 @@ export const symbols: ToolDefinition = tool({
 				'If true, only return exported/public symbols. If false, include all top-level symbols.',
 			),
 	},
-	execute: async (args) => {
+	execute: async (args: unknown, directory: string) => {
 		// Safe args extraction - prevent crashes from malicious getters
 		let file: string;
 		let exportedOnly = true;
 		try {
-			file = String(args.file);
-			exportedOnly = args.exported_only === true;
+			const obj = args as Record<string, unknown>;
+			file = String(obj.file);
+			exportedOnly = obj.exported_only === true;
 		} catch {
 			return JSON.stringify(
 				{
@@ -456,7 +458,7 @@ export const symbols: ToolDefinition = tool({
 			);
 		}
 
-		const cwd = process.cwd();
+		const cwd = directory;
 		const ext = path.extname(file);
 
 		// Validate path contains no control characters

@@ -2,7 +2,7 @@
  * Phase completion tool for tracking and validating phase completion.
  * Core implementation - gathers data, enforces policy, writes event, resets state.
  */
-import { type ToolDefinition } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 /**
  * Arguments for the phase_complete tool
  */

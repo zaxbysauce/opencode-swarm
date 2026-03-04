@@ -6,6 +6,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extname } from 'node:path';
+import { tool } from '@opencode-ai/plugin';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
@@ -14,6 +16,7 @@ import { getLanguageForExtension } from '../lang/registry';
 import { executeRulesSync } from '../sast/rules/index';
 import { isSemgrepAvailable, runSemgrep } from '../sast/semgrep';
 import { warn } from '../utils';
+import { createSwarmTool } from './create-tool';
 
 // ============ Types ============
 
@@ -428,3 +431,94 @@ export async function sastScan(
 		summary,
 	};
 }
+
+// ============ Tool Definition ============
+
+/**
+ * SAST Scan tool - Static Application Security Testing
+ * Scans changed files for security vulnerabilities using:
+ * - Tier A: Built-in pattern-based rules (always runs)
+ * - Tier B: Semgrep (optional, if available on PATH)
+ */
+export const sast_scan: ToolDefinition = createSwarmTool({
+	description:
+		'Static Application Security Testing (SAST) scan. Scans files for security vulnerabilities using built-in rules (Tier A) and optional Semgrep (Tier B). Returns structured findings with severity levels.',
+	args: {
+		directory: tool.schema
+			.string()
+			.describe('Directory to scan for security vulnerabilities'),
+		changed_files: tool.schema
+			.array(tool.schema.string())
+			.optional()
+			.describe('List of files to scan (defaults to all if not provided)'),
+		severity_threshold: tool.schema
+			.enum(['low', 'medium', 'high', 'critical'])
+			.optional()
+			.default('medium')
+			.describe('Minimum severity that causes failure'),
+	},
+	execute: async (args, directory) => {
+		// Safe args extraction - guard against malformed args and malicious getters
+		let safeArgs: {
+			directory: string | undefined;
+			changed_files: string[] | undefined;
+			severity_threshold: 'low' | 'medium' | 'high' | 'critical' | undefined;
+		};
+
+		try {
+			if (args && typeof args === 'object') {
+				safeArgs = {
+					directory: args.directory as unknown as string | undefined,
+					changed_files: args.changed_files as unknown as string[] | undefined,
+					severity_threshold: args.severity_threshold as unknown as
+						| 'low'
+						| 'medium'
+						| 'high'
+						| 'critical'
+						| undefined,
+				};
+			} else {
+				safeArgs = {
+					directory: undefined,
+					changed_files: undefined,
+					severity_threshold: undefined,
+				};
+			}
+		} catch {
+			// Malicious getter threw - treat as malformed args
+			safeArgs = {
+				directory: undefined,
+				changed_files: undefined,
+				severity_threshold: undefined,
+			};
+		}
+
+		// Handle malformed args: return structured error
+		if (safeArgs.directory === undefined) {
+			const errorResult: SastScanResult = {
+				verdict: 'fail',
+				findings: [],
+				summary: {
+					engine: 'tier_a',
+					files_scanned: 0,
+					findings_count: 0,
+					findings_by_severity: {
+						critical: 0,
+						high: 0,
+						medium: 0,
+						low: 0,
+					},
+				},
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
+		const input: SastScanInput = {
+			changed_files: safeArgs.changed_files ?? [],
+			severity_threshold: safeArgs.severity_threshold ?? 'medium',
+		};
+
+		const result = await sastScan(input, directory);
+		return JSON.stringify(result, null, 2);
+	},
+});

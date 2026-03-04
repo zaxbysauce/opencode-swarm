@@ -4,10 +4,11 @@
  * Discovers and runs build commands for various ecosystems in a project directory.
  */
 
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { tool } from '@opencode-ai/plugin';
 import { type BuildCommand, discoverBuildCommands } from '../build/discovery';
 import type { BuildEvidence, EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 
@@ -258,7 +259,7 @@ export async function runBuildCheck(
 
 // ============ Tool Definition ============
 
-export const build_check: ReturnType<typeof tool> = tool({
+export const build_check: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Discover and run build commands for various ecosystems in a project directory. Supports build, typecheck, and test commands.',
 	args: {
@@ -278,16 +279,15 @@ export const build_check: ReturnType<typeof tool> = tool({
 				'Mode: "build" for build commands, "typecheck" for type checking, "both" for all (default: both)',
 			),
 	},
-	async execute(args: unknown, context: unknown): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Cast args
 		const obj = args as BuildCheckInput;
 		const scope = obj.scope ?? 'all';
 		const changedFiles = obj.changed_files ?? [];
 		const mode = obj.mode ?? 'both';
 
-		// Get directory from context
-		const ctx = context as ToolContext;
-		const workingDir = ctx?.directory || ctx?.worktree || process.cwd();
+		// Get directory from createSwarmTool
+		const workingDir = directory;
 
 		// Run build check
 		const result = await runBuildCheck(workingDir, {

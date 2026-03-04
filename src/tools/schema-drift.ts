@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // Note: Complex YAML constructs (multi-line strings, anchors) are out of scope for v6.5
 // The YAML regex extraction is intentionally simple — document this limitation
@@ -385,7 +386,7 @@ function findDrift(
 }
 
 // ============ Tool Definition ============
-export const schema_drift: ReturnType<typeof tool> = tool({
+export const schema_drift: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Compare OpenAPI spec against actual route implementations to find drift. Detects undocumented routes in code and phantom routes in spec.',
 	args: {
@@ -396,8 +397,8 @@ export const schema_drift: ReturnType<typeof tool> = tool({
 				'Path to OpenAPI spec file. Auto-detected if omitted. Checks: openapi.json/yaml/yml, swagger.json/yaml/yml, api/openapi.json/yaml, docs/openapi.json/yaml, spec/openapi.json/yaml',
 			),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
-		const cwd = process.cwd();
+	async execute(args: unknown, directory: string): Promise<string> {
+		const cwd = directory;
 
 		// Validate args
 		if (args !== null && typeof args !== 'object') {

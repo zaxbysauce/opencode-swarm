@@ -4,7 +4,8 @@
  */
 
 import * as fs from 'node:fs';
-import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { tool } from '@opencode-ai/plugin';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	type PhaseCompleteConfig,
@@ -14,6 +15,7 @@ import {
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { validateSwarmPath } from '../hooks/utils';
 import { ensureAgentSession, swarmState } from '../state';
+import { createSwarmTool } from './create-tool';
 
 /**
  * Arguments for the phase_complete tool
@@ -394,7 +396,7 @@ export async function executePhaseComplete(
 /**
  * Tool definition for phase_complete
  */
-export const phase_complete: ToolDefinition = tool({
+export const phase_complete: ToolDefinition = createSwarmTool({
 	description:
 		'Mark a phase as complete and track which agents were dispatched. ' +
 		'Used for phase completion gating and tracking. ' +
@@ -414,7 +416,7 @@ export const phase_complete: ToolDefinition = tool({
 				'Session ID for tracking state (auto-provided by plugin context)',
 			),
 	},
-	execute: async (args) => {
+	execute: async (args, directory) => {
 		// Parse and validate arguments
 		let phaseCompleteArgs: PhaseCompleteArgs;
 
@@ -439,6 +441,6 @@ export const phase_complete: ToolDefinition = tool({
 			);
 		}
 
-		return executePhaseComplete(phaseCompleteArgs);
+		return executePhaseComplete(phaseCompleteArgs, directory);
 	},
 });

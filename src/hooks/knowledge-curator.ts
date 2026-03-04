@@ -24,8 +24,23 @@ import { readSwarmFileAsync, safeHook } from './utils.js';
 // Module-level state
 // ============================================================================
 
-// Idempotency guard: keyed by sessionID, stores last-seen retro section hash
-const seenRetroSections = new Map<string, string>();
+// Idempotency guard: keyed by sessionID, stores last-seen retro section hash with timestamp
+const seenRetroSections = new Map<
+	string,
+	{ value: string; timestamp: number }
+>();
+
+/**
+ * Prune entries from seenRetroSections that are older than 24 hours.
+ */
+function pruneSeenRetroSections(): void {
+	const cutoff = Date.now() - 86_400_000; // 24 hours
+	for (const [key, entry] of seenRetroSections) {
+		if (entry.timestamp < cutoff) {
+			seenRetroSections.delete(key);
+		}
+	}
+}
 
 // ============================================================================
 // Internal helpers (NOT exported)
@@ -55,6 +70,40 @@ function isWriteToSwarmPlan(input: unknown): boolean {
 		return true;
 	}
 	if (typeof fileField === 'string' && fileField.includes('.swarm/plan.md')) {
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Check if the input is a write operation targeting an evidence file.
+ * Exported for testing purposes only.
+ */
+export function isWriteToEvidenceFile(input: unknown): boolean {
+	if (typeof input !== 'object' || input === null) return false;
+
+	const record = input as Record<string, unknown>;
+	const toolName = record.toolName as string | undefined;
+
+	if (typeof toolName !== 'string') return false;
+	if (!['write', 'edit', 'apply_patch'].includes(toolName)) return false;
+
+	// Normalize path separators (Windows uses backslash)
+	const rawPath = record.path as string | undefined;
+	const rawFile = record.file as string | undefined;
+	const pathField =
+		typeof rawPath === 'string' ? rawPath.replace(/\\/g, '/') : undefined;
+	const fileField =
+		typeof rawFile === 'string' ? rawFile.replace(/\\/g, '/') : undefined;
+
+	// Match paths like .swarm/evidence/retro-<something>/evidence.json
+	const evidenceRegex = /\.swarm\/evidence\/retro-[^/]+\/evidence\.json$/;
+
+	if (typeof pathField === 'string' && evidenceRegex.test(pathField)) {
+		return true;
+	}
+	if (typeof fileField === 'string' && evidenceRegex.test(fileField)) {
 		return true;
 	}
 
@@ -102,11 +151,11 @@ function checkRetroChanged(sessionID: string, section: string): boolean {
 	const hash = `${section.length}:${section.slice(0, 100)}`;
 	const lastSeen = seenRetroSections.get(sessionID);
 
-	if (lastSeen === hash) {
+	if (lastSeen?.value === hash) {
 		return false; // no change
 	}
 
-	seenRetroSections.set(sessionID, hash);
+	seenRetroSections.set(sessionID, { value: hash, timestamp: Date.now() });
 	return true; // changed (or new)
 }
 
@@ -356,14 +405,102 @@ export function createKnowledgeCuratorHook(
 	config: KnowledgeConfig,
 ): (input: unknown, output: unknown) => Promise<void> {
 	const handler = async (input: unknown, _output: unknown): Promise<void> => {
+		// Prune stale entries from seenRetroSections
+		pruneSeenRetroSections();
+
 		if (!config.enabled) return;
-		if (!isWriteToSwarmPlan(input)) return;
+		if (!isWriteToSwarmPlan(input) && !isWriteToEvidenceFile(input)) return;
 
 		// Extract sessionID from input (best-effort)
 		const sessionID =
 			((input as Record<string, unknown>)?.sessionID as string | undefined) ??
 			'default';
 
+		// Detect which trigger fired
+		const isEvidenceTrigger =
+			isWriteToEvidenceFile(input) && !isWriteToSwarmPlan(input);
+
+		// Handle evidence file trigger
+		if (isEvidenceTrigger) {
+			// Extract file path from input
+			const record = input as Record<string, unknown>;
+			const rawPath = record.path as string | undefined;
+			const rawFile = record.file as string | undefined;
+			const filePath =
+				typeof rawPath === 'string'
+					? rawPath.replace(/\\/g, '/')
+					: typeof rawFile === 'string'
+						? rawFile.replace(/\\/g, '/')
+						: null;
+
+			if (!filePath) return;
+
+			// Create idempotency key for evidence: evidence:${sessionID}:${filePath}
+			const evidenceKey = `evidence:${sessionID}:${filePath}`;
+			const lastSeenEvidence = seenRetroSections.get(evidenceKey);
+
+			// Read and parse the evidence JSON file
+			const evidenceContent = await readSwarmFileAsync(
+				directory,
+				filePath.replace(/^.*\.swarm\//, ''),
+			);
+			if (!evidenceContent) return;
+
+			let evidenceData: Record<string, unknown>;
+			try {
+				evidenceData = JSON.parse(evidenceContent);
+			} catch {
+				return;
+			}
+
+			// Extract lessons_learned (handle both formats: { entries: [{ lessons_learned }] } and { lessons_learned })
+			let lessons: string[] = [];
+			if (
+				Array.isArray(evidenceData.entries) &&
+				evidenceData.entries.length > 0
+			) {
+				const firstEntry = evidenceData.entries[0] as Record<string, unknown>;
+				if (Array.isArray(firstEntry.lessons_learned)) {
+					lessons = firstEntry.lessons_learned as string[];
+				}
+			} else if (Array.isArray(evidenceData.lessons_learned)) {
+				lessons = evidenceData.lessons_learned as string[];
+			}
+
+			if (lessons.length === 0) return;
+
+			// Idempotency check for evidence
+			const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join('|')}`;
+			if (lastSeenEvidence?.value === evidenceHash) {
+				return; // no change
+			}
+			seenRetroSections.set(evidenceKey, {
+				value: evidenceHash,
+				timestamp: Date.now(),
+			});
+
+			// Extract project name from evidence data
+			const projectName = (evidenceData.project_name as string) ?? 'unknown';
+
+			// Extract phase number from evidence data
+			const phaseNumber =
+				typeof evidenceData.phase_number === 'number'
+					? evidenceData.phase_number
+					: 1;
+
+			await curateAndStoreSwarm(
+				lessons,
+				projectName,
+				{ phase_number: phaseNumber },
+				directory,
+				config,
+			);
+
+			await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
+			return;
+		}
+
+		// Handle plan.md trigger (existing behavior)
 		const planContent = await readSwarmFileAsync(directory, 'plan.md');
 		if (!planContent) return;
 

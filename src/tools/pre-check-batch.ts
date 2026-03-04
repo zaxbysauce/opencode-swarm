@@ -7,9 +7,9 @@
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import pLimit from 'p-limit';
-
 import type { PluginConfig } from '../config';
 import { warn } from '../utils';
+import { createSwarmTool } from './create-tool';
 import type { LintResult } from './lint';
 import { detectAvailableLinter, runLint } from './lint';
 import type { QualityBudgetResult } from './quality-budget';
@@ -423,7 +423,7 @@ export async function runPreCheckBatch(
  * Pre-check batch tool - runs 4 verification tools in parallel
  * Returns unified result with gates_passed status
  */
-export const pre_check_batch: ReturnType<typeof tool> = tool({
+export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run multiple verification tools in parallel: lint, secretscan, SAST scan, and quality budget. Returns unified result with gates_passed status. Security tools (secretscan, sast_scan) are HARD GATES - failures block merging.',
 	args: {
@@ -443,7 +443,7 @@ export const pre_check_batch: ReturnType<typeof tool> = tool({
 				'Minimum severity for SAST findings to cause failure (default: medium)',
 			),
 	},
-	async execute(args: unknown): Promise<string> {
+	async execute(args: unknown, _directory: string): Promise<string> {
 		// Validate arguments
 		if (!args || typeof args !== 'object') {
 			const errorResult: PreCheckBatchResult = {

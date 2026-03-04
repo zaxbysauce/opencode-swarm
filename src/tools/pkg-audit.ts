@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_OUTPUT_BYTES = 52_428_800; // 50MB max output
@@ -1390,7 +1391,7 @@ async function runAutoAudit(): Promise<CombinedAuditResult> {
 }
 
 // ============ Tool Definition ============
-export const pkg_audit: ReturnType<typeof tool> = tool({
+export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run package manager security audit (npm, pip, cargo, go, dotnet, ruby, dart) and return structured CVE data. Use ecosystem to specify which package manager, or "auto" to detect from project files.',
 	args: {
@@ -1401,7 +1402,7 @@ export const pkg_audit: ReturnType<typeof tool> = tool({
 				'Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), or "dart" (dart pub outdated)',
 			),
 	},
-	async execute(args: unknown, _context: unknown): Promise<string> {
+	async execute(args: unknown, _directory: string): Promise<string> {
 		// Validate arguments
 		if (!validateArgs(args)) {
 			const errorResult = {

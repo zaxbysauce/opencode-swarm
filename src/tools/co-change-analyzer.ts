@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { tool } from '@opencode-ai/plugin';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
+import { createSwarmTool } from './create-tool.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -498,3 +500,61 @@ ${rows}
 These pairs likely share an architectural concern invisible to static analysis.
 Consider adding explicit documentation or extracting the shared concern.`;
 }
+
+// ============ Tool Definition ============
+export const co_change_analyzer: ReturnType<typeof tool> = createSwarmTool({
+	description:
+		'Detects hidden couplings (dark matter) by analyzing git history to find file pairs that frequently co-change but have no import relationship. Useful for identifying architectural concerns that are not explicitly documented.',
+	args: {
+		min_commits: tool.schema
+			.number()
+			.optional()
+			.describe('Minimum commit count to analyze (default: 20)'),
+		min_co_changes: tool.schema
+			.number()
+			.optional()
+			.describe('Minimum co-change count to consider (default: 3)'),
+		threshold: tool.schema
+			.number()
+			.optional()
+			.describe('NPMI threshold for filtering (default: 0.5)'),
+		max_commits: tool.schema
+			.number()
+			.optional()
+			.describe('Maximum commits to analyze (default: 500)'),
+	},
+	async execute(args: unknown, directory: string): Promise<string> {
+		// Safe args extraction
+		let minCommits: number | undefined;
+		let minCoChanges: number | undefined;
+		let npmiThreshold: number | undefined;
+		let maxCommitsToAnalyze: number | undefined;
+		try {
+			if (args && typeof args === 'object') {
+				const obj = args as Record<string, unknown>;
+				minCommits =
+					typeof obj.min_commits === 'number' ? obj.min_commits : undefined;
+				minCoChanges =
+					typeof obj.min_co_changes === 'number'
+						? obj.min_co_changes
+						: undefined;
+				npmiThreshold =
+					typeof obj.threshold === 'number' ? obj.threshold : undefined;
+				maxCommitsToAnalyze =
+					typeof obj.max_commits === 'number' ? obj.max_commits : undefined;
+			}
+		} catch {
+			// Malicious getter threw
+		}
+
+		const options: DarkMatterOptions = {
+			minCommits,
+			minCoChanges,
+			npmiThreshold,
+			maxCommitsToAnalyze,
+		};
+
+		const pairs = await detectDarkMatter(directory, options);
+		return formatDarkMatterOutput(pairs);
+	},
+});

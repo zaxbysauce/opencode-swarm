@@ -25,6 +25,8 @@ import { handlePlanCommand } from './plan';
 import { handlePreflightCommand } from './preflight';
 import { handleResetCommand } from './reset';
 import { handleRetrieveCommand } from './retrieve';
+import { handleRollbackCommand } from './rollback';
+import { handleSimulateCommand } from './simulate';
 import { handleSpecifyCommand } from './specify';
 import { handleStatusCommand } from './status';
 import { handleSyncPlanCommand } from './sync-plan';
@@ -54,6 +56,8 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
+export { handleRollbackCommand } from './rollback';
+export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
@@ -77,10 +81,12 @@ const HELP_TEXT = [
 	'- `/swarm export` — Export plan and context as JSON',
 	'- `/swarm reset --confirm` — Clear swarm state files',
 	'- `/swarm retrieve <id>` — Retrieve full output from a summary',
+	'- `/swarm rollback <phase>` — Restore swarm state to a checkpoint',
 	'- `/swarm clarify [topic]` — Clarify and refine an existing feature specification',
 	'- `/swarm analyze` — Analyze spec.md vs plan.md for requirement coverage gaps',
 	'- `/swarm specify [description]` — Generate or import a feature specification',
 	'- `/swarm dark-matter` — Detect hidden file couplings via co-change NPMI analysis',
+	'- `/swarm simulate [--target <glob>]` — Dry-run impact analysis of proposed changes',
 	'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
@@ -170,6 +176,9 @@ export function createSwarmCommandHandler(
 			case 'reset':
 				text = await handleResetCommand(directory, args);
 				break;
+			case 'rollback':
+				text = await handleRollbackCommand(directory, args);
+				break;
 			case 'retrieve':
 				text = await handleRetrieveCommand(directory, args);
 				break;
@@ -178,6 +187,9 @@ export function createSwarmCommandHandler(
 				break;
 			case 'analyze':
 				text = await handleAnalyzeCommand(directory, args);
+				break;
+			case 'simulate':
+				text = await handleSimulateCommand(directory, args);
 				break;
 			case 'specify':
 				text = await handleSpecifyCommand(directory, args);

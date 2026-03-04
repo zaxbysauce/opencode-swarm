@@ -1,3 +1,4 @@
+import { tool } from '@opencode-ai/plugin';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 export interface CoChangeEntry {
     fileA: string;
@@ -41,3 +42,4 @@ export declare function darkMatterToKnowledgeEntries(pairs: CoChangeEntry[], pro
  * Formats dark matter findings as markdown output.
  */
 export declare function formatDarkMatterOutput(pairs: CoChangeEntry[]): string;
+export declare const co_change_analyzer: ReturnType<typeof tool>;
