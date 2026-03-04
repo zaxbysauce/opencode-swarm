@@ -45001,6 +45001,188 @@ No active swarm plan found. Nothing to sync.`;
 `);
 }
 
+// src/tools/write-retro.ts
+init_tool();
+init_manager();
+init_create_tool();
+async function executeWriteRetro(args2, directory) {
+  const phase = args2.phase;
+  if (!Number.isInteger(phase) || phase < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be a positive integer"
+    }, null, 2);
+  }
+  const validComplexities = [
+    "trivial",
+    "simple",
+    "moderate",
+    "complex"
+  ];
+  if (!validComplexities.includes(args2.task_complexity)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: `Invalid task_complexity: must be one of 'trivial'|'simple'|'moderate'|'complex'`
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.task_count) || args2.task_count < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be a positive integer >= 1"
+    }, null, 2);
+  }
+  const summary = args2.summary;
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid summary: must be a non-empty string"
+    }, null, 2);
+  }
+  const taskId = args2.task_id ?? `retro-${phase}`;
+  const retroEntry = {
+    task_id: taskId,
+    type: "retrospective",
+    timestamp: new Date().toISOString(),
+    agent: "architect",
+    verdict: "pass",
+    summary,
+    metadata: args2.metadata,
+    phase_number: phase,
+    total_tool_calls: args2.total_tool_calls,
+    coder_revisions: args2.coder_revisions,
+    reviewer_rejections: args2.reviewer_rejections,
+    test_failures: args2.test_failures,
+    security_findings: args2.security_findings,
+    integration_issues: args2.integration_issues,
+    task_count: args2.task_count,
+    task_complexity: args2.task_complexity,
+    top_rejection_reasons: args2.top_rejection_reasons ?? [],
+    lessons_learned: (args2.lessons_learned ?? []).slice(0, 5),
+    user_directives: [],
+    approaches_tried: []
+  };
+  try {
+    await saveEvidence(directory, taskId, retroEntry);
+    return JSON.stringify({
+      success: true,
+      task_id: taskId,
+      phase,
+      message: `Retrospective evidence written to .swarm/evidence/${taskId}/evidence.json`
+    }, null, 2);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : String(error93)
+    }, null, 2);
+  }
+}
+var write_retro = createSwarmTool({
+  description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
+  args: {
+    phase: tool.schema.number().int().positive().describe("The phase number being completed (e.g., 1, 2, 3)"),
+    summary: tool.schema.string().describe("Human-readable summary of the phase"),
+    task_count: tool.schema.number().int().min(1).describe("Count of tasks completed in this phase"),
+    task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+    total_tool_calls: tool.schema.number().int().min(0).describe("Total number of tool calls in this phase"),
+    coder_revisions: tool.schema.number().int().min(0).describe("Number of coder revisions made"),
+    reviewer_rejections: tool.schema.number().int().min(0).describe("Number of reviewer rejections received"),
+    test_failures: tool.schema.number().int().min(0).describe("Number of test failures encountered"),
+    security_findings: tool.schema.number().int().min(0).describe("Number of security findings"),
+    integration_issues: tool.schema.number().int().min(0).describe("Number of integration issues"),
+    lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+    top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
+    task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+    metadata: tool.schema.record(tool.schema.string(), tool.schema.unknown()).optional().describe("Optional additional metadata")
+  },
+  execute: async (args2, directory) => {
+    const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
+    try {
+      const writeRetroArgs = {
+        phase: Number(args2.phase),
+        summary: String(args2.summary ?? ""),
+        task_count: Number(args2.task_count),
+        task_complexity: args2.task_complexity,
+        total_tool_calls: Number(args2.total_tool_calls),
+        coder_revisions: Number(args2.coder_revisions),
+        reviewer_rejections: Number(args2.reviewer_rejections),
+        test_failures: Number(args2.test_failures),
+        security_findings: Number(args2.security_findings),
+        integration_issues: Number(args2.integration_issues),
+        lessons_learned: Array.isArray(args2.lessons_learned) ? args2.lessons_learned.map(String) : undefined,
+        top_rejection_reasons: Array.isArray(args2.top_rejection_reasons) ? args2.top_rejection_reasons.map(String) : undefined,
+        task_id: args2.task_id !== undefined ? String(args2.task_id) : undefined,
+        metadata: args2.metadata
+      };
+      return await executeWriteRetro(writeRetroArgs, directory);
+    } catch {
+      return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
+    }
+  }
+});
+
+// src/commands/write_retro.ts
+async function handleWriteRetroCommand(directory, args2) {
+  if (args2.length === 0 || !args2[0] || args2[0].trim() === "") {
+    return `## Usage: /swarm write-retro <json>
+
+Writes a retrospective evidence bundle for a completed phase.
+
+### Required JSON fields:
+\`\`\`json
+{
+  "phase": 1,
+  "summary": "Phase summary here",
+  "task_count": 3,
+  "task_complexity": "simple",
+  "total_tool_calls": 20,
+  "coder_revisions": 1,
+  "reviewer_rejections": 0,
+  "test_failures": 0,
+  "security_findings": 0,
+  "integration_issues": 0
+}
+\`\`\`
+
+### Optional fields:
+- \`lessons_learned\`: string[] (max 5)
+- \`top_rejection_reasons\`: string[]
+- \`task_id\`: string (defaults to \`retro-{phase}\`)
+- \`metadata\`: Record<string, unknown>
+
+### task_complexity values: trivial | simple | moderate | complex`;
+  }
+  let parsedArgs;
+  try {
+    const jsonObj = JSON.parse(args2[0]);
+    if (typeof jsonObj !== "object" || jsonObj === null || Array.isArray(jsonObj)) {
+      return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
+    }
+    parsedArgs = jsonObj;
+  } catch {
+    return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
+  }
+  const resultJson = await executeWriteRetro(parsedArgs, directory);
+  let result;
+  try {
+    result = JSON.parse(resultJson);
+  } catch {
+    return "Error: Failed to parse result from write-retro tool.";
+  }
+  if (result.success === true) {
+    return `## Retrospective Written
+
+Phase **${result.phase ?? "unknown"}** retrospective saved to \`.swarm/evidence/${result.task_id ?? "unknown"}/evidence.json\`.
+
+Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm status\` to check phase_complete readiness.`;
+  }
+  return `Error: ${result.message}`;
+}
+
 // src/commands/index.ts
 var HELP_TEXT = [
   "## Swarm Commands",
@@ -45029,7 +45211,8 @@ var HELP_TEXT = [
   "- `/swarm simulate [--target <glob>]` \u2014 Dry-run impact analysis of proposed changes",
   "- `/swarm knowledge quarantine <id> [reason]` \u2014 Move a knowledge entry to quarantine",
   "- `/swarm knowledge restore <id>` \u2014 Restore a quarantined knowledge entry",
-  "- `/swarm knowledge migrate` \u2014 Migrate knowledge entries to the current format"
+  "- `/swarm knowledge migrate` \u2014 Migrate knowledge entries to the current format",
+  "- `/swarm write-retro <json>` \u2014 Write a retrospective evidence bundle for a completed phase"
 ].join(`
 `);
 function createSwarmCommandHandler(directory, agents) {
@@ -45114,6 +45297,9 @@ function createSwarmCommandHandler(directory, agents) {
         break;
       case "dark-matter":
         text = await handleDarkMatterCommand(directory, args2);
+        break;
+      case "write-retro":
+        text = await handleWriteRetroCommand(directory, args2);
         break;
       case "knowledge": {
         const [knowledgeSubcmd, ...knowledgeArgs] = args2;
@@ -48996,7 +49182,11 @@ async function readSnapshot(directory) {
     if (!content.trim()) {
       return null;
     }
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content, (key, value) => {
+      if (key === "__proto__" || key === "constructor")
+        return;
+      return value;
+    });
     if (parsed.version !== 1) {
       return null;
     }

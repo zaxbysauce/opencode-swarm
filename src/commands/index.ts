@@ -30,6 +30,7 @@ import { handleSimulateCommand } from './simulate';
 import { handleSpecifyCommand } from './specify';
 import { handleStatusCommand } from './status';
 import { handleSyncPlanCommand } from './sync-plan';
+import { handleWriteRetroCommand } from './write_retro';
 
 // Re-export individual handlers
 export { handleAgentsCommand } from './agents';
@@ -61,6 +62,7 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
+export { handleWriteRetroCommand } from './write_retro';
 
 const HELP_TEXT = [
 	'## Swarm Commands',
@@ -90,6 +92,7 @@ const HELP_TEXT = [
 	'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
+	'- `/swarm write-retro <json>` — Write a retrospective evidence bundle for a completed phase',
 ].join('\n');
 
 /**
@@ -196,6 +199,9 @@ export function createSwarmCommandHandler(
 				break;
 			case 'dark-matter':
 				text = await handleDarkMatterCommand(directory, args);
+				break;
+			case 'write-retro':
+				text = await handleWriteRetroCommand(directory, args);
 				break;
 			case 'knowledge': {
 				const [knowledgeSubcmd, ...knowledgeArgs] = args;

@@ -21,6 +21,7 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
+export { handleWriteRetroCommand } from './write_retro';
 /**
  * Creates a command.execute.before handler for /swarm commands.
  * Uses factory pattern to close over directory and agents.

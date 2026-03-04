@@ -24,3 +24,4 @@ export { symbols } from './symbols';
 export { type SyntaxCheckFileResult, type SyntaxCheckInput, type SyntaxCheckResult, syntaxCheck, } from './syntax-check';
 export { test_runner } from './test-runner';
 export { todo_extract } from './todo-extract';
+export { executeWriteRetro, write_retro } from './write-retro';
