@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.19.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.2...v6.19.3) (2026-03-04)
+
+
+### Bug Fixes
+
+* **architect:** tier QA gates to reduce low-risk churn ([5e38b05](https://github.com/zaxbysauce/opencode-swarm/commit/5e38b05a492c72b823abf17874a155c9d74618aa))
+
 ## [6.19.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.1...v6.19.2) (2026-03-04)
 
 
