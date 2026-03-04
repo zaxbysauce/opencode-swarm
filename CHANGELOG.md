@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.18.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.18.0...v6.18.1) (2026-03-04)
+
+
+### Bug Fixes
+
+* retrospective schema mismatch — write_retro tool + /swarm write-retro command (v6.18.1) ([406a635](https://github.com/zaxbysauce/opencode-swarm/commit/406a6355648d5cfb1965d78fdc1f6c11370b01dd))
+
 ## [6.18.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.17.3...v6.18.0) (2026-03-04)
 
 
