@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.19.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.18.1...v6.19.0) (2026-03-04)
+
+
+### Features
+
+* v6.19.0 — Prompt-Quality & Adversarial Robustness Update ([0fdf2e8](https://github.com/zaxbysauce/opencode-swarm/commit/0fdf2e818846a0f2c66b8ff42cd650b8d923f0c1))
+
 ## v6.19.0 — Prompt-Quality & Adversarial Robustness Update
 
 ### Added
