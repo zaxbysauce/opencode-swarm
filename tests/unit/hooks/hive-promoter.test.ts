@@ -480,3 +480,503 @@ describe('hive-promoter', () => {
 		expect(swarmReadCalls.length).toBeGreaterThan(0);
 	});
 });
+
+// ============================================================================
+// Schema Mismatch Fix Verification Tests
+// ============================================================================
+
+describe('promoteToHive - Schema Mismatch Fix Verification', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+	});
+
+	it('promoteToHive function exists and is exported', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		expect(typeof module.promoteToHive).toBe('function');
+	});
+
+	it('promoteToHive uses resolveHiveKnowledgePath for correct path', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for path verification with sufficient length';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		// Verify appendKnowledge was called with the hive path
+		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
+		const calledPath = mockAppendKnowledge.mock.calls[0][0];
+		expect(calledPath).toBe(mockResolveHiveKnowledgePath());
+	});
+
+	it('promoteToHive validates lesson before writing', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for validation with sufficient length';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		// Verify validateLesson was called
+		expect(mockValidateLesson).toHaveBeenCalledTimes(1);
+		expect(mockValidateLesson).toHaveBeenCalledWith(testLesson, [], expect.objectContaining({
+			category: 'process',
+			scope: 'global',
+			confidence: 1.0,
+		}));
+	});
+
+	it('promoteToHive rejects invalid lesson', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const shortLesson = 'abc';
+
+		mockValidateLesson.mockReturnValue({
+			valid: false,
+			layer: 0,
+			reason: 'Lesson too short',
+			severity: 'error',
+		});
+
+		await expect(module.promoteToHive('/test-dir', shortLesson, 'process')).rejects.toThrow('rejected by validator');
+	});
+
+	it('promoteToHive creates HiveKnowledgeEntry with all required fields', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for schema verification with sufficient length';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+
+		// Verify all required fields exist
+		expect(hiveEntry).toHaveProperty('id');
+		expect(hiveEntry).toHaveProperty('tier');
+		expect(hiveEntry).toHaveProperty('lesson');
+		expect(hiveEntry).toHaveProperty('category');
+		expect(hiveEntry).toHaveProperty('tags');
+		expect(hiveEntry).toHaveProperty('scope');
+		expect(hiveEntry).toHaveProperty('confidence');
+		expect(hiveEntry).toHaveProperty('status');
+		expect(hiveEntry).toHaveProperty('confirmed_by');
+		expect(hiveEntry).toHaveProperty('retrieval_outcomes');
+		expect(hiveEntry).toHaveProperty('schema_version');
+		expect(hiveEntry).toHaveProperty('created_at');
+		expect(hiveEntry).toHaveProperty('updated_at');
+		expect(hiveEntry).toHaveProperty('source_project');
+	});
+
+	it('promoteToHive sets confidence to 1.0', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for confidence verification';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.confidence).toBe(1.0);
+	});
+
+	it('promoteToHive sets status to promoted', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for status verification';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.status).toBe('promoted');
+	});
+
+	it('promoteToHive sets tier to hive', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for tier verification';
+
+		await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.tier).toBe('hive');
+	});
+
+	it('promoteToHive returns confirmation message', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for return value verification';
+
+		const result = await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		expect(result).toContain('Promoted to hive');
+		expect(result).toContain('confidence: 1.0');
+		expect(result).toContain('source: manual');
+	});
+
+	it('promoteToHive returns near-duplicate message for duplicates', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for duplicate detection';
+
+		mockFindNearDuplicate.mockReturnValue({} as HiveKnowledgeEntry);
+
+		const result = await module.promoteToHive('/test-dir', testLesson, 'process');
+
+		expect(result).toContain('already exists');
+		expect(result).toContain('near-duplicate');
+		expect(mockAppendKnowledge).not.toHaveBeenCalled();
+	});
+});
+
+describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+	});
+
+	it('promoteFromSwarm function exists and is exported', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		expect(typeof module.promoteFromSwarm).toBe('function');
+	});
+
+	it('promoteFromSwarm reads from resolveSwarmKnowledgePath', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson from swarm with sufficient length',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		// Verify readKnowledge was called with the swarm path
+		expect(mockReadKnowledge).toHaveBeenCalledWith(mockResolveSwarmKnowledgePath('/test-dir'));
+	});
+
+	it('promoteFromSwarm finds lesson by ID', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for ID lookup with sufficient length',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		const result = await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		expect(result).toContain('Promoted lesson');
+		expect(result).toContain('test-lesson-id');
+	});
+
+	it('promoteFromSwarm throws error if lesson not found', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		mockReadKnowledge.mockResolvedValue([]);
+
+		await expect(module.promoteFromSwarm('/test-dir', 'non-existent-id')).rejects.toThrow('not found');
+	});
+
+	it('promoteFromSwarm throws error with specific message for missing lesson', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		mockReadKnowledge.mockResolvedValue([]);
+
+		try {
+			await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+			expect(false).toBe(true); // Should not reach here
+		} catch (error) {
+			expect((error as Error).message).toContain('not found');
+			expect((error as Error).message).toContain('.swarm/knowledge.jsonl');
+		}
+	});
+
+	it('promoteFromSwarm validates before writing', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Valid lesson with sufficient length for testing',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		// Verify validateLesson was called
+		expect(mockValidateLesson).toHaveBeenCalledTimes(1);
+		expect(mockValidateLesson).toHaveBeenCalledWith(
+			swarmEntry.lesson,
+			[],
+			expect.objectContaining({
+				category: swarmEntry.category,
+				scope: swarmEntry.scope,
+				confidence: swarmEntry.confidence,
+			})
+		);
+	});
+
+	it('promoteFromSwarm rejects invalid lesson', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'abc', // Too short
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+		mockValidateLesson.mockReturnValue({
+			valid: false,
+			layer: 0,
+			reason: 'Lesson too short',
+			severity: 'error',
+		});
+
+		await expect(module.promoteFromSwarm('/test-dir', 'test-lesson-id')).rejects.toThrow('rejected by validator');
+	});
+
+	it('promoteFromSwarm creates HiveKnowledgeEntry with all required fields', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for schema verification from swarm',
+			category: 'architecture',
+			tags: ['test', 'swarm'],
+			scope: 'stack:react',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+
+		// Verify all required fields exist
+		expect(hiveEntry).toHaveProperty('id');
+		expect(hiveEntry).toHaveProperty('tier');
+		expect(hiveEntry).toHaveProperty('lesson');
+		expect(hiveEntry).toHaveProperty('category');
+		expect(hiveEntry).toHaveProperty('tags');
+		expect(hiveEntry).toHaveProperty('scope');
+		expect(hiveEntry).toHaveProperty('confidence');
+		expect(hiveEntry).toHaveProperty('status');
+		expect(hiveEntry).toHaveProperty('confirmed_by');
+		expect(hiveEntry).toHaveProperty('retrieval_outcomes');
+		expect(hiveEntry).toHaveProperty('schema_version');
+		expect(hiveEntry).toHaveProperty('created_at');
+		expect(hiveEntry).toHaveProperty('updated_at');
+		expect(hiveEntry).toHaveProperty('source_project');
+	});
+
+	it('promoteFromSwarm sets confidence to 1.0', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for confidence from swarm',
+			confidence: 0.5,
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.confidence).toBe(1.0);
+	});
+
+	it('promoteFromSwarm sets status to promoted', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for status from swarm',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.status).toBe('promoted');
+	});
+
+	it('promoteFromSwarm preserves lesson from swarm', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const testLesson = 'This is the original lesson from swarm';
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: testLesson,
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.lesson).toBe(testLesson);
+	});
+
+	it('promoteFromSwarm preserves category from swarm', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for category preservation',
+			category: 'security',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.category).toBe('security');
+	});
+
+	it('promoteFromSwarm preserves tags from swarm', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const testTags = ['react', 'testing', 'hooks'];
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for tags preservation',
+			tags: testTags,
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.tags).toEqual(testTags);
+	});
+
+	it('promoteFromSwarm preserves scope from swarm', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const testScope = 'stack:nextjs';
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for scope preservation',
+			scope: testScope,
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.scope).toBe(testScope);
+	});
+
+	it('promoteFromSwarm sets source_project from swarm entry', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const projectName = 'my-awesome-project';
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for source_project',
+			project_name: projectName,
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.source_project).toBe(projectName);
+	});
+
+	it('promoteFromSwarm generates new ID (not swarm ID)', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'swarm-123',
+			lesson: 'Test lesson for ID generation',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		await module.promoteFromSwarm('/test-dir', 'swarm-123');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		expect(hiveEntry.id).not.toBe(swarmEntry.id);
+	});
+
+	it('promoteFromSwarm returns confirmation message', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for return value',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+
+		const result = await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		expect(result).toContain('Promoted lesson');
+		expect(result).toContain('test-lesson-id');
+		expect(result).toContain('from swarm to hive');
+	});
+
+	it('promoteFromSwarm returns near-duplicate message for duplicates', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Test lesson for duplicate detection in promoteFromSwarm',
+		};
+
+		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+		mockFindNearDuplicate.mockReturnValue({} as HiveKnowledgeEntry);
+
+		const result = await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+
+		expect(result).toContain('already exists');
+		expect(result).toContain('near-duplicate');
+		expect(mockAppendKnowledge).not.toHaveBeenCalled();
+	});
+});
+
+describe('File Cleanup - Schema Mismatch Fix Verification', () => {
+	it('src/knowledge/hive-promoter.ts does not exist', async () => {
+		const fs = await import('node:fs');
+		const path = await import('node:path');
+		const brokenFilePath = path.join(process.cwd(), 'src', 'knowledge', 'hive-promoter.ts');
+
+		// The broken file should NOT exist
+		expect(fs.existsSync(brokenFilePath)).toBe(false);
+	});
+
+	it('src/hooks/hive-promoter.ts exports both functions', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+
+		expect(typeof module.promoteToHive).toBe('function');
+		expect(typeof module.promoteFromSwarm).toBe('function');
+	});
+});

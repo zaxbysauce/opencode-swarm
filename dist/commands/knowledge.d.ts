@@ -13,3 +13,8 @@ export declare function handleKnowledgeRestoreCommand(directory: string, args: s
  * Triggers one-time migration from .swarm/context.md to .swarm/knowledge.jsonl.
  */
 export declare function handleKnowledgeMigrateCommand(directory: string, args: string[]): Promise<string>;
+/**
+ * Handles /swarm knowledge command (no subcommand) - lists knowledge entries.
+ * Lists entries from .swarm/knowledge.jsonl with id, category, confidence, truncated text.
+ */
+export declare function handleKnowledgeListCommand(directory: string, _args: string[]): Promise<string>;

@@ -13,3 +13,22 @@ export declare function detectAdversarialPair(agentA: string, agentB: string, co
  * Format an adversarial warning message based on policy.
  */
 export declare function formatAdversarialWarning(agentA: string, agentB: string, sharedModel: string, policy: string): string;
+/**
+ * Adversarial pattern detection for semantic analysis of agent outputs.
+ * Uses string/regex matching to detect sophisticated adversarial behaviors.
+ */
+export interface AdversarialPatternMatch {
+    pattern: 'PRECEDENT_MANIPULATION' | 'SELF_REVIEW' | 'CONTENT_EXEMPTION' | 'GATE_DELEGATION_BYPASS' | 'VELOCITY_RATIONALIZATION' | 'INTER_AGENT_MANIPULATION';
+    severity: 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
+    matchedText: string;
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+/**
+ * Detect adversarial patterns in agent output text.
+ * Returns array of matches or empty array if no patterns detected.
+ */
+export declare function detectAdversarialPatterns(text: string): AdversarialPatternMatch[];
+/**
+ * Format a precedent manipulation detection event for JSONL emission.
+ */
+export declare function formatPrecedentManipulationEvent(match: AdversarialPatternMatch, agentName: string, phase: number): string;

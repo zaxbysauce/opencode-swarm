@@ -11,6 +11,7 @@ import {
 } from './knowledge-store.js';
 import type {
 	HiveKnowledgeEntry,
+	KnowledgeCategory,
 	KnowledgeConfig,
 	ProjectConfirmationRecord,
 	RejectedLesson,
@@ -268,4 +269,145 @@ export function createHivePromoterHook(
 
 	// Wrap in safeHook for fire-and-forget error suppression
 	return safeHook(hook);
+}
+
+/**
+ * Promote a lesson directly to the hive (manual promotion).
+ * @param directory - Project directory
+ * @param lesson - The lesson text to promote
+ * @param category - Optional category (defaults to 'process')
+ * @returns Confirmation message
+ */
+export async function promoteToHive(
+	directory: string,
+	lesson: string,
+	category?: string,
+): Promise<string> {
+	const trimmedLesson = lesson.trim();
+
+	// Read existing hive entries for deduplication
+	const hiveEntries = await readKnowledge<HiveKnowledgeEntry>(
+		resolveHiveKnowledgePath(),
+	);
+
+	// Validate before writing
+	const validationResult = validateLesson(
+		trimmedLesson,
+		hiveEntries.map((e) => e.lesson),
+		{
+			category: (category as KnowledgeCategory) || 'process',
+			scope: 'global',
+			confidence: 1.0,
+		},
+	);
+
+	if (validationResult.severity === 'error') {
+		throw new Error(`Lesson rejected by validator: ${validationResult.reason}`);
+	}
+
+	// Check for near-duplicate
+	if (findNearDuplicate(trimmedLesson, hiveEntries, 0.6)) {
+		return `Lesson already exists in hive (near-duplicate).`;
+	}
+
+	// Build hive entry
+	const newHiveEntry: HiveKnowledgeEntry = {
+		id: crypto.randomUUID(),
+		tier: 'hive',
+		lesson: trimmedLesson,
+		category: (category as KnowledgeCategory) || 'process',
+		tags: [],
+		scope: 'global',
+		confidence: 1.0,
+		status: 'promoted',
+		confirmed_by: [],
+		retrieval_outcomes: {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+		},
+		schema_version: 1,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+		source_project: directory.split('/').pop() || 'unknown',
+	};
+
+	// Append to hive
+	await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
+
+	return `Promoted to hive: "${trimmedLesson.slice(0, 50)}${trimmedLesson.length > 50 ? '...' : ''}" (confidence: 1.0, source: manual)`;
+}
+
+/**
+ * Promote a lesson from swarm knowledge to hive.
+ * @param directory - Project directory
+ * @param lessonId - The ID of the lesson to promote from swarm
+ * @returns Confirmation message
+ */
+export async function promoteFromSwarm(
+	directory: string,
+	lessonId: string,
+): Promise<string> {
+	// Read swarm entries
+	const swarmEntries = await readKnowledge<SwarmKnowledgeEntry>(
+		resolveSwarmKnowledgePath(directory),
+	);
+
+	// Find the lesson
+	const swarmEntry = swarmEntries.find((e) => e.id === lessonId);
+	if (!swarmEntry) {
+		throw new Error(`Lesson ${lessonId} not found in .swarm/knowledge.jsonl`);
+	}
+
+	// Read existing hive entries
+	const hiveEntries = await readKnowledge<HiveKnowledgeEntry>(
+		resolveHiveKnowledgePath(),
+	);
+
+	// Validate before writing
+	const validationResult = validateLesson(
+		swarmEntry.lesson,
+		hiveEntries.map((e) => e.lesson),
+		{
+			category: swarmEntry.category,
+			scope: swarmEntry.scope,
+			confidence: swarmEntry.confidence,
+		},
+	);
+
+	if (validationResult.severity === 'error') {
+		throw new Error(`Lesson rejected by validator: ${validationResult.reason}`);
+	}
+
+	// Check for near-duplicate
+	if (findNearDuplicate(swarmEntry.lesson, hiveEntries, 0.6)) {
+		return `Lesson already exists in hive (near-duplicate).`;
+	}
+
+	// Build hive entry from swarm entry
+	const newHiveEntry: HiveKnowledgeEntry = {
+		id: crypto.randomUUID(),
+		tier: 'hive',
+		lesson: swarmEntry.lesson,
+		category: swarmEntry.category,
+		tags: swarmEntry.tags,
+		scope: swarmEntry.scope,
+		confidence: 1.0,
+		status: 'promoted',
+		confirmed_by: [],
+		retrieval_outcomes: {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+		},
+		schema_version: 1,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+		source_project: swarmEntry.project_name,
+	};
+
+	// Append to hive
+	await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
+
+	return `Promoted lesson ${lessonId} from swarm to hive: "${swarmEntry.lesson.slice(0, 50)}${swarmEntry.lesson.length > 50 ? '...' : ''}"`;
 }

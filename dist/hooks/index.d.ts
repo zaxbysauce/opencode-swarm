@@ -2,6 +2,7 @@ export { createAgentActivityHooks } from './agent-activity';
 export { createCompactionCustomizerHook } from './compaction-customizer';
 export { createContextBudgetHandler } from './context-budget';
 export { createDelegationGateHook } from './delegation-gate';
+export { createDelegationSanitizerHook } from './delegation-sanitizer';
 export { createDelegationTrackerHook } from './delegation-tracker';
 export { extractCurrentPhase, extractCurrentPhaseFromPlan, extractCurrentTask, extractCurrentTaskFromPlan, extractDecisions, extractIncompleteTasks, extractIncompleteTasksFromPlan, extractPatterns, } from './extractors';
 export { createGuardrailsHooks } from './guardrails';

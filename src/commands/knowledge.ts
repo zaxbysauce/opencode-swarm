@@ -1,5 +1,10 @@
 import { KnowledgeConfigSchema } from '../config/schema.js';
 import { migrateContextToKnowledge } from '../hooks/knowledge-migrator.js';
+import {
+	readKnowledge,
+	resolveSwarmKnowledgePath,
+} from '../hooks/knowledge-store.js';
+import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { quarantineEntry, restoreEntry } from '../hooks/knowledge-validator.js';
 
 /**
@@ -91,5 +96,49 @@ export async function handleKnowledgeMigrateCommand(
 	} catch (error) {
 		console.warn('[knowledge-command] migrateContextToKnowledge error:', error);
 		return '❌ Migration failed. Check .swarm/context.md is readable.';
+	}
+}
+
+/**
+ * Handles /swarm knowledge command (no subcommand) - lists knowledge entries.
+ * Lists entries from .swarm/knowledge.jsonl with id, category, confidence, truncated text.
+ */
+export async function handleKnowledgeListCommand(
+	directory: string,
+	_args: string[],
+): Promise<string> {
+	try {
+		const knowledgePath = resolveSwarmKnowledgePath(directory);
+		const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+
+		if (entries.length === 0) {
+			return 'ℹ️ No knowledge entries found in .swarm/knowledge.jsonl';
+		}
+
+		const lines: string[] = [
+			`## Knowledge Entries (${entries.length} total)`,
+			'',
+			'| ID | Category | Confidence | Lesson (truncated) |',
+			'|------|----------|------------|---------------------|',
+		];
+
+		for (const entry of entries) {
+			const truncatedLesson =
+				entry.lesson.length > 60
+					? entry.lesson.slice(0, 57) + '...'
+					: entry.lesson;
+			const confidencePct = Math.round(entry.confidence * 100);
+			lines.push(
+				`| ${entry.id.slice(0, 8)}... | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`,
+			);
+		}
+
+		lines.push('');
+		lines.push('Use `/swarm knowledge quarantine <id>` to hide an entry.');
+
+		return lines.join('\n');
+	} catch (error) {
+		console.warn('[knowledge-command] list error:', error);
+		return '❌ Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.';
 	}
 }

@@ -39,6 +39,32 @@
 - `coder_self_audit` — End of every task
 - `coder_retry_circuit_breaker` — Coder task rejected 3 times
 
+
+## v6.19.1 — Sonnet 4.6 & Inter-Agent Manipulation Hardening Hotfix
+
+### Security
+- **EDIT AUTHORITY** — Architect restricted to .swarm/ file edits only; source code edits must be delegated to coder
+- **PLAN STATE PROTECTION** — Task status changes must go through phase_complete(); direct plan.md edits are bypass violations
+- **GATE_DELEGATION_BYPASS expansion** — Now detects edit bypass AND plan state bypass patterns
+
+### Added
+- **`/swarm promote` command** — Manual hive knowledge promotion with promotion_source: "manual" and confidence: 1.0
+- **Hive promotion logic** — Direct text and --from-swarm modes with full validation
+- **PRESSURE IMMUNITY blocks** — All gate agents (reviewer, test_engineer, critic) protected from urgency/emotional/consequence manipulation
+- **DELEGATION DISCIPLINE** — Architect prohibited from attempt counts, urgency, emotional framing, threats, flattery in delegations
+- **INTER_AGENT_MANIPULATION pattern** — Adversarial detection for urgency fabrication, emotional manipulation, consequence fabrication, authority override
+- **Message sanitization** — Layer 2 defense stripping manipulation metadata from gate agent messages
+- **Retrospective→knowledge wiring** — phase_complete() explicitly extracts lessons to knowledge.jsonl
+- **Three-tier relevance scoring** — Category 40%, Confidence 35%, Keywords 25% with recency tiebreaker
+- **`/swarm knowledge` list command** — Lists entries from knowledge.jsonl with id, category, confidence, truncated lesson
+
+### Fixed
+- **Schema mismatch in hive-promoter.ts** — Consolidated to single working implementation using knowledge-store functions
+- **Knowledge audit findings** — Evidence→knowledge pipeline verified working, phase_complete bypass vector closed
+
+### JSONL Events
+- `message_sanitized` — Sanitization applied to gate agent delegation
+
 ## [6.18.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.18.0...v6.18.1) (2026-03-04)
 
 

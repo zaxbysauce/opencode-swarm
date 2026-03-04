@@ -25,6 +25,7 @@ import {
 	createCompactionCustomizerHook,
 	createContextBudgetHandler,
 	createDelegationGateHook,
+	createDelegationSanitizerHook,
 	createDelegationTrackerHook,
 	createGuardrailsHooks,
 	createPhaseMonitorHook,
@@ -93,6 +94,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
 	const delegationGateHooks = createDelegationGateHook(config);
+	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
 	// Fail-secure: honor explicit guardrails.enabled === false first (highest priority),
 	// then fall back to file-loaded config. When no config file exists, use config defaults
 	// (which now have guardrails enabled due to fail-secure loader behavior).
@@ -467,6 +469,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
 				delegationGateHooks.messagesTransform,
+				delegationSanitizerHook,
 				knowledgeInjectorHook, // v6.17 knowledge injection
 				// Final transformation: consolidate multiple system messages into one
 				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {

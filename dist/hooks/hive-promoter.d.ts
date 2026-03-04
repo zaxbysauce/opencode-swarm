@@ -14,3 +14,18 @@ export declare function checkHivePromotions(swarmEntries: SwarmKnowledgeEntry[],
  * The hook fires unconditionally - the caller decides when to invoke it.
  */
 export declare function createHivePromoterHook(directory: string, config: KnowledgeConfig): (input: unknown, output: unknown) => Promise<void>;
+/**
+ * Promote a lesson directly to the hive (manual promotion).
+ * @param directory - Project directory
+ * @param lesson - The lesson text to promote
+ * @param category - Optional category (defaults to 'process')
+ * @returns Confirmation message
+ */
+export declare function promoteToHive(directory: string, lesson: string, category?: string): Promise<string>;
+/**
+ * Promote a lesson from swarm knowledge to hive.
+ * @param directory - Project directory
+ * @param lessonId - The ID of the lesson to promote from swarm
+ * @returns Confirmation message
+ */
+export declare function promoteFromSwarm(directory: string, lessonId: string): Promise<string>;

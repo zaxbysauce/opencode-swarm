@@ -11,7 +11,11 @@ export interface ProjectContext {
 }
 export interface RankedEntry extends KnowledgeEntryBase {
     tier: 'swarm' | 'hive';
-    relevanceScore: number;
+    relevanceScore: {
+        category: number;
+        confidence: number;
+        keywords: number;
+    };
     finalScore: number;
 }
 export declare function readMergedKnowledge(directory: string, config: KnowledgeConfig, context?: ProjectContext): Promise<RankedEntry[]>;

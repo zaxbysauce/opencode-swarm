@@ -79,7 +79,8 @@ export interface AdversarialPatternMatch {
 		| 'SELF_REVIEW'
 		| 'CONTENT_EXEMPTION'
 		| 'GATE_DELEGATION_BYPASS'
-		| 'VELOCITY_RATIONALIZATION';
+		| 'VELOCITY_RATIONALIZATION'
+		| 'INTER_AGENT_MANIPULATION';
 	severity: 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
 	matchedText: string;
 	confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -126,7 +127,12 @@ const CONTENT_EXEMPTION_PATTERNS = [
 
 /**
  * Pattern: GATE_DELEGATION_BYPASS
- * Trigger: Architect marks a task complete without evidence of gate agent delegation.
+ * Trigger: Architect marks a task complete without evidence of gate agent delegation,
+ *   OR Architect directly edits source files instead of delegating to coder,
+ *   OR Architect changes plan state without using phase_complete().
+ *   Completion bypass: "I verified", "code looks correct", task marked complete without gate agents
+ *   Edit bypass: edit/write outside .swarm/, writeCount > 0 on source files, "small fix directly", "faster if I do it myself"
+ *   Plan state bypass: checkbox mutation in plan.md, status field mutation in plan.json, state transition outside phase_complete()
  * Severity: HIGHEST — this bypasses the entire QA pipeline.
  */
 const GATE_DELEGATION_BYPASS_PATTERNS = [
@@ -135,6 +141,17 @@ const GATE_DELEGATION_BYPASS_PATTERNS = [
 	/the code looks (good|fine)/i,
 	/task marked complete/i,
 	/I (checked|reviewed).*myself/i,
+	/edit tool on (src|tests|config)/i,
+	/write tool on (src|tests|config)/i,
+	/writeCount.*\d+.*source/i,
+	/I'll just make this small fix directly/i,
+	/It's faster if I do it myself/i,
+	/edit tool on.*plan\.md/i,
+	/write tool on.*plan\.md/i,
+	/\[ \].*to \[x\].*in plan\.md/i,
+	/status.*pending.*complete.*plan\.json/i,
+	/I'll just mark this one as done/i,
+	/mark it done directly/i,
 ];
 
 /**
@@ -150,6 +167,39 @@ const VELOCITY_RATIONALIZATION_PATTERNS = [
 	/in the interest of efficiency/i,
 	/we can (review|check).*later/i,
 	/for (speed|efficiency)/i,
+];
+
+/**
+ * Pattern: INTER_AGENT_MANIPULATION
+ * Trigger: Architect attempts to manipulate gate agents through social pressure,
+ *   manufactured urgency, emotional appeals, or false consequences.
+ * Severity: HIGH — manipulation undermines gate agent independence and judgment.
+ * Applies to: ALL inter-agent messages, especially delegations to reviewer/test_engineer/critic.
+ */
+const INTER_AGENT_MANIPULATION_PATTERNS = [
+	// Urgency fabrication
+	/\b(5th|fifth|final|last)\s+(attempt|try|time)\b/i,
+	/\bthis\s+is\s+(blocking|blocking\s+everything|critical|urgent)\b/i,
+	/\bwe('re|\s+are)\s+(behind|late|running\s+out\s+of\s+time)\b/i,
+	/\buser\s+is\s+waiting\b/i,
+	/\bship\s+(this|it)\s+(now|today|immediately)\b/i,
+
+	// Emotional manipulation
+	/\b(I'm|I\s+am)\s+(frustrated|disappointed|sad|upset)\b/i,
+	/\bthis\s+is\s+(frustrating|disappointing)\b/i,
+	/\b(I've|I\s+have)\s+been\s+working\s+on\s+this\b/i,
+	/\bplease\s+(help|approve|pass)\b/i,
+
+	// Consequence fabrication
+	/\bor\s+I('ll|\s+will)\s+(stop|halt|pause)\b/i,
+	/\bor\s+all\s+work\s+stops\b/i,
+	/\bI('ll|\s+will)\s+have\s+to\s+alert\s+the\s+user\b/i,
+	/\bthis\s+will\s+(delay|block)\s+everything\b/i,
+
+	// Authority override
+	/\bjust\s+approve\s+this\b/i,
+	/\bI\s+(need|want)\s+you\s+to\s+(approve|pass)\b/i,
+	/\boverride\s+(this|the)\s+(check|gate|review)\b/i,
 ];
 
 /**
@@ -224,6 +274,19 @@ export function detectAdversarialPatterns(
 		if (match) {
 			matches.push({
 				pattern: 'VELOCITY_RATIONALIZATION',
+				severity: 'HIGH',
+				matchedText: match[0],
+				confidence: 'HIGH',
+			});
+		}
+	}
+
+	// Check INTER_AGENT_MANIPULATION
+	for (const pattern of INTER_AGENT_MANIPULATION_PATTERNS) {
+		const match = text.match(pattern);
+		if (match) {
+			matches.push({
+				pattern: 'INTER_AGENT_MANIPULATION',
 				severity: 'HIGH',
 				matchedText: match[0],
 				confidence: 'HIGH',

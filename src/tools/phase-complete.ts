@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { loadPluginConfigWithMeta } from '../config';
@@ -13,6 +14,8 @@ import {
 	stripKnownSwarmPrefix,
 } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
+import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { ensureAgentSession, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
@@ -228,13 +231,15 @@ export async function executePhaseComplete(
 	// Retrospective gate: require a valid retro bundle for this phase
 	const retroResult = await loadEvidence(dir, `retro-${phase}`);
 	let retroFound = false;
+	let retroEntry: { lessons_learned?: string[] } | null = null;
 	let invalidSchemaErrors: string[] = [];
 
 	if (retroResult.status === 'found') {
-		retroFound =
-			retroResult.bundle.entries?.some((entry) =>
-				isValidRetroEntry(entry, phase),
-			) ?? false;
+		const validEntry = retroResult.bundle.entries?.find((entry) =>
+			isValidRetroEntry(entry, phase),
+		);
+		retroFound = !!validEntry;
+		retroEntry = validEntry as { lessons_learned?: string[] } | null;
 	} else if (retroResult.status === 'invalid_schema') {
 		invalidSchemaErrors = retroResult.errors;
 	}
@@ -251,11 +256,14 @@ export async function executePhaseComplete(
 				}
 				continue;
 			}
-			retroFound =
-				bundleResult.bundle.entries?.some((entry) =>
-					isValidRetroEntry(entry, phase),
-				) ?? false;
-			if (retroFound) break;
+			const validEntry = bundleResult.bundle.entries?.find((entry) =>
+				isValidRetroEntry(entry, phase),
+			);
+			retroFound = !!validEntry;
+			if (retroFound) {
+				retroEntry = validEntry as { lessons_learned?: string[] } | null;
+				break;
+			}
 		}
 	}
 
@@ -311,6 +319,51 @@ export async function executePhaseComplete(
 			null,
 			2,
 		);
+	}
+
+	// Extract and store lessons from retrospective to knowledge.jsonl
+	if (
+		retroFound &&
+		retroEntry?.lessons_learned &&
+		retroEntry.lessons_learned.length > 0
+	) {
+		try {
+			// Infer project name from directory
+			const projectName = path.basename(dir);
+
+			// Build knowledge config with sensible defaults
+			const knowledgeConfig: KnowledgeConfig = {
+				enabled: true,
+				swarm_max_entries: 100,
+				hive_max_entries: 200,
+				auto_promote_days: 90,
+				max_inject_count: 5,
+				dedup_threshold: 0.6,
+				scope_filter: ['global'],
+				hive_enabled: true,
+				rejected_max_entries: 20,
+				validation_enabled: true,
+				evergreen_confidence: 0.9,
+				evergreen_utility: 0.8,
+				low_utility_threshold: 0.3,
+				min_retrievals_for_utility: 3,
+				schema_version: 1,
+			};
+
+			await curateAndStoreSwarm(
+				retroEntry.lessons_learned,
+				projectName,
+				{ phase_number: phase },
+				dir,
+				knowledgeConfig,
+			);
+		} catch (error) {
+			// Log warning but don't block phase completion
+			console.warn(
+				'[phase_complete] Failed to curate lessons from retrospective:',
+				error,
+			);
+		}
 	}
 
 	// Build the effective required-agents list

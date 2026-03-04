@@ -36,7 +36,11 @@ export interface ProjectContext {
 
 export interface RankedEntry extends KnowledgeEntryBase {
 	tier: 'swarm' | 'hive';
-	relevanceScore: number;
+	relevanceScore: {
+		category: number;
+		confidence: number;
+		keywords: number;
+	};
 	finalScore: number;
 }
 
@@ -305,7 +309,7 @@ export async function readMergedKnowledge(
 		seenLessons.add(normalized);
 		merged.push({
 			...entry,
-			relevanceScore: 0,
+			relevanceScore: { category: 0, confidence: 0, keywords: 0 },
 			finalScore: 0,
 		});
 	}
@@ -342,34 +346,90 @@ export async function readMergedKnowledge(
 		seenLessons.add(normalized);
 		merged.push({
 			...entry,
-			relevanceScore: 0,
+			relevanceScore: { category: 0, confidence: 0, keywords: 0 },
 			finalScore: 0,
 		});
 	}
 
-	// Step 4: Compute finalScore for each entry
+	// Step 4: Compute finalScore using three-tier weighted scoring
+	// Category: 40%, Confidence: 35%, Keywords: 25%
 	const ranked: RankedEntry[] = merged.map((entry) => {
-		const relevanceScore = computeRelevance(entry, context);
+		// Category match score (40% weight)
+		let categoryScore = 0;
+		if (context?.currentPhase) {
+			const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
+			if (phaseCategories.includes(entry.category)) {
+				categoryScore = 1.0; // Full match
+			} else if (entry.category === 'process') {
+				categoryScore = 0.5; // Process lessons are generally applicable
+			}
+		} else {
+			categoryScore = 0.5; // Default if no phase context
+		}
+
+		// Confidence score (35% weight) - already 0.0-1.0
+		const confidenceScore = entry.confidence;
+
+		// Keywords match score (25% weight)
+		let keywordsScore = 0;
+		if (context?.techStack && entry.tags.length > 0) {
+			const matchingTags = entry.tags.filter((t) =>
+				context.techStack!.some(
+					(s) =>
+						t.toLowerCase().includes(s.toLowerCase()) ||
+						s.toLowerCase().includes(t.toLowerCase()),
+				),
+			).length;
+			keywordsScore = Math.min(
+				matchingTags / Math.max(entry.tags.length, 1),
+				1.0,
+			);
+		} else if (entry.tags.length === 0) {
+			keywordsScore = 0.5; // Neutral if no tags
+		}
+
+		// Tier boost: hive entries get slight advantage
 		const tierBoost = entry.tier === 'hive' ? HIVE_TIER_BOOST : 0;
-		// Check if this is a hive entry with source_project matching current project
+
+		// Same project penalty: slightly reduce score for same-project hive entries
 		const isSameProjectSource =
 			context?.projectName &&
 			entry.tier === 'hive' &&
 			'source_project' in entry &&
 			(entry as HiveKnowledgeEntry).source_project === context.projectName;
 		const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
+
+		// Weighted final score
 		const finalScore =
-			(entry.confidence + tierBoost + sameProjectPenalty) * relevanceScore;
+			categoryScore * 0.4 +
+			confidenceScore * 0.35 +
+			keywordsScore * 0.25 +
+			tierBoost +
+			sameProjectPenalty;
+
+		// Store component scores for debugging
+		const relevanceScore = {
+			category: categoryScore,
+			confidence: confidenceScore,
+			keywords: keywordsScore,
+		};
 
 		return {
 			...entry,
 			relevanceScore,
-			finalScore,
+			finalScore: Math.min(Math.max(finalScore, 0), 1), // Clamp 0-1
 		};
 	});
 
-	// Step 5: Sort by finalScore descending
-	ranked.sort((a, b) => b.finalScore - a.finalScore);
+	// Step 5: Sort by finalScore descending, with recency as tiebreaker
+	ranked.sort((a, b) => {
+		const scoreDiff = b.finalScore - a.finalScore;
+		if (Math.abs(scoreDiff) > 0.001) return scoreDiff;
+		// Tiebreaker: prefer more recent entries (newer created_at)
+		const dateA = new Date(a.created_at).getTime();
+		const dateB = new Date(b.created_at).getTime();
+		return dateB - dateA;
+	});
 
 	// Step 6: Apply maxInject limit
 	const maxInject = config.max_inject_count ?? 5;

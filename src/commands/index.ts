@@ -17,12 +17,14 @@ import {
 import { handleExportCommand } from './export';
 import { handleHistoryCommand } from './history';
 import {
+	handleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
 } from './knowledge';
 import { handlePlanCommand } from './plan';
 import { handlePreflightCommand } from './preflight';
+import { handlePromoteCommand } from './promote';
 import { handleResetCommand } from './reset';
 import { handleRetrieveCommand } from './retrieve';
 import { handleRollbackCommand } from './rollback';
@@ -49,12 +51,14 @@ export {
 export { handleExportCommand } from './export';
 export { handleHistoryCommand } from './history';
 export {
+	handleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
 } from './knowledge';
 export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
+export { handlePromoteCommand } from './promote';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
 export { handleRollbackCommand } from './rollback';
@@ -92,6 +96,7 @@ const HELP_TEXT = [
 	'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
+	'- `/swarm promote "<lesson>" | --category <cat> | --from-swarm <id> — Manually promote lesson to hive knowledge',
 	'- `/swarm write-retro <json>` — Write a retrospective evidence bundle for a completed phase',
 ].join('\n');
 
@@ -127,42 +132,8 @@ export function createSwarmCommandHandler(
 			case 'plan':
 				text = await handlePlanCommand(directory, args);
 				break;
-			case 'agents': {
-				// Load guardrails config for profile display
-				const pluginConfig = loadPluginConfig(directory);
-				const guardrailsConfig = pluginConfig?.guardrails
-					? GuardrailsConfigSchema.parse(pluginConfig.guardrails)
-					: undefined;
-				text = handleAgentsCommand(agents, guardrailsConfig);
-				break;
-			}
-			case 'archive':
-				text = await handleArchiveCommand(directory, args);
-				break;
-			case 'history':
-				text = await handleHistoryCommand(directory, args);
-				break;
-			case 'config':
-				if (args[0] === 'doctor') {
-					// Handle /swarm config doctor
-					text = await handleDoctorCommand(directory, args.slice(1));
-				} else {
-					text = await handleConfigCommand(directory, args);
-				}
-				break;
-			case 'doctor':
-				// Also support /swarm doctor as shortcut
-				text = await handleDoctorCommand(directory, args);
-				break;
-			case 'evidence':
-				if (args[0] === 'summary') {
-					text = await handleEvidenceSummaryCommand(directory);
-				} else {
-					text = await handleEvidenceCommand(directory, args);
-				}
-				break;
-			case 'diagnose':
-				text = await handleDiagnoseCommand(directory, args);
+			case 'promote':
+				text = await handlePromoteCommand(directory, args);
 				break;
 			case 'preflight':
 				text = await handlePreflightCommand(directory, args);
@@ -204,24 +175,27 @@ export function createSwarmCommandHandler(
 				text = await handleWriteRetroCommand(directory, args);
 				break;
 			case 'knowledge': {
-				const [knowledgeSubcmd, ...knowledgeArgs] = args;
-				if (knowledgeSubcmd === 'quarantine') {
+				const knowledgeArgs = args.slice(1);
+				const subcommand = knowledgeArgs[0];
+
+				if (subcommand === 'quarantine') {
 					text = await handleKnowledgeQuarantineCommand(
 						directory,
-						knowledgeArgs,
+						knowledgeArgs.slice(1),
 					);
-				} else if (knowledgeSubcmd === 'restore') {
-					text = await handleKnowledgeRestoreCommand(directory, knowledgeArgs);
-				} else if (knowledgeSubcmd === 'migrate') {
-					text = await handleKnowledgeMigrateCommand(directory, knowledgeArgs);
+				} else if (subcommand === 'restore') {
+					text = await handleKnowledgeRestoreCommand(
+						directory,
+						knowledgeArgs.slice(1),
+					);
+				} else if (subcommand === 'migrate') {
+					text = await handleKnowledgeMigrateCommand(
+						directory,
+						knowledgeArgs.slice(1),
+					);
 				} else {
-					text = [
-						'## Knowledge Commands',
-						'',
-						'- `/swarm knowledge quarantine <id> [reason]` — Move a knowledge entry to quarantine',
-						'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
-						'- `/swarm knowledge migrate [directory]` — Migrate .swarm/context.md lessons to knowledge store (one-time)',
-					].join('\n');
+					// Default: list knowledge entries
+					text = await handleKnowledgeListCommand(directory, knowledgeArgs);
 				}
 				break;
 			}
