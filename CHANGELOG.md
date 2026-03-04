@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.19.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.1...v6.19.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* **build:** remove misplaced src test artifact breaking declarations ([3bee31e](https://github.com/zaxbysauce/opencode-swarm/commit/3bee31ea841b6af5773478f2c514892666be10bb))
+
 ## [6.19.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.0...v6.19.1) (2026-03-04)
 
 
