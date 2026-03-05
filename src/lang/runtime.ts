@@ -68,10 +68,38 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
 function sanitizeLanguageId(languageId: string): string {
 	// Strip control chars (ASCII 0-31, 127), path separators (/, \),
 	// Windows-reserved chars (:, *, ?, ", <, >, |), and Unicode fullwidth/punctuation ranges
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional sanitization
 	return languageId
-		.replace(/[\x00-\x1f\x7f/\\:?*"<>|]/g, '')
-		.replace(/[\u2000-\u206f\uff00-\uffef]/g, '');
+		.split('')
+		.filter((char) => {
+			const code = char.charCodeAt(0);
+			// Skip control characters (ASCII 0-31 and 127)
+			if (code <= 31 || code === 127) {
+				return false;
+			}
+			// Skip path separators and Windows reserved chars
+			if (
+				char === '/' ||
+				char === '\\' ||
+				char === ':' ||
+				char === '*' ||
+				char === '?' ||
+				char === '"' ||
+				char === '<' ||
+				char === '>' ||
+				char === '|'
+			) {
+				return false;
+			}
+			// Skip Unicode fullwidth and punctuation ranges
+			if (code >= 0x2000 && code <= 0x206f) {
+				return false;
+			}
+			if (code >= 0xff00 && code <= 0xffef) {
+				return false;
+			}
+			return true;
+		})
+		.join('');
 }
 
 function getWasmFileName(languageId: string): string {

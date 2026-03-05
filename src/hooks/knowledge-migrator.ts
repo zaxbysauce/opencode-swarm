@@ -260,15 +260,14 @@ function splitIntoSections(content: string): Section[] {
 	const sections: Section[] = [];
 	const headingRegex = /^(#{1,3})\s+(.+)/gm;
 
-	const lastIndex = 0;
-	let match: RegExpExecArray | null;
 	const matches: Array<{ index: number; heading: string }> = [];
-
-	while ((match = headingRegex.exec(content)) !== null) {
+	let match: RegExpExecArray | null = headingRegex.exec(content);
+	while (match !== null) {
 		matches.push({
 			index: match.index,
 			heading: match[0],
 		});
+		match = headingRegex.exec(content);
 	}
 
 	for (let i = 0; i < matches.length; i++) {
@@ -329,7 +328,7 @@ function inferCategoryFromText(text: string): KnowledgeCategory {
  */
 function truncateLesson(text: string): string {
 	if (text.length <= 280) return text;
-	return text.slice(0, 277) + '...';
+	return `${text.slice(0, 277)}...`;
 }
 
 /**

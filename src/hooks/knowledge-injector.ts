@@ -29,7 +29,14 @@ function formatStars(confidence: number): string {
 /** Sanitizes lesson text to prevent prompt injection into LLM context. */
 function sanitizeLessonForContext(text: string): string {
 	return text
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // ASCII control chars
+		.split('')
+		.filter((char) => {
+			const code = char.charCodeAt(0);
+			return (
+				code === 9 || code === 10 || code === 13 || (code > 31 && code !== 127)
+			);
+		})
+		.join('')
 		.replace(/[\u200B-\u200D\uFEFF]/g, '') // Zero-width chars
 		.replace(/[\u202A-\u202E\u2066-\u2069]/g, '') // BiDi override chars
 		.replace(/```/g, '` ` `') // Break code block escapes

@@ -265,12 +265,11 @@ export function createGuardrailsHooks(
 						// Match "+++ b/<path>" (standard unified diff format)
 						const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
 						const paths = new Set<string>();
-						let match: RegExpExecArray | null;
 
-						while ((match = patchPathPattern.exec(patchText)) !== null) {
+						for (const match of patchText.matchAll(patchPathPattern)) {
 							paths.add(match[1].trim());
 						}
-						while ((match = diffPathPattern.exec(patchText)) !== null) {
+						for (const match of patchText.matchAll(diffPathPattern)) {
 							const p = match[1].trim();
 							if (p !== '/dev/null') paths.add(p);
 						}
