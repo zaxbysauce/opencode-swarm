@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.19.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.3...v6.19.4) (2026-03-05)
+
+
+### Bug Fixes
+
+* **lint:** remove CI-blocking biome errors in hooks ([3e8fe80](https://github.com/zaxbysauce/opencode-swarm/commit/3e8fe80bad25c2c4df6758c98798b7b4ac45ebe7))
+
 ## [6.19.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.2...v6.19.3) (2026-03-04)
 
 
