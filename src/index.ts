@@ -402,6 +402,10 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm evidence $ARGUMENTS',
 					description: 'View evidence bundles and summaries',
 				},
+				'swarm-handoff': {
+					template: '/swarm handoff',
+					description: 'Prepare handoff brief for switching models mid-task',
+				},
 				'swarm-archive': {
 					template: '/swarm archive',
 					description: 'Archive old evidence bundles',

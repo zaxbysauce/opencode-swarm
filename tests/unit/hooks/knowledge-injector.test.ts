@@ -48,6 +48,9 @@ vi.mock('../../../src/config/schema.js', () => ({
     return name;
   }),
 }));
+vi.mock('../../../src/services/run-memory.js', () => ({
+  getRunMemorySummary: vi.fn(async () => null),
+}));
 
 // Import mocked modules
 import { readMergedKnowledge } from '../../../src/hooks/knowledge-reader.js';
@@ -55,6 +58,7 @@ import { readRejectedLessons } from '../../../src/hooks/knowledge-store.js';
 import { loadPlan } from '../../../src/plan/manager.js';
 import { extractCurrentPhaseFromPlan } from '../../../src/hooks/extractors.js';
 import { stripKnownSwarmPrefix } from '../../../src/config/schema.js';
+import { getRunMemorySummary } from '../../../src/services/run-memory.js';
 
 // ============================================================================
 // Helper Factories
@@ -780,5 +784,119 @@ describe('Prompt injection sanitization', () => {
     expect(text).not.toContain('\x07');
     // system: prefix should be blocked
     expect(text).toContain('[BLOCKED]:');
+  });
+});
+
+// ============================================================================
+// Test Suite: Run Memory Wiring
+// ============================================================================
+
+describe('Run memory wiring', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
+  });
+
+  it('Run memory is retrieved and prepended when available', async () => {
+    // Mock run memory returning a summary
+    const runMemorySummary = '[FOR: architect, coder]\n## RUN MEMORY — Previous Task Outcomes\n- Task t1: failed due to null reference';
+    (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(runMemorySummary);
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Set up knowledge entries
+    const entries = [makeSwarmEntry('Use null checks', 0.85)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call - should prepend run memory
+    await hook({}, output);
+
+    // Verify getRunMemorySummary was called
+    expect(getRunMemorySummary).toHaveBeenCalledWith('/proj');
+
+    // Find the knowledge message
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    expect(knowledgeMsg).toBeDefined();
+
+    const text = knowledgeMsg!.parts[0].text ?? '';
+    // Run memory should come BEFORE the knowledge section
+    expect(text).toContain('## RUN MEMORY');
+    expect(text).toContain('Use null checks');
+    // The run memory should appear before the knowledge section
+    const runMemoryIndex = text.indexOf('## RUN MEMORY');
+    const knowledgeIndex = text.indexOf('📚 Knowledge');
+    expect(runMemoryIndex).toBeLessThan(knowledgeIndex);
+  });
+
+  it('Knowledge entries unchanged when run memory is null', async () => {
+    // Mock run memory returning null (no failures recorded)
+    (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Set up knowledge entries
+    const entries = [makeSwarmEntry('Always validate inputs', 0.9)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call - run memory is null
+    await hook({}, output);
+
+    // Verify getRunMemorySummary was called
+    expect(getRunMemorySummary).toHaveBeenCalledWith('/proj');
+
+    // Find the knowledge message
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    expect(knowledgeMsg).toBeDefined();
+
+    const text = knowledgeMsg!.parts[0].text;
+    // Should contain the knowledge entry
+    expect(text).toContain('Always validate inputs');
+    // Should NOT contain run memory section
+    expect(text).not.toContain('## RUN MEMORY');
+    // The knowledge section should start with the 📚 emoji
+    expect(text).toMatch(/^.*📚 Knowledge/);
+  });
+
+  it('[FOR: architect, coder] tag present in output when run memory is available', async () => {
+    // Mock run memory returning a summary with the tag
+    const runMemorySummary = '[FOR: architect, coder]\n## RUN MEMORY — Previous Task Outcomes\n- Task t1: failed';
+    (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(runMemorySummary);
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Set up knowledge entries
+    const entries = [makeSwarmEntry('Test lesson', 0.8)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call
+    await hook({}, output);
+
+    // Find the knowledge message
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    expect(knowledgeMsg).toBeDefined();
+
+    const text = knowledgeMsg!.parts[0].text;
+    // Verify the [FOR: architect, coder] tag is present in output
+    expect(text).toContain('[FOR: architect, coder]');
   });
 });

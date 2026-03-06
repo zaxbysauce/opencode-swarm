@@ -13,6 +13,7 @@ import {
 	handleEvidenceSummaryCommand,
 } from './evidence';
 import { handleExportCommand } from './export';
+import { handleHandoffCommand } from './handoff';
 import { handleHistoryCommand } from './history';
 import {
 	handleKnowledgeListCommand,
@@ -47,6 +48,7 @@ export {
 	handleEvidenceSummaryCommand,
 } from './evidence';
 export { handleExportCommand } from './export';
+export { handleHandoffCommand } from './handoff';
 export { handleHistoryCommand } from './history';
 export {
 	handleKnowledgeListCommand,
@@ -95,6 +97,7 @@ const HELP_TEXT = [
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
 	'- `/swarm promote "<lesson>" | --category <cat> | --from-swarm <id> — Manually promote lesson to hive knowledge',
+	'- `/swarm handoff` — Prepare state for clean model switch (new session)',
 	'- `/swarm write-retro <json>` — Write a retrospective evidence bundle for a completed phase',
 ].join('\n');
 
@@ -217,6 +220,9 @@ export function createSwarmCommandHandler(
 				break;
 			case 'diagnose':
 				text = await handleDiagnoseCommand(directory, args);
+				break;
+			case 'handoff':
+				text = await handleHandoffCommand(directory, args);
 				break;
 			default:
 				text = HELP_TEXT;

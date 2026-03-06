@@ -16,6 +16,7 @@ import {
 	handleEvidenceCommand,
 	handleEvidenceSummaryCommand,
 	handleExportCommand,
+	handleHandoffCommand,
 	handleHistoryCommand,
 	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
@@ -362,83 +363,8 @@ export async function run(args: string[]): Promise<number> {
 			console.log(result);
 			return 0;
 		}
-		case 'config': {
-			if (args[1] === 'doctor') {
-				const result = await handleDoctorCommand(cwd, args.slice(2));
-				console.log(result);
-			} else {
-				const result = await handleConfigCommand(cwd, args.slice(1));
-				console.log(result);
-			}
-			return 0;
-		}
-		case 'doctor': {
-			const result = await handleDoctorCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'evidence': {
-			if (args[1] === 'summary') {
-				const result = await handleEvidenceSummaryCommand(cwd);
-				console.log(result);
-			} else {
-				const result = await handleEvidenceCommand(cwd, args.slice(1));
-				console.log(result);
-			}
-			return 0;
-		}
-		case 'diagnose': {
-			const result = await handleDiagnoseCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'preflight': {
-			const result = await handlePreflightCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'sync-plan': {
-			const result = await handleSyncPlanCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'benchmark': {
-			const result = await handleBenchmarkCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'export': {
-			const result = await handleExportCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'reset': {
-			const result = await handleResetCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'retrieve': {
-			const result = await handleRetrieveCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'clarify': {
-			const result = await handleClarifyCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'analyze': {
-			const result = await handleAnalyzeCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'specify': {
-			const result = await handleSpecifyCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'dark-matter': {
-			const result = await handleDarkMatterCommand(cwd, args.slice(1));
+		case 'handoff': {
+			const result = await handleHandoffCommand(cwd, args.slice(1));
 			console.log(result);
 			return 0;
 		}
