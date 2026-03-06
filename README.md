@@ -2,6 +2,8 @@
 
 **Your AI writes the code. Swarm makes sure it actually works.**
 
+https://swarmai.site/
+
 OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding agent into a team of nine. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another catches security issues. Nothing ships until every check passes. Your project state is saved to disk, so you can close your laptop, come back tomorrow, and pick up exactly where you left off.
 
 ```bash
