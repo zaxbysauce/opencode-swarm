@@ -15,7 +15,12 @@ import { stripKnownSwarmPrefix } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { getProfileForFile } from '../lang/detector';
 import { loadPlan } from '../plan/manager';
-import { analyzeDecisionDrift, formatDriftForContext } from '../services';
+import {
+	analyzeDecisionDrift,
+	formatBudgetWarning,
+	formatDriftForContext,
+	getContextBudgetReport,
+} from '../services';
 import { swarmState } from '../state';
 import { warn } from '../utils';
 import {
@@ -36,7 +41,12 @@ import {
 	extractDecisions,
 	extractPlanCursor,
 } from './extractors';
-import { estimateTokens, readSwarmFileAsync, safeHook } from './utils';
+import {
+	estimateTokens,
+	readSwarmFileAsync,
+	safeHook,
+	validateSwarmPath,
+} from './utils';
 
 /**
  * Estimate content type based on text characteristics.
@@ -433,6 +443,50 @@ export function createSystemEnhancerHook(
 							tryInject(planCursor);
 						}
 
+						// Priority 2: Handoff brief injection (resuming from model switch)
+						if (mode !== 'DISCOVER') {
+							try {
+								const handoffContent = await readSwarmFileAsync(
+									directory,
+									'handoff.md',
+								);
+								if (handoffContent) {
+									// Validate paths BEFORE rename
+									const handoffPath = validateSwarmPath(
+										directory,
+										'handoff.md',
+									);
+									const consumedPath = validateSwarmPath(
+										directory,
+										'handoff-consumed.md',
+									);
+
+									// Check for duplicate handoff-consumed.md (warn but continue)
+									if (fs.existsSync(consumedPath)) {
+										warn(
+											'Duplicate handoff detected: handoff-consumed.md already exists',
+										);
+										fs.unlinkSync(consumedPath);
+									}
+
+									// Rename BEFORE injection - only inject if rename succeeds
+									fs.renameSync(handoffPath, consumedPath);
+
+									// Only inject if rename succeeded
+									const handoffBlock = `## HANDOFF — Resuming from model switch
+The previous model's session ended. Here is your starting context:
+
+${handoffContent}`;
+									tryInject(`[HANDOFF BRIEF]\n${handoffBlock}`);
+								}
+							} catch (error: any) {
+								// Log non-ENOENT errors (file not found is expected)
+								if (error?.code !== 'ENOENT') {
+									warn('Handoff injection failed:', error);
+								}
+							}
+						}
+
 						// Priority 3: Decisions
 						if (mode !== 'DISCOVER' && contextContent) {
 							const decisions = extractDecisions(contextContent, 200);
@@ -722,6 +776,61 @@ export function createSystemEnhancerHook(
 							}
 						}
 
+						// Context budget check - run after all other assembly, architect-only
+						const userConfig = config.context_budget;
+						const defaultConfig: typeof import('../services').DEFAULT_CONTEXT_BUDGET_CONFIG =
+							{
+								enabled: true,
+								budgetTokens: 40000,
+								warningPct: 70,
+								criticalPct: 90,
+								warningMode: 'once',
+								warningIntervalTurns: 20,
+							};
+						// Map schema config to service config format
+						const contextBudgetConfig = userConfig
+							? {
+									...(defaultConfig as any),
+									...(userConfig as any),
+									warningPct: userConfig.warn_threshold
+										? userConfig.warn_threshold * 100
+										: defaultConfig.warningPct,
+									criticalPct: userConfig.critical_threshold
+										? userConfig.critical_threshold * 100
+										: defaultConfig.criticalPct,
+									budgetTokens:
+										userConfig.model_limits?.default ??
+										defaultConfig.budgetTokens,
+								}
+							: defaultConfig;
+
+						if (contextBudgetConfig.enabled !== false) {
+							const assembledSystemPrompt = output.system.join('\n');
+							const budgetReport = await getContextBudgetReport(
+								directory,
+								assembledSystemPrompt,
+								contextBudgetConfig,
+							);
+							const budgetWarning = await formatBudgetWarning(
+								budgetReport,
+								directory,
+								contextBudgetConfig,
+							);
+							if (budgetWarning) {
+								// Check if architect
+								const sessionId_cb = _input.sessionID;
+								const activeAgent_cb = sessionId_cb
+									? swarmState.activeAgent.get(sessionId_cb)
+									: null;
+								const isArchitect_cb =
+									!activeAgent_cb ||
+									stripKnownSwarmPrefix(activeAgent_cb) === 'architect';
+								if (isArchitect_cb) {
+									output.system.push(`[FOR: architect]\n${budgetWarning}`);
+								}
+							}
+						}
+
 						return;
 					}
 
@@ -809,6 +918,55 @@ export function createSystemEnhancerHook(
 							priority: 1,
 							metadata: { contentType: 'markdown' },
 						});
+					}
+
+					// Handoff brief injection (resuming from model switch) for scoring path
+					if (mode_b !== 'DISCOVER') {
+						try {
+							const handoffContent = await readSwarmFileAsync(
+								directory,
+								'handoff.md',
+							);
+							if (handoffContent) {
+								// Validate paths BEFORE rename
+								const handoffPath = validateSwarmPath(directory, 'handoff.md');
+								const consumedPath = validateSwarmPath(
+									directory,
+									'handoff-consumed.md',
+								);
+
+								// Check for duplicate handoff-consumed.md (warn but continue)
+								if (fs.existsSync(consumedPath)) {
+									warn(
+										'Duplicate handoff detected: handoff-consumed.md already exists',
+									);
+									fs.unlinkSync(consumedPath);
+								}
+
+								// Rename BEFORE adding to candidates - only add if rename succeeds
+								fs.renameSync(handoffPath, consumedPath);
+
+								// Only add to candidates if rename succeeded
+								const handoffBlock = `## HANDOFF — Resuming from model switch
+The previous model's session ended. Here is your starting context:
+
+${handoffContent}`;
+								const handoffText = `[HANDOFF BRIEF]\n${handoffBlock}`;
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'phase' as ContextCandidate['kind'],
+									text: handoffText,
+									tokens: estimateTokens(handoffText),
+									priority: 1,
+									metadata: { contentType: 'markdown' as ContentType },
+								});
+							}
+						} catch (error: any) {
+							// Log non-ENOENT errors (file not found is expected)
+							if (error?.code !== 'ENOENT') {
+								warn('Handoff injection failed:', error);
+							}
+						}
 					}
 
 					// Decisions
@@ -1199,6 +1357,60 @@ export function createSystemEnhancerHook(
 						}
 						output.system.push(candidate.text);
 						injectedTokens += candidate.tokens;
+					}
+
+					// Context budget check - run after all other assembly, architect-only
+					const userConfig_b = config.context_budget;
+					const defaultConfig_b = {
+						enabled: true,
+						budgetTokens: 40000,
+						warningPct: 70,
+						criticalPct: 90,
+						warningMode: 'once' as const,
+						warningIntervalTurns: 20,
+					};
+					// Map schema config to service config format
+					const contextBudgetConfig_b = userConfig_b
+						? {
+								...(defaultConfig_b as any),
+								...(userConfig_b as any),
+								warningPct: userConfig_b.warn_threshold
+									? userConfig_b.warn_threshold * 100
+									: defaultConfig_b.warningPct,
+								criticalPct: userConfig_b.critical_threshold
+									? userConfig_b.critical_threshold * 100
+									: defaultConfig_b.criticalPct,
+								budgetTokens:
+									userConfig_b.model_limits?.default ??
+									defaultConfig_b.budgetTokens,
+							}
+						: defaultConfig_b;
+
+					if (contextBudgetConfig_b.enabled !== false) {
+						const assembledSystemPrompt_b = output.system.join('\n');
+						const budgetReport_b = await getContextBudgetReport(
+							directory,
+							assembledSystemPrompt_b,
+							contextBudgetConfig_b,
+						);
+						const budgetWarning_b = await formatBudgetWarning(
+							budgetReport_b,
+							directory,
+							contextBudgetConfig_b,
+						);
+						if (budgetWarning_b) {
+							// Check if architect
+							const sessionId_cb_b = _input.sessionID;
+							const activeAgent_cb_b = sessionId_cb_b
+								? swarmState.activeAgent.get(sessionId_cb_b)
+								: null;
+							const isArchitect_cb_b =
+								!activeAgent_cb_b ||
+								stripKnownSwarmPrefix(activeAgent_cb_b) === 'architect';
+							if (isArchitect_cb_b) {
+								output.system.push(`[FOR: architect]\n${budgetWarning_b}`);
+							}
+						}
 					}
 				} catch (error) {
 					warn('System enhancer failed:', error);
