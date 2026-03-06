@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.19.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.5...v6.19.6) (2026-03-06)
+
+
+### Bug Fixes
+
+* **ci:** remove native tree-sitter devDeps that compiled from source on Windows ([9138137](https://github.com/zaxbysauce/opencode-swarm/commit/9138137309f81ae2ac4c2287f7da436d4f5446a7))
+* harden pre_check_batch, diff, glob, placeholder-scan, and sast-scan ([11c40f5](https://github.com/zaxbysauce/opencode-swarm/commit/11c40f5a1d4886a9c88c2403b563a74c6a5a8dda))
+* **lint:** resolve 5 biome errors introduced by Phase 1-4 hardening ([9dacdf3](https://github.com/zaxbysauce/opencode-swarm/commit/9dacdf360db80c4fb0e4bfd4e42d6dbde6ceb701))
+* tool hardening and Windows CI native-dep removal ([e6155e0](https://github.com/zaxbysauce/opencode-swarm/commit/e6155e09bed9705c1970c6b0d61b16ef6b24d804))
+
 ## [6.19.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.4...v6.19.5) (2026-03-06)
 
 
