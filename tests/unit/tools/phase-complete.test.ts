@@ -221,8 +221,8 @@ describe('phase_complete tool', () => {
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('warned');
 			expect(parsed.warnings.length).toBeGreaterThan(0);
-			expect(parsed.warnings[0]).toContain('missing required agents');
-			expect(parsed.warnings[0]).toContain('coder');
+			expect(parsed.warnings.some((w: string) => w.includes('missing required agents'))).toBe(true);
+			expect(parsed.warnings.some((w: string) => w.includes('coder'))).toBe(true);
 		});
 	});
 
@@ -580,7 +580,7 @@ describe('phase_complete tool', () => {
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.warnings.length).toBeGreaterThan(0);
-			expect(parsed.warnings[0]).toContain('failed to write phase complete event');
+			expect(parsed.warnings.some((w: string) => w.includes('failed to write phase complete event'))).toBe(true);
 		});
 	});
 

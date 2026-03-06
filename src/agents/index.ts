@@ -344,6 +344,11 @@ export function getAgentConfigs(
 				sdkConfig.mode = 'subagent';
 			}
 
+			// Remove model for primary agents (model selection handled by orchestrator)
+			if (sdkConfig.mode === 'primary') {
+				delete sdkConfig.model;
+			}
+
 			// Extract base agent name using canonical prefix stripper (supports underscore, hyphen, space)
 			const baseAgentName = stripKnownSwarmPrefix(agent.name);
 

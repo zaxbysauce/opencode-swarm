@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { loadPluginConfigWithMeta } from '../config';
+import type { EvidenceBundle } from '../config/evidence-schema';
 import {
 	type PhaseCompleteConfig,
 	PhaseCompleteConfigSchema,
@@ -319,13 +320,22 @@ export async function executePhaseComplete(
 	let retroFound = false;
 	let retroEntry: { lessons_learned?: string[] } | null = null;
 	let invalidSchemaErrors: string[] = [];
+	let loadedRetroTaskId: string | null = null;
+	let loadedRetroBundle: EvidenceBundle | null = null;
+
+	// Track the task ID that was used to load the retro bundle
+	const primaryRetroTaskId = `retro-${phase}`;
 
 	if (retroResult.status === 'found') {
 		const validEntry = retroResult.bundle.entries?.find((entry) =>
 			isValidRetroEntry(entry, phase),
 		);
-		retroFound = !!validEntry;
-		retroEntry = validEntry as { lessons_learned?: string[] } | null;
+		if (validEntry) {
+			retroFound = true;
+			retroEntry = validEntry as { lessons_learned?: string[] } | null;
+			loadedRetroTaskId = primaryRetroTaskId;
+			loadedRetroBundle = retroResult.bundle;
+		}
 	} else if (retroResult.status === 'invalid_schema') {
 		invalidSchemaErrors = retroResult.errors;
 	}
@@ -345,9 +355,11 @@ export async function executePhaseComplete(
 			const validEntry = bundleResult.bundle.entries?.find((entry) =>
 				isValidRetroEntry(entry, phase),
 			);
-			retroFound = !!validEntry;
-			if (retroFound) {
+			if (validEntry) {
+				retroFound = true;
 				retroEntry = validEntry as { lessons_learned?: string[] } | null;
+				loadedRetroTaskId = taskId;
+				loadedRetroBundle = bundleResult.bundle;
 				break;
 			}
 		}
@@ -465,6 +477,25 @@ export async function executePhaseComplete(
 
 	// Build warnings and determine success based on policy
 	const warnings: string[] = [];
+
+	// Detect potential auto-repair of retrospective bundle
+	// If loaded from a retro-N task ID with schema_version 1.0.0 and valid task_complexity,
+	// it may have been auto-repaired from a malformed legacy format
+	const VALID_TASK_COMPLEXITY = ['trivial', 'simple', 'moderate', 'complex'];
+	const firstEntry = loadedRetroBundle?.entries?.[0] as
+		| { task_complexity?: string }
+		| undefined;
+	if (
+		loadedRetroTaskId?.startsWith('retro-') &&
+		loadedRetroBundle?.schema_version === '1.0.0' &&
+		firstEntry?.task_complexity &&
+		VALID_TASK_COMPLEXITY.includes(firstEntry.task_complexity)
+	) {
+		warnings.push(
+			`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`,
+		);
+	}
+
 	let success = true;
 	let status: PhaseCompleteResult['status'] = 'success';
 	const safeSummary = summary?.trim().slice(0, 500);

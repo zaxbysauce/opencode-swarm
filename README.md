@@ -694,7 +694,9 @@ The following tools can be assigned to agents via overrides:
 | `secretscan` | Scan for secrets in code |
 | `symbols` | Extract exported symbols |
 | `test_runner` | Run project tests |
+| `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
 | `todo_extract` | Extract TODO/FIXME comments |
+| `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
 | `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
 
 ---

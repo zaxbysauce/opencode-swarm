@@ -14308,16 +14308,68 @@ async function saveEvidence(directory, taskId, evidence) {
   }
   return updatedBundle;
 }
+function isFlatRetrospective(parsed) {
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "retrospective" && !parsed.schema_version;
+}
+function remapLegacyTaskComplexity(entry) {
+  const taskComplexity = entry.task_complexity;
+  if (typeof taskComplexity === "string" && taskComplexity in LEGACY_TASK_COMPLEXITY_MAP) {
+    return {
+      ...entry,
+      task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity]
+    };
+  }
+  return entry;
+}
+function wrapFlatRetrospective(flatEntry, taskId) {
+  const now = new Date().toISOString();
+  const remappedEntry = remapLegacyTaskComplexity(flatEntry);
+  return {
+    schema_version: "1.0.0",
+    task_id: remappedEntry.task_id ?? taskId,
+    created_at: remappedEntry.timestamp ?? now,
+    updated_at: remappedEntry.timestamp ?? now,
+    entries: [remappedEntry]
+  };
+}
 async function loadEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
   const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
-  validateSwarmPath(directory, relativePath);
+  const evidencePath = validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
   if (content === null) {
     return { status: "not_found" };
   }
+  let parsed;
   try {
-    const parsed = JSON.parse(content);
+    parsed = JSON.parse(content);
+  } catch {
+    return { status: "invalid_schema", errors: ["Invalid JSON"] };
+  }
+  if (isFlatRetrospective(parsed)) {
+    const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
+    try {
+      const validated = EvidenceBundleSchema.parse(wrappedBundle);
+      const evidenceDir = path3.dirname(evidencePath);
+      const bundleJson = JSON.stringify(validated);
+      const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+      try {
+        await Bun.write(tempPath, bundleJson);
+        renameSync(tempPath, evidencePath);
+      } catch (writeError) {
+        try {
+          rmSync(tempPath, { force: true });
+        } catch {}
+        warn(`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+      }
+      return { status: "found", bundle: validated };
+    } catch (error49) {
+      warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => e.path.join(".") + ": " + e.message) : [String(error49)];
+      return { status: "invalid_schema", errors: errors3 };
+    }
+  }
+  try {
     const validated = EvidenceBundleSchema.parse(parsed);
     return { status: "found", bundle: validated };
   } catch (error49) {
@@ -14410,7 +14462,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX;
+var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager = __esm(() => {
   init_zod();
   init_evidence_schema();
@@ -14431,6 +14483,11 @@ var init_manager = __esm(() => {
     "quality_budget"
   ];
   TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+  LEGACY_TASK_COMPLEXITY_MAP = {
+    low: "simple",
+    medium: "moderate",
+    high: "complex"
+  };
 });
 
 // node_modules/graceful-fs/polyfills.js
@@ -17450,7 +17507,9 @@ var TOOL_NAMES = [
   "retrieve_summary",
   "extract_code_blocks",
   "phase_complete",
-  "save_plan"
+  "save_plan",
+  "update_task_status",
+  "write_retro"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -17488,7 +17547,9 @@ var AGENT_TOOL_MAP = {
     "secretscan",
     "symbols",
     "test_runner",
-    "todo_extract"
+    "todo_extract",
+    "update_task_status",
+    "write_retro"
   ],
   explorer: [
     "complexity_hotspots",

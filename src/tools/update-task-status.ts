@@ -1,0 +1,225 @@
+/**
+ * Update task status tool for changing the status of individual tasks in a plan.
+ * Allows agents to mark tasks as pending, in_progress, completed, or blocked.
+ */
+
+import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import * as fs from 'fs';
+import * as path from 'path';
+import type { TaskStatus } from '../config/plan-schema';
+import { updateTaskStatus } from '../plan/manager';
+import { createSwarmTool } from './create-tool';
+
+/**
+ * Arguments for the update_task_status tool
+ */
+export interface UpdateTaskStatusArgs {
+	task_id: string;
+	status: string;
+	working_directory?: string;
+}
+
+/**
+ * Result from executing update_task_status
+ */
+export interface UpdateTaskStatusResult {
+	success: boolean;
+	message: string;
+	task_id?: string;
+	new_status?: string;
+	current_phase?: number;
+	errors?: string[];
+}
+
+/**
+ * Valid task status values
+ */
+const VALID_STATUSES: TaskStatus[] = [
+	'pending',
+	'in_progress',
+	'completed',
+	'blocked',
+];
+
+/**
+ * Validate that the status is one of the allowed values.
+ * @param status - The status to validate
+ * @returns Error message if invalid, undefined if valid
+ */
+export function validateStatus(status: string): string | undefined {
+	if (!VALID_STATUSES.includes(status as TaskStatus)) {
+		return `Invalid status "${status}". Must be one of: ${VALID_STATUSES.join(', ')}`;
+	}
+	return undefined;
+}
+
+/**
+ * Validate that task_id matches the required format (N.M or N.M.P).
+ * @param taskId - The task ID to validate
+ * @returns Error message if invalid, undefined if valid
+ */
+export function validateTaskId(taskId: string): string | undefined {
+	const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
+	if (!taskIdPattern.test(taskId)) {
+		return `Invalid task_id "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
+	}
+	return undefined;
+}
+
+/**
+ * Execute the update_task_status tool.
+ * Validates the task_id and status, then updates the task status in the plan.
+ * @param args - The update task status arguments
+ * @returns UpdateTaskStatusResult with success status and details
+ */
+export async function executeUpdateTaskStatus(
+	args: UpdateTaskStatusArgs,
+	fallbackDir?: string,
+): Promise<UpdateTaskStatusResult> {
+	// Step 1: Validate status
+	const statusError = validateStatus(args.status);
+	if (statusError) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: [statusError],
+		};
+	}
+
+	// Step 2: Validate task_id format
+	const taskIdError = validateTaskId(args.task_id);
+	if (taskIdError) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: [taskIdError],
+		};
+	}
+
+	// Step 3: Validate working_directory if provided
+	let normalizedDir: string | undefined;
+	if (args.working_directory != null) {
+		// Check for null-byte injection before any processing
+		if (args.working_directory.includes('\0')) {
+			return {
+				success: false,
+				message: 'Invalid working_directory: null bytes are not allowed',
+			};
+		}
+
+		// Check for Windows device paths (e.g., \\.\C:\, \\?\GLOBALROOT\)
+		if (process.platform === 'win32') {
+			const devicePathPattern =
+				/^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
+			if (devicePathPattern.test(args.working_directory)) {
+				return {
+					success: false,
+					message:
+						'Invalid working_directory: Windows device paths are not allowed',
+				};
+			}
+		}
+
+		// Normalize path first
+		normalizedDir = path.normalize(args.working_directory);
+
+		// Check for path traversal sequences
+		const pathParts = normalizedDir.split(path.sep);
+		if (pathParts.includes('..')) {
+			return {
+				success: false,
+				message:
+					'Invalid working_directory: path traversal sequences (..) are not allowed',
+				errors: [
+					'Invalid working_directory: path traversal sequences (..) are not allowed',
+				],
+			};
+		}
+
+		// Check if directory exists on disk and contains a valid .swarm/plan.json
+		// Use path.resolve to properly resolve the path before checking existence
+		// Use a carefully crafted path to avoid Windows path quirks
+		const resolvedDir = path.resolve(normalizedDir);
+
+		// Additional check: verify the resolved path is within the expected workspace
+		// This prevents Windows from interpreting certain paths as valid
+		try {
+			const realPath = fs.realpathSync(resolvedDir);
+			const planPath = path.join(realPath, '.swarm', 'plan.json');
+			if (!fs.existsSync(planPath)) {
+				return {
+					success: false,
+					message: `Invalid working_directory: plan not found in "${realPath}"`,
+					errors: [
+						`Invalid working_directory: plan not found in "${realPath}"`,
+					],
+				};
+			}
+		} catch {
+			return {
+				success: false,
+				message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
+				errors: [
+					`Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
+				],
+			};
+		}
+	}
+
+	// Step 4: Resolve target directory
+	const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+
+	// Step 5: Update the task status
+	try {
+		const updatedPlan = await updateTaskStatus(
+			directory,
+			args.task_id,
+			args.status as TaskStatus,
+		);
+		return {
+			success: true,
+			message: 'Task status updated successfully',
+			task_id: args.task_id,
+			new_status: args.status,
+			current_phase: updatedPlan.current_phase,
+		};
+	} catch (error) {
+		return {
+			success: false,
+			message: 'Failed to update task status',
+			errors: [String(error)],
+		};
+	}
+}
+
+/**
+ * Tool definition for update_task_status
+ */
+export const update_task_status: ToolDefinition = createSwarmTool({
+	description:
+		'Update the status of a specific task in the implementation plan. ' +
+		'Task status can be one of: pending, in_progress, completed, blocked.',
+	args: {
+		task_id: tool.schema
+			.string()
+			.min(1)
+			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
+			.describe('Task ID in N.M format, e.g. "1.1", "1.2.3"'),
+		status: tool.schema
+			.enum(['pending', 'in_progress', 'completed', 'blocked'])
+			.describe(
+				'New status for the task: pending, in_progress, completed, or blocked',
+			),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe('Working directory where the plan is located'),
+	},
+	execute: async (args: unknown, _directory: string) => {
+		return JSON.stringify(
+			await executeUpdateTaskStatus(args as UpdateTaskStatusArgs, _directory),
+			null,
+			2,
+		);
+	},
+});

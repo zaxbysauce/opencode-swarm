@@ -14472,16 +14472,68 @@ async function saveEvidence(directory, taskId, evidence) {
   }
   return updatedBundle;
 }
+function isFlatRetrospective(parsed) {
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "retrospective" && !parsed.schema_version;
+}
+function remapLegacyTaskComplexity(entry) {
+  const taskComplexity = entry.task_complexity;
+  if (typeof taskComplexity === "string" && taskComplexity in LEGACY_TASK_COMPLEXITY_MAP) {
+    return {
+      ...entry,
+      task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity]
+    };
+  }
+  return entry;
+}
+function wrapFlatRetrospective(flatEntry, taskId) {
+  const now = new Date().toISOString();
+  const remappedEntry = remapLegacyTaskComplexity(flatEntry);
+  return {
+    schema_version: "1.0.0",
+    task_id: remappedEntry.task_id ?? taskId,
+    created_at: remappedEntry.timestamp ?? now,
+    updated_at: remappedEntry.timestamp ?? now,
+    entries: [remappedEntry]
+  };
+}
 async function loadEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
   const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
-  validateSwarmPath(directory, relativePath);
+  const evidencePath = validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
   if (content === null) {
     return { status: "not_found" };
   }
+  let parsed;
   try {
-    const parsed = JSON.parse(content);
+    parsed = JSON.parse(content);
+  } catch {
+    return { status: "invalid_schema", errors: ["Invalid JSON"] };
+  }
+  if (isFlatRetrospective(parsed)) {
+    const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
+    try {
+      const validated = EvidenceBundleSchema.parse(wrappedBundle);
+      const evidenceDir = path3.dirname(evidencePath);
+      const bundleJson = JSON.stringify(validated);
+      const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+      try {
+        await Bun.write(tempPath, bundleJson);
+        renameSync(tempPath, evidencePath);
+      } catch (writeError) {
+        try {
+          rmSync(tempPath, { force: true });
+        } catch {}
+        warn(`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+      }
+      return { status: "found", bundle: validated };
+    } catch (error49) {
+      warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => e.path.join(".") + ": " + e.message) : [String(error49)];
+      return { status: "invalid_schema", errors: errors3 };
+    }
+  }
+  try {
     const validated = EvidenceBundleSchema.parse(parsed);
     return { status: "found", bundle: validated };
   } catch (error49) {
@@ -14574,7 +14626,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX;
+var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager = __esm(() => {
   init_zod();
   init_evidence_schema();
@@ -14595,6 +14647,11 @@ var init_manager = __esm(() => {
     "quality_budget"
   ];
   TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+  LEGACY_TASK_COMPLEXITY_MAP = {
+    low: "simple",
+    medium: "moderate",
+    high: "complex"
+  };
 });
 
 // src/plan/manager.ts
@@ -14764,6 +14821,29 @@ ${markdown}`;
       unlinkSync(mdTempPath);
     } catch {}
   }
+}
+async function updateTaskStatus(directory, taskId, status) {
+  const plan = await loadPlan(directory);
+  if (plan === null) {
+    throw new Error(`Plan not found in directory: ${directory}`);
+  }
+  let taskFound = false;
+  const updatedPhases = plan.phases.map((phase) => {
+    const updatedTasks = phase.tasks.map((task) => {
+      if (task.id === taskId) {
+        taskFound = true;
+        return { ...task, status };
+      }
+      return task;
+    });
+    return { ...phase, tasks: updatedTasks };
+  });
+  if (!taskFound) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+  const updatedPlan = { ...plan, phases: updatedPhases };
+  await savePlan(directory, updatedPlan);
+  return updatedPlan;
 }
 function derivePlanMarkdown(plan) {
   const statusMap = {
@@ -37984,7 +38064,7 @@ var init_runtime = __esm(() => {
 });
 
 // src/index.ts
-import * as path43 from "path";
+import * as path44 from "path";
 
 // src/tools/tool-names.ts
 var TOOL_NAMES = [
@@ -38012,7 +38092,9 @@ var TOOL_NAMES = [
   "retrieve_summary",
   "extract_code_blocks",
   "phase_complete",
-  "save_plan"
+  "save_plan",
+  "update_task_status",
+  "write_retro"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -38050,7 +38132,9 @@ var AGENT_TOOL_MAP = {
     "secretscan",
     "symbols",
     "test_runner",
-    "todo_extract"
+    "todo_extract",
+    "update_task_status",
+    "write_retro"
   ],
   explorer: [
     "complexity_hotspots",
@@ -38991,9 +39075,10 @@ writeCount > 0 on source files from the Architect is equivalent to GATE_DELEGATI
 
 PLAN STATE PROTECTION
 .swarm/plan.md and .swarm/plan.json are READABLE but NOT DIRECTLY WRITABLE for state transitions.
-Task status changes (- [ ] to - [x], "pending" to "complete") must go through phase_complete() ONLY.
+Task-level status changes (marking individual tasks as "completed") must use update_task_status().
+Phase-level completion (marking an entire phase as done) must use phase_complete().
 You may write to plan.md/plan.json for STRUCTURAL changes (adding tasks, updating descriptions).
-You may NOT write to plan.md/plan.json to change task completion status or phase status.
+You may NOT write to plan.md/plan.json to change task completion status or phase status directly.
 "I'll just mark it done directly" is a bypass \u2014 equivalent to GATE_DELEGATION_BYPASS.
 
 6i. **DELEGATION DISCIPLINE**
@@ -39029,7 +39114,7 @@ It is the same severity as skipping all gates. The QA gate is ALL steps or NONE.
    - Target file is in: pages/, components/, views/, screens/, ui/, layouts/
    If triggered: delegate to {{AGENT_PREFIX}}designer FIRST to produce a code scaffold. Then pass the scaffold to {{AGENT_PREFIX}}coder as INPUT alongside the task. The coder implements the TODOs in the scaffold without changing component structure or accessibility attributes.
    If not triggered: delegate directly to {{AGENT_PREFIX}}coder as normal.
-10. **RETROSPECTIVE TRACKING**: At the end of every phase, record phase metrics in .swarm/context.md under "## Phase Metrics" and write a retrospective evidence entry via the evidence manager. Track: phase_number, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned (max 5). Reset Phase Metrics to 0 after writing.
+10. **RETROSPECTIVE TRACKING**: At the end of every phase, record phase metrics in .swarm/context.md under "## Phase Metrics" and write a retrospective evidence entry via write_retro. Track: phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned (max 5). Reset Phase Metrics to 0 after writing.
  11. **CHECKPOINTS**: Before delegating multi-file refactor tasks (3+ files), create a checkpoint save. On critical failures when redo is faster than iterative fixes, restore from checkpoint. Use checkpoint tool: \`checkpoint save\` before risky operations, \`checkpoint restore\` on failure.
 
 SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption, hash, key, certificate, ssl, tls, jwt, oauth, session, csrf, xss, injection, sanitization, permission, access, vulnerable, exploit, privilege, authorization, roles, authentication, mfa, 2fa, totp, otp, salt, iv, nonce, hmac, aes, rsa, sha256, bcrypt, scrypt, argon2, api_key, apikey, private_key, public_key, rbac, admin, superuser, sqli, rce, ssrf, xxe, nosql, command_injection
@@ -39054,7 +39139,7 @@ Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <comm
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
 
-Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan \u2014 npm/pip/cargo), complexity_hotspots (git churn \xD7 complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget)
+Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan \u2014 npm/pip/cargo), complexity_hotspots (git churn \xD7 complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget), update_task_status (mark tasks complete, track phase progress), write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned)
 
 ## DELEGATION FORMAT
 
@@ -39437,6 +39522,9 @@ The ONLY exception: lint tool in fix mode (step 5g) auto-corrects by design.
 All other gates: failure \u2192 return to coder. No self-fixes. No workarounds.
 
 5a. **UI DESIGN GATE** (conditional \u2014 Rule 9): If task matches UI trigger \u2192 {{AGENT_PREFIX}}designer produces scaffold \u2192 pass scaffold to coder as INPUT. If no match \u2192 skip.
+
+\u2192 After step 5a (or immediately if no UI task applies): Call update_task_status with status in_progress for the current task. Then proceed to step 5b.
+
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. BREAKING \u2192 coder retry.
     \u2192 REQUIRED: Print "diff: [PASS | CONTRACT CHANGE \u2014 details]"
@@ -39515,7 +39603,7 @@ PRE-COMMIT RULE \u2014 Before ANY commit or push:
   Any blank "value: ___" field = gate was not run = task is NOT complete.
   Filling this checklist from memory ("I think I ran it") is INVALID. Each value must come from actual tool/agent output in this session.
 
-    5o. Update plan.md [x], proceed to next task.
+    5o. Call update_task_status with status "completed", proceed to next task.
 
 ## \u26D4 RETROSPECTIVE GATE
 
@@ -39523,31 +39611,26 @@ PRE-COMMIT RULE \u2014 Before ANY commit or push:
 
 **How to write the retrospective:**
 
-Use the evidence manager tool to write a bundle at \`retro-{N}\` (where N is the phase number being completed):
+Call the \`write_retro\` tool with the required fields:
+- \`phase\`: The phase number being completed (e.g., 1, 2, 3)
+- \`summary\`: Human-readable summary of the phase
+- \`task_count\`: Count of tasks completed in this phase
+- \`task_complexity\`: One of \`trivial\` | \`simple\` | \`moderate\` | \`complex\`
+- \`total_tool_calls\`: Total number of tool calls in this phase
+- \`coder_revisions\`: Number of coder revisions made
+- \`reviewer_rejections\`: Number of reviewer rejections received
+- \`test_failures\`: Number of test failures encountered
+- \`security_findings\`: Number of security findings
+- \`integration_issues\`: Number of integration issues
+- \`lessons_learned\`: (optional) Key lessons learned from this phase (max 5)
+- \`top_rejection_reasons\`: (optional) Top reasons for reviewer rejections
+- \`metadata\`: (optional) Additional metadata, e.g., \`{ "plan_id": "<current plan title from .swarm/plan.json>" }\`
 
-\`\`\`json
-{
-  "type": "retrospective",
-  "phase_number": <N>,
-  "verdict": "pass",
-  "reviewer_rejections": <count>,
-  "coder_revisions": <count>,
-  "test_failures": <count>,
-  "security_findings": <count>,
-  "lessons_learned": ["lesson 1 (max 5)", "lesson 2"],
-  "top_rejection_reasons": ["reason 1"],
-  "user_directives": [],
-  "approaches_tried": [],
-  "task_complexity": "low|medium|high",
-  "timestamp": "<ISO 8601>",
-  "agent": "architect",
-  "metadata": { "plan_id": "<current plan title from .swarm/plan.json>" }
-}
-\`\`\`
+The tool will automatically write the retrospective to \`.swarm/evidence/retro-{phase}/evidence.json\` with the correct schema wrapper.
 
 **Required field rules:**
-- \`verdict\` MUST be \`"pass"\` \u2014 a verdict of \`"fail"\` or missing verdict blocks phase_complete
-- \`phase_number\` MUST match the phase number you are completing
+- \`verdict\` is auto-generated by write_retro with value \`"pass"\`. The resulting retrospective entry will have verdict \`"pass"\`; this is required for phase_complete to succeed.
+- \`phase\` MUST match the phase number you are completing
 - \`lessons_learned\` should be 3-5 concrete, actionable items from this phase
 - Write the bundle as task_id \`retro-{N}\` (e.g., \`retro-1\` for Phase 1, \`retro-2\` for Phase 2)
 - \`metadata.plan_id\` should be set to the current project's plan title (from \`.swarm/plan.json\` header). This enables cross-project filtering in the retrospective injection system.
@@ -39572,7 +39655,7 @@ Use the evidence manager tool to write a bundle at \`retro-{N}\` (where N is the
    - Summary of what was added/modified/removed
    - List of doc files that may need updating (README.md, CONTRIBUTING.md, docs/)
 3. Update context.md
-4. Write retrospective evidence: record phase_number, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via the evidence manager. Reset Phase Metrics in context.md to 0.
+4. Write retrospective evidence: record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via write_retro. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
 5.5. If \`.swarm/spec.md\` exists: delegate {{AGENT_PREFIX}}critic with DRIFT-CHECK context \u2014 include phase number, list of completed task IDs and descriptions, and evidence path (\`.swarm/evidence/\`). If SIGNIFICANT DRIFT is returned: surface as a warning to the user before proceeding. If spec.md does not exist: skip silently.
@@ -40738,6 +40821,9 @@ function getAgentConfigs(config2) {
       sdkConfig.mode = "primary";
     } else {
       sdkConfig.mode = "subagent";
+    }
+    if (sdkConfig.mode === "primary") {
+      delete sdkConfig.model;
     }
     const baseAgentName = stripKnownSwarmPrefix(agent.name);
     if (!toolFilterEnabled) {
@@ -51872,10 +51958,17 @@ async function executePhaseComplete(args2, workingDirectory) {
   let retroFound = false;
   let retroEntry = null;
   let invalidSchemaErrors = [];
+  let loadedRetroTaskId = null;
+  let loadedRetroBundle = null;
+  const primaryRetroTaskId = `retro-${phase}`;
   if (retroResult.status === "found") {
     const validEntry = retroResult.bundle.entries?.find((entry) => isValidRetroEntry(entry, phase));
-    retroFound = !!validEntry;
-    retroEntry = validEntry;
+    if (validEntry) {
+      retroFound = true;
+      retroEntry = validEntry;
+      loadedRetroTaskId = primaryRetroTaskId;
+      loadedRetroBundle = retroResult.bundle;
+    }
   } else if (retroResult.status === "invalid_schema") {
     invalidSchemaErrors = retroResult.errors;
   }
@@ -51891,9 +51984,11 @@ async function executePhaseComplete(args2, workingDirectory) {
         continue;
       }
       const validEntry = bundleResult.bundle.entries?.find((entry) => isValidRetroEntry(entry, phase));
-      retroFound = !!validEntry;
-      if (retroFound) {
+      if (validEntry) {
+        retroFound = true;
         retroEntry = validEntry;
+        loadedRetroTaskId = taskId;
+        loadedRetroBundle = bundleResult.bundle;
         break;
       }
     }
@@ -51971,6 +52066,11 @@ async function executePhaseComplete(args2, workingDirectory) {
   }
   const agentsMissing = effectiveRequired.filter((req) => !crossSessionResult.agents.has(req));
   const warnings = [];
+  const VALID_TASK_COMPLEXITY = ["trivial", "simple", "moderate", "complex"];
+  const firstEntry = loadedRetroBundle?.entries?.[0];
+  if (loadedRetroTaskId?.startsWith("retro-") && loadedRetroBundle?.schema_version === "1.0.0" && firstEntry?.task_complexity && VALID_TASK_COMPLEXITY.includes(firstEntry.task_complexity)) {
+    warnings.push(`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`);
+  }
   let success3 = true;
   let status = "success";
   const safeSummary = summary?.trim().slice(0, 500);
@@ -57654,11 +57754,133 @@ var MAX_FILE_SIZE2 = 5 * 1024 * 1024;
 // src/tools/index.ts
 init_test_runner();
 
-// src/tools/todo-extract.ts
-init_dist();
+// src/tools/update-task-status.ts
+init_tool();
+init_manager2();
 init_create_tool();
 import * as fs29 from "fs";
 import * as path42 from "path";
+var VALID_STATUSES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "blocked"
+];
+function validateStatus(status) {
+  if (!VALID_STATUSES.includes(status)) {
+    return `Invalid status "${status}". Must be one of: ${VALID_STATUSES.join(", ")}`;
+  }
+  return;
+}
+function validateTaskId(taskId) {
+  const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
+  if (!taskIdPattern.test(taskId)) {
+    return `Invalid task_id "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
+  }
+  return;
+}
+async function executeUpdateTaskStatus(args2, fallbackDir) {
+  const statusError = validateStatus(args2.status);
+  if (statusError) {
+    return {
+      success: false,
+      message: "Validation failed",
+      errors: [statusError]
+    };
+  }
+  const taskIdError = validateTaskId(args2.task_id);
+  if (taskIdError) {
+    return {
+      success: false,
+      message: "Validation failed",
+      errors: [taskIdError]
+    };
+  }
+  let normalizedDir;
+  if (args2.working_directory != null) {
+    if (args2.working_directory.includes("\x00")) {
+      return {
+        success: false,
+        message: "Invalid working_directory: null bytes are not allowed"
+      };
+    }
+    if (process.platform === "win32") {
+      const devicePathPattern = /^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
+      if (devicePathPattern.test(args2.working_directory)) {
+        return {
+          success: false,
+          message: "Invalid working_directory: Windows device paths are not allowed"
+        };
+      }
+    }
+    normalizedDir = path42.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path42.sep);
+    if (pathParts.includes("..")) {
+      return {
+        success: false,
+        message: "Invalid working_directory: path traversal sequences (..) are not allowed",
+        errors: [
+          "Invalid working_directory: path traversal sequences (..) are not allowed"
+        ]
+      };
+    }
+    const resolvedDir = path42.resolve(normalizedDir);
+    try {
+      const realPath = fs29.realpathSync(resolvedDir);
+      const planPath = path42.join(realPath, ".swarm", "plan.json");
+      if (!fs29.existsSync(planPath)) {
+        return {
+          success: false,
+          message: `Invalid working_directory: plan not found in "${realPath}"`,
+          errors: [
+            `Invalid working_directory: plan not found in "${realPath}"`
+          ]
+        };
+      }
+    } catch {
+      return {
+        success: false,
+        message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
+        errors: [
+          `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`
+        ]
+      };
+    }
+  }
+  const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+  try {
+    const updatedPlan = await updateTaskStatus(directory, args2.task_id, args2.status);
+    return {
+      success: true,
+      message: "Task status updated successfully",
+      task_id: args2.task_id,
+      new_status: args2.status,
+      current_phase: updatedPlan.current_phase
+    };
+  } catch (error93) {
+    return {
+      success: false,
+      message: "Failed to update task status",
+      errors: [String(error93)]
+    };
+  }
+}
+var update_task_status = createSwarmTool({
+  description: "Update the status of a specific task in the implementation plan. " + "Task status can be one of: pending, in_progress, completed, blocked.",
+  args: {
+    task_id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID in N.M format, e.g. "1.1", "1.2.3"'),
+    status: tool.schema.enum(["pending", "in_progress", "completed", "blocked"]).describe("New status for the task: pending, in_progress, completed, or blocked"),
+    working_directory: tool.schema.string().optional().describe("Working directory where the plan is located")
+  },
+  execute: async (args2, _directory) => {
+    return JSON.stringify(await executeUpdateTaskStatus(args2, _directory), null, 2);
+  }
+});
+// src/tools/todo-extract.ts
+init_dist();
+init_create_tool();
+import * as fs30 from "fs";
+import * as path43 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS2 = new Set([
@@ -57729,9 +57951,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path42.resolve(paths);
-    const normalizedCwd = path42.resolve(cwd);
-    const normalizedResolved = path42.resolve(resolvedPath);
+    const resolvedPath = path43.resolve(paths);
+    const normalizedCwd = path43.resolve(cwd);
+    const normalizedResolved = path43.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -57747,13 +57969,13 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path42.extname(filePath).toLowerCase();
+  const ext = path43.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
 function findSourceFiles3(dir, files = []) {
   let entries;
   try {
-    entries = fs29.readdirSync(dir);
+    entries = fs30.readdirSync(dir);
   } catch {
     return files;
   }
@@ -57762,10 +57984,10 @@ function findSourceFiles3(dir, files = []) {
     if (SKIP_DIRECTORIES3.has(entry)) {
       continue;
     }
-    const fullPath = path42.join(dir, entry);
+    const fullPath = path43.join(dir, entry);
     let stat2;
     try {
-      stat2 = fs29.statSync(fullPath);
+      stat2 = fs30.statSync(fullPath);
     } catch {
       continue;
     }
@@ -57858,7 +58080,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs29.existsSync(scanPath)) {
+    if (!fs30.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -57868,13 +58090,13 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat2 = fs29.statSync(scanPath);
+    const stat2 = fs30.statSync(scanPath);
     if (stat2.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path42.extname(scanPath)}`,
+          error: `unsupported file extension: ${path43.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -57887,11 +58109,11 @@ var todo_extract = createSwarmTool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs29.statSync(filePath);
+        const fileStat = fs30.statSync(filePath);
         if (fileStat.size > MAX_FILE_SIZE_BYTES8) {
           continue;
         }
-        const content = fs29.readFileSync(filePath, "utf-8");
+        const content = fs30.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -57999,7 +58221,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path43.resolve(ctx.directory, ".swarm");
+    const swarmDir = path44.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -58111,7 +58333,9 @@ var OpenCodeSwarm = async (ctx) => {
       secretscan,
       symbols,
       test_runner,
-      todo_extract
+      todo_extract,
+      update_task_status,
+      write_retro
     },
     config: async (opencodeConfig) => {
       if (!opencodeConfig.agent) {

@@ -45,6 +45,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'test_runner',
 		'todo_extract',
+		'update_task_status',
+		'write_retro',
 	],
 	explorer: [
 		'complexity_hotspots',
