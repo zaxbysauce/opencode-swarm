@@ -405,6 +405,12 @@ export async function sastScan(
 		}
 	}
 
+	// Zero-coverage fail: if enabled mode and no files were scanned, fail the verdict
+	// This ensures zero-scanned coverage cannot be treated as a successful security check
+	if (filesScanned === 0) {
+		verdict = 'fail';
+	}
+
 	// Build summary
 	const summary = {
 		engine,
@@ -450,7 +456,7 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 		changed_files: tool.schema
 			.array(tool.schema.string())
 			.optional()
-			.describe('List of files to scan (defaults to all if not provided)'),
+			.describe('List of files to scan (leave empty to scan none)'),
 		severity_threshold: tool.schema
 			.enum(['low', 'medium', 'high', 'critical'])
 			.optional()

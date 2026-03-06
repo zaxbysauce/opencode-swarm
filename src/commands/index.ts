@@ -175,30 +175,51 @@ export function createSwarmCommandHandler(
 				text = await handleWriteRetroCommand(directory, args);
 				break;
 			case 'knowledge': {
-				const knowledgeArgs = args.slice(1);
-				const subcommand = knowledgeArgs[0];
+				const subcommand = args[0];
 
 				if (subcommand === 'quarantine') {
 					text = await handleKnowledgeQuarantineCommand(
 						directory,
-						knowledgeArgs.slice(1),
+						args.slice(1),
 					);
 				} else if (subcommand === 'restore') {
-					text = await handleKnowledgeRestoreCommand(
-						directory,
-						knowledgeArgs.slice(1),
-					);
+					text = await handleKnowledgeRestoreCommand(directory, args.slice(1));
 				} else if (subcommand === 'migrate') {
-					text = await handleKnowledgeMigrateCommand(
-						directory,
-						knowledgeArgs.slice(1),
-					);
+					text = await handleKnowledgeMigrateCommand(directory, args.slice(1));
 				} else {
 					// Default: list knowledge entries
-					text = await handleKnowledgeListCommand(directory, knowledgeArgs);
+					text = await handleKnowledgeListCommand(directory, args.slice(1));
 				}
 				break;
 			}
+			case 'agents':
+				text = await handleAgentsCommand(agents);
+				break;
+			case 'history':
+				text = await handleHistoryCommand(directory, args);
+				break;
+			case 'config': {
+				if (args[0] === 'doctor') {
+					text = await handleDoctorCommand(directory, args.slice(1));
+				} else {
+					text = await handleConfigCommand(directory, args);
+				}
+				break;
+			}
+			case 'evidence': {
+				if (args[0] === 'summary') {
+					text = await handleEvidenceSummaryCommand(directory);
+				} else {
+					text = await handleEvidenceCommand(directory, args);
+				}
+				break;
+			}
+			case 'archive':
+				text = await handleArchiveCommand(directory, args);
+				break;
+			case 'diagnose':
+				text = await handleDiagnoseCommand(directory, args);
+				break;
 			default:
 				text = HELP_TEXT;
 				break;

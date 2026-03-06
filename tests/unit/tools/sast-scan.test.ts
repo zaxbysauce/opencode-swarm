@@ -48,15 +48,18 @@ describe('sastScan', () => {
 	});
 
 	describe('Basic functionality', () => {
-		it('should return pass verdict when no files provided', async () => {
+		// R2 SAST zero-coverage semantic test
+		it('should fail verdict when enabled mode and zero files scanned', async () => {
 			const input: SastScanInput = {
 				changed_files: [],
 				severity_threshold: 'medium',
 			};
 
+			// SAST is enabled by default (no config or config.gates.sast_scan.enabled !== false)
 			const result = await sastScan(input, tempDir);
 
-			expect(result.verdict).toBe('pass');
+			// Zero-coverage fail: enabled mode with files_scanned===0 should fail
+			expect(result.verdict).toBe('fail');
 			expect(result.findings).toEqual([]);
 			expect(result.summary.files_scanned).toBe(0);
 			expect(result.summary.engine).toBe('tier_a');
@@ -499,7 +502,8 @@ int main() {
 			const result = await sastScan(input, tempDir);
 
 			expect(result.summary.files_scanned).toBe(0);
-			expect(result.verdict).toBe('pass');
+			// R2 SAST zero-coverage: enabled mode with zero files scanned should fail
+			expect(result.verdict).toBe('fail');
 		});
 
 		it('should skip unsupported languages', async () => {
@@ -513,6 +517,22 @@ int main() {
 			const result = await sastScan(input, tempDir);
 
 			expect(result.summary.files_scanned).toBe(0);
+		});
+
+		// R2 SAST zero-coverage semantic test
+		it('should fail verdict when all provided files are skipped (unsupported)', async () => {
+			const testFile = path.join(tempDir, 'test.xyz');
+			fs.writeFileSync(testFile, 'some content');
+
+			const input: SastScanInput = {
+				changed_files: [testFile],
+			};
+
+			const result = await sastScan(input, tempDir);
+
+			// Files provided but all skipped => files_scanned === 0 => should fail in enabled mode
+			expect(result.summary.files_scanned).toBe(0);
+			expect(result.verdict).toBe('fail');
 		});
 
 		it('should skip empty files', async () => {
@@ -652,6 +672,30 @@ const key = "sk-1234567890";`,
 
 			expect(result.verdict).toBe('pass');
 			expect(result.findings).toEqual([]);
+		});
+
+		// R2 SAST zero-coverage semantic test
+		it('should pass verdict when disabled via config even with zero files scanned', async () => {
+			const input: SastScanInput = {
+				changed_files: [],
+				severity_threshold: 'medium',
+			};
+
+			// Disable SAST via config
+			const config = {
+				gates: {
+					sast_scan: {
+						enabled: false,
+					},
+				},
+			} as unknown as PluginConfig;
+
+			const result = await sastScan(input, tempDir, config);
+
+			// When disabled, zero files scanned should NOT fail (early return at line 204-221)
+			expect(result.verdict).toBe('pass');
+			expect(result.findings).toEqual([]);
+			expect(result.summary.files_scanned).toBe(0);
 		});
 	});
 });

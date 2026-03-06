@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.19.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.4...v6.19.5) (2026-03-06)
+
+
+### Bug Fixes
+
+* phase completion reliability and workspace validation hardening ([4051d14](https://github.com/zaxbysauce/opencode-swarm/commit/4051d14b71d5f5cce5b8f479c534eac8817d436a))
+* phase completion reliability and workspace validation hardening ([600e9bb](https://github.com/zaxbysauce/opencode-swarm/commit/600e9bb158e98f30e375ce784271f561492bcf98))
+
 ## [6.19.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.3...v6.19.4) (2026-03-05)
 
 

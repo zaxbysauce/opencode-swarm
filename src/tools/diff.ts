@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 
 const MAX_DIFF_LINES = 500;
@@ -16,6 +16,7 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 const MAX_REF_LENGTH = 256;
 const MAX_PATH_LENGTH = 500;
 const SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
+const CONTROL_CHAR_PATTERN = /[\x00-\x1F\x7F]/;
 
 function validateBase(base: string): string | null {
 	if (base.length > MAX_REF_LENGTH) {
@@ -38,6 +39,12 @@ function validatePaths(paths: string[] | undefined): string | null {
 		}
 		if (SHELL_METACHARACTERS.test(path)) {
 			return 'path contains shell metacharacters';
+		}
+		if (path.startsWith('-')) {
+			return 'path cannot start with "-" (option-like arguments not allowed)';
+		}
+		if (CONTROL_CHAR_PATTERN.test(path)) {
+			return 'path contains control characters';
 		}
 	}
 	return null;
@@ -78,7 +85,6 @@ export const diff: ReturnType<typeof tool> = tool({
 	): Promise<string> {
 		try {
 			const base = args.base ?? 'HEAD';
-			const pathSpec = args.paths?.length ? `-- ${args.paths.join(' ')}` : '';
 
 			const baseValidationError = validateBase(base);
 			if (baseValidationError) {
@@ -102,21 +108,30 @@ export const diff: ReturnType<typeof tool> = tool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			let gitCmd: string;
+			let gitArgs: string[];
 			if (base === 'staged') {
-				gitCmd = 'git --no-pager diff --cached';
+				gitArgs = ['--no-pager', 'diff', '--cached'];
 			} else if (base === 'unstaged') {
-				gitCmd = 'git --no-pager diff';
+				gitArgs = ['--no-pager', 'diff'];
 			} else {
-				gitCmd = `git --no-pager diff ${base}`;
+				gitArgs = ['--no-pager', 'diff', base];
 			}
 
-			const numstatOutput = execSync(`${gitCmd} --numstat ${pathSpec}`, {
+			const numstatArgs = [...gitArgs, '--numstat'];
+			const fullDiffArgs = [...gitArgs, '-U3'];
+
+			if (args.paths?.length) {
+				numstatArgs.push('--', ...args.paths);
+				fullDiffArgs.push('--', ...args.paths);
+			}
+
+			const numstatOutput = execFileSync('git', numstatArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
+				maxBuffer: MAX_BUFFER_BYTES,
 			});
 
-			const fullDiffOutput = execSync(`${gitCmd} -U3 ${pathSpec}`, {
+			const fullDiffOutput = execFileSync('git', fullDiffArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
