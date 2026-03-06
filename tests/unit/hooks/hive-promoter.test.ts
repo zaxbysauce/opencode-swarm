@@ -980,3 +980,81 @@ describe('File Cleanup - Schema Mismatch Fix Verification', () => {
 		expect(typeof module.promoteFromSwarm).toBe('function');
 	});
 });
+
+// ============================================================================
+// R5 Cross-Platform source_project basename Fix Verification
+// ============================================================================
+
+describe('R5: promoteToHive source_project cross-platform fix', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+	});
+
+	it('promoteToHive uses path.basename(directory) for source_project', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for source_project path basename verification';
+
+		// Use a directory with a clear basename
+		await module.promoteToHive('/Users/testuser/my-project', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		// path.basename on Unix extracts 'my-project' from '/Users/testuser/my-project'
+		expect(hiveEntry.source_project).toBe('my-project');
+	});
+
+	it('promoteToHive handles Windows-style paths correctly', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for Windows path verification';
+
+		// Use a Windows-style path
+		await module.promoteToHive('C:\\Users\\testuser\\my-project', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		// path.basename on Windows extracts 'my-project' from 'C:\Users\testuser\my-project'
+		expect(hiveEntry.source_project).toBe('my-project');
+	});
+
+	it('promoteToHive falls back to "unknown" when path.basename returns empty', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for empty basename fallback verification';
+
+		// Empty directory path should result in empty basename
+		await module.promoteToHive('', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		// path.basename('') returns '' which is falsy, so should fallback to 'unknown'
+		expect(hiveEntry.source_project).toBe('unknown');
+	});
+
+	it('promoteToHive falls back to "unknown" for root path', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for root path fallback verification';
+
+		// Root path - basename may be empty string on some platforms
+		await module.promoteToHive('/', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		// path.basename('/') returns '' on Unix, should fallback to 'unknown'
+		expect(hiveEntry.source_project).toBe('unknown');
+	});
+
+	it('promoteToHive correctly extracts basename from nested paths', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const testLesson = 'Test lesson for nested path basename';
+
+		// Deeply nested path
+		await module.promoteToHive('/home/user/projects/my-awesome-app/src', testLesson, 'process');
+
+		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		// Should get 'src' (the last component)
+		expect(hiveEntry.source_project).toBe('src');
+	});
+});

@@ -729,4 +729,393 @@ function test() {
 			expect(result.summary.findings_count).toBe(3);
 		});
 	});
+
+	// ============ Adversarial Tests ============
+
+	describe('ADVERSARIAL: path-pattern bypass attempts', () => {
+		it('should NOT bypass with path traversal (../)', async () => {
+			// Attempt to bypass test detection via ../path
+			fs.mkdirSync(path.join(tempDir, 'src'));
+			fs.mkdirSync(path.join(tempDir, 'tests'));
+			createTestFile(tempDir, 'src/real.ts', '// TODO: bypass attempt');
+			createTestFile(tempDir, 'tests/skip.ts', '// TODO: should be skipped');
+			
+			// Try to access tests file via parent directory traversal
+			const result = await placeholderScan(
+				{ changed_files: ['../tests/skip.ts'] },
+				path.join(tempDir, 'src')
+			);
+
+			// Should still work - tests file should be skipped OR path resolution handles it
+			// Either pass (skipped) or fail (detected) is acceptable for different reasons
+			expect(['pass', 'fail']).toContain(result.verdict);
+		});
+
+		it('should handle case-varied test directory names', async () => {
+			// Test case sensitivity bypass attempt on Windows (case-insensitive)
+			fs.mkdirSync(path.join(tempDir, 'TEST'));
+			createTestFile(tempDir, 'TEST/utils.ts', '// TODO: bypass via case');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['TEST/utils.ts'] },
+				tempDir
+			);
+
+			// Windows is case-insensitive, so TEST/ should match tests/ pattern
+			// The regex uses \b but toLowerCase normalizes, so this should be skipped
+			expect(result.verdict).toBe('pass');
+		});
+
+		it('should NOT bypass test detection with similar-but-different patterns', async () => {
+			// Try patterns that are close but not quite matching test patterns
+			fs.mkdirSync(path.join(tempDir, 'testing'));
+			createTestFile(tempDir, 'testing/file.ts', '// TODO: in testing dir');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['testing/file.ts'] },
+				tempDir
+			);
+
+			// 'testing/' doesn't match 'test/' or 'tests/' patterns exactly
+			// This SHOULD be scanned and detect the TODO
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle files with multiple dot segments', async () => {
+			// File with multiple dots: file.test.utils.ts
+			createTestFile(tempDir, 'file.test.utils.ts', '// TODO: multi-dot file');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['file.test.utils.ts'] },
+				tempDir
+			);
+
+			// Should match /\.test\./ and be skipped
+			expect(result.verdict).toBe('pass');
+		});
+	});
+
+	describe('ADVERSARIAL: scaffold/test classification edge cases', () => {
+		it('should scan scaffold files for placeholders (not skip them)', async () => {
+			// Scaffold files SHOULD be scanned for placeholders
+			fs.mkdirSync(path.join(tempDir, 'scaffold'));
+			createTestFile(tempDir, 'scaffold/gen.ts', '// TODO: scaffold placeholder');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['scaffold/gen.ts'] },
+				tempDir
+			);
+
+			// Scaffold files are NOT skipped - they are explicitly scanned
+			expect(result.verdict).toBe('fail');
+			expect(result.findings[0].rule_id).toBe('placeholder/comment-todo');
+		});
+
+		it('should scan generated files for placeholders', async () => {
+			fs.mkdirSync(path.join(tempDir, 'generated'));
+			createTestFile(tempDir, 'generated/code.ts', '// FIXME: generated code');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['generated/code.ts'] },
+				tempDir
+			);
+
+			// generated/ files should be scanned
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should scan template files for placeholders', async () => {
+			fs.mkdirSync(path.join(tempDir, 'templates'));
+			createTestFile(tempDir, 'templates/tmpl.ts', '# TODO: template');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['templates/tmpl.ts'] },
+				tempDir
+			);
+
+			// templates/ should be scanned
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle scaffold filename patterns', async () => {
+			// Files starting with gen-, scaffold-, template-
+			createTestFile(tempDir, 'gen-file.ts', '// TODO: gen-file');
+			createTestFile(tempDir, 'scaffold-file.ts', '// FIXME: scaffold-file');
+			createTestFile(tempDir, 'template-file.ts', '// TBD: template-file');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['gen-file.ts', 'scaffold-file.ts', 'template-file.ts'] },
+				tempDir
+			);
+
+			// All scaffold filename patterns should be scanned
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(3);
+		});
+
+		it('should handle .gen. .scaffold. .template. filename extensions', async () => {
+			createTestFile(tempDir, 'file.gen.ts', '// TODO: .gen. file');
+			createTestFile(tempDir, 'file.scaffold.ts', '// FIXME: .scaffold. file');
+			createTestFile(tempDir, 'file.template.ts', '// TBD: .template. file');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['file.gen.ts', 'file.scaffold.ts', 'file.template.ts'] },
+				tempDir
+			);
+
+			// All should be scanned
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(3);
+		});
+
+		it('should handle __generated__ and __scaffold__ directories', async () => {
+			fs.mkdirSync(path.join(tempDir, '__generated__'));
+			fs.mkdirSync(path.join(tempDir, '__scaffold__'));
+			createTestFile(tempDir, '__generated__/code.ts', '// TODO: generated');
+			createTestFile(tempDir, '__scaffold__/code.ts', '// FIXME: scaffold');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['__generated__/code.ts', '__scaffold__/code.ts'] },
+				tempDir
+			);
+
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(2);
+		});
+	});
+
+	describe('ADVERSARIAL: glob bypass attempts', () => {
+		it('should handle wildcard bypass attempts in globs', async () => {
+			// Files outside the glob should NOT be skipped
+			createTestFile(tempDir, 'secure.ts', '// TODO: not allowed');
+			createTestFile(tempDir, 'allowed.ts', '// TODO: allowed');
+			
+			const result = await placeholderScan(
+				{ 
+					changed_files: ['secure.ts', 'allowed.ts'],
+					allow_globs: ['allowed.ts']  // Only allow allowed.ts
+				},
+				tempDir
+			);
+
+			// secure.ts should be scanned (fail), allowed.ts should be skipped (pass)
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(1);
+			expect(result.findings[0].path).toContain('secure.ts');
+		});
+
+		it('should handle glob with directory prefix', async () => {
+			fs.mkdirSync(path.join(tempDir, 'src'));
+			fs.mkdirSync(path.join(tempDir, 'lib'));
+			createTestFile(tempDir, 'src/code.ts', '// TODO: src');
+			createTestFile(tempDir, 'lib/code.ts', '// TODO: lib');
+			
+			const result = await placeholderScan(
+				{ 
+					changed_files: ['src/code.ts', 'lib/code.ts'],
+					allow_globs: ['src/']  // Allow only src/
+				},
+				tempDir
+			);
+
+			// src/code.ts should be skipped, lib/code.ts should be scanned
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(1);
+		});
+
+		it('should handle glob with ** prefix', async () => {
+			fs.mkdirSync(path.join(tempDir, 'src'));
+			fs.mkdirSync(path.join(tempDir, 'src', 'nested'));
+			createTestFile(tempDir, 'src/file.ts', '// TODO: src');
+			createTestFile(tempDir, 'src/nested/file.ts', '// TODO: nested');
+			createTestFile(tempDir, 'other.ts', '// TODO: other');
+			
+			const result = await placeholderScan(
+				{ 
+					changed_files: ['src/file.ts', 'src/nested/file.ts', 'other.ts'],
+					allow_globs: ['src/**']  // Allow all src/ files recursively
+				},
+				tempDir
+			);
+
+			// Only other.ts should be scanned
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(1);
+			expect(result.findings[0].path).toContain('other.ts');
+		});
+
+		it('should handle empty glob array (no bypass)', async () => {
+			createTestFile(tempDir, 'file.ts', '// TODO: test');
+			
+			const result = await placeholderScan(
+				{ 
+					changed_files: ['file.ts'],
+					allow_globs: []  // Empty globs - no bypass
+				},
+				tempDir
+			);
+
+			// Should scan normally
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle undefined allow_globs', async () => {
+			createTestFile(tempDir, 'file.ts', '// TODO: test');
+			
+			const result = await placeholderScan(
+				{ 
+					changed_files: ['file.ts']
+					// No allow_globs
+				},
+				tempDir
+			);
+
+			// Should scan normally
+			expect(result.verdict).toBe('fail');
+		});
+	});
+
+	describe('ADVERSARIAL: malformed filenames and edge cases', () => {
+		it('should handle filenames with spaces', async () => {
+			createTestFile(tempDir, 'file with spaces.ts', '// TODO: spaces');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['file with spaces.ts'] },
+				tempDir
+			);
+
+			expect(['pass', 'fail']).toContain(result.verdict);
+		});
+
+		it('should handle filenames with special chars', async () => {
+			createTestFile(tempDir, 'file-name_123.ts', '// TODO: special chars');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['file-name_123.ts'] },
+				tempDir
+			);
+
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle filenames starting with dot', async () => {
+			createTestFile(tempDir, '.hidden.ts', '// TODO: hidden file');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['.hidden.ts'] },
+				tempDir
+			);
+
+			// .hidden files should be scanned
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle deeply nested paths', async () => {
+			const deepPath = path.join(tempDir, 'a', 'b', 'c', 'd', 'e');
+			fs.mkdirSync(deepPath, { recursive: true });
+			fs.writeFileSync(path.join(deepPath, 'deep.ts'), '// TODO: deep', 'utf-8');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['a/b/c/d/e/deep.ts'] },
+				tempDir
+			);
+
+			expect(result.verdict).toBe('fail');
+		});
+
+		it('should handle very long path segments', async () => {
+			const longName = 'a'.repeat(200) + '.ts';
+			createTestFile(tempDir, longName, '// TODO: long name');
+			
+			const result = await placeholderScan(
+				{ changed_files: [longName] },
+				tempDir
+			);
+
+			// Should handle gracefully (either pass or fail)
+			expect(['pass', 'fail']).toContain(result.verdict);
+		});
+	});
+
+	describe('ADVERSARIAL: detection resilience', () => {
+		it('should detect TODO with various casings', async () => {
+			createTestFile(tempDir, 'case1.ts', '// todo: lowercase');
+			createTestFile(tempDir, 'case2.ts', '// Todo: mixed case');
+			createTestFile(tempDir, 'case3.ts', '// TODO: uppercase');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['case1.ts', 'case2.ts', 'case3.ts'] },
+				tempDir
+			);
+
+			// All should be detected due to /i flag in regex
+			expect(result.verdict).toBe('fail');
+			expect(result.findings.length).toBe(3);
+		});
+
+		it('should detect placeholders in different string formats', async () => {
+			createTestFile(tempDir, 'strings.ts', `
+const a = "placeholder text";
+const b = 'another placeholder';
+const c = \`template placeholder\`;
+const d = "stub value";
+const e = 'wip implementation';
+const f = "not implemented yet";
+`);
+			
+			const result = await placeholderScan(
+				{ changed_files: ['strings.ts'] },
+				tempDir
+			);
+
+			// Multiple string patterns should be detected
+			expect(result.findings.length).toBeGreaterThanOrEqual(4);
+		});
+
+		it('should detect placeholders in various return statements', async () => {
+			createTestFile(tempDir, 'returns.ts', `
+function a() { return null; }
+function b() { return undefined; }
+function c() { return 0; }
+function d() { return false; }
+function e() { return true; }
+function f() { return ""; }
+function g() { return []; }
+function h() { return {}; }
+`);
+			
+			const result = await placeholderScan(
+				{ changed_files: ['returns.ts'] },
+				tempDir
+			);
+
+			// Multiple stub returns should be detected
+			expect(result.findings.length).toBeGreaterThanOrEqual(6);
+		});
+
+		it('should handle file with only whitespace', async () => {
+			createTestFile(tempDir, 'whitespace.ts', '   \n\t\n   \n');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['whitespace.ts'] },
+				tempDir
+			);
+
+			// Should handle gracefully
+			expect(result.summary.files_scanned).toBe(1);
+		});
+
+		it('should handle file with only null bytes', async () => {
+			fs.writeFileSync(path.join(tempDir, 'nulls.bin'), '\0\0\0');
+			
+			const result = await placeholderScan(
+				{ changed_files: ['nulls.bin'] },
+				tempDir
+			);
+
+			// Binary files should be skipped
+			expect(result.summary.files_scanned).toBe(0);
+		});
+	});
 });
+

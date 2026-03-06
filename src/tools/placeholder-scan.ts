@@ -119,6 +119,25 @@ const TEST_PATH_PATTERNS = [
 	/\b__specs?__\//, // matches: __specs__/, __spec__/ directory
 ];
 
+// Generated/scaffold file patterns - these files WILL be scanned for placeholders
+const SCAFFOLD_PATH_PATTERNS = [
+	/\bgenerated\//, // matches: generated/ directory
+	/\bscaffold\//, // matches: scaffold/ directory
+	/\btemplates?\//, // matches: templates/, template/ directory
+	/\b__generated__\//, // matches: __generated__/ directory
+	/\b__scaffold__\//, // matches: __scaffold__/ directory
+];
+
+// Filename patterns for generated/scaffold files
+const SCAFFOLD_FILENAME_PATTERNS = [
+	/^gen-/, // matches: gen-something.ts
+	/^scaffold-/, // matches: scaffold-something.ts
+	/^template-/, // matches: template-something.ts
+	/\.gen\./, // matches: something.gen.ts
+	/\.scaffold\./, // matches: something.scaffold.ts
+	/\.template\./, // matches: something.template.ts
+];
+
 // Additional content patterns that indicate a test file (more specific - only framework calls)
 const _TEST_CONTENT_PATTERNS = [
 	/\bdescribe\s*\(/,
@@ -163,6 +182,27 @@ const SUPPORTED_PARSER_EXTENSIONS = new Set([
 function isTestFile(filePath: string): boolean {
 	const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
 	return TEST_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath));
+}
+
+/**
+ * Check if a file is a generated/scaffold file based on path or filename patterns
+ * Generated scaffold files WILL be scanned for placeholders (unlike test files which are skipped)
+ */
+function isScaffoldFile(filePath: string): boolean {
+	const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
+
+	// Check path patterns (directory-based)
+	if (SCAFFOLD_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath))) {
+		return true;
+	}
+
+	// Check filename patterns
+	const filename = path.basename(filePath);
+	if (SCAFFOLD_FILENAME_PATTERNS.some((pattern) => pattern.test(filename))) {
+		return true;
+	}
+
+	return false;
 }
 
 /**
@@ -531,8 +571,13 @@ export async function placeholderScan(
 			continue;
 		}
 
+		// Check if this is a scaffold/generated file - these ARE scanned for placeholders
+		// (unlike test files which are skipped)
+		const isScaffold = isScaffoldFile(filePath);
+
 		// Skip test files by default (based on path patterns)
-		if (isTestFile(filePath)) {
+		// Note: scaffold files are NOT skipped - they are explicitly scanned for placeholders
+		if (isTestFile(filePath) && !isScaffold) {
 			continue;
 		}
 

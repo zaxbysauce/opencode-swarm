@@ -519,19 +519,299 @@ function isTestFile(filePath: string): boolean {
 }
 
 /**
+ * Check if a glob segment matches a path segment (handles * wildcards within segment)
+ */
+function matchSegment(globSeg: string, pathSeg: string): boolean {
+	// ** is handled at the segment level, not here
+	if (globSeg === '**') {
+		// This shouldn't happen - ** should be handled by the main loop
+		return false;
+	}
+
+	// Literal match
+	if (globSeg === pathSeg) {
+		return true;
+	}
+
+	// Check if segment contains glob wildcards
+	if (globSeg.includes('*')) {
+		// Convert glob segment to regex
+		// * matches zero or more characters within the segment (not across /)
+		let pattern = globSeg;
+		// Escape regex metacharacters except *
+		pattern = pattern.replace(/[[\](){}|+?^$.\\]/g, '\\$&');
+		// Replace * with regex that matches zero or more chars
+		pattern = pattern.replace(/\*/g, '.*');
+		// Anchor to match entire segment
+		const regex = new RegExp(`^${pattern}$`);
+		return regex.test(pathSeg);
+	}
+
+	return false;
+}
+
+/**
+ * Segment-based glob matcher for patterns with **
+ * Splits glob and path by / and matches segment by segment
+ * Handles ** semantics: zero-or-more segments, without crossing malformed empty segments
+ */
+function matchGlobSegment(
+	globSegments: string[],
+	pathSegments: string[],
+): boolean {
+	// Reject paths with empty segments (//)
+	if (pathSegments.some((s) => s === '')) {
+		return false;
+	}
+
+	let gIndex = 0;
+	let pIndex = 0;
+
+	while (gIndex < globSegments.length && pIndex < pathSegments.length) {
+		const globSeg = globSegments[gIndex];
+
+		if (globSeg === '**') {
+			// ** matches zero or more directory segments
+			// Try matching zero segments first (skip ** and continue)
+			if (
+				matchGlobSegment(
+					globSegments.slice(gIndex + 1),
+					pathSegments.slice(pIndex),
+				)
+			) {
+				return true;
+			}
+			// Try matching one or more segments with **
+			// For each possible split point, check if the rest matches
+			// This ensures ** doesn't cross invalid boundaries
+			for (let i = pIndex; i < pathSegments.length; i++) {
+				// Try consuming pathSegments[pIndex] through pathSegments[i] (inclusive)
+				// by slicing from i+1
+				if (
+					matchGlobSegment(
+						globSegments.slice(gIndex + 1),
+						pathSegments.slice(i + 1),
+					)
+				) {
+					return true;
+				}
+			}
+			// No match found for this ** position
+			return false;
+		} else if (globSeg === '*') {
+			// * matches exactly one non-empty segment
+			if (pathSegments[pIndex] === '') {
+				return false;
+			}
+			gIndex++;
+			pIndex++;
+		} else {
+			// Literal segment or segment with * wildcards - use matchSegment
+			if (!matchSegment(globSeg, pathSegments[pIndex])) {
+				return false;
+			}
+			gIndex++;
+			pIndex++;
+		}
+	}
+
+	// Handle trailing ** (which can match zero segments)
+	while (gIndex < globSegments.length && globSegments[gIndex] === '**') {
+		gIndex++;
+	}
+
+	// Both must be exhausted for a match
+	return gIndex === globSegments.length && pIndex === pathSegments.length;
+}
+
+/**
+ * Check if a path matches a glob pattern using segment-based matching
+ * This handles ** correctly without regex edge cases
+ * Ensures ** semantics: zero-or-more segments, without crossing malformed empty segments
+ */
+function matchesGlobSegment(path: string, glob: string): boolean {
+	// Normalize path separators
+	const normalizedPath = path.replace(/\\/g, '/');
+	const normalizedGlob = glob.replace(/\\/g, '/');
+
+	// Reject paths with empty segments early - they can never match
+	if (normalizedPath.includes('//')) {
+		return false;
+	}
+
+	// Reject globs with empty segments (malformed patterns)
+	if (normalizedGlob.includes('//')) {
+		return false;
+	}
+
+	// Split into segments (filter out empty segments for matching)
+	const pathSegments = normalizedPath.split('/').filter((s) => s !== '');
+	const globSegments = normalizedGlob.split('/').filter((s) => s !== '');
+
+	// Handle empty glob - matches everything
+	if (globSegments.length === 0) {
+		return true;
+	}
+
+	// Handle bare ** glob - matches everything
+	if (globSegments.length === 1 && globSegments[0] === '**') {
+		return true;
+	}
+
+	return matchGlobSegment(globSegments, pathSegments);
+}
+
+/**
+ * Convert a simple glob pattern (without **) to a regex
+ * Ensures * doesn't cross path separators
+ */
+function simpleGlobToRegex(glob: string): RegExp {
+	// Handle empty glob - matches everything
+	if (!glob) {
+		return /.*/;
+	}
+
+	let pattern = glob;
+
+	// Escape regex metacharacters except *
+	const regexMetacharacters = /[[\](){}|+?^$.\\]/g;
+	pattern = pattern.replace(regexMetacharacters, '\\$&');
+
+	// Replace * with [^/]+ (one or more non-slash characters)
+	// This ensures * doesn't cross path separators
+	pattern = pattern.replace(/\*/g, '[^/]+');
+
+	return new RegExp(`^${pattern}$`);
+}
+
+/**
+ * Check if glob contains **
+ */
+function hasGlobstar(glob: string): boolean {
+	return glob.includes('**');
+}
+
+/**
+ * Check if a path matches a glob pattern
+ * Uses segment-based matching for patterns with **, regex for simpler patterns
+ * Ensures ** semantics: zero-or-more segments, without crossing malformed empty segments
+ */
+function globMatches(path: string, glob: string): boolean {
+	// Normalize path
+	const normalizedPath = path.replace(/\\/g, '/');
+
+	// Handle empty glob - matches all paths (but reject paths with //)
+	if (!glob || glob === '') {
+		// Reject paths with empty segments
+		if (normalizedPath.includes('//')) {
+			return false;
+		}
+		return true;
+	}
+
+	// Handle trailing backslash in glob - treat as literal (or ignore)
+	const normalizedGlob = glob.endsWith('\\') ? glob.slice(0, -1) : glob;
+
+	// Reject paths/globs with empty segments for matching decisions
+	if (normalizedPath.includes('//') || normalizedGlob.includes('//')) {
+		return false;
+	}
+
+	// Use segment-based matching for patterns with **
+	if (hasGlobstar(normalizedGlob)) {
+		return matchesGlobSegment(normalizedPath, normalizedGlob);
+	}
+
+	// Use simple regex for patterns without **
+	const regex = simpleGlobToRegex(normalizedGlob);
+	return regex.test(normalizedPath);
+}
+
+/**
+ * Convert a glob pattern to a regex for path matching
+ * - ** matches any number of directories (zero or more)
+ * - * matches any characters within a single path segment
+ * - . is escaped
+ * - Regex metacharacters are escaped to avoid SyntaxError
+ * @deprecated Use globMatches() instead for reliable globstar handling
+ */
+function globToRegex(glob: string): RegExp {
+	// Handle empty glob - matches everything
+	if (!glob) {
+		return /.*/;
+	}
+
+	// Use placeholder to protect ** during processing
+	const placeholder = '\x00';
+
+	let pattern = glob;
+
+	// Handle trailing backslash - escape it to prevent regex errors
+	// A trailing \ in glob should be treated as literal backslash
+	if (pattern.endsWith('\\')) {
+		pattern = pattern.slice(0, -1) + '\\\\';
+	}
+
+	// Check if pattern contains ** - we'll use different anchoring
+	const hasGlobstar = pattern.includes('**');
+
+	// Step 1: Replace ** with placeholder (preserve for later)
+	pattern = pattern.replace(/\*\*/g, placeholder);
+
+	// Step 2: Escape regex metacharacters (but not * which is now placeholder)
+	// These must be escaped: [ ] ( ) + ? | ^ $ { } . \
+	// Note: / doesn't need escaping in regex
+	const regexMetacharacters = /[[\](){}|+?^$.\\]/g;
+	pattern = pattern.replace(regexMetacharacters, '\\$&');
+
+	// Step 3: Replace remaining single * (original glob star) with [^/]*
+	// Zero or more non-slash characters
+	pattern = pattern.replace(/\*/g, '[^/]*');
+
+	// Step 4: Replace ** placeholder with .*? (non-greedy zero-or-more)
+	// This allows ** to match zero or more directory segments, so src/**/*.ts matches src/file.ts
+	pattern = pattern.replace(new RegExp(placeholder, 'g'), '.*?');
+
+	// Special handling: for patterns with **, make trailing segment optional
+	// to allow zero trailing path segments (e.g., src/** should match src/ and src)
+	// Use (?:/.*)? to optionally match / followed by anything
+	if (hasGlobstar) {
+		// Replace trailing .*? with (?:/.*)? to allow zero trailing segments
+		// This fixes src/** matching src/ and src, while preserving directory boundaries
+		pattern = pattern.replace(/\.\*\?$/, '(?:/.*)?');
+	}
+
+	// Anchor based on whether pattern contains **
+	// If no **, anchor both ends (to prevent * from matching across /)
+	// If has **, DON'T anchor - allows finding literals anywhere in string
+	if (!hasGlobstar) {
+		return new RegExp(`^${pattern}$`);
+	}
+
+	// For ** patterns, use unanchored regex
+	// This allows **/src/** to match src/file
+	return new RegExp(pattern);
+}
+
+/**
  * Check if file should be excluded from analysis
+ * Ensures ** semantics: zero-or-more segments, without crossing malformed empty segments
  */
 function shouldExcludeFile(filePath: string, excludeGlobs: string[]): boolean {
 	const normalizedPath = filePath.replace(/\\/g, '/');
 
-	for (const glob of excludeGlobs) {
-		const pattern = glob
-			.replace(/\./g, '\\.')
-			.replace(/\*\*/g, '.*')
-			.replace(/\*/g, '[^/]*');
+	// Reject paths with empty segments (//) as they can never match
+	if (normalizedPath.includes('//')) {
+		return false;
+	}
 
-		const regex = new RegExp(pattern);
-		if (regex.test(normalizedPath)) {
+	for (const glob of excludeGlobs) {
+		// Skip malformed globs with //
+		const normalizedGlob = glob.replace(/\\/g, '/');
+		if (normalizedGlob.includes('//')) {
+			continue;
+		}
+		if (globMatches(normalizedPath, glob)) {
 			return true;
 		}
 	}
@@ -695,12 +975,7 @@ async function scanDirectoryForLines(
 				) {
 					let matches = false;
 					for (const glob of includeGlobs) {
-						const pattern = glob
-							.replace(/\./g, '\\.')
-							.replace(/\*\*/g, '.*')
-							.replace(/\*/g, '[^/]*');
-						const regex = new RegExp(pattern);
-						if (regex.test(relativePath)) {
+						if (globMatches(relativePath, glob)) {
 							matches = true;
 							break;
 						}
@@ -821,20 +1096,10 @@ export async function computeQualityMetrics(
 	const filteredFiles = changedFiles.filter((file) => {
 		const normalizedPath = file.replace(/\\/g, '/');
 		for (const glob of config.enforce_on_globs) {
-			const pattern = glob
-				.replace(/\./g, '\\.')
-				.replace(/\*\*/g, '.*')
-				.replace(/\*/g, '[^/]*');
-			const regex = new RegExp(pattern);
-			if (regex.test(normalizedPath)) {
+			if (globMatches(normalizedPath, glob)) {
 				// Check exclusions
 				for (const exclude of config.exclude_globs) {
-					const excludePattern = exclude
-						.replace(/\./g, '\\.')
-						.replace(/\*\*/g, '.*')
-						.replace(/\*/g, '[^/]*');
-					const excludeRegex = new RegExp(excludePattern);
-					if (excludeRegex.test(normalizedPath)) {
+					if (globMatches(normalizedPath, exclude)) {
 						return false;
 					}
 				}
