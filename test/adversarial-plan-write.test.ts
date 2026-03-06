@@ -277,11 +277,13 @@ describe('Null/Undefined/Empty Directory Inputs', () => {
 				working_directory: undefined,
 			});
 
-			const result = await executeSavePlan(args, undefined);
-			// Should default to process.cwd() or fail gracefully
+			const result = await executeSavePlan(args, TEST_BASE_DIR);
+			// Should default to provided fallbackDir or fail gracefully
 			// Should not create files in unexpected locations
 			if (result.success) {
 				expect(result.plan_path).toBeDefined();
+				// Verify it wrote to the test directory, not cwd
+				expect(result.plan_path).toContain(TEST_BASE_DIR);
 			} else {
 				expect(result.success).toBe(false);
 			}
@@ -293,10 +295,13 @@ describe('Null/Undefined/Empty Directory Inputs', () => {
 				working_directory: null,
 			});
 
-			const result = await executeSavePlan(args);
+			// Explicitly pass TEST_BASE_DIR to avoid cwd fallback
+			const result = await executeSavePlan(args, TEST_BASE_DIR);
 			// Should reject or default safely
 			if (result.success) {
 				expect(result.plan_path).toBeDefined();
+				// Verify it wrote to the test directory
+				expect(result.plan_path).toContain(TEST_BASE_DIR);
 			} else {
 				expect(result.success).toBe(false);
 			}

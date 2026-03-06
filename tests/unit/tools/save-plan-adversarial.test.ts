@@ -585,4 +585,298 @@ describe('save-plan adversarial tests', () => {
 			expect(result.success).toBe(true);
 		});
 	});
+
+	describe('Repository-root mutation prevention (cross-platform)', () => {
+		it('should reject undefined working_directory with no fallback (Windows-style)', async () => {
+			// This tests that without explicit target, the function fails instead of
+			// falling back to process.cwd() which could mutate repository-root .swarm
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				// No working_directory provided
+			};
+			const result = await executeSavePlan(args, undefined);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('Target workspace is required');
+		});
+
+		it('should reject undefined working_directory with no fallback (POSIX-style)', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('Target workspace is required');
+		});
+
+		it('should reject empty string working_directory (Windows-style path forms)', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '',
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('cannot be empty or whitespace');
+		});
+
+		it('should reject whitespace-only working_directory (POSIX-style path forms)', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '   ',
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('cannot be empty or whitespace');
+		});
+
+		it('should reject path traversal with backslash (Windows-style "..\\")', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: 'C:\\projects\\..\\..\\.swarm',
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('cannot contain path traversal');
+		});
+
+		it('should reject path traversal with forward slash (POSIX-style "../")', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '/home/user/../../etc',
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('cannot contain path traversal');
+		});
+
+		it('should reject relative path traversal with mixed separators (cross-platform)', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: './..\\..',
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('cannot contain path traversal');
+		});
+
+		it('should accept Windows root drive path (contract-aligned: no root-path rejection)', async () => {
+			// validateTargetWorkspace does NOT reject root paths - it only checks for:
+			// 1. undefined/null 2. empty/whitespace 3. path traversal (..)
+			// This test validates the CONTRACT: root paths pass validation.
+			// Actual write may fail due to OS permissions - that's environment-dependent.
+			// The key mutation-prevention is: no implicit process.cwd() fallback.
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: 'C:\\',
+			};
+			const result = await executeSavePlan(args);
+			// Contract: root paths pass validation (no path traversal, not empty)
+			// Success depends on OS write permissions - not deterministic across environments
+			expect(result.success).toBeDefined();
+			// Key assertion: no validation error for root path (path traversal or empty check)
+			const errors = result.errors ?? [];
+			const hasValidationError = errors.some(e => 
+				e.includes('cannot contain path traversal') || 
+				e.includes('cannot be empty')
+			);
+			expect(hasValidationError).toBe(false);
+		});
+
+		it('should accept POSIX root path (contract-aligned: no root-path rejection)', async () => {
+			// validateTargetWorkspace does NOT reject root paths - it only checks for:
+			// 1. undefined/null 2. empty/whitespace 3. path traversal (..)
+			// This test validates the CONTRACT: root paths pass validation.
+			// Actual write may fail due to OS permissions - that's environment-dependent.
+			// The key mutation-prevention is: no implicit process.cwd() fallback.
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '/',
+			};
+			const result = await executeSavePlan(args);
+			// Contract: root paths pass validation (no path traversal, not empty)
+			// Success depends on OS write permissions - not deterministic across environments
+			expect(result.success).toBeDefined();
+			// Key assertion: no validation error for root path (path traversal or empty check)
+			const errors = result.errors ?? [];
+			const hasValidationError = errors.some(e => 
+				e.includes('cannot contain path traversal') || 
+				e.includes('cannot be empty')
+			);
+			expect(hasValidationError).toBe(false);
+		});
+
+		it('should accept Windows UNC path (contract-aligned: no UNC-path rejection)', async () => {
+			// validateTargetWorkspace does NOT reject UNC paths - it only checks for:
+			// 1. undefined/null 2. empty/whitespace 3. path traversal (..)
+			// This test validates the CONTRACT: UNC paths pass validation.
+			// Actual write may fail due to OS permissions - that's environment-dependent.
+			// The key mutation-prevention is: no implicit process.cwd() fallback.
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '\\\\server\\share',
+			};
+			const result = await executeSavePlan(args);
+			// Contract: UNC paths pass validation (no path traversal, not empty)
+			// Success depends on OS write permissions - not deterministic across environments
+			expect(result.success).toBeDefined();
+			// Key assertion: no validation error for UNC path (path traversal or empty check)
+			const errors = result.errors ?? [];
+			const hasValidationError = errors.some(e => 
+				e.includes('cannot contain path traversal') || 
+				e.includes('cannot be empty')
+			);
+			expect(hasValidationError).toBe(false);
+		});
+
+		it('should accept valid Windows-style workspace path with .swarm subdirectory', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: 'C:\\projects\\myworkspace',
+			};
+			const result = await executeSavePlan(args);
+			// Valid workspace path should succeed
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept valid POSIX-style workspace path', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: '/home/user/projects/myworkspace',
+			};
+			const result = await executeSavePlan(args);
+			// Valid workspace path should succeed
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject when fallbackDir is also undefined (double-fallback prevention)', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				// No working_directory
+			};
+			// Explicitly pass undefined as fallbackDir
+			const result = await executeSavePlan(args, undefined);
+			expect(result.success).toBe(false);
+			expect(result.errors?.[0]).toContain('required');
+		});
+
+		it('should reject null as working_directory', async () => {
+			const args = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid description' }],
+					},
+				],
+				working_directory: null,
+			} as unknown as SavePlanArgs;
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(false);
+		});
+	});
 });

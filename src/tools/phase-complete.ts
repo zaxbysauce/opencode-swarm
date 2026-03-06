@@ -47,6 +47,101 @@ interface PhaseCompleteResult {
 }
 
 /**
+ * Result from cross-session agent aggregation helper
+ */
+interface CrossSessionAgentsResult {
+	/** Aggregated normalized agent names from all contributor sessions */
+	agents: Set<string>;
+	/** Session IDs that contributed to this aggregation (including caller session) */
+	contributorSessionIds: string[];
+}
+
+/**
+ * Collect dispatched agents across contributor sessions.
+ * Contributor sessions are defined as those with activity since a phase reference timestamp,
+ * plus the caller session.
+ *
+ * @param phaseReferenceTimestamp - Filter sessions with activity after this timestamp (in ms)
+ * @param callerSessionId - The caller's session ID (always included)
+ * @returns Object containing aggregated agents and contributor session IDs
+ */
+function collectCrossSessionDispatchedAgents(
+	phaseReferenceTimestamp: number,
+	callerSessionId: string,
+): CrossSessionAgentsResult {
+	const agents = new Set<string>();
+	const contributorSessionIds: string[] = [];
+
+	// Always include the caller session
+	const callerSession = swarmState.agentSessions.get(callerSessionId);
+	if (callerSession) {
+		contributorSessionIds.push(callerSessionId);
+
+		// Collect agents from caller's phaseAgentsDispatched
+		if (callerSession.phaseAgentsDispatched) {
+			for (const agent of callerSession.phaseAgentsDispatched) {
+				agents.add(agent);
+			}
+		}
+
+		// Collect agents from caller's delegation chains
+		const callerDelegations = swarmState.delegationChains.get(callerSessionId);
+		if (callerDelegations) {
+			for (const delegation of callerDelegations) {
+				agents.add(stripKnownSwarmPrefix(delegation.from));
+				agents.add(stripKnownSwarmPrefix(delegation.to));
+			}
+		}
+	}
+
+	// Find all other sessions with activity since the reference timestamp
+	for (const [sessionId, session] of swarmState.agentSessions) {
+		// Skip the caller session (already processed)
+		if (sessionId === callerSessionId) {
+			continue;
+		}
+
+		// Check if session has phase-relevant execution evidence since the reference timestamp.
+		// This requires EITHER:
+		// 1. Recent tool call activity (primary evidence of work)
+		// 2. Recent delegation activity (shows coordination/agent dispatch)
+		// Note: lastAgentEventTime alone is insufficient as it can be fresh without actual execution
+
+		const hasRecentToolCalls =
+			session.lastToolCallTime >= phaseReferenceTimestamp;
+
+		// Check for recent delegation activity
+		const delegations = swarmState.delegationChains.get(sessionId);
+		const hasRecentDelegations =
+			delegations?.some((d) => d.timestamp >= phaseReferenceTimestamp) ?? false;
+
+		const hasActivity = hasRecentToolCalls || hasRecentDelegations;
+
+		if (hasActivity) {
+			contributorSessionIds.push(sessionId);
+
+			// Collect agents from this session's phaseAgentsDispatched
+			if (session.phaseAgentsDispatched) {
+				for (const agent of session.phaseAgentsDispatched) {
+					agents.add(agent);
+				}
+			}
+
+			// Collect agents from this session's delegation chains
+			const delegations = swarmState.delegationChains.get(sessionId);
+			if (delegations) {
+				for (const delegation of delegations) {
+					agents.add(stripKnownSwarmPrefix(delegation.from));
+					agents.add(stripKnownSwarmPrefix(delegation.to));
+				}
+			}
+		}
+	}
+
+	return { agents, contributorSessionIds };
+}
+
+/**
  * Event written to .swarm/events.jsonl on phase completion
  */
 interface PhaseCompleteEvent {
@@ -168,24 +263,15 @@ export async function executePhaseComplete(
 	// Ensure session exists and get current state
 	const session = ensureAgentSession(sessionID);
 
-	// Get last completion timestamp from session state
-	const lastCompletionTimestamp = session.lastPhaseCompleteTimestamp ?? 0;
+	// Get phase reference timestamp from session state (derived from last phase complete)
+	const phaseReferenceTimestamp = session.lastPhaseCompleteTimestamp ?? 0;
 
-	// Get delegations since last completion
-	const recentDelegations = getDelegationsSince(
+	// Use aggregated cross-session agents for required-agent evaluation
+	const crossSessionResult = collectCrossSessionDispatchedAgents(
+		phaseReferenceTimestamp,
 		sessionID,
-		lastCompletionTimestamp,
 	);
-
-	// Normalize agent names from delegation chains
-	const delegationAgents = normalizeAgentsFromDelegations(recentDelegations);
-
-	// Get agents from session state tracking (phaseAgentsDispatched)
-	const trackedAgents = session.phaseAgentsDispatched ?? new Set<string>();
-
-	// Merge agents from both sources
-	const allAgents = new Set<string>([...delegationAgents, ...trackedAgents]);
-	const agentsDispatched = Array.from(allAgents).sort();
+	const agentsDispatched = Array.from(crossSessionResult.agents).sort();
 
 	// Load plugin config for policy enforcement
 	const dir = workingDirectory ?? process.cwd();
@@ -279,7 +365,7 @@ export async function executePhaseComplete(
 				status: 'blocked' as const,
 				reason: 'RETROSPECTIVE_MISSING',
 				message: `Phase ${phase} cannot be completed: no valid retrospective evidence found.${schemaErrorDetail} Write a retrospective bundle at .swarm/evidence/retro-${phase}/evidence.json before calling phase_complete.`,
-				agentsDispatched: [],
+				agentsDispatched,
 				agentsMissing: [],
 				warnings: [
 					`Retrospective missing for phase ${phase}.${schemaErrorDetail} Use this template:`,
@@ -372,8 +458,10 @@ export async function executePhaseComplete(
 		effectiveRequired.push('docs');
 	}
 
-	// Compute missing agents
-	const agentsMissing = effectiveRequired.filter((req) => !allAgents.has(req));
+	// Compute missing agents using cross-session aggregated agents
+	const agentsMissing = effectiveRequired.filter(
+		(req) => !crossSessionResult.agents.has(req),
+	);
 
 	// Build warnings and determine success based on policy
 	const warnings: string[] = [];
@@ -399,7 +487,7 @@ export async function executePhaseComplete(
 
 	// Record timing
 	const now = Date.now();
-	const durationMs = now - lastCompletionTimestamp;
+	const durationMs = now - phaseReferenceTimestamp;
 
 	// Write event to .swarm/events.jsonl
 	const event: PhaseCompleteEvent = {
@@ -423,9 +511,16 @@ export async function executePhaseComplete(
 
 	// Reset phase state on success
 	if (success) {
-		session.phaseAgentsDispatched = new Set();
-		session.lastPhaseCompleteTimestamp = now;
-		session.lastPhaseCompletePhase = phase;
+		// Reset phase-tracking state for all contributor sessions
+		for (const contributorSessionId of crossSessionResult.contributorSessionIds) {
+			const contributorSession =
+				swarmState.agentSessions.get(contributorSessionId);
+			if (contributorSession) {
+				contributorSession.phaseAgentsDispatched = new Set();
+				contributorSession.lastPhaseCompleteTimestamp = now;
+				contributorSession.lastPhaseCompletePhase = phase;
+			}
+		}
 	}
 
 	// Build final result

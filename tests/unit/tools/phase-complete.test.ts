@@ -727,4 +727,165 @@ describe('phase_complete tool', () => {
 			expect(parsed.duration_ms).toBeDefined();
 		});
 	});
+
+	describe('multi-session required-agent aggregation', () => {
+		test('succeeds when required agents are split across multiple sessions in same phase window', async () => {
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({phase_complete: {
+							enabled: true,
+							required_agents: ['coder', 'reviewer'],
+							require_docs: false,
+							policy: 'enforce'
+						}})
+			);
+			
+			// Session 1: has coder
+			ensureAgentSession('sess1', 'coder');
+			recordPhaseAgentDispatch('sess1', 'coder');
+			// Update lastToolCallTime to be recent (within phase window)
+			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
+			
+			// Session 2: has reviewer
+			ensureAgentSession('sess2', 'reviewer');
+			recordPhaseAgentDispatch('sess2', 'reviewer');
+			// Update lastToolCallTime to be recent (within phase window)
+			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
+			
+			// Call phase_complete from sess1 - should aggregate coder from sess1 and reviewer from sess2
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			expect(parsed.agentsDispatched).toContain('coder');
+			expect(parsed.agentsDispatched).toContain('reviewer');
+			expect(parsed.agentsMissing).toEqual([]);
+		});
+
+		test('fails when one required agent is truly missing across all sessions', async () => {
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({phase_complete: {
+							enabled: true,
+							required_agents: ['coder', 'reviewer', 'test_engineer'],
+							require_docs: false,
+							policy: 'enforce'
+						}})
+			);
+			
+			// Session 1: has coder
+			ensureAgentSession('sess1', 'coder');
+			recordPhaseAgentDispatch('sess1', 'coder');
+			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
+			
+			// Session 2: has reviewer
+			ensureAgentSession('sess2', 'reviewer');
+			recordPhaseAgentDispatch('sess2', 'reviewer');
+			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
+			
+			// test_engineer is missing from ALL sessions
+			
+			// Call phase_complete from sess1 - should detect test_engineer is missing
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('incomplete');
+			expect(parsed.agentsDispatched).toContain('coder');
+			expect(parsed.agentsDispatched).toContain('reviewer');
+			expect(parsed.agentsMissing).toContain('test_engineer');
+		});
+
+		test('resets contributor session phase-tracking state across sessions on success', async () => {
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({phase_complete: {
+							enabled: true,
+							required_agents: ['coder', 'reviewer'],
+							require_docs: false,
+							policy: 'enforce'
+						}})
+			);
+			
+			// Session 1: has coder
+			ensureAgentSession('sess1', 'coder');
+			recordPhaseAgentDispatch('sess1', 'coder');
+			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
+			
+			// Session 2: has reviewer
+			ensureAgentSession('sess2', 'reviewer');
+			recordPhaseAgentDispatch('sess2', 'reviewer');
+			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
+			
+			// Verify state before
+			const sess1Before = swarmState.agentSessions.get('sess1');
+			const sess2Before = swarmState.agentSessions.get('sess2');
+			expect(sess1Before?.phaseAgentsDispatched.size).toBe(1);
+			expect(sess2Before?.phaseAgentsDispatched.size).toBe(1);
+			expect(sess1Before?.lastPhaseCompleteTimestamp).toBe(0);
+			expect(sess2Before?.lastPhaseCompleteTimestamp).toBe(0);
+			
+			// Call phase_complete from sess1
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			
+			expect(parsed.success).toBe(true);
+			
+			// Verify state reset for BOTH contributor sessions
+			const sess1After = swarmState.agentSessions.get('sess1');
+			const sess2After = swarmState.agentSessions.get('sess2');
+			expect(sess1After?.phaseAgentsDispatched.size).toBe(0);
+			expect(sess2After?.phaseAgentsDispatched.size).toBe(0);
+			expect(sess1After?.lastPhaseCompleteTimestamp).toBeGreaterThan(0);
+			expect(sess2After?.lastPhaseCompleteTimestamp).toBeGreaterThan(0);
+			expect(sess1After?.lastPhaseCompletePhase).toBe(1);
+			expect(sess2After?.lastPhaseCompletePhase).toBe(1);
+		});
+
+		test('does not reset state for sessions without recent activity', async () => {
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({phase_complete: {
+							enabled: true,
+							required_agents: ['coder'],
+							require_docs: false,
+							policy: 'enforce'
+						}})
+			);
+			
+			// Session 1: recent activity (caller) with established phase reference timestamp
+			ensureAgentSession('sess1', 'coder');
+			recordPhaseAgentDispatch('sess1', 'coder');
+			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
+			// Establish non-zero phase reference timestamp so stale session exclusion works
+			swarmState.agentSessions.get('sess1')!.lastPhaseCompleteTimestamp = Date.now() - 60000;
+			swarmState.agentSessions.get('sess1')!.lastPhaseCompletePhase = 0;
+			
+			// Session 2: stale activity (old session, should NOT be contributor)
+			ensureAgentSession('sess2', 'reviewer');
+			recordPhaseAgentDispatch('sess2', 'reviewer');
+			// Set lastToolCallTime to old timestamp (outside phase window)
+			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now() - (24 * 60 * 60 * 1000);
+			
+			// Call phase_complete from sess1
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			
+			expect(parsed.success).toBe(true);
+			
+			// sess1 should be reset
+			const sess1After = swarmState.agentSessions.get('sess1');
+			expect(sess1After?.phaseAgentsDispatched.size).toBe(0);
+			
+			// sess2 should NOT be reset (was not a contributor)
+			const sess2After = swarmState.agentSessions.get('sess2');
+			expect(sess2After?.phaseAgentsDispatched.size).toBe(1);
+			expect(sess2After?.lastPhaseCompleteTimestamp).toBe(0);
+		});
+	});
 });
