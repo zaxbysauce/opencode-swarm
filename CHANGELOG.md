@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.19.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.6...v6.19.7) (2026-03-06)
+
+
+### Bug Fixes
+
+* **dist:** rebuild dist artifacts for update_task_status and write_retro tool additions ([03eb93a](https://github.com/zaxbysauce/opencode-swarm/commit/03eb93ac5bb5ef096bcb3a339cfb3351358abb27))
+* expose update_task_status and write_retro tools, repair retro compatibility ([ec96421](https://github.com/zaxbysauce/opencode-swarm/commit/ec964215369bae5226e2c0cbb0abf46fce37e485))
+* **tests:** correct phase_complete adversarial test expectations for RETROSPECTIVE_MISSING behavior ([bc0383f](https://github.com/zaxbysauce/opencode-swarm/commit/bc0383ff14577e4f4fd18152d001c6c41c5500bf))
+* **tools:** expose update_task_status and write_retro, repair retro compatibility, harden architect prompt ([694dd16](https://github.com/zaxbysauce/opencode-swarm/commit/694dd1656bd34dc5ffbfac71c0587bd898c6b9a0))
+
 ## [6.19.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.5...v6.19.6) (2026-03-06)
 
 
