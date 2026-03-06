@@ -1,6 +1,4 @@
 import type { AgentDefinition } from '../agents';
-import { loadPluginConfig } from '../config/loader';
-import { GuardrailsConfigSchema } from '../config/schema';
 import { handleAgentsCommand } from './agents';
 import { handleAnalyzeCommand } from './analyze';
 import { handleArchiveCommand } from './archive';

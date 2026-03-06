@@ -557,8 +557,8 @@ async function runSecretscanWithFiles(
 				for (const pattern of SECRET_PATTERNS) {
 					// Create fresh regex instance for each line to avoid lastIndex mutation
 					const regex = new RegExp(pattern.pattern, 'gi');
-					let match: RegExpExecArray | null;
-					while ((match = regex.exec(line)) !== null) {
+					let match: RegExpExecArray | null = regex.exec(line);
+					while (match !== null) {
 						findings.push({
 							path: file,
 							line: i + 1,
@@ -573,6 +573,8 @@ async function runSecretscanWithFiles(
 						if (match.index === regex.lastIndex) {
 							regex.lastIndex++;
 						}
+
+						match = regex.exec(line);
 					}
 				}
 			}

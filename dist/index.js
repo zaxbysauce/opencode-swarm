@@ -50657,7 +50657,7 @@ var SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 var MAX_REF_LENGTH = 256;
 var MAX_PATH_LENGTH = 500;
 var SHELL_METACHARACTERS2 = /[;|&$`(){}<>!'"]/;
-var CONTROL_CHAR_PATTERN2 = /[\x00-\x1F\x7F]/;
+var CONTROL_CHAR_PATTERN2 = new RegExp("[\\u0000-\\u001F\\u007F]");
 function validateBase(base) {
   if (base.length > MAX_REF_LENGTH) {
     return `base ref exceeds maximum length of ${MAX_REF_LENGTH}`;
@@ -55490,8 +55490,8 @@ async function runSecretscanWithFiles(files, directory) {
         const line = lines[i2];
         for (const pattern of SECRET_PATTERNS2) {
           const regex = new RegExp(pattern.pattern, "gi");
-          let match;
-          while ((match = regex.exec(line)) !== null) {
+          let match = regex.exec(line);
+          while (match !== null) {
             findings.push({
               path: file3,
               line: i2 + 1,
@@ -55504,6 +55504,7 @@ async function runSecretscanWithFiles(files, directory) {
             if (match.index === regex.lastIndex) {
               regex.lastIndex++;
             }
+            match = regex.exec(line);
           }
         }
       }

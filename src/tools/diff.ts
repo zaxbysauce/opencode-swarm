@@ -16,7 +16,7 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 const MAX_REF_LENGTH = 256;
 const MAX_PATH_LENGTH = 500;
 const SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
-const CONTROL_CHAR_PATTERN = /[\x00-\x1F\x7F]/;
+const CONTROL_CHAR_PATTERN = new RegExp('[\\u0000-\\u001F\\u007F]');
 
 function validateBase(base: string): string | null {
 	if (base.length > MAX_REF_LENGTH) {

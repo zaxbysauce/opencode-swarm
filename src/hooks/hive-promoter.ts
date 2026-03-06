@@ -1,6 +1,6 @@
 /** Hive promoter hook for opencode-swarm v6.17 two-tier knowledge system. */
 
-import path from 'path';
+import path from 'node:path';
 import {
 	appendKnowledge,
 	findNearDuplicate,

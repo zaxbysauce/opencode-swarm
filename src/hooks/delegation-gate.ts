@@ -101,7 +101,6 @@ export function createDelegationGateHook(config: PluginConfig): {
 			_input: Record<string, never>,
 			output: { messages?: MessageWithParts[] },
 		): Promise<void> => {
-			// biome-ignore lint/suspicious/noExplicitAny: Hook API passes dynamic message structure
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const messages = (output as any).messages;
 			if (!messages || messages.length === 0) return;
