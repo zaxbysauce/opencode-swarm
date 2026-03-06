@@ -85,6 +85,37 @@ export function detectPlaceholderContent(args: SavePlanArgs): string[] {
 }
 
 /**
+ * Validate target workspace path.
+ * Rejects missing, empty, whitespace-only, and traversal-style paths.
+ * @param target - The target workspace path to validate
+ * @param source - Description of the source (for error messages)
+ * @returns Error message if invalid, undefined if valid
+ */
+export function validateTargetWorkspace(
+	target: string | undefined,
+	source: string,
+): string | undefined {
+	// Reject missing
+	if (target === undefined || target === null) {
+		return `Target workspace is required: ${source} not provided`;
+	}
+
+	// Reject empty or whitespace-only
+	const trimmed = target.trim();
+	if (trimmed.length === 0) {
+		return `Target workspace cannot be empty or whitespace: ${source}`;
+	}
+
+	// Reject path traversal patterns
+	const normalized = trimmed.replace(/\\/g, '/');
+	if (normalized.includes('..')) {
+		return `Target workspace cannot contain path traversal: ${source} contains ".."`;
+	}
+
+	return undefined;
+}
+
+/**
  * Execute the save_plan tool.
  * Validates for placeholder content, builds a Plan object, and saves to disk.
  * @param args - The save plan arguments
@@ -104,7 +135,21 @@ export async function executeSavePlan(
 		};
 	}
 
-	// Step 2: Build the Plan object from args
+	// Step 2: Validate target workspace - do NOT fall back to process.cwd()
+	const targetWorkspace = args.working_directory ?? fallbackDir;
+	const workspaceError = validateTargetWorkspace(
+		targetWorkspace,
+		args.working_directory ? 'working_directory' : 'fallbackDir',
+	);
+	if (workspaceError) {
+		return {
+			success: false,
+			message: 'Target workspace validation failed',
+			errors: [workspaceError],
+		};
+	}
+
+	// Step 3: Build the Plan object from args
 	const plan: Plan = {
 		schema_version: '1.0.0',
 		title: args.title,
@@ -138,10 +183,9 @@ export async function executeSavePlan(
 		0,
 	);
 
-	// Step 3: Determine working directory
-	const dir = args.working_directory ?? fallbackDir ?? process.cwd();
-
-	// Step 4: Save the plan
+	// Step 4: Save the plan using validated target workspace
+	// Note: targetWorkspace is guaranteed to be defined here due to Step 2 validation
+	const dir = targetWorkspace as string;
 	try {
 		await savePlan(dir, plan);
 		return {
@@ -233,7 +277,7 @@ export const save_plan: ToolDefinition = createSwarmTool({
 		working_directory: tool.schema
 			.string()
 			.optional()
-			.describe('Working directory (defaults to process.cwd())'),
+			.describe('Working directory (explicit path, required - no fallback)'),
 	},
 	execute: async (args: unknown, _directory: string) => {
 		return JSON.stringify(
