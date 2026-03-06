@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.19.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.7...v6.19.8) (2026-03-06)
+
+
+### Bug Fixes
+
+* add handoff command, run memory service, and context budget guard ([efa334c](https://github.com/zaxbysauce/opencode-swarm/commit/efa334cd2e6435eda93176f3f3325a6e1d21d895))
+* add handoff command, run memory, and context budget guard ([1118edb](https://github.com/zaxbysauce/opencode-swarm/commit/1118edbac57535eb83552251adb8eddffc264cca))
+
 ## [6.19.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.6...v6.19.7) (2026-03-06)
 
 
