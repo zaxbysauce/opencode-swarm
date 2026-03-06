@@ -2,7 +2,7 @@
  * Additional verification tests for Task 4.1 atomic plan write changes
  * Tests for:
  * 1. executeSavePlan() fallbackDir parameter behavior
- * 2. executeSavePlan() process.cwd() fallback behavior
+ * 2. executeSavePlan() explicit workspace behavior (no process.cwd() fallback)
  * 3. Temp file cleanup after successful writes
  */
 
@@ -122,13 +122,13 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 	});
 });
 
-describe('Task 4.1: process.cwd() fallback behavior', () => {
+describe('Task 4.1: explicit workspace behavior', () => {
 	let originalCwd: string;
 	let tmpDir: string;
 
 	beforeEach(async () => {
 		originalCwd = process.cwd();
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-cwd-'));
+		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-explicit-'));
 		// Ensure .swarm/ directory exists in tmpDir
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 	});
@@ -142,12 +142,9 @@ describe('Task 4.1: process.cwd() fallback behavior', () => {
 		}
 	});
 
-	it('executeSavePlan() uses process.cwd() as final fallback when neither args.working_directory nor fallbackDir is provided', async () => {
-		// Change to tmpDir
-		process.chdir(tmpDir);
-
+	it('executeSavePlan() fails deterministically when both working_directory and fallbackDir are missing', async () => {
 		const args: SavePlanArgs = {
-			title: 'CWD Fallback Test Plan',
+			title: 'No Directory Test Plan',
 			swarm_id: 'test-swarm',
 			phases: [
 				{
@@ -156,19 +153,56 @@ describe('Task 4.1: process.cwd() fallback behavior', () => {
 					tasks: [{ id: '1.1', description: 'Test task' }],
 				},
 			],
-			// No working_directory and no fallbackDir
+			// No working_directory specified
 		};
 
-		// Call without fallbackDir
+		// Call without fallbackDir - should fail explicitly
+		const result: SavePlanResult = await executeSavePlan(args);
+
+		// Should fail because no directory was provided
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('fallbackDir');
+	});
+
+	it('executeSavePlan() uses explicit working_directory from args', async () => {
+		// Change to a different directory to prove working_directory is respected
+		process.chdir(tmpDir);
+
+		const otherDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-other-'));
+		await fs.mkdir(path.join(otherDir, '.swarm'), { recursive: true });
+
+		const args: SavePlanArgs = {
+			title: 'Explicit Workspace Test',
+			swarm_id: 'test-swarm',
+			phases: [
+				{
+					id: 1,
+					name: 'Setup',
+					tasks: [{ id: '1.1', description: 'Test task' }],
+				},
+			],
+			working_directory: otherDir,
+		};
+
+		// Call without fallbackDir - should use explicit working_directory
 		const result: SavePlanResult = await executeSavePlan(args);
 
 		expect(result.success).toBe(true);
-		expect(result.plan_path).toBe(path.join(tmpDir, '.swarm', 'plan.json'));
+		expect(result.plan_path).toBe(path.join(otherDir, '.swarm', 'plan.json'));
 
-		// Verify plan was written to current working directory
-		const planPath = path.join(tmpDir, '.swarm', 'plan.json');
+		// Verify plan was written to the explicit working_directory, not cwd
+		const planPath = path.join(otherDir, '.swarm', 'plan.json');
 		const exists = await fs.access(planPath).then(() => true).catch(() => false);
 		expect(exists).toBe(true);
+
+		// Verify NOT written to cwd
+		const cwdPlanPath = path.join(tmpDir, '.swarm', 'plan.json');
+		const cwdExists = await fs.access(cwdPlanPath).then(() => true).catch(() => false);
+		expect(cwdExists).toBe(false);
+
+		// Cleanup otherDir
+		await fs.rm(otherDir, { recursive: true, force: true });
 	});
 });
 

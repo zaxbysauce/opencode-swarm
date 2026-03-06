@@ -324,6 +324,39 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 </details>
 
 <details>
+<summary><strong>Save Plan Tool: Target Workspace Requirement</strong></summary>
+
+The `save_plan` tool requires an explicit target workspace path. It does **not** fall back to `process.cwd()`.
+
+### Explicit Workspace Requirement
+
+- The `working_directory` parameter must be provided
+- Providing no value or relying on implicit directory resolution will result in deterministic failure
+
+### Failure Conditions
+
+| Condition | Behavior |
+|-----------|----------|
+| Missing (`undefined` / `null`) | Fails with: "Target workspace is required" |
+| Empty or whitespace-only | Fails with: "Target workspace cannot be empty or whitespace" |
+| Path traversal (`..`) | Fails with: "Target workspace cannot contain path traversal" |
+
+### Usage Contract
+
+When using `save_plan`, always pass a valid `working_directory`:
+
+```typescript
+save_plan({
+  title: "My Project",
+  swarm_id: "mega",
+  phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Initialize project" }] }],
+  working_directory: "/path/to/project"  // Required - no fallback
+})
+```
+
+</details>
+
+<details>
 <summary><strong>Guardrails and Circuit Breakers</strong></summary>
 
 Every agent runs inside a circuit breaker that kills runaway behavior before it burns your credits.
