@@ -483,4 +483,177 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			expect(template.entries[0].task_complexity).toBe('simple');
 		});
 	});
+
+	describe('Fix D: Retrospective auto-repair migration notice', () => {
+		test('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
+			// Arrange: valid bundle with all conditions for migration notice
+			const phase = 1;
+			ensureAgentSession('sess1');
+			mockLoadEvidence.mockResolvedValue({
+				status: 'found',
+				bundle: {
+					schema_version: '1.0.0',
+					task_id: `retro-${phase}`,
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+					entries: [
+						{
+							task_id: `retro-${phase}`,
+							type: 'retrospective',
+							timestamp: new Date().toISOString(),
+							agent: 'architect',
+							verdict: 'pass' as const,
+							summary: `Phase ${phase} completed`,
+							phase_number: phase,
+							total_tool_calls: 5,
+							coder_revisions: 0,
+							reviewer_rejections: 0,
+							test_failures: 0,
+							security_findings: 0,
+							integration_issues: 0,
+							task_count: 3,
+							task_complexity: 'simple' as const,
+							top_rejection_reasons: [],
+							lessons_learned: [],
+						},
+					],
+				},
+			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
+			// Act
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			// Assert
+			expect(parsed.success).toBe(true);
+			expect(parsed.warnings).toContain(
+				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`
+			);
+		});
+
+		test('17. Migration warning appears for each valid task_complexity value', async () => {
+			// Arrange: use 'trivial' complexity (another valid value)
+			const phase = 2;
+			ensureAgentSession('sess1');
+			mockLoadEvidence.mockResolvedValue({
+				status: 'found',
+				bundle: {
+					schema_version: '1.0.0',
+					task_id: `retro-${phase}`,
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+					entries: [
+						{
+							task_id: `retro-${phase}`,
+							type: 'retrospective',
+							timestamp: new Date().toISOString(),
+							agent: 'architect',
+							verdict: 'pass' as const,
+							summary: `Phase ${phase} completed`,
+							phase_number: phase,
+							total_tool_calls: 2,
+							coder_revisions: 0,
+							reviewer_rejections: 0,
+							test_failures: 0,
+							security_findings: 0,
+							integration_issues: 0,
+							task_count: 1,
+							task_complexity: 'trivial' as const,
+							top_rejection_reasons: [],
+							lessons_learned: [],
+						},
+					],
+				},
+			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
+			// Act
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			// Assert
+			expect(parsed.success).toBe(true);
+			expect(parsed.warnings.some((w: string) =>
+				w.includes('may have been automatically migrated')
+			)).toBe(true);
+		});
+
+		test('18. No migration warning when loadEvidence returns not_found', async () => {
+			// Arrange
+			const phase = 1;
+			ensureAgentSession('sess1');
+			mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
+			mockListEvidenceTaskIds.mockResolvedValue([]);
+			// Act
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			// Assert: blocked (no retro found) AND no migration warning
+			expect(parsed.status).toBe('blocked');
+			expect(parsed.warnings ?? []).not.toContain(
+				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`
+			);
+		});
+
+		test('19. Migration warning text includes the correct phase number', async () => {
+			// Arrange: use phase 5 to verify phase number interpolation
+			const phase = 5;
+			ensureAgentSession('sess1');
+			mockLoadEvidence.mockResolvedValue({
+				status: 'found',
+				bundle: {
+					schema_version: '1.0.0',
+					task_id: `retro-${phase}`,
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+					entries: [
+						{
+							task_id: `retro-${phase}`,
+							type: 'retrospective',
+							timestamp: new Date().toISOString(),
+							agent: 'architect',
+							verdict: 'pass' as const,
+							summary: `Phase ${phase} completed`,
+							phase_number: phase,
+							total_tool_calls: 8,
+							coder_revisions: 1,
+							reviewer_rejections: 0,
+							test_failures: 0,
+							security_findings: 0,
+							integration_issues: 0,
+							task_count: 4,
+							task_complexity: 'complex' as const,
+							top_rejection_reasons: [],
+							lessons_learned: [],
+						},
+					],
+				},
+			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
+			// Act
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			// Assert: warning contains exact phase number
+			const migrationWarnings = (parsed.warnings as string[]).filter((w: string) =>
+				w.includes('automatically migrated')
+			);
+			expect(migrationWarnings).toHaveLength(1);
+			expect(migrationWarnings[0]).toContain(`phase ${phase}`);
+		});
+
+		test('20. No migration warning when invalid_schema (load fails — not a repaired bundle)', async () => {
+			// Arrange
+			const phase = 1;
+			ensureAgentSession('sess1');
+			mockLoadEvidence.mockResolvedValue({
+				status: 'invalid_schema',
+				errors: ['entries.0.task_complexity: Invalid enum value'],
+			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
+			// Act
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			// Assert: blocked or warning path, but NOT the migration warning
+			const hasAutoMigrationWarning = (parsed.warnings ?? []).some((w: string) =>
+				w.includes('automatically migrated')
+			);
+			expect(hasAutoMigrationWarning).toBe(false);
+		});
+	});
 });

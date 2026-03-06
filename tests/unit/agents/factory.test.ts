@@ -46,25 +46,33 @@ describe('createAgents', () => {
             ]);
         });
 
-        it('each agent has model, temperature, prompt, description', () => {
+        it('each agent has temperature, prompt, description', () => {
             const agents = createAgents();
             
             for (const agent of agents) {
                 expect(agent).toHaveProperty('name');
                 expect(agent).toHaveProperty('config');
-                expect(agent.config).toHaveProperty('model');
                 expect(agent.config).toHaveProperty('temperature');
                 expect(agent.config).toHaveProperty('prompt');
                 expect(agent).toHaveProperty('description');
                 
                 // Verify properties are not empty
                 expect(agent.name.length).toBeGreaterThan(0);
-                expect(agent.config.model?.length ?? 0).toBeGreaterThan(0);
                 expect(typeof agent.config.temperature).toBe('number');
                 expect(agent.config.temperature).toBeGreaterThanOrEqual(0);
                 expect(agent.config.temperature).toBeLessThanOrEqual(2);
                 expect(agent.config.prompt?.length ?? 0).toBeGreaterThan(0);
                 expect(agent.description?.length ?? 0).toBeGreaterThan(0);
+            }
+        });
+
+        it('each subagent has model (primary agents created with model but getAgentConfigs strips it)', () => {
+            const agents = createAgents();
+            
+            for (const agent of agents) {
+                // All agents initially have model in their config
+                expect(agent.config).toHaveProperty('model');
+                expect(agent.config.model?.length ?? 0).toBeGreaterThan(0);
             }
         });
     });
@@ -222,12 +230,56 @@ describe('getAgentConfigs', () => {
         for (const [name, config] of Object.entries(configs)) {
             expect(typeof name).toBe('string');
             expect(name.length).toBeGreaterThan(0);
-            expect(config).toHaveProperty('model');
             expect(config).toHaveProperty('temperature');
             expect(config).toHaveProperty('prompt');
             expect(config).toHaveProperty('description');
             expect(config).toHaveProperty('mode');
         }
+    });
+
+    it('primary agents omit model (architect and *_architect)', () => {
+        const configs = getAgentConfigs();
+        
+        // architect is a primary agent
+        expect(configs.architect).not.toHaveProperty('model');
+        
+        // Verify other agents have model (they are subagents)
+        for (const [name, config] of Object.entries(configs)) {
+            if (name !== 'architect') {
+                expect(config).toHaveProperty('model');
+            }
+        }
+    });
+
+    it('subagents retain model', () => {
+        const configs = getAgentConfigs();
+        
+        for (const [name, config] of Object.entries(configs)) {
+            if (config.mode === 'subagent') {
+                expect(config).toHaveProperty('model');
+                expect(config.model?.length ?? 0).toBeGreaterThan(0);
+            }
+        }
+    });
+
+    it('prefixed architect configs omit model', () => {
+        const config = {
+            swarms: {
+                local: {
+                    name: 'Local'
+                }
+            }
+        };
+        
+        const configs = getAgentConfigs(config as unknown as PluginConfig);
+        
+        // Prefixed architect should not have model
+        const localArchitect = configs.local_architect;
+        expect(localArchitect).not.toHaveProperty('model');
+        
+        // Other prefixed agents should have model
+        const localCoder = configs.local_coder;
+        expect(localCoder).toHaveProperty('model');
     });
 
     it('architect has mode primary', () => {

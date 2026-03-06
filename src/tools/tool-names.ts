@@ -29,7 +29,9 @@ export type ToolName =
 	| 'retrieve_summary'
 	| 'extract_code_blocks'
 	| 'phase_complete'
-	| 'save_plan';
+	| 'save_plan'
+	| 'update_task_status'
+	| 'write_retro';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -58,6 +60,8 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'extract_code_blocks',
 	'phase_complete',
 	'save_plan',
+	'update_task_status',
+	'write_retro',
 ] as const;
 
 /** Set for O(1) tool name validation */

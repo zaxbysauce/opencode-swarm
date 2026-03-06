@@ -64,6 +64,8 @@ import {
 	symbols,
 	test_runner,
 	todo_extract,
+	update_task_status,
+	write_retro,
 } from './tools';
 import { log } from './utils';
 import { truncateToolOutput } from './utils/tool-output';
@@ -352,6 +354,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			symbols,
 			test_runner,
 			todo_extract,
+			update_task_status,
+			write_retro,
 		},
 
 		// Configure OpenCode - merge agents into config

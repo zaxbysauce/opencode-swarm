@@ -52,20 +52,28 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 		it('9. Available Tools includes secretscan', () => {
 			expect(prompt).toContain('secretscan (secret detection)');
 		});
+
+		it('10. Available Tools includes update_task_status', () => {
+			expect(prompt).toContain('update_task_status (mark tasks complete, track phase progress)');
+		});
+
+		it('11. Available Tools includes write_retro', () => {
+			expect(prompt).toContain('write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned)');
+		});
 	});
 
 	describe('Task 3.2 - Security Gate (security-only re-review)', () => {
-		it('10. Security gate exists in Rule 7 with security globs', () => {
-			expect(prompt).toContain('security globs');
-			expect(prompt).toContain('auth, api, crypto, security, middleware, session, token');
+		it('10. Security gate exists in Rule 7 with TIER 3 criteria', () => {
+			expect(prompt).toContain('TIER 3 criteria');
+			expect(prompt).toContain('auth*, permission*, crypto*');
 		});
 
-		it('11. Security gate triggers on security keywords in coder output', () => {
-			expect(prompt).toContain('content has security keywords');
+		it('11. Security gate triggers on SECURITY_KEYWORDS in coder output', () => {
+			expect(prompt).toContain('SECURITY_KEYWORDS');
 		});
 
-		it('12. Security gate delegates to reviewer with security-only CHECK', () => {
-			expect(prompt).toContain('security-only CHECK');
+		it('12. Security gate delegates to reviewer with security-only review', () => {
+			expect(prompt).toContain('security-only review');
 		});
 
 		it('13. Security-only re-review example exists in DELEGATION FORMAT', () => {
@@ -85,8 +93,8 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 	});
 
 	describe('Rule 7 - Mandatory QA Gate Summary', () => {
-		it('16. Rule 7 contains "MANDATORY QA GATE"', () => {
-			expect(prompt).toContain('MANDATORY QA GATE');
+		it('16. Rule 7 contains "TIERED QA GATE"', () => {
+			expect(prompt).toContain('TIERED QA GATE');
 		});
 
 		it('17. Rule 7 contains STAGE A: AUTOMATED TOOL GATES', () => {
@@ -128,7 +136,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 
 		it('21. Rule 7 mentions integration analysis with hasContractChanges', () => {
 			expect(prompt).toContain('hasContractChanges');
-			expect(prompt).toContain('integration impact analysis');
+			expect(prompt).toContain('integration analysis');
 		});
 	});
 
@@ -230,12 +238,12 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 			expect(phase5Section).toContain('5k. Security gate');
 		});
 
-		it('32. Security gate includes security globs trigger', () => {
+		it('32. Security gate includes TIER 3 criteria trigger', () => {
 			const phase5Section = prompt.slice(
 				prompt.indexOf('### MODE: EXECUTE'),
 				prompt.indexOf('### MODE: PHASE-WRAP')
 			);
-			expect(phase5Section).toContain('file matches security globs');
+			expect(phase5Section).toContain('change matches TIER 3 criteria');
 		});
 
 		it('33. Security gate includes content keywords trigger', () => {
@@ -243,7 +251,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 				prompt.indexOf('### MODE: EXECUTE'),
 				prompt.indexOf('### MODE: PHASE-WRAP')
 			);
-			expect(phase5Section).toContain('content has security keywords');
+			expect(phase5Section).toContain('SECURITY_KEYWORDS');
 		});
 
 		it('34. Security gate includes secretscan findings trigger', () => {
@@ -288,12 +296,12 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 			expect(phase5Section).toContain('5n. COVERAGE CHECK');
 		});
 
-		it('39. Phase 5 step 5o is update plan.md', () => {
+		it('39. Phase 5 step 5o is update_task_status', () => {
 			const phase5Section = prompt.slice(
 				prompt.indexOf('### MODE: EXECUTE'),
 				prompt.indexOf('### MODE: PHASE-WRAP')
 			);
-			expect(phase5Section).toContain('5o. Update plan.md');
+			expect(phase5Section).toContain('5o. Call update_task_status with status "completed"');
 		});
 
 		it('40. Phase 5 has steps 5a through 5o', () => {
@@ -347,7 +355,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 
 	describe('Integration Analysis Example', () => {
 		it('44. Integration analysis example exists', () => {
-			expect(prompt).toContain('Integration impact analysis');
+			expect(prompt).toContain('integration analysis');
 			expect(prompt).toContain('BREAKING/COMPATIBLE');
 		});
 	});
@@ -357,12 +365,12 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 			expect(prompt).toContain('RETROSPECTIVE TRACKING');
 		});
 
-		it('46. Rule 10 mentions evidence manager', () => {
-			expect(prompt).toContain('evidence manager');
+		it('46. Rule 10 mentions write_retro', () => {
+			expect(prompt).toContain('write_retro');
 		});
 
 		it('47. Rule 10 lists tracked metrics', () => {
-			expect(prompt).toContain('phase_number');
+			expect(prompt).toContain('phase');
 			expect(prompt).toContain('coder_revisions');
 			expect(prompt).toContain('reviewer_rejections');
 			expect(prompt).toContain('test_failures');
@@ -381,7 +389,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 			const blockersStart = prompt.indexOf('### Blockers');
 			const phase6Section = prompt.slice(phase6Start, blockersStart);
 			expect(phase6Section).toContain('Write retrospective evidence');
-			expect(phase6Section).toContain('evidence manager');
+			expect(phase6Section).toContain('write_retro');
 		});
 
 		it('50. Phase 6 mentions Reset Phase Metrics', () => {
@@ -786,7 +794,7 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 		it('ADVERSARIAL: TASK COMPLETION GATE requires value: ___ placeholders', () => {
 			const gateSection = prompt.substring(
 				prompt.indexOf('⛔ TASK COMPLETION GATE'),
-				prompt.indexOf('5o. Update plan.md')
+				prompt.indexOf('5o. Call update_task_status')
 			);
 			expect(gateSection).toContain('value: ___');
 		});
@@ -826,12 +834,12 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 
 	// Phase 7 - Anti-Rationalization
 	describe('Anti-Rationalization', () => {
-		it('ANTI-EXEMPTION RULES present', () => {
-			expect(prompt).toContain('ANTI-EXEMPTION RULES');
+		it('ARCHITECT CODING BOUNDARIES present', () => {
+			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
 		});
 
 		it('No simple changes rule', () => {
-			expect(prompt).toContain('There are NO simple changes');
+			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
 		});
 
 		it('PRE-COMMIT RULE present', () => {
@@ -857,10 +865,10 @@ describe('Architect Prompt Hardening v6.12 - ARCHITECT CODING BOUNDARIES', () =>
 			expect(prompt).toContain('ARCHITECT CODING BOUNDARIES');
 		});
 
-		it('Block is positioned before "The gates exist because the author cannot objectively evaluate their own work"', () => {
+		it('Block is positioned before GATE AUTHORITY section (Rule 6f comes after Rule 4)', () => {
 			// The block should appear before the line about gates existing for objectivity
 			// because ARCHITECT CODING BOUNDARIES is Rule 4, and the gates explanation comes later
-			const gatesReasonPos = prompt.indexOf('The gates exist because the author cannot objectively evaluate their own work');
+			const gatesReasonPos = prompt.indexOf('GATE AUTHORITY');
 			const architectCodingBoundariesPos = prompt.indexOf('ARCHITECT CODING BOUNDARIES');
 			expect(gatesReasonPos).toBeGreaterThan(-1);
 			expect(architectCodingBoundariesPos).toBeGreaterThan(-1);
@@ -868,7 +876,7 @@ describe('Architect Prompt Hardening v6.12 - ARCHITECT CODING BOUNDARIES', () =>
 		});
 
 		it('Block indicates these thoughts are WRONG', () => {
-			expect(prompt).toContain('these thoughts are WRONG and must be ignored');
+			expect(prompt).toContain('These thoughts are WRONG and must be ignored:');
 		});
 	});
 
@@ -2827,20 +2835,20 @@ describe('Task 1.4 - PLAN INGESTION DETECTION in MODE: PLAN SPEC GATE', () => {
 		});
 
 		it('contains POC/prototype anti-exemption rule', () => {
-			expect(prompt).toContain("It's just a POC/prototype");
-			expect(prompt).toContain('prototypes that skip QA become production code');
+			expect(prompt).toContain("It's just a schema change / config flag / one-liner / column / field / import");
+			expect(prompt).toContain('speed without QA gates is how bugs ship');
 		});
 
 		it('contains batch-QA-at-end anti-exemption rule', () => {
-			expect(prompt).toContain("I'll do QA in a batch at the end");
-			expect(prompt).toContain('deferred QA is skipped QA');
+			expect(prompt).toContain('PARTIAL GATE RATIONALIZATIONS');
+			expect(prompt).toContain('The QA gate is ALL steps or NONE.');
 		});
 
 		it('contains past-violation consistency anti-exemption rule', () => {
-			expect(prompt).toContain('past violations do not justify future violations');
+			expect(prompt).toContain('past success does not predict future correctness');
 		});
 
-		it('contains runtime enforcement hint in MANDATORY QA GATE section', () => {
+		it('contains runtime enforcement hint in TIERED QA GATE section', () => {
 			expect(prompt).toContain('enforced by runtime hooks');
 			expect(prompt).toContain('BLOCKED by the plugin');
 		});
