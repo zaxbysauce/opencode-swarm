@@ -57,9 +57,6 @@
 		"@biomejs/biome": "2.3.14",
 		"bun-types": "latest",
 		"js-yaml": "^4.1.1",
-		"tree-sitter-dart": "1.0.0",
-		"tree-sitter-kotlin": "0.3.8",
-		"tree-sitter-swift": "0.7.1",
 		"typescript": "^5.7.3"
 	}
 }
