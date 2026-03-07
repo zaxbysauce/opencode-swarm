@@ -231,6 +231,70 @@ export async function saveEvidence(
 }
 
 /**
+ * Check if a parsed object is a flat retrospective (legacy format without EvidenceBundle wrapper).
+ * Flat retrospective: plain object with type === 'retrospective' but no schema_version field.
+ */
+function isFlatRetrospective(
+	parsed: unknown,
+): parsed is { type: 'retrospective'; task_id?: string; timestamp?: string } {
+	return (
+		parsed !== null &&
+		typeof parsed === 'object' &&
+		!Array.isArray(parsed) &&
+		(parsed as Record<string, unknown>).type === 'retrospective' &&
+		!(parsed as Record<string, unknown>).schema_version
+	);
+}
+
+/**
+ * Legacy to current task_complexity value mapping.
+ */
+const LEGACY_TASK_COMPLEXITY_MAP: Record<string, string> = {
+	low: 'simple',
+	medium: 'moderate',
+	high: 'complex',
+};
+
+/**
+ * Remap legacy task_complexity values in an evidence entry.
+ * Returns a new entry with remapped values (does not mutate).
+ */
+function remapLegacyTaskComplexity(
+	entry: Record<string, unknown>,
+): Record<string, unknown> {
+	const taskComplexity = entry.task_complexity;
+	if (
+		typeof taskComplexity === 'string' &&
+		taskComplexity in LEGACY_TASK_COMPLEXITY_MAP
+	) {
+		return {
+			...entry,
+			task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity],
+		};
+	}
+	return entry;
+}
+
+/**
+ * Transform a flat retrospective object into a valid EvidenceBundle.
+ */
+function wrapFlatRetrospective(
+	flatEntry: Record<string, unknown>,
+	taskId: string,
+): EvidenceBundle {
+	const now = new Date().toISOString();
+	// Remap legacy task_complexity values
+	const remappedEntry = remapLegacyTaskComplexity(flatEntry);
+	return {
+		schema_version: '1.0.0',
+		task_id: (remappedEntry.task_id as string) ?? taskId,
+		created_at: (remappedEntry.timestamp as string) ?? now,
+		updated_at: (remappedEntry.timestamp as string) ?? now,
+		entries: [remappedEntry as Evidence],
+	};
+}
+
+/**
  * Load evidence bundle for a task.
  * Returns a LoadEvidenceResult discriminated union.
  */
@@ -243,7 +307,7 @@ export async function loadEvidence(
 
 	// Construct relative path
 	const relativePath = path.join('evidence', sanitizedTaskId, 'evidence.json');
-	validateSwarmPath(directory, relativePath);
+	const evidencePath = validateSwarmPath(directory, relativePath);
 
 	// Read file
 	const content = await readSwarmFileAsync(directory, relativePath);
@@ -251,9 +315,56 @@ export async function loadEvidence(
 		return { status: 'not_found' };
 	}
 
+	// Parse JSON
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(content);
+	} catch {
+		return { status: 'invalid_schema', errors: ['Invalid JSON'] };
+	}
+
+	// Check for flat retrospective format and transform if needed
+	if (isFlatRetrospective(parsed)) {
+		const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
+		// Validate the wrapped bundle
+		try {
+			const validated = EvidenceBundleSchema.parse(wrappedBundle);
+			// Persist repaired bundle back to the same file path
+			const evidenceDir = path.dirname(evidencePath);
+			const bundleJson = JSON.stringify(validated);
+			const tempPath = path.join(
+				evidenceDir,
+				`evidence.json.tmp.${Date.now()}.${process.pid}`,
+			);
+			try {
+				await Bun.write(tempPath, bundleJson);
+				renameSync(tempPath, evidencePath);
+			} catch (writeError) {
+				// Clean up temp file on failure
+				try {
+					rmSync(tempPath, { force: true });
+				} catch {}
+				warn(
+					`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+				);
+				// Still return the validated bundle even if write failed
+			}
+			return { status: 'found', bundle: validated };
+		} catch (error) {
+			// This shouldn't happen since we constructed it, but handle gracefully
+			warn(
+				`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			const errors =
+				error instanceof ZodError
+					? error.issues.map((e) => e.path.join('.') + ': ' + e.message)
+					: [String(error)];
+			return { status: 'invalid_schema', errors };
+		}
+	}
+
 	// Parse and validate
 	try {
-		const parsed = JSON.parse(content);
 		const validated = EvidenceBundleSchema.parse(parsed);
 		return { status: 'found', bundle: validated };
 	} catch (error) {

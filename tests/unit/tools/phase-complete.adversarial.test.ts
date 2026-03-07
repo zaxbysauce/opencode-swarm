@@ -8,6 +8,42 @@ import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmSta
 // Import the tool after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
 
+/**
+ * Helper to write a valid retro bundle so phase_complete gate passes in tests.
+ */
+function writeRetroBundle(directory: string, phaseNumber: number): void {
+	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	fs.mkdirSync(retroDir, { recursive: true });
+	fs.writeFileSync(
+		path.join(retroDir, 'evidence.json'),
+		JSON.stringify({
+			schema_version: '1.0.0',
+			task_id: `retro-${phaseNumber}`,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			entries: [{
+				task_id: `retro-${phaseNumber}`,
+				type: 'retrospective',
+				timestamp: new Date().toISOString(),
+				agent: 'architect',
+				verdict: 'pass',
+				summary: 'Phase retrospective',
+				phase_number: phaseNumber,
+				total_tool_calls: 10,
+				coder_revisions: 0,
+				reviewer_rejections: 0,
+				test_failures: 0,
+				security_findings: 0,
+				integration_issues: 0,
+				task_count: 1,
+				task_complexity: 'simple',
+				top_rejection_reasons: [],
+				lessons_learned: ['test lesson'],
+			}],
+		}, null, 2),
+	);
+}
+
 describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 	let tempDir: string;
 	let originalCwd: string;
@@ -23,6 +59,8 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 
 		// Create .swarm directory and permissive config for tests
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+		writeRetroBundle(tempDir, 1);
 		fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 		fs.writeFileSync(
 			path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -143,9 +181,8 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const result = await phase_complete.execute({ phase: 1.7, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// Floats >= 1 are accepted
-			expect(parsed.success).toBe(true);
-			expect(parsed.phase).toBe(1.7);
+			// No retro bundle exists for phase 1.7 — fails gracefully (RETROSPECTIVE_MISSING)
+			expect(parsed.success).toBe(false);
 		});
 
 		test('handles phase number as very large integer (MAX_SAFE_INTEGER)', async () => {
@@ -154,9 +191,9 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const result = await phase_complete.execute({ phase: Number.MAX_SAFE_INTEGER, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// Should work or fail gracefully, not crash
-			expect(parsed.success).toBe(true);
-			expect(parsed.phase).toBe(Number.MAX_SAFE_INTEGER);
+			// Should fail gracefully — no retro bundle exists for this phase, but no crash
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason ?? parsed.status).toBeTruthy(); // graceful failure with reason
 		});
 
 		test('handles phase number as zero after coercing to number', async () => {
@@ -187,9 +224,9 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const result = await phase_complete.execute({ phase: '1.5' as any, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// Should coerce '1.5' to 1.5
-			expect(parsed.success).toBe(true);
-			expect(parsed.phase).toBe(1.5);
+			// Coerces '1.5' to 1.5 — no retro bundle exists for 1.5, fails gracefully
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason ?? parsed.status).toBeTruthy();
 		});
 
 		test('handles phase number as negative float', async () => {
@@ -374,9 +411,13 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 
 			// Interleaved operations
 			const result1 = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
-			const result2 = await phase_complete.execute({ phase: 1, sessionID: 'sess2' });
-
 			const parsed1 = JSON.parse(result1);
+
+			// After sess1 completes, re-dispatch reviewer for sess2
+			// (sess1's phase_complete resets all contributor sessions including sess2)
+			recordPhaseAgentDispatch('sess2', 'reviewer');
+
+			const result2 = await phase_complete.execute({ phase: 1, sessionID: 'sess2' });
 			const parsed2 = JSON.parse(result2);
 
 			// Both should succeed independently

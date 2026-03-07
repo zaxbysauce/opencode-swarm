@@ -1,5 +1,158 @@
 # Changelog
 
+## [6.20.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.2...v6.20.3) (2026-03-07)
+
+
+### Bug Fixes
+
+* resolve path before isSourceCodePath check, fix test gate setup ([d16df29](https://github.com/zaxbysauce/opencode-swarm/commit/d16df2936a0cdc63713ada655c5189d92d368157))
+* resolve path before isSourceCodePath check, fix test gate setup ([d498cc0](https://github.com/zaxbysauce/opencode-swarm/commit/d498cc0c171fb19796dadc8cea482824540829d5))
+
+## [6.20.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.1...v6.20.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* gate warn() behind DEBUG and block direct plan.md writes ([4763f25](https://github.com/zaxbysauce/opencode-swarm/commit/4763f25f29405930b2fe91ecfe7e6f44dc7f98f9))
+* gate warn() behind DEBUG and block direct plan.md writes ([36897b1](https://github.com/zaxbysauce/opencode-swarm/commit/36897b1236994a2ac0013b299679ee787606114e))
+
+## [6.20.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.0...v6.20.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* **dist:** rebuild dist after lint fixes ([fb5be58](https://github.com/zaxbysauce/opencode-swarm/commit/fb5be5821387815798f99744a35cc0cfc168b4e8))
+* **dist:** rebuild dist artifacts for cwd fixes and delegation-gate additions ([6ed7a5b](https://github.com/zaxbysauce/opencode-swarm/commit/6ed7a5b9169f0130997bac6cbcf90a48c4064cbd))
+* **lint:** resolve biome lint errors to unblock CI ([1aefafb](https://github.com/zaxbysauce/opencode-swarm/commit/1aefafb7ef46dbc84cd23c028fac6591a31c1fa0))
+* use workspace directory as cwd for all subprocess calls ([5e24335](https://github.com/zaxbysauce/opencode-swarm/commit/5e243354e3f7828c7537e9d69b4e65261025173e))
+* use workspace directory as cwd for all subprocess calls ([3d855b6](https://github.com/zaxbysauce/opencode-swarm/commit/3d855b6f012c49543b86a40509cb749de63cbfcb))
+
+## [6.20.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.8...v6.20.0) (2026-03-07)
+
+
+### Features
+
+* **v6.20:** add AST diffing, parallelism framework, PR gate, checkpoint extension, agent output, skill versioning, and context efficiency ([f13ea28](https://github.com/zaxbysauce/opencode-swarm/commit/f13ea285cb862dc0e5dae5e641b560bd5c0ffac5))
+
+#### New: PR-Based Human Gate (`src/git/`)
+Swarm can now create branches, stage/commit files, and open GitHub PRs automatically at phase boundaries.
+- `src/git/branch.ts` — `createBranch()`, `stageAll()`, `stageFiles()` (throws on empty array), `getCurrentBranch()`, `getCurrentSha()`
+- `src/git/pr.ts` — `createPullRequest()` with `sanitizeInput()` for all gh CLI args, `generateEvidenceMd()` to attach swarm evidence as PR body
+- `src/git/index.ts` — `runPRWorkflow()` orchestrates branch → commit → PR in one call
+
+**Configuration:** No new config keys required. Uses your existing `gh` CLI authentication. Set `baseBranch` in `runPRWorkflow()` options to override the default (`main`).
+
+#### New: Parallelism Framework (`src/parallel/`)
+Infrastructure for tracking, routing, and coordinating parallel task execution.
+- `src/parallel/meta-indexer.ts` — Indexes `meta.summary` fields from `events.jsonl` for parallel task introspection
+- `src/parallel/review-router.ts` — Routes tasks to single or double reviewer based on complexity score
+- `src/parallel/dependency-graph.ts` — Builds a dependency graph from `plan.json`, performs topological sort, detects circular dependencies
+- `src/parallel/file-locks.ts` — Atomic file locking with TTL expiry and path traversal protection
+
+**Configuration:** No configuration required in v6.20 — these modules are used internally by the swarm runtime.
+
+#### New: AST-Aware Diffing (`src/diff/`)
+Structured diff analysis using AST language definitions.
+- `src/diff/ast-diff.ts` — `computeASTDiff()` returns typed `ASTChange[]` (added/removed/modified nodes) using tree-sitter grammars where available, falling back to line-diff for unsupported languages
+
+**Configuration:** No configuration required. AST diff is invoked automatically by the diff gate when the changed file's language is registered in `src/lang/registry.ts`.
+
+#### New: Role-Scoped Context Filter (`src/context/`)
+Reduces context window pressure by filtering messages that don't apply to the receiving agent's role.
+- `src/context/role-filter.ts` — Filters context entries based on `[FOR: agent1, agent2]` tags; entries tagged `[FOR: ALL]` are always passed through
+- `src/context/zone-classifier.ts` — Classifies files into zones (`production` / `test` / `config` / `generated` / `docs` / `build`) to enforce file authority rules
+
+**Configuration:** Tag your swarm output with `[FOR: reviewer, test_engineer]` or `[FOR: ALL]` to control which agents receive each context entry. No config key changes needed.
+
+#### New: Agent Output Writer (`src/output/`)
+Structured output formatting for agent responses.
+- `src/output/agent-writer.ts` — `writeAgentOutput()` formats agent results with `meta.summary`, verdict, and structured sections; `readAgentOutput()` retrieves stored outputs; `listAgentOutputs()` enumerates all agent output files
+
+**Configuration:** No configuration required. Output writer is used by architect hooks automatically.
+
+#### New: Skill Versioning (`src/skills/`)
+Skills now carry a `SKILL_VERSION` for compatibility tracking and can be overridden per agent.
+- `src/skills/index.ts` — Exports `SKILL_VERSION`, base skill definitions, and per-agent overlay maps
+
+**Configuration:** No action required. `SKILL_VERSION` is embedded in agent system prompts automatically.
+
+#### New: Project Identity (`src/knowledge/`)
+Each project now generates a stable identity hash for cross-session knowledge correlation.
+- `src/knowledge/identity.ts` — `getOrCreateIdentity()` creates `.swarm/identity.json` with `projectHash`, `projectName`, `repoUrl`, and `absolutePath`
+
+**Configuration:** Identity is created automatically on first swarm run. No configuration needed.
+
+#### New: /swarm checkpoint Command (`src/commands/checkpoint.ts`)
+The checkpoint system now has a user-facing slash command in addition to the existing tool.
+- `/swarm checkpoint save [label]` — Save a named checkpoint
+- `/swarm checkpoint restore [label]` — Restore to a checkpoint (soft reset)
+- `/swarm checkpoint list` — List all checkpoints with timestamps
+- `/swarm checkpoint delete [label]` — Remove a checkpoint
+
+**Configuration:** No configuration required.
+
+#### New: Delegation Envelope Types (`src/types/delegation.ts`)
+Formal `DelegationEnvelope` interface for typed agent-to-agent task delegation, with `parseDelegationEnvelope()` for safe extraction from message content.
+
+### Additions to Existing Modules
+
+* `src/hooks/delegation-gate.ts` — Added `parseDelegationEnvelope()` export used by the role-scoped context filter
+* `src/hooks/knowledge-store.ts` — Added `getPlatformConfigDir()` export for cross-platform config path resolution (Windows: `%LOCALAPPDATA%\opencode-swarm\config`, macOS: `~/Library/Application Support/opencode-swarm`, Linux: `~/.config/opencode-swarm`)
+
+### Upgrade Notes
+
+No breaking changes. All new modules are additive. Existing `plugin.config.ts` configurations are fully compatible with v6.20.0.
+
+## [6.19.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.7...v6.19.8) (2026-03-06)
+
+
+### Bug Fixes
+
+* add handoff command, run memory service, and context budget guard ([efa334c](https://github.com/zaxbysauce/opencode-swarm/commit/efa334cd2e6435eda93176f3f3325a6e1d21d895))
+* add handoff command, run memory, and context budget guard ([1118edb](https://github.com/zaxbysauce/opencode-swarm/commit/1118edbac57535eb83552251adb8eddffc264cca))
+
+## [6.19.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.6...v6.19.7) (2026-03-06)
+
+
+### Bug Fixes
+
+* **dist:** rebuild dist artifacts for update_task_status and write_retro tool additions ([03eb93a](https://github.com/zaxbysauce/opencode-swarm/commit/03eb93ac5bb5ef096bcb3a339cfb3351358abb27))
+* expose update_task_status and write_retro tools, repair retro compatibility ([ec96421](https://github.com/zaxbysauce/opencode-swarm/commit/ec964215369bae5226e2c0cbb0abf46fce37e485))
+* **tests:** correct phase_complete adversarial test expectations for RETROSPECTIVE_MISSING behavior ([bc0383f](https://github.com/zaxbysauce/opencode-swarm/commit/bc0383ff14577e4f4fd18152d001c6c41c5500bf))
+* **tools:** expose update_task_status and write_retro, repair retro compatibility, harden architect prompt ([694dd16](https://github.com/zaxbysauce/opencode-swarm/commit/694dd1656bd34dc5ffbfac71c0587bd898c6b9a0))
+
+## [6.19.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.5...v6.19.6) (2026-03-06)
+
+
+### Bug Fixes
+
+* **ci:** remove native tree-sitter devDeps that compiled from source on Windows ([9138137](https://github.com/zaxbysauce/opencode-swarm/commit/9138137309f81ae2ac4c2287f7da436d4f5446a7))
+* harden pre_check_batch, diff, glob, placeholder-scan, and sast-scan ([11c40f5](https://github.com/zaxbysauce/opencode-swarm/commit/11c40f5a1d4886a9c88c2403b563a74c6a5a8dda))
+* **lint:** resolve 5 biome errors introduced by Phase 1-4 hardening ([9dacdf3](https://github.com/zaxbysauce/opencode-swarm/commit/9dacdf360db80c4fb0e4bfd4e42d6dbde6ceb701))
+* tool hardening and Windows CI native-dep removal ([e6155e0](https://github.com/zaxbysauce/opencode-swarm/commit/e6155e09bed9705c1970c6b0d61b16ef6b24d804))
+
+## [6.19.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.4...v6.19.5) (2026-03-06)
+
+
+### Bug Fixes
+
+* phase completion reliability and workspace validation hardening ([4051d14](https://github.com/zaxbysauce/opencode-swarm/commit/4051d14b71d5f5cce5b8f479c534eac8817d436a))
+* phase completion reliability and workspace validation hardening ([600e9bb](https://github.com/zaxbysauce/opencode-swarm/commit/600e9bb158e98f30e375ce784271f561492bcf98))
+
+## [6.19.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.3...v6.19.4) (2026-03-05)
+
+
+### Bug Fixes
+
+* **lint:** remove CI-blocking biome errors in hooks ([3e8fe80](https://github.com/zaxbysauce/opencode-swarm/commit/3e8fe80bad25c2c4df6758c98798b7b4ac45ebe7))
+
+## [6.19.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.2...v6.19.3) (2026-03-04)
+
+
+### Bug Fixes
+
+* **architect:** tier QA gates to reduce low-risk churn ([5e38b05](https://github.com/zaxbysauce/opencode-swarm/commit/5e38b05a492c72b823abf17874a155c9d74618aa))
+
 ## [6.19.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.1...v6.19.2) (2026-03-04)
 
 

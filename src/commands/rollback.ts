@@ -34,6 +34,7 @@ export async function handleRollbackCommand(
 			'## Available Checkpoints',
 			'',
 			...checkpoints.map(
+				// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
 				(c: any) =>
 					`- Phase ${c.phase}: ${c.label || 'no label'} (${new Date(c.timestamp).toLocaleString()})`,
 			),
@@ -43,7 +44,7 @@ export async function handleRollbackCommand(
 	}
 
 	const targetPhase = parseInt(phaseArg, 10);
-	if (isNaN(targetPhase) || targetPhase < 1) {
+	if (Number.isNaN(targetPhase) || targetPhase < 1) {
 		return 'Error: Phase number must be a positive integer.';
 	}
 
@@ -58,11 +59,13 @@ export async function handleRollbackCommand(
 
 	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 	const checkpoint = manifest.checkpoints?.find(
+		// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
 		(c: any) => c.phase === targetPhase,
 	);
 
 	if (!checkpoint) {
 		const available =
+			// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
 			manifest.checkpoints?.map((c: any) => c.phase).join(', ') || 'none';
 		return `Error: Checkpoint for phase ${targetPhase} not found. Available phases: ${available}`;
 	}
@@ -116,7 +119,7 @@ export async function handleRollbackCommand(
 	};
 
 	try {
-		fs.appendFileSync(eventsPath, JSON.stringify(rollbackEvent) + '\n');
+		fs.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}\n`);
 	} catch (error) {
 		console.error('Failed to write rollback event:', error);
 	}

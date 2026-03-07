@@ -125,7 +125,7 @@ export async function handleKnowledgeListCommand(
 		for (const entry of entries) {
 			const truncatedLesson =
 				entry.lesson.length > 60
-					? entry.lesson.slice(0, 57) + '...'
+					? `${entry.lesson.slice(0, 57)}...`
 					: entry.lesson;
 			const confidencePct = Math.round(entry.confidence * 100);
 			lines.push(

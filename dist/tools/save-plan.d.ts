@@ -42,6 +42,14 @@ export interface SavePlanResult {
  */
 export declare function detectPlaceholderContent(args: SavePlanArgs): string[];
 /**
+ * Validate target workspace path.
+ * Rejects missing, empty, whitespace-only, and traversal-style paths.
+ * @param target - The target workspace path to validate
+ * @param source - Description of the source (for error messages)
+ * @returns Error message if invalid, undefined if valid
+ */
+export declare function validateTargetWorkspace(target: string | undefined, source: string): string | undefined;
+/**
  * Execute the save_plan tool.
  * Validates for placeholder content, builds a Plan object, and saves to disk.
  * @param args - The save plan arguments

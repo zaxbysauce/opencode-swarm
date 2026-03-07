@@ -1971,6 +1971,8 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(2, 1);
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
+				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
+				session.gateLog.set('no-write-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 			}
 
 			// Transform messages
@@ -2039,6 +2041,8 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(2, 1);
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
+				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
+				session.gateLog.set('old-failure-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 			}
 
 			// Transform messages
@@ -2075,7 +2079,7 @@ describe('guardrails circuit breaker', () => {
 			// Architect writes to .swarm/ directory (allowed - path starts with .swarm/)
 			await hooks.toolBefore(
 				makeInput('swarm-file-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '.swarm/plan.md' }), // Inside .swarm/
+				makeOutput({ filePath: '.swarm/context.md' }), // Inside .swarm/
 			);
 
 			// Flag should NOT be set for .swarm/ files
@@ -2344,7 +2348,7 @@ describe('guardrails circuit breaker', () => {
 				warnSpy.mockRestore();
 			});
 
-			it('Test 4: apply_patch targeting only `.swarm/plan.md` → NO increment (isOutsideSwarmDir filters)', async () => {
+			it('Test 4: apply_patch targeting only `.swarm/context.md` → NO increment (isOutsideSwarmDir filters)', async () => {
 				const config = defaultConfig();
 				const hooks = createGuardrailsHooks(config);
 				swarmState.activeAgent.set('test-session', 'architect');
@@ -2353,10 +2357,10 @@ describe('guardrails circuit breaker', () => {
 
 				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
 
-				// Mock: apply_patch args.input containing `*** Update File: .swarm/plan.md`
+				// Mock: apply_patch args.input containing `*** Update File: .swarm/context.md`
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
-					makeOutput({ input: '*** Update File: .swarm/plan.md\nPlan changes' }),
+					makeOutput({ input: '*** Update File: .swarm/context.md\nContext changes' }),
 				);
 
 				// Verify: architectWriteCount does NOT increment (.swarm/ is filtered)

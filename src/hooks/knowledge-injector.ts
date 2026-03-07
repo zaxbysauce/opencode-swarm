@@ -8,6 +8,7 @@
 
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { loadPlan } from '../plan/manager.js';
+import { getRunMemorySummary } from '../services/run-memory.js';
 import { extractCurrentPhaseFromPlan } from './extractors.js';
 import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
@@ -29,7 +30,14 @@ function formatStars(confidence: number): string {
 /** Sanitizes lesson text to prevent prompt injection into LLM context. */
 function sanitizeLessonForContext(text: string): string {
 	return text
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // ASCII control chars
+		.split('')
+		.filter((char) => {
+			const code = char.charCodeAt(0);
+			return (
+				code === 9 || code === 10 || code === 13 || (code > 31 && code !== 127)
+			);
+		})
+		.join('')
 		.replace(/[\u200B-\u200D\uFEFF]/g, '') // Zero-width chars
 		.replace(/[\u202A-\u202E\u2066-\u2069]/g, '') // BiDi override chars
 		.replace(/```/g, '` ` `') // Break code block escapes
@@ -157,6 +165,9 @@ export function createKnowledgeInjectorHook(
 			const entries = await readMergedKnowledge(directory, config, context);
 			if (entries.length === 0) return;
 
+			// Get run memory summary to prepend with highest priority
+			const runMemory = await getRunMemorySummary(directory);
+
 			// Format injection block with tier labels and star ratings
 			const lines = entries.map((entry: RankedEntry) => {
 				const stars = formatStars(entry.confidence);
@@ -181,7 +192,7 @@ export function createKnowledgeInjectorHook(
 				return `${stars} ${tierLabel} ${sanitizeLessonForContext(entry.lesson)}${source}${confirmText}`;
 			});
 
-			cachedInjectionText = [
+			const knowledgeSection = [
 				`📚 Knowledge (${entries.length} relevant lesson${
 					entries.length > 1 ? 's' : ''
 				}):`,
@@ -190,6 +201,13 @@ export function createKnowledgeInjectorHook(
 				'',
 				'These are lessons learned from this project and past projects. Consider them as context but use your judgment — they may not all apply.',
 			].join('\n');
+
+			// Prepend run memory summary if available (highest priority)
+			if (runMemory) {
+				cachedInjectionText = runMemory + '\n\n' + knowledgeSection;
+			} else {
+				cachedInjectionText = knowledgeSection;
+			}
 
 			// Append rejected-pattern warnings (last 3 most recent) to prevent re-learning loops
 			const rejected = await readRejectedLessons(directory);

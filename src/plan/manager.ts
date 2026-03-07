@@ -256,6 +256,16 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
  * then derive and write .swarm/plan.md
  */
 export async function savePlan(directory: string, plan: Plan): Promise<void> {
+	// Fail-fast: reject blank or whitespace-only directory inputs before any I/O
+	if (
+		directory === null ||
+		directory === undefined ||
+		typeof directory !== 'string' ||
+		directory.trim().length === 0
+	) {
+		throw new Error(`Invalid directory: directory must be a non-empty string`);
+	}
+
 	// Validate against schema
 	const validated = PlanSchema.parse(plan);
 

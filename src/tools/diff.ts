@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 
 const MAX_DIFF_LINES = 500;
@@ -16,6 +16,8 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 const MAX_REF_LENGTH = 256;
 const MAX_PATH_LENGTH = 500;
 const SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally matches ASCII control characters for input sanitization
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001F\u007F]/;
 
 function validateBase(base: string): string | null {
 	if (base.length > MAX_REF_LENGTH) {
@@ -38,6 +40,12 @@ function validatePaths(paths: string[] | undefined): string | null {
 		}
 		if (SHELL_METACHARACTERS.test(path)) {
 			return 'path contains shell metacharacters';
+		}
+		if (path.startsWith('-')) {
+			return 'path cannot start with "-" (option-like arguments not allowed)';
+		}
+		if (CONTROL_CHAR_PATTERN.test(path)) {
+			return 'path contains control characters';
 		}
 	}
 	return null;
@@ -74,11 +82,23 @@ export const diff: ReturnType<typeof tool> = tool({
 	},
 	async execute(
 		args: { base?: string; paths?: string[] },
-		_context: ToolContext,
+		context: ToolContext,
 	): Promise<string> {
 		try {
+			if (
+				!context.directory ||
+				typeof context.directory !== 'string' ||
+				context.directory.trim() === ''
+			) {
+				const errorResult: DiffErrorResult = {
+					error: 'project directory is required but was not provided',
+					files: [],
+					contractChanges: [],
+					hasContractChanges: false,
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
 			const base = args.base ?? 'HEAD';
-			const pathSpec = args.paths?.length ? `-- ${args.paths.join(' ')}` : '';
 
 			const baseValidationError = validateBase(base);
 			if (baseValidationError) {
@@ -102,24 +122,35 @@ export const diff: ReturnType<typeof tool> = tool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			let gitCmd: string;
+			let gitArgs: string[];
 			if (base === 'staged') {
-				gitCmd = 'git --no-pager diff --cached';
+				gitArgs = ['--no-pager', 'diff', '--cached'];
 			} else if (base === 'unstaged') {
-				gitCmd = 'git --no-pager diff';
+				gitArgs = ['--no-pager', 'diff'];
 			} else {
-				gitCmd = `git --no-pager diff ${base}`;
+				gitArgs = ['--no-pager', 'diff', base];
 			}
 
-			const numstatOutput = execSync(`${gitCmd} --numstat ${pathSpec}`, {
-				encoding: 'utf-8',
-				timeout: DIFF_TIMEOUT_MS,
-			});
+			const numstatArgs = [...gitArgs, '--numstat'];
+			const fullDiffArgs = [...gitArgs, '-U3'];
 
-			const fullDiffOutput = execSync(`${gitCmd} -U3 ${pathSpec}`, {
+			if (args.paths?.length) {
+				numstatArgs.push('--', ...args.paths);
+				fullDiffArgs.push('--', ...args.paths);
+			}
+
+			const numstatOutput = execFileSync('git', numstatArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
+				cwd: context.directory,
+			});
+
+			const fullDiffOutput = execFileSync('git', fullDiffArgs, {
+				encoding: 'utf-8',
+				timeout: DIFF_TIMEOUT_MS,
+				maxBuffer: MAX_BUFFER_BYTES,
+				cwd: context.directory,
 			});
 
 			const files: Array<{
@@ -183,7 +214,7 @@ export const diff: ReturnType<typeof tool> = tool({
 			const errorResult: DiffErrorResult = {
 				error:
 					e instanceof Error
-						? `git diff failed: ${e.constructor.name}`
+						? `git diff failed: ${e.message}`
 						: 'git diff failed: unknown error',
 				files: [],
 				contractChanges: [],

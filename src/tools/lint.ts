@@ -68,11 +68,12 @@ export function validateArgs(args: unknown): args is { mode: 'fix' | 'check' } {
 export function getLinterCommand(
 	linter: SupportedLinter,
 	mode: 'fix' | 'check',
+	projectDir: string,
 ): string[] {
 	const isWindows = process.platform === 'win32';
 
 	// Get path to local node_modules/.bin
-	const binDir = path.join(process.cwd(), 'node_modules', '.bin');
+	const binDir = path.join(projectDir, 'node_modules', '.bin');
 	const biomeBin = isWindows
 		? path.join(binDir, 'biome.EXE')
 		: path.join(binDir, 'biome');
@@ -385,8 +386,9 @@ export async function detectAvailableLinter(): Promise<SupportedLinter | null> {
 export async function runLint(
 	linter: SupportedLinter,
 	mode: 'fix' | 'check',
+	directory: string,
 ): Promise<LintResult> {
-	const command = getLinterCommand(linter, mode);
+	const command = getLinterCommand(linter, mode, directory);
 
 	// Validate command length for safety
 	const commandStr = command.join(' ');
@@ -404,6 +406,7 @@ export async function runLint(
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
+			cwd: directory,
 		});
 
 		const [stdout, stderr] = await Promise.all([
@@ -556,13 +559,26 @@ export const lint: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(errorResult, null, 2);
 		}
 
+		if (
+			!directory ||
+			typeof directory !== 'string' ||
+			directory.trim() === ''
+		) {
+			const errorResult: LintErrorResult = {
+				success: false,
+				mode: 'check',
+				error: 'project directory is required but was not provided',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
 		const { mode } = args;
 		const cwd = directory;
 
 		// Primary: detect Biome or ESLint (JS/TS projects)
 		const linter = await detectAvailableLinter();
 		if (linter) {
-			const result = await runLint(linter, mode);
+			const result = await runLint(linter, mode, directory);
 			return JSON.stringify(result, null, 2);
 		}
 

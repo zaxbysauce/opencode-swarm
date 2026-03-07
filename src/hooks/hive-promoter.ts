@@ -1,5 +1,6 @@
 /** Hive promoter hook for opencode-swarm v6.17 two-tier knowledge system. */
 
+import path from 'node:path';
 import {
 	appendKnowledge,
 	findNearDuplicate,
@@ -329,7 +330,7 @@ export async function promoteToHive(
 		schema_version: 1,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
-		source_project: directory.split('/').pop() || 'unknown',
+		source_project: path.basename(directory) || 'unknown',
 	};
 
 	// Append to hive

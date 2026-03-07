@@ -29,6 +29,17 @@ export {
 	writeBackupArtifact,
 	writeDoctorArtifact,
 } from './config-doctor';
+// Context Budget service
+export {
+	type BudgetState,
+	type ContextBudgetConfig,
+	type ContextBudgetReport,
+	DEFAULT_CONTEXT_BUDGET_CONFIG,
+	estimateTokens,
+	formatBudgetWarning,
+	getContextBudgetReport,
+	getDefaultConfig,
+} from './context-budget-service';
 // Diagnose service
 export {
 	type DiagnoseData,
@@ -67,6 +78,14 @@ export {
 	getExportData,
 	handleExportCommand,
 } from './export-service';
+// Handoff service
+export {
+	type DelegationState,
+	formatHandoffMarkdown,
+	getHandoffData,
+	type HandoffData,
+	type PendingQA,
+} from './handoff-service';
 // History service
 export {
 	formatHistoryMarkdown,

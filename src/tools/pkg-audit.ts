@@ -71,9 +71,9 @@ function validateArgs(args: unknown): args is { ecosystem?: Ecosystem } {
 }
 
 // ============ File Detection ============
-function detectEcosystems(): string[] {
+function detectEcosystems(directory: string): string[] {
 	const ecosystems: string[] = [];
-	const cwd = process.cwd();
+	const cwd = directory;
 
 	// Check for package.json -> npm
 	if (fs.existsSync(path.join(cwd, 'package.json'))) {
@@ -142,14 +142,14 @@ interface NpmAuditResponse {
 	vulnerabilities?: Record<string, NpmVulnInfo>;
 }
 
-async function runNpmAudit(): Promise<AuditResult> {
+async function runNpmAudit(directory: string): Promise<AuditResult> {
 	const command = ['npm', 'audit', '--json'];
 
 	try {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -307,14 +307,14 @@ interface PipAuditPackage {
 	vulns: PipAuditVuln[];
 }
 
-async function runPipAudit(): Promise<AuditResult> {
+async function runPipAudit(directory: string): Promise<AuditResult> {
 	const command = ['pip-audit', '--format=json'];
 
 	try {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -509,14 +509,14 @@ interface CargoAuditResponse {
 	vulnerabilities?: CargoVulnsList;
 }
 
-async function runCargoAudit(): Promise<AuditResult> {
+async function runCargoAudit(directory: string): Promise<AuditResult> {
 	const command = ['cargo', 'audit', '--json'];
 
 	try {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -674,7 +674,7 @@ interface GoVulncheckLine {
 	finding?: GoFinding;
 }
 
-async function runGoAudit(): Promise<AuditResult> {
+async function runGoAudit(directory: string): Promise<AuditResult> {
 	const command = ['govulncheck', '-json', './...'];
 
 	if (!isCommandAvailable('govulncheck')) {
@@ -695,7 +695,7 @@ async function runGoAudit(): Promise<AuditResult> {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -831,7 +831,7 @@ async function runGoAudit(): Promise<AuditResult> {
 }
 
 // ============ dotnet Audit ============
-async function runDotnetAudit(): Promise<AuditResult> {
+async function runDotnetAudit(directory: string): Promise<AuditResult> {
 	const command = [
 		'dotnet',
 		'list',
@@ -858,7 +858,7 @@ async function runDotnetAudit(): Promise<AuditResult> {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -1002,7 +1002,7 @@ interface BundleAuditResponse {
 	ignored: string[];
 }
 
-async function runBundleAudit(): Promise<AuditResult> {
+async function runBundleAudit(directory: string): Promise<AuditResult> {
 	const useBundleExec =
 		!isCommandAvailable('bundle-audit') && isCommandAvailable('bundle');
 
@@ -1028,7 +1028,7 @@ async function runBundleAudit(): Promise<AuditResult> {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -1188,7 +1188,7 @@ interface DartPubOutdatedResponse {
 	packages?: DartPackageEntry[];
 }
 
-async function runDartAudit(): Promise<AuditResult> {
+async function runDartAudit(directory: string): Promise<AuditResult> {
 	const dartBin = isCommandAvailable('dart')
 		? 'dart'
 		: isCommandAvailable('flutter')
@@ -1215,7 +1215,7 @@ async function runDartAudit(): Promise<AuditResult> {
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: process.cwd(),
+			cwd: directory,
 		});
 
 		const timeoutPromise = new Promise<'timeout'>((resolve) =>
@@ -1327,8 +1327,8 @@ async function runDartAudit(): Promise<AuditResult> {
 }
 
 // ============ Combined Audit ============
-async function runAutoAudit(): Promise<CombinedAuditResult> {
-	const ecosystems = detectEcosystems();
+async function runAutoAudit(directory: string): Promise<CombinedAuditResult> {
+	const ecosystems = detectEcosystems(directory);
 
 	if (ecosystems.length === 0) {
 		return {
@@ -1346,25 +1346,25 @@ async function runAutoAudit(): Promise<CombinedAuditResult> {
 	for (const eco of ecosystems) {
 		switch (eco) {
 			case 'npm':
-				results.push(await runNpmAudit());
+				results.push(await runNpmAudit(directory));
 				break;
 			case 'pip':
-				results.push(await runPipAudit());
+				results.push(await runPipAudit(directory));
 				break;
 			case 'cargo':
-				results.push(await runCargoAudit());
+				results.push(await runCargoAudit(directory));
 				break;
 			case 'go':
-				results.push(await runGoAudit());
+				results.push(await runGoAudit(directory));
 				break;
 			case 'dotnet':
-				results.push(await runDotnetAudit());
+				results.push(await runDotnetAudit(directory));
 				break;
 			case 'ruby':
-				results.push(await runBundleAudit());
+				results.push(await runBundleAudit(directory));
 				break;
 			case 'dart':
-				results.push(await runDartAudit());
+				results.push(await runDartAudit(directory));
 				break;
 		}
 	}
@@ -1402,12 +1402,23 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 				'Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), or "dart" (dart pub outdated)',
 			),
 	},
-	async execute(args: unknown, _directory: string): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Validate arguments
 		if (!validateArgs(args)) {
 			const errorResult = {
 				error:
 					'Invalid arguments: ecosystem must be "auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", or "dart"',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
+		if (
+			!directory ||
+			typeof directory !== 'string' ||
+			directory.trim() === ''
+		) {
+			const errorResult = {
+				error: 'project directory is required but was not provided',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1420,28 +1431,28 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 
 		switch (ecosystem) {
 			case 'auto':
-				result = await runAutoAudit();
+				result = await runAutoAudit(directory);
 				break;
 			case 'npm':
-				result = await runNpmAudit();
+				result = await runNpmAudit(directory);
 				break;
 			case 'pip':
-				result = await runPipAudit();
+				result = await runPipAudit(directory);
 				break;
 			case 'cargo':
-				result = await runCargoAudit();
+				result = await runCargoAudit(directory);
 				break;
 			case 'go':
-				result = await runGoAudit();
+				result = await runGoAudit(directory);
 				break;
 			case 'dotnet':
-				result = await runDotnetAudit();
+				result = await runDotnetAudit(directory);
 				break;
 			case 'ruby':
-				result = await runBundleAudit();
+				result = await runBundleAudit(directory);
 				break;
 			case 'dart':
-				result = await runDartAudit();
+				result = await runDartAudit(directory);
 				break;
 		}
 

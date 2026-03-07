@@ -2,6 +2,8 @@
 
 **Your AI writes the code. Swarm makes sure it actually works.**
 
+https://swarmai.site/
+
 OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding agent into a team of nine. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another catches security issues. Nothing ships until every check passes. Your project state is saved to disk, so you can close your laptop, come back tomorrow, and pick up exactly where you left off.
 
 ```bash
@@ -322,6 +324,39 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 </details>
 
 <details>
+<summary><strong>Save Plan Tool: Target Workspace Requirement</strong></summary>
+
+The `save_plan` tool requires an explicit target workspace path. It does **not** fall back to `process.cwd()`.
+
+### Explicit Workspace Requirement
+
+- The `working_directory` parameter must be provided
+- Providing no value or relying on implicit directory resolution will result in deterministic failure
+
+### Failure Conditions
+
+| Condition | Behavior |
+|-----------|----------|
+| Missing (`undefined` / `null`) | Fails with: "Target workspace is required" |
+| Empty or whitespace-only | Fails with: "Target workspace cannot be empty or whitespace" |
+| Path traversal (`..`) | Fails with: "Target workspace cannot contain path traversal" |
+
+### Usage Contract
+
+When using `save_plan`, always pass a valid `working_directory`:
+
+```typescript
+save_plan({
+  title: "My Project",
+  swarm_id: "mega",
+  phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Initialize project" }] }],
+  working_directory: "/path/to/project"  // Required - no fallback
+})
+```
+
+</details>
+
+<details>
 <summary><strong>Guardrails and Circuit Breakers</strong></summary>
 
 Every agent runs inside a circuit breaker that kills runaway behavior before it burns your credits.
@@ -347,6 +382,119 @@ Per-agent overrides:
   }
 }
 ```
+
+</details>
+
+<details>
+<summary><strong>Context Budget Guard</strong></summary>
+
+The Context Budget Guard monitors how much context Swarm is injecting into the conversation. It helps prevent context overflow before it becomes a problem.
+
+### Default Behavior
+
+- **Enabled automatically** — No setup required. Swarm starts tracking context usage right away.
+- **What it measures** — Only the context that Swarm injects (plan, context, evidence, retrospectives). It does **not** count your chat history or the model's responses.
+- **Warning threshold (0.7 ratio)** — When swarm-injected context reaches ~2800 tokens (70% of 4000), the architect receives a one-time advisory warning. This is informational — execution continues normally.
+- **Critical threshold (0.9 ratio)** — When context reaches ~3600 tokens (90% of 4000), the architect receives a critical alert with a recommendation to run `/swarm handoff`. This is also one-time only.
+- **Non-nagging** — Alerts fire once per session, not repeatedly. You won't be pestered every turn.
+- **Who sees warnings** — Only the architect receives these warnings. Other agents are unaware of the budget.
+
+To disable entirely, set `context_budget.enabled: false` in your swarm config.
+
+### Configuration Reference
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `context_budget.enabled` | boolean | `true` | Enable or disable the context budget guard entirely |
+| `context_budget.max_injection_tokens` | number | `4000` | Token budget for swarm-injected context per turn. This is NOT the model's context window — it's the swarm plugin's own contribution |
+| `context_budget.warn_threshold` | number | `0.7` | Ratio (0.0-1.0) of `max_injection_tokens` that triggers a warning advisory |
+| `context_budget.critical_threshold` | number | `0.9` | Ratio (0.0-1.0) of `max_injection_tokens` that triggers a critical alert with handoff recommendation |
+| `context_budget.enforce` | boolean | `true` | When true, enforces budget limits and may trigger handoffs |
+| `context_budget.prune_target` | number | `0.7` | Ratio (0.0-1.0) of context to preserve when pruning occurs |
+| `context_budget.preserve_last_n_turns` | number | `4` | Number of recent turns to preserve when pruning |
+| `context_budget.recent_window` | number | `10` | Number of turns to consider as "recent" for scoring |
+| `context_budget.tracked_agents` | string[] | `['architect']` | Agents to track for context budget warnings |
+| `context_budget.enforce_on_agent_switch` | boolean | `true` | Enforce budget limits when switching agents |
+| `context_budget.model_limits` | record | `{ default: 128000 }` | Per-model token limits (model name -> max tokens) |
+| `context_budget.tool_output_mask_threshold` | number | `2000` | Threshold for masking tool outputs (chars) |
+| `context_budget.scoring.enabled` | boolean | `false` | Enable context scoring/ranking |
+| `context_budget.scoring.max_candidates` | number | `100` | Maximum items to score (10-500) |
+| `context_budget.scoring.weights` | object | `{ recency: 0.3, ... }` | Scoring weights for priority |
+| `context_budget.scoring.decision_decay` | object | `{ mode: 'exponential', half_life_hours: 24 }` | Decision relevance decay |
+| `context_budget.scoring.token_ratios` | object | `{ prose: 0.25, code: 0.4, ... }` | Token cost multipliers |
+
+### Example Configurations
+
+**Minimal (disable):**
+```json
+{
+  "context_budget": {
+    "enabled": false
+  }
+}
+```
+
+**Default (reference):**
+```json
+{
+  "context_budget": {
+    "enabled": true,
+    "max_injection_tokens": 4000,
+    "warn_threshold": 0.7,
+    "critical_threshold": 0.9,
+    "enforce": true,
+    "prune_target": 0.7,
+    "preserve_last_n_turns": 4,
+    "recent_window": 10,
+    "tracked_agents": ["architect"],
+    "enforce_on_agent_switch": true,
+    "model_limits": { "default": 128000 },
+    "tool_output_mask_threshold": 2000,
+    "scoring": {
+      "enabled": false,
+      "max_candidates": 100,
+      "weights": { "recency": 0.3, "relevance": 0.4, "importance": 0.3 },
+      "decision_decay": { "mode": "exponential", "half_life_hours": 24 },
+      "token_ratios": { "prose": 0.25, "code": 0.4, "json": 0.6, "logs": 0.1 }
+    }
+  }
+}
+```
+
+**Aggressive (for long-running sessions):**
+```json
+{
+  "context_budget": {
+    "enabled": true,
+    "max_injection_tokens": 2000,
+    "warn_threshold": 0.5,
+    "critical_threshold": 0.75,
+    "enforce": true,
+    "prune_target": 0.6,
+    "preserve_last_n_turns": 2,
+    "recent_window": 5,
+    "tracked_agents": ["architect"],
+    "enforce_on_agent_switch": true,
+    "model_limits": { "default": 128000 },
+    "tool_output_mask_threshold": 1500,
+    "scoring": {
+      "enabled": true,
+      "max_candidates": 50,
+      "weights": { "recency": 0.5, "relevance": 0.3, "importance": 0.2 },
+      "decision_decay": { "mode": "linear", "half_life_hours": 12 },
+      "token_ratios": { "prose": 0.2, "code": 0.35, "json": 0.5, "logs": 0.05 }
+    }
+  }
+}
+```
+
+### What This Does NOT Do
+
+- **Does NOT prune chat history** — Your conversation with the model is untouched
+- **Does NOT modify tool outputs** — What tools return is unchanged
+- **Does NOT block execution** — The guard is advisory only; it warns but never stops the pipeline
+- **Does NOT interact with compaction.auto** — Separate feature with separate configuration
+- **Only measures swarm's injected context** — Not the full context window, just what Swarm adds
 
 </details>
 
@@ -659,7 +807,9 @@ The following tools can be assigned to agents via overrides:
 | `secretscan` | Scan for secrets in code |
 | `symbols` | Extract exported symbols |
 | `test_runner` | Run project tests |
+| `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
 | `todo_extract` | Extract TODO/FIXME comments |
+| `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
 | `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
 
 ---
@@ -702,7 +852,7 @@ This release adds runtime detection hooks to catch and warn about architect work
 - **Partial gate tracking**: Detects when QA gates are skipped
 - **Self-fix detection**: Warns when an agent fixes its own gate failure (should delegate to fresh agent)
 - **Batch detection**: Catches "implement X and add Y" batching in task requests
-- **Zero-delegation detection**: Warns when tasks complete without any coder delegation
+- **Zero-delegation detection**: Warns when tasks complete without any coder delegation; supports parsing delegation envelopes from JSON or KEY: VALUE text format for validation.
 
 These hooks are advisory (warnings only) and help maintain workflow discipline during long sessions.
 

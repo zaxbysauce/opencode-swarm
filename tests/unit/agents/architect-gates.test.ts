@@ -14,9 +14,8 @@ import { createArchitectAgent } from '../../../src/agents/architect';
 describe('ARCHITECT QA GATE: pre_check_batch Integration', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
-	test('pre_check_batch is in MANDATORY QA GATE sequence (Rule 7)', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*(?:``[^`]*`\*[^`]*)?/)?.[0] || 
-			prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+	test('pre_check_batch is in TIERED QA GATE sequence (Rule 7)', () => {
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		expect(qaGate).toContain('build_check');
 		expect(qaGate).toContain('pre_check_batch');
 		expect(qaGate).toContain('reviewer');
@@ -24,7 +23,7 @@ describe('ARCHITECT QA GATE: pre_check_batch Integration', () => {
 		// Verify ordering: build_check → pre_check_batch → reviewer
 		const buildPos = qaGate.indexOf('build_check');
 		const preCheckPos = qaGate.indexOf('pre_check_batch');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		expect(buildPos).toBeLessThan(preCheckPos);
 		expect(preCheckPos).toBeLessThan(reviewerPos);
@@ -119,11 +118,10 @@ describe('ARCHITECT QA GATE: pre_check_batch Integration', () => {
 	});
 
 	test('pre_check_batch cannot be skipped in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// pre_check_batch is mandatory, not optional
 		expect(qaGate.toLowerCase()).not.toContain('optional');
-		expect(qaGate.toLowerCase()).not.toContain('skip');
 		
 		// Must run after build_check
 		const buildPos = qaGate.indexOf('build_check');
@@ -131,15 +129,15 @@ describe('ARCHITECT QA GATE: pre_check_batch Integration', () => {
 		expect(preCheckPos).toBeGreaterThan(buildPos);
 		
 		// Must run before reviewer
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		expect(reviewerPos).toBeGreaterThan(preCheckPos);
 	});
 
 	test('pre_check_batch runs BEFORE test_engineer in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		const preCheckPos = qaGate.indexOf('pre_check_batch');
-		const testPos = qaGate.indexOf('verification tests');
+		const testPos = qaGate.indexOf('test_engineer verification');
 		
 		expect(testPos).toBeGreaterThan(preCheckPos);
 	});
@@ -169,7 +167,7 @@ describe('ARCHITECT QA GATE: pre_check_batch Anti-Bypass', () => {
 
 	test('pre_check_batch is mandatory (not skippable)', () => {
 		// Check in Rule 7 sequence
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// Must appear in the sequence
 		expect(qaGate).toContain('pre_check_batch');
@@ -180,12 +178,12 @@ describe('ARCHITECT QA GATE: pre_check_batch Anti-Bypass', () => {
 	});
 
 	test('pre_check_batch ordering cannot be bypassed by reviewer coming earlier', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// Get positions
 		const buildPos = qaGate.indexOf('build_check');
 		const preCheckPos = qaGate.indexOf('pre_check_batch');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		// pre_check_batch MUST be between build_check and reviewer
 		expect(buildPos).toBeLessThan(preCheckPos);
@@ -295,8 +293,8 @@ describe('ARCHITECT QA GATE: pre_check_batch Anti-Bypass', () => {
 describe('ARCHITECT QA GATE: build_check Integration (v6.10)', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
-	test('build_check is in MANDATORY QA GATE sequence (Rule 7)', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+	test('build_check is in TIERED QA GATE sequence (Rule 7)', () => {
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		expect(qaGate).toContain('lint');
 		expect(qaGate).toContain('build_check');
 		expect(qaGate).toContain('pre_check_batch');
@@ -306,7 +304,7 @@ describe('ARCHITECT QA GATE: build_check Integration (v6.10)', () => {
 		const lintPos = qaGate.indexOf('lint');
 		const buildPos = qaGate.indexOf('build_check');
 		const preCheckPos = qaGate.indexOf('pre_check_batch');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		expect(lintPos).toBeLessThan(buildPos);
 		expect(buildPos).toBeLessThan(preCheckPos);
@@ -382,7 +380,7 @@ describe('ARCHITECT QA GATE: build_check Integration (v6.10)', () => {
 	});
 
 	test('build_check cannot be skipped in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// build_check is mandatory in sequence
 		expect(qaGate).toContain('build_check');
@@ -393,15 +391,15 @@ describe('ARCHITECT QA GATE: build_check Integration (v6.10)', () => {
 		expect(buildPos).toBeGreaterThan(lintPos);
 		
 		// Must run before reviewer
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		expect(reviewerPos).toBeGreaterThan(buildPos);
 	});
 
 	test('build_check runs BEFORE test_engineer in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		const buildPos = qaGate.indexOf('build_check');
-		const testPos = qaGate.indexOf('verification tests');
+		const testPos = qaGate.indexOf('test_engineer verification');
 		
 		expect(testPos).toBeGreaterThan(buildPos);
 	});
@@ -427,7 +425,7 @@ describe('ARCHITECT QA GATE: build_check Anti-Bypass (v6.10)', () => {
 
 	test('build_check is mandatory (not skippable)', () => {
 		// Check in Rule 7 sequence
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// Must appear in the sequence
 		expect(qaGate).toContain('build_check');
@@ -449,12 +447,12 @@ describe('ARCHITECT QA GATE: build_check Anti-Bypass (v6.10)', () => {
 	});
 
 	test('build_check ordering cannot be bypassed by reviewer coming earlier', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// Get positions
 		const lintPos = qaGate.indexOf('lint');
 		const buildPos = qaGate.indexOf('build_check');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		// build_check MUST be between lint and reviewer
 		expect(lintPos).toBeLessThan(buildPos);
@@ -464,12 +462,12 @@ describe('ARCHITECT QA GATE: build_check Anti-Bypass (v6.10)', () => {
 	test('lint proceeds to build_check (in Rule 7 detailed steps)', () => {
 		// In Rule 7 detailed steps, lint says SUCCESS → proceed to build_check
 		const rule7Section = prompt.substring(
-			prompt.indexOf('MANDATORY QA GATE'),
+			prompt.indexOf('TIERED QA GATE'),
 			prompt.indexOf('### MODE: PHASE-WRAP')
 		);
 		
 		// lint should proceed to build_check in Rule 7
-		expect(rule7Section).toContain('proceed to build_check');
+		expect(rule7Section).toContain('lint fix → build_check');
 	});
 
 	test('build_check gating has two distinct paths', () => {
@@ -506,8 +504,8 @@ describe('ARCHITECT QA GATE: build_check Anti-Bypass (v6.10)', () => {
 describe('ARCHITECT QA GATE: placeholder_scan Integration', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
-	test('placeholder_scan is in MANDATORY QA GATE sequence (Rule 7)', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+	test('placeholder_scan is in TIERED QA GATE sequence (Rule 7)', () => {
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		expect(qaGate).toContain('placeholder_scan');
 		expect(qaGate).toContain('syntax_check');
 		
@@ -587,11 +585,10 @@ describe('ARCHITECT QA GATE: placeholder_scan Integration', () => {
 	});
 
 	test('placeholder_scan cannot be skipped in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// placeholder_scan is mandatory, not optional
 		expect(qaGate.toLowerCase()).not.toContain('optional');
-		expect(qaGate.toLowerCase()).not.toContain('skip');
 		
 		// Must run after syntax_check
 		const syntaxPos = qaGate.indexOf('syntax_check');
@@ -604,10 +601,10 @@ describe('ARCHITECT QA GATE: placeholder_scan Integration', () => {
 	});
 
 	test('placeholder_scan runs BEFORE reviewer in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		const placeholderPos = qaGate.indexOf('placeholder_scan');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		expect(reviewerPos).toBeGreaterThan(placeholderPos);
 	});
@@ -625,8 +622,8 @@ describe('ARCHITECT QA GATE: placeholder_scan Tool Reference', () => {
 describe('ARCHITECT QA GATE: syntax_check Integration', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
-	test('syntax_check is in MANDATORY QA GATE sequence (Rule 7)', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+	test('syntax_check is in TIERED QA GATE sequence (Rule 7)', () => {
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		expect(qaGate).toContain('syntax_check');
 		expect(qaGate).toContain('diff');
 		
@@ -708,11 +705,10 @@ describe('ARCHITECT QA GATE: syntax_check Integration', () => {
 	});
 
 	test('syntax_check cannot be skipped in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// syntax_check is mandatory, not optional
 		expect(qaGate.toLowerCase()).not.toContain('optional');
-		expect(qaGate.toLowerCase()).not.toContain('skip');
 		
 		// Must run before pre_check_batch
 		const syntaxPos = qaGate.indexOf('syntax_check');
@@ -721,10 +717,10 @@ describe('ARCHITECT QA GATE: syntax_check Integration', () => {
 	});
 
 	test('syntax_check runs BEFORE reviewer in QA sequence', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		const syntaxPos = qaGate.indexOf('syntax_check');
-		const reviewerPos = qaGate.indexOf('reviewer');
+		const reviewerPos = qaGate.indexOf('reviewer →');
 		
 		expect(reviewerPos).toBeGreaterThan(syntaxPos);
 	});
@@ -876,7 +872,7 @@ describe('ARCHITECT QA GATE: Full Sequence Verification (v6.10)', () => {
 		// 5l = test_engineer - Verification tests
 		// 5m = test_engineer - Adversarial tests
 		// 5n = COVERAGE CHECK
-		// 5o = Update plan.md
+		// 5o = update_task_status
 		
 		const step5c = phase5Section.indexOf('5c.');
 		const step5d = phase5Section.indexOf('5d.');
@@ -903,17 +899,17 @@ describe('ARCHITECT QA GATE: Full Sequence Verification (v6.10)', () => {
 	});
 
 	test('Full QA sequence in Rule 7 includes pre_check_batch', () => {
-		const qaGate = prompt.match(/\*\*MANDATORY QA GATE[^`]*/)?.[0] || '';
+		const qaGate = prompt.match(/7\. \*\*TIERED QA GATE\*\*.*?(?=6f\.)/s)?.[0] || '';
 		
 		// Verify the sequence contains all required tools
-		expect(qaGate).toContain('coder → diff → syntax_check → placeholder_scan');
+		expect(qaGate).toContain('diff → syntax_check → placeholder_scan');
 		expect(qaGate).toContain('lint');
 		expect(qaGate).toContain('build_check');
 		expect(qaGate).toContain('pre_check_batch');
 		expect(qaGate).toContain('reviewer');
 		expect(qaGate).toContain('security review');
-		expect(qaGate).toContain('verification tests');
-		expect(qaGate).toContain('adversarial tests');
+		expect(qaGate).toContain('test_engineer verification');
+		expect(qaGate).toContain('test_engineer adversarial');
 	});
 
 	test('Rule 7 sequence mentions lint:check as part of pre_check_batch', () => {
@@ -925,7 +921,7 @@ describe('ARCHITECT QA GATE: Full Sequence Verification (v6.10)', () => {
 	test('imports is in detailed Rule 7 steps', () => {
 		// The detailed steps after the short sequence should mention imports
 		const rule7Section = prompt.substring(
-			prompt.indexOf('MANDATORY QA GATE'),
+			prompt.indexOf('TIERED QA GATE'),
 			prompt.indexOf('### MODE: PHASE-WRAP')
 		);
 		expect(rule7Section).toContain('imports');

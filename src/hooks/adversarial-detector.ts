@@ -80,7 +80,8 @@ export interface AdversarialPatternMatch {
 		| 'CONTENT_EXEMPTION'
 		| 'GATE_DELEGATION_BYPASS'
 		| 'VELOCITY_RATIONALIZATION'
-		| 'INTER_AGENT_MANIPULATION';
+		| 'INTER_AGENT_MANIPULATION'
+		| 'GATE_MISCLASSIFICATION';
 	severity: 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
 	matchedText: string;
 	confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -152,6 +153,42 @@ const GATE_DELEGATION_BYPASS_PATTERNS = [
 	/status.*pending.*complete.*plan\.json/i,
 	/I'll just mark this one as done/i,
 	/mark it done directly/i,
+];
+
+/**
+ * Pattern: GATE_MISCLASSIFICATION
+ * Trigger: Tier classification used to bypass or weaken gate requirements.
+ *   1) Source file (src/**) change classified as TIER 0 or TIER 1
+ *   2) Security-glob file change classified below TIER 3
+ *   3) Architect uses `small`/`trivial`/`minor` justification for lower tier
+ *   4) Classification stated after pipeline already started (retroactive justification)
+ * Severity: HIGH — misclassification undermines the tiered QA model.
+ */
+const GATE_MISCLASSIFICATION_PATTERNS = [
+	// === Source under-tier patterns: src/ or source path with tier 0|1 ===
+	/(?:src\/|source\/|source\s+code|source\s+file).*tier\s*[01]/i,
+	/tier\s*[01].*(?:src\/|source\/|source\s+code|source\s+file)/i,
+
+	// === Security under-tier patterns: security/auth/crypto/secret/credential/permission with tier 0|1|2 ===
+	/(?:security|auth|crypto|secret|credential|permission).*tier\s*[012]/i,
+	/tier\s*[012].*(?:security|auth|crypto|secret|credential|permission)/i,
+	/below\s+tier\s*3.*(?:security|auth|crypto|secret|credential|permission)/i,
+
+	// === Explicit classification format variants for tier 0|1 ===
+	/classification[:\s-]*tier\s*[01]/i,
+	/tier\s*[01][\s:]*classification/i,
+
+	// === Small/trivial/minor justification ONLY when tier/classification context is present ===
+	/(?:small|trivial|minor).*tier\s*[01]/i,
+	/tier\s*[01].*(?:small|trivial|minor)/i,
+	/(?:small|trivial|minor).*(?:classification|classified|assigned).*tier/i,
+	/(?:classification|classified|assigned).*(?:small|trivial|minor).*tier/i,
+
+	// === Retroactive classification patterns (classification/tier assignment after pipeline start) ===
+	/pipeline\s+started.*(?:assigning|setting|classifying).*tier/i,
+	/(?:assigning|setting|classifying).*tier.*after.*pipeline/i,
+	/tier.*assigned.*(?:after|retroactive)/i,
+	/retroactive.*(?:tier|classification)/i,
 ];
 
 /**
@@ -262,6 +299,19 @@ export function detectAdversarialPatterns(
 			matches.push({
 				pattern: 'GATE_DELEGATION_BYPASS',
 				severity: 'HIGHEST',
+				matchedText: match[0],
+				confidence: 'HIGH',
+			});
+		}
+	}
+
+	// Check GATE_MISCLASSIFICATION
+	for (const pattern of GATE_MISCLASSIFICATION_PATTERNS) {
+		const match = text.match(pattern);
+		if (match) {
+			matches.push({
+				pattern: 'GATE_MISCLASSIFICATION',
+				severity: 'HIGH',
 				matchedText: match[0],
 				confidence: 'HIGH',
 			});

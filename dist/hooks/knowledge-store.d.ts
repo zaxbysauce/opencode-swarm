@@ -1,5 +1,6 @@
 /** Core storage layer for the opencode-swarm v6.17 two-tier knowledge system. */
 import type { RejectedLesson } from './knowledge-types.js';
+export declare function getPlatformConfigDir(): string;
 export declare function resolveSwarmKnowledgePath(directory: string): string;
 export declare function resolveSwarmRejectedPath(directory: string): string;
 export declare function resolveHiveKnowledgePath(): string;

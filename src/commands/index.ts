@@ -1,6 +1,4 @@
 import type { AgentDefinition } from '../agents';
-import { loadPluginConfig } from '../config/loader';
-import { GuardrailsConfigSchema } from '../config/schema';
 import { handleAgentsCommand } from './agents';
 import { handleAnalyzeCommand } from './analyze';
 import { handleArchiveCommand } from './archive';
@@ -15,6 +13,7 @@ import {
 	handleEvidenceSummaryCommand,
 } from './evidence';
 import { handleExportCommand } from './export';
+import { handleHandoffCommand } from './handoff';
 import { handleHistoryCommand } from './history';
 import {
 	handleKnowledgeListCommand,
@@ -49,6 +48,7 @@ export {
 	handleEvidenceSummaryCommand,
 } from './evidence';
 export { handleExportCommand } from './export';
+export { handleHandoffCommand } from './handoff';
 export { handleHistoryCommand } from './history';
 export {
 	handleKnowledgeListCommand,
@@ -97,6 +97,7 @@ const HELP_TEXT = [
 	'- `/swarm knowledge restore <id>` — Restore a quarantined knowledge entry',
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
 	'- `/swarm promote "<lesson>" | --category <cat> | --from-swarm <id> — Manually promote lesson to hive knowledge',
+	'- `/swarm handoff` — Prepare state for clean model switch (new session)',
 	'- `/swarm write-retro <json>` — Write a retrospective evidence bundle for a completed phase',
 ].join('\n');
 
@@ -175,30 +176,54 @@ export function createSwarmCommandHandler(
 				text = await handleWriteRetroCommand(directory, args);
 				break;
 			case 'knowledge': {
-				const knowledgeArgs = args.slice(1);
-				const subcommand = knowledgeArgs[0];
+				const subcommand = args[0];
 
 				if (subcommand === 'quarantine') {
 					text = await handleKnowledgeQuarantineCommand(
 						directory,
-						knowledgeArgs.slice(1),
+						args.slice(1),
 					);
 				} else if (subcommand === 'restore') {
-					text = await handleKnowledgeRestoreCommand(
-						directory,
-						knowledgeArgs.slice(1),
-					);
+					text = await handleKnowledgeRestoreCommand(directory, args.slice(1));
 				} else if (subcommand === 'migrate') {
-					text = await handleKnowledgeMigrateCommand(
-						directory,
-						knowledgeArgs.slice(1),
-					);
+					text = await handleKnowledgeMigrateCommand(directory, args.slice(1));
 				} else {
 					// Default: list knowledge entries
-					text = await handleKnowledgeListCommand(directory, knowledgeArgs);
+					text = await handleKnowledgeListCommand(directory, args.slice(1));
 				}
 				break;
 			}
+			case 'agents':
+				text = await handleAgentsCommand(agents);
+				break;
+			case 'history':
+				text = await handleHistoryCommand(directory, args);
+				break;
+			case 'config': {
+				if (args[0] === 'doctor') {
+					text = await handleDoctorCommand(directory, args.slice(1));
+				} else {
+					text = await handleConfigCommand(directory, args);
+				}
+				break;
+			}
+			case 'evidence': {
+				if (args[0] === 'summary') {
+					text = await handleEvidenceSummaryCommand(directory);
+				} else {
+					text = await handleEvidenceCommand(directory, args);
+				}
+				break;
+			}
+			case 'archive':
+				text = await handleArchiveCommand(directory, args);
+				break;
+			case 'diagnose':
+				text = await handleDiagnoseCommand(directory, args);
+				break;
+			case 'handoff':
+				text = await handleHandoffCommand(directory, args);
+				break;
 			default:
 				text = HELP_TEXT;
 				break;
