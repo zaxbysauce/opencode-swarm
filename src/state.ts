@@ -41,6 +41,18 @@ export interface DelegationEntry {
 }
 
 /**
+ * Per-task workflow state for gate progression tracking.
+ * Transitions must be forward-only: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
+ */
+export type TaskWorkflowState =
+	| 'idle'
+	| 'coder_delegated'
+	| 'pre_check_passed'
+	| 'reviewer_run'
+	| 'tests_run'
+	| 'complete';
+
+/**
  * Represents per-session state for guardrail tracking.
  * Budget fields (toolCallCount, consecutiveErrors, etc.) have moved to InvocationWindow.
  * This interface now tracks session-level metadata and window management.
@@ -91,6 +103,25 @@ export interface AgentSessionState {
 	qaSkipCount: number;
 	/** Task IDs skipped without QA (for audit trail), reset when reviewer/test_engineer fires */
 	qaSkipTaskIds: string[];
+
+	// v6.21 Per-task state machine
+	/** Per-task workflow state — taskId → current state */
+	taskWorkflowStates: Map<string, TaskWorkflowState>;
+	/** Last gate outcome for deliberation preamble injection */
+	lastGateOutcome: {
+		gate: string;
+		taskId: string;
+		passed: boolean;
+		timestamp: number;
+	} | null;
+	/** Declared file scope for current coder task (null = no scope declared) */
+	declaredCoderScope: string[] | null;
+	/** Last scope violation message (null = no violation) */
+	lastScopeViolation: string | null;
+	/** Flag for one-shot scope violation warning injection in messagesTransform */
+	scopeViolationDetected?: boolean;
+	/** Files modified by the current coder task (populated by guardrails toolBefore/toolAfter, reset on new coder delegation) */
+	modifiedFilesThisCoderTask: string[];
 
 	// Phase completion tracking
 	/** Timestamp of most recent phase completion */
@@ -219,6 +250,13 @@ export function startAgentSession(
 		// QA Skip Hard-Block Enforcement (v6.17)
 		qaSkipCount: 0,
 		qaSkipTaskIds: [],
+		// v6.21 Per-task state machine
+		taskWorkflowStates: new Map(),
+		lastGateOutcome: null,
+		declaredCoderScope: null,
+		lastScopeViolation: null,
+		scopeViolationDetected: false,
+		modifiedFilesThisCoderTask: [],
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -333,6 +371,25 @@ export function ensureAgentSession(
 		}
 		if (!session.qaSkipTaskIds) {
 			session.qaSkipTaskIds = [];
+		}
+		// v6.21 Per-task state machine migration safety
+		if (!session.taskWorkflowStates) {
+			session.taskWorkflowStates = new Map();
+		}
+		if (session.lastGateOutcome === undefined) {
+			session.lastGateOutcome = null;
+		}
+		if (session.declaredCoderScope === undefined) {
+			session.declaredCoderScope = null;
+		}
+		if (session.lastScopeViolation === undefined) {
+			session.lastScopeViolation = null;
+		}
+		if (session.modifiedFilesThisCoderTask === undefined) {
+			session.modifiedFilesThisCoderTask = [];
+		}
+		if (session.scopeViolationDetected === undefined) {
+			session.scopeViolationDetected = false;
 		}
 
 		session.lastToolCallTime = now;
@@ -493,4 +550,63 @@ export function recordPhaseAgentDispatch(
 
 	const normalizedName = stripKnownSwarmPrefix(agentName);
 	session.phaseAgentsDispatched.add(normalizedName);
+}
+
+/**
+ * Advance a task's workflow state. Validates forward-only transitions.
+ * Throws 'INVALID_TASK_STATE_TRANSITION: [taskId] [current] → [requested]' on illegal transition.
+ *
+ * Valid forward order: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param newState - The requested new state
+ */
+export function advanceTaskState(
+	session: AgentSessionState,
+	taskId: string,
+	newState: TaskWorkflowState,
+): void {
+	const STATE_ORDER: TaskWorkflowState[] = [
+		'idle',
+		'coder_delegated',
+		'pre_check_passed',
+		'reviewer_run',
+		'tests_run',
+		'complete',
+	];
+
+	const current = session.taskWorkflowStates.get(taskId) ?? 'idle';
+	const currentIndex = STATE_ORDER.indexOf(current);
+	const newIndex = STATE_ORDER.indexOf(newState);
+
+	if (newIndex <= currentIndex) {
+		throw new Error(
+			`INVALID_TASK_STATE_TRANSITION: ${taskId} ${current} → ${newState}`,
+		);
+	}
+
+	// 'complete' can only be reached from 'tests_run' — enforce sequential progression
+	if (newState === 'complete' && current !== 'tests_run') {
+		throw new Error(
+			`INVALID_TASK_STATE_TRANSITION: ${taskId} cannot reach complete from ${current} — must pass through tests_run first`,
+		);
+	}
+
+	session.taskWorkflowStates.set(taskId, newState);
+}
+
+/**
+ * Get the current workflow state for a task.
+ * Returns 'idle' if no entry exists.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns Current task workflow state
+ */
+export function getTaskState(
+	session: AgentSessionState,
+	taskId: string,
+): TaskWorkflowState {
+	return session.taskWorkflowStates.get(taskId) ?? 'idle';
 }

@@ -7,8 +7,10 @@ import {
 	validateStatus,
 	validateTaskId,
 	executeUpdateTaskStatus,
+	checkReviewerGate,
 	type UpdateTaskStatusArgs,
 } from '../../../src/tools/update-task-status';
+import { swarmState, advanceTaskState, getTaskState } from '../../../src/state';
 
 describe('validateStatus', () => {
 	test('returns undefined for valid statuses', () => {
@@ -226,5 +228,422 @@ describe('executeUpdateTaskStatus', () => {
 		const planMdContent = fs.readFileSync(planMdPath, 'utf-8');
 		expect(planMdContent).toContain('1.1');
 		expect(planMdContent).toContain('IN PROGRESS');
+	});
+});
+
+describe('checkReviewerGate', () => {
+	let originalAgentSessions: Map<string, any>;
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			...overrides,
+		};
+	}
+
+	test('returns blocked: false when agentSessions is empty', () => {
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('returns blocked: false when task is in tests_run state', () => {
+		const sessionId = 'test-session-1';
+		const session = makeSession();
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		swarmState.agentSessions.set(sessionId, session);
+
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('returns blocked: false when task is in complete state', () => {
+		const sessionId = 'test-session-2';
+		const session = makeSession();
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		advanceTaskState(session, '1.1', 'complete');
+		swarmState.agentSessions.set(sessionId, session);
+
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('returns blocked: true when task is in idle state (not started)', () => {
+		const sessionId = 'test-session-3';
+		const session = makeSession(); // taskWorkflowStates is empty, so 1.1 is 'idle'
+		swarmState.agentSessions.set(sessionId, session);
+
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Task 1.1');
+		expect(result.reason).toContain('QA gates');
+	});
+
+	test('returns blocked: true when task is in coder_delegated state', () => {
+		const sessionId = 'test-session-4';
+		const session = makeSession();
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		swarmState.agentSessions.set(sessionId, session);
+
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Task 1.1');
+	});
+
+	test('returns blocked: true when task is in reviewer_run state (tests not yet run)', () => {
+		const sessionId = 'test-session-5';
+		const session = makeSession();
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		swarmState.agentSessions.set(sessionId, session);
+
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Task 1.1');
+	});
+
+	test('returns blocked: true for different task ID even if another task passed', () => {
+		const sessionId = 'test-session-6';
+		const session = makeSession();
+		advanceTaskState(session, '2.1', 'coder_delegated');
+		advanceTaskState(session, '2.1', 'pre_check_passed');
+		advanceTaskState(session, '2.1', 'reviewer_run');
+		advanceTaskState(session, '2.1', 'tests_run');
+		swarmState.agentSessions.set(sessionId, session);
+
+		// Check for a DIFFERENT task ID — should be blocked since 1.1 is idle
+		const result = checkReviewerGate('1.1');
+		expect(result.blocked).toBe(true);
+	});
+});
+
+describe('executeUpdateTaskStatus with reviewer gate', () => {
+	let tempDir: string;
+	let originalCwd: string;
+	let originalAgentSessions: Map<string, any>;
+
+	beforeEach(() => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-reviewer-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Save original agent sessions and clear for clean test state
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+
+		// Restore original agent sessions
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	test('returns failure when status is completed and reviewer gate is blocked', async () => {
+		// Set up a session with task in idle state (will block)
+		const session: any = {
+			agentName: 'architect',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(), // Empty = task 1.1 is in 'idle' state
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+		};
+		swarmState.agentSessions.set('session-blocked', session);
+
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'completed',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.message).toContain('Gate check failed');
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('Task 1.1');
+		expect(result.errors?.[0]).toContain('QA gates');
+	});
+
+	test('proceeds normally when status is completed and reviewer gate passes', async () => {
+		// Set up a session with task in tests_run state (will pass)
+		const session: any = {
+			agentName: 'architect',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+		};
+		// Advance task 1.1 to tests_run state so the gate passes
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		swarmState.agentSessions.set('session-pass', session);
+
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'completed',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('completed');
+	});
+
+	test('does not check reviewer gate when status is in_progress', async () => {
+		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
+		const session: any = {
+			agentName: 'architect',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+		};
+		swarmState.agentSessions.set('session-would-block', session);
+
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'in_progress',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Should succeed even though gate would block if we were marking completed
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('in_progress');
+	});
+
+	test('does not check reviewer gate when status is pending', async () => {
+		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
+		const session: any = {
+			agentName: 'architect',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+		};
+		swarmState.agentSessions.set('session-would-block', session);
+
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'pending',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Should succeed even though gate would block if we were marking completed
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('pending');
+	});
+
+	test('does not check reviewer gate when status is blocked', async () => {
+		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
+		const session: any = {
+			agentName: 'architect',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+		};
+		swarmState.agentSessions.set('session-would-block', session);
+
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'blocked',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Should succeed even though gate would block if we were marking completed
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('blocked');
 	});
 });

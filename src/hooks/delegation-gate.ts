@@ -7,7 +7,12 @@
 
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
-import { ensureAgentSession, swarmState } from '../state';
+import {
+	advanceTaskState,
+	ensureAgentSession,
+	getTaskState,
+	swarmState,
+} from '../state';
 import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
@@ -280,7 +285,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 		};
 	}
 
-	// toolAfter: resets qaSkip fields when reviewer or test_engineer delegation is detected
+	// toolAfter: resets qaSkip fields only when BOTH reviewer AND test_engineer delegation have been seen since the last coder
 	const toolAfter = async (
 		input: { tool: string; sessionID: string; callID: string },
 		_output: unknown,
@@ -296,9 +301,32 @@ export function createDelegationGateHook(config: PluginConfig): {
 			// Instead, rely on delegationChains which guardrails.ts updates
 			const delegationChain = swarmState.delegationChains.get(input.sessionID);
 			if (delegationChain && delegationChain.length > 0) {
-				const lastDelegation = delegationChain[delegationChain.length - 1];
-				const target = stripKnownSwarmPrefix(lastDelegation.to);
-				if (target === 'reviewer' || target === 'test_engineer') {
+				// Find the index of the last 'coder' entry in the chain
+				let lastCoderIndex = -1;
+				for (let i = delegationChain.length - 1; i >= 0; i--) {
+					const target = stripKnownSwarmPrefix(delegationChain[i].to);
+					if (target.includes('coder')) {
+						lastCoderIndex = i;
+						break;
+					}
+				}
+
+				// If no coder in chain, do not reset
+				if (lastCoderIndex === -1) return;
+
+				// Walk forward from coder index and check if BOTH reviewer and test_engineer have appeared
+				const afterCoder = delegationChain.slice(lastCoderIndex);
+				let hasReviewer = false;
+				let hasTestEngineer = false;
+
+				for (const delegation of afterCoder) {
+					const target = stripKnownSwarmPrefix(delegation.to);
+					if (target === 'reviewer') hasReviewer = true;
+					if (target === 'test_engineer') hasTestEngineer = true;
+				}
+
+				// Only reset when BOTH have been seen since last coder
+				if (hasReviewer && hasTestEngineer) {
 					session.qaSkipCount = 0;
 					session.qaSkipTaskIds = [];
 				}
@@ -345,6 +373,69 @@ export function createDelegationGateHook(config: PluginConfig): {
 			const textPart = lastUserMessage.parts[textPartIndex];
 			const text = textPart.text ?? '';
 
+			// Progressive task disclosure: trim task list to a window around the current task
+			// Scans the text for task list blocks containing '- [ ]' or '- [x]' with task IDs.
+			// If more than 5 tasks are visible, trims to: currentTask ± window.
+			const taskDisclosureSessionID = lastUserMessage.info?.sessionID;
+			if (taskDisclosureSessionID) {
+				const taskSession = ensureAgentSession(taskDisclosureSessionID);
+				const currentTaskIdForWindow = taskSession.currentTaskId;
+				if (currentTaskIdForWindow) {
+					// Match task list lines: '- [ ] N.M: ...' or '- [x] N.M: ...' or '- N.M: ...'
+					const taskLineRegex =
+						/^[ \t]*-[ \t]*(?:\[[ x]\][ \t]+)?(\d+\.\d+(?:\.\d+)*)[:. ].*/gm;
+					const taskLines: Array<{
+						line: string;
+						taskId: string;
+						index: number;
+					}> = [];
+					taskLineRegex.lastIndex = 0;
+					let regexMatch = taskLineRegex.exec(text);
+					while (regexMatch !== null) {
+						taskLines.push({
+							line: regexMatch[0],
+							taskId: regexMatch[1],
+							index: regexMatch.index,
+						});
+						regexMatch = taskLineRegex.exec(text);
+					}
+
+					if (taskLines.length > 5) {
+						// Find the index of the current task in the task list
+						const currentIdx = taskLines.findIndex(
+							(t) => t.taskId === currentTaskIdForWindow,
+						);
+						const windowStart = Math.max(0, currentIdx - 2);
+						const windowEnd = Math.min(taskLines.length - 1, currentIdx + 3);
+						const visibleTasks = taskLines.slice(windowStart, windowEnd + 1);
+						const hiddenBefore = windowStart;
+						const hiddenAfter = taskLines.length - 1 - windowEnd;
+						const totalTasks = taskLines.length;
+						const visibleCount = visibleTasks.length;
+
+						// Build the trimmed text:
+						// Replace the task list region with the windowed version
+						const firstTaskIndex = taskLines[0].index;
+						const lastTask = taskLines[taskLines.length - 1];
+						const lastTaskEnd = lastTask.index + lastTask.line.length;
+
+						const before = text.slice(0, firstTaskIndex);
+						const after = text.slice(lastTaskEnd);
+
+						const visibleLines = visibleTasks.map((t) => t.line).join('\n');
+						const trimComment = `[Task window: showing ${visibleCount} of ${totalTasks} tasks]`;
+						const trimmedMiddle =
+							(hiddenBefore > 0
+								? `[...${hiddenBefore} tasks hidden...]\n`
+								: '') +
+							visibleLines +
+							(hiddenAfter > 0 ? `\n[...${hiddenAfter} tasks hidden...]` : '');
+
+						textPart.text = `${before}${trimmedMiddle}\n${trimComment}${after}`;
+					}
+				}
+			}
+
 			// Check for zero-coder-delegation violation (v6.12 Anti-Process-Violation)
 			// Detect when architect writes to non-.swarm/ files without ever delegating to coder
 			// This check runs for ALL architect messages (not just coder delegations)
@@ -358,10 +449,40 @@ export function createDelegationGateHook(config: PluginConfig): {
 			const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;
 			const isCoderDelegation = coderDelegationPattern.test(text);
 
+			// Capture the prior coder task ID BEFORE Step 3 updates lastCoderDelegationTaskId
+			const priorCoderTaskId = sessionID
+				? (ensureAgentSession(sessionID).lastCoderDelegationTaskId ?? null)
+				: null;
+
 			// Step 3: If this is a coder delegation with a task ID, track it
 			if (sessionID && isCoderDelegation && currentTaskId) {
 				const session = ensureAgentSession(sessionID);
 				session.lastCoderDelegationTaskId = currentTaskId;
+
+				// v6.21 Task 5.3: Extract FILE: directive values → declaredCoderScope
+				const fileDirPattern = /^FILE:\s*(.+)$/gm;
+				const declaredFiles: string[] = [];
+				for (const match of text.matchAll(fileDirPattern)) {
+					const filePath = match[1].trim();
+					if (filePath.length > 0 && !declaredFiles.includes(filePath)) {
+						declaredFiles.push(filePath);
+					}
+				}
+				session.declaredCoderScope =
+					declaredFiles.length > 0 ? declaredFiles : null;
+
+				// OBSERVE-ONLY (Phase 2): Record coder delegation in task state machine for telemetry.
+				// Error swallowing is intentional — Phase 3 enforcement gates will check state directly
+				// at enforcement time. A transition failure here means state is already recorded or a
+				// re-delegation occurred; the gate continues correctly regardless.
+				try {
+					advanceTaskState(session, currentTaskId, 'coder_delegated');
+				} catch (err) {
+					// INVALID_TASK_STATE_TRANSITION is non-fatal in Phase 2 (observe-only)
+					console.warn(
+						`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
 			}
 
 			// Step 4: Run zero-coder-delegation warning only if:
@@ -378,6 +499,43 @@ export function createDelegationGateHook(config: PluginConfig): {
 					// Inject warning directly into message
 					const warningText = `⚠️ DELEGATION VIOLATION: Code modifications detected for task ${currentTaskId} with zero coder delegations.\nRule 1: DELEGATE all coding to coder. You do NOT write code.`;
 					textPart.text = `${warningText}\n\n${text}`;
+				}
+			}
+
+			// Deliberation preamble: inject last-gate context + deliberation prompt
+			// This runs for ALL architect messages (before coder-delegation early return)
+			{
+				const deliberationSessionID = lastUserMessage.info?.sessionID;
+				if (deliberationSessionID) {
+					// Fix 1: Validate sessionID format before calling ensureAgentSession()
+					if (!/^[a-zA-Z0-9_-]{1,128}$/.test(deliberationSessionID)) {
+						// Invalid format - skip preamble injection
+					} else {
+						const deliberationSession = ensureAgentSession(
+							deliberationSessionID,
+						);
+						const lastGate = deliberationSession.lastGateOutcome;
+						let preamble: string;
+						if (lastGate) {
+							const gateResult = lastGate.passed ? 'PASSED' : 'FAILED';
+							// Fix 2 & 3: Sanitize and truncate interpolated values
+							const sanitizedGate = lastGate.gate
+								.replace(/\[/g, '(')
+								.replace(/\]/g, ')')
+								.replace(/[\r\n]/g, ' ')
+								.slice(0, 64);
+							const sanitizedTaskId = lastGate.taskId
+								.replace(/\[/g, '(')
+								.replace(/\]/g, ')')
+								.replace(/[\r\n]/g, ' ')
+								.slice(0, 32);
+							preamble = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n[DELIBERATE: Before proceeding — what is the SINGLE next task? What gates must it pass?]`;
+						} else {
+							preamble = `[DELIBERATE: Identify the first task from the plan. What gates must it pass before marking complete?]`;
+						}
+						const currentText = textPart.text ?? '';
+						textPart.text = `${preamble}\n\n${currentText}`;
+					}
 				}
 			}
 
@@ -460,9 +618,15 @@ export function createDelegationGateHook(config: PluginConfig): {
 							(d) => stripKnownSwarmPrefix(d.to) === 'test_engineer',
 						);
 
-						if (!hasReviewer || !hasTestEngineer) {
+						// State machine secondary signal: if the prior task is still in
+						// 'coder_delegated' state, reviewer and tests never ran for it.
+						const session = ensureAgentSession(sessionID);
+						const priorTaskStuckAtCoder =
+							priorCoderTaskId !== null &&
+							getTaskState(session, priorCoderTaskId) === 'coder_delegated';
+
+						if (!hasReviewer || !hasTestEngineer || priorTaskStuckAtCoder) {
 							// Escalating enforcement: warn on first skip, hard block on second
-							const session = ensureAgentSession(sessionID);
 							if (session.qaSkipCount >= 1) {
 								const skippedTasks = session.qaSkipTaskIds.join(', ');
 								throw new Error(

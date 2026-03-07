@@ -1,0 +1,438 @@
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+
+import {
+	validateTaskIdFormat,
+	validateFiles,
+	executeDeclareScope,
+	type DeclareScopeArgs,
+} from '../../../src/tools/declare-scope';
+import { swarmState, advanceTaskState, getTaskState } from '../../../src/state';
+
+describe('validateTaskIdFormat', () => {
+	test('accepts valid taskId formats', () => {
+		expect(validateTaskIdFormat('1.1')).toBeUndefined();
+		expect(validateTaskIdFormat('1.2.3')).toBeUndefined();
+		expect(validateTaskIdFormat('10.20.30')).toBeUndefined();
+		expect(validateTaskIdFormat('1.2.3.4')).toBeUndefined();
+	});
+
+	test('rejects invalid taskId formats', () => {
+		expect(validateTaskIdFormat('1')).toBeDefined();
+		expect(validateTaskIdFormat('a.b')).toBeDefined();
+		expect(validateTaskIdFormat('.1.1')).toBeDefined();
+		expect(validateTaskIdFormat('1.')).toBeDefined();
+		expect(validateTaskIdFormat('1.1.a')).toBeDefined();
+		expect(validateTaskIdFormat('')).toBeDefined();
+		expect(validateTaskIdFormat('1.1.')).toBeDefined();
+	});
+});
+
+describe('validateFiles', () => {
+	test('accepts valid file paths', () => {
+		expect(validateFiles(['src/index.ts'])).toEqual([]);
+		expect(validateFiles(['/absolute/path/file.ts'])).toEqual([]);
+		expect(validateFiles(['src/a.ts', 'src/b.ts', 'src/c.ts'])).toEqual([]);
+	});
+
+	test('rejects path with null byte', () => {
+		const errors = validateFiles(['src/file\0.ts']);
+		expect(errors.length).toBe(1);
+		expect(errors[0]).toContain('null bytes are not allowed');
+	});
+
+	test('rejects path with .. (path traversal)', () => {
+		const errors = validateFiles(['src/../etc/passwd']);
+		expect(errors.length).toBe(1);
+		expect(errors[0]).toContain('path traversal sequences (..) are not allowed');
+	});
+
+	test('rejects path exceeding 4096 characters', () => {
+		const longPath = 'a'.repeat(4097);
+		const errors = validateFiles([longPath]);
+		expect(errors.length).toBe(1);
+		expect(errors[0]).toContain('exceeds maximum length of 4096 characters');
+	});
+
+	test('returns multiple errors when multiple files fail', () => {
+		const errors = validateFiles(['src/../bad', 'b'.repeat(4097), 'good.ts']);
+		expect(errors.length).toBe(2);
+	});
+});
+
+describe('executeDeclareScope', () => {
+	let tempDir: string;
+	let originalCwd: string;
+	let originalAgentSessions: Map<string, any>;
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			scopeViolationDetected: false,
+			modifiedFilesThisCoderTask: [],
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'declare-scope-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Save original agent sessions and clear for clean test state
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'medium',
+							description: 'Test task 2',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+
+		// Restore original agent sessions
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	// Test 1: Success path - valid taskId + files + plan with task
+	test('success path: valid taskId + files + plan with task returns success', async () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts', 'src/utils.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(true);
+		expect(result.taskId).toBe('1.1');
+		expect(result.fileCount).toBe(2);
+	});
+
+	// Test 2: Invalid taskId format
+	test('invalid taskId format returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: 'invalid',
+			files: ['src/index.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('Invalid taskId');
+	});
+
+	// Test 3: Empty files array
+	test('empty files array returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: [],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('files must be a non-empty array');
+	});
+
+	// Test 4: plan.json not found
+	test('plan.json not found returns error', async () => {
+		// Remove the .swarm directory
+		fs.rmSync(path.join(tempDir, '.swarm'), { recursive: true });
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('plan.json not found');
+	});
+
+	// Test 5: taskId not in plan
+	test('taskId not in plan returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: '99.99',
+			files: ['src/index.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('does not exist in plan.json');
+	});
+
+	// Test 6: Task already 'complete' in session
+	test('task already complete returns error', async () => {
+		const session = makeSession();
+		// Advance task to complete state
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		advanceTaskState(session, '1.1', 'complete');
+
+		// Verify task is complete
+		expect(getTaskState(session, '1.1')).toBe('complete');
+
+		swarmState.agentSessions.set('test-session-complete', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('Cannot declare scope for completed task');
+	});
+
+	// Test 7: Whitelist merges into declaredCoderScope
+	test('whitelist merges into declaredCoderScope - fileCount = files.length + whitelist.length', async () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts', 'src/utils.ts'],
+			whitelist: ['lib/helper.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(true);
+		// files (2) + whitelist (1) = 3
+		expect(result.fileCount).toBe(3);
+	});
+
+	// Test 8: Sets declaredCoderScope and clears lastScopeViolation on session
+	test('sets declaredCoderScope and clears lastScopeViolation on session', async () => {
+		const session = makeSession({
+			lastScopeViolation: 'Previous violation',
+		});
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+		};
+
+		await executeDeclareScope(args, tempDir);
+
+		// Check that declaredCoderScope was set
+		const updatedSession = swarmState.agentSessions.get('test-session');
+		expect(updatedSession?.declaredCoderScope).toEqual(['src/index.ts']);
+
+		// Check that lastScopeViolation was cleared
+		expect(updatedSession?.lastScopeViolation).toBeNull();
+	});
+
+	// Test 9: Sets declaredCoderScope on ALL sessions
+	test('sets declaredCoderScope on ALL active architect sessions', async () => {
+		const session1 = makeSession();
+		const session2 = makeSession();
+		const session3 = makeSession();
+
+		swarmState.agentSessions.set('session-1', session1);
+		swarmState.agentSessions.set('session-2', session2);
+		swarmState.agentSessions.set('session-3', session3);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+		};
+
+		await executeDeclareScope(args, tempDir);
+
+		// All sessions should have the scope set
+		expect(swarmState.agentSessions.get('session-1')?.declaredCoderScope).toEqual(['src/index.ts']);
+		expect(swarmState.agentSessions.get('session-2')?.declaredCoderScope).toEqual(['src/index.ts']);
+		expect(swarmState.agentSessions.get('session-3')?.declaredCoderScope).toEqual(['src/index.ts']);
+	});
+
+	// Test 10: working_directory validation - directory doesn't exist
+	test('working_directory does not exist returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+			working_directory: '/nonexistent/path/12345',
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('does not exist or is inaccessible');
+	});
+
+	// Test 11: working_directory without plan.json
+	test('working_directory without plan.json returns error', async () => {
+		const noPlanDir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-'));
+		try {
+			const args: DeclareScopeArgs = {
+				taskId: '1.1',
+				files: ['src/index.ts'],
+				working_directory: noPlanDir,
+			};
+
+			const result = await executeDeclareScope(args, tempDir);
+
+			expect(result.success).toBe(false);
+			expect(result.errors).toBeDefined();
+			expect(result.errors?.[0]).toContain('plan not found');
+		} finally {
+			fs.rmSync(noPlanDir, { recursive: true, force: true });
+		}
+	});
+
+	// Test 12: working_directory with null byte
+	test('working_directory with null byte returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+			working_directory: 'src\0/bad',
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('null bytes are not allowed');
+	});
+
+	// Test 13: working_directory with path traversal - on Windows path.normalize resolves ..,
+	// so this test validates the code doesn't crash and handles non-existent paths correctly
+	test('working_directory with path traversal returns error', async () => {
+		// Create a valid directory structure to test
+		const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traversal-test-'));
+		const subDir = path.join(testDir, 'subdir');
+		fs.mkdirSync(subDir, { recursive: true });
+
+		// Use a path that would go up after normalization to a non-existent location
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+			working_directory: path.join(subDir, '..', '..', 'nonexistent'),
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		// This path doesn't exist so it should fail with "does not exist or is inaccessible"
+		// which is the correct behavior - path.normalize resolves the ..
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		// The actual error will be about path not existing, not traversal
+		fs.rmSync(testDir, { recursive: true, force: true });
+	});
+
+	// Test 14: working_directory with Windows device path
+	test('working_directory with Windows device path returns error', async () => {
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+			working_directory: '\\\\.\\C:\\Windows',
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors?.[0]).toContain('Windows device paths are not allowed');
+	});
+
+	// Test 15: Valid working_directory with valid plan succeeds
+	test('valid working_directory with plan succeeds', async () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts'],
+			working_directory: tempDir,
+		};
+
+		const result = await executeDeclareScope(args, '/different/fallback');
+
+		expect(result.success).toBe(true);
+		expect(result.taskId).toBe('1.1');
+	});
+});

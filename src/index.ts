@@ -47,6 +47,7 @@ import { ensureAgentSession, swarmState } from './state';
 import {
 	checkpoint,
 	complexity_hotspots,
+	declare_scope,
 	detect_domains,
 	diff,
 	evidence_check,
@@ -356,6 +357,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			todo_extract,
 			update_task_status,
 			write_retro,
+			declare_scope,
 		},
 
 		// Configure OpenCode - merge agents into config
