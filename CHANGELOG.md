@@ -10,7 +10,7 @@
 #### New: PR-Based Human Gate (`src/git/`)
 Swarm can now create branches, stage/commit files, and open GitHub PRs automatically at phase boundaries.
 - `src/git/branch.ts` — `createBranch()`, `stageAll()`, `stageFiles()` (throws on empty array), `getCurrentBranch()`, `getCurrentSha()`
-- `src/git/pr.ts` — `createPR()` with `sanitizeInput()` for all gh CLI args, `generateEvidenceMd()` to attach swarm evidence as PR body
+- `src/git/pr.ts` — `createPullRequest()` with `sanitizeInput()` for all gh CLI args, `generateEvidenceMd()` to attach swarm evidence as PR body
 - `src/git/index.ts` — `runPRWorkflow()` orchestrates branch → commit → PR in one call
 
 **Configuration:** No new config keys required. Uses your existing `gh` CLI authentication. Set `baseBranch` in `runPRWorkflow()` options to override the default (`main`).
@@ -22,7 +22,7 @@ Infrastructure for tracking, routing, and coordinating parallel task execution.
 - `src/parallel/dependency-graph.ts` — Builds a dependency graph from `plan.json`, performs topological sort, detects circular dependencies
 - `src/parallel/file-locks.ts` — Atomic file locking with TTL expiry and path traversal protection
 
-**Configuration:** A `parallel_execution` stub is available in `PluginConfigSchema` for future use. No activation required in v6.20 — these modules are used internally by the swarm runtime.
+**Configuration:** No configuration required in v6.20 — these modules are used internally by the swarm runtime.
 
 #### New: AST-Aware Diffing (`src/diff/`)
 Structured diff analysis using AST language definitions.
@@ -33,13 +33,13 @@ Structured diff analysis using AST language definitions.
 #### New: Role-Scoped Context Filter (`src/context/`)
 Reduces context window pressure by filtering messages that don't apply to the receiving agent's role.
 - `src/context/role-filter.ts` — Filters context entries based on `[FOR: agent1, agent2]` tags; entries tagged `[FOR: ALL]` are always passed through
-- `src/context/zone-classifier.ts` — Classifies files into zones (`generated` / `critical` / `standard`) to enforce file authority rules
+- `src/context/zone-classifier.ts` — Classifies files into zones (`production` / `test` / `config` / `generated` / `docs` / `build`) to enforce file authority rules
 
 **Configuration:** Tag your swarm output with `[FOR: reviewer, test_engineer]` or `[FOR: ALL]` to control which agents receive each context entry. No config key changes needed.
 
 #### New: Agent Output Writer (`src/output/`)
 Structured output formatting for agent responses.
-- `src/output/agent-writer.ts` — `writeAgentOutput()` formats agent results with `meta.summary`, verdict, and structured sections; `appendToEventsLog()` writes entries to `events.jsonl`
+- `src/output/agent-writer.ts` — `writeAgentOutput()` formats agent results with `meta.summary`, verdict, and structured sections; `readAgentOutput()` retrieves stored outputs; `listAgentOutputs()` enumerates all agent output files
 
 **Configuration:** No configuration required. Output writer is used by architect hooks automatically.
 
@@ -75,8 +75,6 @@ Formal `DelegationEnvelope` interface for typed agent-to-agent task delegation, 
 ### Upgrade Notes
 
 No breaking changes. All new modules are additive. Existing `plugin.config.ts` configurations are fully compatible with v6.20.0.
-
-The `parallel_execution` config key is available but no-op in this release — it will be activated in v6.21.
 
 ## [6.19.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.7...v6.19.8) (2026-03-06)
 
