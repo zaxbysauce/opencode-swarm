@@ -6,7 +6,77 @@
 ### Features
 
 * **v6.20:** add AST diffing, parallelism framework, PR gate, checkpoint extension, agent output, skill versioning, and context efficiency ([f13ea28](https://github.com/zaxbysauce/opencode-swarm/commit/f13ea285cb862dc0e5dae5e641b560bd5c0ffac5))
-* **v6.20:** AST diffing, parallelism framework, PR gate, checkpoint extension, agent output, skill versioning ([d6acce7](https://github.com/zaxbysauce/opencode-swarm/commit/d6acce7dd3fe559e74fc0abde479f39e4678be8f))
+
+#### New: PR-Based Human Gate (`src/git/`)
+Swarm can now create branches, stage/commit files, and open GitHub PRs automatically at phase boundaries.
+- `src/git/branch.ts` — `createBranch()`, `stageAll()`, `stageFiles()` (throws on empty array), `getCurrentBranch()`, `getCurrentSha()`
+- `src/git/pr.ts` — `createPR()` with `sanitizeInput()` for all gh CLI args, `generateEvidenceMd()` to attach swarm evidence as PR body
+- `src/git/index.ts` — `runPRWorkflow()` orchestrates branch → commit → PR in one call
+
+**Configuration:** No new config keys required. Uses your existing `gh` CLI authentication. Set `baseBranch` in `runPRWorkflow()` options to override the default (`main`).
+
+#### New: Parallelism Framework (`src/parallel/`)
+Infrastructure for tracking, routing, and coordinating parallel task execution.
+- `src/parallel/meta-indexer.ts` — Indexes `meta.summary` fields from `events.jsonl` for parallel task introspection
+- `src/parallel/review-router.ts` — Routes tasks to single or double reviewer based on complexity score
+- `src/parallel/dependency-graph.ts` — Builds a dependency graph from `plan.json`, performs topological sort, detects circular dependencies
+- `src/parallel/file-locks.ts` — Atomic file locking with TTL expiry and path traversal protection
+
+**Configuration:** A `parallel_execution` stub is available in `PluginConfigSchema` for future use. No activation required in v6.20 — these modules are used internally by the swarm runtime.
+
+#### New: AST-Aware Diffing (`src/diff/`)
+Structured diff analysis using AST language definitions.
+- `src/diff/ast-diff.ts` — `computeASTDiff()` returns typed `ASTChange[]` (added/removed/modified nodes) using tree-sitter grammars where available, falling back to line-diff for unsupported languages
+
+**Configuration:** No configuration required. AST diff is invoked automatically by the diff gate when the changed file's language is registered in `src/lang/registry.ts`.
+
+#### New: Role-Scoped Context Filter (`src/context/`)
+Reduces context window pressure by filtering messages that don't apply to the receiving agent's role.
+- `src/context/role-filter.ts` — Filters context entries based on `[FOR: agent1, agent2]` tags; entries tagged `[FOR: ALL]` are always passed through
+- `src/context/zone-classifier.ts` — Classifies files into zones (`generated` / `critical` / `standard`) to enforce file authority rules
+
+**Configuration:** Tag your swarm output with `[FOR: reviewer, test_engineer]` or `[FOR: ALL]` to control which agents receive each context entry. No config key changes needed.
+
+#### New: Agent Output Writer (`src/output/`)
+Structured output formatting for agent responses.
+- `src/output/agent-writer.ts` — `writeAgentOutput()` formats agent results with `meta.summary`, verdict, and structured sections; `appendToEventsLog()` writes entries to `events.jsonl`
+
+**Configuration:** No configuration required. Output writer is used by architect hooks automatically.
+
+#### New: Skill Versioning (`src/skills/`)
+Skills now carry a `SKILL_VERSION` for compatibility tracking and can be overridden per agent.
+- `src/skills/index.ts` — Exports `SKILL_VERSION`, base skill definitions, and per-agent overlay maps
+
+**Configuration:** No action required. `SKILL_VERSION` is embedded in agent system prompts automatically.
+
+#### New: Project Identity (`src/knowledge/`)
+Each project now generates a stable identity hash for cross-session knowledge correlation.
+- `src/knowledge/identity.ts` — `getOrCreateIdentity()` creates `.swarm/identity.json` with `projectHash`, `projectName`, `repoUrl`, and `absolutePath`
+
+**Configuration:** Identity is created automatically on first swarm run. No configuration needed.
+
+#### New: /swarm checkpoint Command (`src/commands/checkpoint.ts`)
+The checkpoint system now has a user-facing slash command in addition to the existing tool.
+- `/swarm checkpoint save [label]` — Save a named checkpoint
+- `/swarm checkpoint restore [label]` — Restore to a checkpoint (soft reset)
+- `/swarm checkpoint list` — List all checkpoints with timestamps
+- `/swarm checkpoint delete [label]` — Remove a checkpoint
+
+**Configuration:** No configuration required.
+
+#### New: Delegation Envelope Types (`src/types/delegation.ts`)
+Formal `DelegationEnvelope` interface for typed agent-to-agent task delegation, with `parseDelegationEnvelope()` for safe extraction from message content.
+
+### Additions to Existing Modules
+
+* `src/hooks/delegation-gate.ts` — Added `parseDelegationEnvelope()` export used by the role-scoped context filter
+* `src/hooks/knowledge-store.ts` — Added `getPlatformConfigDir()` export for cross-platform config path resolution (Windows: `%LOCALAPPDATA%\opencode-swarm\config`, macOS: `~/Library/Application Support/opencode-swarm`, Linux: `~/.config/opencode-swarm`)
+
+### Upgrade Notes
+
+No breaking changes. All new modules are additive. Existing `plugin.config.ts` configurations are fully compatible with v6.20.0.
+
+The `parallel_execution` config key is available but no-op in this release — it will be activated in v6.21.
 
 ## [6.19.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.7...v6.19.8) (2026-03-06)
 
