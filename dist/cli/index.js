@@ -14168,6 +14168,8 @@ function log(message, data) {
   }
 }
 function warn(message, data) {
+  if (!DEBUG)
+    return;
   const timestamp = new Date().toISOString();
   if (data !== undefined) {
     console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`, data);
@@ -16583,7 +16585,8 @@ var TOOL_NAMES = [
   "phase_complete",
   "save_plan",
   "update_task_status",
-  "write_retro"
+  "write_retro",
+  "declare_scope"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -16623,7 +16626,8 @@ var AGENT_TOOL_MAP = {
     "test_runner",
     "todo_extract",
     "update_task_status",
-    "write_retro"
+    "write_retro",
+    "declare_scope"
   ],
   explorer: [
     "complexity_hotspots",

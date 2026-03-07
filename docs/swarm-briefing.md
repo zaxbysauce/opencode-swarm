@@ -10,6 +10,8 @@ This document tells you — an AI model — everything you need to author a vali
 The Architect orchestrates a plan and delegates every coding task to the Coder.
 The Coder implements one atomic task at a time. After every task a 12-step QA
 gate verifies quality, security, and correctness before progress continues.
+The task must also advance through a per-task state machine — `update_task_status`
+will reject `status='completed'` unless the state has reached `tests_run`.
 
 ---
 
@@ -38,7 +40,7 @@ Every task in `.swarm/plan.md` must include these fields:
 
 | Field | Required | Description |
 |---|---|---|
-| FILE | Yes | Relative path to the file the task modifies |
+| FILE | Yes | Relative path to the file the task modifies. **Also used at runtime**: the swarm extracts FILE: values from delegation envelopes and stores them as the declared coder scope — the coder is expected to stay within these files. |
 | TASK | Yes | Single imperative sentence — no "and" connecting two actions |
 | CONSTRAINT | No | Limiting conditions (e.g., "do not modify other functions") |
 | ACCEPTANCE CRITERIA | Yes | Bullet list of verifiable conditions the QA gate can check |
@@ -198,3 +200,36 @@ Both Path A (non-scoring) and Path B (scoring/budget) code paths inject language
 ### Customization
 
 Language constraints and checklists live in `src/lang/profiles.ts` per language profile, under `profile.prompts.coderConstraints` and `profile.prompts.reviewerChecklist`. To add or modify rules: edit the relevant profile's arrays. Changes take effect immediately — no rebuild required for the prompt injection path.
+
+---
+
+## Per-Task State Machine (v6.21)
+
+Every task now moves through a tracked workflow state:
+
+| State | Triggered by |
+|-------|-------------|
+| `idle` | Default for any new task |
+| `coder_delegated` | Coder Task delegation detected by `delegation-gate.ts` |
+| `pre_check_passed` | `pre_check_batch` returns `gates_passed: true` |
+| `reviewer_run` | Reviewer agent returns a verdict |
+| `tests_run` | Test engineer completes both verification and adversarial passes |
+| `complete` | `update_task_status` accepts `status='completed'` |
+
+Calling `update_task_status` with `status='completed'` will be **rejected** unless the task is in `tests_run` or `complete` state. This is a hard enforcement — not advisory.
+
+Transitions are forward-only: attempting to go from `tests_run` back to `coder_delegated` throws `INVALID_TASK_STATE_TRANSITION`.
+
+---
+
+## Scope Enforcement (v6.21)
+
+The `FILE:` directive in a coder delegation has **runtime significance** beyond documentation: the swarm extracts its value and stores it as `session.declaredCoderScope`. After the coder task completes, if more than 2 files outside the declared scope were written, a scope violation warning fires in the next architect turn.
+
+The architect can also call the `declare_scope` tool explicitly to pre-declare scope before composing the delegation text. Scope entries may be individual file paths or directory paths (all files below a directory are considered in-scope).
+
+---
+
+## Tier-Based Behavioral Prompt Trimming (v6.21)
+
+On smaller/free models (those whose model ID contains `mini`, `nano`, `small`, or `free`), the verbose behavioral guidance blocks in the architect prompt are stripped and replaced with `[Enforcement: programmatic gates active]`. The programmatic mechanisms — state machine, hard blocks, scope containment — provide equivalent safety guarantees without consuming context.

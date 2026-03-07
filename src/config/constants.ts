@@ -47,6 +47,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'todo_extract',
 		'update_task_status',
 		'write_retro',
+		'declare_scope',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -214,4 +215,24 @@ export function resolveScoringConfig(
 	);
 
 	return merged as ScoringConfig;
+}
+
+/**
+ * Model ID substrings that identify low-capability models.
+ * If a model's ID contains any of these substrings (case-insensitive),
+ * it is considered a low-capability model.
+ */
+export const LOW_CAPABILITY_MODELS = ['mini', 'nano', 'small', 'free'] as const;
+
+/**
+ * Returns true if the given modelId contains any LOW_CAPABILITY_MODELS substring
+ * (case-insensitive comparison).
+ *
+ * @param modelId - The model ID to check
+ * @returns true if the model is considered low capability, false otherwise
+ */
+export function isLowCapabilityModel(modelId: string): boolean {
+	if (!modelId) return false;
+	const lower = modelId.toLowerCase();
+	return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }

@@ -53,6 +53,8 @@ Every task in `.swarm/plan.md` must define these four fields:
 - `ACCEPTANCE CRITERIA` must be a bullet list specific enough for the test engineer to write a unit test.
 - `CONSTRAINT` is optional but recommended when the task touches shared code.
 
+> **`FILE:` has runtime significance beyond documentation.** The swarm extracts all `FILE:` paths from a coder delegation to populate `session.declaredCoderScope`. If the coder modifies files outside of those declared paths, the scope enforcement system flags the violation. Always declare the correct target file — omitting `FILE:` or pointing to a directory disables scope containment for that task.
+
 ### Task Sizing
 
 | Size | Definition | Action |
@@ -62,6 +64,23 @@ Every task in `.swarm/plan.md` must define these four fields:
 | LARGE | More than 2 files, or compound concern | **Must be split before adding to plan** |
 
 If you cannot write `TASK + FILE + CONSTRAINT` in three bullet points, the task is too large.
+
+---
+
+### Task Workflow States
+
+Each task in the swarm follows a per-task state machine. The Architect advances state as gates complete; `update_task_status` enforces the final transition. Understanding these states helps you write acceptance criteria that match what the swarm actually enforces.
+
+| State | Meaning | How It's Entered |
+|---|---|---|
+| `idle` | Task not yet started | Default state |
+| `coder_delegated` | Coder has been given the task | Architect dispatches `Task` to coder |
+| `pre_check_passed` | Automated gates passed | `pre_check_batch` returns `gates_passed: true` |
+| `reviewer_run` | Human-style review complete | Reviewer delegation returns APPROVED |
+| `tests_run` | Verification tests passed | Test engineer delegation returns PASS |
+| `complete` | Task fully complete | `update_task_status(status: 'completed')` called |
+
+**Enforcement rule:** `update_task_status` with `status: 'completed'` will be **rejected** unless the task's state is `tests_run` or `complete`. Calling it immediately after the coder returns (skipping reviewer and test gates) returns a structured error naming the missing gate. This means your acceptance criteria should match the gate sequence — not just the code change.
 
 ---
 

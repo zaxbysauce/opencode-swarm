@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { TaskStatus } from '../config/plan-schema';
 import { updateTaskStatus } from '../plan/manager';
+import { getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -67,6 +68,49 @@ export function validateTaskId(taskId: string): string | undefined {
 }
 
 /**
+ * Result from checking reviewer gate presence
+ */
+export interface ReviewerGateResult {
+	blocked: boolean;
+	reason: string;
+}
+
+/**
+ * Check if a task has passed required QA gates using the state machine.
+ * Requires the task to be in 'tests_run' or 'complete' state, which means
+ * both reviewer delegation and test_engineer runs have been recorded.
+ * @param taskId - The task ID to check gate state for
+ * @returns ReviewerGateResult indicating whether the gate is blocked
+ */
+export function checkReviewerGate(taskId: string): ReviewerGateResult {
+	try {
+		// If no active sessions, allow through (test context)
+		if (swarmState.agentSessions.size === 0) {
+			return { blocked: false, reason: '' };
+		}
+
+		// Check each session for state machine state
+		for (const [_sessionId, session] of swarmState.agentSessions) {
+			const state = getTaskState(session, taskId);
+
+			// If task has reached tests_run or complete state, allow through
+			if (state === 'tests_run' || state === 'complete') {
+				return { blocked: false, reason: '' };
+			}
+		}
+
+		// No session has this task in tests_run or complete state
+		return {
+			blocked: true,
+			reason: `Task ${taskId} has not passed QA gates (state machine requires tests_run or complete, current state indicates gates not yet passed). Call mega_reviewer and mega_test_engineer before marking task as completed.`,
+		};
+	} catch {
+		// If state inspection throws, allow through
+		return { blocked: false, reason: '' };
+	}
+}
+
+/**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
  * @param args - The update task status arguments
@@ -94,6 +138,19 @@ export async function executeUpdateTaskStatus(
 			message: 'Validation failed',
 			errors: [taskIdError],
 		};
+	}
+
+	// State machine check: task must have reached tests_run or complete state
+	if (args.status === 'completed') {
+		const reviewerCheck = checkReviewerGate(args.task_id);
+		if (reviewerCheck.blocked) {
+			return {
+				success: false,
+				message:
+					'Gate check failed: reviewer delegation required before marking task as completed',
+				errors: [reviewerCheck.reason],
+			};
+		}
 	}
 
 	// Step 3: Validate working_directory if provided

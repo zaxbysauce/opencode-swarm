@@ -73,6 +73,11 @@ export function deserializeAgentSession(
 		phaseAgentsDispatched,
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+		taskWorkflowStates: new Map(),
+		lastGateOutcome: null,
+		declaredCoderScope: null,
+		lastScopeViolation: null,
+		modifiedFilesThisCoderTask: [],
 	};
 }
 

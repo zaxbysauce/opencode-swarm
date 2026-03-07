@@ -8,7 +8,7 @@
  */
 
 import * as path from 'node:path';
-import { ORCHESTRATOR_NAME } from '../config/constants';
+import { isLowCapabilityModel, ORCHESTRATOR_NAME } from '../config/constants';
 import {
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
@@ -23,6 +23,7 @@ import {
 } from '../state';
 import { warn } from '../utils';
 import { extractCurrentPhaseFromPlan } from './extractors';
+import { extractModelInfo } from './model-limits';
 
 /**
  * Extracts phase number from a phase string like "Phase 3: Implementation"
@@ -187,6 +188,22 @@ function getCurrentTaskId(sessionId: string): string {
 }
 
 /**
+ * v6.21 Task 5.4: Check if a file path is within declared scope entries.
+ * Handles both exact matches and directory containment.
+ */
+function isInDeclaredScope(filePath: string, scopeEntries: string[]): boolean {
+	const resolvedFile = path.resolve(filePath);
+	return scopeEntries.some((scope) => {
+		const resolvedScope = path.resolve(scope);
+		// Exact match: file IS the scope entry
+		if (resolvedFile === resolvedScope) return true;
+		// Directory containment: file is inside a scope directory
+		const rel = path.relative(resolvedScope, resolvedFile);
+		return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
+	});
+}
+
+/**
  * Creates guardrails hooks for circuit breaker protection
  * @param directoryOrConfig Working directory (from plugin init context) OR legacy config object for backward compatibility
  * @param config Guardrails configuration (optional if first arg is config)
@@ -262,7 +279,41 @@ export function createGuardrailsHooks(
 			if (currentSession?.delegationActive) {
 				// A subagent is using this tool — not the architect
 				// Skip self-coding detection entirely for this tool call
-			} else if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+				// v6.21 Task 5.2: Track files modified by coder subagent
+				if (isWriteTool(input.tool)) {
+					const delegArgs = output.args as Record<string, unknown> | undefined;
+					const delegTargetPath = (delegArgs?.filePath ??
+						delegArgs?.path ??
+						delegArgs?.file ??
+						delegArgs?.target) as string | undefined;
+					if (
+						typeof delegTargetPath === 'string' &&
+						delegTargetPath.length > 0
+					) {
+						if (
+							!currentSession.modifiedFilesThisCoderTask.includes(
+								delegTargetPath,
+							)
+						) {
+							currentSession.modifiedFilesThisCoderTask.push(delegTargetPath);
+						}
+					}
+				}
+			} else if (isArchitect(input.sessionID)) {
+				// v6.21 Task 5.2: Reset modified files list when new coder delegation is dispatched
+				const coderDelegArgs = output.args as
+					| Record<string, unknown>
+					| undefined;
+				const coderDeleg = isAgentDelegation(input.tool, coderDelegArgs);
+				if (coderDeleg.isDelegation && coderDeleg.targetAgent === 'coder') {
+					const coderSession = swarmState.agentSessions.get(input.sessionID);
+					if (coderSession) {
+						coderSession.modifiedFilesThisCoderTask = [];
+					}
+				}
+			}
+
+			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				const args = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
@@ -685,6 +736,31 @@ export function createGuardrailsHooks(
 					session.partialGateWarningsIssuedForTask?.delete(
 						session.currentTaskId,
 					);
+
+					// v6.21 Task 5.4: Scope containment check
+					// Compare modified files against declared scope; flag violations
+					if (session.declaredCoderScope !== null) {
+						// Sanitize paths for log injection first, then check containment
+						const undeclaredFiles = session.modifiedFilesThisCoderTask
+							.map((f) => f.replace(/[\r\n\t]/g, '_'))
+							.filter(
+								(f) => !isInDeclaredScope(f, session.declaredCoderScope!),
+							);
+						if (undeclaredFiles.length > 2) {
+							const safeTaskId = String(session.currentTaskId ?? '').replace(
+								/[\r\n\t]/g,
+								'_',
+							);
+							session.lastScopeViolation =
+								`Scope violation for task ${safeTaskId}: ` +
+								`${undeclaredFiles.length} undeclared files modified: ` +
+								undeclaredFiles.join(', ');
+							// Flag for warning injection in messagesTransform
+							session.scopeViolationDetected = true;
+						}
+					}
+					// Reset tracked files after check (whether violation or not)
+					session.modifiedFilesThisCoderTask = [];
 				}
 			}
 
@@ -719,6 +795,29 @@ export function createGuardrailsHooks(
 			const sessionId: string | undefined = lastMessage.info?.sessionID;
 			if (!sessionId) {
 				return;
+			}
+
+			// v6.21 Task 4.5: Tier-based behavioral prompt trimming for low-capability models
+			{
+				const { modelID } = extractModelInfo(messages);
+				if (modelID && isLowCapabilityModel(modelID)) {
+					for (const msg of messages) {
+						if (msg.info?.role !== 'system') continue;
+						for (const part of msg.parts) {
+							try {
+								if (part == null) continue;
+								if (part.type !== 'text' || typeof part.text !== 'string')
+									continue;
+								if (!part.text.includes('<!-- BEHAVIORAL_GUIDANCE_START -->'))
+									continue;
+								part.text = part.text.replace(
+									/<!--\s*BEHAVIORAL_GUIDANCE_START\s*-->[\s\S]*?<!--\s*BEHAVIORAL_GUIDANCE_END\s*-->/g,
+									'[Enforcement: programmatic gates active]',
+								);
+							} catch {}
+						}
+					}
+				}
 			}
 
 			// v6.12: Self-coding warning injection
@@ -819,6 +918,7 @@ export function createGuardrailsHooks(
 					} catch {
 						// Use default phase 1 if plan loading fails
 					}
+
 					const hasReviewerDelegation =
 						(session.reviewerCallCount.get(currentPhaseForCheck) ?? 0) > 0;
 					if (missingGates.length > 0 || !hasReviewerDelegation) {
@@ -841,6 +941,27 @@ export function createGuardrailsHooks(
 								textPart.text;
 						}
 					}
+				}
+			}
+
+			// v6.21 Task 5.4: Scope violation warning injection
+			// Inject warning when coder exceeded declared scope (flag set in toolAfter)
+			if (
+				isArchitectSessionForGates &&
+				session &&
+				session.scopeViolationDetected
+			) {
+				// Clear flag immediately to prevent stale re-injection if textPart lookup fails
+				session.scopeViolationDetected = false;
+				const textPart = lastMessage.parts.find(
+					(part): part is { type: string; text: string } =>
+						part.type === 'text' && typeof part.text === 'string',
+				);
+				if (textPart && session.lastScopeViolation) {
+					textPart.text =
+						`⚠️ SCOPE VIOLATION: ${session.lastScopeViolation}\n` +
+						`Only modify files within your declared scope. Request scope expansion from architect if needed.\n\n` +
+						textPart.text;
 				}
 			}
 

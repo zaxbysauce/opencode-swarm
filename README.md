@@ -370,6 +370,17 @@ Every agent runs inside a circuit breaker that kills runaway behavior before it 
 
 Limits reset per task. A coder working on Task 2.3 is not penalized for tool calls made during Task 2.2.
 
+#### Architect Self-Coding Block
+
+If the architect writes files directly instead of delegating to the coder, a hard block fires:
+
+| Write count | Behavior |
+|:-----------:|----------|
+| 1–2 | Warning injected into next architect message |
+| ≥ 3 | `Error` thrown with `SELF_CODING_BLOCK` — identifies file paths written and count |
+
+The counter resets only when a coder delegation is dispatched. This is a hard enforcement — not advisory.
+
 Per-agent overrides:
 
 ```json
@@ -727,7 +738,7 @@ Swarm limits which tools each agent can access based on their role. This prevent
 
 | Agent | Tools | Count | Rationale |
 |-------|-------|:---:|-----------|
-| **architect** | All 17 tools | 17 | Orchestrator needs full visibility |
+| **architect** | All 21 tools | 21 | Orchestrator needs full visibility |
 | **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner | 11 | Security-focused QA |
 | **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary | 6 | Write-focused, minimal read tools |
 | **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit | 8 | Testing and verification |
@@ -811,10 +822,61 @@ The following tools can be assigned to agents via overrides:
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
 | `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
+| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 
 ---
 
 ## Recent Changes
+
+### v6.21 — Gate Enforcement Hardening
+
+This release replaces soft advisory warnings with hard runtime blocks and adds structural compliance tooling for all model tiers.
+
+#### Phase 1 — P0 Bug Fixes: Hard Blocks Replace Soft Warnings
+
+- **`qaSkipCount` reset fixed**: The skip-detection counter in `delegation-gate.ts` now resets only when **both** reviewer **and** test_engineer have been seen since the last coder entry — not when either one runs alone.
+- **`update_task_status` reviewer gate check**: Accepting `status='completed'` now validates that the reviewer gate is present in the session's `gateLog` for the given task. Missing reviewer returns a structured error naming the absent gate.
+- **Architect self-coding hard block**: `architectWriteCount ≥ 3` now throws an `Error` with message `SELF_CODING_BLOCK` (previously a warning only). Counts 1–2 remain advisory warnings. Counter resets on coder delegation.
+
+#### Phase 2 — Per-Task State Machine
+
+Every task now has a tracked workflow state in the session:
+
+| State | Meaning |
+|-------|---------|
+| `idle` | Task not started |
+| `coder_delegated` | Coder has received the delegation |
+| `pre_check_passed` | Automated gates (lint, SAST, secrets, quality) passed |
+| `reviewer_run` | Reviewer agent has returned a verdict |
+| `tests_run` | Test engineer has completed (verification + adversarial) |
+| `complete` | `update_task_status` accepted the `completed` transition |
+
+Transitions are forward-only. `advanceTaskState()` throws `INVALID_TASK_STATE_TRANSITION` if an illegal jump is attempted. `getTaskState()` returns `'idle'` for unknown tasks.
+
+`session.lastGateOutcome` records the most recent gate result: `{ gate, taskId, passed, timestamp }`.
+
+#### Phase 3 — State Machine Integration
+
+- `update_task_status` now uses the state machine (not a raw `gateLog.has()` check): `status='completed'` is rejected unless the task is in `'tests_run'` or `'complete'` state.
+- `delegation-gate.ts` protocol-violation check additionally verifies that the prior task's state has advanced past `'coder_delegated'` before allowing a new coder delegation.
+
+#### Phase 4 — Context Engineering
+
+- **Progressive task disclosure**: When >5 tasks are visible in the last user message, `delegation-gate.ts` trims to the current task ± a context window. A `[Task window: showing N of M tasks]` comment marks the trim point.
+- **Deliberation preamble**: Each architect turn is prefixed with `[Last gate: {tool} {result} for task {taskId}]` sourced from `session.lastGateOutcome`, prompting the architect to identify the single next step.
+- **Low-capability model detection**: `LOW_CAPABILITY_MODELS` constant (matches substrings `mini`, `nano`, `small`, `free`) and `isLowCapabilityModel(modelId)` helper added to `constants.ts`.
+- **Behavioral guidance markers**: Three `<!-- BEHAVIORAL_GUIDANCE_START --> … <!-- BEHAVIORAL_GUIDANCE_END -->` pairs wrap the BATCHING DETECTION, ARCHITECT CODING BOUNDARIES, and QA gate behavioral sections in the architect prompt.
+- **Tier-based prompt trimming**: When `session.activeModel` matches `isLowCapabilityModel()`, the behavioral guidance blocks are stripped from the architect prompt and replaced with `[Enforcement: programmatic gates active]`. Programmatic enforcement substitutes for verbose prompt instructions on smaller models.
+
+#### Phase 5 — Structural Scope Declaration (`declare_scope`)
+
+New architect-only tool and supporting runtime enforcement:
+
+- **`declare_scope` tool**: Pre-declares which files the coder is allowed to modify for a given task. Input: `{ taskId, files, whitelist?, working_directory? }`. Validates task ID format, plan membership, and non-`complete` state. On success, sets `session.declaredCoderScope`. Architect-only.
+- **Automatic scope from FILE: directives**: When a coder delegation is detected, `delegation-gate.ts` extracts FILE: directive values and stores them as `session.declaredCoderScope` automatically — no explicit `declare_scope` call required.
+- **Scope containment tracking**: `guardrails.ts` appends every file the architect writes to `session.modifiedFilesThisCoderTask`. On coder delegation start, the list resets to `[]`.
+- **Violation detection**: After a coder task completes, `toolAfter` compares `modifiedFilesThisCoderTask` against `declaredCoderScope`. If >2 files are outside the declared scope, `session.lastScopeViolation` is set. The next architect message receives a scope violation warning.
+- **`isInDeclaredScope(filePath, scopeEntries)`**: Module-level helper using `path.resolve()` + `path.relative()` for proper directory containment (not string matching).
 
 ### v6.13.2 — Pipeline Enforcement
 

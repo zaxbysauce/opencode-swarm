@@ -34,6 +34,11 @@ export interface DelegationEntry {
     timestamp: number;
 }
 /**
+ * Per-task workflow state for gate progression tracking.
+ * Transitions must be forward-only: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
+ */
+export type TaskWorkflowState = 'idle' | 'coder_delegated' | 'pre_check_passed' | 'reviewer_run' | 'tests_run' | 'complete';
+/**
  * Represents per-session state for guardrail tracking.
  * Budget fields (toolCallCount, consecutiveErrors, etc.) have moved to InvocationWindow.
  * This interface now tracks session-level metadata and window management.
@@ -81,6 +86,23 @@ export interface AgentSessionState {
     qaSkipCount: number;
     /** Task IDs skipped without QA (for audit trail), reset when reviewer/test_engineer fires */
     qaSkipTaskIds: string[];
+    /** Per-task workflow state — taskId → current state */
+    taskWorkflowStates: Map<string, TaskWorkflowState>;
+    /** Last gate outcome for deliberation preamble injection */
+    lastGateOutcome: {
+        gate: string;
+        taskId: string;
+        passed: boolean;
+        timestamp: number;
+    } | null;
+    /** Declared file scope for current coder task (null = no scope declared) */
+    declaredCoderScope: string[] | null;
+    /** Last scope violation message (null = no violation) */
+    lastScopeViolation: string | null;
+    /** Flag for one-shot scope violation warning injection in messagesTransform */
+    scopeViolationDetected?: boolean;
+    /** Files modified by the current coder task (populated by guardrails toolBefore/toolAfter, reset on new coder delegation) */
+    modifiedFilesThisCoderTask: string[];
     /** Timestamp of most recent phase completion */
     lastPhaseCompleteTimestamp: number;
     /** Phase number of most recent phase completion */
@@ -209,3 +231,23 @@ export declare function pruneOldWindows(sessionId: string, maxAgeMs?: number, ma
  * @param agentName - Agent name to record (will be normalized)
  */
 export declare function recordPhaseAgentDispatch(sessionId: string, agentName: string): void;
+/**
+ * Advance a task's workflow state. Validates forward-only transitions.
+ * Throws 'INVALID_TASK_STATE_TRANSITION: [taskId] [current] → [requested]' on illegal transition.
+ *
+ * Valid forward order: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param newState - The requested new state
+ */
+export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState): void;
+/**
+ * Get the current workflow state for a task.
+ * Returns 'idle' if no entry exists.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns Current task workflow state
+ */
+export declare function getTaskState(session: AgentSessionState, taskId: string): TaskWorkflowState;

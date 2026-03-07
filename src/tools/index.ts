@@ -2,6 +2,7 @@ export { build_check } from './build-check';
 export { checkpoint } from './checkpoint';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
+export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
 export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
@@ -60,11 +61,11 @@ export {
 	syntaxCheck,
 } from './syntax-check';
 export { test_runner } from './test-runner';
+export { todo_extract } from './todo-extract';
 export {
+	executeUpdateTaskStatus,
 	type UpdateTaskStatusArgs,
 	type UpdateTaskStatusResult,
-	executeUpdateTaskStatus,
 	update_task_status,
 } from './update-task-status';
-export { todo_extract } from './todo-extract';
 export { executeWriteRetro, write_retro } from './write-retro';
