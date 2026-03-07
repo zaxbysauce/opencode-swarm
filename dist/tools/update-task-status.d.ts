@@ -35,6 +35,21 @@ export declare function validateStatus(status: string): string | undefined;
  */
 export declare function validateTaskId(taskId: string): string | undefined;
 /**
+ * Result from checking reviewer gate presence
+ */
+export interface ReviewerGateResult {
+    blocked: boolean;
+    reason: string;
+}
+/**
+ * Check if a task has passed required QA gates using the state machine.
+ * Requires the task to be in 'tests_run' or 'complete' state, which means
+ * both reviewer delegation and test_engineer runs have been recorded.
+ * @param taskId - The task ID to check gate state for
+ * @returns ReviewerGateResult indicating whether the gate is blocked
+ */
+export declare function checkReviewerGate(taskId: string): ReviewerGateResult;
+/**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
  * @param args - The update task status arguments

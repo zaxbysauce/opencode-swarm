@@ -21,3 +21,17 @@ export declare const DEFAULT_SCORING_CONFIG: ScoringConfig;
  * @returns The effective scoring configuration with all defaults applied
  */
 export declare function resolveScoringConfig(userConfig?: ScoringConfig): ScoringConfig;
+/**
+ * Model ID substrings that identify low-capability models.
+ * If a model's ID contains any of these substrings (case-insensitive),
+ * it is considered a low-capability model.
+ */
+export declare const LOW_CAPABILITY_MODELS: readonly ["mini", "nano", "small", "free"];
+/**
+ * Returns true if the given modelId contains any LOW_CAPABILITY_MODELS substring
+ * (case-insensitive comparison).
+ *
+ * @param modelId - The model ID to check
+ * @returns true if the model is considered low capability, false otherwise
+ */
+export declare function isLowCapabilityModel(modelId: string): boolean;

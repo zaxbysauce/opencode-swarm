@@ -9,11 +9,11 @@
 import { type GuardrailsConfig } from '../config/schema';
 /**
  * Creates guardrails hooks for circuit breaker protection
- * @param directory Working directory (from plugin init context)
- * @param config Guardrails configuration
+ * @param directoryOrConfig Working directory (from plugin init context) OR legacy config object for backward compatibility
+ * @param config Guardrails configuration (optional if first arg is config)
  * @returns Tool before/after hooks and messages transform hook
  */
-export declare function createGuardrailsHooks(directory: string, config: GuardrailsConfig): {
+export declare function createGuardrailsHooks(directoryOrConfig?: string | GuardrailsConfig, config?: GuardrailsConfig): {
     toolBefore: (input: {
         tool: string;
         sessionID: string;
