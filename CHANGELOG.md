@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.20.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.2...v6.20.3) (2026-03-07)
+
+
+### Bug Fixes
+
+* resolve path before isSourceCodePath check, fix test gate setup ([d16df29](https://github.com/zaxbysauce/opencode-swarm/commit/d16df2936a0cdc63713ada655c5189d92d368157))
+* resolve path before isSourceCodePath check, fix test gate setup ([d498cc0](https://github.com/zaxbysauce/opencode-swarm/commit/d498cc0c171fb19796dadc8cea482824540829d5))
+
 ## [6.20.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.1...v6.20.2) (2026-03-07)
 
 
