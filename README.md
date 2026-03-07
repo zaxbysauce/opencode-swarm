@@ -852,7 +852,7 @@ This release adds runtime detection hooks to catch and warn about architect work
 - **Partial gate tracking**: Detects when QA gates are skipped
 - **Self-fix detection**: Warns when an agent fixes its own gate failure (should delegate to fresh agent)
 - **Batch detection**: Catches "implement X and add Y" batching in task requests
-- **Zero-delegation detection**: Warns when tasks complete without any coder delegation
+- **Zero-delegation detection**: Warns when tasks complete without any coder delegation; supports parsing delegation envelopes from JSON or KEY: VALUE text format for validation.
 
 These hooks are advisory (warnings only) and help maintain workflow discipline during long sessions.
 

@@ -216,7 +216,7 @@ async function runLintWrapped(
 
 		// No files provided - run lint on entire directory (current behavior)
 		const result = await runWithTimeout(
-			runLint(linter, 'check'),
+			runLint(linter, 'check', directory),
 			TOOL_TIMEOUT_MS,
 		);
 
@@ -243,7 +243,7 @@ async function runLintOnFiles(
 	workspaceDir: string,
 ): Promise<LintResult> {
 	const isWindows = process.platform === 'win32';
-	const binDir = path.join(process.cwd(), 'node_modules', '.bin');
+	const binDir = path.join(workspaceDir, 'node_modules', '.bin');
 
 	// Security: Validate all resolved file paths before use
 	const validatedFiles: string[] = [];
@@ -295,6 +295,7 @@ async function runLintOnFiles(
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
+			cwd: workspaceDir,
 		});
 
 		const [stdout, stderr] = await Promise.all([
@@ -892,7 +893,7 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 				'Minimum severity for SAST findings to cause failure (default: medium)',
 			),
 	},
-	async execute(args: unknown, _directory: string): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
 		// Validate arguments
 		if (!args || typeof args !== 'object') {
 			const errorResult: PreCheckBatchResult = {
@@ -903,6 +904,38 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 				quality_budget: {
 					ran: false,
 					error: 'Invalid arguments',
+					duration_ms: 0,
+				},
+				total_duration_ms: 0,
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
+		if (
+			!directory ||
+			typeof directory !== 'string' ||
+			directory.trim() === ''
+		) {
+			const errorResult: PreCheckBatchResult = {
+				gates_passed: false,
+				lint: {
+					ran: false,
+					error: 'project directory is required but was not provided',
+					duration_ms: 0,
+				},
+				secretscan: {
+					ran: false,
+					error: 'project directory is required but was not provided',
+					duration_ms: 0,
+				},
+				sast_scan: {
+					ran: false,
+					error: 'project directory is required but was not provided',
+					duration_ms: 0,
+				},
+				quality_budget: {
+					ran: false,
+					error: 'project directory is required but was not provided',
 					duration_ms: 0,
 				},
 				total_duration_ms: 0,

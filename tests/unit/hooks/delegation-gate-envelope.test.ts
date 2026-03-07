@@ -17,7 +17,7 @@ describe('delegation envelope validation', () => {
 	describe('validateDelegationEnvelope', () => {
 		const validContext = {
 			planTasks: ['1.1', '1.2', '2.1'],
-			validAgents: ['architect', 'coder', 'test_engineer', 'reviewer'],
+			validAgents: ['architect', 'coder', 'test_engineer', 'reviewer', 'explorer'],
 		};
 
 		it('valid envelope passes validation', () => {
