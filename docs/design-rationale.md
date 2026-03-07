@@ -490,6 +490,86 @@ When you combine all these decisions:
 | QA as afterthought | QA per task |
 | Batched, unfocused work | One task at a time |
 | Single model blindspots | Heterogeneous review |
+---
+
+### 15. Hard Blocks Replace Soft Warnings (v6.21)
+
+**The temptation:** Advisory warnings are kinder to the architect; it can choose to act on them.
+
+**The reality:** Soft warnings accumulate. A model mid-session will suppress or ignore prior warnings as context compresses. Repeated soft warnings are noise; the architect learns to expect them and continues the violation.
+
+**Swarm's approach:** Escalate to hard blocks at an explicit threshold.
+
+| Behavior | Before v6.21 | v6.21 |
+|----------|-------------|-------|
+| Architect writes files directly | Warning for every write | Warning for writes 1–2; Error thrown at write ≥ 3 (`SELF_CODING_BLOCK`) |
+| Task completion without review | Always accepted | Rejected unless state machine is in `tests_run` or `complete` |
+| QA skip count | Reset on first gate agent | Reset only when BOTH reviewer AND test_engineer seen |
+
+**Why Error and not return value?** An `Error` with `SELF_CODING_BLOCK` in the message propagates through every layer that might silently discard a structured return value. It surfaces in logs, in tool output, and in the LLM's context — it cannot be ignored.
+
+---
+
+### 16. Per-Task State Machine (v6.21)
+
+**The temptation:** Track task progress informally — the plan.md `[x]` checkbox is enough.
+
+**The reality:** `[x]` in plan.md is a string edit, not a verified state transition. An architect in a hurry can mark a task complete without gates having run. Nothing stops this.
+
+**Swarm's approach:** A runtime state machine with forward-only transitions enforced in code.
+
+```
+idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
+```
+
+`update_task_status` refuses `status='completed'` unless the task is in `tests_run` state. The state machine is session-local — it cannot be written from the plan file or manipulated by prompt. An illegal transition attempt throws `INVALID_TASK_STATE_TRANSITION` and stops execution.
+
+**Why forward-only?** Backward transitions indicate a bug in the workflow, not a legitimate retry. If tests fail, the task returns to `coder_delegated` by starting a new coder delegation (resetting the task state naturally) — not by walking back the state machine.
+
+---
+
+### 17. Structural Scope Declaration (v6.21)
+
+**The temptation:** Trust that the coder will only modify the files named in the task spec.
+
+**The reality:** Models under long context sometimes modify adjacent files "helpfully." Without enforcement, these unintended edits bypass the task's QA gate — the reviewer evaluated the declared scope, not the extra files.
+
+**Swarm's approach:** Runtime scope tracking with violation detection.
+
+The FILE: directive in a coder delegation is extracted at runtime and stored as the declared coder scope. After the coder task completes, the actual modified files are compared against the declared scope. More than 2 out-of-scope files triggers a warning in the next architect turn.
+
+The `declare_scope` tool lets the architect pre-declare scope before composing a delegation, providing an explicit alternative to automatic FILE: extraction.
+
+**Why a warning and not a hard block?** The coder may legitimately modify a shared utility file not listed in FILE: (e.g., adding an export). A hard block at any out-of-scope write would be too strict. Two files of tolerance handles the common legitimate case while catching broad scope drift.
+
+**Why 2 files?** Empirical: legitimate adjacent edits (adding an export, fixing a type) rarely exceed 2 files. Three or more undeclared files almost always indicates scope creep or a misunderstood task boundary.
+
+---
+
+### 18. Tier-Based Behavioral Prompt Trimming (v6.21)
+
+**The temptation:** Give every model the same full architect prompt.
+
+**The reality:** Verbose behavioral guidance consumes context on models that are already at or near their window limit. Smaller models struggle to follow long instructions; they benefit from shorter, more directive prompts.
+
+**Swarm's approach:** Structural markers in the architect prompt allow sections to be stripped for low-capability models.
+
+`<!-- BEHAVIORAL_GUIDANCE_START --> … <!-- BEHAVIORAL_GUIDANCE_END -->` pairs wrap three verbose sections. When `isLowCapabilityModel(session.activeModel)` returns `true`, these sections are replaced with `[Enforcement: programmatic gates active]`.
+
+**Why is this safe?** The replaced sections describe behavior that is already enforced programmatically: the state machine (Phase 2), the hard blocks (Phase 1), and the scope containment (Phase 5). The prompt text and the code enforcement duplicate the same rules. On capable models, both layers reinforce each other. On smaller models, the code layer alone is sufficient — the prompt overhead is eliminated.
+
+---
+
+## The Result (Updated)
+
+| Without Structure | With Swarm |
+|-------------------|------------|
+| Chaotic parallel execution | Predictable serial flow |
+| Ad-hoc "figure it out" | Documented phased plan |
+| Lost context between sessions | Persistent `.swarm/` memory |
+| QA as afterthought | QA per task |
+| Batched, unfocused work | One task at a time |
+| Single model blindspots | Heterogeneous review |
 | Repeated SME questions | Cached guidance |
 | Full autonomy disasters | User checkpoints |
 | Silent failures | Documented attempts |
@@ -497,5 +577,9 @@ When you combine all these decisions:
 | Manual-only workflow | **Background-first automation** (v6.7) |
 | Pre-reviewer lint only | **Six quality gates** before human review (v6.9.0) |
 | Cloud-based security scanning | **Local-only** SAST and SBOM generation (v6.9.0) |
+| Soft advisory warnings | **Hard blocks** with error propagation (v6.21) |
+| Plan checkbox as state | **Runtime state machine** with forward-only transitions (v6.21) |
+| Coder scope on trust | **Structural scope declaration** with violation detection (v6.21) |
+| Same prompt for all models | **Tier-based prompt trimming** for capability-matched context (v6.21) |
 
 **The difference:** Code that actually works. And gets done efficiently.

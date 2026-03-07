@@ -239,7 +239,7 @@ For each task in current phase:
     │
     └── 5n. TASK COMPLETION CHECKLIST (v6.11.0)
             ├── Evidence written to .swarm/evidence/{taskId}/
-            ├── plan.md updated with [x] task complete
+            ├── update_task_status called with status='completed' (advances state machine to 'complete')
             └── → REQUIRED: Print completion confirmation
 ```
 
@@ -542,6 +542,16 @@ Estimated: [SMALL/MEDIUM/LARGE]
 | critic | ✅ | ❌ | ❌ | ❌ |
 | test_engineer | ✅ | ✅ | ✅ | ❌ |
 
+### Architect-Only Tools
+
+Some tools are restricted to the architect and cannot be called by other agents:
+
+| Tool | Purpose |
+|------|---------|
+| `update_task_status` | Mark plan tasks as `pending \| in_progress \| completed \| blocked` |
+| `write_retro` | Write retrospective evidence bundles before `phase_complete` |
+| `declare_scope` | Pre-declare which files the coder may modify for a given task |
+
 ---
 
 ## Failure Handling
@@ -666,13 +676,13 @@ The hooks system is the foundation of v5.1.x+, extended in v6.0.0 with config-aw
 
 | Hook Type | Handler | Purpose |
 |-----------|---------|---------|
-| `experimental.chat.messages.transform` | `composeHandlers(pipelineTracker, contextBudget)` | Pipeline logging + token budget warnings |
+| `experimental.chat.messages.transform` | `composeHandlers(pipelineTracker, contextBudget)` | Pipeline logging + token budget warnings; progressive task disclosure; deliberation preamble injection; tier-based behavioral prompt trimming |
 | `experimental.chat.system.transform` | `systemEnhancerHook` | Inject phase/task/decisions + cross-agent context |
 | `experimental.session.compacting` | `compactionHook` | Enrich compaction with plan.md + context.md data |
 | `command.execute.before` | `safeHook(commandHandler)` | Handle `/swarm` slash commands |
-| `tool.execute.before` | `safeHook(activityHooks.toolBefore)` | Track tool usage per agent |
-| `tool.execute.after` | `safeHook(activityHooks.toolAfter)` | Record tool results + trigger flush |
-| `chat.message` | `safeHook(delegationHandler)` | Track active agent per session |
+| `tool.execute.before` | `safeHook(activityHooks.toolBefore)` | Track tool usage per agent; append written file paths to `modifiedFilesThisCoderTask`; reset tracking on coder delegation |
+| `tool.execute.after` | `safeHook(activityHooks.toolAfter)` | Record tool results + trigger flush; advance per-task state machine on gate completions; populate `lastGateOutcome`; check scope containment after coder task; set `lastScopeViolation` on drift |
+| `chat.message` | `safeHook(delegationHandler)` | Track active agent per session; extract FILE: directives into `declaredCoderScope`; advance state to `coder_delegated` on new coder delegation |
 
 ### Composition Constraint
 
@@ -1013,6 +1023,94 @@ The command handler uses a factory pattern: `createSwarmCommandHandler(directory
 
 ---
 
+## Context Engineering (v6.21 Phase 4)
+
+Four features added to `delegation-gate.ts` and `guardrails.ts` reduce context waste and improve model decision quality.
+
+### Progressive Task Disclosure
+
+When the last user message contains more than 5 task lines (matching `- [ ]` or `- [x]` with task IDs), `messagesTransform` trims the list to a context window: the current task (from `session.currentTaskId`), 2 tasks before it, and 3 tasks after it. All other message content is preserved. A `[Task window: showing N of M tasks]` comment marks the trim point. If no `currentTaskId` is set, no trimming occurs.
+
+### Deliberation Preamble
+
+At the end of every `messagesTransform` invocation, a preamble is prepended to the last user message:
+
+```
+[Last gate: {tool} {result} for task {taskId}]
+[DELIBERATE: Before proceeding — what is the SINGLE next task? What gates must it pass?]
+```
+
+The preamble is sourced from `session.lastGateOutcome`. On first invocation (`lastGateOutcome` is null), an introductory variant fires instead:
+
+```
+[DELIBERATE: Identify the first task from the plan. What gates must it pass before marking complete?]
+```
+
+### Low-Capability Model Detection
+
+`src/config/constants.ts` exports:
+
+- `LOW_CAPABILITY_MODELS: string[]` — Substrings that identify smaller models: `'mini'`, `'nano'`, `'small'`, `'free'`
+- `isLowCapabilityModel(modelId: string): boolean` — Returns `true` if `modelId` (case-insensitive) contains any entry in `LOW_CAPABILITY_MODELS`. Uses `session.activeModel` as the input, the same field used for rate limiting in `model-limits.ts`.
+
+### Tier-Based Behavioral Prompt Trimming
+
+Three `<!-- BEHAVIORAL_GUIDANCE_START --> … <!-- BEHAVIORAL_GUIDANCE_END -->` marker pairs wrap verbose behavioral sections in `src/agents/architect.ts`:
+1. The BATCHING DETECTION section
+2. The ARCHITECT CODING BOUNDARIES section
+3. The QA gate behavioral description paragraphs
+
+When `isLowCapabilityModel(session.activeModel)` returns `true`, `guardrails.ts messagesTransform` strips all text between every marker pair (inclusive) and replaces each removed block with `[Enforcement: programmatic gates active]`. If `session.activeModel` is null or undefined, the prompt is left unchanged.
+
+**Rationale:** Smaller models benefit from shorter, more directive prompts. The programmatic enforcement mechanisms (state machine, hard blocks, scope containment) provide equivalent safety guarantees without verbose behavioral instructions consuming context.
+
+---
+
+## Structural Scope Declaration (v6.21 Phase 5)
+
+### `declare_scope` Tool
+
+Architect-only tool that pre-declares which files a coder delegation is allowed to modify.
+
+**Input:**
+```typescript
+{
+  taskId: string,          // N.M or N.M.P format
+  files: string[],         // file paths the coder may modify
+  whitelist?: string[],    // additional allowed paths
+  working_directory?: string
+}
+```
+
+**Validation:**
+- `taskId` must match `N.M` or `N.M.P` format
+- `files` must be non-empty; no null bytes, path traversal (`..`), or overly long paths
+- `working_directory` must exist and contain `.swarm/plan.json`
+- `taskId` must exist in the plan; task must not already be in `'complete'` state
+
+**On success:** Sets `session.declaredCoderScope = mergedFiles` (files + whitelist) and `session.lastScopeViolation = null` on ALL active architect sessions. Returns `{ success: true, taskId, fileCount }`.
+
+**On failure:** Returns structured error with `{ success: false, message, errors[] }`.
+
+**Automatic alternative:** `delegation-gate.ts` extracts FILE: directive values from any coder delegation envelope and stores them as `session.declaredCoderScope` automatically. An explicit `declare_scope` call is only needed when scope must be declared before the delegation text is composed.
+
+### Scope Containment Enforcement
+
+**Tracking (`guardrails.ts toolBefore`):**
+- When the architect uses any file-modifying tool (write, edit, patch, create_file, insert, replace), the target file path is appended to `session.modifiedFilesThisCoderTask`.
+- When a coder Task delegation is dispatched, `modifiedFilesThisCoderTask` resets to `[]`.
+
+**Checking (`guardrails.ts toolAfter`):**
+- After a coder Task delegation completes, `modifiedFilesThisCoderTask` is compared against `declaredCoderScope`.
+- If `declaredCoderScope` is non-null and more than 2 files in `modifiedFilesThisCoderTask` are outside the declared scope: `session.lastScopeViolation` is set to a message listing the undeclared file paths.
+- `modifiedFilesThisCoderTask` resets to `[]` after the check.
+
+**Warning injection (`guardrails.ts messagesTransform`):**
+- If `session.scopeViolationDetected` is set, a scope violation warning is injected into the next architect message.
+- The flag clears immediately (before nested conditionals) to prevent stale state across turns.
+
+---
+
 ## Agent Awareness
 
 Agent awareness tracks what each agent is doing and shares relevant context across agents via system prompts. The architect remains the sole orchestrator — there is no direct inter-agent communication.
@@ -1021,10 +1119,21 @@ Agent awareness tracks what each agent is doing and shares relevant context acro
 
 `src/state.ts` exports a module-scoped singleton (`swarmState`) with:
 - `activeAgent: Map<sessionId, agentName>` — Which agent is active in each session (updated by chat.message hook)
-- `agentSessions: Map<sessionId, AgentSessionState>` — Per-session guardrail tracking (toolCallCount, startTime, delegationActive flag)
+- `agentSessions: Map<sessionId, AgentSessionState>` — Per-session guardrail tracking. Key fields:
+  - `toolCallCount`, `startTime`, `delegationActive` — Guardrail counters
+  - `taskWorkflowStates: Map<string, TaskWorkflowState>` — Per-task state machine. States: `'idle' | 'coder_delegated' | 'pre_check_passed' | 'reviewer_run' | 'tests_run' | 'complete'`. Transitions are forward-only; `complete` can only be reached from `tests_run`.
+  - `lastGateOutcome: { gate, taskId, passed, timestamp } | null` — Most recent gate result, populated by `guardrails.ts` toolAfter. Used for deliberation preamble injection in Phase 4 context engineering.
+  - `declaredCoderScope: string[] | null` — File paths from the coder delegation FILE: directives or explicit `declare_scope` tool call (Phase 5). Null means no scope has been declared.
+  - `lastScopeViolation: string | null` — Last scope containment violation message (Phase 5). Set when coder modifies >2 files outside declared scope; cleared after warning is injected.
+  - `modifiedFilesThisCoderTask: string[]` — File paths the architect has written during the current coder task (Phase 5). Reset to `[]` when the next coder delegation starts.
+  - `scopeViolationDetected?: boolean` — One-shot flag (Phase 5). Set when a scope violation is found; cleared immediately after the warning is injected into the next architect message.
 - `eventCounter: number` — Tracks events for flush threshold
 - `flushLock: Promise | null` — Serializes context.md writes
 - `resetSwarmState()` — Clears all state (used in tests)
+
+State machine helpers: `advanceTaskState(session, taskId, newState)` enforces forward-only transitions (throws `INVALID_TASK_STATE_TRANSITION` on illegal transitions); `getTaskState(session, taskId)` returns `'idle'` for unknown tasks.
+
+Scope containment helper: `isInDeclaredScope(filePath, scopeEntries)` in `guardrails.ts` resolves both the candidate path and each scope entry with `path.resolve()` then checks containment with `path.relative()`. This handles directory entries correctly (a scope entry of `src/` covers all files below it) without brittle string `includes()` matching.
 
 The module has **zero imports** — it's pure TypeScript with no project dependencies.
 
