@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.20.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.0...v6.20.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* **dist:** rebuild dist after lint fixes ([fb5be58](https://github.com/zaxbysauce/opencode-swarm/commit/fb5be5821387815798f99744a35cc0cfc168b4e8))
+* **dist:** rebuild dist artifacts for cwd fixes and delegation-gate additions ([6ed7a5b](https://github.com/zaxbysauce/opencode-swarm/commit/6ed7a5b9169f0130997bac6cbcf90a48c4064cbd))
+* **lint:** resolve biome lint errors to unblock CI ([1aefafb](https://github.com/zaxbysauce/opencode-swarm/commit/1aefafb7ef46dbc84cd23c028fac6591a31c1fa0))
+* use workspace directory as cwd for all subprocess calls ([5e24335](https://github.com/zaxbysauce/opencode-swarm/commit/5e243354e3f7828c7537e9d69b4e65261025173e))
+* use workspace directory as cwd for all subprocess calls ([3d855b6](https://github.com/zaxbysauce/opencode-swarm/commit/3d855b6f012c49543b86a40509cb749de63cbfcb))
+
 ## [6.20.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.8...v6.20.0) (2026-03-07)
 
 
