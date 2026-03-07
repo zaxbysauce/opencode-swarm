@@ -8,6 +8,47 @@
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { ensureAgentSession, swarmState } from '../state';
+import type { DelegationEnvelope } from '../types/delegation.js';
+
+/**
+ * Checks if an object has the required fields to be a DelegationEnvelope.
+ */
+function isEnvelope(obj: unknown): boolean {
+	if (typeof obj !== 'object' || obj === null) return false;
+	const e = obj as Record<string, unknown>;
+	return (
+		typeof e['taskId'] === 'string' &&
+		typeof e['targetAgent'] === 'string' &&
+		typeof e['action'] === 'string'
+	);
+}
+
+/**
+ * Parses a string to extract a DelegationEnvelope.
+ * Returns null if no valid envelope is found.
+ * Never throws - all errors are caught and result in null.
+ */
+export function parseDelegationEnvelope(
+	content: string,
+): DelegationEnvelope | null {
+	try {
+		// Try direct JSON parse first
+		const parsed = JSON.parse(content);
+		if (isEnvelope(parsed)) return parsed as DelegationEnvelope;
+	} catch {
+		// Try to extract JSON block from content
+		const match = content.match(/\{[\s\S]*\}/);
+		if (match) {
+			try {
+				const parsed = JSON.parse(match[0]);
+				if (isEnvelope(parsed)) return parsed as DelegationEnvelope;
+			} catch {
+				// not an envelope
+			}
+		}
+	}
+	return null;
+}
 
 interface MessageInfo {
 	role: string;
