@@ -1971,6 +1971,8 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(2, 1);
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
+				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
+				session.gateLog.set('no-write-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 			}
 
 			// Transform messages
@@ -2039,6 +2041,8 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(2, 1);
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
+				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
+				session.gateLog.set('old-failure-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 			}
 
 			// Transform messages
