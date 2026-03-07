@@ -350,8 +350,11 @@ export function createGuardrailsHooks(
 
 				if (
 					typeof targetPath === 'string' &&
+					targetPath.length > 0 &&
 					isOutsideSwarmDir(targetPath, directory) &&
-					(isSourceCodePath(targetPath) || hasTraversalSegments(targetPath))
+					isSourceCodePath(
+						path.relative(directory, path.resolve(directory, targetPath)),
+					)
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
 					if (session) {
