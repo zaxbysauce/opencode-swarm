@@ -170,25 +170,25 @@ src/agents/architect.ts, src/agents/index.ts, src/config/constants.ts, src/evide
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 930 | 930 | 0 | 6ms |
-| bash | 872 | 872 | 0 | 476ms |
-| edit | 288 | 288 | 0 | 1806ms |
-| task | 221 | 221 | 0 | 128897ms |
-| grep | 202 | 202 | 0 | 65ms |
-| glob | 133 | 133 | 0 | 23ms |
-| retrieve_summary | 67 | 67 | 0 | 3ms |
-| write | 45 | 45 | 0 | 1520ms |
-| lint | 37 | 37 | 0 | 2790ms |
-| pre_check_batch | 32 | 32 | 0 | 2522ms |
-| todowrite | 24 | 24 | 0 | 3ms |
-| test_runner | 14 | 14 | 0 | 15380ms |
-| imports | 12 | 12 | 0 | 4ms |
+| read | 923 | 923 | 0 | 6ms |
+| bash | 792 | 792 | 0 | 515ms |
+| edit | 281 | 281 | 0 | 1868ms |
+| task | 212 | 212 | 0 | 131546ms |
+| grep | 155 | 155 | 0 | 70ms |
+| glob | 135 | 135 | 0 | 23ms |
+| retrieve_summary | 53 | 53 | 0 | 3ms |
+| write | 45 | 45 | 0 | 1531ms |
+| lint | 36 | 36 | 0 | 2793ms |
+| pre_check_batch | 27 | 27 | 0 | 2549ms |
+| todowrite | 21 | 21 | 0 | 3ms |
+| diff | 14 | 14 | 0 | 16ms |
+| imports | 13 | 13 | 0 | 4ms |
+| test_runner | 11 | 11 | 0 | 14162ms |
 | save_plan | 11 | 11 | 0 | 6ms |
-| diff | 11 | 11 | 0 | 18ms |
-| phase_complete | 11 | 11 | 0 | 6ms |
-| invalid | 4 | 4 | 0 | 1ms |
+| phase_complete | 11 | 11 | 0 | 7ms |
+| invalid | 8 | 8 | 0 | 1ms |
+| apply_patch | 8 | 8 | 0 | 103ms |
+| evidence_check | 3 | 3 | 0 | 2ms |
 | todo_extract | 3 | 3 | 0 | 2ms |
-| evidence_check | 2 | 2 | 0 | 2ms |
-| apply_patch | 2 | 2 | 0 | 113ms |
 | secretscan | 2 | 2 | 0 | 135ms |
 | symbols | 1 | 1 | 0 | 0ms |
