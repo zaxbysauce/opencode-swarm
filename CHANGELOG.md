@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.21.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.3...v6.21.0) (2026-03-07)
+
+
+### Features
+
+* **gate-enforcement:** add per-task state machine, scope declaration, and hard blocks ([a1ab8ad](https://github.com/zaxbysauce/opencode-swarm/commit/a1ab8adb8378b3402c97184328e61442fd80774f))
+* **gate-enforcement:** per-task state machine, scope declaration, and hard blocks (v6.21) ([90324cf](https://github.com/zaxbysauce/opencode-swarm/commit/90324cf53a88a7ad0132f9d8786b084d3e95e035))
+
 ## [6.20.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.2...v6.20.3) (2026-03-07)
 
 
