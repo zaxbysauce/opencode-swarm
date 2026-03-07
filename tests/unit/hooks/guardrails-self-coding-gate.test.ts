@@ -162,13 +162,13 @@ describe('guardrails self-coding detection gate (Task 7A.2)', () => {
 			expect(session?.architectWriteCount).toBe(0);
 		});
 
-		it('architect writes to .swarm/plan.md → should NOT increment architectWriteCount', async () => {
+		it('architect writes to .swarm/context.md → should NOT increment architectWriteCount', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
 
 			const input = makeInput('test-session', 'write', 'call-1');
-			const output = makeOutput({ filePath: '.swarm/plan.md' });
+			const output = makeOutput({ filePath: '.swarm/context.md' });
 
 			await hooks.toolBefore(input, output);
 
