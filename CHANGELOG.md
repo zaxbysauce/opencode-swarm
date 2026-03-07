@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.20.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.1...v6.20.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* gate warn() behind DEBUG and block direct plan.md writes ([4763f25](https://github.com/zaxbysauce/opencode-swarm/commit/4763f25f29405930b2fe91ecfe7e6f44dc7f98f9))
+* gate warn() behind DEBUG and block direct plan.md writes ([36897b1](https://github.com/zaxbysauce/opencode-swarm/commit/36897b1236994a2ac0013b299679ee787606114e))
+
 ## [6.20.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.0...v6.20.1) (2026-03-07)
 
 
