@@ -19,7 +19,6 @@ export async function handleCheckpointCommand(
 			return handleRestore(directory, label);
 		case 'delete':
 			return handleDelete(directory, label);
-		case 'list':
 		default:
 			return handleList(directory);
 	}
@@ -118,6 +117,7 @@ async function handleList(directory: string): Promise<string> {
 			'## Checkpoints',
 			'',
 			...checkpoints.map(
+				// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
 				(c: any) =>
 					`- "${c.label}" — ${new Date(c.timestamp).toLocaleString()}`,
 			),

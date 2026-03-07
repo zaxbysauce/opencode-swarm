@@ -16,7 +16,8 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 const MAX_REF_LENGTH = 256;
 const MAX_PATH_LENGTH = 500;
 const SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
-const CONTROL_CHAR_PATTERN = new RegExp('[\\u0000-\\u001F\\u007F]');
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally matches ASCII control characters for input sanitization
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001F\u007F]/;
 
 function validateBase(base: string): string | null {
 	if (base.length > MAX_REF_LENGTH) {
@@ -81,9 +82,22 @@ export const diff: ReturnType<typeof tool> = tool({
 	},
 	async execute(
 		args: { base?: string; paths?: string[] },
-		_context: ToolContext,
+		context: ToolContext,
 	): Promise<string> {
 		try {
+			if (
+				!context.directory ||
+				typeof context.directory !== 'string' ||
+				context.directory.trim() === ''
+			) {
+				const errorResult: DiffErrorResult = {
+					error: 'project directory is required but was not provided',
+					files: [],
+					contractChanges: [],
+					hasContractChanges: false,
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
 			const base = args.base ?? 'HEAD';
 
 			const baseValidationError = validateBase(base);
@@ -129,12 +143,14 @@ export const diff: ReturnType<typeof tool> = tool({
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
+				cwd: context.directory,
 			});
 
 			const fullDiffOutput = execFileSync('git', fullDiffArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
+				cwd: context.directory,
 			});
 
 			const files: Array<{
@@ -198,7 +214,7 @@ export const diff: ReturnType<typeof tool> = tool({
 			const errorResult: DiffErrorResult = {
 				error:
 					e instanceof Error
-						? `git diff failed: ${e.constructor.name}`
+						? `git diff failed: ${e.message}`
 						: 'git diff failed: unknown error',
 				files: [],
 				contractChanges: [],

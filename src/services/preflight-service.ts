@@ -277,7 +277,7 @@ async function runVersionCheck(
  * Run lint check
  */
 async function runLintCheck(
-	_dir: string,
+	dir: string,
 	linter: 'biome' | 'eslint',
 	timeoutMs: number,
 ): Promise<PreflightCheckResult> {
@@ -285,7 +285,7 @@ async function runLintCheck(
 
 	try {
 		// Race the lint execution with a timeout
-		const lintPromise = runLint(linter, 'check');
+		const lintPromise = runLint(linter, 'check', dir);
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => {
 				reject(new Error(`Lint check timed out after ${timeoutMs}ms`));

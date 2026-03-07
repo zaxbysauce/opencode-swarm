@@ -2,9 +2,12 @@
 Swarm: mega
 
 ## Current State
-- Active plan: `Hotfix Task Status and Retrospective Reliability` (5 phases, 22 tasks).
-- **SESSION HANDOFF 2026-03-06**: All implementation work is COMPLETE in the working tree. The plan.md task checkboxes have NOT been updated (phase_complete was not called). The new session must NOT re-implement anything — it must only run the remaining QA gates, then commit.
-- Branch: `fix/windows-ci-native-deps`. All source changes are uncommitted (working tree dirty). No commits have been made this session.
+- **v6.20.0 RELEASED** — 2026-03-07. All implementation merged to `origin/main` via PR #69 (feat) + PR #70 (release). Tag `v6.20.0` published to npm.
+- Active plan: `v6.20 Implementation` — all 8 phases COMPLETE. See plan.md.
+- Last commit on main: `4032e56 Merge pull request #70` (includes CHANGELOG correction `ab2f893`).
+- Retrospective: `.swarm/evidence/retro-10/evidence.json` written.
+- Knowledge store: 12 entries in `%LOCALAPPDATA%\opencode-swarm\Data\knowledge.jsonl`.
+- No uncommitted changes. No open work items. Branch: `release-please--branches--main--components--opencode-swarm` (release branch — historical after merge).
 
 ### Phase 1 — DONE (all gates passed)
 - 1.1 `src/agents/index.ts` — primary agents strip `model` ✅
@@ -170,25 +173,26 @@ src/agents/architect.ts, src/agents/index.ts, src/config/constants.ts, src/evide
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 923 | 923 | 0 | 6ms |
-| bash | 792 | 792 | 0 | 515ms |
-| edit | 281 | 281 | 0 | 1868ms |
-| task | 212 | 212 | 0 | 131546ms |
-| grep | 155 | 155 | 0 | 70ms |
+| read | 889 | 889 | 0 | 7ms |
+| bash | 760 | 760 | 0 | 536ms |
+| edit | 267 | 267 | 0 | 1883ms |
+| task | 208 | 208 | 0 | 141284ms |
+| grep | 154 | 154 | 0 | 97ms |
 | glob | 135 | 135 | 0 | 23ms |
 | retrieve_summary | 53 | 53 | 0 | 3ms |
-| write | 45 | 45 | 0 | 1531ms |
-| lint | 36 | 36 | 0 | 2793ms |
-| pre_check_batch | 27 | 27 | 0 | 2549ms |
-| todowrite | 21 | 21 | 0 | 3ms |
-| diff | 14 | 14 | 0 | 16ms |
-| imports | 13 | 13 | 0 | 4ms |
-| test_runner | 11 | 11 | 0 | 14162ms |
+| write | 45 | 45 | 0 | 38674ms |
+| lint | 35 | 35 | 0 | 2793ms |
+| pre_check_batch | 26 | 26 | 0 | 2509ms |
+| todowrite | 20 | 20 | 0 | 3ms |
+| imports | 12 | 12 | 0 | 4ms |
 | save_plan | 11 | 11 | 0 | 6ms |
-| phase_complete | 11 | 11 | 0 | 7ms |
-| invalid | 8 | 8 | 0 | 1ms |
-| apply_patch | 8 | 8 | 0 | 103ms |
-| evidence_check | 3 | 3 | 0 | 2ms |
+| diff | 11 | 11 | 0 | 18ms |
+| phase_complete | 11 | 11 | 0 | 6ms |
+| test_runner | 10 | 10 | 0 | 9574ms |
+| invalid | 5 | 5 | 0 | 1ms |
 | todo_extract | 3 | 3 | 0 | 2ms |
+| evidence_check | 2 | 2 | 0 | 2ms |
+| apply_patch | 2 | 2 | 0 | 113ms |
 | secretscan | 2 | 2 | 0 | 135ms |
-| symbols | 1 | 1 | 0 | 0ms |
+| symbols | 2 | 2 | 0 | 1ms |
+| write_retro | 1 | 1 | 0 | 116ms |

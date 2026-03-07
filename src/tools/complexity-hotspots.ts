@@ -140,7 +140,10 @@ function validateExtensions(extensions: unknown): {
 }
 
 // ============ Git Churn Analysis ============
-async function getGitChurn(days: number): Promise<Map<string, number>> {
+async function getGitChurn(
+	days: number,
+	directory: string,
+): Promise<Map<string, number>> {
 	const churnMap = new Map<string, number>();
 
 	const proc = Bun.spawn(
@@ -154,6 +157,7 @@ async function getGitChurn(days: number): Promise<Map<string, number>> {
 		{
 			stdout: 'pipe',
 			stderr: 'pipe',
+			cwd: directory,
 		},
 	);
 
@@ -271,9 +275,10 @@ async function analyzeHotspots(
 	days: number,
 	topN: number,
 	extensions: string[],
+	directory: string,
 ): Promise<ComplexityHotspotsResult> {
 	// Get git churn data
-	const churnMap = await getGitChurn(days);
+	const churnMap = await getGitChurn(days, directory);
 
 	// Build extension set for filtering
 	const extSet = new Set(
@@ -292,7 +297,7 @@ async function analyzeHotspots(
 
 	// Get complexity for each file
 	const hotspots: HotspotEntry[] = [];
-	const cwd = process.cwd();
+	const cwd = directory;
 	let analyzedFiles = 0;
 
 	for (const [file, churnCount] of filteredChurn) {
@@ -384,7 +389,27 @@ export const complexity_hotspots: ReturnType<typeof tool> = createSwarmTool({
 				'Comma-separated extensions to include (default: "ts,tsx,js,jsx,py,rs,ps1")',
 			),
 	},
-	async execute(args: unknown, _directory: string): Promise<string> {
+	async execute(args: unknown, directory: string): Promise<string> {
+		if (
+			!directory ||
+			typeof directory !== 'string' ||
+			directory.trim() === ''
+		) {
+			const errorResult: ComplexityHotspotsError = {
+				error: 'project directory is required but was not provided',
+				analyzedFiles: 0,
+				period: '0 days',
+				hotspots: [],
+				summary: {
+					fullGates: 0,
+					securityReview: 0,
+					enhancedReview: 0,
+					standard: 0,
+				},
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
 		// Safe args extraction
 		let daysInput: number | undefined;
 		let topNInput: number | undefined;
@@ -463,7 +488,7 @@ export const complexity_hotspots: ReturnType<typeof tool> = createSwarmTool({
 			.map((e) => e.trim());
 
 		try {
-			const result = await analyzeHotspots(days, topN, extensions);
+			const result = await analyzeHotspots(days, topN, extensions, directory);
 			return JSON.stringify(result, null, 2);
 		} catch (e) {
 			const errorResult: ComplexityHotspotsError = {

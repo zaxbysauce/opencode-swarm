@@ -10,6 +10,7 @@ export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
 export { handleEvidenceCommand, handleEvidenceSummaryCommand, } from './evidence';
 export { handleExportCommand } from './export';
+export { handleHandoffCommand } from './handoff';
 export { handleHistoryCommand } from './history';
 export { handleKnowledgeListCommand, handleKnowledgeMigrateCommand, handleKnowledgeQuarantineCommand, handleKnowledgeRestoreCommand, } from './knowledge';
 export { handlePlanCommand } from './plan';

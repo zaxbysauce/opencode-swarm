@@ -8,7 +8,10 @@
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { ensureAgentSession, swarmState } from '../state';
-import type { DelegationEnvelope } from '../types/delegation.js';
+import type {
+	DelegationEnvelope,
+	EnvelopeValidationResult,
+} from '../types/delegation.js';
 
 /**
  * Checks if an object has the required fields to be a DelegationEnvelope.
@@ -17,9 +20,9 @@ function isEnvelope(obj: unknown): boolean {
 	if (typeof obj !== 'object' || obj === null) return false;
 	const e = obj as Record<string, unknown>;
 	return (
-		typeof e['taskId'] === 'string' &&
-		typeof e['targetAgent'] === 'string' &&
-		typeof e['action'] === 'string'
+		typeof e.taskId === 'string' &&
+		typeof e.targetAgent === 'string' &&
+		typeof e.action === 'string'
 	);
 }
 
@@ -47,7 +50,173 @@ export function parseDelegationEnvelope(
 			}
 		}
 	}
-	return null;
+
+	// Try KEY:VALUE text format
+	const lines = content.split('\n');
+	const keyValueMap: Record<string, string> = {};
+
+	for (const line of lines) {
+		const match = line.match(/^([^:]+):\s*(.+)$/);
+		if (match) {
+			const key = match[1].trim().toLowerCase();
+			const value = match[2].trim();
+			keyValueMap[key] = value;
+		}
+	}
+
+	// Normalize key names to camelCase
+	const keyNormalization: Record<string, string> = {
+		taskid: 'taskId',
+		task_id: 'taskId',
+		targetagent: 'targetAgent',
+		target_agent: 'targetAgent',
+		commandtype: 'commandType',
+		command_type: 'commandType',
+		acceptancecriteria: 'acceptanceCriteria',
+		acceptance_criteria: 'acceptanceCriteria',
+		technicalcontext: 'technicalContext',
+		technical_context: 'technicalContext',
+		errorstrategy: 'errorStrategy',
+		error_strategy: 'errorStrategy',
+		platformnotes: 'platformNotes',
+		platform_notes: 'platformNotes',
+		action: 'action',
+		files: 'files',
+	};
+
+	const normalizedMap: Record<string, string> = {};
+	for (const [key, value] of Object.entries(keyValueMap)) {
+		const normalized = keyNormalization[key] || key;
+		normalizedMap[normalized] = value;
+	}
+
+	// If fewer than 3 envelope fields found → return null
+	if (Object.keys(normalizedMap).length < 3) {
+		return null;
+	}
+
+	// Required fields check
+	const requiredFields = [
+		'taskId',
+		'targetAgent',
+		'action',
+		'commandType',
+		'files',
+		'acceptanceCriteria',
+	];
+	for (const field of requiredFields) {
+		if (!normalizedMap[field]) {
+			return null;
+		}
+	}
+
+	// Parse array fields (files and acceptanceCriteria)
+	const parseArrayField = (value: string): string[] => {
+		let parts = value.split(',');
+		if (parts.length === 1) {
+			parts = value.split(';');
+		}
+		return parts.map((s) => s.trim()).filter((s) => s.length > 0);
+	};
+
+	// Build the envelope
+	const envelope: DelegationEnvelope = {
+		taskId: normalizedMap.taskId,
+		targetAgent: normalizedMap.targetAgent,
+		action: normalizedMap.action,
+		commandType: normalizedMap.commandType as 'task' | 'slash_command',
+		files: parseArrayField(normalizedMap.files),
+		acceptanceCriteria: parseArrayField(normalizedMap.acceptanceCriteria),
+		technicalContext: normalizedMap.technicalContext || '',
+	};
+
+	// Add optional fields if present
+	if (normalizedMap.technicalContext) {
+		envelope.technicalContext = normalizedMap.technicalContext;
+	}
+	if (normalizedMap.errorStrategy) {
+		envelope.errorStrategy = normalizedMap.errorStrategy as
+			| 'FAIL_FAST'
+			| 'BEST_EFFORT';
+	}
+	if (normalizedMap.platformNotes) {
+		envelope.platformNotes = normalizedMap.platformNotes;
+	}
+
+	return envelope;
+}
+
+interface ValidationContext {
+	planTasks: string[];
+	validAgents: string[];
+}
+
+/**
+ * Validates a DelegationEnvelope against the current plan and agent list.
+ * Returns { valid: true } on success, or { valid: false; reason: string } on failure.
+ */
+export function validateDelegationEnvelope(
+	envelope: unknown,
+	context: ValidationContext,
+): EnvelopeValidationResult {
+	// Must be a non-null object
+	if (typeof envelope !== 'object' || envelope === null) {
+		return { valid: false, reason: 'envelope_not_object' };
+	}
+
+	const e = envelope as Record<string, unknown>;
+
+	// Required fields
+	const requiredFields = [
+		'taskId',
+		'targetAgent',
+		'action',
+		'commandType',
+		'files',
+		'acceptanceCriteria',
+	] as const;
+
+	for (const field of requiredFields) {
+		if (!(field in e) || e[field] === undefined || e[field] === null) {
+			return { valid: false, reason: `missing_field_${field}` };
+		}
+	}
+
+	// slash_command delegation is blocked
+	if (e.commandType === 'slash_command') {
+		return { valid: false, reason: 'slash_command_delegation_blocked' };
+	}
+
+	// taskId must be in planTasks (if planTasks is non-empty)
+	const taskId = e.taskId as string;
+	if (context.planTasks.length > 0 && !context.planTasks.includes(taskId)) {
+		return { valid: false, reason: 'taskId_not_in_plan' };
+	}
+
+	// targetAgent must be valid after stripping swarm prefix
+	const rawAgent = e.targetAgent as string;
+	const normalizedAgent = stripKnownSwarmPrefix(rawAgent);
+	if (!context.validAgents.includes(normalizedAgent)) {
+		return { valid: false, reason: 'invalid_target_agent' };
+	}
+
+	// files must be non-empty for implement or review actions
+	const action = e.action as string;
+	const files = e.files as unknown[];
+	if (
+		(action === 'implement' || action === 'review') &&
+		(!Array.isArray(files) || files.length === 0)
+	) {
+		return { valid: false, reason: 'files_required_for_action' };
+	}
+
+	// acceptanceCriteria must be non-empty
+	const acceptanceCriteria = e.acceptanceCriteria as unknown[];
+	if (!Array.isArray(acceptanceCriteria) || acceptanceCriteria.length === 0) {
+		return { valid: false, reason: 'acceptanceCriteria_required' };
+	}
+
+	return { valid: true };
 }
 
 interface MessageInfo {
@@ -142,7 +311,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 			_input: Record<string, never>,
 			output: { messages?: MessageWithParts[] },
 		): Promise<void> => {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// biome-ignore lint/suspicious/noExplicitAny: output type from LLM API is not fully typed
 			const messages = (output as any).messages;
 			if (!messages || messages.length === 0) return;
 
