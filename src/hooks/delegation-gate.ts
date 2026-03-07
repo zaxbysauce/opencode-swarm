@@ -20,9 +20,9 @@ function isEnvelope(obj: unknown): boolean {
 	if (typeof obj !== 'object' || obj === null) return false;
 	const e = obj as Record<string, unknown>;
 	return (
-		typeof e['taskId'] === 'string' &&
-		typeof e['targetAgent'] === 'string' &&
-		typeof e['action'] === 'string'
+		typeof e.taskId === 'string' &&
+		typeof e.targetAgent === 'string' &&
+		typeof e.action === 'string'
 	);
 }
 
@@ -183,26 +183,26 @@ export function validateDelegationEnvelope(
 	}
 
 	// slash_command delegation is blocked
-	if (e['commandType'] === 'slash_command') {
+	if (e.commandType === 'slash_command') {
 		return { valid: false, reason: 'slash_command_delegation_blocked' };
 	}
 
 	// taskId must be in planTasks (if planTasks is non-empty)
-	const taskId = e['taskId'] as string;
+	const taskId = e.taskId as string;
 	if (context.planTasks.length > 0 && !context.planTasks.includes(taskId)) {
 		return { valid: false, reason: 'taskId_not_in_plan' };
 	}
 
 	// targetAgent must be valid after stripping swarm prefix
-	const rawAgent = e['targetAgent'] as string;
+	const rawAgent = e.targetAgent as string;
 	const normalizedAgent = stripKnownSwarmPrefix(rawAgent);
 	if (!context.validAgents.includes(normalizedAgent)) {
 		return { valid: false, reason: 'invalid_target_agent' };
 	}
 
 	// files must be non-empty for implement or review actions
-	const action = e['action'] as string;
-	const files = e['files'] as unknown[];
+	const action = e.action as string;
+	const files = e.files as unknown[];
 	if (
 		(action === 'implement' || action === 'review') &&
 		(!Array.isArray(files) || files.length === 0)
@@ -211,7 +211,7 @@ export function validateDelegationEnvelope(
 	}
 
 	// acceptanceCriteria must be non-empty
-	const acceptanceCriteria = e['acceptanceCriteria'] as unknown[];
+	const acceptanceCriteria = e.acceptanceCriteria as unknown[];
 	if (!Array.isArray(acceptanceCriteria) || acceptanceCriteria.length === 0) {
 		return { valid: false, reason: 'acceptanceCriteria_required' };
 	}
@@ -311,7 +311,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 			_input: Record<string, never>,
 			output: { messages?: MessageWithParts[] },
 		): Promise<void> => {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// biome-ignore lint/suspicious/noExplicitAny: output type from LLM API is not fully typed
 			const messages = (output as any).messages;
 			if (!messages || messages.length === 0) return;
 

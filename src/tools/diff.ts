@@ -16,6 +16,7 @@ const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^@{}]+$/;
 const MAX_REF_LENGTH = 256;
 const MAX_PATH_LENGTH = 500;
 const SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally matches ASCII control characters for input sanitization
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001F\u007F]/;
 
 function validateBase(base: string): string | null {
