@@ -5,6 +5,22 @@
  * Uses experimental.chat.messages.transform to provide non-blocking guidance.
  */
 import type { PluginConfig } from '../config';
+import type { DelegationEnvelope, EnvelopeValidationResult } from '../types/delegation.js';
+/**
+ * Parses a string to extract a DelegationEnvelope.
+ * Returns null if no valid envelope is found.
+ * Never throws - all errors are caught and result in null.
+ */
+export declare function parseDelegationEnvelope(content: string): DelegationEnvelope | null;
+interface ValidationContext {
+    planTasks: string[];
+    validAgents: string[];
+}
+/**
+ * Validates a DelegationEnvelope against the current plan and agent list.
+ * Returns { valid: true } on success, or { valid: false; reason: string } on failure.
+ */
+export declare function validateDelegationEnvelope(envelope: unknown, context: ValidationContext): EnvelopeValidationResult;
 interface MessageInfo {
     role: string;
     agent?: string;

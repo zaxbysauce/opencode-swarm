@@ -29,7 +29,7 @@ export declare function containsControlChars(str: string): boolean;
 export declare function validateArgs(args: unknown): args is {
     mode: 'fix' | 'check';
 };
-export declare function getLinterCommand(linter: SupportedLinter, mode: 'fix' | 'check'): string[];
+export declare function getLinterCommand(linter: SupportedLinter, mode: 'fix' | 'check', projectDir: string): string[];
 /**
  * Build the shell command for an additional (non-JS/TS) linter.
  * cppcheck has no --fix mode; csharp and some others behave differently.
@@ -41,7 +41,7 @@ export declare function getAdditionalLinterCommand(linter: AdditionalLinter, mod
  */
 export declare function detectAdditionalLinter(cwd: string): 'ruff' | 'clippy' | 'golangci-lint' | 'checkstyle' | 'ktlint' | 'dotnet-format' | 'cppcheck' | 'swiftlint' | 'dart-analyze' | 'rubocop' | null;
 export declare function detectAvailableLinter(): Promise<SupportedLinter | null>;
-export declare function runLint(linter: SupportedLinter, mode: 'fix' | 'check'): Promise<LintResult>;
+export declare function runLint(linter: SupportedLinter, mode: 'fix' | 'check', directory: string): Promise<LintResult>;
 /**
  * Run an additional (non-JS/TS) linter.
  * Follows the same structure as runLint() but uses getAdditionalLinterCommand().
