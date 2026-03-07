@@ -44984,7 +44984,7 @@ async function handleKnowledgeListCommand(directory, _args) {
       "|------|----------|------------|---------------------|"
     ];
     for (const entry of entries) {
-      const truncatedLesson = entry.lesson.length > 60 ? entry.lesson.slice(0, 57) + "..." : entry.lesson;
+      const truncatedLesson = entry.lesson.length > 60 ? `${entry.lesson.slice(0, 57)}...` : entry.lesson;
       const confidencePct = Math.round(entry.confidence * 100);
       lines.push(`| ${entry.id.slice(0, 8)}... | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`);
     }
@@ -45596,7 +45596,7 @@ async function handleRollbackCommand(directory, args2) {
 `);
   }
   const targetPhase = parseInt(phaseArg, 10);
-  if (isNaN(targetPhase) || targetPhase < 1) {
+  if (Number.isNaN(targetPhase) || targetPhase < 1) {
     return "Error: Phase number must be a positive integer.";
   }
   const manifestPath = validateSwarmPath(directory, "checkpoints/manifest.json");
@@ -45641,7 +45641,7 @@ async function handleRollbackCommand(directory, args2) {
     timestamp: new Date().toISOString()
   };
   try {
-    fs12.appendFileSync(eventsPath, JSON.stringify(rollbackEvent) + `
+    fs12.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
 `);
   } catch (error93) {
     console.error("Failed to write rollback event:", error93);
