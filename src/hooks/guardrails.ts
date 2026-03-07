@@ -188,13 +188,13 @@ function getCurrentTaskId(sessionId: string): string {
 
 /**
  * Creates guardrails hooks for circuit breaker protection
- * @param directory Working directory (from plugin init context)
- * @param config Guardrails configuration
+ * @param directoryOrConfig Working directory (from plugin init context) OR legacy config object for backward compatibility
+ * @param config Guardrails configuration (optional if first arg is config)
  * @returns Tool before/after hooks and messages transform hook
  */
 export function createGuardrailsHooks(
-	directory: string,
-	config: GuardrailsConfig,
+	directoryOrConfig?: string | GuardrailsConfig,
+	config?: GuardrailsConfig,
 ): {
 	toolBefore: (
 		input: { tool: string; sessionID: string; callID: string },
@@ -214,14 +214,35 @@ export function createGuardrailsHooks(
 		},
 	) => Promise<void>;
 } {
+	// Backward compatibility: detect if called with legacy signature (config only)
+	let directory: string;
+	let guardrailsConfig: GuardrailsConfig | undefined;
+
+	if (
+		directoryOrConfig &&
+		typeof directoryOrConfig === 'object' &&
+		'enabled' in directoryOrConfig
+	) {
+		// Legacy call: createGuardrailsHooks(config)
+		directory = process.cwd();
+		guardrailsConfig = directoryOrConfig as GuardrailsConfig;
+	} else {
+		// New signature: createGuardrailsHooks(directory, config)
+		directory = (directoryOrConfig as string) ?? process.cwd();
+		guardrailsConfig = config;
+	}
+
 	// If guardrails are disabled, return no-op handlers
-	if (config.enabled === false) {
+	if (guardrailsConfig?.enabled === false) {
 		return {
 			toolBefore: async () => {},
 			toolAfter: async () => {},
 			messagesTransform: async () => {},
 		};
 	}
+
+	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
+	const cfg = guardrailsConfig!;
 
 	// v6.12: Track input args by callID for delegation detection in toolAfter
 	const inputArgsByCallID = new Map<string, unknown>();
@@ -245,6 +266,27 @@ export function createGuardrailsHooks(
 				const args = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
+
+				// Plan state protection: block direct writes to .swarm/plan.md
+				// plan.md is auto-regenerated from plan.json by PlanSyncWorker.
+				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
+				if (typeof targetPath === 'string' && targetPath.length > 0) {
+					const resolvedTarget = path
+						.resolve(directory, targetPath)
+						.toLowerCase();
+					const planMdPath = path
+						.resolve(directory, '.swarm', 'plan.md')
+						.toLowerCase();
+					if (resolvedTarget === planMdPath) {
+						throw new Error(
+							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. ' +
+								'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
+								'Use update_task_status() to mark tasks complete, ' +
+								'phase_complete() for phase transitions, or ' +
+								'save_plan to create/restructure plans.',
+						);
+					}
+				}
 
 				// Fallback: apply_patch / patch tools send args as a single diff string
 				// Parse file paths from patch content
@@ -275,6 +317,17 @@ export function createGuardrailsHooks(
 						}
 
 						for (const p of paths) {
+							const resolvedP = path.resolve(directory, p);
+							const planMdPath = path.resolve(directory, '.swarm', 'plan.md');
+							if (resolvedP.toLowerCase() === planMdPath.toLowerCase()) {
+								throw new Error(
+									'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. ' +
+										'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
+										'Use update_task_status() to mark tasks complete, ' +
+										'phase_complete() for phase transitions, or ' +
+										'save_plan to create/restructure plans.',
+								);
+							}
 							if (
 								isOutsideSwarmDir(p, directory) &&
 								(isSourceCodePath(p) || hasTraversalSegments(p))
@@ -367,7 +420,7 @@ export function createGuardrailsHooks(
 			}
 
 			// Resolve per-agent config using profile overrides
-			const agentConfig = resolveGuardrailsConfig(config, session.agentName);
+			const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
 
 			// FOURTH exemption check: If resolved config shows 0 limits (architect-like), exempt
 			if (
