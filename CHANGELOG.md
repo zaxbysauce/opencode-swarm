@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.20.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.8...v6.20.0) (2026-03-07)
+
+
+### Features
+
+* **v6.20:** add AST diffing, parallelism framework, PR gate, checkpoint extension, agent output, skill versioning, and context efficiency ([f13ea28](https://github.com/zaxbysauce/opencode-swarm/commit/f13ea285cb862dc0e5dae5e641b560bd5c0ffac5))
+* **v6.20:** AST diffing, parallelism framework, PR gate, checkpoint extension, agent output, skill versioning ([d6acce7](https://github.com/zaxbysauce/opencode-swarm/commit/d6acce7dd3fe559e74fc0abde479f39e4678be8f))
+
 ## [6.19.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.19.7...v6.19.8) (2026-03-06)
 
 
