@@ -30328,7 +30328,7 @@ function createSwarmTool(opts) {
     args: opts.args,
     execute: async (args2, ctx) => {
       const directory = ctx?.directory ?? process.cwd();
-      return opts.execute(args2, directory);
+      return opts.execute(args2, directory, ctx);
     }
   });
 }
@@ -38299,7 +38299,8 @@ var KNOWN_SWARM_PREFIXES = [
   "custom",
   "team",
   "project",
-  "swarm"
+  "swarm",
+  "synthetic"
 ];
 var SEPARATORS = ["_", "-", " "];
 function stripKnownSwarmPrefix(agentName) {
@@ -47250,15 +47251,23 @@ function createDelegationGateHook(config3) {
           session.qaSkipCount = 0;
           session.qaSkipTaskIds = [];
         }
-        if (hasReviewer && session.currentTaskId) {
-          try {
-            advanceTaskState(session, session.currentTaskId, "reviewer_run");
-          } catch {}
+        if (hasReviewer && session.taskWorkflowStates) {
+          for (const [taskId, state] of session.taskWorkflowStates) {
+            if (state === "coder_delegated" || state === "pre_check_passed") {
+              try {
+                advanceTaskState(session, taskId, "reviewer_run");
+              } catch {}
+            }
+          }
         }
-        if (hasReviewer && hasTestEngineer && session.currentTaskId) {
-          try {
-            advanceTaskState(session, session.currentTaskId, "tests_run");
-          } catch {}
+        if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+          for (const [taskId, state] of session.taskWorkflowStates) {
+            if (state === "reviewer_run") {
+              try {
+                advanceTaskState(session, taskId, "tests_run");
+              } catch {}
+            }
+          }
         }
       }
     }
@@ -47568,7 +47577,9 @@ function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
     if (!isArchitect && guardrailsEnabled) {
       beginInvocation(input.sessionID, agentName);
     }
-    if (config3.hooks?.delegation_tracker === true && previousAgent && previousAgent !== agentName) {
+    const delegationTrackerEnabled = config3.hooks?.delegation_tracker === true;
+    const delegationGateEnabled = config3.hooks?.delegation_gate !== false;
+    if ((delegationTrackerEnabled || delegationGateEnabled) && previousAgent && previousAgent !== agentName) {
       const entry = {
         from: previousAgent,
         to: agentName,
@@ -47579,7 +47590,9 @@ function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
       }
       const chain = swarmState.delegationChains.get(input.sessionID);
       chain?.push(entry);
-      swarmState.pendingEvents++;
+      if (delegationTrackerEnabled) {
+        swarmState.pendingEvents++;
+      }
     }
   };
 }
@@ -53420,13 +53433,13 @@ var phase_complete = createSwarmTool({
     summary: tool.schema.string().optional().describe("Optional summary of what was accomplished in this phase"),
     sessionID: tool.schema.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)")
   },
-  execute: async (args2, directory) => {
+  execute: async (args2, directory, ctx) => {
     let phaseCompleteArgs;
     try {
       phaseCompleteArgs = {
         phase: Number(args2.phase),
         summary: args2.summary !== undefined ? String(args2.summary) : undefined,
-        sessionID: args2.sessionID !== undefined ? String(args2.sessionID) : undefined
+        sessionID: ctx?.sessionID ?? (args2.sessionID !== undefined ? String(args2.sessionID) : undefined)
       };
     } catch {
       return JSON.stringify({
@@ -59445,9 +59458,15 @@ function checkReviewerGate(taskId) {
         return { blocked: false, reason: "" };
       }
     }
+    const stateEntries = [];
+    for (const [sessionId, session] of swarmState.agentSessions) {
+      const state = getTaskState(session, taskId);
+      stateEntries.push(`${sessionId}: ${state}`);
+    }
+    const currentStateStr = stateEntries.length > 0 ? stateEntries.join(", ") : "no active sessions";
     return {
       blocked: true,
-      reason: `Task ${taskId} has not passed QA gates (state machine requires tests_run or complete, current state indicates gates not yet passed). Call mega_reviewer and mega_test_engineer before marking task as completed.`
+      reason: `Task ${taskId} has not passed QA gates. Current state: [${currentStateStr}]. Required state: tests_run or complete. Do not write directly to plan files \u2014 use update_task_status after running mega_reviewer and mega_test_engineer.`
     };
   } catch {
     return { blocked: false, reason: "" };
@@ -59469,6 +59488,16 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
       message: "Validation failed",
       errors: [taskIdError]
     };
+  }
+  if (args2.status === "in_progress") {
+    for (const [_sessionId, session] of swarmState.agentSessions) {
+      const currentState = getTaskState(session, args2.task_id);
+      if (currentState === "idle") {
+        try {
+          advanceTaskState(session, args2.task_id, "coder_delegated");
+        } catch {}
+      }
+    }
   }
   if (args2.status === "completed") {
     const reviewerCheck = checkReviewerGate(args2.task_id);
