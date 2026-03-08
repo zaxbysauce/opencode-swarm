@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.21.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.0...v6.21.1) (2026-03-08)
+
+
+### Bug Fixes
+
+* **hotfix-78:** summarization verification, gate-state wiring, and plan-state guard hardening ([1bc62e8](https://github.com/zaxbysauce/opencode-swarm/commit/1bc62e8993c2307e35bcd00dc836e531f044de63))
+* **hotfix-78:** summarization verification, gate-state wiring, and plan-state guard hardening ([a42f4f1](https://github.com/zaxbysauce/opencode-swarm/commit/a42f4f1298b04518f1be8d7ca23825f201b518b7))
+* **lint:** replace control character regex literal with RegExp constructor to fix noControlCharactersInRegex CI error ([0673429](https://github.com/zaxbysauce/opencode-swarm/commit/0673429f3247dfee94f4e0a8c7194bc06264ced1))
+
 ## [6.21.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.20.3...v6.21.0) (2026-03-07)
 
 
