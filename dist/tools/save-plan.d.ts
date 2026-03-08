@@ -32,6 +32,7 @@ export interface SavePlanResult {
     phases_count?: number;
     tasks_count?: number;
     errors?: string[];
+    recovery_guidance?: string;
 }
 /**
  * Detect template placeholder content (e.g., [task], [Project], [description], [N]).

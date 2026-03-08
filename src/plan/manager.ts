@@ -307,6 +307,24 @@ export async function savePlan(directory: string, plan: Plan): Promise<void> {
 			/* already renamed or never created */
 		}
 	}
+
+	// Advisory: write marker file for plan-manager write detection
+	try {
+		const markerPath = path.join(swarmDir, '.plan-write-marker');
+		const tasksCount = validated.phases.reduce(
+			(sum, phase) => sum + phase.tasks.length,
+			0,
+		);
+		const marker = JSON.stringify({
+			source: 'plan_manager',
+			timestamp: new Date().toISOString(),
+			phases_count: validated.phases.length,
+			tasks_count: tasksCount,
+		});
+		await Bun.write(markerPath, marker);
+	} catch {
+		/* Advisory only - marker write failure does not affect plan save */
+	}
 }
 
 /**

@@ -330,6 +330,24 @@ export function createDelegationGateHook(config: PluginConfig): {
 					session.qaSkipCount = 0;
 					session.qaSkipTaskIds = [];
 				}
+
+				// v6.22 Task 2.2: Advance reviewer_run state when reviewer delegation has completed
+				if (hasReviewer && session.currentTaskId) {
+					try {
+						advanceTaskState(session, session.currentTaskId, 'reviewer_run');
+					} catch {
+						// Non-fatal: state may already be at or past reviewer_run
+					}
+				}
+
+				// v6.22 Task 2.3: Advance tests_run state when both reviewer AND test_engineer delegations have completed
+				if (hasReviewer && hasTestEngineer && session.currentTaskId) {
+					try {
+						advanceTaskState(session, session.currentTaskId, 'tests_run');
+					} catch {
+						// Non-fatal: state may already be at or past tests_run
+					}
+				}
 			}
 		}
 	};

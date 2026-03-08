@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import * as fs from 'node:fs/promises';
+import { mkdirSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { SavePlanArgs, SavePlanResult } from '../../../src/tools/save-plan';
@@ -690,6 +691,169 @@ describe('save-plan tool verification tests', () => {
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
+		});
+	});
+
+	// ========== GROUP 7: executeSavePlan - Step 0 validation and recovery_guidance ==========
+	describe('Group 7: executeSavePlan - Step 0 validation and recovery_guidance', () => {
+		let tmpDir: string;
+
+		beforeEach(() => {
+			// Create a temporary directory for each test
+			tmpDir = mkdirSync(os.tmpdir() + '/save-plan-test-' + Date.now(), { recursive: true }) as string;
+		});
+
+		afterEach(() => {
+			// Clean up the temporary directory
+			rmSync(tmpDir, { recursive: true, force: true });
+		});
+
+		it('Phase ID = 0 returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+			expect(typeof result.recovery_guidance).toBe('string');
+			expect(result.recovery_guidance!.length).toBeGreaterThan(0);
+			expect(result.message).toContain('Plan rejected: invalid phase or task IDs');
+		});
+
+		it('Phase ID = -1 returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: -1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+		});
+
+		it('Phase ID = 1.5 (float) returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1.5, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }] as any,
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+		});
+
+		it('Phase ID valid (1) with valid task returns success: true and recovery_guidance undefined', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(true);
+			expect(result.recovery_guidance).toBeUndefined();
+		});
+
+		it('Task ID = "abc" returns success: false with recovery_guidance mentioning "abc"', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: 'abc', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+			expect(result.errors).toBeDefined();
+			expect(result.errors!.some(e => e.includes('abc'))).toBe(true);
+		});
+
+		it('Task ID = "1" (missing dot) returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+		});
+
+		it('Task ID = ".1" (leading dot) returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '.1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+		});
+
+		it('Task ID = "1.a" (non-numeric) returns success: false with recovery_guidance', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.a', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+		});
+
+		it('recovery_guidance includes "save_plan" for invalid phase ID', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+			expect(result.recovery_guidance!).toContain('save_plan');
+		});
+
+		it('Multiple validation errors (phase id=0 and task id="bad") returns multiple errors', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Project',
+				swarm_id: 'mega',
+				phases: [{ id: 0, name: 'Setup', tasks: [{ id: 'bad', description: 'Add auth' }] }],
+				working_directory: tmpDir,
+			};
+
+			const result: SavePlanResult = await executeSavePlan(args, undefined);
+
+			expect(result.success).toBe(false);
+			expect(result.errors).toBeDefined();
+			expect(result.errors!.length).toBeGreaterThanOrEqual(2);
+			expect(result.recovery_guidance).toBeDefined();
 		});
 	});
 });

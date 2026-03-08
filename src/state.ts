@@ -567,6 +567,10 @@ export function advanceTaskState(
 	taskId: string,
 	newState: TaskWorkflowState,
 ): void {
+	if (!session.taskWorkflowStates) {
+		session.taskWorkflowStates = new Map();
+	}
+
 	const STATE_ORDER: TaskWorkflowState[] = [
 		'idle',
 		'coder_delegated',
@@ -608,5 +612,9 @@ export function getTaskState(
 	session: AgentSessionState,
 	taskId: string,
 ): TaskWorkflowState {
+	if (!session.taskWorkflowStates) {
+		session.taskWorkflowStates = new Map();
+	}
+
 	return session.taskWorkflowStates.get(taskId) ?? 'idle';
 }

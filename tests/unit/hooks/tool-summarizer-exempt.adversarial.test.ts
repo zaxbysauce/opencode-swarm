@@ -43,7 +43,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -75,7 +75,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -106,7 +106,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -142,7 +142,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -172,7 +172,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -202,7 +202,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -232,7 +232,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -268,7 +268,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -297,7 +297,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -326,7 +326,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -355,7 +355,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -390,7 +390,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -456,7 +456,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -487,7 +487,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -890,7 +890,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);
@@ -927,7 +927,7 @@ describe('createToolSummarizerHook - Adversarial Tests for exempt_tools', () => 
         max_summary_chars: 500,
         max_stored_bytes: 1024 * 1024,
         retention_days: 7,
-        exempt_tools: ['retrieve_summary', 'task'],
+        exempt_tools: ['retrieve_summary', 'task', 'read'],
       };
 
       const hook = createToolSummarizerHook(config, tempDir);

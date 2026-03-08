@@ -48,7 +48,11 @@ export function createToolSummarizerHook(
 
 		// Skip exempt tools (e.g. retrieve_summary, task) — summarizing their output
 		// creates a retrieval loop where the summary itself gets summarized.
-		const exemptTools = config.exempt_tools ?? ['retrieve_summary', 'task'];
+		const exemptTools = config.exempt_tools ?? [
+			'retrieve_summary',
+			'task',
+			'read',
+		];
 		if (exemptTools.includes(input.tool)) {
 			return;
 		}

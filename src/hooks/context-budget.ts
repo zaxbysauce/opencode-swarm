@@ -441,7 +441,7 @@ function shouldMaskToolOutput(
 	const toolName = extractToolName(text);
 	if (
 		toolName &&
-		['retrieve_summary', 'task'].includes(toolName.toLowerCase())
+		['retrieve_summary', 'task', 'read'].includes(toolName.toLowerCase())
 	) {
 		return false;
 	}

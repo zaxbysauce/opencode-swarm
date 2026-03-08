@@ -26,7 +26,7 @@ describe('tool-summarizer exempt_tools feature', () => {
 			max_summary_chars: 1000,
 			max_stored_bytes: 10485760,
 			retention_days: 7,
-			exempt_tools: ['retrieve_summary', 'task'],  // explicit default
+			exempt_tools: ['retrieve_summary', 'task', 'read'],  // explicit default
 			...overrides,
 		};
 	}
@@ -60,6 +60,21 @@ describe('tool-summarizer exempt_tools feature', () => {
 			// Verify output was NOT modified
 			expect(output.output).toBe(originalOutput);
 			expect(output.output).toBe('x'.repeat(2000));
+		});
+
+		it('read tool is exempt by default', async () => {
+			const config = defaultConfig();
+			hook = createToolSummarizerHook(config, tempDir);
+
+			const originalOutput = 'x'.repeat(200000); // 200KB > threshold (102400) to exercise exemption
+			const output = { output: originalOutput };
+			const input = { tool: 'read' };
+
+			await hook(input, output);
+
+			// Verify output was NOT modified (exemption prevents summarization)
+			expect(output.output).toBe(originalOutput);
+			expect(output.output).toBe('x'.repeat(200000));
 		});
 	});
 

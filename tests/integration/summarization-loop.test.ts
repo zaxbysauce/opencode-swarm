@@ -16,7 +16,7 @@ function defaultConfig(overrides?: Partial<SummaryConfig>): SummaryConfig {
 		max_summary_chars: 1000,
 		max_stored_bytes: 10485760,
 		retention_days: 7,
-		exempt_tools: ['retrieve_summary', 'task'],
+		exempt_tools: ['retrieve_summary', 'task', 'read'],
 		...overrides,
 	};
 }
@@ -39,6 +39,117 @@ describe('summarization loop fix integration', () => {
 			rmSync(tempDir, { recursive: true, force: true });
 		}
 	});
+
+	// ==================== ADVERSARIAL TESTS ====================
+	// These test attack vectors against the exempt_tools configuration
+
+	test('ADVERSARY: empty array override disables all exemptions', async () => {
+		// Attack: Setting exempt_tools to [] should override defaults completely
+		// This would cause all tools (including retrieve_summary) to be summarized
+		const config = defaultConfig({ exempt_tools: [] });
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		// Large retrieve_summary output that SHOULD be exempt but won't be
+		const largeOutput = 'retrieve_summary content'.repeat(100);
+		const input = { tool: 'retrieve_summary', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'retrieve', output: largeOutput, metadata: {} };
+
+		await hook(input, output);
+
+		// EXPECTED: With empty array, retrieval should be SUMMARIZED (not exempt)
+		// This is dangerous - summarization loop could occur
+		expect(output.output).toContain('[SUMMARY S1]');
+	});
+
+	test('ADVERSARY: null/undefined exempt_tools uses defaults', async () => {
+		// Defense: null/undefined should fall back to defaults via ?? operator
+		const config = defaultConfig({ exempt_tools: null as any });
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		const largeOutput = 'retrieve_summary content'.repeat(100);
+		const input = { tool: 'retrieve_summary', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'retrieve', output: largeOutput, metadata: {} };
+
+		await hook(input, output);
+
+		// With null, defaults should apply - output should NOT be summarized
+		expect(output.output).not.toContain('[SUMMARY');
+	});
+
+	test('ADVERSARY: case-sensitive mismatch - Read vs read', async () => {
+		// Attack: Passing uppercase 'Read' won't match lowercase 'read' in exempt list
+		const config = defaultConfig({ exempt_tools: ['Read'] }); // Wrong case
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		const largeOutput = 'read output data'.repeat(100);
+		const input = { tool: 'read', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'read', output: largeOutput, metadata: {} };
+
+		await hook(input, output);
+
+		// 'read' (lowercase) won't match 'Read' (uppercase) in includes()
+		// So it WILL be summarized - case-sensitive matching is expected JS behavior
+		expect(output.output).toContain('[SUMMARY S1]');
+	});
+
+	test('ADVERSARY: duplicate entries work but are wasteful', async () => {
+		// Defense check: duplicates don't crash, just waste cycles
+		const config = defaultConfig({
+			exempt_tools: ['read', 'read', 'read', 'task', 'task', 'retrieve_summary'],
+		});
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		const largeOutput = 'task content'.repeat(100);
+		const input = { tool: 'task', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'task', output: largeOutput, metadata: {} };
+
+		// Should not crash
+		await hook(input, output);
+
+		// Output should remain unchanged due to exemptions
+		expect(output.output).not.toContain('[SUMMARY');
+	});
+
+	test('ADVERSARY: extra-large array (1000 entries) - performance test', async () => {
+		// Performance attack: pass huge array of exempt tools
+		const largeArray = Array.from({ length: 1000 }, (_, i) => `tool_${i}`);
+		// Include 'bash' in the large array so we can test if it gets summarized
+		largeArray[500] = 'bash';
+
+		const config = defaultConfig({ exempt_tools: largeArray });
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		const bashOutput = 'bash command output'.repeat(100);
+		const input = { tool: 'bash', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'bash', output: bashOutput, metadata: {} };
+
+		// Should complete without hanging
+		await hook(input, output);
+
+		// bash IS in the large array at index 500, so should be exempt
+		expect(output.output).not.toContain('[SUMMARY');
+	});
+
+	test('ADVERSARY: wrong type string instead of array', async () => {
+		// Attack: Pass string instead of array - includes() works on strings!
+		// 'read,task'.includes('read') returns TRUE - so it incorrectly exempts
+		const config = defaultConfig({ exempt_tools: 'read,task' as any });
+		const hook = createToolSummarizerHook(config, tempDir);
+
+		const largeOutput = 'read output'.repeat(100);
+		const input = { tool: 'read', sessionID: 'test', callID: 'call-1' };
+		const output = { title: 'read', output: largeOutput, metadata: {} };
+
+		// Should handle gracefully without crashing
+		await hook(input, output);
+
+		// Type confusion: 'read,task'.includes('read') is TRUE as substring match
+		// So 'read' is treated as exempt - output is NOT summarized
+		// Note: TypeScript/Zod validation prevents this in production; this tests runtime behavior
+		expect(output.output).not.toContain('[SUMMARY');
+	});
+
+	// ==================== HAPPY PATH TESTS ====================
 
 	test('main loop prevention: retrieve_summary output is never summarized', async () => {
 		// Arrange: Create hook with default config
