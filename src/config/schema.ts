@@ -14,6 +14,7 @@ const KNOWN_SWARM_PREFIXES = [
 	'team',
 	'project',
 	'swarm',
+	'synthetic',
 ];
 
 // Supported separators between prefix and agent name

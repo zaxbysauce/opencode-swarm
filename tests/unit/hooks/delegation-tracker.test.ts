@@ -19,7 +19,9 @@ describe('DelegationTrackerHook', () => {
 			compaction: true,
 			agent_activity: true,
 			delegation_tracker: true,
+			delegation_gate: true,
 			agent_awareness_max_chars: 300,
+			delegation_max_chars: 4000,
 		},
 	};
 
@@ -90,7 +92,7 @@ describe('DelegationTrackerHook', () => {
 	});
 
 	describe('delegation tracking disabled by default', () => {
-		it('no delegation entries created when delegation_tracker is undefined', async () => {
+		it('delegation chain populated when delegation_tracker undefined (delegation_gate defaults to true)', async () => {
 			const hook = createDelegationTrackerHook(defaultConfig);
 			const sessionId = 'test-session';
 
@@ -99,12 +101,14 @@ describe('DelegationTrackerHook', () => {
 
 			await hook({ sessionID: sessionId, agent: 'coder' }, {});
 
-			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+			// With Task 1.1: delegation_gate defaults to true, so chain IS populated
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+			// But pendingEvents should NOT increment because delegation_tracker is not true
 			expect(swarmState.pendingEvents).toBe(0);
 			expect(swarmState.activeAgent.get(sessionId)).toBe('coder'); // But agent still updated
 		});
 
-		it('no delegation entries created when delegation_tracker is false', async () => {
+		it('no delegation entries created when delegation_tracker is false and delegation_gate is false', async () => {
 			const disabledConfig: PluginConfig = {
 				...defaultConfig,
 				hooks: {
@@ -112,7 +116,9 @@ describe('DelegationTrackerHook', () => {
 					compaction: false,
 					agent_activity: false,
 					delegation_tracker: false,
+					delegation_gate: false,
 					agent_awareness_max_chars: 300,
+					delegation_max_chars: 4000,
 				},
 			};
 			const hook = createDelegationTrackerHook(disabledConfig);
@@ -514,6 +520,230 @@ describe('DelegationTrackerHook', () => {
 
 			// Architect should never have an invocation window
 			expect(getActiveWindow(sessionId)).toBeUndefined();
+		});
+	});
+
+	// Task 1.1: delegation_gate behavior tests
+	describe('delegation_gate feature (Task 1.1)', () => {
+		// Behavior 1: Default config (delegation_tracker=false, delegation_gate not set) 
+		// — delegation chain IS populated when agents switch
+		it('populates delegation chain with default config (no explicit delegation_tracker)', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session';
+
+			// Set previous agent
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// With default config, delegation_gate defaults to true (not false)
+			// So chain SHOULD be populated
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+			const chain = swarmState.delegationChains.get(sessionId);
+			expect(chain).toHaveLength(1);
+			expect(chain![0].from).toBe('architect');
+			expect(chain![0].to).toBe('coder');
+		});
+
+		it('pendingEvents NOT incremented with default config', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+			const initialEvents = swarmState.pendingEvents;
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// pendingEvents should NOT increment because delegation_tracker is not explicitly true
+			expect(swarmState.pendingEvents).toBe(initialEvents);
+		});
+
+		// Behavior 2: delegation_tracker=true, delegation_gate not set
+		// — delegation chain IS populated AND pendingEvents increments
+		it('populates delegation chain and increments pendingEvents when delegation_tracker=true', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+			const initialEvents = swarmState.pendingEvents;
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Chain should be populated
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+			expect(swarmState.delegationChains.get(sessionId)).toHaveLength(1);
+			// pendingEvents SHOULD increment
+			expect(swarmState.pendingEvents).toBe(initialEvents + 1);
+		});
+
+		// Behavior 3: delegation_tracker=false, delegation_gate=false
+		// — delegation chain is NOT populated
+		it('does NOT populate delegation chain when delegation_gate=false', async () => {
+			const gateOnlyConfig: PluginConfig = {
+				max_iterations: 5,
+				qa_retry_limit: 3,
+				inject_phase_reminders: true,
+				hooks: {
+					system_enhancer: false,
+					compaction: false,
+					agent_activity: false,
+					delegation_tracker: false,
+					delegation_gate: false,
+					agent_awareness_max_chars: 300,
+					delegation_max_chars: 4000,
+				},
+			};
+			const hook = createDelegationTrackerHook(gateOnlyConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Chain should NOT be populated
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+			expect(swarmState.pendingEvents).toBe(0);
+		});
+
+		// Behavior 4: delegation_tracker=true, delegation_gate=false
+		// — delegation chain IS populated AND pendingEvents increments
+		it('populates delegation chain when delegation_tracker=true even if delegation_gate=false', async () => {
+			const explicitTrackerConfig: PluginConfig = {
+				max_iterations: 5,
+				qa_retry_limit: 3,
+				inject_phase_reminders: true,
+				hooks: {
+					system_enhancer: false,
+					compaction: false,
+					agent_activity: false,
+					delegation_tracker: true,
+					delegation_gate: false,
+					agent_awareness_max_chars: 300,
+					delegation_max_chars: 4000,
+				},
+			};
+			const hook = createDelegationTrackerHook(explicitTrackerConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+			const initialEvents = swarmState.pendingEvents;
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Chain SHOULD be populated because delegation_tracker=true
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+			expect(swarmState.delegationChains.get(sessionId)).toHaveLength(1);
+			// pendingEvents SHOULD increment
+			expect(swarmState.pendingEvents).toBe(initialEvents + 1);
+		});
+
+		// Behavior 5: Same agent repeated (no change)
+		// — delegation chain is NOT populated regardless of config
+		it('does NOT populate delegation chain when same agent repeated', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+		});
+
+		it('does NOT populate delegation chain when same agent repeated with default config', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+		});
+
+		// Behavior 6: No previous agent (first transition)
+		// — delegation chain is NOT populated (previousAgent is undefined)
+		it('does NOT populate delegation chain on first agent assignment', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// No previous agent set (undefined)
+
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+		});
+
+		it('does NOT populate delegation chain on first agent assignment with default config', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session';
+
+			// No previous agent set (undefined)
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+		});
+
+		// Additional edge case: delegation_gate=true explicitly
+		it('populates delegation chain when delegation_gate=true explicitly', async () => {
+			const gateOnlyConfig: PluginConfig = {
+				max_iterations: 5,
+				qa_retry_limit: 3,
+				inject_phase_reminders: true,
+				hooks: {
+					system_enhancer: false,
+					compaction: false,
+					agent_activity: false,
+					delegation_tracker: false,
+					delegation_gate: true,
+					agent_awareness_max_chars: 300,
+					delegation_max_chars: 4000,
+				},
+			};
+			const hook = createDelegationTrackerHook(gateOnlyConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Chain SHOULD be populated because delegation_gate=true
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+			expect(swarmState.delegationChains.get(sessionId)).toHaveLength(1);
+			// pendingEvents should NOT increment because delegation_tracker is false
+			expect(swarmState.pendingEvents).toBe(0);
+		});
+
+		// Multiple switches with gate-only config
+		it('accumulates delegation chain with gate-only config but does not increment pendingEvents', async () => {
+			const gateOnlyConfig: PluginConfig = {
+				max_iterations: 5,
+				qa_retry_limit: 3,
+				inject_phase_reminders: true,
+				hooks: {
+					system_enhancer: false,
+					compaction: false,
+					agent_activity: false,
+					delegation_tracker: false,
+					delegation_gate: true,
+					agent_awareness_max_chars: 300,
+					delegation_max_chars: 4000,
+				},
+			};
+			const hook = createDelegationTrackerHook(gateOnlyConfig);
+			const sessionId = 'test-session';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+			await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
+			await hook({ sessionID: sessionId, agent: 'sme' }, {});
+
+			// Chain should accumulate all switches
+			const chain = swarmState.delegationChains.get(sessionId);
+			expect(chain).toHaveLength(3);
+			// pendingEvents should still be 0 because delegation_tracker is false
+			expect(swarmState.pendingEvents).toBe(0);
 		});
 	});
 });

@@ -10,7 +10,7 @@ import {
 	checkReviewerGate,
 	type UpdateTaskStatusArgs,
 } from '../../../src/tools/update-task-status';
-import { swarmState, advanceTaskState, getTaskState } from '../../../src/state';
+import { swarmState, advanceTaskState, getTaskState, ensureAgentSession } from '../../../src/state';
 
 describe('validateStatus', () => {
 	test('returns undefined for valid statuses', () => {
@@ -645,5 +645,180 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 		// Should succeed even though gate would block if we were marking completed
 		expect(result.success).toBe(true);
 		expect(result.new_status).toBe('blocked');
+	});
+});
+
+// ===== Batch reviewer delegation test =====
+
+describe('Batch reviewer delegation advances all coder_delegated tasks to reviewer_run', () => {
+	let originalAgentSessions: Map<string, any>;
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	test('Batch reviewer delegation advances all coder_delegated tasks to reviewer_run', () => {
+		// Use ensureAgentSession to set up session (simulating default config: delegation_tracker=false, delegation_gate=true)
+		const sessionId = 'test-batch-delegation-session';
+		const session = ensureAgentSession(sessionId, 'test-agent');
+
+		// Set up three tasks at coder_delegated state
+		advanceTaskState(session, 'p2.1', 'coder_delegated');
+		advanceTaskState(session, 'p2.2', 'coder_delegated');
+		advanceTaskState(session, 'p2.3', 'coder_delegated');
+
+		// Pass 1: for each task at coder_delegated (or pre_check_passed), advance to reviewer_run
+		// The actual taskWorkflowStates passes through pre_check_passed before reaching reviewer_run
+		advanceTaskState(session, 'p2.1', 'pre_check_passed');
+		advanceTaskState(session, 'p2.1', 'reviewer_run');
+		advanceTaskState(session, 'p2.2', 'pre_check_passed');
+		advanceTaskState(session, 'p2.2', 'reviewer_run');
+		advanceTaskState(session, 'p2.3', 'pre_check_passed');
+		advanceTaskState(session, 'p2.3', 'reviewer_run');
+
+		// Pass 2: for each task now at reviewer_run, advance to tests_run
+		advanceTaskState(session, 'p2.1', 'tests_run');
+		advanceTaskState(session, 'p2.2', 'tests_run');
+		advanceTaskState(session, 'p2.3', 'tests_run');
+
+		// Verify that checkReviewerGate now passes - meaning update_task_status("completed") would succeed
+		const result1 = checkReviewerGate('p2.1');
+		const result2 = checkReviewerGate('p2.2');
+		const result3 = checkReviewerGate('p2.3');
+
+		expect(result1.blocked).toBe(false);
+		expect(result1.reason).toBe('');
+		expect(result2.blocked).toBe(false);
+		expect(result2.reason).toBe('');
+		expect(result3.blocked).toBe(false);
+		expect(result3.reason).toBe('');
+	});
+});
+
+describe('executeUpdateTaskStatus in_progress state machine seeding (Task 2.3)', () => {
+	let originalAgentSessions: Map<string, any>;
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		// Save and clear agent sessions
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+
+		// Create tempDir with valid plan.json
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-task23-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		// Restore agent sessions
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+
+		// Restore cwd and cleanup tempDir
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('update_task_status(in_progress) advances task from idle to coder_delegated', async () => {
+		// Set up a session using ensureAgentSession
+		const sessionId = 'test-task23-session';
+		const session = ensureAgentSession(sessionId, 'test-agent');
+
+		// Verify the task starts at 'idle' using getTaskState
+		const initialState = getTaskState(session, '1.1');
+		expect(initialState).toBe('idle');
+
+		// Call executeUpdateTaskStatus with status: 'in_progress'
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'in_progress',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Assert the call succeeded
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('in_progress');
+
+		// Assert the task is now at 'coder_delegated' using getTaskState
+		const finalState = getTaskState(session, '1.1');
+		expect(finalState).toBe('coder_delegated');
+	});
+});
+
+describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+
+	beforeEach(() => {
+		// Save the original agentSessions state
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		// Clear for test
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		// Restore the original agentSessions state
+		swarmState.agentSessions = originalAgentSessions;
+	});
+
+	test('checkReviewerGate error includes current state debug info', () => {
+		// Create a session using ensureAgentSession
+		const session = ensureAgentSession('test-session');
+
+		// Advance task '1.1' to 'coder_delegated' using advanceTaskState
+		advanceTaskState(session, '1.1', 'coder_delegated');
+
+		// Call checkReviewerGate('1.1')
+		const result = checkReviewerGate('1.1');
+
+		// Assert the result
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Current state:');
+		expect(result.reason).toContain('coder_delegated');
+		expect(result.reason).toContain('Required state: tests_run or complete');
 	});
 });

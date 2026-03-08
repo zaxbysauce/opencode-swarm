@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { TaskStatus } from '../config/plan-schema';
 import { updateTaskStatus } from '../plan/manager';
-import { getTaskState, swarmState } from '../state';
+import { advanceTaskState, getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -100,9 +100,17 @@ export function checkReviewerGate(taskId: string): ReviewerGateResult {
 		}
 
 		// No session has this task in tests_run or complete state
+		// Build a debug summary of current task state across all sessions
+		const stateEntries: string[] = [];
+		for (const [sessionId, session] of swarmState.agentSessions) {
+			const state = getTaskState(session, taskId);
+			stateEntries.push(`${sessionId}: ${state}`);
+		}
+		const currentStateStr =
+			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
 		return {
 			blocked: true,
-			reason: `Task ${taskId} has not passed QA gates (state machine requires tests_run or complete, current state indicates gates not yet passed). Call mega_reviewer and mega_test_engineer before marking task as completed.`,
+			reason: `Task ${taskId} has not passed QA gates. Current state: [${currentStateStr}]. Required state: tests_run or complete. Do not write directly to plan files — use update_task_status after running mega_reviewer and mega_test_engineer.`,
 		};
 	} catch {
 		// If state inspection throws, allow through
@@ -138,6 +146,21 @@ export async function executeUpdateTaskStatus(
 			message: 'Validation failed',
 			errors: [taskIdError],
 		};
+	}
+
+	// Seed the task state machine: when transitioning to in_progress, advance idle → coder_delegated
+	// This is required so that delegation-gate.ts can later advance the task to reviewer_run and tests_run
+	if (args.status === 'in_progress') {
+		for (const [_sessionId, session] of swarmState.agentSessions) {
+			const currentState = getTaskState(session, args.task_id);
+			if (currentState === 'idle') {
+				try {
+					advanceTaskState(session, args.task_id, 'coder_delegated');
+				} catch {
+					// Non-fatal: session may not support state advancement
+				}
+			}
+		}
 	}
 
 	// State machine check: task must have reached tests_run or complete state
