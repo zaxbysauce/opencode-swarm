@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.21.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.1...v6.21.2) (2026-03-08)
+
+
+### Bug Fixes
+
+* state machine never advances on default config and CLI writes wrong config file ([#81](https://github.com/zaxbysauce/opencode-swarm/issues/81) [#84](https://github.com/zaxbysauce/opencode-swarm/issues/84)) ([ac8dffa](https://github.com/zaxbysauce/opencode-swarm/commit/ac8dffaaf6fb7c94675fa22621125cc420c20c57))
+* state machine never advances on default config and CLI writes wrong config file ([#81](https://github.com/zaxbysauce/opencode-swarm/issues/81) [#84](https://github.com/zaxbysauce/opencode-swarm/issues/84)) ([9023b40](https://github.com/zaxbysauce/opencode-swarm/commit/9023b406527469672c644bb39610dae1e4fcd8e7))
+
 ## [6.21.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.0...v6.21.1) (2026-03-08)
 
 
