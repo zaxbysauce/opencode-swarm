@@ -289,4 +289,41 @@ describe('createSwarmTool', () => {
 			expect(result).toBe('async result');
 		});
 	});
+
+	describe('Group 6: ToolContext forwarding', () => {
+		it('createSwarmTool passes the ToolContext as the third argument to execute callback', async () => {
+			const receivedCtx: Array<ToolContext | undefined> = [];
+
+			createSwarmTool({
+				description: 'Test tool',
+				args: { foo: z.string() },
+				execute: async (args, directory, ctx) => {
+					receivedCtx.push(ctx);
+					return 'result';
+				},
+			});
+
+			const toolCalls = mockTool.mock.calls;
+			expect(toolCalls.length).toBeGreaterThan(0);
+
+			const toolConfig = toolCalls[0][0] as { execute: (args: unknown, ctx?: ToolContext) => Promise<string> };
+
+			const mockContext: ToolContext = {
+				sessionID: 'test-session-123',
+				messageID: 'test-message-id',
+				agent: 'test-agent',
+				directory: '/test',
+				worktree: '/test',
+				abort: new AbortController().signal,
+				metadata: () => {},
+				ask: async () => {},
+			};
+
+			await toolConfig.execute({ foo: 'bar' }, mockContext);
+
+			expect(receivedCtx).toHaveLength(1);
+			expect(receivedCtx[0]).toBe(mockContext); // same reference
+			expect(receivedCtx[0]?.sessionID).toBe('test-session-123');
+		});
+	});
 });

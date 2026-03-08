@@ -29766,7 +29766,7 @@ function createSwarmTool(opts) {
     args: opts.args,
     execute: async (args, ctx) => {
       const directory = ctx?.directory ?? process.cwd();
-      return opts.execute(args, directory);
+      return opts.execute(args, directory, ctx);
     }
   });
 }
@@ -35648,7 +35648,7 @@ var HELP_TEXT = [
 
 // src/cli/index.ts
 var CONFIG_DIR = path14.join(process.env.XDG_CONFIG_HOME || path14.join(os2.homedir(), ".config"), "opencode");
-var OPENCODE_CONFIG_PATH = path14.join(CONFIG_DIR, "config.json");
+var OPENCODE_CONFIG_PATH = path14.join(CONFIG_DIR, "opencode.json");
 var PLUGIN_CONFIG_PATH = path14.join(CONFIG_DIR, "opencode-swarm.json");
 var PROMPTS_DIR = path14.join(CONFIG_DIR, "opencode-swarm");
 function ensureDir(dir) {
@@ -35674,9 +35674,16 @@ async function install() {
 `);
   ensureDir(CONFIG_DIR);
   ensureDir(PROMPTS_DIR);
+  const LEGACY_CONFIG_PATH = path14.join(CONFIG_DIR, "config.json");
   let opencodeConfig = loadJson(OPENCODE_CONFIG_PATH);
   if (!opencodeConfig) {
-    opencodeConfig = {};
+    const legacyConfig = loadJson(LEGACY_CONFIG_PATH);
+    if (legacyConfig) {
+      console.log("\u26A0 Migrating existing config from config.json to opencode.json...");
+      opencodeConfig = legacyConfig;
+    } else {
+      opencodeConfig = {};
+    }
   }
   if (!opencodeConfig.plugin) {
     opencodeConfig.plugin = [];

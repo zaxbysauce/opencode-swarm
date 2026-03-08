@@ -3,11 +3,13 @@ Swarm: mega
 
 ## Current State
 - **v6.20.0 RELEASED** — 2026-03-07. All implementation merged to `origin/main` via PR #69 (feat) + PR #70 (release). Tag `v6.20.0` published to npm.
-- Active plan: `v6.20 Implementation` — all 8 phases COMPLETE. See plan.md.
-- Last commit on main: `4032e56 Merge pull request #70` (includes CHANGELOG correction `ab2f893`).
-- Retrospective: `.swarm/evidence/retro-10/evidence.json` written.
+- Active plan: `Issue #78 Hotfixes: Summarization Verification, Gate-State Wiring, and Plan-State Guard Hardening` — ALL PHASES COMPLETE.
+- PR #82 open: `fix/gate-enforcement-hardening` → `main`. Awaiting CI green + merge.
+- Commits on branch: `a42f4f1` (feature), `0673429` (lint fix), `b0d59d8` (release-please github changelog mode).
+- Retrospective: `.swarm/evidence/retro-11/evidence.json` written. Phase 11 complete.
 - Knowledge store: 12 entries in `%LOCALAPPDATA%\opencode-swarm\Data\knowledge.jsonl`.
-- No uncommitted changes. No open work items. Branch: `release-please--branches--main--components--opencode-swarm` (release branch — historical after merge).
+- Next version bump after PR #82 merges: patch (fix: commits) → v6.20.4.
+- changelog-notes-type: github now active — future CHANGELOG entries will include full PR body.
 
 ### Phase 1 — DONE (all gates passed)
 - 1.1 `src/agents/index.ts` — primary agents strip `model` ✅
@@ -69,6 +71,16 @@ src/agents/architect.ts, src/agents/index.ts, src/config/constants.ts, src/evide
 - `write_retro` addendum work is folded into the hotfix because the retrospective gate is part of the same architect workflow failure surface.
 - Architect runtime exposure tasks must include plugin registration in `src/index.ts`, not only tool-name and permission lists.
 - Malformed retrospective compatibility repair is planned before regression tests so phase_complete can validate repaired artifacts through the real load path.
+- Issue #78 docs: add new documentation sections for summarization defaults and pagination (no prior README defaults).
+
+## SME Cache
+### ui_ux
+- Raise summarization threshold to reduce premature summaries; explicit read outputs should remain unsummarized by default with clear user control and continuation cues for pagination.
+- Pagination UX should show total lines, loaded range, and explicit next-call hints; chunk ordering must be stable with clear recovery states.
+
+### security
+- Enforce pagination bounds and guard against offset/limit abuse; avoid leaking existence details through error messages.
+- Log retrieval attempts, avoid differentiated errors for missing vs unauthorized, and keep error responses generic for invalid ranges.
 
 ## Known Risks
 - phase_complete agent-dispatch tracking is cross-session — the tool may report missing agents when work was done in prior sessions. This is a known limitation documented in Phase 5 retrospective.
@@ -173,29 +185,27 @@ src/agents/architect.ts, src/agents/index.ts, src/config/constants.ts, src/evide
 
 | Tool | Calls | Success | Failed | Avg Duration |
 |------|-------|---------|--------|--------------|
-| read | 1646 | 1646 | 0 | 7ms |
-| bash | 1228 | 1228 | 0 | 1003ms |
-| edit | 512 | 512 | 0 | 2448ms |
-| task | 344 | 344 | 0 | 110040ms |
-| grep | 335 | 335 | 0 | 112ms |
-| glob | 226 | 226 | 0 | 25ms |
-| retrieve_summary | 127 | 127 | 0 | 3ms |
-| write | 104 | 104 | 0 | 3681ms |
-| todowrite | 68 | 68 | 0 | 4ms |
-| pre_check_batch | 68 | 68 | 0 | 2902ms |
-| lint | 60 | 60 | 0 | 2852ms |
-| test_runner | 45 | 45 | 0 | 17782ms |
-| update_task_status | 44 | 44 | 0 | 6ms |
-| diff | 21 | 21 | 0 | 12ms |
-| phase_complete | 19 | 19 | 0 | 5ms |
-| save_plan | 12 | 12 | 0 | 6ms |
-| imports | 11 | 11 | 0 | 4ms |
-| evidence_check | 4 | 4 | 0 | 2ms |
-| invalid | 4 | 4 | 0 | 1ms |
-| write_retro | 4 | 4 | 0 | 5ms |
-| webfetch | 3 | 3 | 0 | 363ms |
-| todo_extract | 2 | 2 | 0 | 2ms |
+| read | 872 | 872 | 0 | 7ms |
+| bash | 709 | 709 | 0 | 710ms |
+| edit | 240 | 240 | 0 | 1877ms |
+| task | 202 | 202 | 0 | 115495ms |
+| glob | 163 | 163 | 0 | 25ms |
+| grep | 137 | 137 | 0 | 83ms |
+| retrieve_summary | 45 | 45 | 0 | 3ms |
+| write | 44 | 44 | 0 | 1465ms |
+| lint | 31 | 31 | 0 | 2706ms |
+| pre_check_batch | 28 | 28 | 0 | 2254ms |
+| test_runner | 27 | 27 | 0 | 6281ms |
+| todowrite | 22 | 22 | 0 | 3ms |
+| update_task_status | 22 | 22 | 0 | 6ms |
+| save_plan | 14 | 14 | 0 | 12ms |
+| phase_complete | 14 | 14 | 0 | 6ms |
+| diff | 11 | 11 | 0 | 28ms |
+| imports | 10 | 10 | 0 | 5ms |
+| todo_extract | 5 | 5 | 0 | 2ms |
+| invalid | 5 | 5 | 0 | 1ms |
+| declare_scope | 4 | 4 | 0 | 3ms |
+| write_retro | 3 | 3 | 0 | 7ms |
+| evidence_check | 2 | 2 | 0 | 2ms |
 | apply_patch | 2 | 2 | 0 | 113ms |
 | secretscan | 2 | 2 | 0 | 135ms |
-| mystatus | 1 | 1 | 0 | 2165ms |
-| checkpoint | 1 | 1 | 0 | 7ms |

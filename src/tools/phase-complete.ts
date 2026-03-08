@@ -595,7 +595,7 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 				'Session ID for tracking state (auto-provided by plugin context)',
 			),
 	},
-	execute: async (args, directory) => {
+	execute: async (args, directory, ctx) => {
 		// Parse and validate arguments
 		let phaseCompleteArgs: PhaseCompleteArgs;
 
@@ -604,7 +604,8 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 				phase: Number(args.phase),
 				summary: args.summary !== undefined ? String(args.summary) : undefined,
 				sessionID:
-					args.sessionID !== undefined ? String(args.sessionID) : undefined,
+					ctx?.sessionID ??
+					(args.sessionID !== undefined ? String(args.sessionID) : undefined),
 			};
 		} catch {
 			return JSON.stringify(

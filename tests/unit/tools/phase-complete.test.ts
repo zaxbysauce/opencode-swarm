@@ -5,6 +5,8 @@ import * as os from 'node:os';
 
 import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmState } from '../../../src/state';
 
+import type { ToolContext } from '@opencode-ai/plugin';
+
 // Import the tool after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
 
@@ -52,6 +54,22 @@ function writeRetroBundle(
 		path.join(retroDir, 'evidence.json'),
 		JSON.stringify(retroBundle, null, 2),
 	);
+}
+
+/**
+ * Helper to create a minimal ToolContext mock for testing
+ */
+function mockCtx(sessionID: string, directory: string): ToolContext {
+	return {
+		sessionID,
+		messageID: 'test-message-id',
+		agent: 'test-agent',
+		directory,
+		worktree: directory,
+		abort: new AbortController().signal,
+		metadata: () => {},
+		ask: async () => {},
+	};
 }
 
 describe('phase_complete tool', () => {
@@ -886,6 +904,43 @@ describe('phase_complete tool', () => {
 			const sess2After = swarmState.agentSessions.get('sess2');
 			expect(sess2After?.phaseAgentsDispatched.size).toBe(1);
 			expect(sess2After?.lastPhaseCompleteTimestamp).toBe(0);
+		});
+	});
+
+	describe('sessionID resolution from ToolContext', () => {
+		test('resolves sessionID from ctx.sessionID when args.sessionID is absent', async () => {
+			ensureAgentSession('ctx-session');
+			recordPhaseAgentDispatch('ctx-session', 'coder');
+			recordPhaseAgentDispatch('ctx-session', 'reviewer');
+			recordPhaseAgentDispatch('ctx-session', 'test_engineer');
+			recordPhaseAgentDispatch('ctx-session', 'docs');
+			writeRetroBundle(tempDir, 1, 'pass');
+
+			const ctx = mockCtx('ctx-session', tempDir);
+			const result = await phase_complete.execute({ phase: 1 }, ctx);
+			const parsed = JSON.parse(result);
+
+			// Should succeed: sessionID resolved from ctx, not from args
+			expect(parsed.success).toBe(true);
+			expect(parsed.phase).toBe(1);
+		});
+
+		test('ctx.sessionID takes priority over args.sessionID when both are provided', async () => {
+			ensureAgentSession('ctx-wins');
+			recordPhaseAgentDispatch('ctx-wins', 'coder');
+			recordPhaseAgentDispatch('ctx-wins', 'reviewer');
+			recordPhaseAgentDispatch('ctx-wins', 'test_engineer');
+			recordPhaseAgentDispatch('ctx-wins', 'docs');
+			writeRetroBundle(tempDir, 1, 'pass');
+
+			const ctx = mockCtx('ctx-wins', tempDir);
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'args-ignored' }, ctx);
+			const parsed = JSON.parse(result);
+
+			// Should succeed using ctx-wins session (not args-ignored)
+			// args-ignored was never registered as a session, but ctx-wins was
+			expect(parsed.success).toBe(true);
+			expect(parsed.phase).toBe(1);
 		});
 	});
 });
