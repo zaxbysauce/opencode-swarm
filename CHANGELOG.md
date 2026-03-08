@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.21.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.2...v6.21.3) (2026-03-08)
+
+
+### Bug Fixes
+
+* plumb ToolContext.sessionID into phase_complete to fix cross-session tracking ([be22929](https://github.com/zaxbysauce/opencode-swarm/commit/be22929273309b22876e6d612263bb007ebce4d3))
+* plumb ToolContext.sessionID into phase_complete to fix cross-session tracking ([e7f898e](https://github.com/zaxbysauce/opencode-swarm/commit/e7f898e1f43cbd83f20b9511a9afec88489dda26)), closes [#89](https://github.com/zaxbysauce/opencode-swarm/issues/89)
+
 ## [6.21.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.1...v6.21.2) (2026-03-08)
 
 
