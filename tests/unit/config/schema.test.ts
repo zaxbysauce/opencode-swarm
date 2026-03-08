@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { AgentOverrideConfigSchema, SwarmConfigSchema, PluginConfigSchema, GuardrailsConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, PipelineConfigSchema } from '../../../src/config/schema';
+import { AgentOverrideConfigSchema, SwarmConfigSchema, PluginConfigSchema, GuardrailsConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, PipelineConfigSchema, stripKnownSwarmPrefix } from '../../../src/config/schema';
 import { DEFAULT_SCORING_CONFIG, resolveScoringConfig } from '../../../src/config/constants';
 
 describe('AgentOverrideConfigSchema', () => {
@@ -837,5 +837,50 @@ describe('PluginConfigSchema with pipeline', () => {
     if (result.success) {
       expect(result.data.pipeline).toBeUndefined();
     }
+  });
+});
+
+describe('stripKnownSwarmPrefix', () => {
+  // Tests for the new 'synthetic' prefix (11th entry in KNOWN_SWARM_PREFIXES)
+  it('strips synthetic_reviewer and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic_reviewer')).toBe('reviewer');
+  });
+
+  it('strips synthetic_coder and returns coder', () => {
+    expect(stripKnownSwarmPrefix('synthetic_coder')).toBe('coder');
+  });
+
+  it('strips synthetic_test_engineer and returns test_engineer', () => {
+    expect(stripKnownSwarmPrefix('synthetic_test_engineer')).toBe('test_engineer');
+  });
+
+  it('strips synthetic-reviewer (dash separator) and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic-reviewer')).toBe('reviewer');
+  });
+
+  it('strips synthetic reviewer (space separator) and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic reviewer')).toBe('reviewer');
+  });
+
+  it('returns synthetic unchanged (bare prefix without separator is not an agent name)', () => {
+    expect(stripKnownSwarmPrefix('synthetic')).toBe('synthetic');
+  });
+
+  // Verify existing known prefix still works
+  it('strips mega_reviewer and returns reviewer (existing prefix)', () => {
+    expect(stripKnownSwarmPrefix('mega_reviewer')).toBe('reviewer');
+  });
+
+  // Additional edge cases
+  it('handles uppercase Synthetic_Architect', () => {
+    expect(stripKnownSwarmPrefix('Synthetic_Architect')).toBe('architect');
+  });
+
+  it('returns original string when no known agent found', () => {
+    expect(stripKnownSwarmPrefix('unknown_agent')).toBe('unknown_agent');
+  });
+
+  it('handles empty string', () => {
+    expect(stripKnownSwarmPrefix('')).toBe('');
   });
 });

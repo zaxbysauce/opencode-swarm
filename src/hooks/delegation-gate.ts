@@ -331,21 +331,30 @@ export function createDelegationGateHook(config: PluginConfig): {
 					session.qaSkipTaskIds = [];
 				}
 
-				// v6.22 Task 2.2: Advance reviewer_run state when reviewer delegation has completed
-				if (hasReviewer && session.currentTaskId) {
-					try {
-						advanceTaskState(session, session.currentTaskId, 'reviewer_run');
-					} catch {
-						// Non-fatal: state may already be at or past reviewer_run
+				// Two-pass iteration over all tracked task states (fixes single-pointer dead-lock on default config)
+				// Pass 1: advance all tasks at coder_delegated or pre_check_passed → reviewer_run when reviewer has been seen
+				if (hasReviewer && session.taskWorkflowStates) {
+					for (const [taskId, state] of session.taskWorkflowStates) {
+						if (state === 'coder_delegated' || state === 'pre_check_passed') {
+							try {
+								advanceTaskState(session, taskId, 'reviewer_run');
+							} catch {
+								// Non-fatal: state may already be at or past reviewer_run
+							}
+						}
 					}
 				}
 
-				// v6.22 Task 2.3: Advance tests_run state when both reviewer AND test_engineer delegations have completed
-				if (hasReviewer && hasTestEngineer && session.currentTaskId) {
-					try {
-						advanceTaskState(session, session.currentTaskId, 'tests_run');
-					} catch {
-						// Non-fatal: state may already be at or past tests_run
+				// Pass 2: advance all tasks at reviewer_run → tests_run when both reviewer AND test_engineer have been seen
+				if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+					for (const [taskId, state] of session.taskWorkflowStates) {
+						if (state === 'reviewer_run') {
+							try {
+								advanceTaskState(session, taskId, 'tests_run');
+							} catch {
+								// Non-fatal: state may already be at or past tests_run
+							}
+						}
 					}
 				}
 			}

@@ -86,9 +86,12 @@ export function createDelegationTrackerHook(
 			beginInvocation(input.sessionID, agentName);
 		}
 
+		const delegationTrackerEnabled = config.hooks?.delegation_tracker === true;
+		const delegationGateEnabled = config.hooks?.delegation_gate !== false;
+
 		// If delegation tracking is enabled and agent has changed, log the delegation
 		if (
-			config.hooks?.delegation_tracker === true &&
+			(delegationTrackerEnabled || delegationGateEnabled) &&
 			previousAgent &&
 			previousAgent !== agentName
 		) {
@@ -108,8 +111,10 @@ export function createDelegationTrackerHook(
 			const chain = swarmState.delegationChains.get(input.sessionID);
 			chain?.push(entry);
 
-			// Increment pending events counter
-			swarmState.pendingEvents++;
+			// Increment pending events counter (only when explicit tracking is enabled)
+			if (delegationTrackerEnabled) {
+				swarmState.pendingEvents++;
+			}
 		}
 	};
 }

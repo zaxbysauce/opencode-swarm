@@ -35,7 +35,7 @@ const CONFIG_DIR = path.join(
 	'opencode',
 );
 
-const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
+const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode.json');
 const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
@@ -79,9 +79,19 @@ async function install(): Promise<number> {
 	ensureDir(PROMPTS_DIR);
 
 	// Load or create OpenCode config
+	// Migration: if opencode.json doesn't exist but config.json does (old installer bug), use config.json as starting state
+	const LEGACY_CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 	let opencodeConfig = loadJson<OpenCodeConfig>(OPENCODE_CONFIG_PATH);
 	if (!opencodeConfig) {
-		opencodeConfig = {};
+		const legacyConfig = loadJson<OpenCodeConfig>(LEGACY_CONFIG_PATH);
+		if (legacyConfig) {
+			console.log(
+				'⚠ Migrating existing config from config.json to opencode.json...',
+			);
+			opencodeConfig = legacyConfig;
+		} else {
+			opencodeConfig = {};
+		}
 	}
 
 	// Add plugin to OpenCode config (note: 'plugin' not 'plugins')
