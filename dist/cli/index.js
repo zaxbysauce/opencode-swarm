@@ -16213,6 +16213,17 @@ ${markdown}`;
       unlinkSync(mdTempPath);
     } catch {}
   }
+  try {
+    const markerPath = path6.join(swarmDir, ".plan-write-marker");
+    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
 }
 function derivePlanMarkdown(plan) {
   const statusMap = {
@@ -16847,11 +16858,11 @@ var PhaseCompleteConfigSchema = exports_external.object({
 });
 var SummaryConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
-  threshold_bytes: exports_external.number().min(1024).max(1048576).default(20480),
+  threshold_bytes: exports_external.number().min(1024).max(1048576).default(102400),
   max_summary_chars: exports_external.number().min(100).max(5000).default(1000),
   max_stored_bytes: exports_external.number().min(10240).max(104857600).default(10485760),
   retention_days: exports_external.number().min(1).max(365).default(7),
-  exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task"])
+  exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task", "read"])
 });
 var ReviewPassesConfigSchema = exports_external.object({
   always_security_review: exports_external.boolean().default(false),

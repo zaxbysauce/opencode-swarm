@@ -688,6 +688,24 @@ When truncation is active, a footer is appended:
 [output truncated to {maxLines} lines – use `tool_output.per_tool.<tool>` to adjust]
 ```
 
+## Summarization Settings
+
+Control how tool outputs are summarized for LLM context.
+
+```json
+{
+  "summaries": {
+    "threshold_bytes": 102400,
+    "exempt_tools": ["retrieve_summary", "task", "read"]
+  }
+}
+```
+
+- **threshold_bytes** – Output size threshold in bytes before summarization is triggered (default 102400 = 100KB).
+- **exempt_tools** – Tools whose outputs are never summarized. Defaults to `["retrieve_summary", "task", "read"]` to prevent re-summarization loops.
+
+> **Note:** The `retrieve_summary` tool supports paginated retrieval via `offset` and `limit` parameters to fetch large summarized outputs in chunks.
+
 ---
 
 ### Disabling Agents
@@ -717,7 +735,7 @@ When truncation is active, a footer is appended:
 | `/swarm evidence [task]` | Evidence bundles for a task or all tasks |
 | `/swarm archive [--dry-run]` | Archive old evidence with retention policy |
 | `/swarm benchmark` | Performance benchmarks |
-| `/swarm retrieve [id]` | Retrieve auto-summarized tool outputs |
+| `/swarm retrieve [id]` | Retrieve auto-summarized tool outputs (supports offset/limit pagination) |
 | `/swarm reset --confirm` | Clear swarm state files |
 | `/swarm preflight` | Run phase preflight checks |
 | `/swarm config doctor [--fix]` | Config validation with optional auto-fix |

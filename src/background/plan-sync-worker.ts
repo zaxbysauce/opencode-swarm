@@ -364,6 +364,9 @@ export class PlanSyncWorker {
 			// - Invalid plan.json + valid plan.md -> migrate from plan.md
 			// - No plan.json but plan.md -> migrate
 
+			// Advisory: check for unauthorized writes before syncing
+			this.checkForUnauthorizedWrite();
+
 			// Wrap in timeout to prevent runaway hangs
 			const plan = await this.withTimeout(
 				loadPlan(this.directory),
@@ -430,6 +433,34 @@ export class PlanSyncWorker {
 							: String(callbackError),
 				});
 			}
+		}
+	}
+
+	/**
+	 * Advisory: check for unauthorized writes to plan.json outside of save_plan/savePlan
+	 * Logs a warning if plan.json appears to have been modified after the write marker
+	 */
+	private checkForUnauthorizedWrite(): void {
+		try {
+			const swarmDir = this.getSwarmDir();
+			const planJsonPath = path.join(swarmDir, 'plan.json');
+			const markerPath = path.join(swarmDir, '.plan-write-marker');
+
+			const planStats = fs.statSync(planJsonPath);
+			const planMtimeMs = planStats.mtimeMs;
+
+			const markerContent = fs.readFileSync(markerPath, 'utf8');
+			const marker = JSON.parse(markerContent);
+			const markerTimestampMs = new Date(marker.timestamp).getTime();
+
+			if (planMtimeMs > markerTimestampMs + 5000) {
+				log(
+					'[PlanSyncWorker] WARNING: plan.json may have been written outside save_plan/savePlan - unauthorized direct write suspected',
+					{ planMtimeMs, markerTimestampMs },
+				);
+			}
+		} catch {
+			// Advisory only - silently return on any error
 		}
 	}
 

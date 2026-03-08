@@ -65,7 +65,7 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 		await hooks.toolBefore(input, output);
 	});
 
-	it('write tool targeting .swarm/plan.json → does NOT throw', async () => {
+	it('write tool targeting .swarm/plan.json → throws PLAN STATE VIOLATION', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(config);
 		startAgentSession('s1', ORCHESTRATOR_NAME);
@@ -73,8 +73,7 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 		const input = makeInput('s1', 'write', 'call-1');
 		const output = makeOutput({ filePath: '.swarm/plan.json' });
 
-		// plan.json is allowed - only plan.md is blocked
-		await hooks.toolBefore(input, output);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
 	});
 
 	it('apply_patch targeting .swarm/plan.md in diff content → throws PLAN STATE VIOLATION', async () => {
@@ -89,6 +88,24 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 @@ -1,3 +1,4 @@
  # Plan
 +New task
+`;
+		const output = makeOutput({ input: diffContent });
+
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+	});
+
+	it('apply_patch targeting .swarm/plan.json in diff content → throws PLAN STATE VIOLATION', async () => {
+		const config = defaultConfig();
+		const hooks = createGuardrailsHooks(config);
+		startAgentSession('s1', ORCHESTRATOR_NAME);
+
+		const input = makeInput('s1', 'apply_patch', 'call-1');
+		const diffContent = `--- a/.swarm/plan.json
++++ b/.swarm/plan.json
+@@ -1,3 +1,4 @@
+ { "phases": [
++  { "id": 4 }
+ ] }
 `;
 		const output = makeOutput({ input: diffContent });
 

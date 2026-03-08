@@ -111,6 +111,11 @@ export declare class PlanSyncWorker {
      */
     private safeCallback;
     /**
+     * Advisory: check for unauthorized writes to plan.json outside of save_plan/savePlan
+     * Logs a warning if plan.json appears to have been modified after the write marker
+     */
+    private checkForUnauthorizedWrite;
+    /**
      * Wrap a promise with a timeout
      */
     private withTimeout;

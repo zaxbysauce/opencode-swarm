@@ -16,6 +16,7 @@ import {
 } from '../config/schema';
 import { loadPlan } from '../plan/manager';
 import {
+	advanceTaskState,
 	beginInvocation,
 	ensureAgentSession,
 	getActiveWindow,
@@ -318,7 +319,7 @@ export function createGuardrailsHooks(
 				const targetPath =
 					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
 
-				// Plan state protection: block direct writes to .swarm/plan.md
+				// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
 				// plan.md is auto-regenerated from plan.json by PlanSyncWorker.
 				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
@@ -328,9 +329,15 @@ export function createGuardrailsHooks(
 					const planMdPath = path
 						.resolve(directory, '.swarm', 'plan.md')
 						.toLowerCase();
-					if (resolvedTarget === planMdPath) {
+					const planJsonPath = path
+						.resolve(directory, '.swarm', 'plan.json')
+						.toLowerCase();
+					if (
+						resolvedTarget === planMdPath ||
+						resolvedTarget === planJsonPath
+					) {
 						throw new Error(
-							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. ' +
+							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 								'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
 								'Use update_task_status() to mark tasks complete, ' +
 								'phase_complete() for phase transitions, or ' +
@@ -351,7 +358,7 @@ export function createGuardrailsHooks(
 						| string
 						| undefined;
 
-					if (typeof patchText === 'string') {
+					if (typeof patchText === 'string' && patchText.length <= 1_000_000) {
 						// Match "*** Update File: <path>", "*** Add File: <path>", "*** Delete File: <path>"
 						const patchPathPattern =
 							/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
@@ -366,13 +373,59 @@ export function createGuardrailsHooks(
 							const p = match[1].trim();
 							if (p !== '/dev/null') paths.add(p);
 						}
+						// Match "diff --git a/<path> b/<path>" (git diff format)
+						const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+						for (const match of patchText.matchAll(gitDiffPathPattern)) {
+							const aPath = match[1].trim();
+							const bPath = match[2].trim();
+							if (aPath !== '/dev/null') paths.add(aPath);
+							if (bPath !== '/dev/null') paths.add(bPath);
+						}
+						// Match "--- a/<path>" (old-file path in unified diff)
+						const minusPathPattern = /^---\s+a\/(.+)$/gm;
+						for (const match of patchText.matchAll(minusPathPattern)) {
+							const p = match[1].trim();
+							if (p !== '/dev/null') paths.add(p);
+						}
+						// Match traditional unified diff "--- <path>" and "+++ <path>" (no a/b prefix)
+						// Strip trailing tab+timestamp that some diff tools append (e.g. "--- file\t2024-01-01")
+						const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
+						const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
+						for (const match of patchText.matchAll(traditionalMinusPattern)) {
+							const p = match[1].trim();
+							if (
+								p !== '/dev/null' &&
+								!p.startsWith('a/') &&
+								!p.startsWith('b/')
+							) {
+								paths.add(p);
+							}
+						}
+						for (const match of patchText.matchAll(traditionalPlusPattern)) {
+							const p = match[1].trim();
+							if (
+								p !== '/dev/null' &&
+								!p.startsWith('a/') &&
+								!p.startsWith('b/')
+							) {
+								paths.add(p);
+							}
+						}
 
 						for (const p of paths) {
 							const resolvedP = path.resolve(directory, p);
-							const planMdPath = path.resolve(directory, '.swarm', 'plan.md');
-							if (resolvedP.toLowerCase() === planMdPath.toLowerCase()) {
+							const planMdPath = path
+								.resolve(directory, '.swarm', 'plan.md')
+								.toLowerCase();
+							const planJsonPath = path
+								.resolve(directory, '.swarm', 'plan.json')
+								.toLowerCase();
+							if (
+								resolvedP.toLowerCase() === planMdPath ||
+								resolvedP.toLowerCase() === planJsonPath
+							) {
 								throw new Error(
-									'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. ' +
+									'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 										'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
 										'Use update_task_status() to mark tasks complete, ' +
 										'phase_complete() for phase transitions, or ' +
@@ -695,6 +748,37 @@ export function createGuardrailsHooks(
 						};
 					} else {
 						session.lastGateFailure = null; // Clear on pass
+
+						// v6.22 Task 2.1: Advance workflow state when pre_check_batch passes
+						if (input.tool === 'pre_check_batch') {
+							const successStr =
+								typeof output.output === 'string' ? output.output : '';
+							let isPassed = false;
+							try {
+								const result = JSON.parse(successStr);
+								isPassed = result.gates_passed === true;
+							} catch {
+								isPassed = false;
+							}
+							if (isPassed && session.currentTaskId) {
+								try {
+									advanceTaskState(
+										session,
+										session.currentTaskId,
+										'pre_check_passed',
+									);
+								} catch (err) {
+									// Non-fatal: state may already be at or past pre_check_passed
+									warn(
+										'Failed to advance task state after pre_check_batch pass',
+										{
+											taskId: session.currentTaskId,
+											error: String(err),
+										},
+									);
+								}
+							}
+						}
 					}
 				}
 

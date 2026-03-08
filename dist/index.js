@@ -14823,6 +14823,17 @@ ${markdown}`;
       unlinkSync(mdTempPath);
     } catch {}
   }
+  try {
+    const markerPath = path4.join(swarmDir, ".plan-write-marker");
+    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
 }
 async function updateTaskStatus(directory, taskId, status) {
   const plan = await loadPlan(directory);
@@ -38467,11 +38478,11 @@ var PhaseCompleteConfigSchema = exports_external.object({
 });
 var SummaryConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
-  threshold_bytes: exports_external.number().min(1024).max(1048576).default(20480),
+  threshold_bytes: exports_external.number().min(1024).max(1048576).default(102400),
   max_summary_chars: exports_external.number().min(100).max(5000).default(1000),
   max_stored_bytes: exports_external.number().min(10240).max(104857600).default(10485760),
   retention_days: exports_external.number().min(1).max(365).default(7),
-  exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task"])
+  exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task", "read"])
 });
 var ReviewPassesConfigSchema = exports_external.object({
   always_security_review: exports_external.boolean().default(false),
@@ -41648,6 +41659,7 @@ class PlanSyncWorker {
     this.syncing = true;
     try {
       log("[PlanSyncWorker] Syncing plan...");
+      this.checkForUnauthorizedWrite();
       const plan = await this.withTimeout(loadPlan(this.directory), this.syncTimeoutMs, "Sync operation timed out");
       if (plan) {
         log("[PlanSyncWorker] Sync complete", {
@@ -41688,6 +41700,21 @@ class PlanSyncWorker {
         });
       }
     }
+  }
+  checkForUnauthorizedWrite() {
+    try {
+      const swarmDir = this.getSwarmDir();
+      const planJsonPath = path6.join(swarmDir, "plan.json");
+      const markerPath = path6.join(swarmDir, ".plan-write-marker");
+      const planStats = fs3.statSync(planJsonPath);
+      const planMtimeMs = planStats.mtimeMs;
+      const markerContent = fs3.readFileSync(markerPath, "utf8");
+      const marker = JSON.parse(markerContent);
+      const markerTimestampMs = new Date(marker.timestamp).getTime();
+      if (planMtimeMs > markerTimestampMs + 5000) {
+        log("[PlanSyncWorker] WARNING: plan.json may have been written outside save_plan/savePlan - unauthorized direct write suspected", { planMtimeMs, markerTimestampMs });
+      }
+    } catch {}
   }
   withTimeout(promise2, ms, timeoutMessage) {
     return new Promise((resolve4, reject) => {
@@ -42056,6 +42083,9 @@ function recordPhaseAgentDispatch(sessionId, agentName) {
   session.phaseAgentsDispatched.add(normalizedName);
 }
 function advanceTaskState(session, taskId, newState) {
+  if (!session.taskWorkflowStates) {
+    session.taskWorkflowStates = new Map;
+  }
   const STATE_ORDER = [
     "idle",
     "coder_delegated",
@@ -42076,6 +42106,9 @@ function advanceTaskState(session, taskId, newState) {
   session.taskWorkflowStates.set(taskId, newState);
 }
 function getTaskState(session, taskId) {
+  if (!session.taskWorkflowStates) {
+    session.taskWorkflowStates = new Map;
+  }
   return session.taskWorkflowStates.get(taskId) ?? "idle";
 }
 
@@ -42967,7 +43000,7 @@ async function handleDarkMatterCommand(directory, args2) {
 
 // src/services/diagnose-service.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync6, readdirSync as readdirSync2, readFileSync as readFileSync3, statSync as statSync4 } from "fs";
+import { existsSync as existsSync6, readdirSync as readdirSync2, readFileSync as readFileSync4, statSync as statSync4 } from "fs";
 import path12 from "path";
 init_manager();
 init_utils2();
@@ -43273,7 +43306,7 @@ async function checkConfigParseability(directory) {
     };
   }
   try {
-    const content = readFileSync3(configPath, "utf-8");
+    const content = readFileSync4(configPath, "utf-8");
     JSON.parse(content);
     return {
       name: "Config Parseability",
@@ -43340,7 +43373,7 @@ async function checkCheckpointManifest(directory) {
     };
   }
   try {
-    const content = readFileSync3(manifestPath, "utf-8");
+    const content = readFileSync4(manifestPath, "utf-8");
     const parsed = JSON.parse(content);
     if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
       return {
@@ -43392,7 +43425,7 @@ async function checkEventStreamIntegrity(directory) {
     };
   }
   try {
-    const content = readFileSync3(eventsPath, "utf-8");
+    const content = readFileSync4(eventsPath, "utf-8");
     const lines = content.split(`
 `).filter((line) => line.trim() !== "");
     let malformedCount = 0;
@@ -43433,7 +43466,7 @@ async function checkSteeringDirectives(directory) {
     };
   }
   try {
-    const content = readFileSync3(eventsPath, "utf-8");
+    const content = readFileSync4(eventsPath, "utf-8");
     const lines = content.split(`
 `).filter((line) => line.trim() !== "");
     const directivesIssued = [];
@@ -44401,7 +44434,7 @@ async function handleHistoryCommand(directory, _args) {
 }
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID2 } from "crypto";
-import { existsSync as existsSync8, readFileSync as readFileSync5 } from "fs";
+import { existsSync as existsSync8, readFileSync as readFileSync6 } from "fs";
 import { mkdir as mkdir3, readFile as readFile3, writeFile as writeFile3 } from "fs/promises";
 import * as path16 from "path";
 
@@ -44958,7 +44991,7 @@ function inferProjectName(directory) {
   const packageJsonPath = path16.join(directory, "package.json");
   if (existsSync8(packageJsonPath)) {
     try {
-      const pkg = JSON.parse(readFileSync5(packageJsonPath, "utf-8"));
+      const pkg = JSON.parse(readFileSync6(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
         return pkg.name;
       }
@@ -47143,7 +47176,7 @@ function shouldMaskToolOutput(msg, index, totalMessages, recentWindowSize, thres
     return false;
   }
   const toolName = extractToolName(text);
-  if (toolName && ["retrieve_summary", "task"].includes(toolName.toLowerCase())) {
+  if (toolName && ["retrieve_summary", "task", "read"].includes(toolName.toLowerCase())) {
     return false;
   }
   const age = totalMessages - 1 - index;
@@ -47216,6 +47249,16 @@ function createDelegationGateHook(config3) {
         if (hasReviewer && hasTestEngineer) {
           session.qaSkipCount = 0;
           session.qaSkipTaskIds = [];
+        }
+        if (hasReviewer && session.currentTaskId) {
+          try {
+            advanceTaskState(session, session.currentTaskId, "reviewer_run");
+          } catch {}
+        }
+        if (hasReviewer && hasTestEngineer && session.currentTaskId) {
+          try {
+            advanceTaskState(session, session.currentTaskId, "tests_run");
+          } catch {}
         }
       }
     }
@@ -47707,13 +47750,14 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
         if (typeof targetPath === "string" && targetPath.length > 0) {
           const resolvedTarget = path25.resolve(directory, targetPath).toLowerCase();
           const planMdPath = path25.resolve(directory, ".swarm", "plan.md").toLowerCase();
-          if (resolvedTarget === planMdPath) {
-            throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
+          const planJsonPath = path25.resolve(directory, ".swarm", "plan.json").toLowerCase();
+          if (resolvedTarget === planMdPath || resolvedTarget === planJsonPath) {
+            throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
           }
         }
         if (!targetPath && (input.tool === "apply_patch" || input.tool === "patch")) {
           const patchText = args2?.input ?? args2?.patch ?? (Array.isArray(args2?.cmd) ? args2.cmd[1] : undefined);
-          if (typeof patchText === "string") {
+          if (typeof patchText === "string" && patchText.length <= 1e6) {
             const patchPathPattern = /\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
             const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
             const paths = new Set;
@@ -47725,11 +47769,41 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
               if (p !== "/dev/null")
                 paths.add(p);
             }
+            const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+            for (const match of patchText.matchAll(gitDiffPathPattern)) {
+              const aPath = match[1].trim();
+              const bPath = match[2].trim();
+              if (aPath !== "/dev/null")
+                paths.add(aPath);
+              if (bPath !== "/dev/null")
+                paths.add(bPath);
+            }
+            const minusPathPattern = /^---\s+a\/(.+)$/gm;
+            for (const match of patchText.matchAll(minusPathPattern)) {
+              const p = match[1].trim();
+              if (p !== "/dev/null")
+                paths.add(p);
+            }
+            const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
+            const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
+            for (const match of patchText.matchAll(traditionalMinusPattern)) {
+              const p = match[1].trim();
+              if (p !== "/dev/null" && !p.startsWith("a/") && !p.startsWith("b/")) {
+                paths.add(p);
+              }
+            }
+            for (const match of patchText.matchAll(traditionalPlusPattern)) {
+              const p = match[1].trim();
+              if (p !== "/dev/null" && !p.startsWith("a/") && !p.startsWith("b/")) {
+                paths.add(p);
+              }
+            }
             for (const p of paths) {
               const resolvedP = path25.resolve(directory, p);
-              const planMdPath = path25.resolve(directory, ".swarm", "plan.md");
-              if (resolvedP.toLowerCase() === planMdPath.toLowerCase()) {
-                throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
+              const planMdPath = path25.resolve(directory, ".swarm", "plan.md").toLowerCase();
+              const planJsonPath = path25.resolve(directory, ".swarm", "plan.json").toLowerCase();
+              if (resolvedP.toLowerCase() === planMdPath || resolvedP.toLowerCase() === planJsonPath) {
+                throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
               }
               if (isOutsideSwarmDir(p, directory) && (isSourceCodePath(p) || hasTraversalSegments(p))) {
                 const session2 = swarmState.agentSessions.get(input.sessionID);
@@ -47919,6 +47993,26 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
             };
           } else {
             session.lastGateFailure = null;
+            if (input.tool === "pre_check_batch") {
+              const successStr = typeof output.output === "string" ? output.output : "";
+              let isPassed = false;
+              try {
+                const result = JSON.parse(successStr);
+                isPassed = result.gates_passed === true;
+              } catch {
+                isPassed = false;
+              }
+              if (isPassed && session.currentTaskId) {
+                try {
+                  advanceTaskState(session, session.currentTaskId, "pre_check_passed");
+                } catch (err2) {
+                  warn("Failed to advance task state after pre_check_batch pass", {
+                    taskId: session.currentTaskId,
+                    error: String(err2)
+                  });
+                }
+              }
+            }
           }
         }
         const inputArgs = inputArgsByCallID.get(input.callID);
@@ -49919,7 +50013,11 @@ function createToolSummarizerHook(config3, directory) {
     if (typeof output.output !== "string" || output.output.length === 0) {
       return;
     }
-    const exemptTools = config3.exempt_tools ?? ["retrieve_summary", "task"];
+    const exemptTools = config3.exempt_tools ?? [
+      "retrieve_summary",
+      "task",
+      "read"
+    ];
     if (exemptTools.includes(input.tool)) {
       return;
     }
@@ -57101,10 +57199,14 @@ var RETRIEVE_MAX_BYTES = 10 * 1024 * 1024;
 var retrieve_summary = tool({
   description: "Retrieve the full content of a stored tool output summary by its ID (e.g. S1, S2). Use this when a prior tool output was summarized and you need the full content.",
   args: {
-    id: tool.schema.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits.")
+    id: tool.schema.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits."),
+    offset: tool.schema.number().min(0).default(0).describe("Line offset to start from (default: 0)."),
+    limit: tool.schema.number().min(1).max(500).default(100).describe("Number of lines to return (default: 100, max: 500).")
   },
   async execute(args2, context) {
     const directory = context.directory;
+    const offset = args2.offset ?? 0;
+    const limit = Math.min(args2.limit ?? 100, 500);
     let sanitizedId;
     try {
       sanitizedId = sanitizeSummaryId(args2.id);
@@ -57123,13 +57225,46 @@ var retrieve_summary = tool({
     if (fullOutput.length > RETRIEVE_MAX_BYTES) {
       return `Error: summary content exceeds maximum size limit (10 MB).`;
     }
-    return fullOutput;
+    if (fullOutput.length === 0) {
+      return `--- No content (0 lines) ---
+
+(Summary is empty)`;
+    }
+    const lines = fullOutput.split(`
+`);
+    const totalLines = lines.length;
+    const clampedOffset = Math.max(0, offset);
+    if (clampedOffset >= totalLines) {
+      const response2 = `--- Offset beyond range ---
+
+(Range exhausted. Valid offset range: 0-${totalLines - 1})
+(Content has ${totalLines} line${totalLines === 1 ? "" : "s"})`;
+      return response2;
+    }
+    const startLine = Math.min(clampedOffset, totalLines);
+    const endLine = Math.min(startLine + limit, totalLines);
+    const paginatedLines = lines.slice(startLine, endLine);
+    const paginatedContent = paginatedLines.join(`
+`);
+    const headerStart = startLine + 1;
+    const headerEnd = endLine;
+    const rangeHeader = `--- Lines ${headerStart}-${headerEnd} of ${totalLines} ---`;
+    let response = `${rangeHeader}
+${paginatedContent}`;
+    if (endLine < totalLines) {
+      const remaining = totalLines - endLine;
+      response += `
+
+... ${remaining} more line${remaining === 1 ? "" : "s"}. Use offset=${endLine} to retrieve more.`;
+    }
+    return response;
   }
 });
 // src/tools/save-plan.ts
 init_tool();
 init_manager2();
 init_create_tool();
+import * as fs28 from "fs";
 import * as path39 from "path";
 function detectPlaceholderContent(args2) {
   const issues = [];
@@ -57164,12 +57299,33 @@ function validateTargetWorkspace(target, source) {
   return;
 }
 async function executeSavePlan(args2, fallbackDir) {
+  const validationErrors = [];
+  for (const phase of args2.phases) {
+    if (!Number.isInteger(phase.id) || phase.id <= 0) {
+      validationErrors.push(`Phase ${phase.id} has invalid id: must be a positive integer`);
+    }
+    const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
+    for (const task of phase.tasks) {
+      if (!taskIdPattern.test(task.id)) {
+        validationErrors.push(`Task '${task.id}' in phase ${phase.id} has invalid id format: must match N.M pattern (e.g. '1.1', '2.3')`);
+      }
+    }
+  }
+  if (validationErrors.length > 0) {
+    return {
+      success: false,
+      message: "Plan rejected: invalid phase or task IDs",
+      errors: validationErrors,
+      recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
+    };
+  }
   const placeholderIssues = detectPlaceholderContent(args2);
   if (placeholderIssues.length > 0) {
     return {
       success: false,
       message: "Plan rejected: contains template placeholder content",
-      errors: placeholderIssues
+      errors: placeholderIssues,
+      recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
   const targetWorkspace = args2.working_directory ?? fallbackDir;
@@ -57177,8 +57333,9 @@ async function executeSavePlan(args2, fallbackDir) {
   if (workspaceError) {
     return {
       success: false,
-      message: "Target workspace validation failed",
-      errors: [workspaceError]
+      message: "Target workspace validation failed: provide working_directory parameter to save_plan",
+      errors: [workspaceError],
+      recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
   const plan = {
@@ -57211,6 +57368,16 @@ async function executeSavePlan(args2, fallbackDir) {
   const dir = targetWorkspace;
   try {
     await savePlan(dir, plan);
+    try {
+      const markerPath = path39.join(dir, ".swarm", ".plan-write-marker");
+      const marker = JSON.stringify({
+        source: "save_plan",
+        timestamp: new Date().toISOString(),
+        phases_count: plan.phases.length,
+        tasks_count: tasksCount
+      });
+      await fs28.promises.writeFile(markerPath, marker, "utf8");
+    } catch {}
     return {
       success: true,
       message: "Plan saved successfully",
@@ -57221,8 +57388,9 @@ async function executeSavePlan(args2, fallbackDir) {
   } catch (error93) {
     return {
       success: false,
-      message: "Failed to save plan",
-      errors: [String(error93)]
+      message: "Failed to save plan: retry with save_plan after resolving the error above",
+      errors: [String(error93)],
+      recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
 }
@@ -57251,7 +57419,7 @@ var save_plan = createSwarmTool({
 // src/tools/sbom-generate.ts
 init_dist();
 init_manager();
-import * as fs28 from "fs";
+import * as fs29 from "fs";
 import * as path40 from "path";
 
 // src/sbom/detectors/dart.ts
@@ -58098,7 +58266,7 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs28.readdirSync(dir, { withFileTypes: true });
+      const entries = fs29.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path40.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
@@ -58127,7 +58295,7 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs28.readdirSync(dir, { withFileTypes: true });
+      const entries = fs29.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path40.join(dir, entry.name);
         if (entry.isFile()) {
@@ -58165,7 +58333,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs28.mkdirSync(outputDir, { recursive: true });
+    fs29.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -58258,10 +58426,10 @@ var sbom_generate = createSwarmTool({
     for (const manifestFile of manifestFiles) {
       try {
         const fullPath = path40.isAbsolute(manifestFile) ? manifestFile : path40.join(workingDir, manifestFile);
-        if (!fs28.existsSync(fullPath)) {
+        if (!fs29.existsSync(fullPath)) {
           continue;
         }
-        const content = fs28.readFileSync(fullPath, "utf-8");
+        const content = fs29.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -58275,7 +58443,7 @@ var sbom_generate = createSwarmTool({
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
     const outputPath = path40.join(outputDir, filename);
-    fs28.writeFileSync(outputPath, bomJson, "utf-8");
+    fs29.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -58317,7 +58485,7 @@ var sbom_generate = createSwarmTool({
 // src/tools/schema-drift.ts
 init_dist();
 init_create_tool();
-import * as fs29 from "fs";
+import * as fs30 from "fs";
 import * as path41 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
@@ -58359,19 +58527,19 @@ function discoverSpecFile(cwd, specFileArg) {
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs29.statSync(resolvedPath);
+    const stats = fs30.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs29.existsSync(resolvedPath)) {
+    if (!fs30.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
     const candidatePath = path41.resolve(cwd, candidate);
-    if (fs29.existsSync(candidatePath)) {
-      const stats = fs29.statSync(candidatePath);
+    if (fs30.existsSync(candidatePath)) {
+      const stats = fs30.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -58380,7 +58548,7 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs29.readFileSync(specFile, "utf-8");
+  const content = fs30.readFileSync(specFile, "utf-8");
   const ext = path41.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
@@ -58447,7 +58615,7 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs29.readdirSync(dir, { withFileTypes: true });
+      entries = fs30.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
@@ -58480,7 +58648,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs29.readFileSync(filePath, "utf-8");
+  const content = fs30.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -58631,7 +58799,7 @@ init_secretscan();
 // src/tools/symbols.ts
 init_tool();
 init_create_tool();
-import * as fs30 from "fs";
+import * as fs31 from "fs";
 import * as path42 from "path";
 var MAX_FILE_SIZE_BYTES7 = 1024 * 1024;
 var WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
@@ -58662,8 +58830,8 @@ function containsWindowsAttacks(str) {
 function isPathInWorkspace(filePath, workspace) {
   try {
     const resolvedPath = path42.resolve(workspace, filePath);
-    const realWorkspace = fs30.realpathSync(workspace);
-    const realResolvedPath = fs30.realpathSync(resolvedPath);
+    const realWorkspace = fs31.realpathSync(workspace);
+    const realResolvedPath = fs31.realpathSync(resolvedPath);
     const relativePath = path42.relative(realWorkspace, realResolvedPath);
     if (relativePath.startsWith("..") || path42.isAbsolute(relativePath)) {
       return false;
@@ -58683,11 +58851,11 @@ function extractTSSymbols(filePath, cwd) {
   }
   let content;
   try {
-    const stats = fs30.statSync(fullPath);
+    const stats = fs31.statSync(fullPath);
     if (stats.size > MAX_FILE_SIZE_BYTES7) {
       throw new Error(`File too large: ${stats.size} bytes (max: ${MAX_FILE_SIZE_BYTES7})`);
     }
-    content = fs30.readFileSync(fullPath, "utf-8");
+    content = fs31.readFileSync(fullPath, "utf-8");
   } catch {
     return [];
   }
@@ -58835,11 +59003,11 @@ function extractPythonSymbols(filePath, cwd) {
   }
   let content;
   try {
-    const stats = fs30.statSync(fullPath);
+    const stats = fs31.statSync(fullPath);
     if (stats.size > MAX_FILE_SIZE_BYTES7) {
       throw new Error(`File too large: ${stats.size} bytes (max: ${MAX_FILE_SIZE_BYTES7})`);
     }
-    content = fs30.readFileSync(fullPath, "utf-8");
+    content = fs31.readFileSync(fullPath, "utf-8");
   } catch {
     return [];
   }
@@ -58982,7 +59150,7 @@ init_test_runner();
 // src/tools/todo-extract.ts
 init_dist();
 init_create_tool();
-import * as fs31 from "fs";
+import * as fs32 from "fs";
 import * as path43 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
@@ -59078,7 +59246,7 @@ function isSupportedExtension(filePath) {
 function findSourceFiles3(dir, files = []) {
   let entries;
   try {
-    entries = fs31.readdirSync(dir);
+    entries = fs32.readdirSync(dir);
   } catch {
     return files;
   }
@@ -59090,7 +59258,7 @@ function findSourceFiles3(dir, files = []) {
     const fullPath = path43.join(dir, entry);
     let stat2;
     try {
-      stat2 = fs31.statSync(fullPath);
+      stat2 = fs32.statSync(fullPath);
     } catch {
       continue;
     }
@@ -59183,7 +59351,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs31.existsSync(scanPath)) {
+    if (!fs32.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -59193,7 +59361,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat2 = fs31.statSync(scanPath);
+    const stat2 = fs32.statSync(scanPath);
     if (stat2.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
@@ -59212,11 +59380,11 @@ var todo_extract = createSwarmTool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs31.statSync(filePath);
+        const fileStat = fs32.statSync(filePath);
         if (fileStat.size > MAX_FILE_SIZE_BYTES8) {
           continue;
         }
-        const content = fs31.readFileSync(filePath, "utf-8");
+        const content = fs32.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -59244,7 +59412,7 @@ var todo_extract = createSwarmTool({
 // src/tools/update-task-status.ts
 init_tool();
 init_manager2();
-import * as fs32 from "fs";
+import * as fs33 from "fs";
 import * as path44 from "path";
 init_create_tool();
 var VALID_STATUSES = [
@@ -59342,9 +59510,9 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     }
     const resolvedDir = path44.resolve(normalizedDir);
     try {
-      const realPath = fs32.realpathSync(resolvedDir);
+      const realPath = fs33.realpathSync(resolvedDir);
       const planPath = path44.join(realPath, ".swarm", "plan.json");
-      if (!fs32.existsSync(planPath)) {
+      if (!fs33.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,

@@ -3,6 +3,7 @@
  * Allows the Architect agent to save structured plans to .swarm/plan.json and .swarm/plan.md.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
@@ -39,6 +40,7 @@ export interface SavePlanResult {
 	phases_count?: number;
 	tasks_count?: number;
 	errors?: string[];
+	recovery_guidance?: string;
 }
 
 /**
@@ -125,6 +127,38 @@ export async function executeSavePlan(
 	args: SavePlanArgs,
 	fallbackDir?: string,
 ): Promise<SavePlanResult> {
+	// Step 0: Validate phase IDs and task ID formats
+	const validationErrors: string[] = [];
+
+	// Validate phase IDs (must be positive integers)
+	for (const phase of args.phases) {
+		if (!Number.isInteger(phase.id) || phase.id <= 0) {
+			validationErrors.push(
+				`Phase ${phase.id} has invalid id: must be a positive integer`,
+			);
+		}
+
+		// Validate task ID formats (must match /^\d+\.\d+(\.\d+)*$/)
+		const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
+		for (const task of phase.tasks) {
+			if (!taskIdPattern.test(task.id)) {
+				validationErrors.push(
+					`Task '${task.id}' in phase ${phase.id} has invalid id format: must match N.M pattern (e.g. '1.1', '2.3')`,
+				);
+			}
+		}
+	}
+
+	if (validationErrors.length > 0) {
+		return {
+			success: false,
+			message: 'Plan rejected: invalid phase or task IDs',
+			errors: validationErrors,
+			recovery_guidance:
+				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
+		};
+	}
+
 	// Step 1: Detect placeholder content
 	const placeholderIssues = detectPlaceholderContent(args);
 	if (placeholderIssues.length > 0) {
@@ -132,6 +166,8 @@ export async function executeSavePlan(
 			success: false,
 			message: 'Plan rejected: contains template placeholder content',
 			errors: placeholderIssues,
+			recovery_guidance:
+				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};
 	}
 
@@ -144,8 +180,11 @@ export async function executeSavePlan(
 	if (workspaceError) {
 		return {
 			success: false,
-			message: 'Target workspace validation failed',
+			message:
+				'Target workspace validation failed: provide working_directory parameter to save_plan',
 			errors: [workspaceError],
+			recovery_guidance:
+				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};
 	}
 
@@ -188,6 +227,19 @@ export async function executeSavePlan(
 	const dir = targetWorkspace as string;
 	try {
 		await savePlan(dir, plan);
+		// Advisory: write marker file for unauthorized-write detection
+		try {
+			const markerPath = path.join(dir, '.swarm', '.plan-write-marker');
+			const marker = JSON.stringify({
+				source: 'save_plan',
+				timestamp: new Date().toISOString(),
+				phases_count: plan.phases.length,
+				tasks_count: tasksCount,
+			});
+			await fs.promises.writeFile(markerPath, marker, 'utf8');
+		} catch {
+			// Advisory only - marker write failure does not affect plan save
+		}
 		return {
 			success: true,
 			message: 'Plan saved successfully',
@@ -198,8 +250,11 @@ export async function executeSavePlan(
 	} catch (error) {
 		return {
 			success: false,
-			message: 'Failed to save plan',
+			message:
+				'Failed to save plan: retry with save_plan after resolving the error above',
 			errors: [String(error)],
+			recovery_guidance:
+				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};
 	}
 }

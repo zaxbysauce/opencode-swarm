@@ -1,6 +1,7 @@
 {
   "release-type": "node",
   "include-component-in-tag": false,
+  "changelog-notes-type": "github",
   "packages": {
     ".": {}
   }

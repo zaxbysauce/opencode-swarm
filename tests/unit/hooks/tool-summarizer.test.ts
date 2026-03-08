@@ -9,7 +9,7 @@ import { join } from 'node:path';
 function defaultConfig(overrides?: Partial<SummaryConfig>): SummaryConfig {
 	return {
 		enabled: true,
-		threshold_bytes: 20480,
+		threshold_bytes: 102400,
 		max_summary_chars: 1000,
 		max_stored_bytes: 10485760,
 		retention_days: 7,
@@ -34,7 +34,7 @@ describe('tool-summarizer', () => {
 		const config = defaultConfig({ enabled: false });
 		const hook = createToolSummarizerHook(config, tempDir);
 
-		const largeOutput = 'x'.repeat(30000); // 30000 bytes > 20480 * 1.25 = 25600
+		const largeOutput = 'x'.repeat(30000); // Large output - size irrelevant when disabled
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
 		const output = { title: 'Read Result', output: largeOutput, metadata: null };
 
@@ -45,7 +45,7 @@ describe('tool-summarizer', () => {
 	});
 
 	it('output below threshold passes through unchanged', async () => {
-		const config = defaultConfig({ enabled: true, threshold_bytes: 20480 });
+		const config = defaultConfig({ enabled: true, threshold_bytes: 102400 });
 		const hook = createToolSummarizerHook(config, tempDir);
 
 		const smallOutput = 'Hello world';
@@ -54,7 +54,7 @@ describe('tool-summarizer', () => {
 
 		await hook(input, output);
 
-		// Output should be unchanged (below threshold * 1.25 = 25600 bytes)
+		// Output should be unchanged (below threshold * 1.25 = 128000 bytes)
 		expect(output.output).toBe(smallOutput);
 	});
 
