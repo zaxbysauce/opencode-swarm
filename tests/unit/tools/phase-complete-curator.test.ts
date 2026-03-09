@@ -106,20 +106,19 @@ function createConfig(curatorConfig?: {
 			require_docs: false,
 			policy: 'enforce',
 		},
-	};
-
-	if (curatorConfig !== undefined) {
-		config.curator = {
-			enabled: curatorConfig.enabled ?? false,
-			phase_enabled: curatorConfig.phase_enabled ?? true,
+		// Always write explicit curator config to override any user-level config that may
+		// have curator.enabled=true (user config deep-merges with project config).
+		curator: {
+			enabled: curatorConfig?.enabled ?? false,
+			phase_enabled: curatorConfig?.phase_enabled ?? true,
 			init_enabled: true,
 			max_summary_tokens: 2000,
 			min_knowledge_confidence: 0.7,
 			compliance_report: true,
 			suppress_warnings: true,
 			drift_inject_max_chars: 500,
-		};
-	}
+		},
+	};
 
 	return JSON.stringify(config);
 }
