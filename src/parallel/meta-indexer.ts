@@ -117,7 +117,7 @@ export async function indexMetaSummaries(
 	// Append new entries
 	if (uniqueEntries.length > 0) {
 		const lines = uniqueEntries.map((e) => JSON.stringify(e)).join('\n');
-		fs.appendFileSync(indexPath, lines + '\n', 'utf-8');
+		fs.appendFileSync(indexPath, `${lines}\n`, 'utf-8');
 	}
 
 	return {

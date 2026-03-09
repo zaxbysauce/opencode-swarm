@@ -167,7 +167,7 @@ interface PhaseCompleteEvent {
  * @param sinceTimestamp - Filter entries after this timestamp (0 means all entries)
  * @returns Array of delegation entries
  */
-function getDelegationsSince(
+function _getDelegationsSince(
 	sessionID: string,
 	sinceTimestamp: number,
 ): Array<{ from: string; to: string; timestamp: number }> {
@@ -190,7 +190,7 @@ function getDelegationsSince(
  * @param delegations - Array of delegation entries
  * @returns Set of normalized agent names
  */
-function normalizeAgentsFromDelegations(
+function _normalizeAgentsFromDelegations(
 	delegations: Array<{ from: string; to: string; timestamp: number }>,
 ): Set<string> {
 	const agents = new Set<string>();

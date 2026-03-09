@@ -9,7 +9,6 @@ import { validateSwarmPath } from '../hooks/utils';
 import type {
 	AgentSessionState,
 	DelegationEntry,
-	InvocationWindow,
 	ToolAggregate,
 } from '../state';
 import { swarmState } from '../state';

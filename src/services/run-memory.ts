@@ -95,7 +95,7 @@ export async function recordOutcome(
 ): Promise<void> {
 	validateDirectory(directory);
 	const resolvedPath = validateSwarmPath(directory, RUN_MEMORY_FILENAME);
-	const line = JSON.stringify(entry) + '\n';
+	const line = `${JSON.stringify(entry)}\n`;
 
 	// True append-only write - do NOT read existing content
 	await fs.appendFile(resolvedPath, line, { encoding: 'utf-8' });

@@ -3,9 +3,9 @@
  * Allows agents to mark tasks as pending, in_progress, completed, or blocked.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import * as fs from 'fs';
-import * as path from 'path';
 import type { TaskStatus } from '../config/plan-schema';
 import { updateTaskStatus } from '../plan/manager';
 import { advanceTaskState, getTaskState, swarmState } from '../state';

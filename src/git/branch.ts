@@ -1,6 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { warn } from '../utils/logger.js';
 
 const GIT_TIMEOUT_MS = 30_000;

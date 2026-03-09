@@ -502,7 +502,7 @@ No plan content available. Start by creating a .swarm/plan.md file.
 				// Truncate task text if needed
 				const truncateTask = (task: string) => {
 					const text = task.replace('- [ ] ', '');
-					return text.length > 60 ? text.slice(0, 57) + '...' : text;
+					return text.length > 60 ? `${text.slice(0, 57)}...` : text;
 				};
 
 				compactResult.push(`- Current: ${truncateTask(incompleteTasks[0])}`);

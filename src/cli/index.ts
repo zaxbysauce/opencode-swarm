@@ -5,29 +5,14 @@ import * as path from 'node:path';
 
 import {
 	handleAgentsCommand,
-	handleAnalyzeCommand,
 	handleArchiveCommand,
-	handleBenchmarkCommand,
-	handleClarifyCommand,
-	handleConfigCommand,
-	handleDarkMatterCommand,
-	handleDiagnoseCommand,
-	handleDoctorCommand,
-	handleEvidenceCommand,
-	handleEvidenceSummaryCommand,
-	handleExportCommand,
 	handleHandoffCommand,
 	handleHistoryCommand,
 	handleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand,
 	handlePlanCommand,
-	handlePreflightCommand,
-	handleResetCommand,
-	handleRetrieveCommand,
-	handleSpecifyCommand,
 	handleStatusCommand,
-	handleSyncPlanCommand,
 } from '../commands/index.js';
 
 const CONFIG_DIR = path.join(

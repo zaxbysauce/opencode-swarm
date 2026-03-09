@@ -4,9 +4,9 @@
  * This tool must be called before delegating to mega_coder to enable scope containment checking.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import * as fs from 'fs';
-import * as path from 'path';
 import { getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 

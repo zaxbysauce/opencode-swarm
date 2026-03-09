@@ -2,7 +2,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
-import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============

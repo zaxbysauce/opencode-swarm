@@ -37,6 +37,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 
 			for (const toolName of REGISTERED_TOOL_NAMES) {
 				expect(toolsIndex).toHaveProperty(toolName);
+				// biome-ignore lint/suspicious/noExplicitAny: dynamic tool lookup
 				const tool = (toolsIndex as any)[toolName];
 				expect(tool).toBeDefined();
 				// Tools can be either: function, or object with execute method
@@ -293,6 +294,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 			let exportCount = 0;
 
 			for (const toolName of REGISTERED_TOOL_NAMES) {
+				// biome-ignore lint/suspicious/noExplicitAny: dynamic tool lookup
 				const tool = (toolsIndex as any)[toolName];
 				if (tool) {
 					const isCallable =
@@ -311,6 +313,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 			const toolsIndex = await import('./index');
 
 			for (const toolName of REGISTERED_TOOL_NAMES) {
+				// biome-ignore lint/suspicious/noExplicitAny: dynamic tool lookup
 				const tool = (toolsIndex as any)[toolName];
 				expect(tool).not.toBeNull();
 				expect(tool).not.toBeUndefined();
@@ -321,6 +324,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 	describe('Tool Description Verification', () => {
 		it('should have description on checkpoint tool', async () => {
 			const { checkpoint } = await import('./index');
+			// biome-ignore lint/suspicious/noExplicitAny: checkpoint tool type is dynamic
 			const tool = checkpoint as any;
 			// If it's an object with description, verify it
 			if (typeof tool === 'object' && tool.description) {
@@ -333,6 +337,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 			const toolsIndex = await import('./index');
 
 			for (const toolName of REGISTERED_TOOL_NAMES) {
+				// biome-ignore lint/suspicious/noExplicitAny: dynamic tool lookup
 				const tool = (toolsIndex as any)[toolName];
 				expect(tool).toBeDefined();
 

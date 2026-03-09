@@ -6,13 +6,7 @@
 import path from 'node:path';
 
 import { validateSwarmPath } from '../hooks/utils';
-import type {
-	AgentSessionState,
-	DelegationEntry,
-	InvocationWindow,
-	TaskWorkflowState,
-	ToolAggregate,
-} from '../state';
+import type { AgentSessionState, TaskWorkflowState } from '../state';
 import { advanceTaskState, getTaskState, swarmState } from '../state';
 import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
 

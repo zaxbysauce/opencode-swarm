@@ -4,7 +4,7 @@ import {
 	getLanguageForExtension,
 	type LanguageDefinition,
 } from '../lang/registry.js';
-import { loadGrammar, type Parser } from '../lang/runtime.js';
+import { loadGrammar } from '../lang/runtime.js';
 
 export interface ASTChange {
 	type: 'added' | 'modified' | 'removed';

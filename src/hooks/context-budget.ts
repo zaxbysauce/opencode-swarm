@@ -457,7 +457,7 @@ function shouldMaskToolOutput(
  * Mask tool output with placeholder
  * Returns the number of tokens freed (original - masked)
  */
-function maskToolOutput(msg: MessageWithParts, threshold: number): number {
+function maskToolOutput(msg: MessageWithParts, _threshold: number): number {
 	if (!msg?.parts) return 0;
 
 	let freedTokens = 0;

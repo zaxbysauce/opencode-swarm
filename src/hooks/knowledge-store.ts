@@ -119,7 +119,7 @@ export async function appendKnowledge<T>(
 	entry: T,
 ): Promise<void> {
 	await mkdir(path.dirname(filePath), { recursive: true });
-	await appendFile(filePath, JSON.stringify(entry) + '\n', 'utf-8');
+	await appendFile(filePath, `${JSON.stringify(entry)}\n`, 'utf-8');
 }
 
 // Rewrite the entire JSONL file with a new array of entries.

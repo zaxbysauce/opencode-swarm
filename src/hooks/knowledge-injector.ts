@@ -208,7 +208,7 @@ export function createKnowledgeInjectorHook(
 
 			// Prepend run memory summary if available (highest priority)
 			if (runMemory) {
-				cachedInjectionText = runMemory + '\n\n' + knowledgeSection;
+				cachedInjectionText = `${runMemory}\n\n${knowledgeSection}`;
 			} else {
 				cachedInjectionText = knowledgeSection;
 			}
@@ -233,7 +233,7 @@ export function createKnowledgeInjectorHook(
 					const latestReport = driftReports[driftReports.length - 1];
 					const driftText = buildDriftInjectionText(latestReport, 500);
 					if (driftText) {
-						cachedInjectionText = driftText + '\n\n' + cachedInjectionText;
+						cachedInjectionText = `${driftText}\n\n${cachedInjectionText}`;
 					}
 				}
 			} catch {

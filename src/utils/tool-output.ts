@@ -37,5 +37,5 @@ export function truncateToolOutput(
 
 	footerLines.push('Use /swarm retrieve <id> to get the full content');
 
-	return truncated.join('\n') + '\n' + footerLines.join('\n');
+	return `${truncated.join('\n')}\n${footerLines.join('\n')}`;
 }

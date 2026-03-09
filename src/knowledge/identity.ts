@@ -43,7 +43,7 @@ export function resolveIdentityPath(projectHash: string): string {
  * Derive a deterministic project hash from a directory.
  * Uses git remote URL if available, otherwise falls back to absolute path.
  */
-function deriveProjectHash(directory: string): string {
+function _deriveProjectHash(directory: string): string {
 	const absolutePath = path.resolve(directory);
 	let hashInput: string;
 

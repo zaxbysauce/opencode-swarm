@@ -61,7 +61,7 @@ const SAME_PROJECT_PENALTY = -0.05;
 // Internal Helper: computeRelevance
 // ============================================================================
 
-function computeRelevance(
+function _computeRelevance(
 	entry: KnowledgeEntryBase,
 	context?: ProjectContext,
 ): number {
@@ -159,7 +159,7 @@ function inferCategoriesFromPhase(
 // Internal Helper: detectTechStack
 // ============================================================================
 
-async function detectTechStack(directory: string): Promise<string[]> {
+async function _detectTechStack(directory: string): Promise<string[]> {
 	const pkgPath = path.join(directory, 'package.json');
 	const techStack = new Set<string>();
 
@@ -240,7 +240,7 @@ async function detectTechStack(directory: string): Promise<string[]> {
 		}
 
 		// Explicit TypeScript detection
-		if (allDeps['typescript'] || allDeps['ts-node'] || pkg.types) {
+		if (allDeps.typescript || allDeps['ts-node'] || pkg.types) {
 			techStack.add('typescript');
 		}
 	} catch {

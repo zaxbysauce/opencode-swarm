@@ -42,7 +42,7 @@ function sanitizeString(
 	if (!str) return '';
 	const sanitized = String(str).replace(RTL_OVERRIDE_PATTERN, '');
 	if (sanitized.length > maxLength) {
-		return sanitized.substring(0, maxLength - 3) + '...';
+		return `${sanitized.substring(0, maxLength - 3)}...`;
 	}
 	return sanitized;
 }
@@ -382,7 +382,7 @@ export async function getHandoffData(directory: string): Promise<HandoffData> {
 
 			if (phaseMatch) {
 				planInfo.currentPhase = sanitizeString(
-					`Phase ${phaseMatch[1]}${phaseMatch[2] ? ': ' + phaseMatch[2] : ''}`,
+					`Phase ${phaseMatch[1]}${phaseMatch[2] ? `: ${phaseMatch[2]}` : ''}`,
 					MAX_TASK_ID_LENGTH,
 				);
 			}

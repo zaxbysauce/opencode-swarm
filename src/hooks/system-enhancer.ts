@@ -7,7 +7,6 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { PluginConfig } from '../config';
 import { DEFAULT_SCORING_CONFIG } from '../config/constants';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
@@ -206,7 +205,7 @@ ${lessons.map((l) => `- ${l}`).join('\n')}
 						continue;
 					const ts = retro.timestamp ?? b.bundle.created_at;
 					const ageMs = now - new Date(ts).getTime();
-					if (isNaN(ageMs) || ageMs > cutoffMs) continue;
+					if (Number.isNaN(ageMs) || ageMs > cutoffMs) continue;
 					allRetros.push({ entry: retro, timestamp: ts });
 				}
 			}
@@ -219,9 +218,9 @@ ${lessons.map((l) => `- ${l}`).join('\n')}
 		allRetros.sort((a, b) => {
 			const ta = new Date(a.timestamp).getTime();
 			const tb = new Date(b.timestamp).getTime();
-			if (isNaN(ta) && isNaN(tb)) return 0;
-			if (isNaN(ta)) return 1;
-			if (isNaN(tb)) return -1;
+			if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+			if (Number.isNaN(ta)) return 1;
+			if (Number.isNaN(tb)) return -1;
 			return tb - ta;
 		});
 		const top3 = allRetros.slice(0, 3);
@@ -284,7 +283,7 @@ async function buildCoderRetroInjection(
 		if (!retroEntry || retroEntry.verdict === 'fail') return null;
 
 		const lessons = retroEntry.lessons_learned ?? [];
-		const summaryLine = `[SWARM RETROSPECTIVE] From Phase ${prevPhase}:${retroEntry.summary ? ' ' + retroEntry.summary : ''}`;
+		const summaryLine = `[SWARM RETROSPECTIVE] From Phase ${prevPhase}:${retroEntry.summary ? ` ${retroEntry.summary}` : ''}`;
 		const allLines = [summaryLine, ...lessons];
 		const text = allLines.join('\n');
 		return text.length <= 400 ? text : `${text.substring(0, 397)}...`;
@@ -479,6 +478,7 @@ The previous model's session ended. Here is your starting context:
 ${handoffContent}`;
 									tryInject(`[HANDOFF BRIEF]\n${handoffBlock}`);
 								}
+								// biome-ignore lint/suspicious/noExplicitAny: error type is unknown from catch clause
 							} catch (error: any) {
 								// Log non-ENOENT errors (file not found is expected)
 								if (error?.code !== 'ENOENT') {
@@ -790,7 +790,9 @@ ${handoffContent}`;
 						// Map schema config to service config format
 						const contextBudgetConfig = userConfig
 							? {
+									// biome-ignore lint/suspicious/noExplicitAny: config spreading requires any
 									...(defaultConfig as any),
+									// biome-ignore lint/suspicious/noExplicitAny: config spreading requires any
 									...(userConfig as any),
 									warningPct: userConfig.warn_threshold
 										? userConfig.warn_threshold * 100
@@ -961,6 +963,7 @@ ${handoffContent}`;
 									metadata: { contentType: 'markdown' as ContentType },
 								});
 							}
+							// biome-ignore lint/suspicious/noExplicitAny: error type is unknown from catch clause
 						} catch (error: any) {
 							// Log non-ENOENT errors (file not found is expected)
 							if (error?.code !== 'ENOENT') {
@@ -1372,7 +1375,9 @@ ${handoffContent}`;
 					// Map schema config to service config format
 					const contextBudgetConfig_b = userConfig_b
 						? {
+								// biome-ignore lint/suspicious/noExplicitAny: config spreading requires any
 								...(defaultConfig_b as any),
+								// biome-ignore lint/suspicious/noExplicitAny: config spreading requires any
 								...(userConfig_b as any),
 								warningPct: userConfig_b.warn_threshold
 									? userConfig_b.warn_threshold * 100

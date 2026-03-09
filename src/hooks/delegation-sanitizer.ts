@@ -96,8 +96,7 @@ export function createDelegationSanitizerHook(
 ): (input: unknown, output: unknown) => Promise<void> {
 	const hook = async (_input: unknown, output: unknown): Promise<void> => {
 		// Extract messages from output
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const messages = (output as any)?.messages;
+		const messages = (output as { messages?: unknown })?.messages;
 		if (!messages || !Array.isArray(messages)) {
 			return;
 		}

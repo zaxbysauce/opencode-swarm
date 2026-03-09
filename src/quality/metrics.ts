@@ -735,7 +735,7 @@ function globMatches(path: string, glob: string): boolean {
  * - Regex metacharacters are escaped to avoid SyntaxError
  * @deprecated Use globMatches() instead for reliable globstar handling
  */
-function globToRegex(glob: string): RegExp {
+function _globToRegex(glob: string): RegExp {
 	// Handle empty glob - matches everything
 	if (!glob) {
 		return /.*/;
@@ -749,7 +749,7 @@ function globToRegex(glob: string): RegExp {
 	// Handle trailing backslash - escape it to prevent regex errors
 	// A trailing \ in glob should be treated as literal backslash
 	if (pattern.endsWith('\\')) {
-		pattern = pattern.slice(0, -1) + '\\\\';
+		pattern = `${pattern.slice(0, -1)}\\\\`;
 	}
 
 	// Check if pattern contains ** - we'll use different anchoring

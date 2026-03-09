@@ -485,6 +485,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {
 					if (output.messages) {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+						// biome-ignore lint/suspicious/noExplicitAny: consolidateSystemMessages accepts unknown[]
 						output.messages = consolidateSystemMessages(output.messages as any);
 					}
 					return Promise.resolve();

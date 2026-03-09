@@ -162,7 +162,7 @@ async function checkPhaseBoundaries(plan: Plan | null): Promise<HealthCheck> {
 	for (const phase of plan.phases) {
 		for (const task of phase.tasks) {
 			const taskPhaseNum = parseInt(task.id.split('.')[0], 10);
-			if (isNaN(taskPhaseNum)) {
+			if (Number.isNaN(taskPhaseNum)) {
 				mismatches.push(`Task ${task.id} has invalid phase number`);
 			} else if (taskPhaseNum !== phase.id) {
 				mismatches.push(`Task ${task.id} found under Phase ${phase.id}`);

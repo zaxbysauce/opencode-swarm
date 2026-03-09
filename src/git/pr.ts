@@ -7,9 +7,7 @@ import {
 	getChangedFiles,
 	getCurrentBranch,
 	getCurrentSha,
-	isGitRepo,
 	stageAll,
-	stageFiles,
 } from './branch.js';
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -21,11 +19,14 @@ const GIT_TIMEOUT_MS = 30_000;
 export function sanitizeInput(input: string): string {
 	// Remove newlines and control characters that could be exploited
 	// Also escape common shell metacharacters
-	return input
-		.replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
-		.replace(/[`$"\\]/g, '\\$&') // Escape shell metacharacters
-		.replace(/\n+/g, ' ') // Replace newlines with spaces
-		.trim();
+	return (
+		input
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: regex built from string to avoid biome false positive on literal control characters
+			.replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
+			.replace(/[`$"\\]/g, '\\$&') // Escape shell metacharacters
+			.replace(/\n+/g, ' ') // Replace newlines with spaces
+			.trim()
+	);
 }
 
 /**
