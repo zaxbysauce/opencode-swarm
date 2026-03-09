@@ -399,6 +399,17 @@ export declare const KnowledgeConfigSchema: z.ZodObject<{
     schema_version: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
+export declare const CuratorConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    init_enabled: z.ZodDefault<z.ZodBoolean>;
+    phase_enabled: z.ZodDefault<z.ZodBoolean>;
+    max_summary_tokens: z.ZodDefault<z.ZodNumber>;
+    min_knowledge_confidence: z.ZodDefault<z.ZodNumber>;
+    compliance_report: z.ZodDefault<z.ZodBoolean>;
+    suppress_warnings: z.ZodDefault<z.ZodBoolean>;
+    drift_inject_max_chars: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -642,6 +653,16 @@ export declare const PluginConfigSchema: z.ZodObject<{
         low_utility_threshold: z.ZodDefault<z.ZodNumber>;
         min_retrievals_for_utility: z.ZodDefault<z.ZodNumber>;
         schema_version: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    curator: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        init_enabled: z.ZodDefault<z.ZodBoolean>;
+        phase_enabled: z.ZodDefault<z.ZodBoolean>;
+        max_summary_tokens: z.ZodDefault<z.ZodNumber>;
+        min_knowledge_confidence: z.ZodDefault<z.ZodNumber>;
+        compliance_report: z.ZodDefault<z.ZodBoolean>;
+        suppress_warnings: z.ZodDefault<z.ZodBoolean>;
+        drift_inject_max_chars: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     tool_output: z.ZodOptional<z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;

@@ -229,6 +229,100 @@ describe('executeUpdateTaskStatus', () => {
 		expect(planMdContent).toContain('1.1');
 		expect(planMdContent).toContain('IN PROGRESS');
 	});
+
+	describe('Bug 3 fix: plan.json fallback when all sessions are idle', () => {
+		test('allows completed when plan.json shows task already completed (no active tests_run state)', async () => {
+			// Write a plan.json where task 1.1 is already completed
+			const completedPlan = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				current_phase: 1,
+				migration_status: 'migrated',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								size: 'small',
+								description: 'Test task 1',
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(completedPlan, null, 2),
+			);
+
+			// Create a session but keep task state at idle (simulates session restart)
+			ensureAgentSession('test-idle-session');
+			// Do NOT advance state machine — task stays at idle
+
+			const result = await executeUpdateTaskStatus(
+				{ task_id: '1.1', status: 'completed' },
+				tempDir,
+			);
+
+			// Should succeed because plan.json shows task is already completed
+			expect(result.success).toBe(true);
+			expect(result.new_status).toBe('completed');
+		});
+
+		test('blocks completed when plan.json shows task as in_progress (gate still enforced)', async () => {
+			// plan.json shows task 1.1 as in_progress — gate should be enforced
+			const inProgressPlan = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				current_phase: 1,
+				migration_status: 'migrated',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'in_progress',
+								size: 'small',
+								description: 'Test task 1',
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(inProgressPlan, null, 2),
+			);
+
+			// Create a session but keep task state at idle
+			ensureAgentSession('test-idle-session');
+			// Do NOT advance state machine
+
+			const result = await executeUpdateTaskStatus(
+				{ task_id: '1.1', status: 'completed' },
+				tempDir,
+			);
+
+			// Should fail: gate enforced because task is in_progress (not completed) in plan.json
+			expect(result.success).toBe(false);
+			expect(result.message).toContain('Gate check failed');
+		});
+	});
 });
 
 describe('checkReviewerGate', () => {

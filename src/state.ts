@@ -130,6 +130,8 @@ export interface AgentSessionState {
 	lastPhaseCompletePhase: number;
 	/** Set of agents dispatched in current phase (normalized names) */
 	phaseAgentsDispatched: Set<string>;
+	/** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
+	lastCompletedPhaseAgentsDispatched: Set<string>;
 }
 
 /**
@@ -247,6 +249,7 @@ export function startAgentSession(
 		lastPhaseCompleteTimestamp: 0,
 		lastPhaseCompletePhase: 0,
 		phaseAgentsDispatched: new Set(),
+		lastCompletedPhaseAgentsDispatched: new Set(),
 		// QA Skip Hard-Block Enforcement (v6.17)
 		qaSkipCount: 0,
 		qaSkipTaskIds: [],
@@ -364,6 +367,9 @@ export function ensureAgentSession(
 		}
 		if (!session.phaseAgentsDispatched) {
 			session.phaseAgentsDispatched = new Set();
+		}
+		if (!session.lastCompletedPhaseAgentsDispatched) {
+			session.lastCompletedPhaseAgentsDispatched = new Set();
 		}
 		// QA Skip Hard-Block Enforcement migration safety (v6.17)
 		if (session.qaSkipCount === undefined) {

@@ -116,6 +116,25 @@ export function checkReviewerGate(taskId: string): ReviewerGateResult {
 				`[update-task-status] Issue #81 regression detected for task ${taskId}: all ${stateEntries.length} session(s) show idle state. taskWorkflowStates may not be persisting across sessions.`,
 			);
 		}
+		// Bug 3 fix: no session has this task in tests_run or complete state.
+		// Check plan.json as fallback — covers session restarts where task was
+		// completed in a prior session and plan.json is the source of truth.
+		try {
+			const planPath = path.join(process.cwd(), '.swarm', 'plan.json');
+			const planRaw = fs.readFileSync(planPath, 'utf-8');
+			const plan = JSON.parse(planRaw) as {
+				phases: Array<{ tasks: Array<{ id: string; status: string }> }>;
+			};
+			for (const planPhase of plan.phases ?? []) {
+				for (const task of planPhase.tasks ?? []) {
+					if (task.id === taskId && task.status === 'completed') {
+						return { blocked: false, reason: '' };
+					}
+				}
+			}
+		} catch {
+			// plan.json missing or unreadable — fall through to blocked:true
+		}
 
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
