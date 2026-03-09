@@ -286,7 +286,7 @@ The coder and reviewer agents automatically receive language-specific constraint
 
 ## Curator Integration
 
-The Curator is an optional background analysis system that provides phase-level intelligence across the project lifecycle. It is **disabled by default** — set `curator.enabled = true` in `.opencode/swarm.json` to activate it.
+The Curator is an optional background analysis system that provides phase-level intelligence across the project lifecycle. It is **disabled by default** — set `curator.enabled = true` in `.opencode/opencode-swarm.json` to activate it.
 
 ### How the Curator Hooks into Execution
 

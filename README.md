@@ -78,7 +78,7 @@ This checks that everything is wired up correctly.
 
 ### Configure Models (Optional)
 
-By default, Swarm v6.14+ uses free OpenCode Zen models (no API key required). You can override any agent's model by creating `.opencode/swarm.json` in your project. See the [LLM Provider Guide](#llm-provider-guide) for all options.
+By default, Swarm v6.14+ uses free OpenCode Zen models (no API key required). You can override any agent's model by creating `.opencode/opencode-swarm.json` in your project. See the [LLM Provider Guide](#llm-provider-guide) for all options.
 
 ```json
 {
@@ -152,7 +152,7 @@ OpenCode Zen provides free models via the `opencode/` provider prefix. These are
 }
 ```
 
-> Save this configuration to `.opencode/swarm.json` in your project root (or `~/.config/opencode/opencode-swarm.json` for global config).
+> Save this configuration to `.opencode/opencode-swarm.json` in your project root (or `~/.config/opencode/opencode-swarm.json` for global config).
 
 > **Note:** The `architect` key is intentionally omitted — it inherits whatever model you have selected in the OpenCode UI for maximum reasoning quality.
 
@@ -552,7 +552,7 @@ Optional enhancement: Semgrep (if on PATH).
 <details>
 <summary><strong>Full Configuration Reference</strong></summary>
 
-Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.opencode/swarm.json` (project). Project config merges over global.
+Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.opencode/opencode-swarm.json` (project). Project config merges over global.
 
 ```json
 {
@@ -1032,7 +1032,7 @@ The Curator is an optional background analysis system that runs after each phase
 
 ### Configuration
 
-Add a `curator` block to `.opencode/swarm.json`:
+Add a `curator` block to `.opencode/opencode-swarm.json`:
 
 ```json
 {
