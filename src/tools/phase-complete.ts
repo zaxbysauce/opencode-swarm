@@ -91,6 +91,13 @@ function collectCrossSessionDispatchedAgents(
 			}
 		}
 
+		// Also include agents from the most recently completed phase (persisted across reset)
+		if (callerSession.lastCompletedPhaseAgentsDispatched) {
+			for (const agent of callerSession.lastCompletedPhaseAgentsDispatched) {
+				agents.add(agent);
+			}
+		}
+
 		// Collect agents from caller's delegation chains
 		const callerDelegations = swarmState.delegationChains.get(callerSessionId);
 		if (callerDelegations) {
@@ -122,7 +129,17 @@ function collectCrossSessionDispatchedAgents(
 		const hasRecentDelegations =
 			delegations?.some((d) => d.timestamp >= phaseReferenceTimestamp) ?? false;
 
-		const hasActivity = hasRecentToolCalls || hasRecentDelegations;
+		// Check for restored session with dispatched agents from same phase lifecycle.
+		// After close/reopen, snapshot-restored sessions retain phaseAgentsDispatched
+		// but fail the timestamp freshness check. If the session has agents AND its
+		// lastPhaseCompleteTimestamp matches the caller's reference (both came from
+		// the same phase boundary), it's a valid contributor.
+		const hasRestoredAgents =
+			(session.phaseAgentsDispatched?.size ?? 0) > 0 &&
+			session.lastPhaseCompleteTimestamp === phaseReferenceTimestamp;
+
+		const hasActivity =
+			hasRecentToolCalls || hasRecentDelegations || hasRestoredAgents;
 
 		if (hasActivity) {
 			contributorSessionIds.push(sessionId);
@@ -130,6 +147,13 @@ function collectCrossSessionDispatchedAgents(
 			// Collect agents from this session's phaseAgentsDispatched
 			if (session.phaseAgentsDispatched) {
 				for (const agent of session.phaseAgentsDispatched) {
+					agents.add(agent);
+				}
+			}
+
+			// Also include agents from this session's most recently completed phase
+			if (session.lastCompletedPhaseAgentsDispatched) {
+				for (const agent of session.lastCompletedPhaseAgentsDispatched) {
 					agents.add(agent);
 				}
 			}
@@ -578,6 +602,12 @@ export async function executePhaseComplete(
 			const contributorSession =
 				swarmState.agentSessions.get(contributorSessionId);
 			if (contributorSession) {
+				// Only snapshot agents if there are any new agents to persist (prevents empty overwrite on repeated calls)
+				if (contributorSession.phaseAgentsDispatched.size > 0) {
+					contributorSession.lastCompletedPhaseAgentsDispatched = new Set(
+						contributorSession.phaseAgentsDispatched,
+					);
+				}
 				contributorSession.phaseAgentsDispatched = new Set();
 				contributorSession.lastPhaseCompleteTimestamp = now;
 				contributorSession.lastPhaseCompletePhase = phase;

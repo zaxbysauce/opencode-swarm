@@ -35,6 +35,15 @@ mock.module('../../../src/config/schema', () => ({
 	},
 }));
 
+// Mock loadPluginConfigWithMeta
+const mockLoadPluginConfigWithMeta = jest.fn<
+	(_directory: string) => Promise<{ config: { curator?: unknown } }>
+>();
+
+mock.module('../../../src/config/index.js', () => ({
+	loadPluginConfigWithMeta: mockLoadPluginConfigWithMeta,
+}));
+
 import { loadPlan } from '../../../src/plan/manager';
 import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
 
@@ -76,6 +85,10 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		mockCheckAndTrigger.mockClear();
 		mockRunCuratorInit.mockClear();
 		mockCuratorConfigSchemaParse.mockClear();
+		mockLoadPluginConfigWithMeta.mockClear();
+
+		// Default: return empty curator config (disabled)
+		mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: undefined } });
 
 		// Default: curator disabled
 		mockCuratorConfigSchemaParse.mockReturnValue({
@@ -108,6 +121,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('2. Curator init called on first invocation when enabled', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -143,6 +157,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('3. Curator init error does not block hook', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -174,6 +189,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('4. Hook still detects phase transitions after curator init', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -223,6 +239,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('5. Curator init only called once (on first invocation)', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -272,6 +289,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 	describe('Adversarial Tests', () => {
 		it('6. runCuratorInit throws synchronously - hook does not throw', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -302,6 +320,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('7. runCuratorInit rejects with a non-Error - hook handles gracefully', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -330,6 +349,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('8. runCuratorInit rejects with a number - hook handles gracefully', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,
@@ -358,6 +378,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 		it('9. runCuratorInit rejects with null - hook handles gracefully', async () => {
 			// Configure mock to return enabled: true
+			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
 			mockCuratorConfigSchemaParse.mockReturnValue({
 				enabled: true,
 				init_enabled: true,

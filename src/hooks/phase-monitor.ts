@@ -35,7 +35,9 @@ export function createPhaseMonitorHook(
 		if (lastKnownPhase === null) {
 			lastKnownPhase = currentPhase;
 			try {
-				const curatorConfig = CuratorConfigSchema.parse({});
+				const { loadPluginConfigWithMeta } = await import('../config/index.js');
+				const { config } = loadPluginConfigWithMeta(directory);
+				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
 					await runCuratorInit(directory, curatorConfig);
 				}

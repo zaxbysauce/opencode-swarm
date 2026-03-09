@@ -32,8 +32,10 @@ export interface SerializedAgentSession {
     lastPhaseCompleteTimestamp: number;
     lastPhaseCompletePhase: number;
     phaseAgentsDispatched: string[];
+    lastCompletedPhaseAgentsDispatched: string[];
     qaSkipCount: number;
     qaSkipTaskIds: string[];
+    taskWorkflowStates?: Record<string, string>;
 }
 /**
  * Minimal interface for serialized InvocationWindow

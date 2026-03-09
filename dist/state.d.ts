@@ -109,6 +109,8 @@ export interface AgentSessionState {
     lastPhaseCompletePhase: number;
     /** Set of agents dispatched in current phase (normalized names) */
     phaseAgentsDispatched: Set<string>;
+    /** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
+    lastCompletedPhaseAgentsDispatched: Set<string>;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.

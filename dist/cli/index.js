@@ -14364,7 +14364,7 @@ async function loadEvidence(directory, taskId) {
       return { status: "found", bundle: validated };
     } catch (error49) {
       warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => e.path.join(".") + ": " + e.message) : [String(error49)];
+      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [String(error49)];
       return { status: "invalid_schema", errors: errors3 };
     }
   }
@@ -14373,7 +14373,7 @@ async function loadEvidence(directory, taskId) {
     return { status: "found", bundle: validated };
   } catch (error49) {
     warn(`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => e.path.join(".") + ": " + e.message) : [String(error49)];
+    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [String(error49)];
     return { status: "invalid_schema", errors: errors3 };
   }
 }
@@ -17103,6 +17103,16 @@ var KnowledgeConfigSchema = exports_external.object({
   min_retrievals_for_utility: exports_external.number().min(1).max(100).default(3),
   schema_version: exports_external.number().int().min(1).default(1)
 });
+var CuratorConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(false),
+  init_enabled: exports_external.boolean().default(true),
+  phase_enabled: exports_external.boolean().default(true),
+  max_summary_tokens: exports_external.number().min(500).max(8000).default(2000),
+  min_knowledge_confidence: exports_external.number().min(0).max(1).default(0.7),
+  compliance_report: exports_external.boolean().default(true),
+  suppress_warnings: exports_external.boolean().default(true),
+  drift_inject_max_chars: exports_external.number().min(100).max(2000).default(500)
+});
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -17130,6 +17140,7 @@ var PluginConfigSchema = exports_external.object({
   checkpoint: CheckpointConfigSchema.optional(),
   automation: AutomationConfigSchema.optional(),
   knowledge: KnowledgeConfigSchema.optional(),
+  curator: CuratorConfigSchema.optional(),
   tool_output: exports_external.object({
     truncation_enabled: exports_external.boolean().default(true),
     max_lines: exports_external.number().min(10).max(500).default(150),
@@ -17353,7 +17364,7 @@ async function readKnowledge(filePath) {
 }
 async function appendKnowledge(filePath, entry) {
   await mkdir(path4.dirname(filePath), { recursive: true });
-  await appendFile(filePath, JSON.stringify(entry) + `
+  await appendFile(filePath, `${JSON.stringify(entry)}
 `, "utf-8");
 }
 async function rewriteKnowledge(filePath, entries) {
@@ -30091,7 +30102,7 @@ function sanitizeString(str, maxLength) {
     return "";
   const sanitized = String(str).replace(RTL_OVERRIDE_PATTERN, "");
   if (sanitized.length > maxLength) {
-    return sanitized.substring(0, maxLength - 3) + "...";
+    return `${sanitized.substring(0, maxLength - 3)}...`;
   }
   return sanitized;
 }
@@ -30262,7 +30273,7 @@ async function getHandoffData(directory) {
       const phaseMatch = planMdContent.match(/^## Phase (\d+):?\s*(.+)?$/m);
       const taskMatch = planMdContent.match(/^- \[ \] (\d+\.\d+)/g);
       if (phaseMatch) {
-        planInfo.currentPhase = sanitizeString(`Phase ${phaseMatch[1]}${phaseMatch[2] ? ": " + phaseMatch[2] : ""}`, MAX_TASK_ID_LENGTH);
+        planInfo.currentPhase = sanitizeString(`Phase ${phaseMatch[1]}${phaseMatch[2] ? `: ${phaseMatch[2]}` : ""}`, MAX_TASK_ID_LENGTH);
       }
       if (taskMatch) {
         const rawTasks = taskMatch.map((t) => t.replace("- [ ] ", ""));
@@ -30391,6 +30402,7 @@ function serializeAgentSession(s) {
   const partialGateWarningsIssuedForTask = Array.from(s.partialGateWarningsIssuedForTask ?? new Set);
   const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
   const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
+  const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
   const windows = {};
   const rawWindows = s.windows ?? {};
   for (const [key, win] of Object.entries(rawWindows)) {
@@ -30428,8 +30440,10 @@ function serializeAgentSession(s) {
     lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
     lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
     phaseAgentsDispatched,
+    lastCompletedPhaseAgentsDispatched,
     qaSkipCount: s.qaSkipCount ?? 0,
-    qaSkipTaskIds: s.qaSkipTaskIds ?? []
+    qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map)
   };
 }
 async function writeSnapshot(directory, state) {

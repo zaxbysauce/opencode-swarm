@@ -75,6 +75,11 @@ export function deserializeAgentSession(
 	// Convert phaseAgentsDispatched: string[] -> Set<string>
 	const phaseAgentsDispatched = new Set(s.phaseAgentsDispatched ?? []);
 
+	// Convert lastCompletedPhaseAgentsDispatched: string[] -> Set<string>
+	const lastCompletedPhaseAgentsDispatched = new Set(
+		s.lastCompletedPhaseAgentsDispatched ?? [],
+	);
+
 	return {
 		agentName: s.agentName,
 		lastToolCallTime: s.lastToolCallTime,
@@ -96,6 +101,7 @@ export function deserializeAgentSession(
 		lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
 		lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
 		phaseAgentsDispatched,
+		lastCompletedPhaseAgentsDispatched,
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
 		taskWorkflowStates: deserializeTaskWorkflowStates(s.taskWorkflowStates),

@@ -37,6 +37,7 @@ export interface SerializedAgentSession {
 	lastPhaseCompleteTimestamp: number;
 	lastPhaseCompletePhase: number;
 	phaseAgentsDispatched: string[];
+	lastCompletedPhaseAgentsDispatched: string[];
 	qaSkipCount: number;
 	qaSkipTaskIds: string[];
 	taskWorkflowStates?: Record<string, string>;
@@ -106,6 +107,11 @@ export function serializeAgentSession(
 		s.phaseAgentsDispatched ?? new Set(),
 	);
 
+	// Convert lastCompletedPhaseAgentsDispatched: Set<string> -> string[]
+	const lastCompletedPhaseAgentsDispatched = Array.from(
+		s.lastCompletedPhaseAgentsDispatched ?? new Set(),
+	);
+
 	// Convert windows: Record<string, InvocationWindow> (already serializable)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	const rawWindows = s.windows ?? {};
@@ -145,6 +151,7 @@ export function serializeAgentSession(
 		lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
 		lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
 		phaseAgentsDispatched,
+		lastCompletedPhaseAgentsDispatched,
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
 		taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map()),

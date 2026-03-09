@@ -535,12 +535,15 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce'
+					},
+					curator: { enabled: false }
+				})
 			);
 			
 			ensureAgentSession('sess1');
@@ -554,7 +557,8 @@ describe('phase_complete tool', () => {
 			expect(fs.existsSync(eventsPath)).toBe(true);
 			
 			const eventContent = fs.readFileSync(eventsPath, 'utf-8');
-			const event = JSON.parse(eventContent.trim());
+			const lines = eventContent.trim().split('\n').filter(Boolean);
+			const event = lines.map((line: string) => { try { return JSON.parse(line); } catch { return null; } }).find((e: Record<string, unknown> | null) => e?.event === 'phase_complete');
 			
 			expect(event.event).toBe('phase_complete');
 			expect(event.phase).toBe(1);
@@ -904,6 +908,49 @@ describe('phase_complete tool', () => {
 			const sess2After = swarmState.agentSessions.get('sess2');
 			expect(sess2After?.phaseAgentsDispatched.size).toBe(1);
 			expect(sess2After?.lastPhaseCompleteTimestamp).toBe(0);
+		});
+
+		test('includes restored session agents when lastPhaseCompleteTimestamp matches reference', async () => {
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({phase_complete: {
+							enabled: true,
+							required_agents: ['reviewer', 'test_engineer'],
+							require_docs: false,
+							policy: 'enforce'
+						}})
+			);
+
+			// Create BOTH sessions before setting any stale timestamps.
+			// ensureAgentSession calls startAgentSession for new sessions, which runs a
+			// stale-session eviction loop (evicts sessions with lastToolCallTime > 2 hours ago).
+			// Setting session-a's lastToolCallTime = 500 (epoch) BEFORE creating session-b
+			// would cause session-a to be evicted during session-b creation.
+			ensureAgentSession('session-a');
+			ensureAgentSession('session-b');
+
+			// Session A: has agents from before close/reopen, stale lastToolCallTime.
+			// Set stale values AFTER session-b is created to avoid eviction.
+			const sessionA = swarmState.agentSessions.get('session-a')!;
+			sessionA.phaseAgentsDispatched = new Set(['reviewer', 'test_engineer']);
+			sessionA.lastPhaseCompleteTimestamp = 1000; // matches reference
+			sessionA.lastToolCallTime = 500; // old — before reference, fails hasRecentToolCalls
+
+			// Session B (caller): phaseReferenceTimestamp will be lastPhaseCompleteTimestamp
+			const sessionB = swarmState.agentSessions.get('session-b')!;
+			sessionB.lastPhaseCompleteTimestamp = 1000; // same reference as session A
+			sessionB.phaseAgentsDispatched = new Set();
+			// lastToolCallTime updated by ensureAgentSession inside execute — no need to set here
+
+			// Call phase_complete from session-b — should include session-a's agents
+			// despite session-a having stale lastToolCallTime (hasRestoredAgents fires instead)
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'session-b' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.agentsDispatched).toContain('reviewer');
+			expect(parsed.agentsDispatched).toContain('test_engineer');
 		});
 	});
 

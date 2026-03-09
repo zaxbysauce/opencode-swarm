@@ -22,6 +22,14 @@ export declare function readSnapshot(directory: string): Promise<SnapshotData | 
  */
 export declare function rehydrateState(snapshot: SnapshotData): void;
 /**
+ * Reconcile task workflow states from plan.json for all active sessions.
+ * Seeds completed plan tasks to 'tests_run' and in_progress tasks to 'coder_delegated'.
+ * Best-effort: returns silently on any file/parse error. NEVER throws.
+ *
+ * @param directory - The project root directory containing .swarm/plan.json
+ */
+export declare function reconcileTaskStatesFromPlan(directory: string): Promise<void>;
+/**
  * Load snapshot from disk and rehydrate swarmState.
  * Called on plugin init to restore state from previous session.
  * NEVER throws - swallows any errors silently.
