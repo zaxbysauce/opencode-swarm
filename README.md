@@ -1,131 +1,182 @@
-# 🐝 OpenCode Swarm
+# OpenCode Swarm
 
 **Your AI writes the code. Swarm makes sure it actually works.**
 
 https://swarmai.site/
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding agent into a team of nine. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another catches security issues. Nothing ships until every check passes. Your project state is saved to disk, so you can close your laptop, come back tomorrow, and pick up exactly where you left off.
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an architect-led team of specialized agents. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. Nothing ships until every required gate passes.
+
+You do **not** manually switch between Swarm's internal agents during normal use.
+
+You continue talking to OpenCode normally. Swarm intercepts the session, the **architect** coordinates the internal pipeline behind the scenes, and all project state is persisted to `.swarm/` so work can resume later.
 
 ```bash
 npm install -g opencode-swarm
 ```
 
-That's it. Open your project with `opencode` and start building. Swarm activates automatically.
-
----
+* * *
 
 ## What Actually Happens
 
-You say: *"Build me a JWT auth system."*
+You say:
 
-Here's what Swarm does behind the scenes:
-
-1. **Asks you clarifying questions** (only the ones it can't figure out itself)
-2. **Scans your codebase** to understand what already exists
-3. **Consults domain experts** (security, API design, whatever your project needs) and caches the guidance so it never re-asks
-4. **Writes a phased plan** with concrete tasks, acceptance criteria, and dependencies
-5. **A separate critic agent reviews the plan** before any code is written
-6. **Implements one task at a time.** For each task:
-   - A coder agent writes the code
-   - 7 automated checks run (syntax, imports, linting, secrets, security, build, quality)
-   - A reviewer agent (running on a *different* AI model) checks for correctness
-   - A test engineer agent writes tests, runs them, and checks coverage
-   - If anything fails, it goes back to the coder with specific feedback
-   - If it passes everything, the task is marked done and the next one starts
-7. **After each phase completes**, documentation updates automatically, and a retrospective captures what worked and what didn't. Those learnings carry into the next phase.
-
-All of this state lives in a `.swarm/` folder in your project:
-
+```text
+Build me a JWT auth system.
 ```
+
+Swarm then:
+
+1. Clarifies only what it cannot infer.
+2. Scans the codebase to understand what already exists.
+3. Consults domain experts when needed and caches the guidance.
+4. Writes a phased implementation plan.
+5. Sends that plan through a critic gate before coding starts.
+6. Executes one task at a time through the QA pipeline:
+
+   * coder writes code
+   * automated checks run
+   * reviewer checks correctness
+   * test engineer writes and runs tests
+   * failures loop back with structured feedback
+
+7. After each phase, docs and retrospectives are updated.
+
+All project state lives in `.swarm/`:
+
+```text
 .swarm/
-├── plan.md       # Your project roadmap (tasks, status, what's done, what's next)
-├── context.md    # Decisions made, expert guidance, established patterns
-├── evidence/     # Review verdicts, test results, diffs for every completed task
-└── history/      # Phase retrospectives and metrics
+├── plan.md
+├── context.md
+├── evidence/
+└── history/
 ```
 
-Close your terminal. Come back next week. Swarm reads these files and picks up exactly where it stopped.
+That means Swarm is resumable by design. If you come back later and `.swarm/` already exists, the architect may go straight into **RESUME** or **EXECUTE** instead of replaying the full first-run discovery flow.
 
 ---
 
 ## Why This Exists
 
-Most AI coding tools let one model write code and then ask *that same model* if the code is good. That's like asking someone to proofread their own essay. They'll miss the same things they missed while writing it.
+Most AI coding tools let one model write code and then ask that same model whether the code is good. That misses too much.
 
-Swarm fixes this by splitting the work across specialized agents and requiring that different models handle writing vs. reviewing. The coder writes. A different model reviews. Another model tests. Different training data, different blind spots, different failure modes.
-
-The other thing most tools get wrong: they try to do everything in parallel. That sounds fast, but in practice you get three agents writing conflicting code at the same time with no coordination. Swarm runs one task at a time through a fixed pipeline. Slower per-task, but you don't redo work.
+Swarm separates planning, implementation, review, testing, and documentation into specialized internal roles, and it enforces gated execution instead of letting multiple agents mutate the codebase in parallel.
 
 ---
 
 ## Quick Start
 
-### Install
+### 1. Install
 
 ```bash
 npm install -g opencode-swarm
 ```
 
-### Verify
+### 2. Open your project in OpenCode
 
-Open a project with `opencode` and run:
-
+```bash
+opencode
 ```
+
+### 3. Verify Swarm is loaded
+
+Run these once in a project:
+
+```text
 /swarm diagnose
+/swarm agents
+/swarm config
 ```
 
-This checks that everything is wired up correctly.
+What they tell you:
 
-### Configure Models (Optional)
+* `/swarm diagnose` verifies Swarm health and setup
+* `/swarm agents` shows the registered internal agents and model assignments
+* `/swarm config` shows the resolved configuration currently in effect
 
-By default, Swarm v6.14+ uses free OpenCode Zen models (no API key required). You can override any agent's model by creating `.opencode/opencode-swarm.json` in your project. See the [LLM Provider Guide](#llm-provider-guide) for all options.
+### 4. Start normally
+
+Just tell OpenCode what you want to build.
+
+```text
+Build a REST API with user registration, login, and JWT auth.
+```
+
+You do **not** manually choose `architect`, `coder`, `reviewer`, `critic`, or other internal agents. The **architect** coordinates them automatically.
+
+### 5. Understand first run vs later runs
+
+On a brand-new project with no `.swarm/` state, Swarm usually starts by clarifying, discovering, consulting, and planning.
+
+On a project that already has `.swarm/plan.md`, Swarm may resume immediately. That is expected.
+
+Use these commands any time:
+
+```text
+/swarm status
+/swarm plan
+/swarm history
+```
+
+### 6. Start over when needed
+
+If you want a completely fresh Swarm run for the current project:
+
+```text
+/swarm reset --confirm
+```
+
+Use this only when you intentionally want to discard current Swarm state.
+
+### 7. Configure models (optional)
+
+By default, Swarm works with its default model setup. If you want to override agent models, create:
+
+```text
+.opencode/opencode-swarm.json
+```
+
+Example:
 
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-opus-4-6" },
-    "coder":     { "model": "minimax-coding-plan/MiniMax-M2.5" },
-    "reviewer":  { "model": "zai-coding-plan/glm-5" }
-  },
-  "guardrails": {
-    "max_tool_calls": 200,
-    "max_duration_minutes": 30,
-    "profiles": {
-      "coder": { "max_tool_calls": 500 }
-    }
-  },
-  "tool_filter": {
-    "enabled": true,
-    "overrides": {}
-  },
-  "review_passes": {
-    "always_security_review": false,
-    "security_globs": ["**/*auth*", "**/*crypto*", "**/*session*"]
-  },
-  "automation": {
-    "mode": "manual",
-    "capabilities": {
-      "plan_sync": false,
-      "phase_preflight": false,
-      "config_doctor_on_startup": false,
-      "evidence_auto_summaries": false,
-      "decision_drift_detection": false
-    }
+    "coder": { "model": "opencode/minimax-m2.5-free" },
+    "reviewer": { "model": "opencode/big-pickle" }
   }
 }
 ```
 
-You only need to specify the agents you want to override. The rest use the default.
+You only need to specify the agents you want to override.
 
-### Start Building
+> Note: if `architect` is not set explicitly, it inherits the current model selected in the OpenCode UI.
 
-Just tell OpenCode what you want to build. Swarm handles the rest.
+## Common First-Run Questions
 
+### "Do I need to use the Architect agent specifically?"
+
+No. In normal use, you just use OpenCode. Swarm's architect runs inside the plugin and coordinates the other internal agents automatically.
+
+### "Why did the second run start coding immediately?"
+
+Because Swarm persists state in `.swarm/` and resumes from where it left off. Check `/swarm status` or `/swarm plan`.
+
+### "How do I know Swarm is really active?"
+
+Run:
+
+```text
+/swarm diagnose
+/swarm agents
+/swarm config
 ```
-> Build a REST API with user registration, login, and JWT auth
-```
 
-Use `/swarm status` at any time to see where things stand.
+### "How do I force a clean restart?"
+
+Run:
+
+```text
+/swarm reset --confirm
+```
 
 ---
 
@@ -198,19 +249,37 @@ For production use, mix providers to maximize quality across writing vs. reviewi
 
 ## The Agents
 
-Swarm has nine agents. You don't interact with them directly. The architect orchestrates everything.
+Swarm has specialized internal agents, but you do **not** manually switch into them during normal use.
+
+The **architect** is the coordinator. It decides when to invoke the other agents and what they should do.
+
+That means the normal user workflow is:
+
+1. open the project in OpenCode
+2. describe what you want built or changed
+3. let Swarm coordinate the internal pipeline
+4. inspect progress with `/swarm status`, `/swarm plan`, and `/swarm evidence`
+
+Agent roles:
 
 | Agent | Role | When It Runs |
-|-------|------|-------------|
-| **architect** | Plans the project, delegates tasks, enforces quality gates | Always (it's the coordinator) |
-| **explorer** | Scans your codebase to understand what exists | Before planning, after each phase |
-| **sme** | Domain expert (security, APIs, databases, whatever is needed) | During planning, guidance is cached |
-| **critic** | Reviews the plan before any code is written | After planning, before execution |
-| **coder** | Writes code, one task at a time | During execution |
-| **reviewer** | Reviews code for correctness and security issues | After every task |
-| **test_engineer** | Writes and runs tests, including adversarial edge cases | After every task |
-| **designer** | Generates UI scaffolds and design tokens (opt-in) | Before UI tasks |
-| **docs** | Updates documentation to match what was actually built | After each phase |
+|---|---|---|
+| `architect` | Coordinates the workflow, writes plans, enforces gates | Always |
+| `explorer` | Scans the codebase and gathers context | Before planning, after phase wrap |
+| `sme` | Provides domain guidance | During planning / consultation |
+| `critic` | Reviews the plan before execution | Before coding starts |
+| `coder` | Implements one task at a time | During execution |
+| `reviewer` | Reviews correctness and security | After each task |
+| `test_engineer` | Writes and runs tests | After each task |
+| `designer` | Generates UI scaffolds and design tokens when needed | UI-specific work |
+| `docs` | Updates docs to match what was actually built | After each phase |
+
+If you want to see what is active right now, run:
+
+```text
+/swarm status
+/swarm agents
+```
 
 ---
 
@@ -259,16 +328,24 @@ If any step fails, the coder gets structured feedback and retries. After 5 failu
 
 The architect moves through these modes automatically:
 
-| Mode | What Happens |
-|------|-------------|
-| `RESUME` | Checks if `.swarm/plan.md` exists, picks up where it left off |
-| `CLARIFY` | Asks you questions (only what it can't infer) |
+| Mode | What It Means |
+|---|---|
+| `RESUME` | Existing `.swarm/` state was found, so Swarm continues where it left off |
+| `CLARIFY` | Swarm asks for missing information it cannot infer |
 | `DISCOVER` | Explorer scans the codebase |
 | `CONSULT` | SME agents provide domain guidance |
-| `PLAN` | Architect writes the phased plan |
-| `CRITIC-GATE` | Critic reviews the plan (max 2 revision cycles) |
+| `PLAN` | Architect writes or updates the phased plan |
+| `CRITIC-GATE` | Critic reviews the plan before execution |
 | `EXECUTE` | Tasks are implemented one at a time through the QA pipeline |
-| `PHASE-WRAP` | Phase completes, docs update, retrospective written |
+| `PHASE-WRAP` | A phase closes out, docs are updated, and a retrospective is written |
+
+### Important
+
+A second or later run does **not** necessarily look like a first run.
+
+If `.swarm/plan.md` already exists, the architect may enter `RESUME` and then go directly into `EXECUTE`. That is expected and does **not** mean Swarm stopped using agents.
+
+Use `/swarm status` if you are unsure what Swarm is doing.
 
 </details>
 
@@ -1077,8 +1154,25 @@ Upcoming: v6.22 focuses on further context optimization and agent coordination i
 
 ---
 
+## FAQ
+
+### Do I need to use the Architect agent specifically?
+No. In normal use, you just use OpenCode. Swarm's architect runs inside the plugin and coordinates the other internal agents automatically.
+
+### Why did Swarm start coding immediately on my second run?
+Because Swarm resumes from `.swarm/` state when it exists. Check `/swarm status` to see the current mode.
+
+### How do I know which agents and models are active?
+Run `/swarm agents` and `/swarm config`.
+
+### How do I start over?
+Run `/swarm reset --confirm`.
+
+---
+
 ## Documentation
 
+- [Getting Started](docs/getting-started.md)
 - [Architecture Deep Dive](docs/architecture.md)
 - [Design Rationale](docs/design-rationale.md)
 - [Installation Guide](docs/installation.md)
@@ -1086,6 +1180,7 @@ Upcoming: v6.22 focuses on further context optimization and agent coordination i
 - [LLM Operator Installation Guide](docs/installation-llm-operator.md)
 - [Pre-Swarm Planning Guide](docs/planning.md)
 - [Swarm Briefing for LLMs](docs/swarm-briefing.md)
+- [Configuration](docs/configuration.md)
 
 ---
 

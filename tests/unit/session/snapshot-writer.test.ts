@@ -574,6 +574,7 @@ describe('writeSnapshot', () => {
 			lastPhaseCompleteTimestamp: 0,
 			lastPhaseCompletePhase: 0,
 			phaseAgentsDispatched: ['coder'],
+			lastCompletedPhaseAgentsDispatched: [],
 			qaSkipCount: 0,
 			qaSkipTaskIds: [],
 			taskWorkflowStates: {},
