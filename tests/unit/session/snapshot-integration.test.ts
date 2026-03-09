@@ -3,44 +3,10 @@
  * Tests round-trip save/load, error handling, and idempotency.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-// Mock Bun global BEFORE importing any modules that use Bun
-// This is required for vitest to run without Bun runtime
-const mockBunFile = (filePath: string) => ({
-	text: async () => {
-		try {
-			const fs = require('node:fs');
-			return fs.readFileSync(filePath, 'utf-8');
-		} catch {
-			throw new Error('File not found');
-		}
-	},
-	exists: async () => {
-		const fs = require('node:fs');
-		try {
-			fs.accessSync(filePath);
-			return true;
-		} catch {
-			return false;
-		}
-	},
-});
-
-vi.stubGlobal('Bun', {
-	file: mockBunFile,
-	write: (path: string, content: string) => {
-		const fs = require('node:fs');
-		const pathModule = require('node:path');
-		// Create parent directories if they don't exist
-		const dir = pathModule.dirname(path);
-		fs.mkdirSync(dir, { recursive: true });
-		fs.writeFileSync(path, content, 'utf-8');
-	},
-});
 
 // Direct imports from session modules (not from src/index.ts)
 import { createSnapshotWriterHook } from '../../../src/session/snapshot-writer.js';
@@ -606,7 +572,7 @@ describe('Snapshot Integration', () => {
 			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '1.1', status: 'completed' }]), 'utf-8');
 
 			// When - should not throw
-			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+			await reconcileTaskStatesFromPlan(planDir);
 
 			// Then: remains 'tests_run'
 			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('tests_run');
@@ -625,7 +591,7 @@ describe('Snapshot Integration', () => {
 			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '1.1', status: 'completed' }]), 'utf-8');
 
 			// When - should not throw
-			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+			await reconcileTaskStatesFromPlan(planDir);
 
 			// Then: remains 'complete'
 			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('complete');
@@ -660,32 +626,11 @@ describe('Snapshot Integration', () => {
 			// And: .swarm directory does NOT exist (plan.json is missing)
 			// (planDir is empty - no .swarm folder)
 
-			// Mock Bun.file to throw
-			vi.stubGlobal('Bun', {
-				file: () => ({
-					text: async () => {
-						throw new Error('File not found');
-					},
-				}),
-			});
-
-			// When - should not throw
-			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+			// When - should not throw (Bun.file().text() throws naturally for missing files)
+			await reconcileTaskStatesFromPlan(planDir);
 
 			// Then: state unchanged (still 'idle')
 			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('idle');
-
-			// Restore the file-level Bun mock so subsequent tests are not affected
-			vi.stubGlobal('Bun', {
-				file: mockBunFile,
-				write: (path: string, content: string) => {
-					const fs = require('node:fs');
-					const pathModule = require('node:path');
-					const dir = pathModule.dirname(path);
-					fs.mkdirSync(dir, { recursive: true });
-					fs.writeFileSync(path, content, 'utf-8');
-				},
-			});
 		});
 
 		it('should handle corrupted JSON gracefully', async () => {
@@ -701,7 +646,7 @@ describe('Snapshot Integration', () => {
 			writeFileSync(join(planDirInner, 'plan.json'), '{ invalid json {{{', 'utf-8');
 
 			// When - should not throw
-			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+			await reconcileTaskStatesFromPlan(planDir);
 
 			// Then: state unchanged (still 'idle')
 			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('idle');
