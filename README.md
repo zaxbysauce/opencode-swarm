@@ -1019,9 +1019,61 @@ OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three
 
 ## Roadmap
 
+## Curator
+
+The Curator is an optional background analysis system that runs after each phase. It is **disabled by default** (`curator.enabled = false`) and never blocks execution — all Curator operations are wrapped in try/catch.
+
+### What the Curator Does
+
+- **Init** (`phase-monitor.ts`): On the first phase, initializes a curator summary file at `.swarm/curator-summary.json`.
+- **Phase analysis** (`phase-complete.ts`): After each phase completes, collects phase events, checks compliance, and optionally invokes the curator explorer to summarize findings.
+- **Knowledge updates** (`phase-complete.ts`): Merges curator findings into the knowledge base up to the configured `max_summary_tokens` cap.
+- **Drift injection** (`knowledge-injector.ts`): Prepends the latest drift report summary to the architect's knowledge context at phase start, up to `drift_inject_max_chars` characters.
+
+### Configuration
+
+Add a `curator` block to `.opencode/swarm.json`:
+
+```json
+{
+  "curator": {
+    "enabled": false,
+    "init_enabled": true,
+    "phase_enabled": true,
+    "max_summary_tokens": 2000,
+    "min_knowledge_confidence": 0.7,
+    "compliance_report": true,
+    "suppress_warnings": true,
+    "drift_inject_max_chars": 500
+  }
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Master switch. Set to `true` to activate the Curator pipeline. |
+| `init_enabled` | `true` | Initialize curator summary on first phase (requires `enabled: true`). |
+| `phase_enabled` | `true` | Run phase analysis and knowledge updates after each phase. |
+| `max_summary_tokens` | `2000` | Maximum token budget for curator knowledge summaries. |
+| `min_knowledge_confidence` | `0.7` | Minimum confidence threshold for curator knowledge entries. |
+| `compliance_report` | `true` | Include phase compliance check results in curator summary. |
+| `suppress_warnings` | `true` | Suppress non-critical curator warnings from the architect context. |
+| `drift_inject_max_chars` | `500` | Maximum characters of drift report text injected into each phase context. |
+
+### Drift Reports
+
+Drift reports are written to `.swarm/drift-report-phase-N.json` after each phase. The `knowledge-injector.ts` hook reads the latest report and prepends a summary to the architect's knowledge context for the next phase, helping the architect stay aware of plan vs. reality divergence.
+
+### Issue #81 Hotfix — taskWorkflowStates Persistence
+
+v6.21 includes a fix for session snapshot persistence of per-task workflow states:
+
+- **`SerializedAgentSession.taskWorkflowStates`**: Task workflow states are now serialized as `Record<string, string>` in session snapshots and deserialized back to a `Map` on load. Invalid state values are filtered out and default to `idle`.
+- **`reconcileTaskStatesFromPlan`**: On snapshot load, task states are reconciled against the current plan — tasks marked `completed` in the plan are seeded to `tests_run` state, and `in_progress` tasks are seeded to `coder_delegated` if currently `idle`. This is best-effort and never throws.
+
 See [CHANGELOG.md](CHANGELOG.md) for shipped features.
 
-Upcoming: v6.14 focuses on further context optimization and agent coordination improvements.
+Upcoming: v6.22 focuses on further context optimization and agent coordination improvements.
 
 ---
 

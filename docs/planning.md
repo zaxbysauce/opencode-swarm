@@ -281,3 +281,85 @@ Missing binaries produce a soft warning only — the pipeline never hard-fails o
 ### Language-Specific Prompt Injection
 
 The coder and reviewer agents automatically receive language-specific constraints and review checklists derived from the task's target file paths. See [Swarm Briefing for LLMs](./swarm-briefing.md) for details.
+
+---
+
+## Curator Integration
+
+The Curator is an optional background analysis system that provides phase-level intelligence across the project lifecycle. It is **disabled by default** — set `curator.enabled = true` in `.opencode/swarm.json` to activate it.
+
+### How the Curator Hooks into Execution
+
+The Curator integrates at three points in the swarm execution pipeline:
+
+#### 1. Phase Monitor Init (`src/hooks/phase-monitor.ts`)
+
+On the **first phase** of a project, the phase-monitor hook detects that `lastSeenPhase` is transitioning from `null` and calls `runCuratorInit`. This initializes `.swarm/curator-summary.json` with a baseline entry.
+
+```typescript
+// Fires once, on first-phase detection
+if (curatorConfig.enabled && curatorConfig.init_enabled) {
+  await runCuratorInit(directory, curatorConfig);
+}
+```
+
+The init call is wrapped in try/catch — if the Curator fails to initialize, the phase-monitor continues normally.
+
+#### 2. Phase Complete Pipeline (`src/tools/phase-complete.ts`)
+
+After each phase completes (and after the standard `curateAndStoreSwarm()` call), the Curator pipeline runs:
+
+1. **`runCuratorPhase`** — Collects phase events from the event bus, runs compliance checks, and produces a `CuratorPhaseResult`.
+2. **`applyCuratorKnowledgeUpdates`** — Merges the phase result's knowledge recommendations into `.swarm/curator-summary.json`, capped at `max_summary_tokens`.
+3. **`runCriticDriftCheck`** — Compares planned vs. actual decisions, writes a drift report to `.swarm/drift-report-phase-N.json`.
+
+The entire pipeline is wrapped in a single try/catch and gated on `curatorConfig.enabled && curatorConfig.phase_enabled`. If any step throws, `phase_complete` is never blocked.
+
+#### 3. Knowledge Injector Drift Injection (`src/hooks/knowledge-injector.ts`)
+
+At the start of each phase, the knowledge-injector hook now **prepends** the latest drift report summary to the architect's knowledge context, ahead of the standard knowledge entries:
+
+1. Calls `readPriorDriftReports(directory)` to load all drift reports sorted ascending by phase.
+2. Takes the last entry (most recent phase).
+3. Calls `buildDriftInjectionText(report, drift_inject_max_chars)` to format it.
+4. Prepends the result to `cachedInjectionText` before the single `injectKnowledgeMessage` call.
+
+This ensures the architect always sees the latest plan-vs-reality drift before diving into new phase work.
+
+### Drift Report Format
+
+Drift reports live at `.swarm/drift-report-phase-N.json` and follow the `DriftReport` interface:
+
+```typescript
+interface DriftReport {
+  schema_version: 1;
+  phase: number;
+  timestamp: string;          // ISO 8601
+  alignment: 'ALIGNED' | 'MINOR_DRIFT' | 'MAJOR_DRIFT' | 'OFF_SPEC';
+  drift_score: number;        // 0.0 (aligned) to 1.0 (completely off-spec)
+  first_deviation: {
+    phase: number;
+    task: string;
+    description: string;
+  } | null;
+  compounding_effects: string[];
+  corrections: string[];      // Recommended course corrections
+  requirements_checked: number;
+  requirements_satisfied: number;
+  scope_additions: string[];
+  injection_summary: string;  // Truncated summary for architect context injection
+}
+```
+
+### Configuration Quick Reference
+
+| Field | Default | Effect |
+|-------|---------|--------|
+| `enabled` | `false` | Master switch — must be `true` for any Curator activity |
+| `init_enabled` | `true` | Run curator init on first phase |
+| `phase_enabled` | `true` | Run phase analysis + drift check after each phase |
+| `max_summary_tokens` | `2000` | Cap on curator summary size |
+| `min_knowledge_confidence` | `0.7` | Minimum confidence for knowledge entry inclusion |
+| `drift_inject_max_chars` | `500` | Max chars of drift text injected into architect context |
+
+See the [Curator section in README.md](../README.md#curator) for full configuration details.

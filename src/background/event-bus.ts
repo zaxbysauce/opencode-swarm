@@ -31,7 +31,11 @@ export type AutomationEventType =
 	| 'phase.status.checked'
 	| 'task.completed'
 	| 'evidence.summary.generated'
-	| 'evidence.summary.error';
+	| 'evidence.summary.error'
+	| 'curator.init.completed'
+	| 'curator.phase.completed'
+	| 'curator.drift.completed'
+	| 'curator.error';
 
 /** Base automation event */
 export interface AutomationEvent<T = unknown> {

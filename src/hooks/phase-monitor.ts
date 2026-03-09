@@ -7,7 +7,9 @@
  */
 
 import type { PreflightTriggerManager } from '../background/trigger';
+import { CuratorConfigSchema } from '../config/schema';
 import { loadPlan } from '../plan/manager';
+import { runCuratorInit } from './curator';
 import { safeHook } from './utils';
 
 /**
@@ -32,6 +34,14 @@ export function createPhaseMonitorHook(
 		// First call: initialize without triggering
 		if (lastKnownPhase === null) {
 			lastKnownPhase = currentPhase;
+			try {
+				const curatorConfig = CuratorConfigSchema.parse({});
+				if (curatorConfig.enabled && curatorConfig.init_enabled) {
+					await runCuratorInit(directory, curatorConfig);
+				}
+			} catch {
+				// curator init failures must never propagate
+			}
 			return;
 		}
 

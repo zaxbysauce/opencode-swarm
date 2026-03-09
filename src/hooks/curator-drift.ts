@@ -1,0 +1,290 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { getGlobalEventBus } from '../background/event-bus.js';
+import type {
+	CriticDriftResult,
+	CuratorConfig,
+	CuratorPhaseResult,
+	DriftReport,
+} from './curator-types.js';
+import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
+
+const DRIFT_REPORT_PREFIX = 'drift-report-phase-';
+
+/**
+ * Read all prior drift reports from .swarm/drift-report-phase-*.json files.
+ * Returns reports sorted ascending by phase number.
+ * Skips corrupt/unreadable files with a console.warn.
+ */
+export async function readPriorDriftReports(
+	directory: string,
+): Promise<DriftReport[]> {
+	const swarmDir = path.join(directory, '.swarm');
+
+	// Return empty if .swarm doesn't exist
+	const entries = await fs.promises.readdir(swarmDir).catch(() => null);
+	if (entries === null) return [];
+
+	// Filter to drift report files
+	const reportFiles = entries
+		.filter(
+			(name) => name.startsWith(DRIFT_REPORT_PREFIX) && name.endsWith('.json'),
+		)
+		.sort(); // lexicographic sort works for phase-N.json up to 9999
+
+	const reports: DriftReport[] = [];
+	for (const filename of reportFiles) {
+		const content = await readSwarmFileAsync(directory, filename);
+		if (content === null) continue;
+		try {
+			const report = JSON.parse(content) as DriftReport;
+			// Basic schema validation
+			if (
+				typeof report.phase !== 'number' ||
+				typeof report.alignment !== 'string'
+			) {
+				console.warn(
+					`[curator-drift] Skipping corrupt drift report: ${filename}`,
+				);
+				continue;
+			}
+			reports.push(report);
+		} catch {
+			console.warn(
+				`[curator-drift] Skipping unreadable drift report: ${filename}`,
+			);
+		}
+	}
+
+	// Sort ascending by phase number (defensive — filenames are already sorted, but content.phase is authoritative)
+	reports.sort((a, b) => a.phase - b.phase);
+
+	return reports;
+}
+
+/**
+ * Write a drift report to .swarm/drift-report-phase-{N}.json.
+ * Creates .swarm/ if it doesn't exist.
+ * Returns the absolute path of the written file.
+ */
+export async function writeDriftReport(
+	directory: string,
+	report: DriftReport,
+): Promise<string> {
+	const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
+	const filePath = validateSwarmPath(directory, filename);
+
+	// Ensure .swarm/ exists
+	const swarmDir = path.dirname(filePath);
+	await fs.promises.mkdir(swarmDir, { recursive: true });
+
+	try {
+		await fs.promises.writeFile(
+			filePath,
+			JSON.stringify(report, null, 2),
+			'utf-8',
+		);
+	} catch (err) {
+		throw new Error(
+			`[curator-drift] Failed to write drift report to ${filePath}: ${String(err)}`,
+		);
+	}
+
+	return filePath;
+}
+
+/**
+ * Run the critic drift check for the given phase.
+ * Builds a structured DriftReport from curator data, plan, spec, and prior reports.
+ * Writes the report to .swarm/drift-report-phase-N.json.
+ * Emits 'curator.drift.completed' event on success.
+ * On any error: emits 'curator.error' event and returns a safe default result.
+ * NEVER throws — drift failures must not block phase_complete.
+ */
+export async function runCriticDriftCheck(
+	directory: string,
+	phase: number,
+	curatorResult: CuratorPhaseResult,
+	config: CuratorConfig,
+): Promise<CriticDriftResult> {
+	try {
+		// 1. Read plan.md
+		const planMd = await readSwarmFileAsync(directory, 'plan.md');
+
+		// 2. Read spec.md (may not exist)
+		const specMd = await readSwarmFileAsync(directory, 'spec.md');
+
+		// 3. Read prior drift reports
+		const priorReports = await readPriorDriftReports(directory);
+
+		// 4. Build drift analysis from curator data
+		// Compliance observations drive alignment severity
+		const complianceCount = curatorResult.compliance.length;
+		const warningCompliance = curatorResult.compliance.filter(
+			(obs) => obs.severity === 'warning',
+		);
+
+		// Compute alignment from compliance + plan presence
+		let alignment: DriftReport['alignment'] = 'ALIGNED';
+		let driftScore = 0;
+
+		if (!planMd) {
+			// No plan — cannot assess alignment
+			alignment = 'MINOR_DRIFT';
+			driftScore = 0.3;
+		} else if (warningCompliance.length >= 3) {
+			alignment = 'MAJOR_DRIFT';
+			driftScore = Math.min(0.9, 0.5 + warningCompliance.length * 0.1);
+		} else if (warningCompliance.length >= 1 || complianceCount >= 3) {
+			alignment = 'MINOR_DRIFT';
+			driftScore = Math.min(0.49, 0.2 + complianceCount * 0.05);
+		}
+
+		// 5. Build injection summary (will be truncated by buildDriftInjectionText later)
+		const priorSummaries = priorReports
+			.map((r) => r.injection_summary)
+			.filter(Boolean);
+
+		const keyCorrections = warningCompliance.map((obs) => obs.description);
+		const firstDeviation =
+			warningCompliance.length > 0
+				? {
+						phase,
+						task: 'unknown',
+						description: warningCompliance[0]?.description ?? '',
+					}
+				: null;
+
+		// 6. Build CURATOR_DRIFT payload for context (stored in injection_summary)
+		const payloadLines = [
+			`CURATOR_DIGEST: ${JSON.stringify(curatorResult.digest)}`,
+			`CURATOR_COMPLIANCE: ${JSON.stringify(curatorResult.compliance)}`,
+			`PLAN: ${planMd ?? 'none'}`,
+			`SPEC: ${specMd ?? 'none'}`,
+			`PRIOR_DRIFT_REPORTS: ${JSON.stringify(priorSummaries)}`,
+		];
+		const payload = payloadLines.join('\n');
+
+		// 7. Compute requirements stats from plan
+		const requirementsChecked = curatorResult.digest.tasks_total;
+		const requirementsSatisfied = curatorResult.digest.tasks_completed;
+
+		const injectionSummaryRaw = `Phase ${phase}: ${alignment} (${driftScore.toFixed(2)}) — ${
+			firstDeviation ? firstDeviation.description : 'all requirements on track'
+		}.${keyCorrections.length > 0 ? `Correction: ${keyCorrections[0] ?? ''}.` : ''}`;
+
+		// 8. Truncate injection_summary to config.drift_inject_max_chars
+		const injectionSummary = injectionSummaryRaw.slice(
+			0,
+			config.drift_inject_max_chars,
+		);
+
+		const report: DriftReport = {
+			schema_version: 1,
+			phase,
+			timestamp: new Date().toISOString(),
+			alignment,
+			drift_score: driftScore,
+			first_deviation: firstDeviation,
+			compounding_effects: priorReports
+				.filter((r) => r.alignment !== 'ALIGNED')
+				.map((r) => `Phase ${r.phase}: ${r.alignment}`)
+				.slice(0, 5),
+			corrections: keyCorrections.slice(0, 5),
+			requirements_checked: requirementsChecked,
+			requirements_satisfied: requirementsSatisfied,
+			scope_additions: [],
+			injection_summary: injectionSummary,
+		};
+
+		// 9. Write drift report
+		const reportPath = await writeDriftReport(directory, report);
+
+		// 10. Emit curator.drift.completed event
+		getGlobalEventBus().publish('curator.drift.completed', {
+			phase,
+			alignment,
+			drift_score: driftScore,
+			report_path: reportPath,
+		});
+
+		// 11. Build injection text using the raw injection summary
+		const injectionText = injectionSummary;
+
+		// Suppress payload in production result (it is for context only)
+		void payload;
+
+		return {
+			phase,
+			report,
+			report_path: reportPath,
+			injection_text: injectionText,
+		};
+	} catch (err) {
+		// Drift failures must NEVER block phase_complete
+		getGlobalEventBus().publish('curator.error', {
+			operation: 'drift',
+			phase,
+			error: String(err),
+		});
+
+		// Return safe default — ALIGNED with empty data
+		const defaultReport: DriftReport = {
+			schema_version: 1,
+			phase,
+			timestamp: new Date().toISOString(),
+			alignment: 'ALIGNED',
+			drift_score: 0,
+			first_deviation: null,
+			compounding_effects: [],
+			corrections: [],
+			requirements_checked: 0,
+			requirements_satisfied: 0,
+			scope_additions: [],
+			injection_summary: `Phase ${phase}: drift analysis unavailable (${String(err)})`,
+		};
+
+		return {
+			phase,
+			report: defaultReport,
+			report_path: '',
+			injection_text: '',
+		};
+	}
+}
+
+/**
+ * Build a truncated summary suitable for architect context injection.
+ * Format: "<drift_report>Phase N: {alignment} ({drift_score}) — {key finding}. {correction if any}.</drift_report>"
+ * Truncate to maxChars (simple slice). Tags may be broken when truncation occurs mid-tag.
+ * If ALIGNED with drift_score < 0.1: minimal output "Phase N: ALIGNED, all requirements on track."
+ * If MINOR_DRIFT or worse: include first_deviation and top correction.
+ */
+export function buildDriftInjectionText(
+	report: DriftReport,
+	maxChars: number,
+): string {
+	if (maxChars <= 0) {
+		return '';
+	}
+
+	let text: string;
+
+	// Case 1: Minimal output for well-aligned phases
+	if (report.alignment === 'ALIGNED' && report.drift_score < 0.1) {
+		text = `<drift_report>Phase ${report.phase}: ALIGNED, all requirements on track.</drift_report>`;
+	}
+	// Case 2: Detailed output for drift cases
+	else {
+		const keyFinding =
+			report.first_deviation?.description ?? 'no deviation recorded';
+		const score = report.drift_score ?? 0;
+		const correctionClause = report.corrections?.[0]
+			? `Correction: ${report.corrections[0]}.`
+			: '';
+		text = `<drift_report>Phase ${report.phase}: ${report.alignment} (${score.toFixed(2)}) — ${keyFinding}. ${correctionClause}</drift_report>`;
+	}
+
+	// Truncate to maxChars (simple slice — doesn't need special tag preservation beyond maxChars <= 0 guard)
+	return text.slice(0, maxChars);
+}

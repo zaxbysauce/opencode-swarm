@@ -1,6 +1,18 @@
 # Changelog
 
-## [6.21.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.2...v6.21.3) (2026-03-08)
+## [6.21.3]
+
+### Phase 7 – Curator Documentation
+
+* Updated `README.md` with complete Curator feature documentation — configuration table (8 fields), pipeline overview, and Issue #81 hotfix notes (taskWorkflowStates persistence, reconcileTaskStatesFromPlan behavior).
+* Updated `docs/planning.md` with Curator integration guide — phase-monitor init, phase-complete pipeline, knowledge-injector drift injection, DriftReport interface, and config quick-reference table.
+
+### Phase 6 – Curator Integration Wiring
+
+* Added curator pipeline wiring after `curateAndStoreSwarm` in `phase_complete` (runCuratorPhase → applyCuratorKnowledgeUpdates → runCriticDriftCheck). Wrapped in try/catch to ensure phase_complete never blocks.
+* Added Curator init call in `phase_monitor` first‑phase guard with try/catch.
+* Added drift injection in `knowledge_injector` (readPriorDriftReports → buildDriftInjectionText → prepend to cachedInjectionText) wrapped in try/catch.
+* Added corresponding unit tests for these behaviours.(https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.2...v6.21.3) (2026-03-08)
 
 
 ### Bug Fixes

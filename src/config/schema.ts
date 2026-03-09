@@ -752,6 +752,28 @@ export const KnowledgeConfigSchema = z.object({
 
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
 
+// Curator configuration (phase context consolidation and drift detection)
+export const CuratorConfigSchema = z.object({
+	/** Enable curator mode. Default: false */
+	enabled: z.boolean().default(false),
+	/** Run CURATOR_INIT at session start. Default: true (when curator enabled) */
+	init_enabled: z.boolean().default(true),
+	/** Run CURATOR_PHASE at phase boundaries. Default: true (when curator enabled) */
+	phase_enabled: z.boolean().default(true),
+	/** Maximum tokens for curator summary. Default: 2000 */
+	max_summary_tokens: z.number().min(500).max(8000).default(2000),
+	/** Minimum confidence for knowledge entries to include in curator context. Default: 0.7 */
+	min_knowledge_confidence: z.number().min(0).max(1).default(0.7),
+	/** Include compliance report in phase digest. Default: true */
+	compliance_report: z.boolean().default(true),
+	/** Suppress TUI warnings from curator (emit events.jsonl only). Default: true */
+	suppress_warnings: z.boolean().default(true),
+	/** Maximum chars for drift report summary injected into architect context. Default: 500 */
+	drift_inject_max_chars: z.number().min(100).max(2000).default(500),
+});
+
+export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -832,6 +854,9 @@ export const PluginConfigSchema = z.object({
 
 	// Knowledge base configuration (v6.17 two-tier cross-project knowledge)
 	knowledge: KnowledgeConfigSchema.optional(),
+
+	// Curator configuration (phase context consolidation and drift detection)
+	curator: CuratorConfigSchema.optional(),
 
 	// Tool output truncation configuration
 	tool_output: z

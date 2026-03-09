@@ -22,7 +22,7 @@ export function sanitizeInput(input: string): string {
 	// Remove newlines and control characters that could be exploited
 	// Also escape common shell metacharacters
 	return input
-		.replace(new RegExp('[\u0000-\u001F\u007F]', 'g'), '') // Remove control characters
+		.replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
 		.replace(/[`$"\\]/g, '\\$&') // Escape shell metacharacters
 		.replace(/\n+/g, ' ') // Replace newlines with spaces
 		.trim();

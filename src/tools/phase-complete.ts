@@ -10,11 +10,17 @@ import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { loadPluginConfigWithMeta } from '../config';
 import type { EvidenceBundle } from '../config/evidence-schema';
 import {
+	CuratorConfigSchema,
 	type PhaseCompleteConfig,
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import {
+	applyCuratorKnowledgeUpdates,
+	runCuratorPhase,
+} from '../hooks/curator';
+import { runCriticDriftCheck } from '../hooks/curator-drift';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
@@ -462,6 +468,31 @@ export async function executePhaseComplete(
 				error,
 			);
 		}
+	}
+
+	// Curator pipeline: collect phase data and run drift check. Never blocks phase_complete.
+	try {
+		const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
+		if (curatorConfig.enabled && curatorConfig.phase_enabled) {
+			const curatorResult = await runCuratorPhase(
+				dir,
+				phase,
+				agentsDispatched,
+				curatorConfig,
+				{},
+			);
+			await applyCuratorKnowledgeUpdates(
+				dir,
+				curatorResult.knowledge_recommendations,
+				{} as KnowledgeConfig,
+			);
+			await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+		}
+	} catch (curatorError) {
+		console.warn(
+			'[phase_complete] Curator pipeline error (non-blocking):',
+			curatorError,
+		);
 	}
 
 	// Build the effective required-agents list

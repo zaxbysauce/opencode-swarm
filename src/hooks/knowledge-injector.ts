@@ -9,6 +9,10 @@
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
+import {
+	buildDriftInjectionText,
+	readPriorDriftReports,
+} from './curator-drift.js';
 import { extractCurrentPhaseFromPlan } from './extractors.js';
 import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
@@ -220,6 +224,20 @@ export function createKnowledgeInjectorHook(
 				cachedInjectionText +=
 					'\n\n⚠️ Previously rejected patterns (do not re-learn):\n' +
 					rejectedLines.join('\n');
+			}
+
+			// Drift injection: prepend latest drift report summary
+			try {
+				const driftReports = await readPriorDriftReports(directory);
+				if (driftReports.length > 0 && cachedInjectionText !== null) {
+					const latestReport = driftReports[driftReports.length - 1];
+					const driftText = buildDriftInjectionText(latestReport, 500);
+					if (driftText) {
+						cachedInjectionText = driftText + '\n\n' + cachedInjectionText;
+					}
+				}
+			} catch {
+				// drift injection failures must never propagate
 			}
 
 			injectKnowledgeMessage(output, cachedInjectionText);
