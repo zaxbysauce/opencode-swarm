@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.1...v6.22.2) (2026-03-09)
+
+
+### Bug Fixes
+
+* **tests:** always write explicit curator config in test helper to prevent user config leak ([d0543f4](https://github.com/zaxbysauce/opencode-swarm/commit/d0543f457488d59e42cdbd7dc6aa6562584603f2))
+* **tests:** always write explicit curator config to prevent user config leak ([1e6a571](https://github.com/zaxbysauce/opencode-swarm/commit/1e6a571a009b3cd82d1ecb31a1c29b8024842e5b))
+
 ## [6.22.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.0...v6.22.1) (2026-03-09)
 
 
