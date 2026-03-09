@@ -826,3 +826,192 @@ describe('loadSnapshot', () => {
 		});
 	});
 });
+
+describe('deserializeAgentSession - taskWorkflowStates', () => {
+	const createBaseSession = (): SerializedAgentSession => ({
+		agentName: 'architect',
+		lastToolCallTime: 123456,
+		lastAgentEventTime: 123456,
+		delegationActive: false,
+		activeInvocationId: 1,
+		lastInvocationIdByAgent: {},
+		windows: {},
+		lastCompactionHint: 0,
+		architectWriteCount: 0,
+		lastCoderDelegationTaskId: null,
+		currentTaskId: null,
+		gateLog: {},
+		reviewerCallCount: {},
+		lastGateFailure: null,
+		partialGateWarningsIssuedForTask: [],
+		selfFixAttempted: false,
+		catastrophicPhaseWarnings: [],
+		lastPhaseCompleteTimestamp: 0,
+		lastPhaseCompletePhase: 0,
+		phaseAgentsDispatched: [],
+		qaSkipCount: 0,
+		qaSkipTaskIds: [],
+	});
+
+	it('valid entries reconstruct Map correctly', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = {
+			'task-1': 'idle',
+			'task-2': 'tests_run',
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates).toBeInstanceOf(Map);
+		expect(result.taskWorkflowStates.size).toBe(2);
+		expect(result.taskWorkflowStates.get('task-1')).toBe('idle');
+		expect(result.taskWorkflowStates.get('task-2')).toBe('tests_run');
+	});
+
+	it('legacy snapshot without taskWorkflowStates field → empty Map', () => {
+		const serialized = createBaseSession();
+		// Don't set taskWorkflowStates at all (simulates legacy snapshot)
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates).toBeInstanceOf(Map);
+		expect(result.taskWorkflowStates.size).toBe(0);
+	});
+
+	it('invalid state values are skipped', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = {
+			'task-1': 'unknown_state',
+			'task-2': 'idle',
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates.size).toBe(1);
+		expect(result.taskWorkflowStates.get('task-1')).toBeUndefined();
+		expect(result.taskWorkflowStates.get('task-2')).toBe('idle');
+	});
+
+	it('all 6 valid states are accepted', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = {
+			'task-1': 'idle',
+			'task-2': 'coder_delegated',
+			'task-3': 'pre_check_passed',
+			'task-4': 'reviewer_run',
+			'task-5': 'tests_run',
+			'task-6': 'complete',
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates.size).toBe(6);
+		expect(result.taskWorkflowStates.get('task-1')).toBe('idle');
+		expect(result.taskWorkflowStates.get('task-2')).toBe('coder_delegated');
+		expect(result.taskWorkflowStates.get('task-3')).toBe('pre_check_passed');
+		expect(result.taskWorkflowStates.get('task-4')).toBe('reviewer_run');
+		expect(result.taskWorkflowStates.get('task-5')).toBe('tests_run');
+		expect(result.taskWorkflowStates.get('task-6')).toBe('complete');
+	});
+
+	it('empty taskWorkflowStates object → empty Map', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = {};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates).toBeInstanceOf(Map);
+		expect(result.taskWorkflowStates.size).toBe(0);
+	});
+});
+
+describe('deserializeAgentSession - taskWorkflowStates adversarial', () => {
+	const createBaseSession = (): SerializedAgentSession => ({
+		agentName: 'architect',
+		lastToolCallTime: 123456,
+		lastAgentEventTime: 123456,
+		delegationActive: false,
+		activeInvocationId: 1,
+		lastInvocationIdByAgent: {},
+		windows: {},
+		lastCompactionHint: 0,
+		architectWriteCount: 0,
+		lastCoderDelegationTaskId: null,
+		currentTaskId: null,
+		gateLog: {},
+		reviewerCallCount: {},
+		lastGateFailure: null,
+		partialGateWarningsIssuedForTask: [],
+		selfFixAttempted: false,
+		catastrophicPhaseWarnings: [],
+		lastPhaseCompleteTimestamp: 0,
+		lastPhaseCompletePhase: 0,
+		phaseAgentsDispatched: [],
+		qaSkipCount: 0,
+		qaSkipTaskIds: [],
+	});
+
+	it('null raw value → empty Map', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = null;
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.taskWorkflowStates).toBeInstanceOf(Map);
+		expect(result.taskWorkflowStates.size).toBe(0);
+	});
+
+	it('array value instead of object → empty Map', () => {
+		const serialized = createBaseSession();
+		// Arrays pass typeof check ('object'), and Object.entries iterates indices as keys
+		// This is the current behavior - arrays are processed with index keys
+		(serialized as any).taskWorkflowStates = ['idle'] as unknown as Record<string, string>;
+
+		const result = deserializeAgentSession(serialized);
+
+		// Array index '0' has valid value 'idle', so it's added with key '0'
+		expect(result.taskWorkflowStates).toBeInstanceOf(Map);
+		expect(result.taskWorkflowStates.size).toBe(1);
+		expect(result.taskWorkflowStates.get('0')).toBe('idle');
+	});
+
+	it('prototype-polluting keys are NOT ignored by deserializeTaskWorkflowStates', () => {
+		const serialized = createBaseSession();
+		// Using Object.create(null) creates an object without prototype
+		// This makes __proto__ and constructor become regular enumerable properties
+		const maliciousObj = Object.create(null);
+		maliciousObj['task-1'] = 'idle';
+		maliciousObj['__proto__'] = 'tests_run'; // valid state, will be added
+		maliciousObj['constructor'] = 'complete'; // valid state, will be added
+		(serialized as any).taskWorkflowStates = maliciousObj;
+
+		const result = deserializeAgentSession(serialized);
+
+		// All three are added because they're valid entries
+		// Note: readSnapshot JSON.parse already filters these at parse time,
+		// but deserializeTaskWorkflowStates doesn't filter them
+		expect(result.taskWorkflowStates.size).toBe(3);
+		expect(result.taskWorkflowStates.get('task-1')).toBe('idle');
+		expect(result.taskWorkflowStates.get('__proto__')).toBe('tests_run');
+		expect(result.taskWorkflowStates.get('constructor')).toBe('complete');
+	});
+
+	it('values that partially match state names are rejected', () => {
+		const serialized = createBaseSession();
+		(serialized as any).taskWorkflowStates = {
+			'task-1': 'idle_extra',
+			'task-2': 'IDLE',
+			'task-3': '',
+			'task-4': 'idle', // valid one
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		// Only task-4 with valid 'idle' should be in the map
+		expect(result.taskWorkflowStates.size).toBe(1);
+		expect(result.taskWorkflowStates.get('task-1')).toBeUndefined();
+		expect(result.taskWorkflowStates.get('task-2')).toBeUndefined();
+		expect(result.taskWorkflowStates.get('task-3')).toBeUndefined();
+		expect(result.taskWorkflowStates.get('task-4')).toBe('idle');
+	});
+});

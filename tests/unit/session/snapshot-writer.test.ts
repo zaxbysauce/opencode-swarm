@@ -18,7 +18,7 @@ import {
 	type SnapshotData,
 	type SerializedAgentSession,
 } from '../../../src/session/snapshot-writer';
-import type { AgentSessionState, InvocationWindow } from '../../../src/state';
+import type { AgentSessionState, InvocationWindow, TaskWorkflowState } from '../../../src/state';
 
 let testDir: string;
 
@@ -576,6 +576,7 @@ describe('writeSnapshot', () => {
 			phaseAgentsDispatched: ['coder'],
 			qaSkipCount: 0,
 			qaSkipTaskIds: [],
+			taskWorkflowStates: {},
 		});
 	});
 });
@@ -633,5 +634,300 @@ describe('createSnapshotWriterHook', () => {
 
 		const parsed = JSON.parse(content) as SnapshotData;
 		expect(parsed.version).toBe(1);
+	});
+});
+
+describe('serializeAgentSession - taskWorkflowStates', () => {
+	it('Map with entries serializes to Record<string, string>', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			taskWorkflowStates: new Map([
+				['task-1', 'idle'],
+				['task-2', 'coder_delegated'],
+				['task-3', 'tests_run'],
+			]),
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result.taskWorkflowStates).toEqual({
+			'task-1': 'idle',
+			'task-2': 'coder_delegated',
+			'task-3': 'tests_run',
+		});
+	});
+
+	it('Empty Map serializes to {}', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			taskWorkflowStates: new Map(),
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result.taskWorkflowStates).toEqual({});
+	});
+
+	it('undefined taskWorkflowStates serializes to {} (migration safety)', () => {
+		const session = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+		} as unknown as AgentSessionState;
+
+		const result = serializeAgentSession(session);
+
+		expect(result.taskWorkflowStates).toEqual({});
+	});
+
+	it('All TaskWorkflowState values are preserved', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			taskWorkflowStates: new Map([
+				['task-idle', 'idle'],
+				['task-coder', 'coder_delegated'],
+				['task-precheck', 'pre_check_passed'],
+				['task-reviewer', 'reviewer_run'],
+				['task-tests', 'tests_run'],
+				['task-complete', 'complete'],
+			]),
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result.taskWorkflowStates).toEqual({
+			'task-idle': 'idle',
+			'task-coder': 'coder_delegated',
+			'task-precheck': 'pre_check_passed',
+			'task-reviewer': 'reviewer_run',
+			'task-tests': 'tests_run',
+			'task-complete': 'complete',
+		});
+	});
+});
+
+describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
+	// Helper to create a minimal session with taskWorkflowStates
+	// Uses type assertion to bypass strict type checking (matching existing test patterns)
+	const createSessionWithWorkflowStates = (workflowStates: Map<string, TaskWorkflowState> | undefined): AgentSessionState => {
+		return {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			taskWorkflowStates: workflowStates as Map<string, TaskWorkflowState>,
+		} as unknown as AgentSessionState;
+	};
+
+	it('handles empty string key', () => {
+		const session = createSessionWithWorkflowStates(new Map([['', 'idle']]));
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toEqual({ '': 'idle' });
+	});
+
+	it('handles special character keys', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map([
+				['task:with:colons', 'idle'],
+				['task-dash', 'coder_delegated'],
+				['task_underscore', 'tests_run'],
+				['task.dot', 'complete'],
+			]),
+		);
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toEqual({
+			'task:with:colons': 'idle',
+			'task-dash': 'coder_delegated',
+			'task_underscore': 'tests_run',
+			'task.dot': 'complete',
+		});
+	});
+
+	it('handles very long string keys (1000+ chars)', () => {
+		const longKey = 'a'.repeat(2000);
+		const session = createSessionWithWorkflowStates(new Map([[longKey, 'complete']]));
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toEqual({ [longKey]: 'complete' });
+	});
+
+	it('handles duplicate key insertion (Map semantics - last wins)', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map<string, TaskWorkflowState>([
+				['task-1', 'idle'],
+				['task-1', 'coder_delegated'], // duplicate - should overwrite
+				['task-1', 'tests_run'], // duplicate again - should be final value
+			]),
+		);
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toEqual({ 'task-1': 'tests_run' });
+	});
+
+	it('handles null values in the Map', () => {
+		// Create a Map with null values - this is valid TypeScript
+		const workflowStates = new Map<string, TaskWorkflowState | null>([
+			['task-1', 'idle'],
+			['task-2', null],
+			['task-3', 'complete'],
+		]);
+		const session = createSessionWithWorkflowStates(workflowStates as Map<string, TaskWorkflowState>);
+		const result = serializeAgentSession(session);
+		// Object.fromEntries converts null to null (not filtered out)
+		expect(result.taskWorkflowStates).toEqual({
+			'task-1': 'idle',
+			'task-2': null,
+			'task-3': 'complete',
+		});
+	});
+
+	it('handles very large Map (1000+ entries) without crashing', () => {
+		const largeMap = new Map<string, TaskWorkflowState>();
+		for (let i = 0; i < 1500; i++) {
+			const states: TaskWorkflowState[] = ['idle', 'coder_delegated', 'pre_check_passed', 'reviewer_run', 'tests_run', 'complete'];
+			largeMap.set(`task-${i}`, states[i % 6]);
+		}
+		const session = createSessionWithWorkflowStates(largeMap);
+
+		// Should not throw and should serialize correctly
+		const result = serializeAgentSession(session);
+
+		expect(Object.keys(result.taskWorkflowStates!).length).toBe(1500);
+		expect(result.taskWorkflowStates!['task-0']).toBe('idle');
+		// 1499 % 6 = 5, so states[5] = 'complete'
+		expect(result.taskWorkflowStates!['task-1499']).toBe('complete');
+	});
+
+	it('handles __proto__ key (prototype pollution attempt)', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map([['__proto__', 'complete']]),
+		);
+		const result = serializeAgentSession(session);
+		// Object.fromEntries with __proto__ as key should work but not pollute prototype
+		expect(result.taskWorkflowStates).toHaveProperty('__proto__');
+		// Verify prototype is not polluted
+		expect({}).toEqual({});
+	});
+
+	it('handles constructor key', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map([['constructor', 'complete']]),
+		);
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toHaveProperty('constructor');
+		expect(result.taskWorkflowStates!['constructor']).toBe('complete');
+	});
+
+	it('handles toString key', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map([['toString', 'complete']]),
+		);
+		const result = serializeAgentSession(session);
+		expect(result.taskWorkflowStates).toHaveProperty('toString');
+		expect(result.taskWorkflowStates!['toString']).toBe('complete');
+	});
+
+	it('handles multiple prototype-polluting keys together', () => {
+		const session = createSessionWithWorkflowStates(
+			new Map([
+				['__proto__', 'complete'],
+				['constructor', 'complete'],
+				['toString', 'complete'],
+				['hasOwnProperty', 'complete'],
+			]),
+		);
+		const result = serializeAgentSession(session);
+		// Verify all keys exist with correct values
+		expect(result.taskWorkflowStates).toHaveProperty('__proto__');
+		expect(result.taskWorkflowStates).toHaveProperty('constructor');
+		expect(result.taskWorkflowStates).toHaveProperty('toString');
+		expect(result.taskWorkflowStates).toHaveProperty('hasOwnProperty');
+		expect(result.taskWorkflowStates!['__proto__']).toBe('complete');
+		expect(result.taskWorkflowStates!['constructor']).toBe('complete');
+		expect(result.taskWorkflowStates!['toString']).toBe('complete');
+		expect(result.taskWorkflowStates!['hasOwnProperty']).toBe('complete');
 	});
 });

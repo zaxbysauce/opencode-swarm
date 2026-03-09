@@ -106,6 +106,17 @@ export function checkReviewerGate(taskId: string): ReviewerGateResult {
 			const state = getTaskState(session, taskId);
 			stateEntries.push(`${sessionId}: ${state}`);
 		}
+
+		// Issue #81 regression detection: if all sessions are idle, states weren't persisted
+		const allIdle =
+			stateEntries.length > 0 &&
+			stateEntries.every((e) => e.endsWith(': idle'));
+		if (allIdle) {
+			console.warn(
+				`[update-task-status] Issue #81 regression detected for task ${taskId}: all ${stateEntries.length} session(s) show idle state. taskWorkflowStates may not be persisting across sessions.`,
+			);
+		}
+
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
 		return {

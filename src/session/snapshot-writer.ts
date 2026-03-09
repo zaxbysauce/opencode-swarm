@@ -40,6 +40,7 @@ export interface SerializedAgentSession {
 	phaseAgentsDispatched: string[];
 	qaSkipCount: number;
 	qaSkipTaskIds: string[];
+	taskWorkflowStates?: Record<string, string>;
 }
 
 /**
@@ -147,6 +148,7 @@ export function serializeAgentSession(
 		phaseAgentsDispatched,
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+		taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map()),
 	};
 }
 

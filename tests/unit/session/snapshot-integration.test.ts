@@ -3,14 +3,48 @@
  * Tests round-trip save/load, error handling, and idempotency.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+// Mock Bun global BEFORE importing any modules that use Bun
+// This is required for vitest to run without Bun runtime
+const mockBunFile = (filePath: string) => ({
+	text: async () => {
+		try {
+			const fs = require('node:fs');
+			return fs.readFileSync(filePath, 'utf-8');
+		} catch {
+			throw new Error('File not found');
+		}
+	},
+	exists: async () => {
+		const fs = require('node:fs');
+		try {
+			fs.accessSync(filePath);
+			return true;
+		} catch {
+			return false;
+		}
+	},
+});
+
+vi.stubGlobal('Bun', {
+	file: mockBunFile,
+	write: (path: string, content: string) => {
+		const fs = require('node:fs');
+		const pathModule = require('node:path');
+		// Create parent directories if they don't exist
+		const dir = pathModule.dirname(path);
+		fs.mkdirSync(dir, { recursive: true });
+		fs.writeFileSync(path, content, 'utf-8');
+	},
+});
+
 // Direct imports from session modules (not from src/index.ts)
 import { createSnapshotWriterHook } from '../../../src/session/snapshot-writer.js';
-import { loadSnapshot } from '../../../src/session/snapshot-reader.js';
+import { loadSnapshot, reconcileTaskStatesFromPlan } from '../../../src/session/snapshot-reader.js';
 
 // State imports for setup and verification
 import { swarmState, resetSwarmState, startAgentSession, ensureAgentSession } from '../../../src/state.js';
@@ -462,6 +496,244 @@ describe('Snapshot Integration', () => {
 			expect(loadedSession?.catastrophicPhaseWarnings.has(3)).toBe(true);
 			expect(loadedSession?.phaseAgentsDispatched.has('coder')).toBe(true);
 			expect(loadedSession?.phaseAgentsDispatched.has('reviewer')).toBe(true);
+		});
+	});
+
+	// Helper to create a mock AgentSessionState
+	function makeMockSession(): ReturnType<typeof ensureAgentSession> {
+		return {
+			agentName: 'mega',
+			lastToolCallTime: 0,
+			lastAgentEventTime: 0,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			modifiedFilesThisCoderTask: [],
+		};
+	}
+
+	// Helper to create plan JSON
+	function makePlanJSON(tasks: { id: string; status: string }[]): string {
+		return JSON.stringify({ phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks }] });
+	}
+
+	describe('reconcileTaskStatesFromPlan', () => {
+		let planDir: string;
+
+		beforeEach(() => {
+			// Create temp directory for plan.json tests
+			planDir = mkdtempSync(join(tmpdir(), 'plan-reconcile-test-'));
+			resetSwarmState();
+		});
+
+		afterEach(() => {
+			try {
+				rmSync(planDir, { recursive: true, force: true });
+			} catch {
+				// Ignore cleanup errors
+			}
+			resetSwarmState();
+		});
+
+		it('should seed completed plan tasks to tests_run', async () => {
+			// Given: session with taskId '1.1' at 'idle'
+			const sessionId = 'session-completed-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'idle');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan has task '1.1' as 'completed'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '1.1', status: 'completed' }]), 'utf-8');
+
+			// When
+			await reconcileTaskStatesFromPlan(planDir);
+
+			// Then: session taskWorkflowStates.get('1.1') === 'tests_run'
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('tests_run');
+		});
+
+		it('should seed in_progress plan tasks to coder_delegated', async () => {
+			// Given: session with taskId '2.1' at 'idle'
+			const sessionId = 'session-inprogress-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('2.1', 'idle');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan has task '2.1' as 'in_progress'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '2.1', status: 'in_progress' }]), 'utf-8');
+
+			// When
+			await reconcileTaskStatesFromPlan(planDir);
+
+			// Then: state === 'coder_delegated'
+			expect(mockSession.taskWorkflowStates.get('2.1')).toBe('coder_delegated');
+		});
+
+		it('should not regress tasks already at tests_run', async () => {
+			// Given: session with '1.1' already at 'tests_run'
+			const sessionId = 'session-tests-run-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'tests_run');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan says 'completed'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '1.1', status: 'completed' }]), 'utf-8');
+
+			// When - should not throw
+			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+
+			// Then: remains 'tests_run'
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('tests_run');
+		});
+
+		it('should not regress tasks already at complete', async () => {
+			// Given: session with '1.1' at 'complete'
+			const sessionId = 'session-complete-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'complete');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan says 'completed'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '1.1', status: 'completed' }]), 'utf-8');
+
+			// When - should not throw
+			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+
+			// Then: remains 'complete'
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('complete');
+		});
+
+		it('should ignore pending tasks', async () => {
+			// Given: session state is 'idle'
+			const sessionId = 'session-pending-test';
+			const mockSession = makeMockSession();
+			// No entry for task '3.1' means getTaskState returns 'idle'
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan task '3.1' is 'pending'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), makePlanJSON([{ id: '3.1', status: 'pending' }]), 'utf-8');
+
+			// When
+			await reconcileTaskStatesFromPlan(planDir);
+
+			// Then: remains 'idle' (no entry in Map)
+			expect(mockSession.taskWorkflowStates.get('3.1')).toBeUndefined();
+		});
+
+		it('should handle missing plan.json gracefully', async () => {
+			// Given: session with a task at 'idle'
+			const sessionId = 'session-missing-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'idle');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: .swarm directory does NOT exist (plan.json is missing)
+			// (planDir is empty - no .swarm folder)
+
+			// Mock Bun.file to throw
+			vi.stubGlobal('Bun', {
+				file: () => ({
+					text: async () => {
+						throw new Error('File not found');
+					},
+				}),
+			});
+
+			// When - should not throw
+			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+
+			// Then: state unchanged (still 'idle')
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('idle');
+
+			// Restore the file-level Bun mock so subsequent tests are not affected
+			vi.stubGlobal('Bun', {
+				file: mockBunFile,
+				write: (path: string, content: string) => {
+					const fs = require('node:fs');
+					const pathModule = require('node:path');
+					const dir = pathModule.dirname(path);
+					fs.mkdirSync(dir, { recursive: true });
+					fs.writeFileSync(path, content, 'utf-8');
+				},
+			});
+		});
+
+		it('should handle corrupted JSON gracefully', async () => {
+			// Given: session with a task at 'idle'
+			const sessionId = 'session-corrupt-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'idle');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan.json contains non-JSON string
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(join(planDirInner, 'plan.json'), '{ invalid json {{{', 'utf-8');
+
+			// When - should not throw
+			await expect(reconcileTaskStatesFromPlan(planDir)).resolves.not.toThrow();
+
+			// Then: state unchanged (still 'idle')
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('idle');
+		});
+
+		it('should heal corrupted state values during reconcile', async () => {
+			// Given: session with '1.1' at corrupted value 'unknown_state' and '2.1' at 'idle'
+			const sessionId = 'session-corrupted-state-test';
+			const mockSession = makeMockSession();
+			mockSession.taskWorkflowStates.set('1.1', 'unknown_state' as unknown as import('../../../src/state.js').TaskWorkflowState);
+			mockSession.taskWorkflowStates.set('2.1', 'idle');
+			swarmState.agentSessions.set(sessionId, mockSession);
+
+			// And: plan has both tasks as 'completed'
+			const planDirInner = join(planDir, '.swarm');
+			mkdirSync(planDirInner, { recursive: true });
+			writeFileSync(
+				join(planDirInner, 'plan.json'),
+				makePlanJSON([
+					{ id: '1.1', status: 'completed' },
+					{ id: '2.1', status: 'completed' },
+				]),
+				'utf-8',
+			);
+
+			// When
+			await reconcileTaskStatesFromPlan(planDir);
+
+			// Then: corrupted entry is healed (advanced to 'tests_run' because indexOf('unknown_state') === -1)
+			expect(mockSession.taskWorkflowStates.get('1.1')).toBe('tests_run');
+			// And: valid entry is also advanced to 'tests_run'
+			expect(mockSession.taskWorkflowStates.get('2.1')).toBe('tests_run');
 		});
 	});
 });

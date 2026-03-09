@@ -3,15 +3,46 @@
  * Reads .swarm/session/state.json and rehydrates swarmState on plugin init.
  */
 
+import path from 'node:path';
+
 import { validateSwarmPath } from '../hooks/utils';
 import type {
 	AgentSessionState,
 	DelegationEntry,
 	InvocationWindow,
+	TaskWorkflowState,
 	ToolAggregate,
 } from '../state';
-import { swarmState } from '../state';
+import { advanceTaskState, getTaskState, swarmState } from '../state';
 import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
+
+const VALID_TASK_WORKFLOW_STATES: TaskWorkflowState[] = [
+	'idle',
+	'coder_delegated',
+	'pre_check_passed',
+	'reviewer_run',
+	'tests_run',
+	'complete',
+];
+
+/**
+ * Deserialize taskWorkflowStates from a serialized Record<string, string> to Map.
+ * Validates each value against VALID_TASK_WORKFLOW_STATES and skips invalid entries.
+ */
+function deserializeTaskWorkflowStates(
+	raw: Record<string, string> | undefined,
+): Map<string, TaskWorkflowState> {
+	const m = new Map<string, TaskWorkflowState>();
+	if (!raw || typeof raw !== 'object') {
+		return m;
+	}
+	for (const [taskId, stateVal] of Object.entries(raw)) {
+		if (VALID_TASK_WORKFLOW_STATES.includes(stateVal as TaskWorkflowState)) {
+			m.set(taskId, stateVal as TaskWorkflowState);
+		}
+	}
+	return m;
+}
 
 /**
  * Deserialize a SerializedAgentSession back to AgentSessionState.
@@ -73,7 +104,7 @@ export function deserializeAgentSession(
 		phaseAgentsDispatched,
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
-		taskWorkflowStates: new Map(),
+		taskWorkflowStates: deserializeTaskWorkflowStates(s.taskWorkflowStates),
 		lastGateOutcome: null,
 		declaredCoderScope: null,
 		lastScopeViolation: null,
@@ -163,6 +194,74 @@ export function rehydrateState(snapshot: SnapshotData): void {
 }
 
 /**
+ * Reconcile task workflow states from plan.json for all active sessions.
+ * Seeds completed plan tasks to 'tests_run' and in_progress tasks to 'coder_delegated'.
+ * Best-effort: returns silently on any file/parse error. NEVER throws.
+ *
+ * @param directory - The project root directory containing .swarm/plan.json
+ */
+export async function reconcileTaskStatesFromPlan(
+	directory: string,
+): Promise<void> {
+	let raw: string;
+	try {
+		raw = await Bun.file(path.join(directory, '.swarm/plan.json')).text();
+	} catch {
+		// plan.json doesn't exist or is unreadable — best-effort, return silently
+		return;
+	}
+
+	let plan: { phases: Array<{ tasks: Array<{ id: string; status: string }> }> };
+	try {
+		plan = JSON.parse(raw) as {
+			phases: Array<{ tasks: Array<{ id: string; status: string }> }>;
+		};
+	} catch {
+		// Corrupted plan.json — best-effort, return silently
+		return;
+	}
+
+	if (!plan?.phases || !Array.isArray(plan.phases)) {
+		return;
+	}
+
+	for (const phase of plan.phases) {
+		if (!phase?.tasks || !Array.isArray(phase.tasks)) {
+			continue;
+		}
+		for (const task of phase.tasks) {
+			if (!task?.id || typeof task.id !== 'string') {
+				continue;
+			}
+			const taskId = task.id;
+			const planStatus = task.status;
+
+			for (const session of swarmState.agentSessions.values()) {
+				const currentState = getTaskState(session, taskId);
+
+				if (
+					planStatus === 'completed' &&
+					currentState !== 'tests_run' &&
+					currentState !== 'complete'
+				) {
+					try {
+						advanceTaskState(session, taskId, 'tests_run');
+					} catch {
+						// Invalid transition — skip silently
+					}
+				} else if (planStatus === 'in_progress' && currentState === 'idle') {
+					try {
+						advanceTaskState(session, taskId, 'coder_delegated');
+					} catch {
+						// Invalid transition — skip silently
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
  * Load snapshot from disk and rehydrate swarmState.
  * Called on plugin init to restore state from previous session.
  * NEVER throws - swallows any errors silently.
@@ -172,6 +271,7 @@ export async function loadSnapshot(directory: string): Promise<void> {
 		const snapshot = await readSnapshot(directory);
 		if (snapshot !== null) {
 			rehydrateState(snapshot);
+			await reconcileTaskStatesFromPlan(directory);
 		}
 	} catch {
 		// Silently swallow any errors - leave state at defaults
