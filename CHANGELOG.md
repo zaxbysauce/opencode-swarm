@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.2...v6.22.3) (2026-03-09)
+
+
+### Bug Fixes
+
+* persist phaseAgentsDispatched across session restarts for phase_complete ([9b8d53e](https://github.com/zaxbysauce/opencode-swarm/commit/9b8d53ead540dacad19b2edccf6b41b4276f2926))
+* persist phaseAgentsDispatched across session restarts for phase_complete ([bb1e068](https://github.com/zaxbysauce/opencode-swarm/commit/bb1e0688116fea45068f217da127c3ff8ed8e0d8))
+
 ## [6.22.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.1...v6.22.2) (2026-03-09)
 
 
