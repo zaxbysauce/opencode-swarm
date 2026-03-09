@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.0...v6.22.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* **tests:** replace .resolves.not.toThrow() with Bun-compatible await pattern ([dd31ca5](https://github.com/zaxbysauce/opencode-swarm/commit/dd31ca5ee5b45489ef9ab0f09380a601d9dd737c))
+* **tests:** replace .resolves.not.toThrow() with Bun-compatible await pattern ([d98173d](https://github.com/zaxbysauce/opencode-swarm/commit/d98173d99892f390b68e4cdae98bd7fbdac1cac7))
+
 ## [6.22.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.3...v6.22.0) (2026-03-09)
 
 
