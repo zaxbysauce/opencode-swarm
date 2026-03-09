@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.22.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.21.3...v6.22.0) (2026-03-09)
+
+
+### Features
+
+* add Curator background analysis system with phase-level drift detection and knowledge injection ([8cf8d07](https://github.com/zaxbysauce/opencode-swarm/commit/8cf8d07ed8383948288fed53b31c6c0d0f8dfc91))
+
+
+### Bug Fixes
+
+* persist taskWorkflowStates in session snapshots and reconcile states from plan (Issue [#81](https://github.com/zaxbysauce/opencode-swarm/issues/81)) ([d5c3637](https://github.com/zaxbysauce/opencode-swarm/commit/d5c36376dee5d0db5bf19d6047f3bad346f086dd))
+* resolve all biome lint errors to restore CI green ([2b19afc](https://github.com/zaxbysauce/opencode-swarm/commit/2b19afcbc1e8b1c8628a50ba6bd89a328b2150a5))
+
 ## [6.21.3]
 
 ### Phase 7 – Curator Documentation
