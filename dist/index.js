@@ -60904,7 +60904,8 @@ var OpenCodeSwarm = async (ctx) => {
           }
         }
       }
-      if (input.tool === "task") {
+      const normalizedTool = input.tool.replace(/^[^:]+[:.]/, "");
+      if (normalizedTool === "Task" || normalizedTool === "task") {
         const sessionId = input.sessionID;
         const beforeSession = swarmState.agentSessions.get(sessionId);
         const beforeStates = beforeSession?.taskWorkflowStates ? Object.entries(beforeSession.taskWorkflowStates).map(([k, v]) => `${k}=${v}`).join(",") : "(none)";

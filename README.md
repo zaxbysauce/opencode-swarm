@@ -8,7 +8,11 @@ OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a sing
 
 You do **not** manually switch between Swarm's internal agents during normal use.
 
-You continue talking to OpenCode normally. Swarm intercepts the session, the **architect** coordinates the internal pipeline behind the scenes, and all project state is persisted to `.swarm/` so work can resume later.
+You must **explicitly choose a Swarm architect** in the OpenCode GUI before starting. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration, and those custom names will appear in the GUI dropdown.
+
+If you use OpenCode's default `Build` / `Plan` options instead of selecting a Swarm architect, the plugin is bypassed entirely.
+
+Once you select a Swarm architect, that architect coordinates the internal pipeline behind the scenes, and all project state is persisted to `.swarm/` so work can resume later.
 
 ```bash
 npm install -g opencode-swarm
@@ -93,15 +97,16 @@ What they tell you:
 * `/swarm agents` shows the registered internal agents and model assignments
 * `/swarm config` shows the resolved configuration currently in effect
 
-### 4. Start normally
+### 4. Select a Swarm architect and start
 
-Just tell OpenCode what you want to build.
+1. **Choose a Swarm architect** in the OpenCode GUI (the exact name depends on your configuration — you can define multiple architects with different model assignments)
+2. Then describe what you want to build.
 
 ```text
 Build a REST API with user registration, login, and JWT auth.
 ```
 
-You do **not** manually choose `architect`, `coder`, `reviewer`, `critic`, or other internal agents. The **architect** coordinates them automatically.
+You do **not** manually choose `coder`, `reviewer`, `critic`, or other internal agents. The **architect** coordinates them automatically after you select it.
 
 ### 5. Understand first run vs later runs
 
@@ -152,9 +157,11 @@ You only need to specify the agents you want to override.
 
 ## Common First-Run Questions
 
-### "Do I need to use the Architect agent specifically?"
+### "Do I need to select a Swarm architect?"
 
-No. In normal use, you just use OpenCode. Swarm's architect runs inside the plugin and coordinates the other internal agents automatically.
+**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration.
+
+If you use the default OpenCode `Build` / `Plan` options without selecting a Swarm architect, the plugin is bypassed entirely.
 
 ### "Why did the second run start coding immediately?"
 
@@ -1156,8 +1163,11 @@ Upcoming: v6.22 focuses on further context optimization and agent coordination i
 
 ## FAQ
 
-### Do I need to use the Architect agent specifically?
-No. In normal use, you just use OpenCode. Swarm's architect runs inside the plugin and coordinates the other internal agents automatically.
+### Do I need to select a Swarm architect?
+
+**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration.
+
+If you use the default OpenCode `Build` / `Plan` options without selecting a Swarm architect, the plugin is bypassed entirely.
 
 ### Why did Swarm start coding immediately on my second run?
 Because Swarm resumes from `.swarm/` state when it exists. Check `/swarm status` to see the current mode.
