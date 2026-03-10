@@ -27,6 +27,58 @@ import { extractCurrentPhaseFromPlan } from './extractors';
 import { extractModelInfo } from './model-limits';
 
 /**
+ * v6.12: Module-level storage for tool input args by callID.
+ * Used by guardrails for delegation detection, exposed via safe accessor helpers.
+ */
+const storedInputArgs = new Map<string, unknown>();
+
+// TEMPORARY DEBUG: Track stored args operations
+function debugStoredArgs(
+	action: string,
+	callID: string,
+	extra?: Record<string, unknown>,
+): void {
+	const args = storedInputArgs.get(callID);
+	const argsObj = args as Record<string, unknown> | undefined;
+	const subagentType = argsObj?.subagent_type;
+	console.log(
+		`[swarm-debug-task] stored-args.${action} | callID=${callID} subagent_type=${subagentType ?? '(none)'}`,
+		extra ? JSON.stringify(extra) : '',
+	);
+}
+
+/**
+ * Retrieves stored input args for a given callID.
+ * Used by other hooks (e.g., delegation-gate) to access tool input args.
+ * @param callID The callID to look up
+ * @returns The stored args or undefined if not found
+ */
+export function getStoredInputArgs(callID: string): unknown | undefined {
+	debugStoredArgs('get', callID);
+	return storedInputArgs.get(callID);
+}
+
+/**
+ * Stores input args for a given callID.
+ * Used by guardrails toolBefore hook; may be used by other hooks if needed.
+ * @param callID The callID to store args under
+ * @param args The tool input args to store
+ */
+export function setStoredInputArgs(callID: string, args: unknown): void {
+	debugStoredArgs('set', callID);
+	storedInputArgs.set(callID, args);
+}
+
+/**
+ * Deletes stored input args for a given callID (cleanup after retrieval).
+ * @param callID The callID to delete
+ */
+export function deleteStoredInputArgs(callID: string): void {
+	debugStoredArgs('delete', callID);
+	storedInputArgs.delete(callID);
+}
+
+/**
  * Extracts phase number from a phase string like "Phase 3: Implementation"
  */
 function extractPhaseNumber(phaseString: string | null): number {
@@ -261,9 +313,6 @@ export function createGuardrailsHooks(
 
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
-
-	// v6.12: Track input args by callID for delegation detection in toolAfter
-	const inputArgsByCallID = new Map<string, unknown>();
 
 	return {
 		/**
@@ -712,7 +761,7 @@ export function createGuardrailsHooks(
 			}
 
 			// v6.12: Store input args for delegation detection in toolAfter
-			inputArgsByCallID.set(input.callID, output.args);
+			setStoredInputArgs(input.callID, output.args);
 		},
 
 		/**
@@ -784,9 +833,9 @@ export function createGuardrailsHooks(
 
 				// v6.12: Track reviewer AND test_engineer delegations
 				// Use input args stored from toolBefore (not output.metadata)
-				const inputArgs = inputArgsByCallID.get(input.callID);
-				// v6.12: Clean up to prevent memory leak
-				inputArgsByCallID.delete(input.callID);
+				const inputArgs = getStoredInputArgs(input.callID);
+				// NOTE: Do NOT delete stored args here - delegation-gate.toolAfter runs after
+				// and needs to read them. Cleanup is handled by delegation-gate.ts
 				const delegation = isAgentDelegation(input.tool, inputArgs);
 				if (
 					delegation.isDelegation &&
