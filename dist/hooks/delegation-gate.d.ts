@@ -47,6 +47,7 @@ export declare function createDelegationGateHook(config: PluginConfig): {
         tool: string;
         sessionID: string;
         callID: string;
+        args?: Record<string, unknown>;
     }, output: unknown) => Promise<void>;
 };
 export {};

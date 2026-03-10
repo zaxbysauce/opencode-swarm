@@ -44,6 +44,7 @@ export declare function createGuardrailsHooks(directoryOrConfig?: string | Guard
         tool: string;
         sessionID: string;
         callID: string;
+        args?: Record<string, unknown>;
     }, output: {
         title: string;
         output: string;
