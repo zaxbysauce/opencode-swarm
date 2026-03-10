@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.5...v6.22.6) (2026-03-10)
+
+
+### Bug Fixes
+
+* read subagent_type from input.args in tool.execute.after hook ([87a0b1f](https://github.com/zaxbysauce/opencode-swarm/commit/87a0b1f406a2db367e5c04783534be812f11c62a))
+* read subagent_type from input.args in tool.execute.after hook ([045c69d](https://github.com/zaxbysauce/opencode-swarm/commit/045c69d5ed2c7046963b25f2a1f28fd57f452803))
+
 ## [6.22.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.4...v6.22.5) (2026-03-10)
 
 
