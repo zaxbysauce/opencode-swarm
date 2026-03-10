@@ -7,24 +7,27 @@ This page answers the two questions new users hit most often:
 
 ## How to use Swarm
 
-You do **not** manually operate Swarm's internal agents.
+You must explicitly choose a Swarm architect in the OpenCode GUI before starting. The architect names shown in OpenCode come from your config file, so they may differ from the defaults and you can define multiple architects with different model assignments. If you use the default OpenCode `Build` / `Plan` options instead of selecting a Swarm architect, the plugin is bypassed entirely.
+
+Once you select a Swarm architect, you do **not** manually operate its internal sub-agents.
 
 Normal workflow:
 
-1. start OpenCode in your project
-2. verify Swarm once with:
+1. **Select a Swarm architect** in the OpenCode GUI
+2. start OpenCode in your project
+3. verify Swarm once with:
    - `/swarm diagnose`
    - `/swarm agents`
    - `/swarm config`
-3. describe the work you want done
-4. monitor progress with:
+4. describe the work you want done
+5. monitor progress with:
    - `/swarm status`
    - `/swarm plan`
    - `/swarm evidence`
 
 ## What "Swarm activates automatically" means
 
-It means the plugin hooks into your OpenCode session automatically.
+After you select a Swarm architect in the OpenCode GUI, the plugin hooks into your session automatically.
 
 It does **not** mean:
 - you should manually switch between internal agents
