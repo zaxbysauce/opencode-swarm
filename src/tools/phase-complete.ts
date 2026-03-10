@@ -526,12 +526,42 @@ export async function executePhaseComplete(
 	}
 
 	// Compute missing agents using cross-session aggregated agents
-	const agentsMissing = effectiveRequired.filter(
+	let agentsMissing = effectiveRequired.filter(
 		(req) => !crossSessionResult.agents.has(req),
 	);
 
 	// Build warnings and determine success based on policy
 	const warnings: string[] = [];
+
+	// Plan.json fallback: if agents are missing but all tasks in the phase are
+	// completed in plan.json, treat the phase as closeable. Completed tasks prove
+	// agents were dispatched (update_task_status requires QA gates to pass).
+	if (agentsMissing.length > 0) {
+		try {
+			const planPath = validateSwarmPath(dir, 'plan.json');
+			const planRaw = fs.readFileSync(planPath, 'utf-8');
+			const plan: {
+				phases: Array<{
+					id: number;
+					status: string;
+					tasks: Array<{ id: string; status: string }>;
+				}>;
+			} = JSON.parse(planRaw);
+			const targetPhase = plan.phases.find((p) => p.id === phase);
+			if (
+				targetPhase &&
+				targetPhase.tasks.length > 0 &&
+				targetPhase.tasks.every((t) => t.status === 'completed')
+			) {
+				warnings.push(
+					`Agent dispatch fallback: all ${targetPhase.tasks.length} tasks in phase ${phase} are completed in plan.json. Clearing missing agents: ${agentsMissing.join(', ')}.`,
+				);
+				agentsMissing = [];
+			}
+		} catch {
+			// plan.json missing or unreadable — fall through to normal enforcement
+		}
+	}
 
 	// Detect potential auto-repair of retrospective bundle
 	// If loaded from a retro-N task ID with schema_version 1.0.0 and valid task_complexity,
@@ -612,6 +642,33 @@ export async function executePhaseComplete(
 				contributorSession.lastPhaseCompleteTimestamp = now;
 				contributorSession.lastPhaseCompletePhase = phase;
 			}
+		}
+
+		// Update plan.json phase status to completed
+		try {
+			const planPath = validateSwarmPath(dir, 'plan.json');
+			const planJson = fs.readFileSync(planPath, 'utf-8');
+			const plan: {
+				phases: Array<{
+					id: number;
+					status: string;
+					tasks: Array<{ id: string; status: string }>;
+				}>;
+			} = JSON.parse(planJson);
+
+			const phaseObj = plan.phases.find((p) => p.id === phase);
+			if (phaseObj) {
+				phaseObj.status = 'completed';
+				fs.writeFileSync(
+					planPath,
+					JSON.stringify(plan, null, 2) + '\n',
+					'utf-8',
+				);
+			}
+		} catch (error) {
+			warnings.push(
+				`Warning: failed to update plan.json phase status: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 

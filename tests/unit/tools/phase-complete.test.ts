@@ -990,4 +990,558 @@ describe('phase_complete tool', () => {
 			expect(parsed.phase).toBe(1);
 		});
 	});
+
+	describe('plan.json phase status update on success', () => {
+		test('updates plan.json phase status to completed on successful phase_complete', async () => {
+			// Set up permissive config
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 status pending
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Test task' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			ensureAgentSession('sess1');
+			recordPhaseAgentDispatch('sess1', 'coder');
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+
+			// Read plan.json back and verify phase status updated
+			const planAfter = JSON.parse(fs.readFileSync(path.join(tempDir, '.swarm', 'plan.json'), 'utf-8'));
+			expect(planAfter.phases[0].status).toBe('completed');
+		});
+
+		test('plan.json not found produces warning but success is still true', async () => {
+			// Set up permissive config
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Do NOT write plan.json
+
+			ensureAgentSession('sess1');
+			recordPhaseAgentDispatch('sess1', 'coder');
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			// Should have warning about plan.json failure
+			expect(parsed.warnings.some((w: string) => w.includes('failed to update plan.json'))).toBe(true);
+		});
+
+		test('malformed plan.json produces warning but success is still true', async () => {
+			// Set up permissive config
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write malformed JSON to plan.json
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				'not valid json {{{'
+			);
+
+			ensureAgentSession('sess1');
+			recordPhaseAgentDispatch('sess1', 'coder');
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			expect(parsed.warnings.some((w: string) => w.includes('failed to update plan.json'))).toBe(true);
+		});
+
+		test('plan.json with no matching phase ID does not produce warning', async () => {
+			// Set up permissive config
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with only phase 99 (no phase 1)
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 99,
+				phases: [
+					{
+						id: 99,
+						name: 'Phase 99',
+						status: 'pending',
+						tasks: [
+							{ id: '99.1', phase: 99, status: 'completed', description: 'Test task' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			ensureAgentSession('sess1');
+			recordPhaseAgentDispatch('sess1', 'coder');
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			// Should NOT have a warning about plan.json (phase just not found, silently skipped)
+			expect(parsed.warnings.every((w: string) => !w.includes('failed to update plan.json'))).toBe(true);
+		});
+	});
+
+	describe('plan.json agent dispatch fallback', () => {
+		test('fallback activates when all tasks completed and agents missing', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 having ALL tasks completed
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' },
+							{ id: '1.2', phase: 1, status: 'completed', description: 'Task 2' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session with NO agents dispatched (agents missing)
+			// process.chdir(tempDir) already done in beforeEach
+			ensureAgentSession('sess1');
+			// No recordPhaseAgentDispatch call - simulating session restart
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(true);
+		});
+
+		test('fallback does NOT activate when tasks are incomplete', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 having one task with 'pending' status
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' },
+							{ id: '1.2', phase: 1, status: 'pending', description: 'Task 2' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched - should fail because tasks are incomplete
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('incomplete');
+			expect(parsed.agentsMissing).toContain('coder');
+			// Fallback should NOT trigger - no fallback warning
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		test('fallback does NOT activate when phase has 0 tasks', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 having empty tasks array
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: []
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched - should fail because phase has 0 tasks (guard prevents fallback)
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(false);
+			// Should fail because agents are still missing and fallback can't activate with 0 tasks
+			expect(parsed.agentsMissing).toContain('coder');
+			// Fallback should NOT trigger
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		test('fallback does NOT activate when agents are already present', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 having all tasks completed
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session WITH agents dispatched (agents ARE present)
+			ensureAgentSession('sess1');
+			recordPhaseAgentDispatch('sess1', 'coder');
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			// Fallback should NOT trigger because agentsMissing.length === 0
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		// ==== ADVERSARIAL TESTS ====
+		test('ADVERSARY: malformed JSON in plan.json with missing agents - normal enforcement applies', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write garbage to plan.json (malformed JSON)
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				'{ invalid json } garbage data'
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			// JSON.parse throws, caught by try/catch, falls through to normal enforcement
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('incomplete');
+			expect(parsed.agentsMissing).toContain('coder');
+			// Fallback should NOT activate due to JSON parse error
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		test('ADVERSARY: plan.json with null phases field - normal enforcement applies', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with null phases field
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify({ phases: null })
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			// .find() on null throws, caught by try/catch, falls through to normal enforcement
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('incomplete');
+			expect(parsed.agentsMissing).toContain('coder');
+			// Fallback should NOT activate due to null phases error
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		test('ADVERSARY: plan.json with task having unexpected status value - fallback does NOT activate', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with task status = 'in_progress' (not 'completed')
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'in_progress', description: 'Task 1' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			// .every() returns false because task status is not 'completed'
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('incomplete');
+			expect(parsed.agentsMissing).toContain('coder');
+			// Fallback should NOT activate because .every() returns false
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+		});
+
+		test('ADVERSARY: concurrent modification simulation - plan.json remains valid and phase status updated', async () => {
+			// Set up permissive config with required_agents
+			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce'
+					}
+				})
+			);
+
+			// Write plan.json with phase 1 having ALL tasks completed
+			const planJson = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'mega',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' }
+						]
+					}
+				]
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(planJson, null, 2)
+			);
+
+			// Set up session with NO agents dispatched
+			ensureAgentSession('sess1');
+			// No agents dispatched - fallback should activate
+
+			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+
+			// Should succeed due to fallback
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(true);
+
+			// Verify plan.json is still valid JSON (no corruption)
+			const planPath = path.join(tempDir, '.swarm', 'plan.json');
+			const planAfter = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+
+			// Bug A fix should have updated phase status to 'completed'
+			expect(planAfter.phases[0].status).toBe('completed');
+
+			// Verify the JSON structure is still valid
+			expect(planAfter.phases).toBeDefined();
+			expect(Array.isArray(planAfter.phases)).toBe(true);
+			expect(planAfter.phases[0].tasks).toBeDefined();
+		});
+	});
 });
