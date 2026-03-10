@@ -668,4 +668,23 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 			expect(getTaskState(session, '8.1')).toBe('reviewer_run');
 		});
 	});
+
+	describe('input.args primary path (v6.23 hotfix)', () => {
+		it('should advance reviewer_run → tests_run via input.args alone (no delegationChains)', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// No delegationChains set — input.args is the only signal
+			const session = ensureAgentSession('args-te-session');
+			session.currentTaskId = '1.1';
+			session.taskWorkflowStates.set('1.1', 'reviewer_run');
+
+			await hook.toolAfter(
+				{ tool: 'tool.execute.Task', sessionID: 'args-te-session', callID: 'call-args-te-1', args: { subagent_type: 'mega_test_engineer' } },
+				{},
+			);
+
+			expect(getTaskState(session, '1.1')).toBe('tests_run');
+		});
+	});
 });

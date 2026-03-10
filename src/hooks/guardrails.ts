@@ -271,7 +271,12 @@ export function createGuardrailsHooks(
 		output: { args: unknown },
 	) => Promise<void>;
 	toolAfter: (
-		input: { tool: string; sessionID: string; callID: string },
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+			args?: Record<string, unknown>;
+		},
 		output: { title: string; output: string; metadata: unknown },
 	) => Promise<void>;
 	messagesTransform: (
@@ -832,8 +837,9 @@ export function createGuardrailsHooks(
 				}
 
 				// v6.12: Track reviewer AND test_engineer delegations
-				// Use input args stored from toolBefore (not output.metadata)
-				const inputArgs = getStoredInputArgs(input.callID);
+				// Primary: input.args from OpenCode hook (authoritative)
+				// Fallback: stored args from toolBefore
+				const inputArgs = input.args ?? getStoredInputArgs(input.callID);
 				// NOTE: Do NOT delete stored args here - delegation-gate.toolAfter runs after
 				// and needs to read them. Cleanup is handled by delegation-gate.ts
 				const delegation = isAgentDelegation(input.tool, inputArgs);

@@ -289,7 +289,12 @@ export function createDelegationGateHook(config: PluginConfig): {
 		output: { messages?: MessageWithParts[] },
 	) => Promise<void>;
 	toolAfter: (
-		input: { tool: string; sessionID: string; callID: string },
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+			args?: Record<string, unknown>;
+		},
 		output: unknown,
 	) => Promise<void>;
 } {
@@ -317,7 +322,12 @@ export function createDelegationGateHook(config: PluginConfig): {
 	// toolAfter: resets qaSkip fields and advances task states based on delegation type
 	// Uses stored input args from guardrails when available, falls back to delegationChains
 	const toolAfter = async (
-		input: { tool: string; sessionID: string; callID: string },
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+			args?: Record<string, unknown>;
+		},
 		_output: unknown,
 	): Promise<void> => {
 		if (!input.sessionID) return;
@@ -339,14 +349,18 @@ export function createDelegationGateHook(config: PluginConfig): {
 		// Detect task tool calls
 		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
 		if (normalized === 'Task' || normalized === 'task') {
-			// Try to get stored input args from guardrails (primary source)
-			const storedArgs = getStoredInputArgs(input.callID);
-			const argsObj = storedArgs as Record<string, unknown> | undefined;
-			const subagentType = argsObj?.subagent_type;
+			// Primary source: input.args from OpenCode's tool.execute.after hook (authoritative)
+			// Fallback: stored args from guardrails toolBefore (legacy path)
+			const directArgs = input.args as Record<string, unknown> | undefined;
+			const storedArgs = getStoredInputArgs(input.callID) as
+				| Record<string, unknown>
+				| undefined;
+			const subagentType =
+				directArgs?.subagent_type ?? storedArgs?.subagent_type;
 
 			// TEMPORARY DEBUG: Log task tool delegation
 			console.log(
-				`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? '(none)'} currentStates=[${statesSummary}]`,
+				`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? '(none)'} source=${directArgs?.subagent_type ? 'input.args' : storedArgs?.subagent_type ? 'storedArgs' : 'none'} currentStates=[${statesSummary}]`,
 			);
 
 			// Track if we detected reviewer and/or test_engineer via stored args
@@ -426,7 +440,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 			}
 
 			// Always clean up stored args if they exist, regardless of subagent_type validity
-			if (argsObj !== undefined) {
+			if (storedArgs !== undefined) {
 				deleteStoredInputArgs(input.callID);
 			}
 

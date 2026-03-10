@@ -47756,7 +47756,7 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
             }
           }
         }
-        const inputArgs = getStoredInputArgs(input.callID);
+        const inputArgs = input.args ?? getStoredInputArgs(input.callID);
         const delegation = isAgentDelegation(input.tool, inputArgs);
         if (delegation.isDelegation && (delegation.targetAgent === "reviewer" || delegation.targetAgent === "test_engineer")) {
           let currentPhase = 1;
@@ -48001,10 +48001,10 @@ function createDelegationGateHook(config3) {
     console.log(`[swarm-debug-task] delegation-gate.toolAfter | session=${input.sessionID} callID=${input.callID} tool=${input.tool}`);
     const normalized = input.tool.replace(/^[^:]+[:.]/, "");
     if (normalized === "Task" || normalized === "task") {
+      const directArgs = input.args;
       const storedArgs = getStoredInputArgs(input.callID);
-      const argsObj = storedArgs;
-      const subagentType = argsObj?.subagent_type;
-      console.log(`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? "(none)"} currentStates=[${statesSummary}]`);
+      const subagentType = directArgs?.subagent_type ?? storedArgs?.subagent_type;
+      console.log(`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? "(none)"} source=${directArgs?.subagent_type ? "input.args" : storedArgs?.subagent_type ? "storedArgs" : "none"} currentStates=[${statesSummary}]`);
       let hasReviewer = false;
       let hasTestEngineer = false;
       if (typeof subagentType === "string") {
@@ -48058,7 +48058,7 @@ function createDelegationGateHook(config3) {
           }
         }
       }
-      if (argsObj !== undefined) {
+      if (storedArgs !== undefined) {
         deleteStoredInputArgs(input.callID);
       }
       if (!subagentType || !hasReviewer) {
