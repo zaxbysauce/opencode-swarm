@@ -62,9 +62,9 @@ describe('delegation-gate: reviewer_run state transition (v6.22 Task 2.2)', () =
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
-			// Initial state is 'idle' (default)
+			// Seed to coder_delegated (prerequisite state for idle → reviewer_run)
+			session.taskWorkflowStates.set('1.1', 'coder_delegated');
 
-			// Trigger toolAfter
 			await triggerToolAfter(hook, 'test-session');
 
 			// State should advance to reviewer_run
@@ -83,6 +83,8 @@ describe('delegation-gate: reviewer_run state transition (v6.22 Task 2.2)', () =
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '2.3';
+			// Seed to coder_delegated (prerequisite state for idle → reviewer_run)
+			session.taskWorkflowStates.set('2.3', 'coder_delegated');
 
 			await triggerToolAfter(hook, 'test-session');
 
@@ -419,6 +421,8 @@ describe('delegation-gate: reviewer_run state transition (v6.22 Task 2.2)', () =
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to coder_delegated (prerequisite state for idle → reviewer_run)
+			session.taskWorkflowStates.set('1.1', 'coder_delegated');
 
 			await triggerToolAfter(hook, 'test-session');
 

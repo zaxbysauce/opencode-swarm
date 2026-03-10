@@ -653,7 +653,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Deterministic handoff: when task tool completes, force handoff to architect
 			// This ensures architect takes over even if chat.message is delayed
 			// NOTE: Must NOT rely on chat.message ordering
-			if (input.tool === 'task') {
+			// Normalize tool name to match the format used by plugin runtime (e.g., 'tool.execute.Task' -> 'Task')
+			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '');
+			if (normalizedTool === 'Task' || normalizedTool === 'task') {
 				const sessionId = input.sessionID;
 				// TEMPORARY DEBUG: Log task tool completion and handoff
 				const beforeSession = swarmState.agentSessions.get(sessionId);
