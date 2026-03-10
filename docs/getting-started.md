@@ -13,8 +13,8 @@ Once you select a Swarm architect, you do **not** manually operate its internal 
 
 Normal workflow:
 
-1. **Select a Swarm architect** in the OpenCode GUI
-2. start OpenCode in your project
+1. start OpenCode in your project: `opencode`
+2. **Select a Swarm architect** from the agent/mode dropdown in the OpenCode GUI — do **not** use the default `Build` or `Plan` modes, those bypass the plugin entirely
 3. verify Swarm once with:
    - `/swarm diagnose`
    - `/swarm agents`

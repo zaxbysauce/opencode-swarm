@@ -48,10 +48,18 @@ Create `~/.config/opencode/opencode-swarm.json`:
 opencode
 ```
 
-### 4. Test It
+### 4. Select a Swarm Architect
+
+> **Required:** You must select a Swarm architect from the agent/mode dropdown in the OpenCode GUI before starting. Using the default `Build` or `Plan` modes bypasses the Swarm plugin entirely.
+
+In the OpenCode GUI, open the agent/mode selector and choose the architect that matches your config (e.g., `architect`, or a prefixed name like `local_architect` if you defined multiple swarms). The exact names shown in the dropdown come from your configuration.
+
+You do **not** manually switch between the other internal agents (`coder`, `reviewer`, `critic`, etc.) — the architect coordinates them automatically.
+
+### 5. Test It
 
 ```
-@architect Review this codebase and suggest improvements
+Build me a simple REST API with a health-check endpoint.
 ```
 
 You should see:
