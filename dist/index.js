@@ -47303,406 +47303,32 @@ function maskToolOutput(msg, _threshold) {
 }
 // src/hooks/delegation-gate.ts
 init_schema();
-function extractTaskLine(text) {
-  const match = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
-  return match ? match[1].trim() : null;
-}
-function createDelegationGateHook(config3) {
-  const enabled = config3.hooks?.delegation_gate !== false;
-  const delegationMaxChars = config3.hooks?.delegation_max_chars ?? 4000;
-  if (!enabled) {
-    return {
-      messagesTransform: async (_input, _output) => {},
-      toolAfter: async () => {}
-    };
-  }
-  const toolAfter = async (input, _output) => {
-    if (!input.sessionID)
-      return;
-    const session = swarmState.agentSessions.get(input.sessionID);
-    if (!session)
-      return;
-    const normalized = input.tool.replace(/^[^:]+[:.]/, "");
-    if (normalized === "Task" || normalized === "task") {
-      const delegationChain = swarmState.delegationChains.get(input.sessionID);
-      if (delegationChain && delegationChain.length > 0) {
-        let lastCoderIndex = -1;
-        for (let i2 = delegationChain.length - 1;i2 >= 0; i2--) {
-          const target = stripKnownSwarmPrefix(delegationChain[i2].to);
-          if (target.includes("coder")) {
-            lastCoderIndex = i2;
-            break;
-          }
-        }
-        if (lastCoderIndex === -1)
-          return;
-        const afterCoder = delegationChain.slice(lastCoderIndex);
-        let hasReviewer = false;
-        let hasTestEngineer = false;
-        for (const delegation of afterCoder) {
-          const target = stripKnownSwarmPrefix(delegation.to);
-          if (target === "reviewer")
-            hasReviewer = true;
-          if (target === "test_engineer")
-            hasTestEngineer = true;
-        }
-        if (hasReviewer && hasTestEngineer) {
-          session.qaSkipCount = 0;
-          session.qaSkipTaskIds = [];
-        }
-        if (hasReviewer && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "coder_delegated" || state === "pre_check_passed") {
-              try {
-                advanceTaskState(session, taskId, "reviewer_run");
-              } catch {}
-            }
-          }
-        }
-        if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "reviewer_run") {
-              try {
-                advanceTaskState(session, taskId, "tests_run");
-              } catch {}
-            }
-          }
-        }
-      }
-    }
-  };
-  return {
-    messagesTransform: async (_input, output) => {
-      const messages = output.messages;
-      if (!messages || messages.length === 0)
-        return;
-      let lastUserMessageIndex = -1;
-      for (let i2 = messages.length - 1;i2 >= 0; i2--) {
-        if (messages[i2]?.info?.role === "user") {
-          lastUserMessageIndex = i2;
-          break;
-        }
-      }
-      if (lastUserMessageIndex === -1)
-        return;
-      const lastUserMessage = messages[lastUserMessageIndex];
-      if (!lastUserMessage?.parts)
-        return;
-      const agent = lastUserMessage.info?.agent;
-      const strippedAgent = agent ? stripKnownSwarmPrefix(agent) : undefined;
-      if (strippedAgent && strippedAgent !== "architect")
-        return;
-      const textPartIndex = lastUserMessage.parts.findIndex((p) => p?.type === "text" && p.text !== undefined);
-      if (textPartIndex === -1)
-        return;
-      const textPart = lastUserMessage.parts[textPartIndex];
-      const text = textPart.text ?? "";
-      const taskDisclosureSessionID = lastUserMessage.info?.sessionID;
-      if (taskDisclosureSessionID) {
-        const taskSession = ensureAgentSession(taskDisclosureSessionID);
-        const currentTaskIdForWindow = taskSession.currentTaskId;
-        if (currentTaskIdForWindow) {
-          const taskLineRegex = /^[ \t]*-[ \t]*(?:\[[ x]\][ \t]+)?(\d+\.\d+(?:\.\d+)*)[:. ].*/gm;
-          const taskLines = [];
-          taskLineRegex.lastIndex = 0;
-          let regexMatch = taskLineRegex.exec(text);
-          while (regexMatch !== null) {
-            taskLines.push({
-              line: regexMatch[0],
-              taskId: regexMatch[1],
-              index: regexMatch.index
-            });
-            regexMatch = taskLineRegex.exec(text);
-          }
-          if (taskLines.length > 5) {
-            const currentIdx = taskLines.findIndex((t) => t.taskId === currentTaskIdForWindow);
-            const windowStart = Math.max(0, currentIdx - 2);
-            const windowEnd = Math.min(taskLines.length - 1, currentIdx + 3);
-            const visibleTasks = taskLines.slice(windowStart, windowEnd + 1);
-            const hiddenBefore = windowStart;
-            const hiddenAfter = taskLines.length - 1 - windowEnd;
-            const totalTasks = taskLines.length;
-            const visibleCount = visibleTasks.length;
-            const firstTaskIndex = taskLines[0].index;
-            const lastTask = taskLines[taskLines.length - 1];
-            const lastTaskEnd = lastTask.index + lastTask.line.length;
-            const before = text.slice(0, firstTaskIndex);
-            const after = text.slice(lastTaskEnd);
-            const visibleLines = visibleTasks.map((t) => t.line).join(`
-`);
-            const trimComment = `[Task window: showing ${visibleCount} of ${totalTasks} tasks]`;
-            const trimmedMiddle = (hiddenBefore > 0 ? `[...${hiddenBefore} tasks hidden...]
-` : "") + visibleLines + (hiddenAfter > 0 ? `
-[...${hiddenAfter} tasks hidden...]` : "");
-            textPart.text = `${before}${trimmedMiddle}
-${trimComment}${after}`;
-          }
-        }
-      }
-      const sessionID = lastUserMessage.info?.sessionID;
-      const taskIdMatch = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
-      const currentTaskId = taskIdMatch ? taskIdMatch[1].trim() : null;
-      const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;
-      const isCoderDelegation = coderDelegationPattern.test(text);
-      const priorCoderTaskId = sessionID ? ensureAgentSession(sessionID).lastCoderDelegationTaskId ?? null : null;
-      if (sessionID && isCoderDelegation && currentTaskId) {
-        const session = ensureAgentSession(sessionID);
-        session.lastCoderDelegationTaskId = currentTaskId;
-        const fileDirPattern = /^FILE:\s*(.+)$/gm;
-        const declaredFiles = [];
-        for (const match of text.matchAll(fileDirPattern)) {
-          const filePath = match[1].trim();
-          if (filePath.length > 0 && !declaredFiles.includes(filePath)) {
-            declaredFiles.push(filePath);
-          }
-        }
-        session.declaredCoderScope = declaredFiles.length > 0 ? declaredFiles : null;
-        try {
-          advanceTaskState(session, currentTaskId, "coder_delegated");
-        } catch (err2) {
-          console.warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
-        }
-      }
-      if (sessionID && !isCoderDelegation && currentTaskId) {
-        const session = ensureAgentSession(sessionID);
-        if (session.architectWriteCount > 0 && session.lastCoderDelegationTaskId !== currentTaskId) {
-          const warningText2 = `\u26A0\uFE0F DELEGATION VIOLATION: Code modifications detected for task ${currentTaskId} with zero coder delegations.
-Rule 1: DELEGATE all coding to coder. You do NOT write code.`;
-          textPart.text = `${warningText2}
 
-${text}`;
-        }
-      }
-      {
-        const deliberationSessionID = lastUserMessage.info?.sessionID;
-        if (deliberationSessionID) {
-          if (!/^[a-zA-Z0-9_-]{1,128}$/.test(deliberationSessionID)) {} else {
-            const deliberationSession = ensureAgentSession(deliberationSessionID);
-            const lastGate = deliberationSession.lastGateOutcome;
-            let preamble;
-            if (lastGate) {
-              const gateResult = lastGate.passed ? "PASSED" : "FAILED";
-              const sanitizedGate = lastGate.gate.replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 64);
-              const sanitizedTaskId = lastGate.taskId.replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 32);
-              preamble = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]
-[DELIBERATE: Before proceeding \u2014 what is the SINGLE next task? What gates must it pass?]`;
-            } else {
-              preamble = `[DELIBERATE: Identify the first task from the plan. What gates must it pass before marking complete?]`;
-            }
-            const currentText = textPart.text ?? "";
-            textPart.text = `${preamble}
-
-${currentText}`;
-          }
-        }
-      }
-      if (!isCoderDelegation)
-        return;
-      const warnings = [];
-      if (text.length > delegationMaxChars) {
-        warnings.push(`Delegation exceeds recommended size (${text.length} chars, limit ${delegationMaxChars}). Consider splitting into smaller tasks.`);
-      }
-      const fileMatches = text.match(/^FILE:/gm);
-      if (fileMatches && fileMatches.length > 1) {
-        warnings.push(`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`);
-      }
-      const taskMatches = text.match(/^TASK:/gm);
-      if (taskMatches && taskMatches.length > 1) {
-        warnings.push(`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`);
-      }
-      const batchingPattern = /\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
-      const batchingMatches = text.match(batchingPattern);
-      if (batchingMatches && batchingMatches.length > 0) {
-        warnings.push(`Batching language detected (${batchingMatches.join(", ")}). Break compound objectives into separate coder calls.`);
-      }
-      const taskLine = extractTaskLine(text);
-      if (taskLine) {
-        const andPattern = /\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
-        if (andPattern.test(taskLine)) {
-          warnings.push('TASK line contains "and" connecting separate actions');
-        }
-      }
-      if (sessionID) {
-        const delegationChain = swarmState.delegationChains.get(sessionID);
-        if (delegationChain && delegationChain.length >= 2) {
-          const coderIndices = [];
-          for (let i2 = delegationChain.length - 1;i2 >= 0; i2--) {
-            if (stripKnownSwarmPrefix(delegationChain[i2].to).includes("coder")) {
-              coderIndices.unshift(i2);
-              if (coderIndices.length === 2)
-                break;
-            }
-          }
-          if (coderIndices.length === 2) {
-            const prevCoderIndex = coderIndices[0];
-            const betweenCoders = delegationChain.slice(prevCoderIndex + 1);
-            const hasReviewer = betweenCoders.some((d) => stripKnownSwarmPrefix(d.to) === "reviewer");
-            const hasTestEngineer = betweenCoders.some((d) => stripKnownSwarmPrefix(d.to) === "test_engineer");
-            const session = ensureAgentSession(sessionID);
-            const priorTaskStuckAtCoder = priorCoderTaskId !== null && getTaskState(session, priorCoderTaskId) === "coder_delegated";
-            if (!hasReviewer || !hasTestEngineer || priorTaskStuckAtCoder) {
-              if (session.qaSkipCount >= 1) {
-                const skippedTasks = session.qaSkipTaskIds.join(", ");
-                throw new Error(`\uD83D\uDED1 QA GATE ENFORCEMENT: ${session.qaSkipCount + 1} consecutive coder delegations without reviewer/test_engineer. ` + `Skipped tasks: [${skippedTasks}]. ` + `DELEGATE to reviewer and test_engineer NOW before any further coder work.`);
-              }
-              session.qaSkipCount++;
-              session.qaSkipTaskIds.push(currentTaskId ?? "unknown");
-              warnings.push(`\u26A0\uFE0F PROTOCOL VIOLATION: Previous coder task completed, but QA gate was skipped. ` + `You MUST delegate to reviewer (code review) and test_engineer (test execution) ` + `before starting a new coder task. Review RULES 7-8 in your system prompt.`);
-            }
-          }
-        }
-      }
-      if (warnings.length === 0)
-        return;
-      const warningLines = warnings.map((w) => `Detected signal: ${w}`);
-      const warningText = `\u26A0\uFE0F BATCH DETECTED: Your coder delegation appears to contain multiple tasks.
-Rule 3: ONE task per coder call. Split this into separate delegations.
-${warningLines.join(`
-`)}`;
-      const originalText = textPart.text ?? "";
-      textPart.text = `${warningText}
-
-${originalText}`;
-    },
-    toolAfter
-  };
-}
-// src/hooks/delegation-sanitizer.ts
-init_utils2();
-import * as fs13 from "fs";
-var SANITIZATION_PATTERNS = [
-  /\b\d+(st|nd|rd|th)\s+(attempt|try|time)\b/gi,
-  /\b(5th|fifth|final|last)\s+attempt\b/gi,
-  /attempt\s+\d+\s*\/\s*\d+/gi,
-  /\bthis\s+is\s+(the\s+)?(5th|fifth|final|last)\b/gi,
-  /\bwe('re|\s+are)\s+(behind|late)\b/gi,
-  /\buser\s+is\s+waiting\b/gi,
-  /\bship\s+(this|it)\s+now\b/gi,
-  /\bor\s+I('ll|\s+will)\s+(stop|halt|alert)\b/gi,
-  /\bor\s+all\s+work\s+stops\b/gi,
-  /\bthis\s+will\s+(delay|block)\s+everything\b/gi,
-  /\b(I'm|I\s+am)\s+(frustrated|disappointed)\b/gi
-];
-function sanitizeMessage(text, patterns = SANITIZATION_PATTERNS) {
-  let sanitized = text;
-  const stripped = [];
-  for (const pattern of patterns) {
-    const matches = sanitized.match(pattern);
-    if (matches) {
-      stripped.push(...matches);
-      sanitized = sanitized.replace(pattern, "");
-    }
-  }
-  sanitized = sanitized.replace(/\s+/g, " ").trim();
-  return {
-    sanitized,
-    modified: stripped.length > 0,
-    stripped
-  };
-}
-function isGateAgentMessage(agentName) {
-  const gateAgents = ["reviewer", "test_engineer", "critic", "test-engineer"];
-  const normalized = agentName.toLowerCase().replace(/-/g, "_");
-  return gateAgents.includes(normalized);
-}
-function createDelegationSanitizerHook(directory) {
-  const hook = async (_input, output) => {
-    const messages = output?.messages;
-    if (!messages || !Array.isArray(messages)) {
-      return;
-    }
-    for (const message of messages) {
-      const info2 = message?.info;
-      if (!info2)
-        continue;
-      const agent = info2.agent;
-      if (!agent || !isGateAgentMessage(agent)) {
-        continue;
-      }
-      if (!message.parts || !Array.isArray(message.parts)) {
-        continue;
-      }
-      for (const part of message.parts) {
-        if (part?.type !== "text" || !part.text) {
-          continue;
-        }
-        const originalText = part.text;
-        const result = sanitizeMessage(originalText);
-        if (result.modified) {
-          part.text = result.sanitized;
-          try {
-            const eventsPath = validateSwarmPath(directory, "events.jsonl");
-            const event = {
-              event: "message_sanitized",
-              agent,
-              original_length: originalText.length,
-              stripped_count: result.stripped.length,
-              stripped_patterns: result.stripped,
-              timestamp: new Date().toISOString()
-            };
-            fs13.appendFileSync(eventsPath, `${JSON.stringify(event)}
-`, "utf-8");
-          } catch {}
-        }
-      }
-    }
-  };
-  return safeHook(hook);
-}
-// src/hooks/delegation-tracker.ts
-init_constants();
-init_schema();
-function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
-  return async (input, _output) => {
-    const now = Date.now();
-    if (!input.agent || input.agent === "") {
-      const session2 = swarmState.agentSessions.get(input.sessionID);
-      if (session2?.delegationActive) {
-        session2.delegationActive = false;
-        swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
-        ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);
-        updateAgentEventTime(input.sessionID);
-      } else if (!session2) {
-        ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);
-      }
-      return;
-    }
-    const agentName = input.agent;
-    const previousAgent = swarmState.activeAgent.get(input.sessionID);
-    swarmState.activeAgent.set(input.sessionID, agentName);
-    const strippedAgent = stripKnownSwarmPrefix(agentName);
-    const isArchitect = strippedAgent === ORCHESTRATOR_NAME;
-    const session = ensureAgentSession(input.sessionID, agentName);
-    session.delegationActive = !isArchitect;
-    recordPhaseAgentDispatch(input.sessionID, agentName);
-    if (!isArchitect && guardrailsEnabled) {
-      beginInvocation(input.sessionID, agentName);
-    }
-    const delegationTrackerEnabled = config3.hooks?.delegation_tracker === true;
-    const delegationGateEnabled = config3.hooks?.delegation_gate !== false;
-    if ((delegationTrackerEnabled || delegationGateEnabled) && previousAgent && previousAgent !== agentName) {
-      const entry = {
-        from: previousAgent,
-        to: agentName,
-        timestamp: now
-      };
-      if (!swarmState.delegationChains.has(input.sessionID)) {
-        swarmState.delegationChains.set(input.sessionID, []);
-      }
-      const chain = swarmState.delegationChains.get(input.sessionID);
-      chain?.push(entry);
-      if (delegationTrackerEnabled) {
-        swarmState.pendingEvents++;
-      }
-    }
-  };
-}
 // src/hooks/guardrails.ts
 init_constants();
 init_schema();
 init_manager2();
 import * as path25 from "path";
 init_utils();
+var storedInputArgs = new Map;
+function debugStoredArgs(action, callID, extra) {
+  const args2 = storedInputArgs.get(callID);
+  const argsObj = args2;
+  const subagentType = argsObj?.subagent_type;
+  console.log(`[swarm-debug-task] stored-args.${action} | callID=${callID} subagent_type=${subagentType ?? "(none)"}`, extra ? JSON.stringify(extra) : "");
+}
+function getStoredInputArgs(callID) {
+  debugStoredArgs("get", callID);
+  return storedInputArgs.get(callID);
+}
+function setStoredInputArgs(callID, args2) {
+  debugStoredArgs("set", callID);
+  storedInputArgs.set(callID, args2);
+}
+function deleteStoredInputArgs(callID) {
+  debugStoredArgs("delete", callID);
+  storedInputArgs.delete(callID);
+}
 function extractPhaseNumber(phaseString) {
   if (!phaseString)
     return 1;
@@ -47836,7 +47462,6 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
     };
   }
   const cfg = guardrailsConfig;
-  const inputArgsByCallID = new Map;
   return {
     toolBefore: async (input, output) => {
       const currentSession = swarmState.agentSessions.get(input.sessionID);
@@ -48088,7 +47713,7 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
           window2.warningReason = reasons.join(", ");
         }
       }
-      inputArgsByCallID.set(input.callID, output.args);
+      setStoredInputArgs(input.callID, output.args);
     },
     toolAfter: async (input, output) => {
       const session = swarmState.agentSessions.get(input.sessionID);
@@ -48131,8 +47756,7 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
             }
           }
         }
-        const inputArgs = inputArgsByCallID.get(input.callID);
-        inputArgsByCallID.delete(input.callID);
+        const inputArgs = getStoredInputArgs(input.callID);
         const delegation = isAgentDelegation(input.tool, inputArgs);
         if (delegation.isDelegation && (delegation.targetAgent === "reviewer" || delegation.targetAgent === "test_engineer")) {
           let currentPhase = 1;
@@ -48339,6 +47963,513 @@ function hashArgs(args2) {
   } catch {
     return 0;
   }
+}
+
+// src/hooks/delegation-gate.ts
+function extractTaskLine(text) {
+  const match = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
+  return match ? match[1].trim() : null;
+}
+function extractPlanTaskId(text) {
+  const taskListMatch = text.match(/^[ \t]*-[ \t]*(?:\[[ x]\][ \t]+)?(\d+\.\d+(?:\.\d+)*)[:. ]/m);
+  if (taskListMatch) {
+    return taskListMatch[1];
+  }
+  const taskLineMatch = text.match(/TASK:\s*(?:.+?\s)?(\d+\.\d+(?:\.\d+)*)(?:\s|$|:)/i);
+  if (taskLineMatch) {
+    return taskLineMatch[1];
+  }
+  return null;
+}
+function createDelegationGateHook(config3) {
+  const enabled = config3.hooks?.delegation_gate !== false;
+  const delegationMaxChars = config3.hooks?.delegation_max_chars ?? 4000;
+  if (!enabled) {
+    return {
+      messagesTransform: async (_input, _output) => {},
+      toolAfter: async () => {}
+    };
+  }
+  const toolAfter = async (input, _output) => {
+    if (!input.sessionID)
+      return;
+    const session = swarmState.agentSessions.get(input.sessionID);
+    if (!session)
+      return;
+    const taskStates = session.taskWorkflowStates ? Object.entries(session.taskWorkflowStates) : [];
+    const statesSummary = taskStates.length > 0 ? taskStates.map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
+    console.log(`[swarm-debug-task] delegation-gate.toolAfter | session=${input.sessionID} callID=${input.callID} tool=${input.tool}`);
+    const normalized = input.tool.replace(/^[^:]+[:.]/, "");
+    if (normalized === "Task" || normalized === "task") {
+      const storedArgs = getStoredInputArgs(input.callID);
+      const argsObj = storedArgs;
+      const subagentType = argsObj?.subagent_type;
+      console.log(`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? "(none)"} currentStates=[${statesSummary}]`);
+      let hasReviewer = false;
+      let hasTestEngineer = false;
+      if (typeof subagentType === "string") {
+        const targetAgent = stripKnownSwarmPrefix(subagentType);
+        if (targetAgent === "reviewer")
+          hasReviewer = true;
+        if (targetAgent === "test_engineer")
+          hasTestEngineer = true;
+        if (targetAgent === "reviewer" && session.taskWorkflowStates) {
+          for (const [taskId, state] of session.taskWorkflowStates) {
+            if (state === "coder_delegated" || state === "pre_check_passed") {
+              try {
+                advanceTaskState(session, taskId, "reviewer_run");
+              } catch {}
+            }
+          }
+        }
+        if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
+          for (const [taskId, state] of session.taskWorkflowStates) {
+            if (state === "reviewer_run") {
+              try {
+                advanceTaskState(session, taskId, "tests_run");
+              } catch {}
+            }
+          }
+        }
+        if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
+          for (const [, otherSession] of swarmState.agentSessions) {
+            if (otherSession === session)
+              continue;
+            if (!otherSession.taskWorkflowStates)
+              continue;
+            if (targetAgent === "reviewer") {
+              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                if (state === "coder_delegated" || state === "pre_check_passed") {
+                  try {
+                    advanceTaskState(otherSession, taskId, "reviewer_run");
+                  } catch {}
+                }
+              }
+            }
+            if (targetAgent === "test_engineer") {
+              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                if (state === "reviewer_run") {
+                  try {
+                    advanceTaskState(otherSession, taskId, "tests_run");
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+      if (argsObj !== undefined) {
+        deleteStoredInputArgs(input.callID);
+      }
+      if (!subagentType || !hasReviewer) {
+        const delegationChain = swarmState.delegationChains.get(input.sessionID);
+        if (delegationChain && delegationChain.length > 0) {
+          let lastCoderIndex = -1;
+          for (let i2 = delegationChain.length - 1;i2 >= 0; i2--) {
+            const target = stripKnownSwarmPrefix(delegationChain[i2].to);
+            if (target.includes("coder")) {
+              lastCoderIndex = i2;
+              break;
+            }
+          }
+          if (lastCoderIndex === -1) {
+            return;
+          }
+          const afterCoder = delegationChain.slice(lastCoderIndex);
+          for (const delegation of afterCoder) {
+            const target = stripKnownSwarmPrefix(delegation.to);
+            if (target === "reviewer")
+              hasReviewer = true;
+            if (target === "test_engineer")
+              hasTestEngineer = true;
+          }
+          if (hasReviewer && hasTestEngineer) {
+            session.qaSkipCount = 0;
+            session.qaSkipTaskIds = [];
+          }
+          if (hasReviewer && session.taskWorkflowStates) {
+            for (const [taskId, state] of session.taskWorkflowStates) {
+              if (state === "coder_delegated" || state === "pre_check_passed") {
+                try {
+                  advanceTaskState(session, taskId, "reviewer_run");
+                } catch {}
+              }
+            }
+          }
+          if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+            for (const [taskId, state] of session.taskWorkflowStates) {
+              if (state === "reviewer_run") {
+                try {
+                  advanceTaskState(session, taskId, "tests_run");
+                } catch {}
+              }
+            }
+          }
+          if (hasReviewer) {
+            for (const [, otherSession] of swarmState.agentSessions) {
+              if (otherSession === session)
+                continue;
+              if (!otherSession.taskWorkflowStates)
+                continue;
+              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                if (state === "coder_delegated" || state === "pre_check_passed") {
+                  try {
+                    advanceTaskState(otherSession, taskId, "reviewer_run");
+                  } catch {}
+                }
+              }
+            }
+          }
+          if (hasReviewer && hasTestEngineer) {
+            for (const [, otherSession] of swarmState.agentSessions) {
+              if (otherSession === session)
+                continue;
+              if (!otherSession.taskWorkflowStates)
+                continue;
+              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                if (state === "reviewer_run") {
+                  try {
+                    advanceTaskState(otherSession, taskId, "tests_run");
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+  return {
+    messagesTransform: async (_input, output) => {
+      const messages = output.messages;
+      if (!messages || messages.length === 0)
+        return;
+      let lastUserMessageIndex = -1;
+      for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+        if (messages[i2]?.info?.role === "user") {
+          lastUserMessageIndex = i2;
+          break;
+        }
+      }
+      if (lastUserMessageIndex === -1)
+        return;
+      const lastUserMessage = messages[lastUserMessageIndex];
+      if (!lastUserMessage?.parts)
+        return;
+      const agent = lastUserMessage.info?.agent;
+      const strippedAgent = agent ? stripKnownSwarmPrefix(agent) : undefined;
+      if (strippedAgent && strippedAgent !== "architect")
+        return;
+      const textPartIndex = lastUserMessage.parts.findIndex((p) => p?.type === "text" && p.text !== undefined);
+      if (textPartIndex === -1)
+        return;
+      const textPart = lastUserMessage.parts[textPartIndex];
+      const text = textPart.text ?? "";
+      const taskDisclosureSessionID = lastUserMessage.info?.sessionID;
+      if (taskDisclosureSessionID) {
+        const taskSession = ensureAgentSession(taskDisclosureSessionID);
+        const currentTaskIdForWindow = taskSession.currentTaskId;
+        if (currentTaskIdForWindow) {
+          const taskLineRegex = /^[ \t]*-[ \t]*(?:\[[ x]\][ \t]+)?(\d+\.\d+(?:\.\d+)*)[:. ].*/gm;
+          const taskLines = [];
+          taskLineRegex.lastIndex = 0;
+          let regexMatch = taskLineRegex.exec(text);
+          while (regexMatch !== null) {
+            taskLines.push({
+              line: regexMatch[0],
+              taskId: regexMatch[1],
+              index: regexMatch.index
+            });
+            regexMatch = taskLineRegex.exec(text);
+          }
+          if (taskLines.length > 5) {
+            const currentIdx = taskLines.findIndex((t) => t.taskId === currentTaskIdForWindow);
+            const windowStart = Math.max(0, currentIdx - 2);
+            const windowEnd = Math.min(taskLines.length - 1, currentIdx + 3);
+            const visibleTasks = taskLines.slice(windowStart, windowEnd + 1);
+            const hiddenBefore = windowStart;
+            const hiddenAfter = taskLines.length - 1 - windowEnd;
+            const totalTasks = taskLines.length;
+            const visibleCount = visibleTasks.length;
+            const firstTaskIndex = taskLines[0].index;
+            const lastTask = taskLines[taskLines.length - 1];
+            const lastTaskEnd = lastTask.index + lastTask.line.length;
+            const before = text.slice(0, firstTaskIndex);
+            const after = text.slice(lastTaskEnd);
+            const visibleLines = visibleTasks.map((t) => t.line).join(`
+`);
+            const trimComment = `[Task window: showing ${visibleCount} of ${totalTasks} tasks]`;
+            const trimmedMiddle = (hiddenBefore > 0 ? `[...${hiddenBefore} tasks hidden...]
+` : "") + visibleLines + (hiddenAfter > 0 ? `
+[...${hiddenAfter} tasks hidden...]` : "");
+            textPart.text = `${before}${trimmedMiddle}
+${trimComment}${after}`;
+          }
+        }
+      }
+      const sessionID = lastUserMessage.info?.sessionID;
+      const planTaskId = extractPlanTaskId(text);
+      const taskIdMatch = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
+      const taskIdFromLine = taskIdMatch ? taskIdMatch[1].trim() : null;
+      const currentTaskId = planTaskId ?? taskIdFromLine;
+      const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;
+      const isCoderDelegation = coderDelegationPattern.test(text);
+      const priorCoderTaskId = sessionID ? ensureAgentSession(sessionID).lastCoderDelegationTaskId ?? null : null;
+      if (sessionID && isCoderDelegation && currentTaskId) {
+        const session = ensureAgentSession(sessionID);
+        session.lastCoderDelegationTaskId = currentTaskId;
+        const fileDirPattern = /^FILE:\s*(.+)$/gm;
+        const declaredFiles = [];
+        for (const match of text.matchAll(fileDirPattern)) {
+          const filePath = match[1].trim();
+          if (filePath.length > 0 && !declaredFiles.includes(filePath)) {
+            declaredFiles.push(filePath);
+          }
+        }
+        session.declaredCoderScope = declaredFiles.length > 0 ? declaredFiles : null;
+        try {
+          advanceTaskState(session, currentTaskId, "coder_delegated");
+        } catch (err2) {
+          console.warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        }
+      }
+      if (sessionID && !isCoderDelegation && currentTaskId) {
+        const session = ensureAgentSession(sessionID);
+        if (session.architectWriteCount > 0 && session.lastCoderDelegationTaskId !== currentTaskId) {
+          const warningText2 = `\u26A0\uFE0F DELEGATION VIOLATION: Code modifications detected for task ${currentTaskId} with zero coder delegations.
+Rule 1: DELEGATE all coding to coder. You do NOT write code.`;
+          textPart.text = `${warningText2}
+
+${text}`;
+        }
+      }
+      {
+        const deliberationSessionID = lastUserMessage.info?.sessionID;
+        if (deliberationSessionID) {
+          if (!/^[a-zA-Z0-9_-]{1,128}$/.test(deliberationSessionID)) {} else {
+            const deliberationSession = ensureAgentSession(deliberationSessionID);
+            const lastGate = deliberationSession.lastGateOutcome;
+            let preamble;
+            if (lastGate) {
+              const gateResult = lastGate.passed ? "PASSED" : "FAILED";
+              const sanitizedGate = lastGate.gate.replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 64);
+              const sanitizedTaskId = lastGate.taskId.replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 32);
+              preamble = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]
+[DELIBERATE: Before proceeding \u2014 what is the SINGLE next task? What gates must it pass?]`;
+            } else {
+              preamble = `[DELIBERATE: Identify the first task from the plan. What gates must it pass before marking complete?]`;
+            }
+            const currentText = textPart.text ?? "";
+            textPart.text = `${preamble}
+
+${currentText}`;
+          }
+        }
+      }
+      if (!isCoderDelegation)
+        return;
+      const warnings = [];
+      if (text.length > delegationMaxChars) {
+        warnings.push(`Delegation exceeds recommended size (${text.length} chars, limit ${delegationMaxChars}). Consider splitting into smaller tasks.`);
+      }
+      const fileMatches = text.match(/^FILE:/gm);
+      if (fileMatches && fileMatches.length > 1) {
+        warnings.push(`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`);
+      }
+      const taskMatches = text.match(/^TASK:/gm);
+      if (taskMatches && taskMatches.length > 1) {
+        warnings.push(`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`);
+      }
+      const batchingPattern = /\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
+      const batchingMatches = text.match(batchingPattern);
+      if (batchingMatches && batchingMatches.length > 0) {
+        warnings.push(`Batching language detected (${batchingMatches.join(", ")}). Break compound objectives into separate coder calls.`);
+      }
+      const taskLine = extractTaskLine(text);
+      if (taskLine) {
+        const andPattern = /\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
+        if (andPattern.test(taskLine)) {
+          warnings.push('TASK line contains "and" connecting separate actions');
+        }
+      }
+      if (sessionID) {
+        const delegationChain = swarmState.delegationChains.get(sessionID);
+        if (delegationChain && delegationChain.length >= 2) {
+          const coderIndices = [];
+          for (let i2 = delegationChain.length - 1;i2 >= 0; i2--) {
+            if (stripKnownSwarmPrefix(delegationChain[i2].to).includes("coder")) {
+              coderIndices.unshift(i2);
+              if (coderIndices.length === 2)
+                break;
+            }
+          }
+          if (coderIndices.length === 2) {
+            const prevCoderIndex = coderIndices[0];
+            const betweenCoders = delegationChain.slice(prevCoderIndex + 1);
+            const hasReviewer = betweenCoders.some((d) => stripKnownSwarmPrefix(d.to) === "reviewer");
+            const hasTestEngineer = betweenCoders.some((d) => stripKnownSwarmPrefix(d.to) === "test_engineer");
+            const session = ensureAgentSession(sessionID);
+            const priorTaskStuckAtCoder = priorCoderTaskId !== null && getTaskState(session, priorCoderTaskId) === "coder_delegated";
+            if (!hasReviewer || !hasTestEngineer || priorTaskStuckAtCoder) {
+              if (session.qaSkipCount >= 1) {
+                const skippedTasks = session.qaSkipTaskIds.join(", ");
+                throw new Error(`\uD83D\uDED1 QA GATE ENFORCEMENT: ${session.qaSkipCount + 1} consecutive coder delegations without reviewer/test_engineer. ` + `Skipped tasks: [${skippedTasks}]. ` + `DELEGATE to reviewer and test_engineer NOW before any further coder work.`);
+              }
+              session.qaSkipCount++;
+              session.qaSkipTaskIds.push(currentTaskId ?? "unknown");
+              warnings.push(`\u26A0\uFE0F PROTOCOL VIOLATION: Previous coder task completed, but QA gate was skipped. ` + `You MUST delegate to reviewer (code review) and test_engineer (test execution) ` + `before starting a new coder task. Review RULES 7-8 in your system prompt.`);
+            }
+          }
+        }
+      }
+      if (warnings.length === 0)
+        return;
+      const warningLines = warnings.map((w) => `Detected signal: ${w}`);
+      const warningText = `\u26A0\uFE0F BATCH DETECTED: Your coder delegation appears to contain multiple tasks.
+Rule 3: ONE task per coder call. Split this into separate delegations.
+${warningLines.join(`
+`)}`;
+      const originalText = textPart.text ?? "";
+      textPart.text = `${warningText}
+
+${originalText}`;
+    },
+    toolAfter
+  };
+}
+// src/hooks/delegation-sanitizer.ts
+init_utils2();
+import * as fs13 from "fs";
+var SANITIZATION_PATTERNS = [
+  /\b\d+(st|nd|rd|th)\s+(attempt|try|time)\b/gi,
+  /\b(5th|fifth|final|last)\s+attempt\b/gi,
+  /attempt\s+\d+\s*\/\s*\d+/gi,
+  /\bthis\s+is\s+(the\s+)?(5th|fifth|final|last)\b/gi,
+  /\bwe('re|\s+are)\s+(behind|late)\b/gi,
+  /\buser\s+is\s+waiting\b/gi,
+  /\bship\s+(this|it)\s+now\b/gi,
+  /\bor\s+I('ll|\s+will)\s+(stop|halt|alert)\b/gi,
+  /\bor\s+all\s+work\s+stops\b/gi,
+  /\bthis\s+will\s+(delay|block)\s+everything\b/gi,
+  /\b(I'm|I\s+am)\s+(frustrated|disappointed)\b/gi
+];
+function sanitizeMessage(text, patterns = SANITIZATION_PATTERNS) {
+  let sanitized = text;
+  const stripped = [];
+  for (const pattern of patterns) {
+    const matches = sanitized.match(pattern);
+    if (matches) {
+      stripped.push(...matches);
+      sanitized = sanitized.replace(pattern, "");
+    }
+  }
+  sanitized = sanitized.replace(/\s+/g, " ").trim();
+  return {
+    sanitized,
+    modified: stripped.length > 0,
+    stripped
+  };
+}
+function isGateAgentMessage(agentName) {
+  const gateAgents = ["reviewer", "test_engineer", "critic", "test-engineer"];
+  const normalized = agentName.toLowerCase().replace(/-/g, "_");
+  return gateAgents.includes(normalized);
+}
+function createDelegationSanitizerHook(directory) {
+  const hook = async (_input, output) => {
+    const messages = output?.messages;
+    if (!messages || !Array.isArray(messages)) {
+      return;
+    }
+    for (const message of messages) {
+      const info2 = message?.info;
+      if (!info2)
+        continue;
+      const agent = info2.agent;
+      if (!agent || !isGateAgentMessage(agent)) {
+        continue;
+      }
+      if (!message.parts || !Array.isArray(message.parts)) {
+        continue;
+      }
+      for (const part of message.parts) {
+        if (part?.type !== "text" || !part.text) {
+          continue;
+        }
+        const originalText = part.text;
+        const result = sanitizeMessage(originalText);
+        if (result.modified) {
+          part.text = result.sanitized;
+          try {
+            const eventsPath = validateSwarmPath(directory, "events.jsonl");
+            const event = {
+              event: "message_sanitized",
+              agent,
+              original_length: originalText.length,
+              stripped_count: result.stripped.length,
+              stripped_patterns: result.stripped,
+              timestamp: new Date().toISOString()
+            };
+            fs13.appendFileSync(eventsPath, `${JSON.stringify(event)}
+`, "utf-8");
+          } catch {}
+        }
+      }
+    }
+  };
+  return safeHook(hook);
+}
+// src/hooks/delegation-tracker.ts
+init_constants();
+init_schema();
+function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
+  return async (input, _output) => {
+    const now = Date.now();
+    const debugSession = swarmState.agentSessions.get(input.sessionID);
+    const taskStates = debugSession?.taskWorkflowStates ? Object.entries(debugSession.taskWorkflowStates) : [];
+    const statesSummary = taskStates.length > 0 ? taskStates.map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
+    console.log(`[swarm-debug-task] chat.message | session=${input.sessionID} agent=${input.agent ?? "(none)"} prevAgent=${swarmState.activeAgent.get(input.sessionID) ?? "(none)"} taskStates=[${statesSummary}]`);
+    if (!input.agent || input.agent === "") {
+      const session2 = swarmState.agentSessions.get(input.sessionID);
+      if (session2?.delegationActive) {
+        session2.delegationActive = false;
+        swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
+        ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);
+        updateAgentEventTime(input.sessionID);
+      } else if (!session2) {
+        ensureAgentSession(input.sessionID, ORCHESTRATOR_NAME);
+      }
+      return;
+    }
+    const agentName = input.agent;
+    const previousAgent = swarmState.activeAgent.get(input.sessionID);
+    swarmState.activeAgent.set(input.sessionID, agentName);
+    const strippedAgent = stripKnownSwarmPrefix(agentName);
+    const isArchitect2 = strippedAgent === ORCHESTRATOR_NAME;
+    const session = ensureAgentSession(input.sessionID, agentName);
+    session.delegationActive = !isArchitect2;
+    recordPhaseAgentDispatch(input.sessionID, agentName);
+    if (!isArchitect2 && guardrailsEnabled) {
+      beginInvocation(input.sessionID, agentName);
+    }
+    const delegationTrackerEnabled = config3.hooks?.delegation_tracker === true;
+    const delegationGateEnabled = config3.hooks?.delegation_gate !== false;
+    if ((delegationTrackerEnabled || delegationGateEnabled) && previousAgent && previousAgent !== agentName) {
+      const entry = {
+        from: previousAgent,
+        to: agentName,
+        timestamp: now
+      };
+      if (!swarmState.delegationChains.has(input.sessionID)) {
+        swarmState.delegationChains.set(input.sessionID, []);
+      }
+      const chain = swarmState.delegationChains.get(input.sessionID);
+      chain?.push(entry);
+      if (delegationTrackerEnabled) {
+        swarmState.pendingEvents++;
+      }
+    }
+  };
 }
 // src/hooks/messages-transform.ts
 function consolidateSystemMessages(messages) {
@@ -60418,6 +60549,13 @@ ${footerLines.join(`
 }
 
 // src/index.ts
+function debugTaskLog(hook, ctx, extra) {
+  const activeAgent = swarmState.activeAgent.get(ctx.sessionID);
+  const session = swarmState.agentSessions.get(ctx.sessionID);
+  const taskStates = session?.taskWorkflowStates ? Object.entries(session.taskWorkflowStates) : [];
+  const statesSummary = taskStates.length > 0 ? taskStates.map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
+  console.log(`[swarm-debug-task] ${hook} | session=${ctx.sessionID} callID=${ctx.callID ?? "(n/a)"} agent=${activeAgent ?? "(none)"} taskStates=[${statesSummary}]`, extra ? JSON.stringify(extra) : "");
+}
 var OpenCodeSwarm = async (ctx) => {
   const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
   await loadSnapshot(ctx.directory);
@@ -60712,6 +60850,10 @@ var OpenCodeSwarm = async (ctx) => {
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),
     "tool.execute.before": async (input, output) => {
+      debugTaskLog("tool.execute.before", {
+        sessionID: input.sessionID,
+        callID: input.callID
+      }, { tool: input.tool });
       if (!swarmState.activeAgent.has(input.sessionID)) {
         swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
       }
@@ -60731,6 +60873,10 @@ var OpenCodeSwarm = async (ctx) => {
       await safeHook(activityHooks.toolBefore)(input, output);
     },
     "tool.execute.after": async (input, output) => {
+      debugTaskLog("tool.execute.after", {
+        sessionID: input.sessionID,
+        callID: input.callID
+      }, { tool: input.tool });
       await activityHooks.toolAfter(input, output);
       await guardrailsHooks.toolAfter(input, output);
       await safeHook(delegationGateHooks.toolAfter)(input, output);
@@ -60760,6 +60906,9 @@ var OpenCodeSwarm = async (ctx) => {
       }
       if (input.tool === "task") {
         const sessionId = input.sessionID;
+        const beforeSession = swarmState.agentSessions.get(sessionId);
+        const beforeStates = beforeSession?.taskWorkflowStates ? Object.entries(beforeSession.taskWorkflowStates).map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
+        console.log(`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} BEFORE: taskStates=[${beforeStates}]`);
         swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
         ensureAgentSession(sessionId, ORCHESTRATOR_NAME);
         const session = swarmState.agentSessions.get(sessionId);
@@ -60767,6 +60916,10 @@ var OpenCodeSwarm = async (ctx) => {
           session.delegationActive = false;
           session.lastAgentEventTime = Date.now();
         }
+        const afterSession = swarmState.agentSessions.get(sessionId);
+        const afterStates = afterSession?.taskWorkflowStates ? Object.entries(afterSession.taskWorkflowStates).map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
+        const afterActive = swarmState.activeAgent.get(sessionId);
+        console.log(`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} AFTER: activeAgent=${afterActive} delegationActive=${afterSession?.delegationActive} taskStates=[${afterStates}]`);
       }
     },
     "chat.message": safeHook(delegationHandler),

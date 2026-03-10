@@ -63,12 +63,13 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
-			// Initial state is 'idle' (default)
+			// Seed state to pre_check_passed (prerequisite for reviewer_run → tests_run)
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			// Trigger toolAfter
 			await triggerToolAfter(hook, 'test-session');
 
-			// State should advance to tests_run
+			// State should advance to tests_run (pre_check_passed → reviewer_run → tests_run)
 			expect(getTaskState(session, '1.1')).toBe('tests_run');
 		});
 
@@ -86,6 +87,8 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '2.3';
+			// Seed state to reviewer_run (prerequisite for reviewer_run → tests_run)
+			session.taskWorkflowStates.set('2.3', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
@@ -106,6 +109,8 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '3.1';
+			// Seed state to reviewer_run (prerequisite for reviewer_run → tests_run)
+			session.taskWorkflowStates.set('3.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
@@ -128,10 +133,12 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed state to reviewer_run (which should NOT advance further without test_engineer)
+			session.taskWorkflowStates.set('1.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
-			// Should only advance to reviewer_run, NOT tests_run
+			// Should only stay at reviewer_run (can't advance to tests_run without test_engineer)
 			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 	});
@@ -150,11 +157,13 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed state to pre_check_passed (needs reviewer first to advance to reviewer_run)
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			await triggerToolAfter(hook, 'test-session');
 
-			// State should remain 'idle' (neither reviewer_run nor tests_run)
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			// State should remain at pre_check_passed (no reviewer in chain)
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 	});
 
@@ -171,10 +180,13 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed state to pre_check_passed
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			await triggerToolAfter(hook, 'test-session');
 
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			// State should remain at pre_check_passed (no reviewer in chain)
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 	});
 
@@ -194,7 +206,7 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = null; // Not set (falsy)
 
-			// Should not throw
+			// Should not throw - no task to advance
 			await triggerToolAfter(hook, 'test-session');
 
 			// No state should be set (no task to advance)
@@ -287,13 +299,14 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to pre_check_passed - should NOT advance because reviewer is before coder
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			await triggerToolAfter(hook, 'test-session');
 
 			// hasReviewer is false (reviewer not AFTER last coder)
-			// hasTestEngineer is true but hasReviewer is false → should NOT advance to tests_run
-			// Even reviewer_run should not advance because reviewer is before coder
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			// hasTestEngineer is true but hasReviewer is false → should NOT advance
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 
 		it('should handle test_engineer after coder but reviewer before coder', async () => {
@@ -310,12 +323,14 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to reviewer_run - should NOT advance to tests_run because hasReviewer is false
+			session.taskWorkflowStates.set('1.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
 			// After last coder (index 2), only test_engineer is present
 			// hasReviewer = false, hasTestEngineer = true → should NOT advance
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 	});
 
@@ -336,13 +351,15 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to reviewer_run - should NOT advance because last coder hasn't been seen yet
+			session.taskWorkflowStates.set('1.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
 			// Last coder is local_coder (index 4)
 			// After index 4, there's nothing → hasReviewer = false, hasTestEngineer = false
 			// Should NOT advance
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 	});
 
@@ -363,6 +380,8 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to reviewer_run (prerequisite for reviewer_run → tests_run)
+			session.taskWorkflowStates.set('1.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
@@ -386,6 +405,8 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '2.1';
+			// Seed to reviewer_run (prerequisite for reviewer_run → tests_run)
+			session.taskWorkflowStates.set('2.1', 'reviewer_run');
 
 			await triggerToolAfter(hook, 'test-session');
 
@@ -408,11 +429,13 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to pre_check_passed to test full chain: pre_check_passed → reviewer_run → tests_run
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			// Single toolAfter call
 			await triggerToolAfter(hook, 'test-session');
 
-			// Should directly advance to tests_run (skipping reviewer_run intermediate)
+			// Should directly advance to tests_run (pre_check_passed → reviewer_run → tests_run)
 			// The logic checks hasReviewer first (advances to reviewer_run)
 			// Then checks hasReviewer && hasTestEngineer (advances to tests_run)
 			// Result should be tests_run (the final state)
@@ -433,6 +456,8 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '5.5';
+			// Seed to pre_check_passed
+			session.taskWorkflowStates.set('5.5', 'pre_check_passed');
 
 			// Should NOT throw - both transitions fire in same call
 			await triggerToolAfter(hook, 'test-session');
@@ -455,12 +480,14 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to pre_check_passed - should NOT advance (no coder in chain)
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			// Should NOT throw
 			await triggerToolAfter(hook, 'test-session');
 
 			// State should NOT advance (no coder in chain)
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 	});
 
@@ -473,12 +500,14 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to pre_check_passed
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			// Should NOT throw
 			await triggerToolAfter(hook, 'test-session');
 
-			// No state change
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			// No state change (early return due to empty chain)
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 
 		it('should not crash when delegationChain is undefined', async () => {
@@ -488,11 +517,155 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 			// Session exists but no delegation chain set
 			const session = ensureAgentSession('test-session');
 			session.currentTaskId = '1.1';
+			// Seed to pre_check_passed
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
 
 			// Should NOT throw
 			await triggerToolAfter(hook, 'test-session');
 
-			expect(getTaskState(session, '1.1')).toBe('idle');
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
+		});
+	});
+
+	// ============================================
+	// CROSS-SESSION FALLBACK TESTS (v6.22 Task 2.4)
+	// ============================================
+
+	describe('cross-session fallback: architect session seeded, different session has delegation chain', () => {
+		it('should advance task state in architect session when toolAfter runs in different session', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Architect session has the task seeded with coder_delegated state
+			const architectSession = ensureAgentSession('architect-session');
+			architectSession.currentTaskId = '4.1';
+			architectSession.taskWorkflowStates.set('4.1', 'coder_delegated');
+
+			// Different session (e.g., coder's session) has the delegation chain
+			swarmState.delegationChains.set('coder-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
+			]);
+
+			const coderSession = ensureAgentSession('coder-session');
+			coderSession.currentTaskId = '4.1';
+			// coder session has no task state - it should be advanced via fallback
+
+			// Trigger toolAfter in coder's session (has the delegation chain)
+			await triggerToolAfter(hook, 'coder-session');
+
+			// Architect session's task should advance from coder_delegated → reviewer_run
+			expect(getTaskState(architectSession, '4.1')).toBe('reviewer_run');
+		});
+
+		it('should advance from reviewer_run to tests_run in architect session via fallback', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Architect session has the task seeded at reviewer_run
+			const architectSession = ensureAgentSession('architect-session');
+			architectSession.currentTaskId = '5.1';
+			architectSession.taskWorkflowStates.set('5.1', 'reviewer_run');
+
+			// Different session has the full delegation chain (reviewer + test_engineer)
+			swarmState.delegationChains.set('reviewer-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
+				{ from: 'architect', to: 'mega_test_engineer', timestamp: 4 },
+			]);
+
+			const reviewerSession = ensureAgentSession('reviewer-session');
+			reviewerSession.currentTaskId = '5.1';
+
+			// Trigger toolAfter in reviewer's session
+			await triggerToolAfter(hook, 'reviewer-session');
+
+			// Architect session's task should advance from reviewer_run → tests_run
+			expect(getTaskState(architectSession, '5.1')).toBe('tests_run');
+		});
+
+		it('should NOT advance states in sessions without relevant states', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Architect session has tasks at different states
+			const architectSession = ensureAgentSession('architect-session');
+			architectSession.currentTaskId = '6.1';
+			architectSession.taskWorkflowStates.set('6.1', 'idle'); // Not a transitionable state
+			architectSession.taskWorkflowStates.set('6.2', 'complete'); // Already complete
+
+			// Session with delegation chain
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
+			]);
+
+			const testSession = ensureAgentSession('test-session');
+			testSession.currentTaskId = '6.1';
+
+			// Should NOT throw
+			await triggerToolAfter(hook, 'test-session');
+
+			// States should remain unchanged
+			expect(getTaskState(architectSession, '6.1')).toBe('idle');
+			expect(getTaskState(architectSession, '6.2')).toBe('complete');
+		});
+
+		it('should handle multiple sessions with taskWorkflowStates correctly', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Session A has task at coder_delegated
+			const sessionA = ensureAgentSession('session-a');
+			sessionA.currentTaskId = '7.1';
+			sessionA.taskWorkflowStates.set('7.1', 'coder_delegated');
+
+			// Session B has task at pre_check_passed
+			const sessionB = ensureAgentSession('session-b');
+			sessionB.currentTaskId = '7.2';
+			sessionB.taskWorkflowStates.set('7.2', 'pre_check_passed');
+
+			// Session C has the delegation chain
+			swarmState.delegationChains.set('session-c', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
+			]);
+
+			const sessionC = ensureAgentSession('session-c');
+			sessionC.currentTaskId = '7.1';
+
+			// Trigger toolAfter in session C (has the delegation chain)
+			await triggerToolAfter(hook, 'session-c');
+
+			// Both session A and B should advance to reviewer_run
+			expect(getTaskState(sessionA, '7.1')).toBe('reviewer_run');
+			expect(getTaskState(sessionB, '7.2')).toBe('reviewer_run');
+		});
+
+		it('should not advance current session twice (already handled in Pass 1)', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config);
+
+			// Session has both the delegation chain and the task state
+			swarmState.delegationChains.set('same-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
+			]);
+
+			const session = ensureAgentSession('same-session');
+			session.currentTaskId = '8.1';
+			session.taskWorkflowStates.set('8.1', 'coder_delegated');
+
+			// Trigger toolAfter in the same session
+			await triggerToolAfter(hook, 'same-session');
+
+			// State should advance once (not crash or double-advance)
+			expect(getTaskState(session, '8.1')).toBe('reviewer_run');
 		});
 	});
 });

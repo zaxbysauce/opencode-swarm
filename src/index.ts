@@ -71,6 +71,27 @@ import {
 import { log } from './utils';
 import { truncateToolOutput } from './utils/tool-output';
 
+// TEMPORARY DEBUG: Task delegation instrumentation
+function debugTaskLog(
+	hook: string,
+	ctx: { sessionID: string; callID?: string },
+	extra?: Record<string, unknown>,
+): void {
+	const activeAgent = swarmState.activeAgent.get(ctx.sessionID);
+	const session = swarmState.agentSessions.get(ctx.sessionID);
+	const taskStates = session?.taskWorkflowStates
+		? Object.entries(session.taskWorkflowStates)
+		: [];
+	const statesSummary =
+		taskStates.length > 0
+			? taskStates.map(([k, v]) => `${k}=${v}`).join(',')
+			: '(none)';
+	console.log(
+		`[swarm-debug-task] ${hook} | session=${ctx.sessionID} callID=${ctx.callID ?? '(n/a)'} agent=${activeAgent ?? '(none)'} taskStates=[${statesSummary}]`,
+		extra ? JSON.stringify(extra) : '',
+	);
+}
+
 /**
  * OpenCode Swarm Plugin
  *
@@ -521,6 +542,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.before': (async (input: any, output: any) => {
+			// TEMPORARY DEBUG: Log tool call start
+			debugTaskLog(
+				'tool.execute.before',
+				{
+					sessionID: input.sessionID,
+					callID: input.callID,
+				},
+				{ tool: input.tool },
+			);
+
 			// If no active agent is mapped for this session, it's the primary agent (architect)
 			// Subagent delegations always set activeAgent via chat.message before tool calls
 			if (!swarmState.activeAgent.has(input.sessionID)) {
@@ -560,6 +591,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails (after)
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
+			// TEMPORARY DEBUG: Log tool call end
+			debugTaskLog(
+				'tool.execute.after',
+				{
+					sessionID: input.sessionID,
+					callID: input.callID,
+				},
+				{ tool: input.tool },
+			);
+
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
@@ -614,6 +655,17 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// NOTE: Must NOT rely on chat.message ordering
 			if (input.tool === 'task') {
 				const sessionId = input.sessionID;
+				// TEMPORARY DEBUG: Log task tool completion and handoff
+				const beforeSession = swarmState.agentSessions.get(sessionId);
+				const beforeStates = beforeSession?.taskWorkflowStates
+					? Object.entries(beforeSession.taskWorkflowStates)
+							.map(([k, v]) => `${k}=${v}`)
+							.join(',')
+					: '(none)';
+				console.log(
+					`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} BEFORE: taskStates=[${beforeStates}]`,
+				);
+
 				// Set active agent to architect
 				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
 				// Ensure session is architect and reset state
@@ -625,6 +677,18 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// Update agent event timestamp for stale detection
 					session.lastAgentEventTime = Date.now();
 				}
+
+				// TEMPORARY DEBUG: Log after handoff
+				const afterSession = swarmState.agentSessions.get(sessionId);
+				const afterStates = afterSession?.taskWorkflowStates
+					? Object.entries(afterSession.taskWorkflowStates)
+							.map(([k, v]) => `${k}=${v}`)
+							.join(',')
+					: '(none)';
+				const afterActive = swarmState.activeAgent.get(sessionId);
+				console.log(
+					`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} AFTER: activeAgent=${afterActive} delegationActive=${afterSession?.delegationActive} taskStates=[${afterStates}]`,
+				);
 			}
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		}) as any,

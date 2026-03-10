@@ -17,6 +17,7 @@ import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
 } from '../types/delegation.js';
+import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 
 /**
  * Checks if an object has the required fields to be a DelegationEnvelope.
@@ -251,6 +252,34 @@ function extractTaskLine(text: string): string | null {
 }
 
 /**
+ * Extracts a plan task ID (N.M or N.M.P format) from text.
+ * Checks for:
+ * 1. Task IDs in task list format: "- [ ] 1.1: ..." or "- [x] 1.1: ..."
+ * 2. Standalone task IDs like "1.1" or "1.2.3" near the TASK: line
+ * Returns the plan task ID if found, otherwise null.
+ */
+function extractPlanTaskId(text: string): string | null {
+	// Pattern 1: Task list format "- [ ] N.M: ..." or "- [x] N.M: ..."
+	const taskListMatch = text.match(
+		/^[ \t]*-[ \t]*(?:\[[ x]\][ \t]+)?(\d+\.\d+(?:\.\d+)*)[:. ]/m,
+	);
+	if (taskListMatch) {
+		return taskListMatch[1];
+	}
+
+	// Pattern 2: Look for N.M or N.M.P near the TASK: line
+	// Match "TASK: N.M ..." or "TASK: ... N.M ..." or standalone "N.M" after TASK:
+	const taskLineMatch = text.match(
+		/TASK:\s*(?:.+?\s)?(\d+\.\d+(?:\.\d+)*)(?:\s|$|:)/i,
+	);
+	if (taskLineMatch) {
+		return taskLineMatch[1];
+	}
+
+	return null;
+}
+
+/**
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
@@ -285,7 +314,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 		};
 	}
 
-	// toolAfter: resets qaSkip fields only when BOTH reviewer AND test_engineer delegation have been seen since the last coder
+	// toolAfter: resets qaSkip fields and advances task states based on delegation type
+	// Uses stored input args from guardrails when available, falls back to delegationChains
 	const toolAfter = async (
 		input: { tool: string; sessionID: string; callID: string },
 		_output: unknown,
@@ -294,46 +324,45 @@ export function createDelegationGateHook(config: PluginConfig): {
 		const session = swarmState.agentSessions.get(input.sessionID);
 		if (!session) return;
 
-		// Detect reviewer or test_engineer delegation completions
+		// TEMPORARY DEBUG: Log toolAfter entry
+		const taskStates = session.taskWorkflowStates
+			? Object.entries(session.taskWorkflowStates)
+			: [];
+		const statesSummary =
+			taskStates.length > 0
+				? taskStates.map(([k, v]) => `${k}=${v}`).join(',')
+				: '(none)';
+		console.log(
+			`[swarm-debug-task] delegation-gate.toolAfter | session=${input.sessionID} callID=${input.callID} tool=${input.tool}`,
+		);
+
+		// Detect task tool calls
 		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
 		if (normalized === 'Task' || normalized === 'task') {
-			// We can't check args in toolAfter without storing them (they're not in toolAfter output)
-			// Instead, rely on delegationChains which guardrails.ts updates
-			const delegationChain = swarmState.delegationChains.get(input.sessionID);
-			if (delegationChain && delegationChain.length > 0) {
-				// Find the index of the last 'coder' entry in the chain
-				let lastCoderIndex = -1;
-				for (let i = delegationChain.length - 1; i >= 0; i--) {
-					const target = stripKnownSwarmPrefix(delegationChain[i].to);
-					if (target.includes('coder')) {
-						lastCoderIndex = i;
-						break;
-					}
-				}
+			// Try to get stored input args from guardrails (primary source)
+			const storedArgs = getStoredInputArgs(input.callID);
+			const argsObj = storedArgs as Record<string, unknown> | undefined;
+			const subagentType = argsObj?.subagent_type;
 
-				// If no coder in chain, do not reset
-				if (lastCoderIndex === -1) return;
+			// TEMPORARY DEBUG: Log task tool delegation
+			console.log(
+				`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? '(none)'} currentStates=[${statesSummary}]`,
+			);
 
-				// Walk forward from coder index and check if BOTH reviewer and test_engineer have appeared
-				const afterCoder = delegationChain.slice(lastCoderIndex);
-				let hasReviewer = false;
-				let hasTestEngineer = false;
+			// Track if we detected reviewer and/or test_engineer via stored args
+			let hasReviewer = false;
+			let hasTestEngineer = false;
 
-				for (const delegation of afterCoder) {
-					const target = stripKnownSwarmPrefix(delegation.to);
-					if (target === 'reviewer') hasReviewer = true;
-					if (target === 'test_engineer') hasTestEngineer = true;
-				}
+			// Primary path: use stored input args if available
+			if (typeof subagentType === 'string') {
+				const targetAgent = stripKnownSwarmPrefix(subagentType);
 
-				// Only reset when BOTH have been seen since last coder
-				if (hasReviewer && hasTestEngineer) {
-					session.qaSkipCount = 0;
-					session.qaSkipTaskIds = [];
-				}
+				// Track which agents have been delegated to
+				if (targetAgent === 'reviewer') hasReviewer = true;
+				if (targetAgent === 'test_engineer') hasTestEngineer = true;
 
-				// Two-pass iteration over all tracked task states (fixes single-pointer dead-lock on default config)
-				// Pass 1: advance all tasks at coder_delegated or pre_check_passed → reviewer_run when reviewer has been seen
-				if (hasReviewer && session.taskWorkflowStates) {
+				// Pass 1: advance tasks at coder_delegated or pre_check_passed → reviewer_run
+				if (targetAgent === 'reviewer' && session.taskWorkflowStates) {
 					for (const [taskId, state] of session.taskWorkflowStates) {
 						if (state === 'coder_delegated' || state === 'pre_check_passed') {
 							try {
@@ -345,14 +374,158 @@ export function createDelegationGateHook(config: PluginConfig): {
 					}
 				}
 
-				// Pass 2: advance all tasks at reviewer_run → tests_run when both reviewer AND test_engineer have been seen
-				if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+				// Pass 2: advance tasks at reviewer_run → tests_run for test_engineer only
+				if (targetAgent === 'test_engineer' && session.taskWorkflowStates) {
 					for (const [taskId, state] of session.taskWorkflowStates) {
 						if (state === 'reviewer_run') {
 							try {
 								advanceTaskState(session, taskId, 'tests_run');
 							} catch {
 								// Non-fatal: state may already be at or past tests_run
+							}
+						}
+					}
+				}
+
+				// Also advance states in OTHER sessions (cross-session propagation)
+				if (targetAgent === 'reviewer' || targetAgent === 'test_engineer') {
+					for (const [, otherSession] of swarmState.agentSessions) {
+						if (otherSession === session) continue;
+						if (!otherSession.taskWorkflowStates) continue;
+
+						// Pass 1: coder_delegated/pre_check_passed → reviewer_run
+						if (targetAgent === 'reviewer') {
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (
+									state === 'coder_delegated' ||
+									state === 'pre_check_passed'
+								) {
+									try {
+										advanceTaskState(otherSession, taskId, 'reviewer_run');
+									} catch {
+										// Non-fatal
+									}
+								}
+							}
+						}
+
+						// Pass 2: reviewer_run → tests_run
+						if (targetAgent === 'test_engineer') {
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (state === 'reviewer_run') {
+									try {
+										advanceTaskState(otherSession, taskId, 'tests_run');
+									} catch {
+										// Non-fatal
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Always clean up stored args if they exist, regardless of subagent_type validity
+			if (argsObj !== undefined) {
+				deleteStoredInputArgs(input.callID);
+			}
+
+			// Fallback: use delegationChains if stored args not available
+			// This handles cross-session cases where stored args may be fragmented/empty
+			if (!subagentType || !hasReviewer) {
+				const delegationChain = swarmState.delegationChains.get(
+					input.sessionID,
+				);
+				if (delegationChain && delegationChain.length > 0) {
+					// Find the index of the last 'coder' entry in the chain
+					let lastCoderIndex = -1;
+					for (let i = delegationChain.length - 1; i >= 0; i--) {
+						const target = stripKnownSwarmPrefix(delegationChain[i].to);
+						if (target.includes('coder')) {
+							lastCoderIndex = i;
+							break;
+						}
+					}
+
+					// If no coder in chain, do not reset qaSkip and do not advance states (early return)
+					if (lastCoderIndex === -1) {
+						return;
+					}
+
+					// Walk forward from coder index
+					const afterCoder = delegationChain.slice(lastCoderIndex);
+					for (const delegation of afterCoder) {
+						const target = stripKnownSwarmPrefix(delegation.to);
+						if (target === 'reviewer') hasReviewer = true;
+						if (target === 'test_engineer') hasTestEngineer = true;
+					}
+
+					// Only reset qaSkip when BOTH have been seen since last coder
+					if (hasReviewer && hasTestEngineer) {
+						session.qaSkipCount = 0;
+						session.qaSkipTaskIds = [];
+					}
+
+					// Fallback Pass 1: advance states via delegationChains
+					if (hasReviewer && session.taskWorkflowStates) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'coder_delegated' || state === 'pre_check_passed') {
+								try {
+									advanceTaskState(session, taskId, 'reviewer_run');
+								} catch {
+									// Non-fatal
+								}
+							}
+						}
+					}
+
+					// Fallback Pass 2: advance states via delegationChains
+					if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'reviewer_run') {
+								try {
+									advanceTaskState(session, taskId, 'tests_run');
+								} catch {
+									// Non-fatal
+								}
+							}
+						}
+					}
+
+					// Fallback: Also advance states in OTHER sessions via delegationChains
+					if (hasReviewer) {
+						for (const [, otherSession] of swarmState.agentSessions) {
+							if (otherSession === session) continue;
+							if (!otherSession.taskWorkflowStates) continue;
+
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (
+									state === 'coder_delegated' ||
+									state === 'pre_check_passed'
+								) {
+									try {
+										advanceTaskState(otherSession, taskId, 'reviewer_run');
+									} catch {
+										// Non-fatal
+									}
+								}
+							}
+						}
+					}
+
+					if (hasReviewer && hasTestEngineer) {
+						for (const [, otherSession] of swarmState.agentSessions) {
+							if (otherSession === session) continue;
+							if (!otherSession.taskWorkflowStates) continue;
+
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (state === 'reviewer_run') {
+									try {
+										advanceTaskState(otherSession, taskId, 'tests_run');
+									} catch {
+										// Non-fatal
+									}
+								}
 							}
 						}
 					}
@@ -468,9 +641,13 @@ export function createDelegationGateHook(config: PluginConfig): {
 			// This check runs for ALL architect messages (not just coder delegations)
 			const sessionID = lastUserMessage.info?.sessionID;
 
-			// Step 1: Extract task ID from TASK line (if present)
+			// Step 1: Extract task ID - prefer plan task ID (N.M format) when present,
+			// otherwise fall back to full TASK line text for workflow state keys
+			const planTaskId = extractPlanTaskId(text);
 			const taskIdMatch = text.match(/TASK:\s*(.+?)(?:\n|$)/i);
-			const currentTaskId = taskIdMatch ? taskIdMatch[1].trim() : null;
+			const taskIdFromLine = taskIdMatch ? taskIdMatch[1].trim() : null;
+			// Use plan task ID if found, otherwise fall back to full TASK line text
+			const currentTaskId = planTaskId ?? taskIdFromLine;
 
 			// Step 2: Detect if this is a coder delegation BEFORE running violation check
 			const coderDelegationPattern = /(?:^|\n)\s*(?:\w+_)?coder\s*\n\s*TASK:/i;

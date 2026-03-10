@@ -33,6 +33,19 @@ export function createDelegationTrackerHook(
 	): Promise<void> => {
 		const now = Date.now();
 
+		// TEMPORARY DEBUG: Log chat.message entry
+		const debugSession = swarmState.agentSessions.get(input.sessionID);
+		const taskStates = debugSession?.taskWorkflowStates
+			? Object.entries(debugSession.taskWorkflowStates)
+			: [];
+		const statesSummary =
+			taskStates.length > 0
+				? taskStates.map(([k, v]) => `${k}=${v}`).join(',')
+				: '(none)';
+		console.log(
+			`[swarm-debug-task] chat.message | session=${input.sessionID} agent=${input.agent ?? '(none)'} prevAgent=${swarmState.activeAgent.get(input.sessionID) ?? '(none)'} taskStates=[${statesSummary}]`,
+		);
+
 		// If no agent is specified, the architect is taking over (delegation ended)
 		// Update activeAgent to architect and reset session startTime so duration limit doesn't apply
 		if (!input.agent || input.agent === '') {
