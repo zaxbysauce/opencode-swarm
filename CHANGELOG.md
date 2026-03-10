@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.3...v6.22.4) (2026-03-10)
+
+
+### Bug Fixes
+
+* restore delegation-gate task advancement after task calls ([04c5212](https://github.com/zaxbysauce/opencode-swarm/commit/04c521267daf9fd2bcabcdc7d6a7017d3738d860))
+* restore delegation-gate task advancement after task calls ([8894427](https://github.com/zaxbysauce/opencode-swarm/commit/8894427e230d742d3b895a70ead027c4b53d1348))
+
 ## [6.22.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.2...v6.22.3) (2026-03-09)
 
 
