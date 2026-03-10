@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.4...v6.22.5) (2026-03-10)
+
+
+### Bug Fixes
+
+* normalize task handoff and clarify architect setup ([c4c5cbb](https://github.com/zaxbysauce/opencode-swarm/commit/c4c5cbb8f127008823471055df9749cee9a202c3))
+* normalize task tool name for architect handoff ([c832728](https://github.com/zaxbysauce/opencode-swarm/commit/c832728e533854d7da7e615692254e92913f4a6b))
+
 ## [6.22.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.3...v6.22.4) (2026-03-10)
 
 
