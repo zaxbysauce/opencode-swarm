@@ -2,42 +2,25 @@
  * Verification and adversarial tests for phase-monitor.ts curator integration.
  * Tests that the first-call guard correctly calls runCuratorInit when enabled,
  * and that errors from runCuratorInit do not block the hook.
+ *
+ * Uses dependency injection (curatorRunner parameter) instead of mock.module
+ * for the curator module to avoid mock leakage when tests run in the same worker.
+ * Uses real CuratorConfigSchema to avoid leaking into other test files.
  */
 
 import { describe, it, expect, beforeEach, jest, mock } from 'bun:test';
 import type { Plan } from '../../../src/config/plan-schema';
 import type { PreflightTriggerManager } from '../../../src/background/trigger';
-import type { CuratorConfig } from '../../../src/hooks/curator-types';
+import type { CuratorConfig, CuratorInitResult } from '../../../src/hooks/curator-types';
 
-// Mock loadPlan
+// Mock loadPlan — scope-safe as loadPlan is not used by phase-complete or curator
 mock.module('../../../src/plan/manager', () => ({
 	loadPlan: jest.fn<(_directory: string) => Promise<Plan | null>>(),
 }));
 
-// Mock curator module (runCuratorInit)
-const mockRunCuratorInit = jest.fn<(_directory: string, _config: CuratorConfig) => Promise<{
-	briefing: string;
-	contradictions: string[];
-	knowledge_entries_reviewed: number;
-	prior_phases_covered: number;
-}>>();
-
-mock.module('../../../src/hooks/curator', () => ({
-	runCuratorInit: mockRunCuratorInit,
-}));
-
-// Mock CuratorConfigSchema
-const mockCuratorConfigSchemaParse = jest.fn<(_input: unknown) => CuratorConfig>();
-
-mock.module('../../../src/config/schema', () => ({
-	CuratorConfigSchema: {
-		parse: mockCuratorConfigSchemaParse,
-	},
-}));
-
-// Mock loadPluginConfigWithMeta
+// Mock loadPluginConfigWithMeta — controls config returned to the hook
 const mockLoadPluginConfigWithMeta = jest.fn<
-	(_directory: string) => Promise<{ config: { curator?: unknown } }>
+	(_directory: string) => { config: { curator?: unknown } }
 >();
 
 mock.module('../../../src/config/index.js', () => ({
@@ -49,6 +32,9 @@ import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
 
 const mockLoadPlan = loadPlan as jest.MockedFunction<typeof loadPlan>;
 
+// Injected curator runner mock — does NOT use mock.module to avoid leakage
+const mockRunCuratorInit = jest.fn<(_directory: string, _config: CuratorConfig) => Promise<CuratorInitResult>>();
+
 // Mock the preflightManager
 const mockCheckAndTrigger = jest.fn<
 	(_phase: number, _completedTasks: number, _totalTasks: number) => Promise<boolean>
@@ -57,6 +43,18 @@ const mockCheckAndTrigger = jest.fn<
 const mockPreflightManager = {
 	checkAndTrigger: mockCheckAndTrigger,
 } as unknown as PreflightTriggerManager;
+
+/** Default curator config for enabled tests — matches real schema defaults */
+const CURATOR_ENABLED_CONFIG: CuratorConfig = {
+	enabled: true,
+	init_enabled: true,
+	phase_enabled: true,
+	max_summary_tokens: 2000,
+	min_knowledge_confidence: 0.7,
+	compliance_report: true,
+	suppress_warnings: true,
+	drift_inject_max_chars: 500,
+};
 
 // Test helper to create a mock Plan
 function createMockPlan(currentPhaseId: number, phases: Array<{
@@ -84,23 +82,10 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		mockLoadPlan.mockClear();
 		mockCheckAndTrigger.mockClear();
 		mockRunCuratorInit.mockClear();
-		mockCuratorConfigSchemaParse.mockClear();
 		mockLoadPluginConfigWithMeta.mockClear();
 
-		// Default: return empty curator config (disabled)
-		mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: undefined } });
-
-		// Default: curator disabled
-		mockCuratorConfigSchemaParse.mockReturnValue({
-			enabled: false,
-			init_enabled: true,
-			phase_enabled: true,
-			max_summary_tokens: 2000,
-			min_knowledge_confidence: 0.7,
-			compliance_report: true,
-			suppress_warnings: true,
-			drift_inject_max_chars: 500,
-		});
+		// Default: no curator config (disabled by real schema defaults)
+		mockLoadPluginConfigWithMeta.mockReturnValue({ config: {} });
 	});
 
 	describe('Verification Tests', () => {
@@ -110,28 +95,16 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 			await hook({}, {});
 
-			// CuratorConfigSchema.parse should have been called
-			expect(mockCuratorConfigSchemaParse).toHaveBeenCalledWith({});
-			// runCuratorInit should NOT be called because enabled is false
+			// runCuratorInit should NOT be called because enabled defaults to false
 			expect(mockRunCuratorInit).not.toHaveBeenCalled();
 		});
 
 		it('2. Curator init called on first invocation when enabled', async () => {
-			// Configure mock to return enabled: true
+			// Pass enabled config through loadPluginConfigWithMeta
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			mockRunCuratorInit.mockResolvedValue({
 				briefing: 'Test briefing',
@@ -145,7 +118,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 			await hook({}, {});
 
 			// runCuratorInit SHOULD be called because enabled && init_enabled
@@ -156,18 +129,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('3. Curator init error does not block hook', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			// Make runCuratorInit throw
 			mockRunCuratorInit.mockRejectedValue(new Error('Curator init failed!'));
@@ -177,7 +139,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
@@ -188,18 +150,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('4. Hook still detects phase transitions after curator init', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			mockRunCuratorInit.mockResolvedValue({
 				briefing: 'Test briefing',
@@ -214,7 +165,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(planPhase1);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// First invocation - curator init should be called
 			await hook({}, {});
@@ -238,18 +189,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('5. Curator init only called once (on first invocation)', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			mockRunCuratorInit.mockResolvedValue({
 				briefing: 'Test briefing',
@@ -263,7 +203,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// First invocation
 			await hook({}, {});
@@ -288,18 +228,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 
 	describe('Adversarial Tests', () => {
 		it('6. runCuratorInit throws synchronously - hook does not throw', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			// Make runCuratorInit throw synchronously
 			mockRunCuratorInit.mockImplementation(() => {
@@ -311,7 +240,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
@@ -319,18 +248,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('7. runCuratorInit rejects with a non-Error - hook handles gracefully', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			// Make runCuratorInit reject with a string (non-Error)
 			mockRunCuratorInit.mockRejectedValue('String rejection not an Error');
@@ -340,7 +258,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
@@ -348,18 +266,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('8. runCuratorInit rejects with a number - hook handles gracefully', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			// Make runCuratorInit reject with a number (non-Error)
 			mockRunCuratorInit.mockRejectedValue(42);
@@ -369,7 +276,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
@@ -377,18 +284,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 		});
 
 		it('9. runCuratorInit rejects with null - hook handles gracefully', async () => {
-			// Configure mock to return enabled: true
 			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
-			mockCuratorConfigSchemaParse.mockReturnValue({
-				enabled: true,
-				init_enabled: true,
-				phase_enabled: true,
-				max_summary_tokens: 2000,
-				min_knowledge_confidence: 0.7,
-				compliance_report: true,
-				suppress_warnings: true,
-				drift_inject_max_chars: 500,
-			});
 
 			// Make runCuratorInit reject with null
 			mockRunCuratorInit.mockRejectedValue(null);
@@ -398,17 +294,17 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
 			expect(result).toBeUndefined();
 		});
 
-		it('10. CuratorConfigSchema.parse throws - hook handles gracefully', async () => {
-			// Make CuratorConfigSchema.parse throw
-			mockCuratorConfigSchemaParse.mockImplementation(() => {
-				throw new Error('Config schema error');
+		it('10. loadPluginConfigWithMeta throws - hook handles gracefully', async () => {
+			// Make loadPluginConfigWithMeta throw (simulates config load failure)
+			mockLoadPluginConfigWithMeta.mockImplementation(() => {
+				throw new Error('Config load error');
 			});
 
 			const plan = createMockPlan(1, [
@@ -416,7 +312,7 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 			]);
 			mockLoadPlan.mockResolvedValue(plan);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
 
 			// Should NOT throw - error should be caught internally
 			const result = await hook({}, {});
