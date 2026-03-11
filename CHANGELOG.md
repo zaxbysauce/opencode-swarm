@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.8...v6.22.9) (2026-03-11)
+
+
+### Bug Fixes
+
+* normalize prefixed agent names in isAgentDelegation to unblock QA gates for non-default swarms ([4ec0fc6](https://github.com/zaxbysauce/opencode-swarm/commit/4ec0fc6cd24cdca2ae32472ddec132e2b4c0263d))
+* normalize subagent_type with stripKnownSwarmPrefix in isAgentDelegation to support prefixed agents like mega_reviewer/mega_test_engineer ([44eb706](https://github.com/zaxbysauce/opencode-swarm/commit/44eb706aa48107d86f3c2ec1d63a12d52d75ca9f))
+
 ## [6.22.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.7...v6.22.8) (2026-03-11)
 
 
