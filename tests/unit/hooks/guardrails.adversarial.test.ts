@@ -507,6 +507,88 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 		});
 	});
 
+	describe('prefixed agent name stripping (issue: mega_reviewer/mega_test_engineer)', () => {
+		it('should increment reviewerCallCount for mega_reviewer delegation', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'architect');
+
+			await hooks.toolBefore(
+				makeToolBeforeInput('test-session', 'Task', 'call-prefix-1'),
+				{ args: { subagent_type: 'mega_reviewer' } }
+			);
+
+			await hooks.toolAfter(
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-1', { subagent_type: 'mega_reviewer' }),
+				makeAfterOutput('success')
+			);
+
+			const session = getAgentSession('test-session');
+			const count = session?.reviewerCallCount.get(1) ?? 0;
+			expect(count).toBe(1);
+		});
+
+		it('should increment reviewerCallCount for mega_test_engineer delegation', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'architect');
+
+			await hooks.toolBefore(
+				makeToolBeforeInput('test-session', 'Task', 'call-prefix-2'),
+				{ args: { subagent_type: 'mega_test_engineer' } }
+			);
+
+			await hooks.toolAfter(
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-2', { subagent_type: 'mega_test_engineer' }),
+				makeAfterOutput('success')
+			);
+
+			const session = getAgentSession('test-session');
+			const count = session?.reviewerCallCount.get(1) ?? 0;
+			expect(count).toBe(1);
+		});
+
+		it('should increment reviewerCallCount for local_reviewer delegation', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'architect');
+
+			await hooks.toolBefore(
+				makeToolBeforeInput('test-session', 'Task', 'call-prefix-3'),
+				{ args: { subagent_type: 'local_reviewer' } }
+			);
+
+			await hooks.toolAfter(
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-3', { subagent_type: 'local_reviewer' }),
+				makeAfterOutput('success')
+			);
+
+			const session = getAgentSession('test-session');
+			const count = session?.reviewerCallCount.get(1) ?? 0;
+			expect(count).toBe(1);
+		});
+
+		it('should NOT increment reviewerCallCount for unprefixed non-reviewer', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', 'architect');
+
+			await hooks.toolBefore(
+				makeToolBeforeInput('test-session', 'Task', 'call-prefix-4'),
+				{ args: { subagent_type: 'mega_coder' } }
+			);
+
+			await hooks.toolAfter(
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-4', { subagent_type: 'mega_coder' }),
+				makeAfterOutput('success')
+			);
+
+			const session = getAgentSession('test-session');
+			const count = session?.reviewerCallCount.get(1) ?? 0;
+			expect(count).toBe(0);
+		});
+	});
+
 	describe('hashArgs edge cases', () => {
 		it('should handle null args for hashing', () => {
 			const { hashArgs } = require('../../../src/hooks/guardrails');
