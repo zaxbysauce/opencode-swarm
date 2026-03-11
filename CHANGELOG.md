@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.22.11](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.10...v6.22.11) (2026-03-11)
+
+
+### Bug Fixes
+
+* remove debug console.log, fix advanceTaskState guard, move batch warnings to system messages ([8f38933](https://github.com/zaxbysauce/opencode-swarm/commit/8f38933575b4ae809e9aa15477b55aa20df860cd))
+
 ## [6.22.10](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.9...v6.22.10) (2026-03-11)
 
 
