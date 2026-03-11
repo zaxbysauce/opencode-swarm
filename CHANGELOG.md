@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.15](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.14...v6.22.15) (2026-03-11)
+
+
+### Bug Fixes
+
+* honor qa_gates reviewer override in catastrophic phase checks ([17d2e79](https://github.com/zaxbysauce/opencode-swarm/commit/17d2e793dd9e62736d2b2d9c7697fa7eb6c79626))
+* honor reviewer qa override in catastrophic checks ([c46b3da](https://github.com/zaxbysauce/opencode-swarm/commit/c46b3daa853049a6d2f0c3128e36e28c6fda0a6f))
+
 ## [6.22.14](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.13...v6.22.14) (2026-03-11)
 
 
