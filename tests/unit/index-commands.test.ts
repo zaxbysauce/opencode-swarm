@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import OpenCodeSwarm from '../../src/index';
 
 // Mock the @opencode-ai/plugin types
@@ -21,7 +21,7 @@ describe('Swarm subcommand registration', () => {
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 19 individual subcommands plus catch-all', async () => {
+	it('should register 22 individual subcommands plus catch-all', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -31,8 +31,8 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 19 subcommands = 20 total
-		expect(commandKeys.length).toBe(20);
+		// Should have catch-all + 22 subcommands = 23 total
+		expect(commandKeys.length).toBe(23);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
@@ -47,10 +47,10 @@ describe('Swarm subcommand registration', () => {
 
 		expect(commands.swarm).toBeDefined();
 		expect(commands.swarm.template).toBe('/swarm $ARGUMENTS');
-		expect(commands.swarm.description).toBe('Swarm management commands');
+		expect(commands.swarm.description).toBe('Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate]');
 	});
 
-	it('should register all 19 individual subcommands with correct keys', async () => {
+	it('should register all 22 individual subcommands with correct keys', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -64,6 +64,7 @@ describe('Swarm subcommand registration', () => {
 			'swarm-history',
 			'swarm-config',
 			'swarm-evidence',
+			'swarm-handoff',
 			'swarm-archive',
 			'swarm-diagnose',
 			'swarm-preflight',
@@ -71,12 +72,14 @@ describe('Swarm subcommand registration', () => {
 			'swarm-benchmark',
 			'swarm-export',
 			'swarm-reset',
+			'swarm-rollback',
 			'swarm-retrieve',
 			'swarm-clarify',
 			'swarm-analyze',
 			'swarm-specify',
 			'swarm-dark-matter',
 			'swarm-knowledge',
+			'swarm-curate',
 		];
 
 		// Verify all expected subcommands exist
@@ -141,16 +144,15 @@ describe('Swarm subcommand registration', () => {
 		}
 	});
 
-	it('should not register simulate or rollback commands (Phase 3)', async () => {
+	it('should not register simulate commands (Phase 3)', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
 		const commands = mockConfig.command as Record<string, { template: string; description: string }>;
 
-		// These commands should NOT exist yet
+		// This command should NOT exist yet
 		expect(commands['swarm-simulate']).toBeUndefined();
-		expect(commands['swarm-rollback']).toBeUndefined();
 	});
 
 	it('should have correct templates for specific subcommands', async () => {
@@ -176,10 +178,10 @@ describe('Swarm subcommand registration', () => {
 		const commands = mockConfig.command as Record<string, { template: string; description: string }>;
 
 		// Verify some specific descriptions
-		expect(commands['swarm-status'].description).toBe('Show current swarm status and active phase');
-		expect(commands['swarm-plan'].description).toBe('View or filter the current execution plan');
-		expect(commands['swarm-agents'].description).toBe('List registered swarm agents');
-		expect(commands['swarm-reset'].description).toBe('Clear swarm state (requires --confirm)');
+		expect(commands['swarm-status'].description).toBe('Use /swarm status to show current swarm status and active phase');
+		expect(commands['swarm-plan'].description).toBe('Use /swarm plan to view or filter the current execution plan');
+		expect(commands['swarm-agents'].description).toBe('Use /swarm agents to list registered swarm agents');
+		expect(commands['swarm-reset'].description).toBe('Use /swarm reset --confirm to clear swarm state (requires --confirm)');
 	});
 
 	it('should preserve existing commands when merging', async () => {
@@ -202,5 +204,134 @@ describe('Swarm subcommand registration', () => {
 
 		// Swarm commands should be added
 		expect(commands.swarm).toBeDefined();
+	});
+
+	// Task 2.4: Verify task handoff debug leakage is absent from visible output
+	// Tests the src/index.ts surface - verifies hooks created by src/index.ts don't emit debug text
+	describe('task handoff debug leakage absent (Task 2.4)', () => {
+		let consoleLogSpy: any;
+
+		beforeEach(() => {
+			// Spy on console.log to capture output during plugin init and config
+			consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+		});
+
+		afterEach(() => {
+			// Restore console.log after each test to avoid pollution
+			consoleLogSpy.mockRestore();
+		});
+
+		it('does not emit debug text during plugin initialization', async () => {
+			// Initialize plugin - this creates delegation tracker hook among others
+			await OpenCodeSwarm(mockPluginInput);
+
+			// Verify no debug leakage in console output during init
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+		});
+
+		it('does not emit debug text during config function execution', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			// Execute config function - this is the handoff setup path
+			await plugin.config?.(mockConfig);
+
+			// Verify no debug leakage in console output during config
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+		});
+
+		it('does not emit debug text during combined init and config flow', async () => {
+			// Initialize plugin and run config in sequence - this covers the full setup path
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+			await plugin.config?.(mockConfig);
+
+			// Verify no debug leakage in console output during full setup flow
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('session=');
+			expect(loggedOutput).not.toContain('agent=');
+			expect(loggedOutput).not.toContain('prevAgent=');
+			expect(loggedOutput).not.toContain('taskStates=');
+		});
+	});
+
+	// Task 4.4: Tests for curate command summary behavior, clear failure messaging, and alias discoverability
+	describe('swarm-curate command (Task 4.4)', () => {
+		it('should register swarm-curate command', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify swarm-curate is registered
+			expect(commands['swarm-curate']).toBeDefined();
+		});
+
+		it('should have correct template for swarm-curate command', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify template is /swarm curate (no arguments needed)
+			expect(commands['swarm-curate'].template).toBe('/swarm curate');
+		});
+
+		it('should have syntax-hint description for discoverability', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify description contains syntax hint for discoverability
+			const description = commands['swarm-curate'].description;
+			expect(description).toContain('Use /swarm curate');
+			expect(description).toContain('curate');
+		});
+
+		it('should include curate in the swarm management commands list', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify swarm command description includes curate in the list
+			expect(commands.swarm.description).toContain('curate');
+		});
+
+		it('should have non-empty description for swarm-curate', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify description is not empty
+			expect(commands['swarm-curate'].description).toBeTruthy();
+			expect(commands['swarm-curate'].description.length).toBeGreaterThan(0);
+		});
+
+		it('should have one-line description for swarm-curate', async () => {
+			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const mockConfig: Record<string, unknown> = {};
+
+			await plugin.config?.(mockConfig);
+			const commands = mockConfig.command as Record<string, { template: string; description: string }>;
+
+			// Verify description does not contain newlines
+			expect(commands['swarm-curate'].description).not.toContain('\n');
+		});
 	});
 });

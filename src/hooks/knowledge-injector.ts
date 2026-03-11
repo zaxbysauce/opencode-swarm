@@ -175,7 +175,7 @@ export function createKnowledgeInjectorHook(
 			// Format injection block with tier labels and star ratings
 			const lines = entries.map((entry: RankedEntry) => {
 				const stars = formatStars(entry.confidence);
-				const tierLabel = entry.tier === 'hive' ? '[HIVE]' : '[SWARM]';
+				const tierLabel = `[${entry.tier}:${entry.status}]`;
 				const confirmedBy = entry.confirmed_by?.length ?? 0;
 				const confirmText =
 					confirmedBy > 0

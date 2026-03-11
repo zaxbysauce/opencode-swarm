@@ -1,14 +1,23 @@
 /** Hive promoter hook for opencode-swarm v6.17 two-tier knowledge system. */
 import type { KnowledgeConfig, SwarmKnowledgeEntry } from './knowledge-types.js';
+/** Hive promotion summary for curator state */
+export interface HivePromotionSummary {
+    timestamp: string;
+    new_promotions: number;
+    encounters_incremented: number;
+    advancements: number;
+    total_hive_entries: number;
+}
 /**
  * Main promotion logic: checks swarm entries and promotes eligible ones to hive.
  * Also updates existing hive entries with new project confirmations.
+ * Returns a summary of the promotion activity for curator state.
  *
  * @note The 'hive-fast-track' tag is treated as privileged — it bypasses the
  *   3-phase confirmation requirement. It should only be set by authorized tooling
  *   (inferTags() never produces it automatically).
  */
-export declare function checkHivePromotions(swarmEntries: SwarmKnowledgeEntry[], config: KnowledgeConfig): Promise<void>;
+export declare function checkHivePromotions(swarmEntries: SwarmKnowledgeEntry[], config: KnowledgeConfig): Promise<HivePromotionSummary>;
 /**
  * Create a hook that promotes swarm entries to the hive.
  * The hook fires unconditionally - the caller decides when to invoke it.

@@ -32,21 +32,6 @@ import { extractModelInfo } from './model-limits';
  */
 const storedInputArgs = new Map<string, unknown>();
 
-// TEMPORARY DEBUG: Track stored args operations
-function debugStoredArgs(
-	action: string,
-	callID: string,
-	extra?: Record<string, unknown>,
-): void {
-	const args = storedInputArgs.get(callID);
-	const argsObj = args as Record<string, unknown> | undefined;
-	const subagentType = argsObj?.subagent_type;
-	console.log(
-		`[swarm-debug-task] stored-args.${action} | callID=${callID} subagent_type=${subagentType ?? '(none)'}`,
-		extra ? JSON.stringify(extra) : '',
-	);
-}
-
 /**
  * Retrieves stored input args for a given callID.
  * Used by other hooks (e.g., delegation-gate) to access tool input args.
@@ -54,7 +39,6 @@ function debugStoredArgs(
  * @returns The stored args or undefined if not found
  */
 export function getStoredInputArgs(callID: string): unknown | undefined {
-	debugStoredArgs('get', callID);
 	return storedInputArgs.get(callID);
 }
 
@@ -65,7 +49,6 @@ export function getStoredInputArgs(callID: string): unknown | undefined {
  * @param args The tool input args to store
  */
 export function setStoredInputArgs(callID: string, args: unknown): void {
-	debugStoredArgs('set', callID);
 	storedInputArgs.set(callID, args);
 }
 
@@ -74,7 +57,6 @@ export function setStoredInputArgs(callID: string, args: unknown): void {
  * @param callID The callID to delete
  */
 export function deleteStoredInputArgs(callID: string): void {
-	debugStoredArgs('delete', callID);
 	storedInputArgs.delete(callID);
 }
 
@@ -959,7 +941,7 @@ export function createGuardrailsHooks(
 				}
 			}
 
-			// v6.12: Self-coding warning injection
+			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			const session = swarmState.agentSessions.get(sessionId);
 			const activeAgent = swarmState.activeAgent.get(sessionId);
 			const isArchitectSession = activeAgent
@@ -968,23 +950,42 @@ export function createGuardrailsHooks(
 					? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME
 					: false;
 
+			// Find system message(s) for model-only guidance injection
+			const systemMessages = messages.filter(
+				(msg) => msg.info?.role === 'system',
+			);
+
+			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			if (isArchitectSession && session && session.architectWriteCount > 0) {
-				// Find text part and prepend warning
-				const textPart = lastMessage.parts.find(
+				// Task 1.7: Handle missing-system-message edge case
+				// If no system message exists, create one to inject guidance
+				let targetSystemMessage = systemMessages[0];
+				if (!targetSystemMessage) {
+					const newSystemMessage = {
+						info: { role: 'system' as const },
+						parts: [{ type: 'text' as const, text: '' }],
+					};
+					// Prepend new system message to maintain model-only behavior
+					messages.unshift(newSystemMessage);
+					targetSystemMessage = newSystemMessage;
+				}
+
+				const textPart = (targetSystemMessage.parts ?? []).find(
 					(part): part is { type: string; text: string } =>
 						part.type === 'text' && typeof part.text === 'string',
 				);
-				if (textPart) {
+				if (textPart && !textPart.text.includes('SELF-CODING DETECTED')) {
 					textPart.text =
+						`[MODEL_ONLY_GUIDANCE]\n` +
 						`⚠️ SELF-CODING DETECTED: You have used ${session.architectWriteCount} write-class tool(s) directly on non-.swarm/ files.\n` +
 						`Rule 1 requires ALL coding to be delegated to @coder.\n` +
-						`If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.\n\n` +
+						`If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.\n` +
+						`[/MODEL_ONLY_GUIDANCE]\n\n` +
 						textPart.text;
 				}
 			}
 
-			// v6.12 Task 2.5: Self-fix warning injection
-			// Only warn after an actual write attempt (flag set in toolBefore)
+			// v6.12 Task 2.5: Self-fix warning injection - now injected into SYSTEM messages only (model-only)
 			if (
 				isArchitectSession &&
 				session &&
@@ -992,16 +993,34 @@ export function createGuardrailsHooks(
 				session.lastGateFailure &&
 				Date.now() - session.lastGateFailure.timestamp < 120_000
 			) {
-				const textPart = lastMessage.parts.find(
+				// Task 1.7: Handle missing-system-message edge case
+				// If no system message exists, create one to inject guidance
+				const currentSystemMessages = messages.filter(
+					(msg) => msg.info?.role === 'system',
+				);
+				let targetSystemMessage = currentSystemMessages[0];
+				if (!targetSystemMessage) {
+					const newSystemMessage = {
+						info: { role: 'system' as const },
+						parts: [{ type: 'text' as const, text: '' }],
+					};
+					// Prepend new system message to maintain model-only behavior
+					messages.unshift(newSystemMessage);
+					targetSystemMessage = newSystemMessage;
+				}
+
+				const textPart = (targetSystemMessage.parts ?? []).find(
 					(part): part is { type: string; text: string } =>
 						part.type === 'text' && typeof part.text === 'string',
 				);
 				if (textPart && !textPart.text.includes('SELF-FIX DETECTED')) {
 					textPart.text =
+						`[MODEL_ONLY_GUIDANCE]\n` +
 						`⚠️ SELF-FIX DETECTED: Gate '${session.lastGateFailure.tool}' failed on task ${session.lastGateFailure.taskId}.\n` +
 						`You are now using a write tool instead of delegating to @coder.\n` +
 						`GATE FAILURE RESPONSE RULES require: return to coder with structured rejection.\n` +
-						`Do NOT fix gate failures yourself.\n\n` +
+						`Do NOT fix gate failures yourself.\n` +
+						`[/MODEL_ONLY_GUIDANCE]\n\n` +
 						textPart.text;
 					// Clear flag to avoid repeated warnings
 					session.selfFixAttempted = false;

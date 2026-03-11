@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState, getActiveWindow } from '../../../src/state';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { swarmState, resetSwarmState, getActiveWindow, ensureAgentSession } from '../../../src/state';
 import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
 import type { PluginConfig } from '../../../src/config';
 
@@ -744,6 +744,315 @@ describe('DelegationTrackerHook', () => {
 			expect(chain).toHaveLength(3);
 			// pendingEvents should still be 0 because delegation_tracker is false
 			expect(swarmState.pendingEvents).toBe(0);
+		});
+	});
+
+	// Task 2.4: Verify task handoff debug leakage is absent from visible output
+	describe('task handoff debug leakage absent (Task 2.4)', () => {
+		let consoleLogSpy: any;
+
+		beforeEach(() => {
+			// Spy on console.log to capture output during handoff
+			consoleLogSpy = spyOn(console, 'log').mockImplementation(() => {});
+		});
+
+		afterEach(() => {
+			// Restore console.log after each test to avoid pollution
+			consoleLogSpy.mockRestore();
+		});
+
+		it('does not emit debug text during agent handoff (architect to coder)', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// Set previous agent to architect
+			swarmState.activeAgent.set(sessionId, 'architect');
+
+			// Execute handoff
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			// Verify no debug leakage in console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain(`session=${sessionId}`);
+			expect(loggedOutput).not.toContain('agent=');
+			expect(loggedOutput).not.toContain('prevAgent=');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Also verify state is updated correctly
+			expect(swarmState.activeAgent.get(sessionId)).toBe('coder');
+			expect(swarmState.delegationChains.has(sessionId)).toBe(true);
+		});
+
+		it('does not emit debug text during agent handoff (coder to reviewer)', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// Set previous agent
+			swarmState.activeAgent.set(sessionId, 'coder');
+
+			// Execute handoff
+			await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
+
+			// Verify no debug leakage in console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Verify state is updated correctly
+			expect(swarmState.activeAgent.get(sessionId)).toBe('reviewer');
+			const chain = swarmState.delegationChains.get(sessionId);
+			expect(chain).toHaveLength(1);
+			expect(chain![0].from).toBe('coder');
+			expect(chain![0].to).toBe('reviewer');
+		});
+
+		it('does not emit debug text when clearing agent (handoff back to architect)', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// Set previous agent to a subagent
+			swarmState.activeAgent.set(sessionId, 'coder');
+
+			// Execute handoff back to architect (empty string triggers architect handoff)
+			await hook({ sessionID: sessionId, agent: '' }, {});
+
+			// Verify no debug leakage in console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Verify state is updated correctly - empty string results in architect handoff
+			// The hook sets agent to ORCHESTRATOR_NAME ('architect') when empty string is passed
+			expect(swarmState.activeAgent.get(sessionId)).toBe('architect');
+			// Verify session exists and delegationActive is false
+			const session = swarmState.agentSessions.get(sessionId);
+			expect(session).toBeDefined();
+			expect(session!.delegationActive).toBe(false);
+		});
+
+		it('does not emit debug text during multiple rapid handoffs', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// Multiple rapid handoffs
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+			await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
+			await hook({ sessionID: sessionId, agent: 'sme' }, {});
+			await hook({ sessionID: sessionId, agent: '' }, {}); // Empty triggers architect handoff
+
+			// Verify no debug leakage in any console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Verify all handoffs recorded correctly
+			const chain = swarmState.delegationChains.get(sessionId);
+			expect(chain).toHaveLength(3);
+			// Empty string results in architect handoff, not clearing
+			expect(swarmState.activeAgent.get(sessionId)).toBe('architect');
+		});
+
+		it('does not emit debug text when same agent is set (no handoff)', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// Set same agent - should not trigger any debug
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			// Verify no debug leakage in console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Verify no delegation chain created
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+			expect(swarmState.pendingEvents).toBe(0);
+		});
+
+		it('does not emit debug text on first agent assignment', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session';
+
+			// First agent assignment - no previous agent
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+
+			// Verify no debug leakage in console output
+			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			expect(loggedOutput).not.toContain('[swarm-debug-task]');
+			expect(loggedOutput).not.toContain('chat.message');
+			expect(loggedOutput).not.toContain('taskStates=');
+
+			// Verify no delegation chain created for first assignment
+			expect(swarmState.delegationChains.has(sessionId)).toBe(false);
+			expect(swarmState.activeAgent.get(sessionId)).toBe('architect');
+		});
+	});
+
+	// Task 2.5: Focused tests for chat-message debug leakage absence
+	describe('chat-message debug leakage absent (Task 2.5)', () => {
+		let consoleLogSpy: any;
+
+		beforeEach(() => {
+			// Spy on console.log to capture all output
+			consoleLogSpy = spyOn(console, 'log').mockImplementation(() => {});
+		});
+
+		afterEach(() => {
+			consoleLogSpy.mockRestore();
+		});
+
+		// Helper to get all logged output as a single string
+		function getLoggedOutput(): string {
+			return consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+		}
+
+		it('does not emit [swarm-debug-task] prefix during any hook execution', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-1';
+
+			// Various hook invocations that should NOT produce debug output
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+			await hook({ sessionID: sessionId, agent: '' }, {}); // Clear agent
+
+			const output = getLoggedOutput();
+			expect(output).not.toContain('[swarm-debug-task]');
+		});
+
+		it('does not emit chat.message debug pattern during agent handoff', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-2';
+
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'mega_coder' }, {});
+
+			const output = getLoggedOutput();
+			// The specific debug pattern that should NOT appear
+			expect(output).not.toMatch(/chat\.message/);
+			expect(output).not.toMatch(/\[swarm-debug-task\]/);
+		});
+
+		it('does not emit session/agent debug info during state transitions', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-3';
+
+			// Multiple state transitions
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'sme' }, {});
+			await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
+			await hook({ sessionID: sessionId, agent: 'tester' }, {});
+
+			const output = getLoggedOutput();
+			// Debug patterns that should be absent
+			expect(output).not.toContain('session=');
+			expect(output).not.toContain('agent=');
+			expect(output).not.toContain('prevAgent=');
+		});
+
+		it('does not emit taskStates debug info during delegation tracking', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-4';
+
+			// Create a session with task workflow states using ensureAgentSession
+			swarmState.activeAgent.set(sessionId, 'architect');
+			
+			// Use ensureAgentSession to create proper session object
+			const session = ensureAgentSession(sessionId, 'architect');
+			session.delegationActive = true;
+			
+			// Add some task states
+			session.taskWorkflowStates['task-1'] = 'completed';
+			session.taskWorkflowStates['task-2'] = 'in_progress';
+
+			// Execute hook
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+
+			const output = getLoggedOutput();
+			// Task states should NOT appear in debug output
+			expect(output).not.toContain('taskStates=');
+			expect(output).not.toContain('task-1');
+			expect(output).not.toContain('task-2');
+		});
+
+		it('produces no visible debug output with default config', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig);
+			const sessionId = 'test-session-5';
+
+			// Default config - no hooks enabled explicitly
+			await hook({ sessionID: sessionId, agent: 'architect' }, {});
+			await hook({ sessionID: sessionId, agent: 'coder' }, {});
+			await hook({ sessionID: sessionId, agent: '' }, {});
+
+			const output = getLoggedOutput();
+			// No debug output should be visible
+			expect(output).toBe('');
+		});
+
+		it('produces no visible debug output with enabled config', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-6';
+
+			// Enabled config - all hooks explicitly enabled
+			swarmState.activeAgent.set(sessionId, 'architect');
+			await hook({ sessionID: sessionId, agent: 'critic' }, {});
+			await hook({ sessionID: sessionId, agent: 'explorer' }, {});
+
+			const output = getLoggedOutput();
+			// No debug output should be visible
+			expect(output).toBe('');
+		});
+
+		it('handles guardrails disabled optimization without debug leakage', async () => {
+			const hook = createDelegationTrackerHook(defaultConfig, false);
+			const sessionId = 'test-session-7';
+
+			// Guardrails disabled - should still not leak debug
+			await hook({ sessionID: sessionId, agent: 'sme' }, {});
+			await hook({ sessionID: sessionId, agent: 'test_engineer' }, {});
+
+			const output = getLoggedOutput();
+			expect(output).not.toContain('[swarm-debug-task]');
+			expect(output).not.toContain('chat.message');
+			expect(output).not.toContain('taskStates');
+		});
+
+		it('does not emit debug for any subagent type', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const subagents = ['coder', 'sme', 'reviewer', 'critic', 'explorer', 'test_engineer'];
+
+			for (const agent of subagents) {
+				const sessionId = `session-${agent}`;
+				swarmState.activeAgent.set(sessionId, 'architect');
+				await hook({ sessionID: sessionId, agent }, {});
+
+				const output = getLoggedOutput();
+				expect(output).not.toContain('[swarm-debug-task]');
+				expect(output).not.toContain('chat.message');
+			}
+		});
+
+		it('verifies debug absence is consistent across multiple calls', async () => {
+			const hook = createDelegationTrackerHook(enabledConfig);
+			const sessionId = 'test-session-8';
+
+			// Make many calls and verify no debug in any of them
+			for (let i = 0; i < 10; i++) {
+				swarmState.activeAgent.set(sessionId, 'architect');
+				await hook({ sessionID: sessionId, agent: 'coder' }, {});
+				await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
+			}
+
+			const output = getLoggedOutput();
+			// After 200 hook calls, there should be ZERO debug output
+			expect(output).toBe('');
 		});
 	});
 });

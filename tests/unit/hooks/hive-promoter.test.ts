@@ -486,6 +486,9 @@ describe('hive-promoter', () => {
 // ============================================================================
 
 describe('promoteToHive - Schema Mismatch Fix Verification', () => {
+	let mockConfig: KnowledgeConfig;
+	let baseSwarmEntry: SwarmKnowledgeEntry;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockReadKnowledge.mockResolvedValue([]);
@@ -496,6 +499,44 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 			reason: '',
 			severity: undefined,
 		});
+
+		mockConfig = {
+			hive_enabled: true,
+			auto_promote_days: 90,
+			dedup_threshold: 0.8,
+			schema_version: 1,
+			validation_enabled: true,
+			rejected_max_entries: 20,
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			max_inject_count: 5,
+			scope_filter: ['global'],
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+		};
+
+		baseSwarmEntry = {
+			id: 'swarm-1',
+			tier: 'swarm',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing', 'performance'],
+			scope: 'global',
+			confidence: 0.7,
+			status: 'promoted',
+			confirmed_by: [
+				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
+			updated_at: new Date().toISOString(),
+			hive_eligible: true,
+			project_name: 'projectA',
+		};
 	});
 
 	it('promoteToHive function exists and is exported', async () => {
@@ -626,6 +667,9 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 });
 
 describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
+	let mockConfig: KnowledgeConfig;
+	let baseSwarmEntry: SwarmKnowledgeEntry;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockReadKnowledge.mockResolvedValue([]);
@@ -636,6 +680,44 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 			reason: '',
 			severity: undefined,
 		});
+
+		mockConfig = {
+			hive_enabled: true,
+			auto_promote_days: 90,
+			dedup_threshold: 0.8,
+			schema_version: 1,
+			validation_enabled: true,
+			rejected_max_entries: 20,
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			max_inject_count: 5,
+			scope_filter: ['global'],
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+		};
+
+		baseSwarmEntry = {
+			id: 'swarm-1',
+			tier: 'swarm',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing', 'performance'],
+			scope: 'global',
+			confidence: 0.7,
+			status: 'promoted',
+			confirmed_by: [
+				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
+			updated_at: new Date().toISOString(),
+			hive_eligible: true,
+			project_name: 'projectA',
+		};
 	});
 
 	it('promoteFromSwarm function exists and is exported', async () => {
@@ -699,31 +781,34 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 		}
 	});
 
-	it('promoteFromSwarm validates before writing', async () => {
-		const module = await import('../../../src/hooks/hive-promoter.js');
+		it('promoteFromSwarm validates before writing', async () => {
+			const module = await import('../../../src/hooks/hive-promoter.js');
 
-		const swarmEntry: SwarmKnowledgeEntry = {
-			...baseSwarmEntry,
-			id: 'test-lesson-id',
-			lesson: 'Valid lesson with sufficient length for testing',
-		};
+			const swarmEntry: SwarmKnowledgeEntry = {
+				...baseSwarmEntry,
+				id: 'test-lesson-id',
+				lesson: 'Valid lesson with sufficient length for testing',
+			};
 
-		mockReadKnowledge.mockResolvedValue([swarmEntry]);
+			// Mock readKnowledge to return swarm entries first, then empty hive entries
+			mockReadKnowledge
+				.mockResolvedValueOnce([swarmEntry]) // first call - swarm entries
+				.mockResolvedValueOnce([]); // second call - hive entries (empty)
 
-		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+			await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		// Verify validateLesson was called
-		expect(mockValidateLesson).toHaveBeenCalledTimes(1);
-		expect(mockValidateLesson).toHaveBeenCalledWith(
-			swarmEntry.lesson,
-			[],
-			expect.objectContaining({
-				category: swarmEntry.category,
-				scope: swarmEntry.scope,
-				confidence: swarmEntry.confidence,
-			})
-		);
-	});
+			// Verify validateLesson was called
+			expect(mockValidateLesson).toHaveBeenCalledTimes(1);
+			expect(mockValidateLesson).toHaveBeenCalledWith(
+				swarmEntry.lesson,
+				[],
+				expect.objectContaining({
+					category: swarmEntry.category,
+					scope: swarmEntry.scope,
+					confidence: swarmEntry.confidence,
+				})
+			);
+		});
 
 	it('promoteFromSwarm rejects invalid lesson', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
@@ -1056,5 +1141,746 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
 		// Should get 'src' (the last component)
 		expect(hiveEntry.source_project).toBe('src');
+	});
+});
+
+// ============================================================================
+// Task 3.3 & 3.4: Weighted Advancement Tests
+// ============================================================================
+
+describe('Task 3.3: weighted advancement behavior', () => {
+	let mockConfig: KnowledgeConfig;
+	let baseSwarmEntry: SwarmKnowledgeEntry;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+
+		// Base swarm entry for these tests
+		baseSwarmEntry = {
+			id: 'swarm-base',
+			tier: 'swarm',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing', 'performance'],
+			scope: 'global',
+			confidence: 0.7,
+			status: 'promoted',
+			confirmed_by: [
+				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
+			updated_at: new Date().toISOString(),
+			hive_eligible: true,
+			project_name: 'projectA',
+		};
+
+		// Config with weighted scoring enabled
+		mockConfig = {
+			hive_enabled: true,
+			auto_promote_days: 90,
+			dedup_threshold: 0.8,
+			schema_version: 1,
+			validation_enabled: true,
+			rejected_max_entries: 20,
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			max_inject_count: 5,
+			scope_filter: ['global'],
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+			same_project_weight: 0.5,
+			cross_project_weight: 1.0,
+			encounter_increment: 0.1,
+			min_encounter_score: 0.0,
+			max_encounter_score: 5.0,
+			initial_encounter_score: 1.0,
+		};
+	});
+
+	it('cross-project encounter increments encounter_score by encounter_increment * cross_project_weight', async () => {
+		// Arrange: existing hive entry with initial encounter_score
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [
+				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 1.0, // initial score
+		};
+
+		// Swarm entry from a DIFFERENT project (cross-project)
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectB', // different from source_project
+				lesson: 'Use bun for testing', // near-duplicate
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		const result = await checkHivePromotions(swarmEntries, mockConfig);
+
+		// Assert: cross-project weight (1.0) * increment (0.1) = 0.1 added
+		expect(result.encounters_incremented).toBe(1);
+		expect(mockRewriteKnowledge).toHaveBeenCalledTimes(1);
+
+		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+		expect(updatedEntry!.encounter_score).toBe(1.1); // 1.0 + 0.1
+	});
+
+	it('same-project encounter increments encounter_score by encounter_increment * same_project_weight', async () => {
+		// Arrange: existing hive entry with no prior confirmations (to test weighting without double-count prevention)
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [], // Empty to avoid double-count prevention
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 1.0,
+		};
+
+		// Swarm entry from SAME project (same-project)
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectA', // SAME as source_project - tests same-project weighting
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		const result = await checkHivePromotions(swarmEntries, mockConfig);
+
+		// Assert: same-project weight (0.5) * increment (0.1) = 0.05 added
+		expect(result.encounters_incremented).toBe(1);
+		expect(mockRewriteKnowledge).toHaveBeenCalledTimes(1);
+
+		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+		expect(updatedEntry!.encounter_score).toBe(1.05); // 1.0 + (0.1 * 0.5)
+	});
+
+	it('same-project encounters result in slower progression than cross-project', async () => {
+		// This test verifies that multiple same-project confirmations take longer to advance
+		// than cross-project confirmations due to weighted scoring
+
+		// Setup: candidate with 2 existing project confirmations
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [
+				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
+				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 1.0,
+		};
+
+		// Need projectC confirmation to reach 3 distinct projects for advancement
+		// Using cross-project (projectC) should advance
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectC', // cross-project from projectA
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		const result = await checkHivePromotions(swarmEntries, mockConfig);
+
+		// Assert: cross-project should advance to established (3 distinct projects)
+		expect(result.advancements).toBe(1);
+
+		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+		expect(updatedEntry!.status).toBe('established');
+		expect(updatedEntry!.confirmed_by).toHaveLength(3);
+	});
+
+	it('encounter_score respects min_encounter_score boundary', async () => {
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 0.05, // very low
+		};
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectB',
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		// Set min_encounter_score to 0.1
+		mockConfig.min_encounter_score = 0.1;
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		await checkHivePromotions(swarmEntries, mockConfig);
+
+		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+		// Score should be clamped to min_encounter_score (0.1), not go below
+		expect(updatedEntry!.encounter_score).toBeGreaterThanOrEqual(0.1);
+	});
+
+	it('encounter_score respects max_encounter_score boundary', async () => {
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 4.95, // near max
+		};
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectB',
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		// Set max_encounter_score to 5.0
+		mockConfig.max_encounter_score = 5.0;
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		await checkHivePromotions(swarmEntries, mockConfig);
+
+		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+		// Score should be clamped to max_encounter_score (5.0)
+		expect(updatedEntry!.encounter_score).toBeLessThanOrEqual(5.0);
+	});
+});
+
+describe('Task 3.3: same-run double-count prevention', () => {
+	let mockConfig: KnowledgeConfig;
+	let baseSwarmEntry: SwarmKnowledgeEntry;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+
+		// Base swarm entry for these tests
+		baseSwarmEntry = {
+			id: 'swarm-base',
+			tier: 'swarm',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing', 'performance'],
+			scope: 'global',
+			confidence: 0.7,
+			status: 'promoted',
+			confirmed_by: [
+				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
+			updated_at: new Date().toISOString(),
+			hive_eligible: true,
+			project_name: 'projectA',
+		};
+
+		mockConfig = {
+			hive_enabled: true,
+			auto_promote_days: 90,
+			dedup_threshold: 0.8,
+			schema_version: 1,
+			validation_enabled: true,
+			rejected_max_entries: 20,
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			max_inject_count: 5,
+			scope_filter: ['global'],
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+			same_project_weight: 0.5,
+			cross_project_weight: 1.0,
+			encounter_increment: 0.1,
+			min_encounter_score: 0.0,
+			max_encounter_score: 5.0,
+			initial_encounter_score: 1.0,
+		};
+	});
+
+	it('skips same project confirmation that already exists in confirmed_by', async () => {
+		// This is the key same-run double-count prevention test
+		// The hive entry already has projectB in confirmed_by
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [
+				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
+				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' }, // already confirmed
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 1.0,
+		};
+
+		// Swarm entry from projectB (same as existing confirmation)
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectB', // same as existing confirmed_by entry
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		// findNearDuplicate returns the swarm entry (near-duplicate found)
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		const result = await checkHivePromotions(swarmEntries, mockConfig);
+
+		// Assert: no modification should occur - same project already confirmed
+		expect(result.encounters_incremented).toBe(0); // NOT incremented
+		expect(result.advancements).toBe(0);
+		expect(mockRewriteKnowledge).not.toHaveBeenCalled(); // No rewrite needed
+	});
+
+	it('does not add duplicate project confirmation to confirmed_by array', async () => {
+		const existingHiveEntry: HiveKnowledgeEntry = {
+			id: 'hive-1',
+			tier: 'hive',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [
+				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			source_project: 'projectA',
+			encounter_score: 1.0,
+		};
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				project_name: 'projectB', // duplicate
+				lesson: 'Use bun for testing',
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValue([existingHiveEntry]);
+		mockFindNearDuplicate.mockReturnValue(swarmEntries[0]);
+
+		// Act
+		await checkHivePromotions(swarmEntries, mockConfig);
+
+		// Assert: confirmed_by should still have only 1 entry
+		const rewriteCalls = mockRewriteKnowledge.mock.calls;
+		if (rewriteCalls.length > 0) {
+			const updatedHive = rewriteCalls[0][1] as HiveKnowledgeEntry[];
+			const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
+			expect(updatedEntry!.confirmed_by).toHaveLength(1);
+		}
+		// Most importantly: rewrite should NOT be called when no change is needed
+		expect(mockRewriteKnowledge).not.toHaveBeenCalled();
+	});
+});
+
+// Mock curator module for curator-summary tests
+const mockReadCuratorSummary = vi.fn();
+const mockWriteCuratorSummary = vi.fn();
+
+vi.mock('../../../src/hooks/curator.js', () => ({
+	readCuratorSummary: (...args: unknown[]) => mockReadCuratorSummary(...args),
+	writeCuratorSummary: (...args: unknown[]) => mockWriteCuratorSummary(...args),
+}));
+
+describe('Task 3.4: curator-summary feedback integration', () => {
+	let mockConfig: KnowledgeConfig;
+	let baseSwarmEntry: SwarmKnowledgeEntry;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+		mockReadCuratorSummary.mockResolvedValue(null);
+		mockWriteCuratorSummary.mockResolvedValue(undefined);
+
+		// Base swarm entry for these tests
+		baseSwarmEntry = {
+			id: 'swarm-base',
+			tier: 'swarm',
+			lesson: 'Use bun for testing',
+			category: 'process',
+			tags: ['testing', 'performance'],
+			scope: 'global',
+			confidence: 0.7,
+			status: 'promoted',
+			confirmed_by: [
+				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+			],
+			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
+			updated_at: new Date().toISOString(),
+			hive_eligible: true,
+			project_name: 'projectA',
+		};
+
+		mockConfig = {
+			hive_enabled: true,
+			auto_promote_days: 90,
+			dedup_threshold: 0.8,
+			schema_version: 1,
+			validation_enabled: true,
+			rejected_max_entries: 20,
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			max_inject_count: 5,
+			scope_filter: ['global'],
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+			same_project_weight: 0.5,
+			cross_project_weight: 1.0,
+			encounter_increment: 0.1,
+			min_encounter_score: 0.0,
+			max_encounter_score: 5.0,
+			initial_encounter_score: 1.0,
+		};
+	});
+
+	it('createHivePromoterHook adds knowledge recommendation with promotion summary', async () => {
+		// Arrange: existing curator summary
+		const curatorSummary = {
+			schema_version: 1,
+			session_id: 'test-session',
+			last_updated: '2024-01-01T00:00:00Z',
+			last_phase_covered: 1,
+			digest: 'Test digest',
+			phase_digests: [],
+			compliance_observations: [],
+			knowledge_recommendations: [] as unknown[],
+		};
+
+		mockReadCuratorSummary.mockResolvedValue(curatorSummary);
+
+		// Swarm entry that will be promoted
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				hive_eligible: true,
+				confirmed_by: [
+					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+				],
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValueOnce(swarmEntries); // swarm entries
+		mockReadKnowledge.mockResolvedValueOnce([]); // hive entries
+
+		// Act
+		const hook = createHivePromoterHook('/test-project', mockConfig);
+		await hook({}, {});
+
+		// Assert: writeCuratorSummary should be called with updated recommendations
+		expect(mockWriteCuratorSummary).toHaveBeenCalledTimes(1);
+
+		const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+		expect(writtenSummary.knowledge_recommendations).toBeDefined();
+		expect(Array.isArray(writtenSummary.knowledge_recommendations)).toBe(true);
+		expect(writtenSummary.knowledge_recommendations.length).toBeGreaterThan(0);
+
+		// Verify the recommendation contains promotion summary
+		const lastRecommendation = writtenSummary.knowledge_recommendations[
+			writtenSummary.knowledge_recommendations.length - 1
+		] as { action: string; lesson: string; reason: string };
+		expect(lastRecommendation.action).toBe('promote');
+		expect(lastRecommendation.lesson).toContain('Hive promotion');
+		expect(lastRecommendation.lesson).toContain('new');
+		expect(lastRecommendation.lesson).toContain('encounters');
+		expect(lastRecommendation.lesson).toContain('advancements');
+	});
+
+	it('createHivePromoterHook includes all summary fields in reason JSON', async () => {
+		// Arrange
+		const curatorSummary = {
+			schema_version: 1,
+			session_id: 'test-session',
+			last_updated: '2024-01-01T00:00:00Z',
+			last_phase_covered: 1,
+			digest: 'Test digest',
+			phase_digests: [],
+			compliance_observations: [],
+			knowledge_recommendations: [] as unknown[],
+		};
+
+		mockReadCuratorSummary.mockResolvedValue(curatorSummary);
+
+		// Swarm entry that will be promoted
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				hive_eligible: true,
+				confirmed_by: [
+					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+				],
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValueOnce(swarmEntries);
+		mockReadKnowledge.mockResolvedValueOnce([]);
+
+		// Act
+		const hook = createHivePromoterHook('/test-project', mockConfig);
+		await hook({}, {});
+
+		// Assert
+		const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+		const lastRecommendation = writtenSummary.knowledge_recommendations[
+			writtenSummary.knowledge_recommendations.length - 1
+		] as { action: string; lesson: string; reason: string };
+
+		// Parse the reason JSON
+		const reason = JSON.parse(lastRecommendation.reason);
+		expect(reason).toHaveProperty('timestamp');
+		expect(reason).toHaveProperty('new_promotions');
+		expect(reason).toHaveProperty('encounters_incremented');
+		expect(reason).toHaveProperty('advancements');
+		expect(reason).toHaveProperty('total_hive_entries');
+	});
+
+	it('createHivePromoterHook does not write when curator summary is null', async () => {
+		// Arrange: no curator summary exists
+		mockReadCuratorSummary.mockResolvedValue(null);
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [baseSwarmEntry];
+		mockReadKnowledge.mockResolvedValueOnce(swarmEntries);
+		mockReadKnowledge.mockResolvedValueOnce([]);
+
+		// Act
+		const hook = createHivePromoterHook('/test-project', mockConfig);
+		await hook({}, {});
+
+		// Assert: should NOT write curator summary when it doesn't exist
+		expect(mockWriteCuratorSummary).not.toHaveBeenCalled();
+	});
+
+	it('createHivePromoterHook updates last_updated timestamp', async () => {
+		// Arrange
+		const oldTimestamp = '2024-01-01T00:00:00Z';
+		const curatorSummary = {
+			schema_version: 1,
+			session_id: 'test-session',
+			last_updated: oldTimestamp,
+			last_phase_covered: 1,
+			digest: 'Test digest',
+			phase_digests: [],
+			compliance_observations: [],
+			knowledge_recommendations: [] as unknown[],
+		};
+
+		mockReadCuratorSummary.mockResolvedValue(curatorSummary);
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				hive_eligible: true,
+				confirmed_by: [
+					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+				],
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValueOnce(swarmEntries);
+		mockReadKnowledge.mockResolvedValueOnce([]);
+
+		// Act
+		const hook = createHivePromoterHook('/test-project', mockConfig);
+		await hook({}, {});
+
+		// Assert
+		const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+		expect(writtenSummary.last_updated).not.toBe(oldTimestamp);
+		// Should be a recent timestamp
+		const writtenTime = new Date(writtenSummary.last_updated).getTime();
+		const now = Date.now();
+		expect(writtenTime).toBeLessThanOrEqual(now);
+		expect(now - writtenTime).toBeLessThan(5000); // within 5 seconds
+	});
+
+	it('createHivePromoterHook preserves existing knowledge_recommendations', async () => {
+		// Arrange: curator summary with existing recommendations
+		const existingRecommendation = {
+			action: 'test' as const,
+			lesson: 'Existing lesson',
+			reason: '{}',
+		};
+
+		const curatorSummary = {
+			schema_version: 1,
+			session_id: 'test-session',
+			last_updated: '2024-01-01T00:00:00Z',
+			last_phase_covered: 1,
+			digest: 'Test digest',
+			phase_digests: [],
+			compliance_observations: [],
+			knowledge_recommendations: [existingRecommendation],
+		};
+
+		mockReadCuratorSummary.mockResolvedValue(curatorSummary);
+
+		const swarmEntries: SwarmKnowledgeEntry[] = [
+			{
+				...baseSwarmEntry,
+				id: 'swarm-1',
+				hive_eligible: true,
+				confirmed_by: [
+					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
+					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+				],
+			},
+		];
+
+		mockReadKnowledge.mockResolvedValueOnce(swarmEntries);
+		mockReadKnowledge.mockResolvedValueOnce([]);
+
+		// Act
+		const hook = createHivePromoterHook('/test-project', mockConfig);
+		await hook({}, {});
+
+		// Assert: existing recommendation should be preserved
+		const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+		expect(writtenSummary.knowledge_recommendations.length).toBe(2);
+		expect(writtenSummary.knowledge_recommendations[0]).toEqual(existingRecommendation);
 	});
 });

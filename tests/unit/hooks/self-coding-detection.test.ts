@@ -590,6 +590,675 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 });
 
 // ============================================
+// Task 2.7: Self-Coding Model-Only Guidance & Debug Leakage
+// ============================================
+describe('self-coding warnings model-only (Task 2.7)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	it('SELF-CODING warning injected ONLY in system message (not visible in user-facing output)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages with both system and user roles
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Write some code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify warning is in SYSTEM message (model-only)
+		const systemMessage = messages.messages[0];
+		expect(systemMessage.parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(systemMessage.parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
+
+		// Verify warning is NOT in USER message (not visible to user)
+		const userMessage = messages.messages[1];
+		expect(userMessage.parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(userMessage.parts[0].text).not.toContain('[MODEL_ONLY_GUIDANCE]');
+	});
+
+	it('SELF-FIX warning injected ONLY in system message (not visible in user-facing output)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect writes to src/foo.ts (self-fix attempt)
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages with both system and user roles
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Fix the issue' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify warning is in SYSTEM message (model-only)
+		const systemMessage = messages.messages[0];
+		expect(systemMessage.parts[0].text).toContain('SELF-FIX DETECTED');
+		expect(systemMessage.parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
+
+		// Verify warning is NOT in USER message (not visible to user)
+		const userMessage = messages.messages[1];
+		expect(userMessage.parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(userMessage.parts[0].text).not.toContain('[MODEL_ONLY_GUIDANCE]');
+	});
+
+	it('stored-args debug text is NOT present in visible output', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts - this stores args internally
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages that will be transformed
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Check the code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Get the final text that would be visible to user
+		const visibleText = messages.messages
+			.map((m) => m.parts[0].text)
+			.join(' ');
+
+		// Verify NO debug/internal storage references leak into visible output
+		// These are internal implementation details that should never appear in messages
+		expect(visibleText).not.toContain('storedInputArgs');
+		expect(visibleText).not.toContain('stored-input-args');
+		expect(visibleText).not.toContain('callID');
+		expect(visibleText).not.toContain('getStoredInputArgs');
+		expect(visibleText).not.toContain('setStoredInputArgs');
+
+		// Verify the warning itself is model-only (in system message only)
+		const systemText = messages.messages[0].parts[0].text;
+		const userText = messages.messages[1].parts[0].text;
+
+		// Self-coding warning should be in system only
+		expect(systemText).toContain('SELF-CODING DETECTED');
+		expect(userText).not.toContain('SELF-CODING DETECTED');
+	});
+
+	it('no system message -> warning still injected into created system message (model-only)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages WITHOUT system message (edge case)
+		const messages = {
+			messages: [
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Write code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Verify a system message was created and warning injected there (model-only)
+		expect(messages.messages[0].info.role).toBe('system');
+		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
+
+		// Original user message should be unchanged
+		expect(messages.messages[1].parts[0].text).toBe('TASK: Write code');
+	});
+
+	it('MODEL_ONLY_GUIDANCE markers are properly closed in system message', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		// Set up architect session
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/foo.ts
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages with system role
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt here.' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		const systemText = messages.messages[0].parts[0].text;
+
+		// Verify both opening and closing markers are present
+		expect(systemText).toContain('[MODEL_ONLY_GUIDANCE]');
+		expect(systemText).toContain('[/MODEL_ONLY_GUIDANCE]');
+		// Warning content should be between markers
+		expect(systemText).toContain('SELF-CODING DETECTED');
+	});
+});
+
+// ============================================
+// ADVERSARIAL TESTS: Task 2.7 Model-Only & Debug Leakage Gaps
+// ============================================
+describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	// GAP 1: Multiple system messages - which one gets the warning?
+	it('multiple system messages: warning injected only in FIRST system message (not others)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Architect writes to src/ to trigger self-coding
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Create messages with MULTIPLE system messages
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt 1.' }],
+				},
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt 2.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Warning should be in FIRST system message only
+		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		// Second system message should NOT have warning
+		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	// GAP 2: Role field with different case variations
+	it('message role case sensitivity: "SYSTEM" (uppercase) not recognized as system message', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Use uppercase SYSTEM role
+		const messages = {
+			messages: [
+				{
+					info: { role: 'SYSTEM' as any, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// With uppercase 'SYSTEM', the filter won't match 'system'
+		// This could be a GAP - warning might not get injected
+		// Check user message to see if warning leaked (shouldn't)
+		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	// GAP 3: Missing info object entirely
+	it('message with missing info object: graceful handling, no crash', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Message with missing info object
+		const messages = {
+			messages: [
+				{
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		// Should not crash - graceful handling
+		await hook.messagesTransform({}, messages as any);
+		// User message should not have leaked warning
+		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	// GAP 4: Message with role but empty info
+	it('message with empty info but role property: handled gracefully', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: {}, // Empty info object
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		// Should not crash
+		await hook.messagesTransform({}, messages as any);
+	});
+
+	// GAP 5: Both SELF-CODING and SELF-FIX triggered simultaneously
+	it('both self-coding AND self-fix active: both warnings injected (order matters)', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-123',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect writes to src/ - triggers both self-coding AND self-fix
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'fix' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// Both should be true
+		expect(session.architectWriteCount).toBe(1);
+		expect(session.selfFixAttempted).toBe(true);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		const systemText = messages.messages[0].parts[0].text;
+
+		// Both warnings should be present
+		expect(systemText).toContain('SELF-CODING DETECTED');
+		expect(systemText).toContain('SELF-FIX DETECTED');
+		// Both should be marked as MODEL_ONLY
+		expect(systemText).toContain('[MODEL_ONLY_GUIDANCE]');
+	});
+
+	// GAP 6: Debug leakage - alternative stored-args naming
+	it('debug leakage check: alternative internal variable names not present', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		const allText = JSON.stringify(messages);
+
+		// Additional potential debug leakage patterns
+		expect(allText).not.toContain('storedInput');
+		expect(allText).not.toContain('inputArgs');
+		expect(allText).not.toContain('toolInput');
+		expect(allText).not.toContain('lastToolCall');
+		expect(allText).not.toContain('__debug');
+		expect(allText).not.toContain('__internal');
+	});
+
+	// GAP 7: Self-fix with SELF-CODING - verify debug leakage absence
+	it('self-fix scenario: stored-args debug leakage NOT present in visible output', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Simulate gate failure
+		const session = ensureAgentSession(sessionId);
+		session.lastGateFailure = {
+			tool: 'lint',
+			taskId: 'task-456',
+			timestamp: Date.now() - 30_000,
+		};
+
+		// Architect writes to src/ - self-fix attempt
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-X' };
+		const toolOutput = { args: { filePath: 'src/bar.ts', content: 'fix' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Fix' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// User should NOT see any internal storage references
+		const userText = messages.messages[1].parts[0].text;
+		expect(userText).not.toContain('callID');
+		expect(userText).not.toContain('call-X');
+		expect(userText).not.toContain('stored');
+		expect(userText).not.toContain('args');
+	});
+
+	// GAP 8: Assistant role should not have warning leaked
+	it('assistant role message: warning not leaked to assistant messages', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+				{
+					info: { role: 'assistant' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'I will delegate this task.' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// Assistant message should NOT contain the warning
+		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[1].parts[0].text).not.toContain('[MODEL_ONLY_GUIDANCE]');
+	});
+
+	// GAP 9: System message at index > 0 - edge case from message consolidation
+	it('system message at index 1 (after user): warning still injected correctly', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		// System message NOT at index 0 - an unusual edge case
+		const messages = {
+			messages: [
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		// The system message is at index 1 - code should still find it
+		// Check the system message at index 1
+		expect(messages.messages[1].parts[0].text).toContain('SELF-CODING DETECTED');
+		// User message should not have warning
+		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+	});
+
+	// GAP 10: Verify warning text doesn't contain raw internal data
+	it('warning text is human-readable, no raw tool output leaked', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		// Write with some content that could leak if not filtered
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'secret: my-api-key-123' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'System prompt.' }],
+				},
+			],
+		};
+
+		await hook.messagesTransform({}, messages as any);
+
+		const warningText = messages.messages[0].parts[0].text;
+
+		// Warning should NOT contain the content that was written
+		expect(warningText).not.toContain('secret: my-api-key-123');
+		// Warning should NOT contain raw tool output structure
+		expect(warningText).not.toContain('"args"');
+		expect(warningText).not.toContain('toolOutput');
+	});
+
+	// GAP 11: parts array missing entirely
+	it('message with missing parts array: graceful handling', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					// Missing parts array
+				},
+				{
+					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
+				},
+			],
+		};
+
+		// Should not crash - graceful handling
+		await hook.messagesTransform({}, messages as any);
+	});
+
+	// GAP 12: parts array with non-text item
+	it('message parts with non-text item (image/tool): handled gracefully', async () => {
+		const config = makeGuardrailsConfig();
+		const hook = createGuardrailsHooks(config);
+
+		const sessionId = 'test-session';
+		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+		startAgentSession(sessionId, ORCHESTRATOR_NAME);
+
+		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'test' } };
+		await hook.toolBefore(toolInput as any, toolOutput as any);
+
+		const messages = {
+			messages: [
+				{
+					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					parts: [
+						{ type: 'text' as const, text: 'System prompt.' },
+						{ type: 'image' as any, data: 'fake-image-data' }, // Non-text part
+					],
+				},
+			],
+		};
+
+		// Should not crash - find() handles only text parts
+		await hook.messagesTransform({}, messages as any);
+		// Warning should still be injected in text part
+		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+	});
+});
+
+// ============================================
 // ADVERSARIAL TESTS: Attack Vectors
 // ============================================
 describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {

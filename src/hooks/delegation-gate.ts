@@ -334,18 +334,6 @@ export function createDelegationGateHook(config: PluginConfig): {
 		const session = swarmState.agentSessions.get(input.sessionID);
 		if (!session) return;
 
-		// TEMPORARY DEBUG: Log toolAfter entry
-		const taskStates = session.taskWorkflowStates
-			? Object.entries(session.taskWorkflowStates)
-			: [];
-		const statesSummary =
-			taskStates.length > 0
-				? taskStates.map(([k, v]) => `${k}=${v}`).join(',')
-				: '(none)';
-		console.log(
-			`[swarm-debug-task] delegation-gate.toolAfter | session=${input.sessionID} callID=${input.callID} tool=${input.tool}`,
-		);
-
 		// Detect task tool calls
 		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
 		if (normalized === 'Task' || normalized === 'task') {
@@ -357,11 +345,6 @@ export function createDelegationGateHook(config: PluginConfig): {
 				| undefined;
 			const subagentType =
 				directArgs?.subagent_type ?? storedArgs?.subagent_type;
-
-			// TEMPORARY DEBUG: Log task tool delegation
-			console.log(
-				`[swarm-debug-task] delegation-gate.taskDetected | session=${input.sessionID} subagent_type=${subagentType ?? '(none)'} source=${directArgs?.subagent_type ? 'input.args' : storedArgs?.subagent_type ? 'storedArgs' : 'none'} currentStates=[${statesSummary}]`,
-			);
 
 			// Track if we detected reviewer and/or test_engineer via stored args
 			let hasReviewer = false;
@@ -573,7 +556,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 			// Only operate when architect is the active agent
 			// Check if agent is undefined (main session = architect) or is 'architect' (after stripping prefix)
+			// Skip empty string agent names (invalid/uninitialized state)
 			const agent = lastUserMessage.info?.agent;
+			if (agent === '') return; // Skip empty string explicitly
 			const strippedAgent = agent ? stripKnownSwarmPrefix(agent) : undefined;
 			if (strippedAgent && strippedAgent !== 'architect') return;
 
@@ -714,51 +699,79 @@ export function createDelegationGateHook(config: PluginConfig): {
 					session.architectWriteCount > 0 &&
 					session.lastCoderDelegationTaskId !== currentTaskId
 				) {
-					// Inject warning directly into message
-					const warningText = `⚠️ DELEGATION VIOLATION: Code modifications detected for task ${currentTaskId} with zero coder delegations.\nRule 1: DELEGATE all coding to coder. You do NOT write code.`;
-					textPart.text = `${warningText}\n\n${text}`;
+					// Inject warning as model-only system guidance (not visible to user)
+					const warningText = `[DELEGATION VIOLATION] Code modifications detected for task ${currentTaskId} with zero coder delegations. Rule 1: DELEGATE all coding to coder. You do NOT write code.`;
+
+					// Add as a system message for model-only guidance
+					const systemMsgIdx = messages.findIndex(
+						(m: MessageWithParts) => m && m.info?.role === 'system',
+					);
+					const insertIdx = systemMsgIdx >= 0 ? systemMsgIdx + 1 : 0;
+
+					const guidanceMessage: MessageWithParts = {
+						info: { role: 'system' },
+						parts: [{ type: 'text', text: warningText }],
+					};
+
+					messages.splice(insertIdx, 0, guidanceMessage);
 				}
 			}
 
-			// Deliberation preamble: inject last-gate context + deliberation prompt
+			// Deliberation preamble: inject last-gate context + [NEXT] directive as model-only guidance
 			// This runs for ALL architect messages (before coder-delegation early return)
 			{
 				const deliberationSessionID = lastUserMessage.info?.sessionID;
 				if (deliberationSessionID) {
 					// Fix 1: Validate sessionID format before calling ensureAgentSession()
 					if (!/^[a-zA-Z0-9_-]{1,128}$/.test(deliberationSessionID)) {
-						// Invalid format - skip preamble injection
+						// Invalid format - skip guidance injection
 					} else {
 						const deliberationSession = ensureAgentSession(
 							deliberationSessionID,
 						);
 						const lastGate = deliberationSession.lastGateOutcome;
-						let preamble: string;
-						if (lastGate) {
+						let guidance: string;
+						if (lastGate?.taskId) {
 							const gateResult = lastGate.passed ? 'PASSED' : 'FAILED';
-							// Fix 2 & 3: Sanitize and truncate interpolated values
+							// Sanitize interpolated values
 							const sanitizedGate = lastGate.gate
+								.replace(/</g, '&lt;')
+								.replace(/>/g, '&gt;')
 								.replace(/\[/g, '(')
 								.replace(/\]/g, ')')
 								.replace(/[\r\n]/g, ' ')
 								.slice(0, 64);
 							const sanitizedTaskId = lastGate.taskId
+								.replace(/</g, '&lt;')
+								.replace(/>/g, '&gt;')
 								.replace(/\[/g, '(')
 								.replace(/\]/g, ')')
 								.replace(/[\r\n]/g, ' ')
 								.slice(0, 32);
-							preamble = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n[DELIBERATE: Before proceeding — what is the SINGLE next task? What gates must it pass?]`;
+							// Concise [NEXT] directive with last-gate status
+							guidance = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n[NEXT] Execute the next gate for the current task.`;
 						} else {
-							preamble = `[DELIBERATE: Identify the first task from the plan. What gates must it pass before marking complete?]`;
+							// Concise [NEXT] directive to begin first plan task
+							// Also handles case where lastGate exists but taskId is missing
+							guidance =
+								'[NEXT] Begin the first plan task and run gates sequentially.';
 						}
-						const currentText = textPart.text ?? '';
-						textPart.text = `${preamble}\n\n${currentText}`;
+
+						// Inject as model-only system guidance (not visible in message output)
+						const systemMsgIdx = messages.findIndex(
+							(m: MessageWithParts) => m && m.info?.role === 'system',
+						);
+						const insertIdx = systemMsgIdx >= 0 ? systemMsgIdx + 1 : 0;
+
+						const guidanceMessage: MessageWithParts = {
+							info: { role: 'system' },
+							parts: [{ type: 'text', text: guidance }],
+						};
+
+						messages.splice(insertIdx, 0, guidanceMessage);
 					}
 				}
 			}
-
-			// Early return if not a coder delegation (skip rest of checks)
-			if (!isCoderDelegation) return;
 
 			// Run heuristic checks and collect warnings
 			const warnings: string[] = [];

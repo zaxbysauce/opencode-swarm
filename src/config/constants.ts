@@ -34,6 +34,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'extract_code_blocks',
 		'gitingest',
 		'imports',
+		'knowledge_query',
 		'lint',
 		'diff',
 		'pkg_audit',

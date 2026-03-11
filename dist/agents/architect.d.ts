@@ -4,4 +4,8 @@ export interface AgentDefinition {
     description?: string;
     config: AgentConfig;
 }
-export declare function createArchitectAgent(model: string, customPrompt?: string, customAppendPrompt?: string): AgentDefinition;
+export interface AdversarialTestingConfig {
+    enabled: boolean;
+    scope: 'all' | 'security-only';
+}
+export declare function createArchitectAgent(model: string, customPrompt?: string, customAppendPrompt?: string, adversarialTesting?: AdversarialTestingConfig): AgentDefinition;
