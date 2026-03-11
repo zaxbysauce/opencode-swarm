@@ -476,6 +476,12 @@ export async function executePhaseComplete(
 				low_utility_threshold: 0.3,
 				min_retrievals_for_utility: 3,
 				schema_version: 1,
+				same_project_weight: 1.0,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
 			};
 
 			await curateAndStoreSwarm(

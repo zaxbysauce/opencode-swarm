@@ -396,7 +396,8 @@ export async function readMergedKnowledge(
 			context?.projectName &&
 			entry.tier === 'hive' &&
 			'source_project' in entry &&
-			(entry as HiveKnowledgeEntry).source_project === context.projectName;
+			(entry as { source_project: string }).source_project ===
+				context.projectName;
 		const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
 
 		// Weighted final score

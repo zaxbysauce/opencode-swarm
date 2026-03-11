@@ -80,9 +80,13 @@ export interface ReviewerGateResult {
  * Requires the task to be in 'tests_run' or 'complete' state, which means
  * both reviewer delegation and test_engineer runs have been recorded.
  * @param taskId - The task ID to check gate state for
+ * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult indicating whether the gate is blocked
  */
-export function checkReviewerGate(taskId: string): ReviewerGateResult {
+export function checkReviewerGate(
+	taskId: string,
+	workingDirectory?: string,
+): ReviewerGateResult {
 	try {
 		// If no active sessions, allow through (test context)
 		if (swarmState.agentSessions.size === 0) {
@@ -107,20 +111,21 @@ export function checkReviewerGate(taskId: string): ReviewerGateResult {
 			stateEntries.push(`${sessionId}: ${state}`);
 		}
 
-		// Issue #81 regression detection: if all sessions are idle, states weren't persisted
+		// Issue #81 regression detection: if all sessions are idle, states weren't persisted.
+		// No warning or log emitted — silently continue to plan.json fallback check (lines 121-135)
 		const allIdle =
 			stateEntries.length > 0 &&
 			stateEntries.every((e) => e.endsWith(': idle'));
 		if (allIdle) {
-			console.warn(
-				`[update-task-status] Issue #81 regression detected for task ${taskId}: all ${stateEntries.length} session(s) show idle state. taskWorkflowStates may not be persisting across sessions.`,
-			);
+			// Detection complete — proceed to fallback logic without any output
 		}
 		// Bug 3 fix: no session has this task in tests_run or complete state.
 		// Check plan.json as fallback — covers session restarts where task was
 		// completed in a prior session and plan.json is the source of truth.
 		try {
-			const planPath = path.join(process.cwd(), '.swarm', 'plan.json');
+			// Use provided workingDirectory if available, otherwise fall back to process.cwd()
+			const resolvedDir = workingDirectory ?? process.cwd();
+			const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
 			const planRaw = fs.readFileSync(planPath, 'utf-8');
 			const plan = JSON.parse(planRaw) as {
 				phases: Array<{ tasks: Array<{ id: string; status: string }> }>;
@@ -140,7 +145,7 @@ export function checkReviewerGate(taskId: string): ReviewerGateResult {
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
 		return {
 			blocked: true,
-			reason: `Task ${taskId} has not passed QA gates. Current state: [${currentStateStr}]. Required state: tests_run or complete. Do not write directly to plan files — use update_task_status after running mega_reviewer and mega_test_engineer.`,
+			reason: `Task ${taskId} has not passed QA gates. Current state: [${currentStateStr}]. Required state: tests_run or complete. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`,
 		};
 	} catch {
 		// If state inspection throws, allow through
@@ -193,21 +198,10 @@ export async function executeUpdateTaskStatus(
 		}
 	}
 
-	// State machine check: task must have reached tests_run or complete state
-	if (args.status === 'completed') {
-		const reviewerCheck = checkReviewerGate(args.task_id);
-		if (reviewerCheck.blocked) {
-			return {
-				success: false,
-				message:
-					'Gate check failed: reviewer delegation required before marking task as completed',
-				errors: [reviewerCheck.reason],
-			};
-		}
-	}
-
-	// Step 3: Validate working_directory if provided
+	// Step 3: Validate working_directory if provided (must be before reviewer gate check)
 	let normalizedDir: string | undefined;
+	let directory: string;
+
 	if (args.working_directory != null) {
 		// Check for null-byte injection before any processing
 		if (args.working_directory.includes('\0')) {
@@ -265,6 +259,8 @@ export async function executeUpdateTaskStatus(
 					],
 				};
 			}
+			// Use realPath as the validated directory
+			directory = realPath;
 		} catch {
 			return {
 				success: false,
@@ -274,12 +270,26 @@ export async function executeUpdateTaskStatus(
 				],
 			};
 		}
+	} else {
+		// No working_directory provided, use fallback or process.cwd()
+		directory = fallbackDir ?? process.cwd();
 	}
 
-	// Step 4: Resolve target directory
-	const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+	// State machine check: task must have reached tests_run or complete state
+	// Uses the validated directory for plan.json fallback resolution
+	if (args.status === 'completed') {
+		const reviewerCheck = checkReviewerGate(args.task_id, directory);
+		if (reviewerCheck.blocked) {
+			return {
+				success: false,
+				message:
+					'Gate check failed: reviewer delegation required before marking task as completed',
+				errors: [reviewerCheck.reason],
+			};
+		}
+	}
 
-	// Step 5: Update the task status
+	// Step 4: Update the task status
 	try {
 		const updatedPlan = await updateTaskStatus(
 			directory,

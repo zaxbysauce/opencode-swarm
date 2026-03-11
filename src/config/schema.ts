@@ -332,6 +332,24 @@ export type AdversarialDetectionConfig = z.infer<
 	typeof AdversarialDetectionConfigSchema
 >;
 
+// Adversarial testing configuration (cross-model adversarial testing for task evaluation)
+// Uses .default({}) with inner field defaults to preserve current all-task adversarial behavior when config is absent
+export type AdversarialTestingConfig = {
+	enabled: boolean;
+	scope: 'all' | 'security-only';
+};
+
+const AdversarialTestingConfigSchemaBase = z.object({
+	enabled: z.boolean().default(true),
+	scope: z.enum(['all', 'security-only']).default('all'),
+});
+
+export const AdversarialTestingConfigSchema: z.ZodType<AdversarialTestingConfig> =
+	AdversarialTestingConfigSchemaBase.default(() => ({
+		enabled: true,
+		scope: 'all' as const,
+	}));
+
 // Integration analysis configuration
 export const IntegrationAnalysisConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -748,6 +766,18 @@ export const KnowledgeConfigSchema = z.object({
 	min_retrievals_for_utility: z.number().min(1).max(100).default(3),
 	/** Schema version for the knowledge store format */
 	schema_version: z.number().int().min(1).default(1),
+	/** Weighted scoring: multiplier for encounters from the source project */
+	same_project_weight: z.number().min(0).max(5).default(1.0),
+	/** Weighted scoring: multiplier for encounters from other projects */
+	cross_project_weight: z.number().min(0).max(5).default(0.5),
+	/** Weighted scoring: minimum encounter score floor */
+	min_encounter_score: z.number().min(0).max(1).default(0.1),
+	/** Weighted scoring: initial score for newly promoted hive entries */
+	initial_encounter_score: z.number().min(0).max(5).default(1.0),
+	/** Weighted scoring: score increment per encounter */
+	encounter_increment: z.number().min(0).max(1).default(0.1),
+	/** Weighted scoring: maximum encounter score cap */
+	max_encounter_score: z.number().min(1).max(20).default(10.0),
 });
 
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
@@ -826,6 +856,9 @@ export const PluginConfigSchema = z.object({
 
 	// Adversarial detection configuration (same-model checker detection)
 	adversarial_detection: AdversarialDetectionConfigSchema.optional(),
+
+	// Adversarial testing configuration (cross-model adversarial testing)
+	adversarial_testing: AdversarialTestingConfigSchema.optional(),
 
 	// Integration analysis configuration
 	integration_analysis: IntegrationAnalysisConfigSchema.optional(),

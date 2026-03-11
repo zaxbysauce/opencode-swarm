@@ -54,6 +54,7 @@ import {
 	extract_code_blocks,
 	gitingest,
 	imports,
+	knowledge_query,
 	lint,
 	phase_complete,
 	pkg_audit,
@@ -70,27 +71,6 @@ import {
 } from './tools';
 import { log } from './utils';
 import { truncateToolOutput } from './utils/tool-output';
-
-// TEMPORARY DEBUG: Task delegation instrumentation
-function debugTaskLog(
-	hook: string,
-	ctx: { sessionID: string; callID?: string },
-	extra?: Record<string, unknown>,
-): void {
-	const activeAgent = swarmState.activeAgent.get(ctx.sessionID);
-	const session = swarmState.agentSessions.get(ctx.sessionID);
-	const taskStates = session?.taskWorkflowStates
-		? Object.entries(session.taskWorkflowStates)
-		: [];
-	const statesSummary =
-		taskStates.length > 0
-			? taskStates.map(([k, v]) => `${k}=${v}`).join(',')
-			: '(none)';
-	console.log(
-		`[swarm-debug-task] ${hook} | session=${ctx.sessionID} callID=${ctx.callID ?? '(n/a)'} agent=${activeAgent ?? '(none)'} taskStates=[${statesSummary}]`,
-		extra ? JSON.stringify(extra) : '',
-	);
-}
 
 /**
  * OpenCode Swarm Plugin
@@ -364,6 +344,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			extract_code_blocks,
 			gitingest,
 			imports,
+			knowledge_query,
 			lint,
 			diff,
 			pkg_audit,
@@ -398,92 +379,111 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// Keep it minimal — instructional text confuses non-frontier models.
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
-					description: 'Swarm management commands',
+					description:
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
 					template: '/swarm status',
-					description: 'Show current swarm status and active phase',
+					description:
+						'Use /swarm status to show current swarm status and active phase',
 				},
 				'swarm-plan': {
 					template: '/swarm plan $ARGUMENTS',
-					description: 'View or filter the current execution plan',
+					description:
+						'Use /swarm plan to view or filter the current execution plan',
 				},
 				'swarm-agents': {
 					template: '/swarm agents',
-					description: 'List registered swarm agents',
+					description: 'Use /swarm agents to list registered swarm agents',
 				},
 				'swarm-history': {
 					template: '/swarm history',
-					description: 'Show completed phases summary',
+					description: 'Use /swarm history to show completed phases summary',
 				},
 				'swarm-config': {
 					template: '/swarm config $ARGUMENTS',
-					description: 'Show or validate configuration',
+					description: 'Use /swarm config to show or validate configuration',
 				},
 				'swarm-evidence': {
 					template: '/swarm evidence $ARGUMENTS',
-					description: 'View evidence bundles and summaries',
+					description:
+						'Use /swarm evidence to view evidence bundles and summaries',
 				},
 				'swarm-handoff': {
 					template: '/swarm handoff',
-					description: 'Prepare handoff brief for switching models mid-task',
+					description:
+						'Use /swarm handoff to prepare handoff brief for switching models mid-task',
 				},
 				'swarm-archive': {
 					template: '/swarm archive',
-					description: 'Archive old evidence bundles',
+					description: 'Use /swarm archive to archive old evidence bundles',
 				},
 				'swarm-diagnose': {
 					template: '/swarm diagnose',
-					description: 'Run health checks on swarm state',
+					description:
+						'Use /swarm diagnose to run health checks on swarm state',
 				},
 				'swarm-preflight': {
 					template: '/swarm preflight',
-					description: 'Run preflight automation checks',
+					description:
+						'Use /swarm preflight to run preflight automation checks',
 				},
 				'swarm-sync-plan': {
 					template: '/swarm sync-plan',
-					description: 'Sync plan.json with plan.md',
+					description: 'Use /swarm sync-plan to sync plan.json with plan.md',
 				},
 				'swarm-benchmark': {
 					template: '/swarm benchmark',
-					description: 'Show performance metrics',
+					description: 'Use /swarm benchmark to show performance metrics',
 				},
 				'swarm-export': {
 					template: '/swarm export',
-					description: 'Export plan and context as JSON',
+					description: 'Use /swarm export to export plan and context as JSON',
 				},
 				'swarm-reset': {
 					template: '/swarm reset --confirm',
-					description: 'Clear swarm state (requires --confirm)',
+					description:
+						'Use /swarm reset --confirm to clear swarm state (requires --confirm)',
 				},
 				'swarm-rollback': {
 					template: '/swarm rollback $ARGUMENTS',
-					description: 'Restore swarm state to a checkpoint',
+					description:
+						'Use /swarm rollback to restore swarm state to a checkpoint',
 				},
 				'swarm-retrieve': {
 					template: '/swarm retrieve $ARGUMENTS',
-					description: 'Retrieve full output from summary',
+					description:
+						'Use /swarm retrieve to retrieve full output from summary',
 				},
 				'swarm-clarify': {
 					template: '/swarm clarify $ARGUMENTS',
-					description: 'Clarify and refine a feature specification',
+					description:
+						'Use /swarm clarify to clarify and refine a feature specification',
 				},
 				'swarm-analyze': {
 					template: '/swarm analyze',
-					description: 'Analyze spec vs plan for coverage gaps',
+					description:
+						'Use /swarm analyze to analyze spec vs plan for coverage gaps',
 				},
 				'swarm-specify': {
 					template: '/swarm specify $ARGUMENTS',
-					description: 'Generate or import a feature specification',
+					description:
+						'Use /swarm specify to generate or import a feature specification',
 				},
 				'swarm-dark-matter': {
 					template: '/swarm dark-matter',
-					description: 'Detect hidden file couplings',
+					description: 'Use /swarm dark-matter to detect hidden file couplings',
 				},
 				'swarm-knowledge': {
 					template: '/swarm knowledge $ARGUMENTS',
-					description: 'Knowledge management (quarantine/restore/migrate)',
+					description:
+						'Use /swarm knowledge for knowledge management (quarantine/restore/migrate)',
+				},
+				'swarm-curate': {
+					template: '/swarm curate',
+					description:
+						'Use /swarm curate to curate knowledge artifacts and entries',
 				},
 			};
 
@@ -542,16 +542,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.before': (async (input: any, output: any) => {
-			// TEMPORARY DEBUG: Log tool call start
-			debugTaskLog(
-				'tool.execute.before',
-				{
-					sessionID: input.sessionID,
-					callID: input.callID,
-				},
-				{ tool: input.tool },
-			);
-
 			// If no active agent is mapped for this session, it's the primary agent (architect)
 			// Subagent delegations always set activeAgent via chat.message before tool calls
 			if (!swarmState.activeAgent.has(input.sessionID)) {
@@ -591,16 +581,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails (after)
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
-			// TEMPORARY DEBUG: Log tool call end
-			debugTaskLog(
-				'tool.execute.after',
-				{
-					sessionID: input.sessionID,
-					callID: input.callID,
-				},
-				{ tool: input.tool },
-			);
-
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
@@ -657,16 +637,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '');
 			if (normalizedTool === 'Task' || normalizedTool === 'task') {
 				const sessionId = input.sessionID;
-				// TEMPORARY DEBUG: Log task tool completion and handoff
-				const beforeSession = swarmState.agentSessions.get(sessionId);
-				const beforeStates = beforeSession?.taskWorkflowStates
-					? Object.entries(beforeSession.taskWorkflowStates)
-							.map(([k, v]) => `${k}=${v}`)
-							.join(',')
-					: '(none)';
-				console.log(
-					`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} BEFORE: taskStates=[${beforeStates}]`,
-				);
 
 				// Set active agent to architect
 				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
@@ -679,18 +649,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// Update agent event timestamp for stale detection
 					session.lastAgentEventTime = Date.now();
 				}
-
-				// TEMPORARY DEBUG: Log after handoff
-				const afterSession = swarmState.agentSessions.get(sessionId);
-				const afterStates = afterSession?.taskWorkflowStates
-					? Object.entries(afterSession.taskWorkflowStates)
-							.map(([k, v]) => `${k}=${v}`)
-							.join(',')
-					: '(none)';
-				const afterActive = swarmState.activeAgent.get(sessionId);
-				console.log(
-					`[swarm-debug-task] tool.execute.after.taskHandoff | session=${sessionId} AFTER: activeAgent=${afterActive} delegationActive=${afterSession?.delegationActive} taskStates=[${afterStates}]`,
-				);
 			}
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		}) as any,

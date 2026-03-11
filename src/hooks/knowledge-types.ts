@@ -58,6 +58,10 @@ export interface HiveKnowledgeEntry extends KnowledgeEntryBase {
 	tier: 'hive';
 	confirmed_by: ProjectConfirmationRecord[];
 	source_project: string; // project where it originated
+	/** Weighted encounter score for hive advancement. Starts at 1.0 for originating project. */
+	encounter_score: number;
+	/** @deprecated Legacy field for backward compatibility. Use encounter_score for weighting. */
+	encounter_count?: number;
 }
 
 export interface RejectedLesson {
@@ -99,6 +103,18 @@ export interface KnowledgeConfig {
 	min_retrievals_for_utility: number;
 	/** JSONL schema version. Default: 1 */
 	schema_version: number;
+	/** Weighted scoring: multiplier for encounters from the source project. Default: 1.0 */
+	same_project_weight: number;
+	/** Weighted scoring: multiplier for encounters from other projects. Default: 0.5 */
+	cross_project_weight: number;
+	/** Weighted scoring: minimum encounter score floor. Default: 0.1 */
+	min_encounter_score: number;
+	/** Weighted scoring: initial score for newly promoted hive entries. Default: 1.0 */
+	initial_encounter_score: number;
+	/** Weighted scoring: score increment per encounter. Default: 0.1 */
+	encounter_increment: number;
+	/** Weighted scoring: maximum encounter score cap. Default: 10.0 */
+	max_encounter_score: number;
 }
 
 export interface MessageInfo {

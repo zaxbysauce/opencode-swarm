@@ -235,6 +235,11 @@ export declare const AdversarialDetectionConfigSchema: z.ZodObject<{
     pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
 }, z.core.$strip>;
 export type AdversarialDetectionConfig = z.infer<typeof AdversarialDetectionConfigSchema>;
+export type AdversarialTestingConfig = {
+    enabled: boolean;
+    scope: 'all' | 'security-only';
+};
+export declare const AdversarialTestingConfigSchema: z.ZodType<AdversarialTestingConfig>;
 export declare const IntegrationAnalysisConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
@@ -397,6 +402,12 @@ export declare const KnowledgeConfigSchema: z.ZodObject<{
     low_utility_threshold: z.ZodDefault<z.ZodNumber>;
     min_retrievals_for_utility: z.ZodDefault<z.ZodNumber>;
     schema_version: z.ZodDefault<z.ZodNumber>;
+    same_project_weight: z.ZodDefault<z.ZodNumber>;
+    cross_project_weight: z.ZodDefault<z.ZodNumber>;
+    min_encounter_score: z.ZodDefault<z.ZodNumber>;
+    initial_encounter_score: z.ZodDefault<z.ZodNumber>;
+    encounter_increment: z.ZodDefault<z.ZodNumber>;
+    max_encounter_score: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
 export declare const CuratorConfigSchema: z.ZodObject<{
@@ -575,6 +586,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         }>>;
         pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
     }, z.core.$strip>>;
+    adversarial_testing: z.ZodOptional<z.ZodType<AdversarialTestingConfig, unknown, z.core.$ZodTypeInternals<AdversarialTestingConfig, unknown>>>;
     integration_analysis: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
@@ -653,6 +665,12 @@ export declare const PluginConfigSchema: z.ZodObject<{
         low_utility_threshold: z.ZodDefault<z.ZodNumber>;
         min_retrievals_for_utility: z.ZodDefault<z.ZodNumber>;
         schema_version: z.ZodDefault<z.ZodNumber>;
+        same_project_weight: z.ZodDefault<z.ZodNumber>;
+        cross_project_weight: z.ZodDefault<z.ZodNumber>;
+        min_encounter_score: z.ZodDefault<z.ZodNumber>;
+        initial_encounter_score: z.ZodDefault<z.ZodNumber>;
+        encounter_increment: z.ZodDefault<z.ZodNumber>;
+        max_encounter_score: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     curator: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

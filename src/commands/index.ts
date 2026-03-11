@@ -5,6 +5,7 @@ import { handleArchiveCommand } from './archive';
 import { handleBenchmarkCommand } from './benchmark';
 import { handleClarifyCommand } from './clarify';
 import { handleConfigCommand } from './config';
+import { handleCurateCommand } from './curate';
 import { handleDarkMatterCommand } from './dark-matter';
 import { handleDiagnoseCommand } from './diagnose';
 import { handleDoctorCommand } from './doctor';
@@ -40,6 +41,7 @@ export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
 export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
+export { handleCurateCommand } from './curate';
 export { handleDarkMatterCommand } from './dark-matter';
 export { handleDiagnoseCommand } from './diagnose';
 export { handleDoctorCommand } from './doctor';
@@ -77,6 +79,7 @@ const HELP_TEXT = [
 	'- `/swarm history` — Show completed phases summary',
 	'- `/swarm config` — Show current resolved configuration',
 	'- `/swarm config doctor` — Run config doctor checks',
+	'- `/swarm curate` — Run knowledge curation and hive promotion review',
 	'- `/swarm evidence [taskId]` — Show evidence bundles',
 	'- `/swarm evidence summary` — Generate evidence summary with completion ratio and blockers',
 	'- `/swarm archive [--dry-run]` — Archive old evidence bundles',
@@ -207,6 +210,9 @@ export function createSwarmCommandHandler(
 				}
 				break;
 			}
+			case 'curate':
+				text = await handleCurateCommand(directory, args);
+				break;
 			case 'evidence': {
 				if (args[0] === 'summary') {
 					text = await handleEvidenceSummaryCommand(directory);

@@ -973,7 +973,7 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 		};
 	}
 
-	test('fires warn when all sessions are idle (Issue #81 regression detection)', () => {
+	test('does NOT fire warn when all sessions are idle (Issue #81 warning suppressed)', () => {
 		// Given 2 sessions both at idle for taskId '5.4'
 		const session1 = makeSession();
 		const session2 = makeSession();
@@ -986,11 +986,8 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 		// Should be blocked (no tests_run or complete state)
 		expect(result.blocked).toBe(true);
 
-		// Should have called console.warn with Issue #81 message
-		expect(warnCalls.length).toBe(1);
-		const warnMessage = warnCalls[0];
-		expect(warnMessage).toContain('Issue #81 regression');
-		expect(warnMessage).toContain('5.4');
+		// Should NOT fire any warn - regression warning is now suppressed
+		expect(warnCalls.length).toBe(0);
 	});
 
 	test('does NOT fire warn when any session is at non-idle state', () => {
@@ -1044,7 +1041,7 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 		expect(warnCalls.length).toBe(0);
 	});
 
-	test('fires warn with correct session count (3 sessions all at idle)', () => {
+	test('does NOT fire warn when all sessions are idle (3 sessions)', () => {
 		// Given 3 sessions all at idle
 		const session1 = makeSession();
 		const session2 = makeSession();
@@ -1059,10 +1056,8 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 		// Should be blocked
 		expect(result.blocked).toBe(true);
 
-		// Should have called console.warn with correct session count
-		expect(warnCalls.length).toBe(1);
-		const warnMessage = warnCalls[0];
-		expect(warnMessage).toContain('3 session(s)');
+		// Should NOT fire any warn - regression warning is now suppressed
+		expect(warnCalls.length).toBe(0);
 	});
 });
 
@@ -1143,12 +1138,11 @@ describe('checkReviewerGate — adversarial warn', () => {
 		swarmState.agentSessions.clear();
 		swarmState.agentSessions.set('ses_abc', session);
 
-		// Should not throw, warn fires with full taskId
-		// Note: checkReviewerGate called once - each call triggers warn when session is idle
+		// Should not throw, and warn should be suppressed (not fired)
 		const result = checkReviewerGate(longTaskId);
 		expect(result.blocked).toBe(true);
-		// Should have fired warn exactly once (1 session at idle)
-		expect(warnCalls.length).toBe(1);
+		// Should NOT fire warn - regression warning is suppressed
+		expect(warnCalls.length).toBe(0);
 	});
 
 	// ====== Attack Vector 3: taskId is empty string ======
@@ -1195,7 +1189,7 @@ describe('checkReviewerGate — adversarial warn', () => {
 	});
 
 	// ====== Attack Vector 6: 100 sessions all idle ======
-	test('fires exactly ONE console.warn when 100 sessions are all idle', () => {
+	test('does NOT fire warn when all sessions are idle (Issue #81 warning suppressed)', () => {
 		// Create 100 sessions, all at idle state
 		for (let i = 0; i < 100; i++) {
 			const session = makeSession();
@@ -1205,11 +1199,8 @@ describe('checkReviewerGate — adversarial warn', () => {
 		const result = checkReviewerGate('1.1');
 		expect(result.blocked).toBe(true);
 
-		// Should fire exactly ONE warn, not one per session
-		expect(warnCalls.length).toBe(1);
-		const warnMessage = warnCalls[0];
-		expect(warnMessage).toContain('Issue #81 regression');
-		expect(warnMessage).toContain('100 session(s)');
+		// Should NOT fire any warn - regression warning is now suppressed
+		expect(warnCalls.length).toBe(0);
 	});
 
 	// ====== Attack Vector 7: Session state advances during check (mutation) ======
@@ -1221,7 +1212,8 @@ describe('checkReviewerGate — adversarial warn', () => {
 		// the function uses a snapshot of stateEntries collected synchronously
 		const result = checkReviewerGate('1.1');
 		expect(result.blocked).toBe(true);
-		expect(warnCalls.length).toBe(1);
+		// Should NOT fire warn - regression warning is suppressed when all sessions idle
+		expect(warnCalls.length).toBe(0);
 	});
 
 	// ====== Attack Vector 8: Null/undefined taskId injection ======
@@ -1243,8 +1235,8 @@ describe('checkReviewerGate — adversarial warn', () => {
 		expect(resultNull.blocked).toBe(true);
 		expect(resultUndefined.blocked).toBe(true);
 
-		// Each call should have fired the Issue #81 warning (2 total)
-		expect(warnCalls.length).toBe(2);
+		// Should NOT fire any warnings - regression warning is suppressed
+		expect(warnCalls.length).toBe(0);
 	});
 
 	// ====== Additional edge case: Zero sessions should not warn ======
@@ -1267,7 +1259,520 @@ describe('checkReviewerGate — adversarial warn', () => {
 		// Even with a session, the allIdle check requires length > 0
 		const result = checkReviewerGate('1.1');
 		expect(result.blocked).toBe(true);
-		// Actually should warn because session shows idle state
-		expect(warnCalls.length).toBe(1);
+		// Should NOT fire warn - regression warning is suppressed when all sessions idle
+		expect(warnCalls.length).toBe(0);
+	});
+});
+
+describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			...overrides,
+		};
+	}
+
+	test('error message includes generic "QA gates" wording without hardcoded agent names', () => {
+		const session = makeSession();
+		// Task in coder_delegated state (not passed gates)
+		advanceTaskState(session, '2.1', 'coder_delegated');
+		swarmState.agentSessions.set('test-session', session);
+
+		const result = checkReviewerGate('2.1');
+
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('QA gates');
+		expect(result.reason).toContain('Current state:');
+		expect(result.reason).toContain('Required state: tests_run or complete');
+	});
+
+	test('error message includes generic "QA gates" terminology', () => {
+		const session = makeSession();
+		advanceTaskState(session, '3.5', 'pre_check_passed');
+		swarmState.agentSessions.set('test-session', session);
+
+		const result = checkReviewerGate('3.5');
+
+		expect(result.blocked).toBe(true);
+		// Should use generic QA gates terminology
+		expect(result.reason).toContain('QA gates');
+		// Should include state information
+		expect(result.reason).toContain('Current state:');
+		expect(result.reason).toContain('Required state: tests_run or complete');
+	});
+});
+
+describe('checkReviewerGate — non-visible regression warning handling (Task 2.2)', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+	let originalConsoleWarn: typeof console.warn;
+	let warnCalls: string[];
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+		warnCalls = [];
+		originalConsoleWarn = console.warn;
+		console.warn = (...args: any[]) => {
+			warnCalls.push(args.join(' '));
+		};
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+		console.warn = originalConsoleWarn;
+	});
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			...overrides,
+		};
+	}
+
+	test('does NOT emit console.warn when all sessions are idle (Issue #81 regression suppressed)', () => {
+		// Create two sessions both at idle state for task '7.1'
+		const session1 = makeSession();
+		const session2 = makeSession();
+		swarmState.agentSessions.set('session-a', session1);
+		swarmState.agentSessions.set('session-b', session2);
+
+		const result = checkReviewerGate('7.1');
+
+		// Should be blocked
+		expect(result.blocked).toBe(true);
+		// Should NOT emit any warning - regression warning is suppressed
+		expect(warnCalls.length).toBe(0);
+	});
+
+	test('still falls back to plan.json when all sessions are idle', () => {
+		// Create temp directory with plan showing task completed
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'regression-fallback-test-'));
+		const originalCwd = process.cwd();
+
+		try {
+			process.chdir(tempDir);
+			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+			const plan = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				current_phase: 1,
+				migration_status: 'migrated',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [
+							{
+								id: '7.1',
+								phase: 1,
+								status: 'completed',
+								size: 'small',
+								description: 'Test task',
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(plan, null, 2),
+			);
+
+			// Sessions at idle
+			const session = makeSession();
+			swarmState.agentSessions.set('session-idle', session);
+
+			// Pass workingDirectory to enable fallback check
+			const result = checkReviewerGate('7.1', tempDir);
+
+			// Should pass because plan.json shows completed
+			expect(result.blocked).toBe(false);
+			expect(result.reason).toBe('');
+		} finally {
+			process.chdir(originalCwd);
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+	let tempDirA: string;
+	let tempDirB: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+
+		originalCwd = process.cwd();
+
+		// Create two temp directories with different plans
+		tempDirA = fs.mkdtempSync(path.join(os.tmpdir(), 'dir-a-test-'));
+		tempDirB = fs.mkdtempSync(path.join(os.tmpdir(), 'dir-b-test-'));
+
+		fs.mkdirSync(path.join(tempDirA, '.swarm'), { recursive: true });
+		fs.mkdirSync(path.join(tempDirB, '.swarm'), { recursive: true });
+
+		// Plan in tempDirA: task 1.1 is completed
+		const planA = {
+			schema_version: '1.0.0',
+			title: 'Plan A',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed',
+							size: 'small',
+							description: 'Task in Plan A',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDirA, '.swarm', 'plan.json'),
+			JSON.stringify(planA, null, 2),
+		);
+
+		// Plan in tempDirB: task 1.1 is pending (NOT completed)
+		const planB = {
+			schema_version: '1.0.0',
+			title: 'Plan B',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task in Plan B',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDirB, '.swarm', 'plan.json'),
+			JSON.stringify(planB, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+		fs.rmSync(tempDirA, { recursive: true, force: true });
+		fs.rmSync(tempDirB, { recursive: true, force: true });
+		process.chdir(originalCwd);
+	});
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			...overrides,
+		};
+	}
+
+	test('uses workingDirectory to resolve plan.json for fallback check', () => {
+		// Session at idle state - would normally be blocked
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Pass tempDirA where task is completed in plan.json
+		const result = checkReviewerGate('1.1', tempDirA);
+
+		// Should pass because plan.json in tempDirA shows task completed
+		expect(result.blocked).toBe(false);
+	});
+
+	test('blocks when workingDirectory plan shows task NOT completed', () => {
+		// Session at idle state - would normally be blocked
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Pass tempDirB where task is pending (not completed)
+		const result = checkReviewerGate('1.1', tempDirB);
+
+		// Should be blocked because plan.json in tempDirB shows task as pending
+		expect(result.blocked).toBe(true);
+	});
+
+	test('falls back to cwd when workingDirectory is not provided', () => {
+		// Change to tempDirA (where task is completed)
+		process.chdir(tempDirA);
+
+		// Session at idle state
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Don't pass workingDirectory - should use cwd
+		const result = checkReviewerGate('1.1');
+
+		// Should pass because cwd is tempDirA where task is completed
+		expect(result.blocked).toBe(false);
+
+		// Restore cwd to avoid EBUSY error in cleanup
+		process.chdir(originalCwd);
+	});
+});
+
+describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+
+	beforeEach(() => {
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+	});
+
+	function makeSession(overrides: Partial<any> = {}): any {
+		return {
+			agentName: 'test-agent',
+			lastToolCallTime: Date.now(),
+			lastAgentEventTime: Date.now(),
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			taskWorkflowStates: new Map(),
+			lastGateOutcome: null,
+			declaredCoderScope: null,
+			lastScopeViolation: null,
+			...overrides,
+		};
+	}
+
+	test('returns blocked when workingDirectory points to non-existent path', () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Pass a non-existent directory
+		const result = checkReviewerGate('1.1', '/non/existent/path');
+
+		// Should be blocked (fallback failed, no state machine progress)
+		expect(result.blocked).toBe(true);
+	});
+
+	test('returns blocked when .swarm/plan.json does not exist in workingDirectory', () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Create temp dir without .swarm/plan.json
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-'));
+		try {
+			const result = checkReviewerGate('1.1', tempDir);
+
+			// Should be blocked (fallback failed due to missing plan.json)
+			expect(result.blocked).toBe(true);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('returns blocked when plan.json is invalid JSON', () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Create temp dir with invalid JSON
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'invalid-json-test-'));
+		try {
+			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				'not valid json{{{',
+			);
+
+			const result = checkReviewerGate('1.1', tempDir);
+
+			// Should be blocked (fallback failed due to parse error)
+			expect(result.blocked).toBe(true);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('returns blocked when task not found in plan.json', () => {
+		const session = makeSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		// Create temp dir with plan that has different task
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-not-found-test-'));
+		try {
+			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+			const plan = {
+				schema_version: '1.0.0',
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				current_phase: 1,
+				migration_status: 'migrated',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [
+							{
+								id: '9.9',
+								phase: 1,
+								status: 'completed',
+								size: 'small',
+								description: 'Different task',
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
+			};
+			fs.writeFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				JSON.stringify(plan, null, 2),
+			);
+
+			const result = checkReviewerGate('1.1', tempDir);
+
+			// Should be blocked (task 1.1 not in plan.json)
+			expect(result.blocked).toBe(true);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 });

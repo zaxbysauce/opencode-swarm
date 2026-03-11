@@ -16048,7 +16048,7 @@ var init_plan_schema = __esm(() => {
 
 // src/plan/manager.ts
 import { renameSync as renameSync2, unlinkSync } from "fs";
-import * as path6 from "path";
+import * as path7 from "path";
 async function loadPlanJsonOnly(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
   if (planJsonContent !== null) {
@@ -16130,13 +16130,13 @@ async function isPlanMdInSync(directory, plan) {
   return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
 }
 async function regeneratePlanMarkdown(directory, plan) {
-  const swarmDir = path6.resolve(directory, ".swarm");
+  const swarmDir = path7.resolve(directory, ".swarm");
   const contentHash = computePlanContentHash(plan);
   const markdown = derivePlanMarkdown(plan);
   const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
 ${markdown}`;
-  const mdPath = path6.join(swarmDir, "plan.md");
-  const mdTempPath = path6.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  const mdPath = path7.join(swarmDir, "plan.md");
+  const mdTempPath = path7.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(mdTempPath, markdownWithHash);
     renameSync2(mdTempPath, mdPath);
@@ -16188,9 +16188,9 @@ async function savePlan(directory, plan) {
     throw new Error(`Invalid directory: directory must be a non-empty string`);
   }
   const validated = PlanSchema.parse(plan);
-  const swarmDir = path6.resolve(directory, ".swarm");
-  const planPath = path6.join(swarmDir, "plan.json");
-  const tempPath = path6.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  const swarmDir = path7.resolve(directory, ".swarm");
+  const planPath = path7.join(swarmDir, "plan.json");
+  const tempPath = path7.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(tempPath, JSON.stringify(validated, null, 2));
     renameSync2(tempPath, planPath);
@@ -16203,8 +16203,8 @@ async function savePlan(directory, plan) {
   const markdown = derivePlanMarkdown(validated);
   const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
 ${markdown}`;
-  const mdPath = path6.join(swarmDir, "plan.md");
-  const mdTempPath = path6.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  const mdPath = path7.join(swarmDir, "plan.md");
+  const mdTempPath = path7.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(mdTempPath, markdownWithHash);
     renameSync2(mdTempPath, mdPath);
@@ -16214,7 +16214,7 @@ ${markdown}`;
     } catch {}
   }
   try {
-    const markerPath = path6.join(swarmDir, ".plan-write-marker");
+    const markerPath = path7.join(swarmDir, ".plan-write-marker");
     const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
     const marker = JSON.stringify({
       source: "plan_manager",
@@ -16597,7 +16597,8 @@ var TOOL_NAMES = [
   "save_plan",
   "update_task_status",
   "write_retro",
-  "declare_scope"
+  "declare_scope",
+  "knowledge_query"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -16625,6 +16626,7 @@ var AGENT_TOOL_MAP = {
     "extract_code_blocks",
     "gitingest",
     "imports",
+    "knowledge_query",
     "lint",
     "diff",
     "pkg_audit",
@@ -16881,6 +16883,14 @@ var AdversarialDetectionConfigSchema = exports_external.object({
   policy: exports_external.enum(["warn", "gate", "ignore"]).default("warn"),
   pairs: exports_external.array(exports_external.tuple([exports_external.string(), exports_external.string()])).default([["coder", "reviewer"]])
 });
+var AdversarialTestingConfigSchemaBase = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  scope: exports_external.enum(["all", "security-only"]).default("all")
+});
+var AdversarialTestingConfigSchema = AdversarialTestingConfigSchemaBase.default(() => ({
+  enabled: true,
+  scope: "all"
+}));
 var IntegrationAnalysisConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true)
 });
@@ -17101,7 +17111,13 @@ var KnowledgeConfigSchema = exports_external.object({
   evergreen_utility: exports_external.number().min(0).max(1).default(0.8),
   low_utility_threshold: exports_external.number().min(0).max(1).default(0.3),
   min_retrievals_for_utility: exports_external.number().min(1).max(100).default(3),
-  schema_version: exports_external.number().int().min(1).default(1)
+  schema_version: exports_external.number().int().min(1).default(1),
+  same_project_weight: exports_external.number().min(0).max(5).default(1),
+  cross_project_weight: exports_external.number().min(0).max(5).default(0.5),
+  min_encounter_score: exports_external.number().min(0).max(1).default(0.1),
+  initial_encounter_score: exports_external.number().min(0).max(5).default(1),
+  encounter_increment: exports_external.number().min(0).max(1).default(0.1),
+  max_encounter_score: exports_external.number().min(1).max(20).default(10)
 });
 var CuratorConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
@@ -17131,6 +17147,7 @@ var PluginConfigSchema = exports_external.object({
   summaries: SummaryConfigSchema.optional(),
   review_passes: ReviewPassesConfigSchema.optional(),
   adversarial_detection: AdversarialDetectionConfigSchema.optional(),
+  adversarial_testing: AdversarialTestingConfigSchema.optional(),
   integration_analysis: IntegrationAnalysisConfigSchema.optional(),
   docs: DocsConfigSchema.optional(),
   ui_review: UIReviewConfigSchema.optional(),
@@ -17336,6 +17353,75 @@ var swarmState = {
 // src/commands/benchmark.ts
 init_utils();
 
+// src/background/event-bus.ts
+init_utils();
+
+class AutomationEventBus {
+  listeners = new Map;
+  eventHistory = [];
+  maxHistorySize;
+  constructor(options) {
+    this.maxHistorySize = options?.maxHistorySize ?? 100;
+  }
+  subscribe(type, listener) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set);
+    }
+    this.listeners.get(type).add(listener);
+    return () => {
+      this.listeners.get(type)?.delete(listener);
+    };
+  }
+  async publish(type, payload, source) {
+    const event = {
+      type,
+      timestamp: Date.now(),
+      payload,
+      source
+    };
+    this.eventHistory.push(event);
+    if (this.eventHistory.length > this.maxHistorySize) {
+      this.eventHistory.shift();
+    }
+    log(`[EventBus] ${type}`, {
+      source,
+      payload: typeof payload === "object" ? "..." : payload
+    });
+    const listeners = this.listeners.get(type);
+    if (listeners) {
+      await Promise.all(Array.from(listeners).map(async (listener) => {
+        try {
+          await listener(event);
+        } catch (error49) {
+          log(`[EventBus] Listener error for ${type}`, { error: error49 });
+        }
+      }));
+    }
+  }
+  getHistory(types) {
+    if (!types || types.length === 0) {
+      return [...this.eventHistory];
+    }
+    return this.eventHistory.filter((e) => types.includes(e.type));
+  }
+  clearHistory() {
+    this.eventHistory = [];
+  }
+  getListenerCount(type) {
+    return this.listeners.get(type)?.size ?? 0;
+  }
+  hasListeners(type) {
+    return this.getListenerCount(type) > 0;
+  }
+}
+var globalEventBus = null;
+function getGlobalEventBus() {
+  if (!globalEventBus) {
+    globalEventBus = new AutomationEventBus;
+  }
+  return globalEventBus;
+}
+
 // src/hooks/knowledge-store.ts
 import { existsSync as existsSync2 } from "fs";
 import { appendFile, mkdir, readFile, writeFile } from "fs/promises";
@@ -17444,10 +17530,367 @@ function inferTags(lesson) {
   return Array.from(new Set(tags));
 }
 
+// src/hooks/curator.ts
+init_utils2();
+
+// src/hooks/knowledge-validator.ts
+var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
+import { appendFile as appendFile2, mkdir as mkdir2, writeFile as writeFile2 } from "fs/promises";
+import * as path5 from "path";
+var DANGEROUS_COMMAND_PATTERNS = [
+  /\brm\s+-rf\b/,
+  /\bsudo\s+rm\b/,
+  /\bformat\b/,
+  /\bmkfs\b/,
+  /\bdd\s+if=/,
+  /:\(\)\s*\{/,
+  /\bchmod\s+-R\s+777\b/,
+  /\bdeltree\b/,
+  /\brmdir\s+\/s\b/,
+  /\bkill\s+-9\b/,
+  /\bpkill\b/,
+  /\bkillall\b/,
+  /`[^`]*`/,
+  /\$\([^)]*\)/
+];
+var SECURITY_DEGRADING_PATTERNS = [
+  /disable\s+.{0,50}firewall/i,
+  /turn\s+off\s+.{0,50}security/i,
+  /skip\s+.{0,50}auth/i,
+  /bypass\s+.{0,50}auth/i,
+  /ignore\s+.{0,50}certificate/i,
+  /disable\s+.{0,50}tls/i,
+  /disable\s+.{0,50}ssl/i,
+  /no\s+.{0,50}validation/i,
+  /disable\s+.{0,50}2fa/i,
+  /remove\s+.{0,50}password/i
+];
+var INJECTION_PATTERNS = [
+  /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
+  /^system\s*:/i,
+  /<script/i,
+  /javascript:/i,
+  /\beval\(/i,
+  /\b__proto__\b/,
+  /\bconstructor\[/,
+  /\.prototype\[/
+];
+var VALID_CATEGORIES = new Set([
+  "process",
+  "architecture",
+  "tooling",
+  "security",
+  "testing",
+  "debugging",
+  "performance",
+  "integration",
+  "other"
+]);
+var TECH_REFERENCE_WORDS = new Set([
+  "git",
+  "docker",
+  "typescript",
+  "bun",
+  "vitest",
+  "node",
+  "python",
+  "react",
+  "sql",
+  "api",
+  "hook",
+  "test",
+  "schema",
+  "config",
+  "file",
+  "function",
+  "class",
+  "module",
+  "import",
+  "export"
+]);
+var ACTION_VERB_WORDS = new Set([
+  "use",
+  "avoid",
+  "prefer",
+  "run",
+  "check",
+  "always",
+  "never",
+  "ensure",
+  "call",
+  "write",
+  "add",
+  "remove",
+  "update",
+  "set",
+  "enable",
+  "disable"
+]);
+var NEGATION_PAIRS = [
+  ["always", "never"],
+  ["must", "must not"],
+  ["must", "should not"],
+  ["enable", "disable"],
+  ["use", "avoid"],
+  ["use", "don't use"],
+  ["recommended", "not recommended"]
+];
+function normalizeText(text) {
+  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function detectContradiction(candidate, existingLessons) {
+  const candidateTags = inferTags(candidate);
+  if (candidateTags.length === 0)
+    return false;
+  const candidateNorm = normalizeText(candidate);
+  for (const existing of existingLessons) {
+    const existingTags = inferTags(existing);
+    const shared = candidateTags.some((t) => existingTags.includes(t));
+    if (!shared)
+      continue;
+    const existingNorm = normalizeText(existing);
+    for (const [wordA, wordB] of NEGATION_PAIRS) {
+      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
+      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
+      if (hasA || hasB)
+        return true;
+    }
+  }
+  return false;
+}
+function isVagueLesson(lesson) {
+  const lower = normalizeText(lesson);
+  const words = lower.split(/\s+/);
+  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
+  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
+  return !hasTechRef && !hasActionVerb;
+}
+function validateLesson(candidate, existingLessons, meta3) {
+  if (!candidate || typeof candidate !== "string") {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (!Array.isArray(existingLessons)) {
+    existingLessons = [];
+  }
+  if (candidate.length < 15) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (candidate.length > 280) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too long (max 280 chars)",
+      severity: "error"
+    };
+  }
+  if (!VALID_CATEGORIES.has(meta3.category)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: `invalid category: ${meta3.category}`,
+      severity: "error"
+    };
+  }
+  const isGlobalScope = meta3.scope === "global";
+  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
+  if (!isGlobalScope && !isStackScope) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "invalid scope: must be 'global' or 'stack:<name>'",
+      severity: "error"
+    };
+  }
+  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "confidence out of range [0.0, 1.0]",
+      severity: "error"
+    };
+  }
+  const normalizedCandidate = candidate.normalize("NFKC").toLowerCase();
+  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "dangerous command pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "security-degrading instruction detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(candidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "injection pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  if (detectContradiction(candidate, existingLessons)) {
+    return {
+      valid: false,
+      layer: 3,
+      reason: "lesson contradicts an existing lesson with shared tags",
+      severity: "error"
+    };
+  }
+  if (isVagueLesson(candidate)) {
+    return {
+      valid: true,
+      layer: 3,
+      reason: "lesson may be too vague (no tech reference or action verb)",
+      severity: "warning"
+    };
+  }
+  return {
+    valid: true,
+    layer: null,
+    reason: null,
+    severity: null
+  };
+}
+async function quarantineEntry(directory, entryId, reason, reportedBy) {
+  if (!directory || directory.includes("..")) {
+    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
+    return;
+  }
+  const validReportedBy = ["architect", "user", "auto"];
+  if (!validReportedBy.includes(reportedBy)) {
+    return;
+  }
+  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
+  const knowledgePath = path5.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path5.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path5.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path5.join(directory, ".swarm");
+  await mkdir2(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile2.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const entries = await readKnowledge(knowledgePath);
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) {
+      return;
+    }
+    const remaining = entries.filter((e) => e.id !== entryId);
+    const quarantined = {
+      ...entry,
+      quarantine_reason: sanitizedReason,
+      quarantined_at: new Date().toISOString(),
+      reported_by: reportedBy
+    };
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile2(knowledgePath, jsonlContent, "utf-8");
+    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
+`, "utf-8");
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    if (quarantinedEntries.length > 100) {
+      const trimmed = quarantinedEntries.slice(-100);
+      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+      await writeFile2(quarantinePath, capContent, "utf-8");
+    }
+    const rejectedRecord = {
+      id: entryId,
+      lesson: entry.lesson,
+      rejection_reason: sanitizedReason,
+      rejected_at: new Date().toISOString(),
+      rejection_layer: 3
+    };
+    await appendKnowledge(rejectedPath, rejectedRecord);
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+async function restoreEntry(directory, entryId) {
+  if (!directory || directory.includes("..")) {
+    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
+    return;
+  }
+  const knowledgePath = path5.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path5.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path5.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path5.join(directory, ".swarm");
+  await mkdir2(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile2.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
+    if (!entryToRestore) {
+      return;
+    }
+    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
+    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile2(quarantinePath, jsonlContent, "utf-8");
+    await appendFile2(knowledgePath, `${JSON.stringify(original)}
+`, "utf-8");
+    const rejectedEntries = await readKnowledge(rejectedPath);
+    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
+    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile2(rejectedPath, rejectedContent, "utf-8");
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+
+// src/hooks/hive-promoter.ts
+init_utils2();
+
 // src/tools/co-change-analyzer.ts
 import { execFile } from "child_process";
 import { readdir, readFile as readFile2, stat } from "fs/promises";
-import * as path5 from "path";
+import * as path6 from "path";
 import { promisify } from "util";
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
@@ -18179,10 +18622,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path5) {
-  if (!path5)
+function getElementAtPath2(obj, path6) {
+  if (!path6)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -18541,11 +18984,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path5, issues) {
+function prefixIssues2(path6, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -18713,7 +19156,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path5 = []) => {
+  const processError = (error50, path6 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -18723,7 +19166,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path5, ...issue3.path];
+        const fullpath = [...path6, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -18755,8 +19198,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path5) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -29881,7 +30324,7 @@ async function scanSourceFiles(dir) {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path5.join(dir, entry.name);
+      const fullPath = path6.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (skipDirs.has(entry.name)) {
           continue;
@@ -29889,7 +30332,7 @@ async function scanSourceFiles(dir) {
         const subFiles = await scanSourceFiles(fullPath);
         results.push(...subFiles);
       } else if (entry.isFile()) {
-        const ext = path5.extname(entry.name);
+        const ext = path6.extname(entry.name);
         if ([".ts", ".tsx", ".js", ".jsx", ".mjs"].includes(ext)) {
           results.push(fullPath);
         }
@@ -29911,8 +30354,8 @@ async function getStaticEdges(directory) {
           continue;
         }
         try {
-          const sourceDir = path5.dirname(sourceFile);
-          const resolvedPath = path5.resolve(sourceDir, importPath);
+          const sourceDir = path6.dirname(sourceFile);
+          const resolvedPath = path6.resolve(sourceDir, importPath);
           const extensions = [
             "",
             ".ts",
@@ -29937,8 +30380,8 @@ async function getStaticEdges(directory) {
           if (!targetFile) {
             continue;
           }
-          const relSource = path5.relative(directory, sourceFile).replace(/\\/g, "/");
-          const relTarget = path5.relative(directory, targetFile).replace(/\\/g, "/");
+          const relSource = path6.relative(directory, sourceFile).replace(/\\/g, "/");
+          const relTarget = path6.relative(directory, targetFile).replace(/\\/g, "/");
           const [key] = relSource < relTarget ? [`${relSource}::${relTarget}`, relSource, relTarget] : [`${relTarget}::${relSource}`, relTarget, relSource];
           edges.add(key);
         } catch {}
@@ -29950,7 +30393,7 @@ async function getStaticEdges(directory) {
 function isTestImplementationPair(fileA, fileB) {
   const testPatterns = [".test.ts", ".test.js", ".spec.ts", ".spec.js"];
   const getBaseName = (filePath) => {
-    const base = path5.basename(filePath);
+    const base = path6.basename(filePath);
     for (const pattern of testPatterns) {
       if (base.endsWith(pattern)) {
         return base.slice(0, -pattern.length);
@@ -29960,16 +30403,16 @@ function isTestImplementationPair(fileA, fileB) {
   };
   const baseA = getBaseName(fileA);
   const baseB = getBaseName(fileB);
-  return baseA === baseB && baseA !== path5.basename(fileA) && baseA !== path5.basename(fileB);
+  return baseA === baseB && baseA !== path6.basename(fileA) && baseA !== path6.basename(fileB);
 }
 function hasSharedPrefix(fileA, fileB) {
-  const dirA = path5.dirname(fileA);
-  const dirB = path5.dirname(fileB);
+  const dirA = path6.dirname(fileA);
+  const dirB = path6.dirname(fileB);
   if (dirA !== dirB) {
     return false;
   }
-  const baseA = path5.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
-  const baseB = path5.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseA = path6.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseB = path6.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
   if (baseA.startsWith(baseB) || baseB.startsWith(baseA)) {
     return true;
   }
@@ -30387,7 +30830,7 @@ function formatHandoffMarkdown(data) {
 // src/session/snapshot-writer.ts
 init_utils2();
 import { mkdirSync as mkdirSync2, renameSync as renameSync3 } from "fs";
-import * as path7 from "path";
+import * as path8 from "path";
 function serializeAgentSession(s) {
   const gateLog = {};
   const rawGateLog = s.gateLog ?? new Map;
@@ -30461,7 +30904,7 @@ async function writeSnapshot(directory, state) {
     }
     const content = JSON.stringify(snapshot, null, 2);
     const resolvedPath = validateSwarmPath(directory, "session/state.json");
-    const dir = path7.dirname(resolvedPath);
+    const dir = path8.dirname(resolvedPath);
     mkdirSync2(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await Bun.write(tempPath, content);
@@ -30619,359 +31062,6 @@ import { randomUUID } from "crypto";
 import { existsSync as existsSync3, readFileSync as readFileSync2 } from "fs";
 import { mkdir as mkdir3, readFile as readFile3, writeFile as writeFile3 } from "fs/promises";
 import * as path9 from "path";
-
-// src/hooks/knowledge-validator.ts
-var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
-import { appendFile as appendFile2, mkdir as mkdir2, writeFile as writeFile2 } from "fs/promises";
-import * as path8 from "path";
-var DANGEROUS_COMMAND_PATTERNS = [
-  /\brm\s+-rf\b/,
-  /\bsudo\s+rm\b/,
-  /\bformat\b/,
-  /\bmkfs\b/,
-  /\bdd\s+if=/,
-  /:\(\)\s*\{/,
-  /\bchmod\s+-R\s+777\b/,
-  /\bdeltree\b/,
-  /\brmdir\s+\/s\b/,
-  /\bkill\s+-9\b/,
-  /\bpkill\b/,
-  /\bkillall\b/,
-  /`[^`]*`/,
-  /\$\([^)]*\)/
-];
-var SECURITY_DEGRADING_PATTERNS = [
-  /disable\s+.{0,50}firewall/i,
-  /turn\s+off\s+.{0,50}security/i,
-  /skip\s+.{0,50}auth/i,
-  /bypass\s+.{0,50}auth/i,
-  /ignore\s+.{0,50}certificate/i,
-  /disable\s+.{0,50}tls/i,
-  /disable\s+.{0,50}ssl/i,
-  /no\s+.{0,50}validation/i,
-  /disable\s+.{0,50}2fa/i,
-  /remove\s+.{0,50}password/i
-];
-var INJECTION_PATTERNS = [
-  /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
-  /^system\s*:/i,
-  /<script/i,
-  /javascript:/i,
-  /\beval\(/i,
-  /\b__proto__\b/,
-  /\bconstructor\[/,
-  /\.prototype\[/
-];
-var VALID_CATEGORIES = new Set([
-  "process",
-  "architecture",
-  "tooling",
-  "security",
-  "testing",
-  "debugging",
-  "performance",
-  "integration",
-  "other"
-]);
-var TECH_REFERENCE_WORDS = new Set([
-  "git",
-  "docker",
-  "typescript",
-  "bun",
-  "vitest",
-  "node",
-  "python",
-  "react",
-  "sql",
-  "api",
-  "hook",
-  "test",
-  "schema",
-  "config",
-  "file",
-  "function",
-  "class",
-  "module",
-  "import",
-  "export"
-]);
-var ACTION_VERB_WORDS = new Set([
-  "use",
-  "avoid",
-  "prefer",
-  "run",
-  "check",
-  "always",
-  "never",
-  "ensure",
-  "call",
-  "write",
-  "add",
-  "remove",
-  "update",
-  "set",
-  "enable",
-  "disable"
-]);
-var NEGATION_PAIRS = [
-  ["always", "never"],
-  ["must", "must not"],
-  ["must", "should not"],
-  ["enable", "disable"],
-  ["use", "avoid"],
-  ["use", "don't use"],
-  ["recommended", "not recommended"]
-];
-function normalizeText(text) {
-  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-function detectContradiction(candidate, existingLessons) {
-  const candidateTags = inferTags(candidate);
-  if (candidateTags.length === 0)
-    return false;
-  const candidateNorm = normalizeText(candidate);
-  for (const existing of existingLessons) {
-    const existingTags = inferTags(existing);
-    const shared = candidateTags.some((t) => existingTags.includes(t));
-    if (!shared)
-      continue;
-    const existingNorm = normalizeText(existing);
-    for (const [wordA, wordB] of NEGATION_PAIRS) {
-      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
-      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
-      if (hasA || hasB)
-        return true;
-    }
-  }
-  return false;
-}
-function isVagueLesson(lesson) {
-  const lower = normalizeText(lesson);
-  const words = lower.split(/\s+/);
-  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
-  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
-  return !hasTechRef && !hasActionVerb;
-}
-function validateLesson(candidate, existingLessons, meta3) {
-  if (!candidate || typeof candidate !== "string") {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (!Array.isArray(existingLessons)) {
-    existingLessons = [];
-  }
-  if (candidate.length < 15) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (candidate.length > 280) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too long (max 280 chars)",
-      severity: "error"
-    };
-  }
-  if (!VALID_CATEGORIES.has(meta3.category)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: `invalid category: ${meta3.category}`,
-      severity: "error"
-    };
-  }
-  const isGlobalScope = meta3.scope === "global";
-  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
-  if (!isGlobalScope && !isStackScope) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "invalid scope: must be 'global' or 'stack:<name>'",
-      severity: "error"
-    };
-  }
-  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "confidence out of range [0.0, 1.0]",
-      severity: "error"
-    };
-  }
-  const normalizedCandidate = candidate.normalize("NFKC").toLowerCase();
-  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "dangerous command pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "security-degrading instruction detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of INJECTION_PATTERNS) {
-    if (pattern.test(candidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "injection pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  if (detectContradiction(candidate, existingLessons)) {
-    return {
-      valid: false,
-      layer: 3,
-      reason: "lesson contradicts an existing lesson with shared tags",
-      severity: "error"
-    };
-  }
-  if (isVagueLesson(candidate)) {
-    return {
-      valid: true,
-      layer: 3,
-      reason: "lesson may be too vague (no tech reference or action verb)",
-      severity: "warning"
-    };
-  }
-  return {
-    valid: true,
-    layer: null,
-    reason: null,
-    severity: null
-  };
-}
-async function quarantineEntry(directory, entryId, reason, reportedBy) {
-  if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
-    return;
-  }
-  const validReportedBy = ["architect", "user", "auto"];
-  if (!validReportedBy.includes(reportedBy)) {
-    return;
-  }
-  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
-  const knowledgePath = path8.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path8.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path8.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path8.join(directory, ".swarm");
-  await mkdir2(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile2.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const entries = await readKnowledge(knowledgePath);
-    const entry = entries.find((e) => e.id === entryId);
-    if (!entry) {
-      return;
-    }
-    const remaining = entries.filter((e) => e.id !== entryId);
-    const quarantined = {
-      ...entry,
-      quarantine_reason: sanitizedReason,
-      quarantined_at: new Date().toISOString(),
-      reported_by: reportedBy
-    };
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile2(knowledgePath, jsonlContent, "utf-8");
-    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
-`, "utf-8");
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    if (quarantinedEntries.length > 100) {
-      const trimmed = quarantinedEntries.slice(-100);
-      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-      await writeFile2(quarantinePath, capContent, "utf-8");
-    }
-    const rejectedRecord = {
-      id: entryId,
-      lesson: entry.lesson,
-      rejection_reason: sanitizedReason,
-      rejected_at: new Date().toISOString(),
-      rejection_layer: 3
-    };
-    await appendKnowledge(rejectedPath, rejectedRecord);
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-async function restoreEntry(directory, entryId) {
-  if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
-    return;
-  }
-  const knowledgePath = path8.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path8.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path8.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path8.join(directory, ".swarm");
-  await mkdir2(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile2.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
-    if (!entryToRestore) {
-      return;
-    }
-    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
-    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile2(quarantinePath, jsonlContent, "utf-8");
-    await appendFile2(knowledgePath, `${JSON.stringify(original)}
-`, "utf-8");
-    const rejectedEntries = await readKnowledge(rejectedPath);
-    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
-    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile2(rejectedPath, rejectedContent, "utf-8");
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-
-// src/hooks/knowledge-migrator.ts
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path9.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path9.join(directory, ".swarm", "context.md");
@@ -34640,9 +34730,6 @@ var test_runner = createSwarmTool({
 
 // src/services/preflight-service.ts
 init_utils();
-// src/hooks/hive-promoter.ts
-init_utils2();
-
 // src/background/manager.ts
 init_utils();
 
@@ -34837,75 +34924,6 @@ class LoopProtection {
   getTrackedOperations() {
     return Array.from(this.records.keys());
   }
-}
-
-// src/background/event-bus.ts
-init_utils();
-
-class AutomationEventBus {
-  listeners = new Map;
-  eventHistory = [];
-  maxHistorySize;
-  constructor(options) {
-    this.maxHistorySize = options?.maxHistorySize ?? 100;
-  }
-  subscribe(type, listener) {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, new Set);
-    }
-    this.listeners.get(type).add(listener);
-    return () => {
-      this.listeners.get(type)?.delete(listener);
-    };
-  }
-  async publish(type, payload, source) {
-    const event = {
-      type,
-      timestamp: Date.now(),
-      payload,
-      source
-    };
-    this.eventHistory.push(event);
-    if (this.eventHistory.length > this.maxHistorySize) {
-      this.eventHistory.shift();
-    }
-    log(`[EventBus] ${type}`, {
-      source,
-      payload: typeof payload === "object" ? "..." : payload
-    });
-    const listeners = this.listeners.get(type);
-    if (listeners) {
-      await Promise.all(Array.from(listeners).map(async (listener) => {
-        try {
-          await listener(event);
-        } catch (error93) {
-          log(`[EventBus] Listener error for ${type}`, { error: error93 });
-        }
-      }));
-    }
-  }
-  getHistory(types) {
-    if (!types || types.length === 0) {
-      return [...this.eventHistory];
-    }
-    return this.eventHistory.filter((e) => types.includes(e.type));
-  }
-  clearHistory() {
-    this.eventHistory = [];
-  }
-  getListenerCount(type) {
-    return this.listeners.get(type)?.size ?? 0;
-  }
-  hasListeners(type) {
-    return this.getListenerCount(type) > 0;
-  }
-}
-var globalEventBus = null;
-function getGlobalEventBus() {
-  if (!globalEventBus) {
-    globalEventBus = new AutomationEventBus;
-  }
-  return globalEventBus;
 }
 
 // src/background/queue.ts
@@ -35635,6 +35653,7 @@ var HELP_TEXT = [
   "- `/swarm history` \u2014 Show completed phases summary",
   "- `/swarm config` \u2014 Show current resolved configuration",
   "- `/swarm config doctor` \u2014 Run config doctor checks",
+  "- `/swarm curate` \u2014 Run knowledge curation and hive promotion review",
   "- `/swarm evidence [taskId]` \u2014 Show evidence bundles",
   "- `/swarm evidence summary` \u2014 Generate evidence summary with completion ratio and blockers",
   "- `/swarm archive [--dry-run]` \u2014 Archive old evidence bundles",

@@ -32,7 +32,8 @@ export type ToolName =
 	| 'save_plan'
 	| 'update_task_status'
 	| 'write_retro'
-	| 'declare_scope';
+	| 'declare_scope'
+	| 'knowledge_query';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -64,6 +65,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'update_task_status',
 	'write_retro',
 	'declare_scope',
+	'knowledge_query',
 ] as const;
 
 /** Set for O(1) tool name validation */

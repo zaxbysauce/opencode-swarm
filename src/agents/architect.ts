@@ -731,8 +731,7 @@ Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION.
     → If TRIGGERED: Print "security-reviewer: [APPROVED | REJECTED — reason]"
     5l. {{AGENT_PREFIX}}test_engineer - Verification tests. FAIL → coder retry from 5g.
     → REQUIRED: Print "testengineer-verification: [PASS N/N | FAIL — details]"
-    5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL → coder retry from 5g.
-    → REQUIRED: Print "testengineer-adversarial: [PASS | FAIL — details]"
+    {{ADVERSARIAL_TEST_STEP}}
     5n. COVERAGE CHECK: If test_engineer reports coverage < 70% → delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
 
 PRE-COMMIT RULE — Before ANY commit or push:
@@ -756,7 +755,7 @@ PRE-COMMIT RULE — Before ANY commit or push:
   [GATE] reviewer: APPROVED — value: ___
   [GATE] security-reviewer: APPROVED / SKIPPED — value: ___
   [GATE] test_engineer-verification: PASS — value: ___
-  [GATE] test_engineer-adversarial: PASS — value: ___
+  {{ADVERSARIAL_TEST_CHECKLIST}}
   [GATE] coverage: ≥70% / soft-skip — value: ___
 
   You MUST NOT mark a task complete without printing this checklist with filled values.
@@ -880,10 +879,16 @@ Examples:
 This tag is informational in v6.19; v6.20 will use for context filtering.
 `;
 
+export interface AdversarialTestingConfig {
+	enabled: boolean;
+	scope: 'all' | 'security-only';
+}
+
 export function createArchitectAgent(
 	model: string,
 	customPrompt?: string,
 	customAppendPrompt?: string,
+	adversarialTesting?: AdversarialTestingConfig,
 ): AgentDefinition {
 	let prompt = ARCHITECT_PROMPT;
 
@@ -891,6 +896,44 @@ export function createArchitectAgent(
 		prompt = customPrompt;
 	} else if (customAppendPrompt) {
 		prompt = `${ARCHITECT_PROMPT}\n\n${customAppendPrompt}`;
+	}
+
+	// Handle adversarial testing conditional based on config
+	const advEnabled = adversarialTesting?.enabled ?? true; // Default: true (preserve current behavior)
+	const advScope = adversarialTesting?.scope ?? 'all'; // Default: 'all'
+
+	if (!advEnabled) {
+		// Adversarial testing disabled: omit step entirely
+		prompt = prompt
+			?.replace(/\{\{ADVERSARIAL_TEST_STEP\}\}/g, '')
+			?.replace(
+				/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g,
+				'  [GATE] test_engineer-adversarial: SKIPPED — disabled by config — value: ___',
+			);
+	} else if (advScope === 'security-only') {
+		// Security-only scope: run only for security-sensitive work
+		prompt = prompt
+			?.replace(
+				/\{\{ADVERSARIAL_TEST_STEP\}\}/g,
+				`    5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests (conditional: security-sensitive only). If change matches TIER 3 criteria OR content contains SECURITY_KEYWORDS OR secretscan has ANY findings OR sast_scan has ANY findings at or above threshold → MUST delegate {{AGENT_PREFIX}}test_engineer adversarial tests. FAIL → coder retry from 5g. If NOT security-sensitive → SKIP this step.
+    → REQUIRED: Print "testengineer-adversarial: [PASS | SKIP — not security-sensitive | FAIL — details]"`,
+			)
+			?.replace(
+				/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g,
+				'  [GATE] test_engineer-adversarial: PASS / FAIL / SKIP — not security-sensitive — value: ___',
+			);
+	} else {
+		// Enabled with scope='all' (default): preserve current behavior
+		prompt = prompt
+			?.replace(
+				/\{\{ADVERSARIAL_TEST_STEP\}\}/g,
+				`    5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL → coder retry from 5g.
+    → REQUIRED: Print "testengineer-adversarial: [PASS | FAIL — details]"`,
+			)
+			?.replace(
+				/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g,
+				'  [GATE] test_engineer-adversarial: PASS / FAIL — value: ___',
+			);
 	}
 
 	return {

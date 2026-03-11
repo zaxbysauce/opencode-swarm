@@ -1,6 +1,8 @@
 /** Hive promoter hook for opencode-swarm v6.17 two-tier knowledge system. */
 
 import path from 'node:path';
+import { readCuratorSummary, writeCuratorSummary } from './curator.js';
+import type { CuratorSummary } from './curator-types.js';
 import {
 	appendKnowledge,
 	findNearDuplicate,
@@ -20,6 +22,15 @@ import type {
 } from './knowledge-types.js';
 import { validateLesson } from './knowledge-validator.js';
 import { safeHook } from './utils.js';
+
+/** Hive promotion summary for curator state */
+export interface HivePromotionSummary {
+	timestamp: string;
+	new_promotions: number;
+	encounters_incremented: number;
+	advancements: number;
+	total_hive_entries: number;
+}
 
 /**
  * Check if a swarm entry already exists in the hive (near-duplicate).
@@ -72,6 +83,27 @@ function hasProjectConfirmation(
 }
 
 /**
+ * Calculate the new encounter score after a confirmation.
+ * Uses weighted scoring: same-project encounters count more slowly than cross-project.
+ * Enforces min/max bounds from config.
+ */
+function calculateEncounterScore(
+	currentScore: number,
+	isSameProject: boolean,
+	config: KnowledgeConfig,
+): number {
+	const weight = isSameProject
+		? config.same_project_weight
+		: config.cross_project_weight;
+	const increment = config.encounter_increment * weight;
+	const newScore = currentScore + increment;
+	return Math.min(
+		Math.max(newScore, config.min_encounter_score),
+		config.max_encounter_score,
+	);
+}
+
+/**
  * Get the age of an entry in milliseconds.
  */
 function getEntryAgeMs(createdAt: string): number {
@@ -83,6 +115,7 @@ function getEntryAgeMs(createdAt: string): number {
 /**
  * Main promotion logic: checks swarm entries and promotes eligible ones to hive.
  * Also updates existing hive entries with new project confirmations.
+ * Returns a summary of the promotion activity for curator state.
  *
  * @note The 'hive-fast-track' tag is treated as privileged — it bypasses the
  *   3-phase confirmation requirement. It should only be set by authorized tooling
@@ -91,10 +124,21 @@ function getEntryAgeMs(createdAt: string): number {
 export async function checkHivePromotions(
 	swarmEntries: SwarmKnowledgeEntry[],
 	config: KnowledgeConfig,
-): Promise<void> {
+): Promise<HivePromotionSummary> {
+	// Track promotion counts
+	let newPromotions = 0;
+	let encountersIncremented = 0;
+	let advancements = 0;
+
 	// Route 1: Early exit if hive is disabled
 	if (config.hive_enabled === false) {
-		return;
+		return {
+			timestamp: new Date().toISOString(),
+			new_promotions: 0,
+			encounters_incremented: 0,
+			advancements: 0,
+			total_hive_entries: 0,
+		};
 	}
 
 	// Read existing hive entries
@@ -189,10 +233,14 @@ export async function checkHivePromotions(
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 			source_project: swarmEntry.project_name,
+			encounter_score: config.initial_encounter_score, // starts at configured initial value (default 1.0)
 		};
 
 		// Append to hive
 		await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
+
+		// Track new promotion
+		newPromotions++;
 
 		// Add the new entry to local array for subsequent processing
 		hiveEntries.push(newHiveEntry);
@@ -214,12 +262,11 @@ export async function checkHivePromotions(
 			continue;
 		}
 
-		// Skip if same project
-		if (nearDuplicate.project_name === hiveEntry.source_project) {
-			continue;
-		}
+		// Determine if this is a same-project or cross-project encounter
+		const isSameProject =
+			nearDuplicate.project_name === hiveEntry.source_project;
 
-		// Skip if already confirmed by this project
+		// Skip if already confirmed by this project (same-run double-count prevention)
 		if (hasProjectConfirmation(hiveEntry, nearDuplicate.project_name)) {
 			continue;
 		}
@@ -231,6 +278,19 @@ export async function checkHivePromotions(
 		};
 
 		hiveEntry.confirmed_by.push(newConfirmation);
+
+		// Update encounter score with weighted scoring
+		// Use backward compatibility: default to 1.0 for older entries without encounter_score
+		const currentScore = hiveEntry.encounter_score ?? 1.0;
+		hiveEntry.encounter_score = calculateEncounterScore(
+			currentScore,
+			isSameProject,
+			config,
+		);
+
+		// Track encounter increment
+		encountersIncremented++;
+
 		hiveEntry.updated_at = new Date().toISOString();
 
 		// Advance status from candidate to established if 3+ distinct projects
@@ -239,6 +299,8 @@ export async function checkHivePromotions(
 			countDistinctProjects(hiveEntry.confirmed_by) >= 3
 		) {
 			hiveEntry.status = 'established';
+			// Track advancement
+			advancements++;
 		}
 
 		hiveModified = true;
@@ -248,6 +310,15 @@ export async function checkHivePromotions(
 	if (hiveModified) {
 		await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
 	}
+
+	// Return the promotion summary for curator state
+	return {
+		timestamp: new Date().toISOString(),
+		new_promotions: newPromotions,
+		encounters_incremented: encountersIncremented,
+		advancements: advancements,
+		total_hive_entries: hiveEntries.length,
+	};
 }
 
 /**
@@ -264,8 +335,41 @@ export function createHivePromoterHook(
 			resolveSwarmKnowledgePath(directory),
 		);
 
-		// Run promotion logic
-		await checkHivePromotions(swarmEntries, config);
+		// Run promotion logic and get summary
+		const promotionSummary = await checkHivePromotions(swarmEntries, config);
+
+		// Integrate with existing curator summary state
+		const curatorSummary = await readCuratorSummary(directory);
+
+		if (curatorSummary) {
+			// Defensive: ensure knowledge_recommendations is a valid array
+			const existingRecommendations = Array.isArray(
+				curatorSummary.knowledge_recommendations,
+			)
+				? curatorSummary.knowledge_recommendations
+				: [];
+
+			// Add hive promotion summary as a knowledge recommendation
+			const recommendation = {
+				action: 'promote' as const,
+				lesson: `Hive promotion: ${promotionSummary.new_promotions} new, ${promotionSummary.encounters_incremented} encounters, ${promotionSummary.advancements} advancements, ${promotionSummary.total_hive_entries} total entries`,
+				reason: JSON.stringify({
+					timestamp: promotionSummary.timestamp,
+					new_promotions: promotionSummary.new_promotions,
+					encounters_incremented: promotionSummary.encounters_incremented,
+					advancements: promotionSummary.advancements,
+					total_hive_entries: promotionSummary.total_hive_entries,
+				}),
+			};
+
+			const updatedSummary: CuratorSummary = {
+				...curatorSummary,
+				knowledge_recommendations: [...existingRecommendations, recommendation],
+				last_updated: new Date().toISOString(),
+			};
+
+			await writeCuratorSummary(directory, updatedSummary);
+		}
 	};
 
 	// Wrap in safeHook for fire-and-forget error suppression
@@ -331,6 +435,7 @@ export async function promoteToHive(
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		source_project: path.basename(directory) || 'unknown',
+		encounter_score: 1.0, // manual promotions start at 1.0
 	};
 
 	// Append to hive
@@ -405,6 +510,7 @@ export async function promoteFromSwarm(
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		source_project: swarmEntry.project_name,
+		encounter_score: 1.0, // promotions from swarm start at 1.0
 	};
 
 	// Append to hive

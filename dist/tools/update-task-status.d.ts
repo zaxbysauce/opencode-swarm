@@ -46,9 +46,10 @@ export interface ReviewerGateResult {
  * Requires the task to be in 'tests_run' or 'complete' state, which means
  * both reviewer delegation and test_engineer runs have been recorded.
  * @param taskId - The task ID to check gate state for
+ * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult indicating whether the gate is blocked
  */
-export declare function checkReviewerGate(taskId: string): ReviewerGateResult;
+export declare function checkReviewerGate(taskId: string, workingDirectory?: string): ReviewerGateResult;
 /**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.

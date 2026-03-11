@@ -488,10 +488,163 @@ describe('Tier labels', () => {
       m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
     );
     const text = knowledgeMsg?.parts[0].text ?? '';
-    expect(text).toContain('[SWARM]');
-    expect(text).toContain('[HIVE]');
+    expect(text).toContain('[swarm:established]');
+    expect(text).toContain('[hive:established]');
     expect(text).toContain('Swarm lesson');
     expect(text).toContain('Hive lesson');
+  });
+});
+
+// ============================================================================
+// Test Suite: Explicit [tier:status] prefixes
+// ============================================================================
+
+describe('Explicit [tier:status] prefixes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
+  });
+
+  it('Test 9a: swarm entry with established status shows [swarm:established] prefix', async () => {
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Create swarm entry with established status
+    const entries = [makeSwarmEntry('Always validate function inputs', 0.85)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call - inject
+    await hook({}, output);
+
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    const text = knowledgeMsg?.parts[0].text ?? '';
+    // Verify explicit tier:status prefix format (lowercase)
+    expect(text).toContain('[swarm:established]');
+    // Verify lesson content is preserved
+    expect(text).toContain('Always validate function inputs');
+  });
+
+  it('Test 9b: hive entry with established status shows [hive:established] prefix', async () => {
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Create hive entry with established status
+    const entries = [makeHiveEntry('Use dependency injection for testability', 0.9)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call - inject
+    await hook({}, output);
+
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    const text = knowledgeMsg?.parts[0].text ?? '';
+    // Verify explicit tier:status prefix format (lowercase)
+    expect(text).toContain('[hive:established]');
+    // Verify lesson content is preserved
+    expect(text).toContain('Use dependency injection for testability');
+  });
+
+  it('Test 9c: entry with experimental status shows [tier:experimental] prefix', async () => {
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Create swarm entry with experimental status
+    const entries = [{
+      ...makeSwarmEntry('New experimental pattern', 0.6),
+      status: 'experimental',
+    }];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries as RankedEntry[]);
+
+    // Second call - inject
+    await hook({}, output);
+
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    const text = knowledgeMsg?.parts[0].text ?? '';
+    // Verify explicit tier:status prefix with experimental status
+    expect(text).toContain('[swarm:experimental]');
+    // Verify lesson content is preserved
+    expect(text).toContain('New experimental pattern');
+  });
+
+  it('Test 9d: multiple entries each show correct [tier:status] prefix', async () => {
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Create entries with different tiers and statuses
+    const entries = [
+      { ...makeSwarmEntry('Swarm established lesson', 0.85), status: 'established' },
+      { ...makeSwarmEntry('Swarm experimental lesson', 0.6), status: 'experimental' },
+      { ...makeHiveEntry('Hive established lesson', 0.9), status: 'established' },
+      { ...makeHiveEntry('Hive experimental lesson', 0.65), status: 'experimental' },
+    ];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries as RankedEntry[]);
+
+    // Second call - inject
+    await hook({}, output);
+
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    const text = knowledgeMsg?.parts[0].text ?? '';
+    // Verify each entry has correct explicit tier:status prefix
+    expect(text).toContain('[swarm:established]');
+    expect(text).toContain('[swarm:experimental]');
+    expect(text).toContain('[hive:established]');
+    expect(text).toContain('[hive:experimental]');
+    // Verify all lesson content is preserved
+    expect(text).toContain('Swarm established lesson');
+    expect(text).toContain('Swarm experimental lesson');
+    expect(text).toContain('Hive established lesson');
+    expect(text).toContain('Hive experimental lesson');
+  });
+
+  it('Test 9e: tier:status prefix appears before lesson content on same line', async () => {
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Create a single entry
+    const entries = [makeSwarmEntry('Test lesson content', 0.8)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    // Second call - inject
+    await hook({}, output);
+
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    const text = knowledgeMsg?.parts[0].text ?? '';
+    // Find the line containing the lesson
+    const lines = text.split('\n');
+    const lessonLine = lines.find(line => line.includes('Test lesson content'));
+    expect(lessonLine).toBeDefined();
+    // Verify the tier:status prefix appears before the lesson text on same line
+    const prefixEndIndex = lessonLine!.indexOf(']');
+    const lessonStartIndex = lessonLine!.indexOf('Test lesson content');
+    expect(prefixEndIndex).toBeLessThan(lessonStartIndex);
+    // Verify format: stars + space + [tier:status] + space + lesson
+    expect(lessonLine).toMatch(/^.+ \[swarm:established\] Test lesson content/);
   });
 });
 
