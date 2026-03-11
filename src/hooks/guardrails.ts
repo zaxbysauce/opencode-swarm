@@ -207,7 +207,7 @@ function isAgentDelegation(
 
 	const subagentType = argsObj.subagent_type;
 	if (typeof subagentType === 'string') {
-		return { isDelegation: true, targetAgent: subagentType };
+		return { isDelegation: true, targetAgent: stripKnownSwarmPrefix(subagentType) };
 	}
 
 	return { isDelegation: false, targetAgent: null };
