@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.6...v6.22.7) (2026-03-10)
+
+
+### Bug Fixes
+
+* phase_complete updates plan.json on success and adds completed-task fallback for agent requirements ([07c001d](https://github.com/zaxbysauce/opencode-swarm/commit/07c001d470152de7743ebd4bd8dc1d3f99af645b))
+* phase_complete updates plan.json on success and adds completed-task fallback for agent requirements ([14888eb](https://github.com/zaxbysauce/opencode-swarm/commit/14888ebfc54d734e6f35ee114ae6b8efedc76401))
+
 ## [6.22.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.5...v6.22.6) (2026-03-10)
 
 
