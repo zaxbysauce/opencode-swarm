@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.22.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.11...v6.22.12) (2026-03-11)
+
+
+### Bug Fixes
+
+* **issue-124:** checkReviewerGate skips corrupt sessions; fix mock leakage in phase-monitor tests ([dc1da81](https://github.com/zaxbysauce/opencode-swarm/commit/dc1da8126aa4b3f53f528330404b48a3f728c68f))
+* silent catch blocks in delegation-gate now log warnings; gate heuristic checks on coder delegation; fix [ ] sanitization ([b28dae1](https://github.com/zaxbysauce/opencode-swarm/commit/b28dae1e860a0f25b44181b0019aaae59b7169fe))
+* test isolation - use DI for curator runner, loosen drift path traversal assertion ([e334e7d](https://github.com/zaxbysauce/opencode-swarm/commit/e334e7d461ad322b13d03765bf5c9531981b70c5))
+
 ## [6.22.11](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.10...v6.22.11) (2026-03-11)
 
 
