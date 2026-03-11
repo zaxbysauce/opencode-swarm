@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.13](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.12...v6.22.13) (2026-03-11)
+
+
+### Bug Fixes
+
+* harden phase_complete agent aggregation and warnings ([cd5b202](https://github.com/zaxbysauce/opencode-swarm/commit/cd5b20257addf7019226764358810a6a10fdf73e))
+* resolve phase_complete fallback regressions affecting task status flow ([f908425](https://github.com/zaxbysauce/opencode-swarm/commit/f908425906e02c8d2fa8378fad8ec14e97a1091a))
+
 ## [6.22.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.11...v6.22.12) (2026-03-11)
 
 
