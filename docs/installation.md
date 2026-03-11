@@ -634,6 +634,10 @@ Control agent execution limits:
     "max_repetitions": 10,
     "max_consecutive_errors": 5,
     "warning_threshold": 0.5,
+    "qa_gates": {
+      "required_tools": ["diff", "syntax_check", "placeholder_scan", "lint", "pre_check_batch"],
+      "require_reviewer_test_engineer": true
+    },
     "profiles": {
       "coder": { "max_tool_calls": 300, "max_duration_minutes": 60 },
       "explorer": { "max_tool_calls": 100, "max_duration_minutes": 10 }
@@ -651,6 +655,27 @@ Control agent execution limits:
 | `max_consecutive_errors` | number | `5` | Maximum consecutive tool errors before circuit break |
 | `warning_threshold` | number | `0.5` | Inject warning at this percentage of any limit |
 | `profiles` | object | — | Per-agent overrides. Keys are agent names, values override base settings. |
+| `qa_gates.required_tools` | string[] | `diff,syntax_check,placeholder_scan,lint,pre_check_batch` | Tool gates that must be observed before task completion to avoid partial QA warning. |
+| `qa_gates.require_reviewer_test_engineer` | boolean | `true` | Require reviewer/test_engineer delegation evidence in the active phase for QA completion. |
+
+**Default behavior (important):** `qa_gates` is optional. If you omit `guardrails.qa_gates`, opencode-swarm preserves the existing full QA-gate behavior (`diff`, `syntax_check`, `placeholder_scan`, `lint`, `pre_check_batch`) and still requires reviewer/test_engineer delegation evidence. Configure `qa_gates` only when you intentionally want to customize these enforcement rules.
+
+**How to enable/configure (for requested custom behavior):**
+
+- QA gates are already active by default when `guardrails.enabled` is `true` (default).
+- To explicitly configure them, add a `guardrails.qa_gates` block in `.opencode/opencode-swarm.json`:
+
+```jsonc
+{
+  "guardrails": {
+    "enabled": true,
+    "qa_gates": {
+      "required_tools": ["diff", "syntax_check", "placeholder_scan", "lint", "pre_check_batch"],
+      "require_reviewer_test_engineer": true
+    }
+  }
+}
+```
 
 **Architect is exempt/unlimited by default:** The architect agent has no guardrail limits by default (0 = unlimited). The system uses a 10-second stale delegation window to prevent the architect from inheriting subagent limits during rapid delegation transitions. To override, add a `profiles.architect` entry:
 
