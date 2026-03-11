@@ -300,6 +300,15 @@ export function createGuardrailsHooks(
 
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
+	const requiredQaGates = cfg.qa_gates?.required_tools ?? [
+		'diff',
+		'syntax_check',
+		'placeholder_scan',
+		'lint',
+		'pre_check_batch',
+	];
+	const requireReviewerAndTestEngineer =
+		cfg.qa_gates?.require_reviewer_test_engineer ?? true;
 
 	return {
 		/**
@@ -1051,23 +1060,14 @@ export function createGuardrailsHooks(
 					const gates = session.gateLog.get(taskId);
 					// v6.17 Task 9.3: Warn if task has no gates logged (gates is undefined)
 					// or if task has partial gates (gates exists but incomplete)
-					// v6.12: Check ALL required Stage A gates (not just pre_check_batch)
-					// Required gates: diff, syntax_check, placeholder_scan, lint, pre_check_batch
-					// Optional gates: imports, build_check, secretscan, sast_scan, quality_budget
-					const REQUIRED_GATES = [
-						'diff',
-						'syntax_check',
-						'placeholder_scan',
-						'lint',
-						'pre_check_batch',
-					];
+					// v6.12+: Check configured required QA gates (defaults preserve legacy behavior)
 					const missingGates: string[] = [];
 					// If gates is undefined (no gates logged for this task), all required gates are missing
 					// If gates exists, check which ones are missing
 					if (!gates) {
-						missingGates.push(...REQUIRED_GATES);
+						missingGates.push(...requiredQaGates);
 					} else {
-						for (const gate of REQUIRED_GATES) {
+						for (const gate of requiredQaGates) {
 							if (!gates.has(gate)) {
 								missingGates.push(gate);
 							}
@@ -1088,7 +1088,9 @@ export function createGuardrailsHooks(
 
 					const hasReviewerDelegation =
 						(session.reviewerCallCount.get(currentPhaseForCheck) ?? 0) > 0;
-					if (missingGates.length > 0 || !hasReviewerDelegation) {
+					const missingQaDelegation =
+						requireReviewerAndTestEngineer && !hasReviewerDelegation;
+					if (missingGates.length > 0 || missingQaDelegation) {
 						// v6.22.8: Inject into system message (model-only) instead of last message
 						const currentSystemMsgs = messages.filter(
 							(msg) => msg.info?.role === 'system',
@@ -1108,7 +1110,7 @@ export function createGuardrailsHooks(
 						);
 						if (sysTextPart && !sysTextPart.text.includes('PARTIAL GATE VIOLATION')) {
 							const missing = [...missingGates];
-							if (!hasReviewerDelegation) {
+							if (missingQaDelegation) {
 								missing.push(
 									'reviewer/test_engineer (no delegations this phase)',
 								);
@@ -1168,10 +1170,12 @@ export function createGuardrailsHooks(
 
 			// v6.12 Task 2.3: Catastrophic zero-reviewer warning
 			// Check if any completed phase has ZERO reviewer delegations
+			// v6.24: Honor qa_gates.require_reviewer_test_engineer override end-to-end
 			if (
 				isArchitectSessionForGates &&
 				session &&
-				session.catastrophicPhaseWarnings
+				session.catastrophicPhaseWarnings &&
+				requireReviewerAndTestEngineer
 			) {
 				try {
 					const plan = await loadPlan(directory);

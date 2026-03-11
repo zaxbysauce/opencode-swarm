@@ -579,6 +579,20 @@ export const GuardrailsConfigSchema = z.object({
 	max_consecutive_errors: z.number().min(2).max(20).default(5),
 	warning_threshold: z.number().min(0.1).max(0.9).default(0.75),
 	idle_timeout_minutes: z.number().min(5).max(240).default(60),
+	qa_gates: z
+		.object({
+			required_tools: z
+				.array(z.string().min(1))
+				.default([
+					'diff',
+					'syntax_check',
+					'placeholder_scan',
+					'lint',
+					'pre_check_batch',
+				]),
+			require_reviewer_test_engineer: z.boolean().default(true),
+		})
+		.optional(),
 	profiles: z.record(z.string(), GuardrailsProfileSchema).optional(),
 });
 
