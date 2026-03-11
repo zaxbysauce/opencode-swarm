@@ -40,6 +40,11 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			session.declaredCoderScope = ['src'];
 			session.scopeViolationDetected = true;
 			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
+			// Set up gates to prevent PARTIAL GATE VIOLATION from also firing
+			const taskId = 'task-123';
+			session.currentTaskId = taskId;
+			session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+			session.reviewerCallCount.set(1, 1);
 
 			// Simulate messagesTransform with architect session
 			const messages = [
@@ -51,11 +56,17 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			await hooks.messagesTransform({}, { messages });
 
-			// Check that warning was prepended
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
-			expect(updatedText).toContain('⚠️ SCOPE VIOLATION');
-			expect(updatedText).toContain('Only modify files within your declared scope');
-			expect(updatedText).toContain('Here is the implementation.');
+			// v6.22.8: SCOPE VIOLATION is now injected into a system message (model-only guidance)
+			// A new system message is created at index 0; the original message moves to index 1
+			const systemMessage = (messages[0] as { info: { role: string }; parts: Array<{ type: string; text: string }> });
+			expect(systemMessage.info.role).toBe('system');
+			expect(systemMessage.parts[0].text).toContain('⚠️ SCOPE VIOLATION');
+			expect(systemMessage.parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
+			expect(systemMessage.parts[0].text).toContain('Only modify files within your declared scope');
+
+			// Original message is preserved and unchanged at index 1
+			const originalMessage = (messages[1] as { parts: Array<{ type: string; text: string }> });
+			expect(originalMessage.parts[0].text).toBe('Here is the implementation.');
 		});
 
 		it('scopeViolationDetected is cleared to false after warning injection', async () => {

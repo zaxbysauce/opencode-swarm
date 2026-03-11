@@ -33,6 +33,7 @@ export interface SerializedAgentSession {
 	lastGateFailure: { tool: string; taskId: string; timestamp: number } | null;
 	partialGateWarningsIssuedForTask: string[];
 	selfFixAttempted: boolean;
+	selfCodingWarnedAtCount: number;
 	catastrophicPhaseWarnings: number[];
 	lastPhaseCompleteTimestamp: number;
 	lastPhaseCompletePhase: number;
@@ -147,6 +148,7 @@ export function serializeAgentSession(
 		lastGateFailure: s.lastGateFailure ?? null,
 		partialGateWarningsIssuedForTask,
 		selfFixAttempted: s.selfFixAttempted ?? false,
+		selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
 		catastrophicPhaseWarnings,
 		lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
 		lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,

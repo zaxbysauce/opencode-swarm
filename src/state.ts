@@ -95,6 +95,9 @@ export interface AgentSessionState {
 	partialGateWarningsIssuedForTask: Set<string>;
 	/** Whether architect attempted self-fix write after gate failure */
 	selfFixAttempted: boolean;
+	/** Value of architectWriteCount at the time the self-coding warning was last injected.
+	 *  Warning is suppressed unless architectWriteCount has increased since last injection. */
+	selfCodingWarnedAtCount: number;
 	/** Phases that have already received a catastrophic zero-reviewer warning */
 	catastrophicPhaseWarnings: Set<number>;
 
@@ -244,6 +247,7 @@ export function startAgentSession(
 		lastGateFailure: null,
 		partialGateWarningsIssuedForTask: new Set(),
 		selfFixAttempted: false,
+		selfCodingWarnedAtCount: 0,
 		catastrophicPhaseWarnings: new Set(),
 		// Phase completion tracking
 		lastPhaseCompleteTimestamp: 0,
@@ -354,6 +358,9 @@ export function ensureAgentSession(
 		}
 		if (session.selfFixAttempted === undefined) {
 			session.selfFixAttempted = false;
+		}
+		if (session.selfCodingWarnedAtCount === undefined) {
+			session.selfCodingWarnedAtCount = 0;
 		}
 		if (!session.catastrophicPhaseWarnings) {
 			session.catastrophicPhaseWarnings = new Set();

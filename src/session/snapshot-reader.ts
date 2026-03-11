@@ -97,6 +97,7 @@ export function deserializeAgentSession(
 		lastGateFailure: s.lastGateFailure ?? null,
 		partialGateWarningsIssuedForTask,
 		selfFixAttempted: s.selfFixAttempted ?? false,
+		selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
 		catastrophicPhaseWarnings,
 		lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
 		lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,

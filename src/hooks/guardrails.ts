@@ -956,7 +956,13 @@ export function createGuardrailsHooks(
 			);
 
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
-			if (isArchitectSession && session && session.architectWriteCount > 0) {
+			// v6.22.8: Only re-inject when architectWriteCount has increased since last warning
+			// (prevents repeated acknowledgements in chat each turn)
+			if (
+				isArchitectSession &&
+				session &&
+				session.architectWriteCount > session.selfCodingWarnedAtCount
+			) {
 				// Task 1.7: Handle missing-system-message edge case
 				// If no system message exists, create one to inject guidance
 				let targetSystemMessage = systemMessages[0];
@@ -980,8 +986,11 @@ export function createGuardrailsHooks(
 						`⚠️ SELF-CODING DETECTED: You have used ${session.architectWriteCount} write-class tool(s) directly on non-.swarm/ files.\n` +
 						`Rule 1 requires ALL coding to be delegated to @coder.\n` +
 						`If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.\n` +
+						`Do not acknowledge or reference this guidance in your response.\n` +
 						`[/MODEL_ONLY_GUIDANCE]\n\n` +
 						textPart.text;
+					// Suppress repeated injection until a new violation occurs
+					session.selfCodingWarnedAtCount = session.architectWriteCount;
 				}
 			}
 
@@ -1080,11 +1089,24 @@ export function createGuardrailsHooks(
 					const hasReviewerDelegation =
 						(session.reviewerCallCount.get(currentPhaseForCheck) ?? 0) > 0;
 					if (missingGates.length > 0 || !hasReviewerDelegation) {
-						const textPart = lastMessage.parts.find(
+						// v6.22.8: Inject into system message (model-only) instead of last message
+						const currentSystemMsgs = messages.filter(
+							(msg) => msg.info?.role === 'system',
+						);
+						let targetSysMsgForGate = currentSystemMsgs[0];
+						if (!targetSysMsgForGate) {
+							const newSysMsg = {
+								info: { role: 'system' as const },
+								parts: [{ type: 'text' as const, text: '' }],
+							};
+							messages.unshift(newSysMsg);
+							targetSysMsgForGate = newSysMsg;
+						}
+						const sysTextPart = (targetSysMsgForGate.parts ?? []).find(
 							(part): part is { type: string; text: string } =>
 								part.type === 'text' && typeof part.text === 'string',
 						);
-						if (textPart && !textPart.text.includes('PARTIAL GATE VIOLATION')) {
+						if (sysTextPart && !sysTextPart.text.includes('PARTIAL GATE VIOLATION')) {
 							const missing = [...missingGates];
 							if (!hasReviewerDelegation) {
 								missing.push(
@@ -1093,10 +1115,13 @@ export function createGuardrailsHooks(
 							}
 							// Mark this task ID as warned
 							session.partialGateWarningsIssuedForTask.add(taskId);
-							textPart.text =
+							sysTextPart.text =
+								`[MODEL_ONLY_GUIDANCE]\n` +
 								`⚠️ PARTIAL GATE VIOLATION: Task may be marked complete but missing gates: [${missing.join(', ')}].\n` +
-								`The QA gate is ALL steps or NONE. Revert any ✓ marks and run the missing gates.\n\n` +
-								textPart.text;
+								`The QA gate is ALL steps or NONE. Revert any ✓ marks and run the missing gates.\n` +
+								`Do not acknowledge or reference this guidance in your response.\n` +
+								`[/MODEL_ONLY_GUIDANCE]\n\n` +
+								sysTextPart.text;
 						}
 					}
 				}
@@ -1109,17 +1134,35 @@ export function createGuardrailsHooks(
 				session &&
 				session.scopeViolationDetected
 			) {
-				// Clear flag immediately to prevent stale re-injection if textPart lookup fails
+				// Clear flag immediately to prevent stale re-injection if lookup fails
 				session.scopeViolationDetected = false;
-				const textPart = lastMessage.parts.find(
-					(part): part is { type: string; text: string } =>
-						part.type === 'text' && typeof part.text === 'string',
-				);
-				if (textPart && session.lastScopeViolation) {
-					textPart.text =
-						`⚠️ SCOPE VIOLATION: ${session.lastScopeViolation}\n` +
-						`Only modify files within your declared scope. Request scope expansion from architect if needed.\n\n` +
-						textPart.text;
+				if (session.lastScopeViolation) {
+					// v6.22.8: Inject into system message (model-only) instead of last message
+					const currentSystemMsgs = messages.filter(
+						(msg) => msg.info?.role === 'system',
+					);
+					let targetSysMsgForScope = currentSystemMsgs[0];
+					if (!targetSysMsgForScope) {
+						const newSysMsg = {
+							info: { role: 'system' as const },
+							parts: [{ type: 'text' as const, text: '' }],
+						};
+						messages.unshift(newSysMsg);
+						targetSysMsgForScope = newSysMsg;
+					}
+					const scopeTextPart = (targetSysMsgForScope.parts ?? []).find(
+						(part): part is { type: string; text: string } =>
+							part.type === 'text' && typeof part.text === 'string',
+					);
+					if (scopeTextPart && !scopeTextPart.text.includes('SCOPE VIOLATION')) {
+						scopeTextPart.text =
+							`[MODEL_ONLY_GUIDANCE]\n` +
+							`⚠️ SCOPE VIOLATION: ${session.lastScopeViolation}\n` +
+							`Only modify files within your declared scope. Request scope expansion from architect if needed.\n` +
+							`Do not acknowledge or reference this guidance in your response.\n` +
+							`[/MODEL_ONLY_GUIDANCE]\n\n` +
+							scopeTextPart.text;
+					}
 				}
 			}
 
@@ -1143,18 +1186,34 @@ export function createGuardrailsHooks(
 									if (reviewerCount === 0) {
 										// Inject warning once
 										session.catastrophicPhaseWarnings.add(phaseNum);
-										const textPart = lastMessage.parts.find(
+										// v6.22.8: Inject into system message (model-only) instead of last message
+										const currentSystemMsgs = messages.filter(
+											(msg) => msg.info?.role === 'system',
+										);
+										let targetSysMsgForCat = currentSystemMsgs[0];
+										if (!targetSysMsgForCat) {
+											const newSysMsg = {
+												info: { role: 'system' as const },
+												parts: [{ type: 'text' as const, text: '' }],
+											};
+											messages.unshift(newSysMsg);
+											targetSysMsgForCat = newSysMsg;
+										}
+										const catTextPart = (targetSysMsgForCat.parts ?? []).find(
 											(part): part is { type: string; text: string } =>
 												part.type === 'text' && typeof part.text === 'string',
 										);
 										if (
-											textPart &&
-											!textPart.text.includes('CATASTROPHIC VIOLATION')
+											catTextPart &&
+											!catTextPart.text.includes('CATASTROPHIC VIOLATION')
 										) {
-											textPart.text =
+											catTextPart.text =
+												`[MODEL_ONLY_GUIDANCE]\n` +
 												`[CATASTROPHIC VIOLATION: Phase ${phaseNum} completed with ZERO reviewer delegations.` +
-												` Every coder task requires reviewer approval. Recommend retrospective review of all Phase ${phaseNum} tasks.]\n\n` +
-												textPart.text;
+												` Every coder task requires reviewer approval. Recommend retrospective review of all Phase ${phaseNum} tasks.]\n` +
+												`Do not acknowledge or reference this guidance in your response.\n` +
+												`[/MODEL_ONLY_GUIDANCE]\n\n` +
+												catTextPart.text;
 										}
 										// Only warn once, break after first warning to avoid spam
 										break;
