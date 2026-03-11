@@ -888,9 +888,17 @@ export function createDelegationGateHook(config: PluginConfig): {
 Rule 3: ONE task per coder call. Split this into separate delegations.
 ${warningLines.join('\n')}`;
 
-			// Prepend warning to the text part
-			const originalText = textPart.text ?? '';
-			textPart.text = `${warningText}\n\n${originalText}`;
+			// Inject warning as model-only system guidance (not visible to user)
+			const batchWarnSystemIdx = messages.findIndex(
+				(m: MessageWithParts) => m && m.info?.role === 'system',
+			);
+			const batchWarnInsertIdx =
+				batchWarnSystemIdx >= 0 ? batchWarnSystemIdx + 1 : 0;
+			const batchWarnMessage: MessageWithParts = {
+				info: { role: 'system' },
+				parts: [{ type: 'text', text: warningText }],
+			};
+			messages.splice(batchWarnInsertIdx, 0, batchWarnMessage);
 		},
 		toolAfter,
 	};

@@ -40,54 +40,50 @@ function createMinimalSession(overrides?: Partial<AgentSessionState>): AgentSess
 
 describe('TaskWorkflowState defensive guard tests', () => {
 	describe('advanceTaskState guard - taskWorkflowStates undefined', () => {
-		it('should NOT throw TypeError when taskWorkflowStates is undefined', () => {
+		it('should throw INVALID_SESSION when taskWorkflowStates is undefined', () => {
 			// Create session with taskWorkflowStates explicitly undefined
 			const session = createMinimalSession({ taskWorkflowStates: undefined });
 			
-			// Should NOT throw - guard should initialize the Map
-			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).not.toThrow();
+			// Should throw - guard requires taskWorkflowStates to be a Map instance
+			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).toThrow('INVALID_SESSION');
 		});
 
-		it('should initialize Map and allow the transition when taskWorkflowStates is undefined', () => {
+		it('should throw and NOT initialize Map when taskWorkflowStates is undefined', () => {
 			const session = createMinimalSession({ taskWorkflowStates: undefined });
 			
-			// Advance state - should work
-			advanceTaskState(session, 'test-task', 'coder_delegated');
+			// Advance state - should throw
+			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).toThrow();
 			
-			// Verify the Map was initialized and transition worked
-			expect(session.taskWorkflowStates).toBeInstanceOf(Map);
-			expect(session.taskWorkflowStates.get('test-task')).toBe('coder_delegated');
+			// Map was NOT initialized by advanceTaskState (it throws before any initialization)
+			expect(session.taskWorkflowStates).toBeUndefined();
 		});
 
-		it('should work with multiple transitions when taskWorkflowStates is undefined', () => {
+		it('should throw on all transitions when taskWorkflowStates is undefined', () => {
 			const session = createMinimalSession({ taskWorkflowStates: undefined });
 			
-			// Multiple transitions should work
-			advanceTaskState(session, 'task-1', 'coder_delegated');
-			advanceTaskState(session, 'task-1', 'pre_check_passed');
-			advanceTaskState(session, 'task-1', 'reviewer_run');
-			
-			expect(getTaskState(session, 'task-1')).toBe('reviewer_run');
+			// All transitions should throw due to INVALID_SESSION
+			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow('INVALID_SESSION');
+			expect(() => advanceTaskState(session, 'task-1', 'pre_check_passed')).toThrow('INVALID_SESSION');
+			expect(() => advanceTaskState(session, 'task-1', 'reviewer_run')).toThrow('INVALID_SESSION');
 		});
 	});
 
 	describe('advanceTaskState guard - taskWorkflowStates null', () => {
-		it('should NOT throw TypeError when taskWorkflowStates is null', () => {
+		it('should throw INVALID_SESSION when taskWorkflowStates is null', () => {
 			const session = createMinimalSession({ taskWorkflowStates: null as any });
 			
-			// Should NOT throw - guard should initialize the Map
-			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).not.toThrow();
+			// Should throw - guard requires taskWorkflowStates to be a Map instance
+			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).toThrow('INVALID_SESSION');
 		});
 
-		it('should initialize Map and allow the transition when taskWorkflowStates is null', () => {
+		it('should throw and NOT initialize Map when taskWorkflowStates is null', () => {
 			const session = createMinimalSession({ taskWorkflowStates: null as any });
 			
-			// Advance state - should work
-			advanceTaskState(session, 'test-task', 'coder_delegated');
+			// Advance state - should throw
+			expect(() => advanceTaskState(session, 'test-task', 'coder_delegated')).toThrow();
 			
-			// Verify the Map was initialized and transition worked
-			expect(session.taskWorkflowStates).toBeInstanceOf(Map);
-			expect(session.taskWorkflowStates.get('test-task')).toBe('coder_delegated');
+			// Map was NOT initialized by advanceTaskState (it throws before any initialization)
+			expect(session.taskWorkflowStates).toBeNull();
 		});
 	});
 
@@ -191,16 +187,18 @@ describe('TaskWorkflowState defensive guard tests', () => {
 	});
 
 	describe('Edge case - taskWorkflowStates is falsey values', () => {
-		it('handles 0 as taskWorkflowStates', () => {
+		it('handles 0 as taskWorkflowStates - throws INVALID_SESSION', () => {
 			const session = createMinimalSession({ taskWorkflowStates: 0 as any });
 			
-			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).not.toThrow();
+			// 0 is not a Map instance - throws INVALID_SESSION
+			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow('INVALID_SESSION');
 		});
 
-		it('handles empty string as taskWorkflowStates', () => {
+		it('handles empty string as taskWorkflowStates - throws INVALID_SESSION', () => {
 			const session = createMinimalSession({ taskWorkflowStates: '' as any });
 			
-			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).not.toThrow();
+			// Empty string is not a Map instance - throws INVALID_SESSION
+			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow('INVALID_SESSION');
 		});
 	});
 });

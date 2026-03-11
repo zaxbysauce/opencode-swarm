@@ -415,20 +415,18 @@ describe('Gate Workflow State Machine', () => {
 			expect(state).toBe('idle');
 		});
 
-		test('AV1: advanceTaskState handles undefined taskWorkflowStates gracefully - FIXED', () => {
+		test('AV1: advanceTaskState throws when taskWorkflowStates is undefined', () => {
 			const session = ensureAgentSession('adversarial-session-advance');
 			
 			// Manually remove the taskWorkflowStates map
 			// @ts-expect-error - intentionally removing for adversarial test
 			delete session.taskWorkflowStates;
 			
-			// FIXED: advanceTaskState now initializes the Map if undefined
-			// No longer throws - successfully advances to the requested state
+			// advanceTaskState throws when taskWorkflowStates is not a Map instance
+			// Callers must use ensureAgentSession to properly initialize sessions
 			expect(() => {
 				advanceTaskState(session, '1.1', 'coder_delegated');
-			}).not.toThrow();
-			
-			expect(getTaskState(session, '1.1')).toBe('coder_delegated');
+			}).toThrow('INVALID_SESSION');
 		});
 	});
 

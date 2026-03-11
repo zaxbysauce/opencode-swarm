@@ -580,8 +580,10 @@ export function advanceTaskState(
 	taskId: string,
 	newState: TaskWorkflowState,
 ): void {
-	if (!session.taskWorkflowStates) {
-		session.taskWorkflowStates = new Map();
+	if (!session || !(session.taskWorkflowStates instanceof Map)) {
+		throw new Error(
+			'INVALID_SESSION: session.taskWorkflowStates must be a Map instance',
+		);
 	}
 
 	const STATE_ORDER: TaskWorkflowState[] = [

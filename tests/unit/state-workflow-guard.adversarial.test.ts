@@ -58,7 +58,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('ALLOWED BY DESIGN: Can skip from idle to tests_run (forward jump allowed)', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			// The state machine allows forward jumps (not just adjacent states)
 			// So idle → tests_run IS allowed
@@ -67,7 +67,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('ALLOWED BY DESIGN: Can skip from idle to reviewer_run (forward jump allowed)', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			// Forward jumps are allowed, just complete has special guard
 			expect(() => advanceTaskState(session, 'test-task', 'reviewer_run')).not.toThrow();
@@ -75,7 +75,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('ALLOWED BY DESIGN: Can skip from idle to pre_check_passed (forward jump allowed)', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			// Forward jumps are allowed, just complete has special guard
 			expect(() => advanceTaskState(session, 'test-task', 'pre_check_passed')).not.toThrow();
@@ -132,12 +132,12 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('BLOCKED: Proper transition path works after failed attempts', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
-			// Attempt invalid jump
+			// Attempt invalid jump (complete from idle)
 			expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow();
 			
-			// Now do it properly
+			// Now do it properly — session has a valid Map so this works
 			advanceTaskState(session, 'task-1', 'coder_delegated');
 			expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
 			
@@ -150,10 +150,10 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 			expect(getTaskState(session, 'task-1')).toBe('complete');
 		});
 
-		it('BLOCKED: Multiple tasks with undefined - each stays independent', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+		it('BLOCKED: Multiple tasks with properly initialized Map - each stays independent', () => {
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
-			// Task A - invalid jump
+			// Task A - invalid jump (complete from idle)
 			expect(() => advanceTaskState(session, 'task-A', 'complete')).toThrow();
 			
 			// Task B - proper path
@@ -396,13 +396,11 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 	});
 
 	describe('ATTACK 8: Edge cases - guard bypass attempts', () => {
-		it('GUARD REINITIALIZES: NaN is falsy, guard reinitializes Map', () => {
+		it('BLOCKED: NaN as taskWorkflowStates is not a Map - throws INVALID_SESSION', () => {
 			const session = createMinimalSession({ taskWorkflowStates: NaN as any });
 			
-			// NaN is falsy, so guard reinitializes the Map
-			// Then the transition should work
-			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).not.toThrow();
-			expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
+			// NaN is not a Map instance - guard throws INVALID_SESSION
+			expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow('INVALID_SESSION');
 		});
 
 		it('BLOCKED: Symbol as taskWorkflowStates - truthy, not Map, has no .get()/.set()', () => {
@@ -440,7 +438,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 
 	describe('ATTACK 9: String manipulation attacks', () => {
 		it('BLOCKED: Empty task ID should still work (uses default idle)', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			// Empty string is a valid key
 			advanceTaskState(session, '', 'coder_delegated');
@@ -448,7 +446,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('BLOCKED: Very long task ID does not overflow', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			const longId = 'task-' + 'x'.repeat(10000);
 			advanceTaskState(session, longId, 'coder_delegated');
@@ -456,7 +454,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 		});
 
 		it('BLOCKED: Unicode task ID works correctly', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			const unicodeId = 'task-\u0000\uFFFF\u{10FFFF}';
 			advanceTaskState(session, unicodeId, 'coder_delegated');
@@ -466,7 +464,7 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 
 	describe('ATTACK 10: Null taskId and state', () => {
 		it('BLOCKED: Null taskId handled gracefully', () => {
-			const session = createMinimalSession({ taskWorkflowStates: undefined });
+			const session = createMinimalSession({ taskWorkflowStates: new Map() });
 			
 			// Null is coerced to string 'null'
 			advanceTaskState(session, null as any, 'coder_delegated');

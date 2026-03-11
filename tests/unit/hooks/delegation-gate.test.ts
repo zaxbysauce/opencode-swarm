@@ -43,6 +43,14 @@ function findSystemMessage(messages: { messages: MessageWithParts[] }) {
 	return messages.messages.find((m: MessageWithParts) => m.info?.role === 'system');
 }
 
+// Helper to get concatenated text from all system messages (for warning assertions)
+function getSystemWarningText(messages: { messages: MessageWithParts[] }): string {
+	return messages.messages
+		.filter((m: MessageWithParts) => m.info?.role === 'system')
+		.map((m: MessageWithParts) => m.parts?.[0]?.text ?? '')
+		.join('\n');
+}
+
 // Helper to get the primary text content - finds user message text if present, otherwise first message
 function getPrimaryText(messages: { messages: MessageWithParts[] }): string {
 	const userMsg = findUserMessage(messages);
@@ -81,19 +89,18 @@ describe('delegation gate hook', () => {
 		const hook = createDelegationGateHook(config);
 
 		// Long message without coder TASK: pattern - use null sessionID to skip preamble
-		// Note: with null sessionID, no [NEXT] system message is injected,
-		// but batch warnings are still added for oversized messages
 		const longText = 'TASK: Review this very long task description ' + 'a'.repeat(5000);
 		const messages = makeMessages(longText, 'architect', null);
 
 		await hook.messagesTransform({}, messages);
 
-		// With null sessionID, no system message is injected, so check messages[0]
-		// The implementation does add batch warnings to oversized non-coder messages
-		const text = getPrimaryText(messages);
-		// Should contain batch warning (current behavior)
-		expect(text).toContain('⚠️ BATCH DETECTED');
-		expect(text).toContain('exceeds recommended size');
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText = getSystemWarningText(messages);
+		expect(systemWarningText).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText).toContain('exceeds recommended size');
+		// User message text should be unchanged
+		const userMsg = findUserMessage(messages);
+		expect(userMsg?.parts[0].text).toBe(longText);
 	});
 
 	it('ignores non-architect agents', async () => {
@@ -125,10 +132,13 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText = getSystemWarningText(messages);
+		expect(systemWarningText).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText).toContain('exceeds recommended size');
+		// User message text should be unchanged
 		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
-		expect(userMsg?.parts[0].text).toContain('exceeds recommended size');
+		expect(userMsg?.parts[0].text).toBe(longText);
 	});
 
 	it('detects multiple FILE: directives', async () => {
@@ -144,10 +154,12 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
-		expect(userMsg?.parts[0].text).toContain('Multiple FILE: directives detected');
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText2 = getSystemWarningText(messages);
+		expect(systemWarningText2).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText2).toContain('Multiple FILE: directives detected');
+		const userMsg2 = findUserMessage(messages);
+		expect(userMsg2?.parts[0].text).toBe(longText);
 	});
 
 	it('detects multiple TASK: sections', async () => {
@@ -163,10 +175,12 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText = getSystemWarningText(messages);
+		expect(systemWarningText).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText).toContain('Multiple TASK: sections detected');
 		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
-		expect(userMsg?.parts[0].text).toContain('Multiple TASK: sections detected');
+		expect(userMsg?.parts[0].text).toBe(longText);
 	});
 
 	it('detects batching language', async () => {
@@ -182,10 +196,12 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
-		expect(userMsg?.parts[0].text).toContain('Batching language detected');
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText3 = getSystemWarningText(messages);
+		expect(systemWarningText3).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText3).toContain('Batching language detected');
+		const userMsg3 = findUserMessage(messages);
+		expect(userMsg3?.parts[0].text).toBe(longText);
 	});
 
 	it('no warning when delegation is small and clean', async () => {
@@ -215,9 +231,12 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText4 = getSystemWarningText(messages);
+		expect(systemWarningText4).toContain('⚠️ BATCH DETECTED');
+		// User message text should be unchanged
+		const userMsg4 = findUserMessage(messages);
+		expect(userMsg4?.parts[0].text).toBe(longText);
 	});
 
 	it('custom delegation_max_chars respected', async () => {
@@ -234,10 +253,13 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain batch warning
+		// Batch warning is now in a system message (model-only), not in user message text
+		const systemWarningText = getSystemWarningText(messages);
+		expect(systemWarningText).toContain('⚠️ BATCH DETECTED');
+		expect(systemWarningText).toContain('limit 100');
+		// User message text should be unchanged
 		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('⚠️ BATCH DETECTED');
-		expect(userMsg?.parts[0].text).toContain('limit 100');
+		expect(userMsg?.parts[0].text).toBe(longText);
 	});
 
 	it('should warn when coder delegates to coder without reviewer', async () => {
@@ -259,11 +281,14 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain protocol violation warning
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('PROTOCOL VIOLATION');
-		expect(userMsg?.parts[0].text).toContain('reviewer');
-		expect(userMsg?.parts[0].text).toContain('test_engineer');
+		// Protocol violation warning is now in a system message (model-only)
+		const systemWarningText5 = getSystemWarningText(messages);
+		expect(systemWarningText5).toContain('PROTOCOL VIOLATION');
+		expect(systemWarningText5).toContain('reviewer');
+		expect(systemWarningText5).toContain('test_engineer');
+		// User message text should be unchanged
+		const userMsg5 = findUserMessage(messages);
+		expect(userMsg5?.parts[0].text).toBe('coder\nTASK: Implement feature B\nFILE: src/b.ts');
 	});
 
 	it('should NOT warn when proper QA sequence is followed', async () => {
@@ -293,6 +318,9 @@ describe('delegation gate hook', () => {
 		// User message should NOT contain PROTOCOL VIOLATION warning
 		const userMsg = findUserMessage(messages);
 		expect(userMsg?.parts[0].text).not.toContain('PROTOCOL VIOLATION');
+		// System messages should NOT contain protocol violation
+		const systemWarningText = getSystemWarningText(messages);
+		expect(systemWarningText).not.toContain('PROTOCOL VIOLATION');
 	});
 
 	it('should warn when reviewer present but test_engineer missing', async () => {
@@ -316,9 +344,12 @@ describe('delegation gate hook', () => {
 		const systemMsg = findSystemMessage(messages);
 		expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-		// User message should contain protocol violation warning
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('PROTOCOL VIOLATION');
+		// Protocol violation warning is now in a system message (model-only)
+		const systemWarningText6 = getSystemWarningText(messages);
+		expect(systemWarningText6).toContain('PROTOCOL VIOLATION');
+		// User message text should be unchanged
+		const userMsg6 = findUserMessage(messages);
+		expect(userMsg6?.parts[0].text).toBe('coder\nTASK: Another task\nFILE: src/another.ts');
 	});
 
 	// ============================================
@@ -495,7 +526,7 @@ describe('delegation gate hook', () => {
 	// ============================================
 
 	describe('QA skip hard-block enforcement', () => {
-		it('first coder delegation issues warning not error: After one coder delegation with no reviewer/test_engineer, a second coder delegation prepends a warning to the message text but does NOT throw', async () => {
+		it('first coder delegation issues warning not error: After one coder delegation with no reviewer/test_engineer, a second coder delegation injects a warning into a system message but does NOT throw', async () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
@@ -513,7 +544,8 @@ describe('delegation gate hook', () => {
 			session.qaSkipTaskIds = [];
 			session.lastCoderDelegationTaskId = '1.1';
 
-			const messages = makeMessages('mega_coder\nTASK: 1.2\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+			const msgText = 'mega_coder\nTASK: 1.2\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file';
+			const messages = makeMessages(msgText, 'architect');
 
 			// Should NOT throw - call directly without expect().resolves
 			await hook.messagesTransform({}, messages);
@@ -522,10 +554,13 @@ describe('delegation gate hook', () => {
 			const systemMsg = findSystemMessage(messages);
 			expect(systemMsg?.parts[0].text).toContain('[NEXT]');
 
-			// User message should contain warning
+			// Warning is now in a system message (model-only), not in user message text
+			const systemWarningText = getSystemWarningText(messages);
+			expect(systemWarningText).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(systemWarningText).toContain('Previous coder task completed, but QA gate was skipped');
+			// User message text should be unchanged
 			const userMsg = findUserMessage(messages);
-			expect(userMsg?.parts[0].text).toContain('⚠️ PROTOCOL VIOLATION');
-			expect(userMsg?.parts[0].text).toContain('Previous coder task completed, but QA gate was skipped');
+			expect(userMsg?.parts[0].text).toBe(msgText);
 
 			// Should increment qaSkipCount
 			expect(session.qaSkipCount).toBe(1);
@@ -2079,7 +2114,7 @@ describe('delegation gate hook', () => {
 
 			// Should warn because prior task 2.1 is stuck at coder_delegated
 			// Even though chain has reviewer AND test_engineer, state machine check catches the stuck prior task
-			expect(getPrimaryText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(getSystemWarningText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
 
 			// qaSkipCount should be incremented
 			expect(session.qaSkipCount).toBe(1);
@@ -2151,7 +2186,7 @@ describe('delegation gate hook', () => {
 
 			// Should warn because chain-based check catches it (no reviewer/test_engineer)
 			// But state machine check should NOT trigger because prior task is NOT stuck
-			expect(getPrimaryText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(getSystemWarningText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
 		});
 
 		it('No prior coder task — no false positive: priorCoderTaskId === null does NOT trigger state machine check', async () => {
@@ -2182,7 +2217,7 @@ describe('delegation gate hook', () => {
 			// Should NOT warn about prior task being stuck (no prior task)
 			// The chain-based check would still trigger for coder → coder without QA
 			// But the state machine check should NOT be the cause
-			expect(getPrimaryText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(getSystemWarningText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
 		});
 
 		it('priorCoderTaskId captured correctly: first coder sets lastCoderDelegationTaskId, second coder captures the first task ID', async () => {
@@ -2225,7 +2260,7 @@ describe('delegation gate hook', () => {
 			// Should warn because:
 			// 1. Chain check: coder → coder without reviewer/test_engineer
 			// 2. State machine check: prior task (2.1) is stuck at coder_delegated
-			expect(getPrimaryText(messages2)).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(getSystemWarningText(messages2)).toContain('⚠️ PROTOCOL VIOLATION');
 
 			// After second delegation, lastCoderDelegationTaskId should be 2.2
 			session = ensureAgentSession(sessionID);
@@ -2298,7 +2333,7 @@ describe('delegation gate hook', () => {
 
 			// Should warn due to chain check (no reviewer/test_engineer between coders)
 			// But NOT due to state machine check (prior task is at pre_check_passed, not coder_delegated)
-			expect(getPrimaryText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
+			expect(getSystemWarningText(messages)).toContain('⚠️ PROTOCOL VIOLATION');
 		});
 
 		it('state machine stuck detection works with task at idle (never delegated before)', async () => {
@@ -3133,15 +3168,18 @@ describe('delegation gate hook', () => {
 
 			await hook.messagesTransform({}, messages);
 
-			// User message should have original text (possibly with batch warning in user message for non-coder)
-			// but NO model-only guidance since no sessionID
+			// User message should have original text unchanged
 			const userText = getUserText(messages);
 			expect(userText).not.toContain('[NEXT]');
 			expect(userText).not.toContain('[DELEGATION VIOLATION]');
+			expect(userText).toBe(largeText);
 
-			// No system messages should be added without sessionID
+			// Model-only guidance ([NEXT], [DELEGATION VIOLATION]) should NOT be injected without sessionID
 			const systemMessages = findSystemWarnings(messages);
-			expect(systemMessages.length).toBe(0);
+			const allSystemText = systemMessages.map(m => m.parts?.[0]?.text ?? '').join('\n');
+			expect(allSystemText).not.toContain('[NEXT]');
+			expect(allSystemText).not.toContain('[DELEGATION VIOLATION]');
+			// Batch warning may be present in system messages (model-only) for oversized content
 		});
 
 		it('Combined test: both [NEXT] guidance and batch warnings in separate system messages', async () => {
