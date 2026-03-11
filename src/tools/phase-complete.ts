@@ -63,6 +63,14 @@ interface CrossSessionAgentsResult {
 	contributorSessionIds: string[];
 }
 
+function safeWarn(message: string, error: unknown): void {
+	try {
+		console.warn(message, error);
+	} catch {
+		// Ignore logger failures to keep phase_complete non-blocking
+	}
+}
+
 /**
  * Collect dispatched agents across contributor sessions.
  * Contributor sessions are defined as those with activity since a phase reference timestamp,
@@ -87,13 +95,6 @@ function collectCrossSessionDispatchedAgents(
 		// Collect agents from caller's phaseAgentsDispatched
 		if (callerSession.phaseAgentsDispatched) {
 			for (const agent of callerSession.phaseAgentsDispatched) {
-				agents.add(agent);
-			}
-		}
-
-		// Also include agents from the most recently completed phase (persisted across reset)
-		if (callerSession.lastCompletedPhaseAgentsDispatched) {
-			for (const agent of callerSession.lastCompletedPhaseAgentsDispatched) {
 				agents.add(agent);
 			}
 		}
@@ -147,13 +148,6 @@ function collectCrossSessionDispatchedAgents(
 			// Collect agents from this session's phaseAgentsDispatched
 			if (session.phaseAgentsDispatched) {
 				for (const agent of session.phaseAgentsDispatched) {
-					agents.add(agent);
-				}
-			}
-
-			// Also include agents from this session's most recently completed phase
-			if (session.lastCompletedPhaseAgentsDispatched) {
-				for (const agent of session.lastCompletedPhaseAgentsDispatched) {
 					agents.add(agent);
 				}
 			}
@@ -491,13 +485,13 @@ export async function executePhaseComplete(
 				dir,
 				knowledgeConfig,
 			);
-		} catch (error) {
-			// Log warning but don't block phase completion
-			console.warn(
-				'[phase_complete] Failed to curate lessons from retrospective:',
-				error,
-			);
-		}
+	} catch (error) {
+		// Log warning but don't block phase completion
+		safeWarn(
+			'[phase_complete] Failed to curate lessons from retrospective:',
+			error,
+		);
+	}
 	}
 
 	// Curator pipeline: collect phase data and run drift check. Never blocks phase_complete.
@@ -519,7 +513,7 @@ export async function executePhaseComplete(
 			await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
 		}
 	} catch (curatorError) {
-		console.warn(
+		safeWarn(
 			'[phase_complete] Curator pipeline error (non-blocking):',
 			curatorError,
 		);
@@ -577,6 +571,7 @@ export async function executePhaseComplete(
 		| { task_complexity?: string }
 		| undefined;
 	if (
+		loadedRetroTaskId !== primaryRetroTaskId &&
 		loadedRetroTaskId?.startsWith('retro-') &&
 		loadedRetroBundle?.schema_version === '1.0.0' &&
 		firstEntry?.task_complexity &&
