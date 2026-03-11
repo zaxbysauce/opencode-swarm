@@ -364,8 +364,13 @@ export function createDelegationGateHook(config: PluginConfig): {
 						if (state === 'coder_delegated' || state === 'pre_check_passed') {
 							try {
 								advanceTaskState(session, taskId, 'reviewer_run');
-							} catch {
-								// Non-fatal: state may already be at or past reviewer_run
+							} catch (err) {
+								// Non-fatal: state may already be at or past reviewer_run.
+								// Log so that silent swallowing does not hide root-cause bugs
+								// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
+								console.warn(
+									`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+								);
 							}
 						}
 					}
@@ -377,8 +382,12 @@ export function createDelegationGateHook(config: PluginConfig): {
 						if (state === 'reviewer_run') {
 							try {
 								advanceTaskState(session, taskId, 'tests_run');
-							} catch {
-								// Non-fatal: state may already be at or past tests_run
+							} catch (err) {
+								// Non-fatal: state may already be at or past tests_run.
+								// Log so advancement failures are diagnosable.
+								console.warn(
+									`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+								);
 							}
 						}
 					}
@@ -399,8 +408,10 @@ export function createDelegationGateHook(config: PluginConfig): {
 								) {
 									try {
 										advanceTaskState(otherSession, taskId, 'reviewer_run');
-									} catch {
-										// Non-fatal
+									} catch (err) {
+										console.warn(
+											`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
 									}
 								}
 							}
@@ -412,8 +423,10 @@ export function createDelegationGateHook(config: PluginConfig): {
 								if (state === 'reviewer_run') {
 									try {
 										advanceTaskState(otherSession, taskId, 'tests_run');
-									} catch {
-										// Non-fatal
+									} catch (err) {
+										console.warn(
+											`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
 									}
 								}
 							}
@@ -469,8 +482,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 							if (state === 'coder_delegated' || state === 'pre_check_passed') {
 								try {
 									advanceTaskState(session, taskId, 'reviewer_run');
-								} catch {
-									// Non-fatal
+								} catch (err) {
+									console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`);
 								}
 							}
 						}
@@ -482,8 +495,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 							if (state === 'reviewer_run') {
 								try {
 									advanceTaskState(session, taskId, 'tests_run');
-								} catch {
-									// Non-fatal
+								} catch (err) {
+									console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`);
 								}
 							}
 						}
@@ -502,8 +515,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 								) {
 									try {
 										advanceTaskState(otherSession, taskId, 'reviewer_run');
-									} catch {
-										// Non-fatal
+									} catch (err) {
+										console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`);
 									}
 								}
 							}
@@ -519,8 +532,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 								if (state === 'reviewer_run') {
 									try {
 										advanceTaskState(otherSession, taskId, 'tests_run');
-									} catch {
-										// Non-fatal
+									} catch (err) {
+										console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`);
 									}
 								}
 							}
@@ -737,6 +750,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 							const sanitizedGate = lastGate.gate
 								.replace(/</g, '&lt;')
 								.replace(/>/g, '&gt;')
+								.replace(/\[ \]/g, '()')
 								.replace(/\[/g, '(')
 								.replace(/\]/g, ')')
 								.replace(/[\r\n]/g, ' ')
@@ -783,47 +797,55 @@ export function createDelegationGateHook(config: PluginConfig): {
 				);
 			}
 
-			// Check for multiple FILE: directives
-			const fileMatches = text.match(/^FILE:/gm);
-			if (fileMatches && fileMatches.length > 1) {
-				warnings.push(
-					`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`,
-				);
+			// Check for multiple FILE: directives — only applies to coder delegations
+			if (isCoderDelegation) {
+				const fileMatches = text.match(/^FILE:/gm);
+				if (fileMatches && fileMatches.length > 1) {
+					warnings.push(
+						`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`,
+					);
+				}
 			}
 
-			// Check for multiple TASK: sections
-			const taskMatches = text.match(/^TASK:/gm);
-			if (taskMatches && taskMatches.length > 1) {
-				warnings.push(
-					`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`,
-				);
+			// Check for multiple TASK: sections — only applies to coder delegations
+			if (isCoderDelegation) {
+				const taskMatches = text.match(/^TASK:/gm);
+				if (taskMatches && taskMatches.length > 1) {
+					warnings.push(
+						`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`,
+					);
+				}
 			}
 
-			// Check for batching language (punctuation-tolerant)
-			const batchingPattern =
-				/\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
-			const batchingMatches = text.match(batchingPattern);
-			if (batchingMatches && batchingMatches.length > 0) {
-				warnings.push(
-					`Batching language detected (${batchingMatches.join(', ')}). Break compound objectives into separate coder calls.`,
-				);
+			// Check for batching language — only applies to coder delegations
+			if (isCoderDelegation) {
+				const batchingPattern =
+					/\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
+				const batchingMatches = text.match(batchingPattern);
+				if (batchingMatches && batchingMatches.length > 0) {
+					warnings.push(
+						`Batching language detected (${batchingMatches.join(', ')}). Break compound objectives into separate coder calls.`,
+					);
+				}
 			}
 
-			// Check for " and " connecting separate actions in the TASK line
-			// Use simpler heuristic: look for "and" between capitalized words or common patterns
-			const taskLine = extractTaskLine(text);
-			if (taskLine) {
-				// Simple heuristic: " and " followed by a verb-like word
-				// Pattern: "word(s) and verb" where verb is action-like
-				const andPattern =
-					/\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
-				if (andPattern.test(taskLine)) {
-					warnings.push('TASK line contains "and" connecting separate actions');
+			// Check for " and " connecting separate actions in the TASK line — only for coder delegations
+			if (isCoderDelegation) {
+				const taskLine = extractTaskLine(text);
+				if (taskLine) {
+					// Simple heuristic: " and " followed by a verb-like word
+					// Pattern: "word(s) and verb" where verb is action-like
+					const andPattern =
+						/\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
+					if (andPattern.test(taskLine)) {
+						warnings.push('TASK line contains "and" connecting separate actions');
+					}
 				}
 			}
 
 			// Check for protocol violation: coder → coder without reviewer/test_engineer
-			if (sessionID) {
+			// Only relevant for coder delegations (the current message must be a coder delegation)
+			if (isCoderDelegation && sessionID) {
 				const delegationChain = swarmState.delegationChains.get(sessionID);
 				if (delegationChain && delegationChain.length >= 2) {
 					// Find the two most recent coder delegations

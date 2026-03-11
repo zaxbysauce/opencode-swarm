@@ -392,12 +392,6 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			// Message with batching language
-			const messages = makeMessages(
-				'coder\nTASK: Add feature X and also add feature Y\nFILE: src/x.ts',
-				'architekt', // Intentional typo to not match 'architect'
-			);
-
 			// Set up properly for architect
 			const messages2 = makeMessages(
 				'coder\nTASK: Add feature X and also add feature Y\nFILE: src/x.ts',
@@ -406,10 +400,11 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			await hook.messagesTransform({}, messages2);
 
-			// Should warn about batching - the warning prepends to user message text
-			const userMessage = messages2.messages.find((m) => m?.info?.role === 'user');
-			expect(userMessage?.parts[0].text).toContain('BATCH DETECTED');
-			expect(userMessage?.parts[0].text).toContain('and also');
+			// Batch warning is injected as a system message (not prepended to user message text)
+			const systemMessages = messages2.messages.filter((m) => m?.info?.role === 'system');
+			const systemText = systemMessages.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			expect(systemText).toContain('BATCH DETECTED');
+			expect(systemText).toContain('and also');
 		});
 
 		it('should still detect multiple FILE: directives', async () => {
@@ -425,8 +420,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			await hook.messagesTransform({}, messages);
 
-			const userMessage = messages.messages.find((m) => m?.info?.role === 'user');
-			expect(userMessage?.parts[0].text).toContain('Multiple FILE: directives');
+			// Batch warning is injected as a system message (not into user message text)
+			const systemMessages = messages.messages.filter((m) => m?.info?.role === 'system');
+			const systemText = systemMessages.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			expect(systemText).toContain('Multiple FILE: directives');
 		});
 	});
 

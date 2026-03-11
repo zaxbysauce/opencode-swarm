@@ -635,8 +635,10 @@ describe('delegation gate adversarial tests', () => {
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
-			// Text may contain injected preamble - check original text is contained
-			expect(messages.messages[0].parts[0].text).toContain(originalText);
+			// User message text must still contain the original text
+			// (system messages may have been injected at index 0 by deliberation preamble)
+			const userMsg = messages.messages.find((m) => m?.info?.role === 'user');
+			expect(userMsg?.parts[0].text).toContain(originalText);
 
 			// qaSkipCount should not be incremented (not a coder delegation)
 			expect(session.qaSkipCount).toBe(0);
@@ -652,8 +654,14 @@ describe('delegation gate adversarial tests', () => {
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
-			// Text may contain injected preamble - check original text is contained
-			expect(messages.messages[0].parts[0].text).toContain(originalText);
+			// User message text must still contain the original text
+			// System messages may have been inserted but should not contain batch warning
+			const userMsg = messages.messages.find((m) => m?.info?.role === 'user');
+			expect(userMsg?.parts[0].text).toContain(originalText);
+			// No batch warning should appear in any system message for non-coder delegations
+			const systemMsgs = messages.messages.filter((m) => m?.info?.role === 'system');
+			const systemText = systemMsgs.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			expect(systemText).not.toContain('BATCH DETECTED');
 		});
 	});
 
