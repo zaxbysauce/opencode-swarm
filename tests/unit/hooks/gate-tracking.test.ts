@@ -272,6 +272,69 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			expect(messages[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
 		});
 
+		it('uses guardrails.qa_gates.required_tools when checking partial gate violations', async () => {
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
+			process.chdir(tempDir);
+
+			const config = defaultConfig({
+				qa_gates: {
+					required_tools: ['lint'],
+					require_reviewer_test_engineer: true,
+				},
+			} as Partial<GuardrailsConfig>);
+			const hooks = createGuardrailsHooks(config);
+
+			startAgentSession('custom-tools', ORCHESTRATOR_NAME);
+			beginInvocation('custom-tools', ORCHESTRATOR_NAME);
+			swarmState.activeAgent.set('custom-tools', ORCHESTRATOR_NAME);
+
+			const session = getAgentSession('custom-tools');
+			const taskId = 'custom-tools:current';
+			session!.currentTaskId = taskId;
+			session!.gateLog.set(taskId, new Set(['lint']));
+			session!.reviewerCallCount.set(1, 1);
+
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'custom-tools' },
+				parts: [{ type: 'text', text: 'Task done!' }],
+			}];
+			await hooks.messagesTransform({}, { messages });
+
+			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
+		});
+
+		it('can disable reviewer/test_engineer requirement via guardrails.qa_gates', async () => {
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
+			process.chdir(tempDir);
+
+			const config = defaultConfig({
+				qa_gates: {
+					required_tools: ['lint'],
+					require_reviewer_test_engineer: false,
+				},
+			} as Partial<GuardrailsConfig>);
+			const hooks = createGuardrailsHooks(config);
+
+			startAgentSession('no-reviewer-required', ORCHESTRATOR_NAME);
+			beginInvocation('no-reviewer-required', ORCHESTRATOR_NAME);
+			swarmState.activeAgent.set('no-reviewer-required', ORCHESTRATOR_NAME);
+
+			const session = getAgentSession('no-reviewer-required');
+			const taskId = 'no-reviewer-required:current';
+			session!.currentTaskId = taskId;
+			session!.gateLog.set(taskId, new Set(['lint']));
+
+			const messages = [{
+				info: { role: 'assistant', sessionID: 'no-reviewer-required' },
+				parts: [{ type: 'text', text: 'Task done!' }],
+			}];
+			await hooks.messagesTransform({}, { messages });
+
+			expect(messages[0].parts[0].text).not.toContain('reviewer/test_engineer');
+			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
+		});
+
+
 		it('gateLog does not bleed across tasks', async () => {
 			// Single session with multiple task IDs
 			startAgentSession('task-session', ORCHESTRATOR_NAME);

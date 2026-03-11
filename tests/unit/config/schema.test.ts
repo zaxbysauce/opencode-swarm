@@ -275,6 +275,29 @@ describe('GuardrailsConfigSchema', () => {
     }
   });
 
+  it('supports qa_gates defaults', () => {
+    const result = GuardrailsConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.qa_gates).toBeUndefined();
+    }
+  });
+
+  it('supports configurable qa_gates overrides', () => {
+    const result = GuardrailsConfigSchema.safeParse({
+      qa_gates: {
+        required_tools: ['lint'],
+        require_reviewer_test_engineer: false,
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.qa_gates.required_tools).toEqual(['lint']);
+      expect(result.data.qa_gates.require_reviewer_test_engineer).toBe(false);
+    }
+  });
+
+
   it('rejects max_tool_calls below 0', () => {
     const result = GuardrailsConfigSchema.safeParse({ max_tool_calls: -1 });
     expect(result.success).toBe(false);
