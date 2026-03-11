@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.7...v6.22.8) (2026-03-11)
+
+
+### Bug Fixes
+
+* restore release-please trigger after non-conventional merge ([00302b3](https://github.com/zaxbysauce/opencode-swarm/commit/00302b34deef33b536de547df726094e1fc9fc5d))
+* restore release-please trigger with conventional commit guidance ([4caa55b](https://github.com/zaxbysauce/opencode-swarm/commit/4caa55b7ba489bf73d67e9996a1722582f4f1f06))
+
 ## [6.22.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.6...v6.22.7) (2026-03-10)
 
 
