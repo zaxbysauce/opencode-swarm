@@ -40,7 +40,7 @@ export interface RunMemoryEntry {
 	taskId: string;
 	/** SHA256 hash of taskId + sorted file targets, first 8 chars */
 	taskFingerprint: string;
-	/** Which agent executed the task (e.g. "mega_coder") */
+	/** Which agent executed the task (e.g. "coder") */
 	agent: string;
 	/** Outcome of the task execution */
 	outcome: 'pass' | 'fail' | 'retry' | 'skip';
