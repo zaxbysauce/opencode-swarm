@@ -456,6 +456,46 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			expect(messages[0].parts[0].text).toContain('ZERO reviewer');
 		});
 
+
+		it('does not emit catastrophic warning when reviewer/test_engineer requirement is disabled', async () => {
+			// Create temp plan with Phase 1 complete, current phase = 2
+			createTempPlan(
+				[
+					{ id: 1, name: 'Phase 1', status: 'complete' },
+					{ id: 2, name: 'Phase 2', status: 'in_progress' },
+				],
+				2,
+			);
+			process.chdir(tempDir);
+
+			const config = {
+				...defaultConfig(),
+				qa_gates: {
+					required_tools: ['diff', 'lint'],
+					require_reviewer_test_engineer: false,
+				},
+			};
+			const hooks = createGuardrailsHooks(config);
+
+			startAgentSession('qa-override-no-cat', ORCHESTRATOR_NAME);
+			beginInvocation('qa-override-no-cat', ORCHESTRATOR_NAME);
+			swarmState.activeAgent.set('qa-override-no-cat', ORCHESTRATOR_NAME);
+
+			const session = getAgentSession('qa-override-no-cat');
+			session!.reviewerCallCount.set(1, 0);
+			session!.catastrophicPhaseWarnings = new Set();
+
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'qa-override-no-cat' },
+					parts: [{ type: 'text', text: 'Phase 1 complete!' }],
+				},
+			];
+			await hooks.messagesTransform({}, { messages });
+
+			expect(messages[0].parts[0].text).not.toContain('CATASTROPHIC VIOLATION');
+		});
+
 		it('reviewer count resets per phase: verify map values', async () => {
 			// Create temp plan
 			createTempPlan(

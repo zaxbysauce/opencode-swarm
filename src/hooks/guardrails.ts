@@ -1170,10 +1170,12 @@ export function createGuardrailsHooks(
 
 			// v6.12 Task 2.3: Catastrophic zero-reviewer warning
 			// Check if any completed phase has ZERO reviewer delegations
+			// v6.24: Honor qa_gates.require_reviewer_test_engineer override end-to-end
 			if (
 				isArchitectSessionForGates &&
 				session &&
-				session.catastrophicPhaseWarnings
+				session.catastrophicPhaseWarnings &&
+				requireReviewerAndTestEngineer
 			) {
 				try {
 					const plan = await loadPlan(directory);
