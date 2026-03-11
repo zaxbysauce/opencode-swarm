@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.22.14](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.13...v6.22.14) (2026-03-11)
+
+
+### Bug Fixes
+
+* add {{AGENT_PREFIX}} to remaining bare architect reference in FOR tag example ([6545fe0](https://github.com/zaxbysauce/opencode-swarm/commit/6545fe080cd302d5a189aff9439e68e71964863b))
+* normalize bare agent name references in prompts to use {{AGENT_PREFIX}} ([efeb4bf](https://github.com/zaxbysauce/opencode-swarm/commit/efeb4bf099409151fa80ccadf1f319ceb8ce1eea))
+* use dynamic agent prefix in system-enhancer injected prompt text ([1873088](https://github.com/zaxbysauce/opencode-swarm/commit/187308862fc99897e8515e786e332e63baaf7d94))
+
 ## [6.22.13](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.12...v6.22.13) (2026-03-11)
 
 
