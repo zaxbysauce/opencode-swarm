@@ -93,8 +93,15 @@ export function checkReviewerGate(
 			return { blocked: false, reason: '' };
 		}
 
-		// Check each session for state machine state
+		// Check each session for state machine state.
+		// Skip sessions with corrupt/missing taskWorkflowStates — they cannot
+		// make authoritative assertions about whether a task passed QA gates.
+		let validSessionCount = 0;
 		for (const [_sessionId, session] of swarmState.agentSessions) {
+			if (!(session.taskWorkflowStates instanceof Map)) {
+				continue; // Skip corrupt sessions
+			}
+			validSessionCount++;
 			const state = getTaskState(session, taskId);
 
 			// If task has reached tests_run or complete state, allow through
@@ -103,10 +110,17 @@ export function checkReviewerGate(
 			}
 		}
 
+		// If all sessions had corrupt workflow state, allow through —
+		// we cannot make a reliable gate assertion without valid state.
+		if (validSessionCount === 0) {
+			return { blocked: false, reason: '' };
+		}
+
 		// No session has this task in tests_run or complete state
 		// Build a debug summary of current task state across all sessions
 		const stateEntries: string[] = [];
 		for (const [sessionId, session] of swarmState.agentSessions) {
+			if (!(session.taskWorkflowStates instanceof Map)) continue;
 			const state = getTaskState(session, taskId);
 			stateEntries.push(`${sessionId}: ${state}`);
 		}

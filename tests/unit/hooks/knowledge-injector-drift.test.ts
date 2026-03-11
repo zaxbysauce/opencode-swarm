@@ -31,6 +31,14 @@ vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 }));
 vi.mock('../../../src/plan/manager.js', () => ({
   loadPlan: vi.fn(async () => null),
+  updateTaskStatus: vi.fn(),
+  loadPlanJsonOnly: vi.fn(),
+  updatePlanPhase: vi.fn(),
+  regeneratePlanMarkdown: vi.fn(),
+  isPlanMdInSync: vi.fn(),
+  readSwarmFileAsync: vi.fn(),
+  readSwarmFile: vi.fn(),
+  writeSwarmFile: vi.fn(),
 }));
 vi.mock('../../../src/hooks/extractors.js', () => ({
   extractCurrentPhaseFromPlan: vi.fn(() => 'Phase 1: Setup'),

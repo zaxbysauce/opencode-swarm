@@ -34,3 +34,6 @@ dist/tools/sbom-generate.d.ts
 /v6.*-*.md
 /v6.*.md
 
+# Test artifact directories created at project root by path-validation tests
+.temp-test-*/
+output_*.js

@@ -618,6 +618,7 @@ export function advanceTaskState(
 /**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.
+ * If taskWorkflowStates is missing/invalid, initializes it as a new Map.
  *
  * @param session - The agent session state
  * @param taskId - The task identifier

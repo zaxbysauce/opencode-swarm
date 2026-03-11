@@ -8,20 +8,29 @@
 
 import type { PreflightTriggerManager } from '../background/trigger';
 import { CuratorConfigSchema } from '../config/schema';
+import type { CuratorConfig, CuratorInitResult } from './curator-types';
 import { loadPlan } from '../plan/manager';
-import { runCuratorInit } from './curator';
+import { runCuratorInit as defaultRunCuratorInit } from './curator';
 import { safeHook } from './utils';
+
+/** Injectable curator runner type — allows test injection without module mocking. */
+export type CuratorInitRunner = (
+	directory: string,
+	config: CuratorConfig,
+) => Promise<CuratorInitResult>;
 
 /**
  * Creates a hook that monitors plan phase transitions and triggers preflight.
  *
  * @param directory - Project directory (where .swarm/ lives)
  * @param preflightManager - The PreflightTriggerManager to call on phase change
+ * @param curatorRunner - Optional curator init runner (defaults to runCuratorInit; injectable for tests)
  * @returns A safeHook-wrapped system.transform handler
  */
 export function createPhaseMonitorHook(
 	directory: string,
 	preflightManager: PreflightTriggerManager,
+	curatorRunner: CuratorInitRunner = defaultRunCuratorInit,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
 
@@ -39,7 +48,7 @@ export function createPhaseMonitorHook(
 				const { config } = loadPluginConfigWithMeta(directory);
 				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
-					await runCuratorInit(directory, curatorConfig);
+					await curatorRunner(directory, curatorConfig);
 				}
 			} catch {
 				// curator init failures must never propagate
