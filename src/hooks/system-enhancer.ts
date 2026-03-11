@@ -48,6 +48,17 @@ import {
 } from './utils';
 
 /**
+ * Extract the swarm prefix from a full agent name.
+ * e.g., "mega_architect" → "mega_", "architect" → ""
+ */
+function extractAgentPrefix(fullAgentName: string | null | undefined): string {
+	if (!fullAgentName) return '';
+	const baseName = stripKnownSwarmPrefix(fullAgentName);
+	if (baseName.length >= fullAgentName.length) return '';
+	return fullAgentName.substring(0, fullAgentName.length - baseName.length);
+}
+
+/**
  * Estimate content type based on text characteristics.
  */
 function estimateContentType(text: string): ContentType {
@@ -569,16 +580,18 @@ ${handoffContent}`;
 
 						// HF-1: Prevent coder from self-verifying
 						if (baseRole === 'coder' || baseRole === 'test_engineer') {
+							const hf1Prefix = extractAgentPrefix(activeAgent_hf1);
 							tryInject(
-								'[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands (npm run build, bun test, npx tsc, eslint, etc.). Make ONLY the code changes specified in your task. Verification is handled by the reviewer agent — do not self-verify. If your task explicitly asks you to run a specific command, that is the only exception.',
+								`[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands (npm run build, bun test, npx tsc, eslint, etc.). Make ONLY the code changes specified in your task. Verification is handled by the ${hf1Prefix}reviewer agent — do not self-verify. If your task explicitly asks you to run a specific command, that is the only exception.`,
 							);
 						}
 
 						// v6.13.1-hotfix: Prevent architect from running full test suite
 						// Concurrent or bulk test runs crash OpenCode — architect must delegate or scope narrowly
 						if (baseRole === 'architect' || baseRole === null) {
+							const hf1Prefix = extractAgentPrefix(activeAgent_hf1);
 							tryInject(
-								'[SWARM CONFIG] You must NEVER run the full test suite or batch test files. If you need to verify changes, run ONLY the specific test files for code YOU modified in this session — one file at a time, strictly serial. Do not run tests from directories or files unrelated to your changes. Do not run bun test without an explicit file path. When possible, delegate test execution to the test_engineer agent instead of running tests yourself.',
+								`[SWARM CONFIG] You must NEVER run the full test suite or batch test files. If you need to verify changes, run ONLY the specific test files for code YOU modified in this session — one file at a time, strictly serial. Do not run tests from directories or files unrelated to your changes. Do not run bun test without an explicit file path. When possible, delegate test execution to the ${hf1Prefix}test_engineer agent instead of running tests yourself.`,
 							);
 						}
 
@@ -629,8 +642,9 @@ ${handoffContent}`;
 
 							if (isArchitectForPreflight) {
 								if (config.pipeline?.parallel_precheck !== false) {
+									const preflightPrefix = extractAgentPrefix(activeAgent_preflight);
 									tryInject(
-										'[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.',
+										`[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix}reviewer.`,
 									);
 								} else {
 									tryInject(
@@ -1147,9 +1161,10 @@ ${handoffContent}`;
 						stripKnownSwarmPrefix(activeAgent_preflight_b) === 'architect';
 
 					if (isArchitectForPreflight_b) {
+						const preflightPrefix_b = extractAgentPrefix(activeAgent_preflight_b);
 						const hintText_b =
 							config.pipeline?.parallel_precheck !== false
-								? '[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.'
+								? `[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix_b}reviewer.`
 								: '[SWARM HINT] Parallel pre-check disabled: run lint:check → secretscan → sast_scan → quality_budget sequentially.';
 						candidates.push({
 							id: `candidate-${idCounter++}`,
