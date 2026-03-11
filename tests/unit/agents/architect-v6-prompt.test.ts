@@ -37,7 +37,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 		it('6. Rule 7 mentions gates_passed before reviewer', () => {
 			// In v6.10, secretscan is inside pre_check_batch; gates_passed triggers progression
 			expect(prompt).toContain('gates_passed === true');
-			expect(prompt).toContain('proceed to @reviewer');
+			expect(prompt).toContain('proceed to {{AGENT_PREFIX}}reviewer');
 		});
 
 		it('7. Available Tools includes imports', () => {
@@ -151,7 +151,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 		});
 
 		it('v6.12 Task 1.8 - zero reviewer delegations warning present', () => {
-			expect(prompt).toContain('zero reviewer delegations');
+			expect(prompt).toContain('zero {{AGENT_PREFIX}}reviewer delegations');
 		});
 	});
 
@@ -641,7 +641,7 @@ describe('Architect Prompt Hardening v6.11 - Phase 6 (Failure Counting & Retry)'
 	});
 
 	it('Failure counter increments on reviewer rejection', () => {
-		expect(prompt).toContain('REJECTED by reviewer');
+		expect(prompt).toContain('REJECTED by {{AGENT_PREFIX}}reviewer');
 	});
 
 	it('Retry message format exists', () => {
@@ -809,7 +809,7 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 		});
 
 		it('v6.12 Task 1.6 - PROCESS VIOLATION statement present', () => {
-			expect(prompt).toContain('Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION');
+			expect(prompt).toContain('Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCESS VIOLATION');
 		});
 	});
 
@@ -1184,7 +1184,7 @@ describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 
 		it('Cannot bypass by removing syntax_check disclaimer', () => {
 			// The disclaimer about syntax_check must be present
-			expect(prompt).toContain('syntax_check catches syntax. Reviewer catches logic. Test_engineer catches behavior.');
+			expect(prompt).toContain('syntax_check catches syntax. {{AGENT_PREFIX}}reviewer catches logic. {{AGENT_PREFIX}}test_engineer catches behavior.');
 		});
 
 		it('Cannot bypass by removing agent gate necessity explanation', () => {
@@ -1461,7 +1461,7 @@ describe.skip('Rule 4 Self-Coding Pre-Check Adversarial Tests', () => {
 		it('pre_check_batch scope boundary present', () => {
 			expect(prompt).toContain('pre_check_batch SCOPE BOUNDARY');
 			expect(prompt).toContain('does NOT mean "code is reviewed."');
-			expect(prompt).toContain('Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION');
+			expect(prompt).toContain('Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCESS VIOLATION');
 		});
 
 		// Stage A/B (Task 1.7)

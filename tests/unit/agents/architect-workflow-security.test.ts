@@ -101,7 +101,7 @@ describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 		// Verify gates_passed logic controls progression
 		expect(prompt).toContain('gates_passed === false');
 		expect(prompt).toContain('gates_passed === true');
-		expect(prompt).toContain('proceed to @reviewer');
+		expect(prompt).toContain('proceed to {{AGENT_PREFIX}}reviewer');
 	});
 
 	test('SECURITY: Cannot skip imports audit (Phase 5f)', () => {
@@ -458,7 +458,7 @@ describe('ARCHITECT WORKFLOW: Failure Counting Anti-Bypass (Phase 6)', () => {
 	test('SECURITY: Gated step cannot be skipped after retry', () => {
 		// All gates must pass before proceeding - retry doesn't skip gates
 		expect(prompt).toContain('gates_passed === true');
-		expect(prompt).toContain('proceed to @reviewer');
+		expect(prompt).toContain('proceed to {{AGENT_PREFIX}}reviewer');
 
 		// Verify gates are re-checked after retry
 		const phase5Section = prompt.substring(

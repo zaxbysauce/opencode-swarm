@@ -1,7 +1,7 @@
 /**
  * Declare scope tool for setting the file scope for coder delegations.
  * Implements FR-010: Declare coder scope before delegation.
- * This tool must be called before delegating to mega_coder to enable scope containment checking.
+ * This tool must be called before delegating to coder to enable scope containment checking.
  */
 
 import * as fs from 'node:fs';
@@ -273,7 +273,7 @@ export const declare_scope: ToolDefinition = createSwarmTool({
 	description:
 		'Declare the file scope for the next coder delegation. ' +
 		'Sets the list of files the coder is permitted to modify for a specific task. ' +
-		'Must be called before delegating to mega_coder to enable scope containment checking.',
+		'Must be called before delegating to coder to enable scope containment checking.',
 	args: {
 		taskId: tool.schema
 			.string()
