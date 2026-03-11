@@ -114,6 +114,10 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			if (session) {
 				// Simulate a reviewer delegation for Phase 1
 				session.reviewerCallCount.set(1, 1);
+				// Set up all required gates to prevent PARTIAL GATE VIOLATION from firing
+				const taskId = 'test-task';
+				session.currentTaskId = taskId;
+				session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 			}
 
 			// Transform messages
@@ -124,7 +128,7 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 
 			await hooks.messagesTransform({}, { messages });
 
-			// No catastrophic warning should be injected
+			// No catastrophic warning should be injected (no new system message created)
 			expect(messages[0].parts[0].text).not.toContain('CATASTROPHIC VIOLATION');
 			expect(messages[0].parts[0].text).toBe('Phase 1 is complete and reviewed.');
 		});
@@ -251,6 +255,15 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			// Set up architect session
 			swarmState.activeAgent.set('no-plan-session', 'architect');
 			startAgentSession('no-plan-session', 'architect');
+
+			// Set up all required gates to prevent PARTIAL GATE VIOLATION from firing
+			const session = getAgentSession('no-plan-session');
+			if (session) {
+				const taskId = 'test-task';
+				session.currentTaskId = taskId;
+				session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+				session.reviewerCallCount.set(1, 1);
+			}
 
 			// Transform messages - should not throw
 			const messages = [{

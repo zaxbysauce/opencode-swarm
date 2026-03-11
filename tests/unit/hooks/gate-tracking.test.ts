@@ -133,8 +133,10 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			swarmState.activeAgent.set('full-gates', ORCHESTRATOR_NAME);
 
 			// Manually set gateLog with all required gates
+			// Set currentTaskId so getCurrentTaskId() returns the same key as gateLog
 			const session = getAgentSession('full-gates');
 			const taskId = 'full-gates:current';
+			session!.currentTaskId = taskId;
 			session!.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
 
 			// Set reviewerCallCount for phase 1 to 1 (has reviewer delegation)
@@ -490,9 +492,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			// Current task is different from last coder delegation
 			const messages = makeMessages('TASK: Current Task', 'architect', 'delegation-test');
 
-			await hook({}, messages);
-
-			expect(messages.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
+			await hook.messagesTransform({}, messages);
 			expect(messages.messages[0].parts[0].text).toContain('zero coder delegations');
 		});
 
@@ -513,18 +513,22 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const messages = makeMessages('TASK: Same Task', 'architect', 'delegation-match-test');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			// No warning because task matches coder delegation
-			expect(messages.messages[0].parts[0].text).toBe(originalText);
-			expect(messages.messages[0].parts[0].text).not.toContain('DELEGATION VIOLATION');
+			// (The [NEXT] deliberation preamble is inserted as a system message before the user message)
+			const userMsg1 = messages.messages.find(
+				(m: { info: { role: string } }) => m.info.role === 'user',
+			);
+			expect(userMsg1?.parts[0].text).toBe(originalText);
+			expect(userMsg1?.parts[0].text).not.toContain('DELEGATION VIOLATION');
 		});
 
 		it('coder delegated then architect writes .swarm/ -> no warning', async () => {
 			const config = makeDelegationConfig();
 			const hook = createDelegationGateHook(config);
 
-			// Session with no architect writes (e.g., only .swarm/plan.md updates)
+			// Session with no architect writes (e.g., only .swarm/state.json updates)
 			const session = getAgentSession('no-writes-test') || swarmState.agentSessions.get('no-writes-test') || (() => {
 				startAgentSession('no-writes-test', 'architect');
 				return getAgentSession('no-writes-test')!;
@@ -537,11 +541,14 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const messages = makeMessages('TASK: Plan Update Task', 'architect', 'no-writes-test');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			// No warning
-			expect(messages.messages[0].parts[0].text).toBe(originalText);
-			expect(messages.messages[0].parts[0].text).not.toContain('DELEGATION VIOLATION');
+			const userMsg2 = messages.messages.find(
+				(m: { info: { role: string } }) => m.info.role === 'user',
+			);
+			expect(userMsg2?.parts[0].text).toBe(originalText);
+			expect(userMsg2?.parts[0].text).not.toContain('DELEGATION VIOLATION');
 		});
 
 		it('architectWriteCount > 0 with coder delegation message -> no warning', async () => {
@@ -560,11 +567,15 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const messages = makeMessages('coder\nTASK: Implement Feature\nFILE: src/feature.ts', 'architect', 'coder-delegation-test');
 			const originalText = messages.messages[0].parts[0].text;
 
-			await hook({}, messages);
+			await hook.messagesTransform({}, messages);
 
 			// No DELEGATION VIOLATION warning (just clean coder delegation)
-			expect(messages.messages[0].parts[0].text).not.toContain('DELEGATION VIOLATION');
-			expect(messages.messages[0].parts[0].text).toBe(originalText);
+			// (The [NEXT] deliberation preamble is inserted as a system message before the user message)
+			const userMsg3 = messages.messages.find(
+				(m: { info: { role: string } }) => m.info.role === 'user',
+			);
+			expect(userMsg3?.parts[0].text).not.toContain('DELEGATION VIOLATION');
+			expect(userMsg3?.parts[0].text).toBe(originalText);
 		});
 	});
 });

@@ -62,7 +62,7 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		resetSwarmState();
 	});
 
-	it('architect writing to .swarm/plan.md does NOT trigger warning', async () => {
+	it('architect writing to .swarm/ files does NOT trigger warning', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -71,9 +71,9 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
-		// Architect writes to .swarm/plan.md
+		// Architect writes to .swarm/state.json (a non-blocked .swarm/ file)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/plan.md', content: '# Plan' } };
+		const toolOutput = { args: { filePath: '.swarm/state.json', content: '{}' } };
 
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
@@ -236,9 +236,11 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const messages = makeMessages(cleanText, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toBe(originalText);
+		// messages[0] is the [NEXT] deliberation preamble (system message) inserted by the hook
+		// messages[1] is the original user message — check it is unchanged
+		expect(messages.messages[1].parts[0].text).toBe(originalText);
 	});
 
 	it('TASK with AND connecting two actions -> warning', async () => {
@@ -248,10 +250,11 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('Detected signal');
+		// BATCH DETECTED is prepended to the user message (messages[1] after [NEXT] insertion)
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('Detected signal');
 	});
 
 	it('multiple FILE lines -> warning', async () => {
@@ -261,10 +264,10 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives');
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('Multiple FILE: directives');
 	});
 
 	it('"additionally" -> warning', async () => {
@@ -274,10 +277,10 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation additionally add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
 	});
 
 	it('"and also" -> warning', async () => {
@@ -287,10 +290,10 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
 	});
 
 	it('"also" alone (without and) -> no warning (needs "and also" pattern)', async () => {
@@ -302,10 +305,11 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const messages = makeMessages(text, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
 		// Should NOT contain batching language warning (pattern requires "and also")
-		expect(messages.messages[0].parts[0].text).toBe(originalText);
+		// messages[1] is the user message after [NEXT] system message insertion
+		expect(messages.messages[1].parts[0].text).toBe(originalText);
 	});
 
 	it('"while you\'re at it" -> warning', async () => {
@@ -315,10 +319,10 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation while you\'re at it add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
 	});
 
 	it('warning includes matched heuristic name (Detected signal: ...)', async () => {
@@ -328,11 +332,11 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const text = 'coder\nTASK: Add validation\nFILE: src/a.ts\nFILE: src/b.ts';
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
 		// Check that warning contains "Detected signal:" with the heuristic
-		expect(messages.messages[0].parts[0].text).toContain('Detected signal:');
-		expect(messages.messages[0].parts[0].text).toContain('Multiple FILE: directives');
+		expect(messages.messages[1].parts[0].text).toContain('Detected signal:');
+		expect(messages.messages[1].parts[0].text).toContain('Multiple FILE: directives');
 	});
 
 	it('long single-task delegation under maxChars -> no warning', async () => {
@@ -344,12 +348,12 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const messages = makeMessages(text, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		// Should NOT contain batch warning
-		expect(messages.messages[0].parts[0].text).not.toContain('BATCH DETECTED');
-		// Text should remain unchanged
-		expect(messages.messages[0].parts[0].text).toBe(originalText);
+		// Should NOT contain batch warning in the user message (messages[1])
+		expect(messages.messages[1].parts[0].text).not.toContain('BATCH DETECTED');
+		// User message text should remain unchanged
+		expect(messages.messages[1].parts[0].text).toBe(originalText);
 	});
 });
 
@@ -472,7 +476,7 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to .swarm/ (not a self-fix - this is legit plan update)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/plan.md', content: '# Updated Plan' } };
+		const toolOutput = { args: { filePath: '.swarm/state.json', content: '{}' } };
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify selfFixAttempted is NOT set (writing to .swarm/ is OK)
@@ -1619,7 +1623,7 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		expect(session.architectWriteCount).toBe(1);
 	});
 
-	it('filePath ".swarm/./plan.md" (with ./) -> no warning', async () => {
+	it('filePath ".swarm/./state.json" (with ./) -> no warning', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -1628,7 +1632,7 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/./plan.md', content: 'plan' } };
+		const toolOutput = { args: { filePath: '.swarm/./state.json', content: '{}' } };
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);
@@ -1682,9 +1686,10 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		const messages = makeMessages(text, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toBe(originalText);
+		// messages[0] is the [NEXT] deliberation preamble; messages[1] is the user message
+		expect(messages.messages[1].parts[0].text).toBe(originalText);
 	});
 
 	it('batch detection: 4001 chars -> triggers oversized warning', async () => {
@@ -1697,11 +1702,11 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		expect(text.length).toBe(4001);
 		const messages = makeMessages(text, 'architect');
 
-		await hook({}, messages as any);
+		await hook.messagesTransform({}, messages as any);
 
-		// Check for BATCH DETECTED with oversized warning
-		expect(messages.messages[0].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('chars');
+		// BATCH DETECTED is prepended to user message at messages[1]
+		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain('chars');
 	});
 
 	// Gate failure edge cases

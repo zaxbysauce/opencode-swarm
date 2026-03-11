@@ -65,9 +65,12 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = [path.resolve(TEST_DIR, 'src')];
-			session.scopeViolationDetected = true;
-			// Simulate what the scope check would produce for in-scope files
-			session.lastScopeViolation = 'Scope violation for task task-123: 0 undeclared files modified: src/foo.ts';
+			// In-scope: scopeViolationDetected is NOT set (toolAfter would not flag in-scope files)
+			// Set up all required gates so PARTIAL GATE VIOLATION does not fire either
+			const taskId = 'task-123';
+			session.currentTaskId = taskId;
+			session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+			session.reviewerCallCount.set(1, 1);
 
 			const messages = [
 				{
@@ -76,17 +79,11 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 				},
 			];
 
-			// Clear gate state that could interfere
-			session.gateLog = new Map();
-			session.partialGateWarningsIssuedForTask = new Set();
-			session.reviewerCallCount = new Map();
-
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			// With 0 undeclared files, no scope violation warning should be in the message
-			// (We manually set it above for testing, but the logic checks files)
+			// No violation warning injected — original message is unchanged
 			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
-			expect(updatedText).toContain('Implementation complete.');
+			expect(updatedText).toBe('Implementation complete.');
 		});
 
 		it('Parent traversal: src/../secret.ts should be OUT of scope', async () => {
