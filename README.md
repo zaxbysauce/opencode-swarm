@@ -354,6 +354,8 @@ If `.swarm/plan.md` already exists, the architect may enter `RESUME` and then go
 
 Use `/swarm status` if you are unsure what Swarm is doing.
 
+Release automation uses release-please and requires conventional commit prefixes such as `fix:` or `feat:` on changes merged to `main`.
+
 </details>
 
 <details>
