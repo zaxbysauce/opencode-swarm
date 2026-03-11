@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.10](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.9...v6.22.10) (2026-03-11)
+
+
+### Bug Fixes
+
+* move violation warnings to system messages and suppress repeated self-coding alerts ([e1d55b9](https://github.com/zaxbysauce/opencode-swarm/commit/e1d55b9303c7fd6e12b8f1d8ad46ef26aa51a50b))
+* suppress repeated violation warnings and route all guardrail guidance to system messages ([9500d72](https://github.com/zaxbysauce/opencode-swarm/commit/9500d729353984d8732cb6f029216ec4fe626f38))
+
 ## [6.22.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.8...v6.22.9) (2026-03-11)
 
 
