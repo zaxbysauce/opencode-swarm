@@ -1,233 +1,244 @@
-import { describe, it, expect, beforeEach, afterEach, jest, mock } from 'bun:test';
-import type { Plan } from '../../../src/config/plan-schema';
+/**
+ * Unit tests for phase-monitor.ts — createPhaseMonitorHook.
+ *
+ * Uses ONLY real filesystem temp directories — no mock.module calls — to avoid
+ * module mock leakage into other tests (plan/manager exports) when running in
+ * the same bun worker process.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, jest } from 'bun:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../../../src/background/trigger';
-
-// Mock the loadPlan function before importing the module under test
-mock.module('../../../src/plan/manager', () => ({
-	loadPlan: jest.fn<(_directory: string) => Promise<Plan | null>>(),
-}));
-
-import { loadPlan } from '../../../src/plan/manager';
+import type { CuratorConfig, CuratorInitResult } from '../../../src/hooks/curator-types';
 import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
-
-const mockLoadPlan = loadPlan as jest.MockedFunction<typeof loadPlan>;
 
 // Mock the preflightManager
 const mockCheckAndTrigger = jest.fn<(
-	phase: number,
-	completedTasks: number,
-	totalTasks: number
+phase: number,
+completedTasks: number,
+totalTasks: number
 ) => Promise<boolean>>();
 
 const mockPreflightManager = {
-	checkAndTrigger: mockCheckAndTrigger,
+checkAndTrigger: mockCheckAndTrigger,
 } as unknown as PreflightTriggerManager;
 
-// Test helper to create a mock Plan with multiple phases
-function createMockPlan(currentPhaseId: number, phases: Array<{
-	id: number;
-	tasks: Array<{ status: string }>;
-}>): Plan {
-	return {
-		schema_version: '1.0.0' as const,
-		title: 'Test Plan',
-		swarm: 'test-swarm',
-		current_phase: currentPhaseId,
-		phases: phases.map((p) => ({
-			id: p.id,
-			name: `Phase ${p.id}`,
-			status: 'in_progress' as const,
-			tasks: p.tasks,
-		})),
-	};
+// Stub curatorRunner to prevent real curator from running
+const stubCuratorRunner = jest.fn<(_directory: string, _config: CuratorConfig) => Promise<CuratorInitResult>>();
+
+/** Write a valid plan.json to tempDir/.swarm/ */
+function writePlanFile(
+tempDir: string,
+currentPhase: number,
+phases: Array<{
+id: number;
+tasks: Array<{ id: string; status: string }>;
+}>,
+): void {
+const swarmDir = path.join(tempDir, '.swarm');
+fs.mkdirSync(swarmDir, { recursive: true });
+const plan = {
+schema_version: '1.0.0',
+title: 'Test Plan',
+swarm: 'test-swarm',
+current_phase: currentPhase,
+phases: phases.map((p) => ({
+id: p.id,
+name: `Phase ${p.id}`,
+status: 'in_progress',
+tasks: p.tasks.map((t) => ({
+id: t.id,
+phase: p.id,
+status: t.status,
+size: 'small',
+description: `Task ${t.id}`,
+depends: [],
+files_touched: [],
+})),
+})),
+};
+fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan), 'utf-8');
+// Write plan.md so loadPlan doesn't attempt regeneration
+fs.writeFileSync(path.join(swarmDir, 'plan.md'), `# Plan\n## Phase ${currentPhase}\n`, 'utf-8');
 }
 
 describe('createPhaseMonitorHook', () => {
-	const testDirectory = '/test/project';
+let tempDir: string;
 
-	beforeEach(() => {
-		mockLoadPlan.mockClear();
-		mockCheckAndTrigger.mockClear();
-	});
+beforeEach(() => {
+tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-monitor-test-'));
+mockCheckAndTrigger.mockClear();
+stubCuratorRunner.mockClear();
+});
 
-	it('On first call: reads plan, stores phase, does NOT call checkAndTrigger', async () => {
-		const plan = createMockPlan(1, [
-			{ id: 1, tasks: [{ status: 'pending' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(plan);
+afterEach(() => {
+fs.rmSync(tempDir, { recursive: true, force: true });
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('On first call: reads plan, stores phase, does NOT call checkAndTrigger', async () => {
+writePlanFile(tempDir, 1, [
+{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] },
+]);
 
-		await hook({}, {});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Should have read the plan
-		expect(mockLoadPlan).toHaveBeenCalledWith(testDirectory);
-		// Should NOT call checkAndTrigger on first call
-		expect(mockCheckAndTrigger).not.toHaveBeenCalled();
-	});
+await hook({}, {});
 
-	it('On subsequent calls with same phase: does NOT call checkAndTrigger', async () => {
-		const plan = createMockPlan(1, [
-			{ id: 1, tasks: [{ status: 'pending' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(plan);
+// Should NOT call checkAndTrigger on first call (phase initialization)
+expect(mockCheckAndTrigger).not.toHaveBeenCalled();
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('On subsequent calls with same phase: does NOT call checkAndTrigger', async () => {
+writePlanFile(tempDir, 1, [
+{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] },
+]);
 
-		// First call
-		await hook({}, {});
-		mockLoadPlan.mockClear();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Second call with same phase
-		await hook({}, {});
+// First call - initialize
+await hook({}, {});
 
-		// Should have read the plan again
-		expect(mockLoadPlan).toHaveBeenCalled();
-		// Should NOT call checkAndTrigger (same phase)
-		expect(mockCheckAndTrigger).not.toHaveBeenCalled();
-	});
+// Second call with same phase (plan.json unchanged)
+await hook({}, {});
 
-	it('On subsequent calls with different phase: calls checkAndTrigger with correct args', async () => {
-		// First call: phase 1 with 2 tasks (1 completed)
-		const planPhase1 = createMockPlan(1, [
-			{ id: 1, tasks: [{ status: 'completed' }, { status: 'pending' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(planPhase1);
+// Should NOT call checkAndTrigger (same phase)
+expect(mockCheckAndTrigger).not.toHaveBeenCalled();
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('On subsequent calls with different phase: calls checkAndTrigger with correct args', async () => {
+// First call: phase 1 with 2 tasks (1 completed)
+writePlanFile(tempDir, 1, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }, { id: '1.2', status: 'pending' }] },
+]);
 
-		// First call - initialize phase
-		await hook({}, {});
-		mockLoadPlan.mockClear();
-		mockCheckAndTrigger.mockClear();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Second call: phase 2 - plan must contain BOTH phases to look up previous phase
-		const planPhase2 = createMockPlan(2, [
-			{ id: 1, tasks: [{ status: 'completed' }, { status: 'pending' }] },
-			{ id: 2, tasks: [{ status: 'pending' }, { status: 'pending' }, { status: 'pending' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(planPhase2);
+// First call - initialize phase 1
+await hook({}, {});
+mockCheckAndTrigger.mockClear();
 
-		// Third call - phase changed
-		await hook({}, {});
+// Second call: phase 2 - plan must contain BOTH phases to look up previous phase
+writePlanFile(tempDir, 2, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }, { id: '1.2', status: 'pending' }] },
+{ id: 2, tasks: [{ id: '2.1', status: 'pending' }, { id: '2.2', status: 'pending' }, { id: '2.3', status: 'pending' }] },
+]);
 
-		// Should call checkAndTrigger with correct arguments
-		expect(mockCheckAndTrigger).toHaveBeenCalledWith(
-			2, // new phase
-			1, // completed tasks from previous phase (phase 1)
-			2, // total tasks from previous phase (phase 1)
-		);
-	});
+// Third call - phase changed
+await hook({}, {});
 
-	it('When loadPlan returns null: does nothing, no error', async () => {
-		mockLoadPlan.mockResolvedValue(null);
+// Should call checkAndTrigger with correct arguments
+expect(mockCheckAndTrigger).toHaveBeenCalledWith(
+2, // new phase
+1, // completed tasks from previous phase (phase 1)
+2, // total tasks from previous phase (phase 1)
+);
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('When loadPlan returns null: does nothing, no error', async () => {
+// No plan.json written → loadPlan returns null
 
-		// Should not throw - safeHook wraps and swallows errors
-		const result = await hook({}, {});
-		expect(result).toBeUndefined();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Should not call checkAndTrigger
-		expect(mockCheckAndTrigger).not.toHaveBeenCalled();
-	});
+// Should not throw - safeHook wraps and swallows errors
+const result = await hook({}, {});
+expect(result).toBeUndefined();
 
-	it('Errors inside the hook are swallowed (safeHook wrapping)', async () => {
-		// First call works
-		const plan = createMockPlan(1, [
-			{ id: 1, tasks: [{ status: 'completed' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(plan);
+// Should not call checkAndTrigger
+expect(mockCheckAndTrigger).not.toHaveBeenCalled();
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('Errors inside the hook are swallowed (safeHook wrapping)', async () => {
+// First call: valid plan
+writePlanFile(tempDir, 1, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }] },
+]);
 
-		// First call - initialize
-		await hook({}, {});
-		mockLoadPlan.mockClear();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Make loadPlan throw on second call
-		mockLoadPlan.mockRejectedValue(new Error('Test error'));
+// First call - initialize
+await hook({}, {});
+mockCheckAndTrigger.mockClear();
 
-		// Should not throw - error is swallowed by safeHook
-		const result = await hook({}, {});
-		expect(result).toBeUndefined();
+// Corrupt the plan.json so loadPlan fails on second call
+fs.writeFileSync(
+path.join(tempDir, '.swarm', 'plan.json'),
+'{ invalid json !!!',
+'utf-8',
+);
 
-		// checkAndTrigger should not have been called due to error
-		expect(mockCheckAndTrigger).not.toHaveBeenCalled();
-	});
+// Should not throw - error is swallowed by safeHook
+const result = await hook({}, {});
+expect(result).toBeUndefined();
 
-	it('correctly counts completed and total tasks for the previous phase', async () => {
-		// Phase 1: 5 tasks, 3 completed
-		const planPhase1 = createMockPlan(1, [
-			{
-				id: 1,
-				tasks: [
-					{ status: 'completed' },
-					{ status: 'completed' },
-					{ status: 'completed' },
-					{ status: 'pending' },
-					{ status: 'in_progress' },
-				],
-			},
-		]);
-		mockLoadPlan.mockResolvedValue(planPhase1);
+// checkAndTrigger should not have been called due to error
+expect(mockCheckAndTrigger).not.toHaveBeenCalled();
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('correctly counts completed and total tasks for the previous phase', async () => {
+// Phase 1: 5 tasks, 3 completed
+writePlanFile(tempDir, 1, [
+{
+id: 1,
+tasks: [
+{ id: '1.1', status: 'completed' },
+{ id: '1.2', status: 'completed' },
+{ id: '1.3', status: 'completed' },
+{ id: '1.4', status: 'pending' },
+{ id: '1.5', status: 'in_progress' },
+],
+},
+]);
 
-		// First call
-		await hook({}, {});
-		mockLoadPlan.mockClear();
-		mockCheckAndTrigger.mockClear();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Change to phase 2 - include both phases
-		const planPhase2 = createMockPlan(2, [
-			{
-				id: 1,
-				tasks: [
-					{ status: 'completed' },
-					{ status: 'completed' },
-					{ status: 'completed' },
-					{ status: 'pending' },
-					{ status: 'in_progress' },
-				],
-			},
-			{ id: 2, tasks: [{ status: 'pending' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(planPhase2);
+// First call
+await hook({}, {});
+mockCheckAndTrigger.mockClear();
 
-		await hook({}, {});
+// Change to phase 2 - include both phases
+writePlanFile(tempDir, 2, [
+{
+id: 1,
+tasks: [
+{ id: '1.1', status: 'completed' },
+{ id: '1.2', status: 'completed' },
+{ id: '1.3', status: 'completed' },
+{ id: '1.4', status: 'pending' },
+{ id: '1.5', status: 'in_progress' },
+],
+},
+{ id: 2, tasks: [{ id: '2.1', status: 'pending' }] },
+]);
 
-		// Should count 3 completed out of 5
-		expect(mockCheckAndTrigger).toHaveBeenCalledWith(2, 3, 5);
-	});
+await hook({}, {});
 
-	it('handles missing phase in plan.phases gracefully', async () => {
-		// Plan with phase 1
-		const planPhase1 = createMockPlan(1, [
-			{ id: 1, tasks: [{ status: 'completed' }] },
-		]);
-		mockLoadPlan.mockResolvedValue(planPhase1);
+// Should count 3 completed out of 5
+expect(mockCheckAndTrigger).toHaveBeenCalledWith(2, 3, 5);
+});
 
-		const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager);
+it('handles missing phase in plan.phases gracefully', async () => {
+// First call: phase 1
+writePlanFile(tempDir, 1, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }] },
+]);
 
-		// First call
-		await hook({}, {});
-		mockLoadPlan.mockClear();
-		mockCheckAndTrigger.mockClear();
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, stubCuratorRunner);
 
-		// Change to phase 3, but with an empty phases array
-		const planPhase3: Plan = {
-			schema_version: '1.0.0' as const,
-			title: 'Test Plan',
-			swarm: 'test-swarm',
-			current_phase: 3,
-			phases: [], // No phases - will cause find() to return undefined
-		};
-		mockLoadPlan.mockResolvedValue(planPhase3);
+// First call
+await hook({}, {});
+mockCheckAndTrigger.mockClear();
 
-		await hook({}, {});
+// Change to phase 3, but phases only contain 2 and 3 (phase 1 is missing)
+writePlanFile(tempDir, 3, [
+{ id: 2, tasks: [{ id: '2.1', status: 'completed' }] },
+{ id: 3, tasks: [{ id: '3.1', status: 'pending' }] },
+]);
 
-		// Should call checkAndTrigger with 0, 0 for missing phase data
-		expect(mockCheckAndTrigger).toHaveBeenCalledWith(3, 0, 0);
-	});
+await hook({}, {});
+
+// Should call checkAndTrigger with 0, 0 for missing phase 1 data
+expect(mockCheckAndTrigger).toHaveBeenCalledWith(3, 0, 0);
+});
 });

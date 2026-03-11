@@ -3,323 +3,277 @@
  * Tests that the first-call guard correctly calls runCuratorInit when enabled,
  * and that errors from runCuratorInit do not block the hook.
  *
- * Uses dependency injection (curatorRunner parameter) instead of mock.module
- * for the curator module to avoid mock leakage when tests run in the same worker.
- * Uses real CuratorConfigSchema to avoid leaking into other test files.
+ * Uses ONLY real filesystem temp directories — no mock.module calls — to avoid
+ * any module mock leakage when tests run in the same worker process.
+ * Uses dependency injection (curatorRunner parameter) for the curator init function.
  */
 
-import { describe, it, expect, beforeEach, jest, mock } from 'bun:test';
-import type { Plan } from '../../../src/config/plan-schema';
+import { describe, it, expect, beforeEach, afterEach, jest } from 'bun:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../../../src/background/trigger';
 import type { CuratorConfig, CuratorInitResult } from '../../../src/hooks/curator-types';
-
-// Mock loadPlan — scope-safe as loadPlan is not used by phase-complete or curator
-mock.module('../../../src/plan/manager', () => ({
-	loadPlan: jest.fn<(_directory: string) => Promise<Plan | null>>(),
-}));
-
-// Mock loadPluginConfigWithMeta — controls config returned to the hook
-const mockLoadPluginConfigWithMeta = jest.fn<
-	(_directory: string) => { config: { curator?: unknown } }
->();
-
-mock.module('../../../src/config/index.js', () => ({
-	loadPluginConfigWithMeta: mockLoadPluginConfigWithMeta,
-}));
-
-import { loadPlan } from '../../../src/plan/manager';
 import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
-
-const mockLoadPlan = loadPlan as jest.MockedFunction<typeof loadPlan>;
 
 // Injected curator runner mock — does NOT use mock.module to avoid leakage
 const mockRunCuratorInit = jest.fn<(_directory: string, _config: CuratorConfig) => Promise<CuratorInitResult>>();
 
 // Mock the preflightManager
 const mockCheckAndTrigger = jest.fn<
-	(_phase: number, _completedTasks: number, _totalTasks: number) => Promise<boolean>
+(_phase: number, _completedTasks: number, _totalTasks: number) => Promise<boolean>
 >();
 
 const mockPreflightManager = {
-	checkAndTrigger: mockCheckAndTrigger,
+checkAndTrigger: mockCheckAndTrigger,
 } as unknown as PreflightTriggerManager;
 
-/** Default curator config for enabled tests — matches real schema defaults */
-const CURATOR_ENABLED_CONFIG: CuratorConfig = {
-	enabled: true,
-	init_enabled: true,
-	phase_enabled: true,
-	max_summary_tokens: 2000,
-	min_knowledge_confidence: 0.7,
-	compliance_report: true,
-	suppress_warnings: true,
-	drift_inject_max_chars: 500,
-};
+/** Write a real opencode-swarm.json config file so loadPluginConfigWithMeta reads it */
+function writeConfigFile(tempDir: string, config: Record<string, unknown>): void {
+const configDir = path.join(tempDir, '.opencode');
+fs.mkdirSync(configDir, { recursive: true });
+fs.writeFileSync(
+path.join(configDir, 'opencode-swarm.json'),
+JSON.stringify(config),
+'utf-8',
+);
+}
 
-// Test helper to create a mock Plan
-function createMockPlan(currentPhaseId: number, phases: Array<{
-	id: number;
-	tasks: Array<{ status: string }>;
-}>): Plan {
-	return {
-		schema_version: '1.0.0' as const,
-		title: 'Test Plan',
-		swarm: 'test-swarm',
-		current_phase: currentPhaseId,
-		phases: phases.map((p) => ({
-			id: p.id,
-			name: `Phase ${p.id}`,
-			status: 'in_progress' as const,
-			tasks: p.tasks as unknown as Plan['phases'][number]['tasks'],
-		})),
-	};
+/** Write a real plan.json (with valid schema) so loadPlan reads it */
+function writePlanFile(
+tempDir: string,
+currentPhase: number,
+phases: Array<{
+id: number;
+tasks: Array<{ id: string; status: string }>;
+}>,
+): void {
+const swarmDir = path.join(tempDir, '.swarm');
+fs.mkdirSync(swarmDir, { recursive: true });
+const plan = {
+schema_version: '1.0.0',
+title: 'Test Plan',
+swarm: 'test-swarm',
+current_phase: currentPhase,
+phases: phases.map((p) => ({
+id: p.id,
+name: `Phase ${p.id}`,
+status: 'in_progress',
+tasks: p.tasks.map((t) => ({
+id: t.id,
+phase: p.id,
+status: t.status,
+size: 'small',
+description: `Task ${t.id}`,
+depends: [],
+files_touched: [],
+})),
+})),
+};
+fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan), 'utf-8');
+// Write plan.md so loadPlan doesn't attempt regeneration
+fs.writeFileSync(path.join(swarmDir, 'plan.md'), `# Plan\n## Phase ${currentPhase}\n`, 'utf-8');
 }
 
 describe('createPhaseMonitorHook - Curator Integration', () => {
-	const testDirectory = '/test/project';
+let tempDir: string;
 
-	beforeEach(() => {
-		mockLoadPlan.mockClear();
-		mockCheckAndTrigger.mockClear();
-		mockRunCuratorInit.mockClear();
-		mockLoadPluginConfigWithMeta.mockClear();
+beforeEach(() => {
+tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-monitor-curator-test-'));
+mockCheckAndTrigger.mockClear();
+mockRunCuratorInit.mockClear();
+});
 
-		// Default: no curator config (disabled by real schema defaults)
-		mockLoadPluginConfigWithMeta.mockReturnValue({ config: {} });
-	});
+afterEach(() => {
+fs.rmSync(tempDir, { recursive: true, force: true });
+});
 
-	describe('Verification Tests', () => {
-		it('1. Curator init skipped by default (enabled: false)', async () => {
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+describe('Verification Tests', () => {
+it('1. Curator init skipped by default (enabled: false)', async () => {
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
-			await hook({}, {});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
+await hook({}, {});
 
-			// runCuratorInit should NOT be called because enabled defaults to false
-			expect(mockRunCuratorInit).not.toHaveBeenCalled();
-		});
+// runCuratorInit should NOT be called because enabled defaults to false
+expect(mockRunCuratorInit).not.toHaveBeenCalled();
+});
 
-		it('2. Curator init called on first invocation when enabled', async () => {
-			// Pass enabled config through loadPluginConfigWithMeta
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+it('2. Curator init called on first invocation when enabled', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			mockRunCuratorInit.mockResolvedValue({
-				briefing: 'Test briefing',
-				contradictions: [],
-				knowledge_entries_reviewed: 0,
-				prior_phases_covered: 0,
-			});
+mockRunCuratorInit.mockResolvedValue({
+briefing: 'Test briefing',
+contradictions: [],
+knowledge_entries_reviewed: 0,
+prior_phases_covered: 0,
+});
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
+await hook({}, {});
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
-			await hook({}, {});
+// runCuratorInit SHOULD be called because enabled && init_enabled
+expect(mockRunCuratorInit).toHaveBeenCalledWith(tempDir, expect.objectContaining({
+enabled: true,
+init_enabled: true,
+}));
+});
 
-			// runCuratorInit SHOULD be called because enabled && init_enabled
-			expect(mockRunCuratorInit).toHaveBeenCalledWith(testDirectory, expect.objectContaining({
-				enabled: true,
-				init_enabled: true,
-			}));
-		});
+it('3. Curator init error does not block hook', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-		it('3. Curator init error does not block hook', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+// Make runCuratorInit throw
+mockRunCuratorInit.mockRejectedValue(new Error('Curator init failed!'));
 
-			// Make runCuratorInit throw
-			mockRunCuratorInit.mockRejectedValue(new Error('Curator init failed!'));
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+// Should NOT throw - error should be caught internally
+const result = await hook({}, {});
+expect(result).toBeUndefined();
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+// runCuratorInit was called and threw
+expect(mockRunCuratorInit).toHaveBeenCalled();
+});
 
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
+it('4. Hook still detects phase transitions after curator init', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
 
-			// runCuratorInit was called and threw
-			expect(mockRunCuratorInit).toHaveBeenCalled();
-		});
+mockRunCuratorInit.mockResolvedValue({
+briefing: 'Test briefing',
+contradictions: [],
+knowledge_entries_reviewed: 0,
+prior_phases_covered: 0,
+});
 
-		it('4. Hook still detects phase transitions after curator init', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+// First call: phase 1
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			mockRunCuratorInit.mockResolvedValue({
-				briefing: 'Test briefing',
-				contradictions: [],
-				knowledge_entries_reviewed: 0,
-				prior_phases_covered: 0,
-			});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			// First call: phase 1
-			const planPhase1 = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(planPhase1);
+// First invocation - curator init should be called
+await hook({}, {});
+expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+mockCheckAndTrigger.mockClear();
 
-			// First invocation - curator init should be called
-			await hook({}, {});
-			expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
+// Second call: phase changed to 2
+writePlanFile(tempDir, 2, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }] },
+{ id: 2, tasks: [{ id: '2.1', status: 'pending' }] },
+]);
 
-			mockLoadPlan.mockClear();
-			mockCheckAndTrigger.mockClear();
+// Second invocation - should detect phase transition
+await hook({}, {});
 
-			// Second call: phase changed to 2
-			const planPhase2 = createMockPlan(2, [
-				{ id: 1, tasks: [{ status: 'completed' }] },
-				{ id: 2, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(planPhase2);
+// checkAndTrigger should be called for phase transition
+expect(mockCheckAndTrigger).toHaveBeenCalledWith(2, 1, 1);
+});
 
-			// Third invocation - should detect phase transition
-			await hook({}, {});
+it('5. Curator init only called once (on first invocation)', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
 
-			// checkAndTrigger should be called for phase transition
-			expect(mockCheckAndTrigger).toHaveBeenCalledWith(2, 1, 1);
-		});
+mockRunCuratorInit.mockResolvedValue({
+briefing: 'Test briefing',
+contradictions: [],
+knowledge_entries_reviewed: 0,
+prior_phases_covered: 0,
+});
 
-		it('5. Curator init only called once (on first invocation)', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			mockRunCuratorInit.mockResolvedValue({
-				briefing: 'Test briefing',
-				contradictions: [],
-				knowledge_entries_reviewed: 0,
-				prior_phases_covered: 0,
-			});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+// First invocation
+await hook({}, {});
+expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+// Second invocation - different phase
+writePlanFile(tempDir, 2, [
+{ id: 1, tasks: [{ id: '1.1', status: 'completed' }] },
+{ id: 2, tasks: [{ id: '2.1', status: 'pending' }] },
+]);
 
-			// First invocation
-			await hook({}, {});
-			expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
+// Third invocation
+await hook({}, {});
 
-			mockLoadPlan.mockClear();
+// runCuratorInit should NOT be called again - only on first invocation
+expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
+});
+});
 
-			// Second invocation - different phase
-			const planPhase2 = createMockPlan(2, [
-				{ id: 1, tasks: [{ status: 'completed' }] },
-				{ id: 2, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(planPhase2);
+describe('Adversarial Tests', () => {
+it('6. runCuratorInit throws synchronously - hook does not throw', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			// Third invocation
-			await hook({}, {});
+// Make runCuratorInit throw synchronously
+mockRunCuratorInit.mockImplementation(() => {
+throw new Error('Synchronous curator init failure');
+});
 
-			// runCuratorInit should NOT be called again - only on first invocation
-			expect(mockRunCuratorInit).toHaveBeenCalledTimes(1);
-		});
-	});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-	describe('Adversarial Tests', () => {
-		it('6. runCuratorInit throws synchronously - hook does not throw', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+// Should NOT throw - error should be caught internally
+const result = await hook({}, {});
+expect(result).toBeUndefined();
+});
 
-			// Make runCuratorInit throw synchronously
-			mockRunCuratorInit.mockImplementation(() => {
-				throw new Error('Synchronous curator init failure');
-			});
+it('7. runCuratorInit rejects with a non-Error - hook handles gracefully', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+// Make runCuratorInit reject with a string (non-Error)
+mockRunCuratorInit.mockRejectedValue('String rejection not an Error');
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
-		});
+// Should NOT throw - error should be caught internally
+const result = await hook({}, {});
+expect(result).toBeUndefined();
+});
 
-		it('7. runCuratorInit rejects with a non-Error - hook handles gracefully', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+it('8. runCuratorInit rejects with a number - hook handles gracefully', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			// Make runCuratorInit reject with a string (non-Error)
-			mockRunCuratorInit.mockRejectedValue('String rejection not an Error');
+// Make runCuratorInit reject with a number (non-Error)
+mockRunCuratorInit.mockRejectedValue(42);
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+// Should NOT throw - error should be caught internally
+const result = await hook({}, {});
+expect(result).toBeUndefined();
+});
 
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
-		});
+it('9. runCuratorInit rejects with null - hook handles gracefully', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-		it('8. runCuratorInit rejects with a number - hook handles gracefully', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+// Make runCuratorInit reject with null
+mockRunCuratorInit.mockRejectedValue(null);
 
-			// Make runCuratorInit reject with a number (non-Error)
-			mockRunCuratorInit.mockRejectedValue(42);
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
+// Should NOT throw - error should be caught internally
+const result = await hook({}, {});
+expect(result).toBeUndefined();
+});
 
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
+it('10. Missing config directory - hook handles gracefully (curator disabled)', async () => {
+// No config file written, tempDir has no .opencode → defaults to disabled
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
-		});
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-		it('9. runCuratorInit rejects with null - hook handles gracefully', async () => {
-			mockLoadPluginConfigWithMeta.mockReturnValue({ config: { curator: { enabled: true } } });
+// Should NOT throw - curator disabled by default
+const result = await hook({}, {});
+expect(result).toBeUndefined();
 
-			// Make runCuratorInit reject with null
-			mockRunCuratorInit.mockRejectedValue(null);
-
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
-
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
-
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
-		});
-
-		it('10. loadPluginConfigWithMeta throws - hook handles gracefully', async () => {
-			// Make loadPluginConfigWithMeta throw (simulates config load failure)
-			mockLoadPluginConfigWithMeta.mockImplementation(() => {
-				throw new Error('Config load error');
-			});
-
-			const plan = createMockPlan(1, [
-				{ id: 1, tasks: [{ status: 'pending' }] },
-			]);
-			mockLoadPlan.mockResolvedValue(plan);
-
-			const hook = createPhaseMonitorHook(testDirectory, mockPreflightManager, mockRunCuratorInit);
-
-			// Should NOT throw - error should be caught internally
-			const result = await hook({}, {});
-			expect(result).toBeUndefined();
-
-			// runCuratorInit should NOT be called due to config error
-			expect(mockRunCuratorInit).not.toHaveBeenCalled();
-		});
-	});
+// runCuratorInit should NOT be called due to curator being disabled
+expect(mockRunCuratorInit).not.toHaveBeenCalled();
+});
+});
 });
