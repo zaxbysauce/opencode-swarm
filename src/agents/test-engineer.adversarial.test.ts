@@ -228,3 +228,121 @@ describe('SECURITY CONTROL VERIFICATION', () => {
 		expect(agent.config.temperature).toBe(0.2);
 	});
 });
+
+describe('T1: Assertion Quality Rules', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should ban toBeTruthy as a vague assertion', () => {
+		expect(agent.config.prompt).toContain('toBeTruthy');
+		expect(agent.config.prompt).toContain('BANNED');
+	});
+
+	it('should ban toBeDefined as a vague assertion', () => {
+		expect(agent.config.prompt).toContain('toBeDefined');
+	});
+
+	it('should require exact value assertions', () => {
+		expect(agent.config.prompt).toContain('EXACT VALUE');
+	});
+
+	it('should require state change assertions', () => {
+		expect(agent.config.prompt).toContain('STATE CHANGE');
+	});
+
+	it('should require error with message assertions', () => {
+		expect(agent.config.prompt).toContain('ERROR WITH MESSAGE');
+	});
+
+	it('should require call verification assertions', () => {
+		expect(agent.config.prompt).toContain('CALL VERIFICATION');
+	});
+
+	it('should mandate happy path, error path, and boundary test structure', () => {
+		const prompt = agent.config.prompt ?? '';
+		expect(prompt).toContain('HAPPY PATH');
+		expect(prompt).toContain('ERROR PATH');
+		expect(prompt).toContain('BOUNDARY');
+	});
+});
+
+describe('T2: Property-Based Testing Guidance', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should include property-based testing section', () => {
+		expect(agent.config.prompt).toContain('PROPERTY-BASED TESTING');
+	});
+
+	it('should mention idempotency as a property to test', () => {
+		expect(agent.config.prompt).toContain('IDEMPOTENCY');
+	});
+
+	it('should mention round-trip as a property to test', () => {
+		expect(agent.config.prompt).toContain('ROUND-TRIP');
+	});
+});
+
+describe('T3: Forced Self-Review Step', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should include a mandatory self-review section', () => {
+		expect(agent.config.prompt).toContain('SELF-REVIEW');
+	});
+
+	it('should enforce an 80% coverage floor before reporting', () => {
+		expect(agent.config.prompt).toContain('80%');
+		expect(agent.config.prompt).toContain('COVERAGE FLOOR');
+	});
+
+	it('should require INCOMPLETE verdict when coverage is below floor', () => {
+		expect(agent.config.prompt).toContain('INCOMPLETE');
+	});
+});
+
+describe('T4: Execution Verification', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should include execution verification section', () => {
+		expect(agent.config.prompt).toContain('EXECUTION VERIFICATION');
+	});
+
+	it('should explicitly forbid weakening assertions to pass tests', () => {
+		const prompt = agent.config.prompt ?? '';
+		// The prompt must warn against weakening assertions
+		expect(prompt).toContain('NEVER');
+		expect(prompt).toContain('Weaken');
+	});
+
+	it('should require BUGS FOUND field in verdict output', () => {
+		expect(agent.config.prompt).toContain('BUGS FOUND');
+	});
+
+	it('should require COVERAGE field in verdict output', () => {
+		// Coverage field should be part of the output format
+		const prompt = agent.config.prompt ?? '';
+		expect(prompt).toContain('COVERAGE:');
+	});
+});
+
+describe('X4: Role-Relevance Tagging Removed', () => {
+	it('should not contain stale role-relevance tagging block', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		expect(agent.config.prompt).not.toContain('ROLE-RELEVANCE TAGGING');
+		expect(agent.config.prompt).not.toContain('v6.20 will use for context filtering');
+	});
+});

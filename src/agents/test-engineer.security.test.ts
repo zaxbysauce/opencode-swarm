@@ -212,3 +212,64 @@ describe('SECURITY BASELINE: Expected Secure Behaviors', () => {
 		expect(prompt).toContain('FAILURES:');
 	});
 });
+
+describe('X3: Structured Output Enforcement', () => {
+	it('BASELINE: Output format is marked as MANDATORY', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		const prompt = agent.config.prompt!;
+
+		// Output format must be enforced, not suggested
+		expect(prompt).toContain('MANDATORY');
+	});
+
+	it('BASELINE: Prompt forbids conversational preamble', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		const prompt = agent.config.prompt!;
+
+		// Must explicitly forbid conversational openers
+		expect(prompt).toContain('Do NOT prepend');
+	});
+});
+
+describe('T3+T4: Self-Review and Enhanced Verdict in Baseline', () => {
+	it('BASELINE: Self-review section present in default prompt', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		const prompt = agent.config.prompt!;
+
+		expect(prompt).toContain('SELF-REVIEW');
+		expect(prompt).toContain('mandatory before reporting');
+	});
+
+	it('BASELINE: Enhanced verdict format includes BUGS FOUND field', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		const prompt = agent.config.prompt!;
+
+		expect(prompt).toContain('BUGS FOUND');
+	});
+
+	it('BASELINE: Self-review preserved when using customAppendPrompt', () => {
+		const agent = createTestEngineerAgent('gpt-4', undefined, 'EXTRA RULES');
+		const prompt = agent.config.prompt!;
+
+		// Appended prompt must not displace baseline self-review
+		expect(prompt).toContain('SELF-REVIEW');
+	});
+});
+
+describe('X4: Role-Relevance Tagging Removed from Baseline', () => {
+	it('BASELINE: Stale tagging block absent from default prompt', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		const prompt = agent.config.prompt!;
+
+		expect(prompt).not.toContain('ROLE-RELEVANCE TAGGING');
+		expect(prompt).not.toContain('v6.19');
+		expect(prompt).not.toContain('v6.20 will use for context filtering');
+	});
+
+	it('BASELINE: Tagging block absent when using customAppendPrompt', () => {
+		const agent = createTestEngineerAgent('gpt-4', undefined, 'EXTRA RULES');
+		const prompt = agent.config.prompt!;
+
+		expect(prompt).not.toContain('ROLE-RELEVANCE TAGGING');
+	});
+});
