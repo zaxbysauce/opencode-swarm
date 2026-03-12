@@ -613,7 +613,6 @@ export function createDelegationGateHook(config: PluginConfig): {
 						session.currentTaskId ?? session.lastCoderDelegationTaskId;
 					if (evidenceTaskId) {
 						try {
-							const gateAgents = ['reviewer', 'test_engineer', 'docs', 'designer', 'critic'];
 							if (hasReviewer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(process.cwd(), evidenceTaskId, 'reviewer', input.sessionID);
@@ -621,14 +620,6 @@ export function createDelegationGateHook(config: PluginConfig): {
 							if (hasTestEngineer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(process.cwd(), evidenceTaskId, 'test_engineer', input.sessionID);
-							}
-							if (!hasReviewer && !hasTestEngineer && afterCoder.length > 0) {
-								const lastEntry = afterCoder[afterCoder.length - 1];
-								const lastTarget = stripKnownSwarmPrefix(lastEntry.to);
-								if (!gateAgents.includes(lastTarget)) {
-									const { recordAgentDispatch } = await import('../gate-evidence');
-									await recordAgentDispatch(process.cwd(), evidenceTaskId, lastTarget);
-								}
 							}
 						} catch {
 							/* non-fatal — evidence is additive, never blocks delegation */
