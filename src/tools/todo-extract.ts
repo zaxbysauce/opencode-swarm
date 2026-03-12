@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { escapeRegex } from '../utils';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -194,8 +195,8 @@ function parseTodoComments(
 	const entries: TodoEntry[] = [];
 	const lines = content.split('\n');
 
-	// Build regex pattern for all tags
-	const tagPattern = Array.from(tagsSet).join('|');
+	// Build regex pattern for all tags (escape metacharacters in user-provided tags)
+	const tagPattern = Array.from(tagsSet).map(escapeRegex).join('|');
 	const regex = new RegExp(`\\b(${tagPattern})\\b[:\\s]?`, 'i');
 
 	for (let i = 0; i < lines.length; i++) {

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
 import { getParserForFile } from '../lang/registry';
+import { escapeRegex } from '../utils';
 
 // ============ Types ============
 
@@ -520,9 +521,6 @@ export async function placeholderScan(
 
 	if (deny_patterns && deny_patterns.length > 0) {
 		// Parse custom patterns - they can be simple strings like "TODO" or regex-like
-		// Escape regex metacharacters to prevent ReDoS from user config
-		const escapeRegex = (s: string) =>
-			s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		commentPatterns = deny_patterns.map((p) => ({
 			pattern: new RegExp(`\\b${escapeRegex(p)}\\b`, 'i'),
 			rule_id: `placeholder/custom-${p.toLowerCase()}`,

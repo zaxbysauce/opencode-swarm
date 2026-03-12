@@ -15,6 +15,7 @@ import {
 	detectComponents,
 	type SbomComponent,
 } from '../sbom/detectors/index';
+import { simpleGlobToRegex } from '../utils';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -80,11 +81,7 @@ function findManifestFiles(rootDir: string): string[] {
 				} else if (entry.isFile()) {
 					// Check if filename matches any detector pattern
 					for (const pattern of patterns) {
-						const regex = pattern
-							.replace(/\./g, '\\.')
-							.replace(/\*/g, '.*')
-							.replace(/\?/g, '.');
-						if (new RegExp(regex, 'i').test(entry.name)) {
+						if (simpleGlobToRegex(pattern).test(entry.name)) {
 							manifestFiles.push(path.relative(rootDir, fullPath));
 							break;
 						}
@@ -132,11 +129,7 @@ function findManifestFilesInDirs(
 
 				if (entry.isFile()) {
 					for (const pattern of patterns) {
-						const regex = pattern
-							.replace(/\./g, '\\.')
-							.replace(/\*/g, '.*')
-							.replace(/\?/g, '.');
-						if (new RegExp(regex, 'i').test(entry.name)) {
+						if (simpleGlobToRegex(pattern).test(entry.name)) {
 							// Return relative path from working directory
 							found.push(path.relative(workingDir, fullPath));
 							break;
