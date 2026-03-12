@@ -5,25 +5,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -14182,6 +14200,15 @@ var init_logger = __esm(() => {
   DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
 });
 
+// src/utils/regex.ts
+function escapeRegex2(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function simpleGlobToRegex(pattern, flags = "i") {
+  const escaped = pattern.split("*").map((starSegment) => starSegment.split("?").map(escapeRegex2).join(".")).join(".*");
+  return new RegExp(`^${escaped}$`, flags);
+}
+
 // src/utils/index.ts
 var init_utils = __esm(() => {
   init_errors3();
@@ -15056,9 +15083,9 @@ GFS4: `);
     function readdir(path4, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path5, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path5, options2, cb2, startTime) {
         return fs$readdir(path5, fs$readdirCallback(path5, options2, cb2, startTime));
-      } : function go$readdir(path5, options2, cb2, startTime) {
+      } : function go$readdir2(path5, options2, cb2, startTime) {
         return fs$readdir(path5, options2, fs$readdirCallback(path5, options2, cb2, startTime));
       };
       return go$readdir(path4, options, cb);
@@ -15533,7 +15560,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload() {
+    unload = function unload2() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -15548,7 +15575,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.count -= 1;
     };
     module.exports.unload = unload;
-    emit = function emit(event, code, signal) {
+    emit = function emit2(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -15577,7 +15604,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       return signals;
     };
     loaded = false;
-    load = function load() {
+    load = function load2() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -15596,7 +15623,7 @@ var require_signal_exit = __commonJS((exports, module) => {
     };
     module.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit(code) {
+    processReallyExit = function processReallyExit2(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -15606,7 +15633,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit(ev, arg) {
+    processEmit = function processEmit2(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;
@@ -17060,6 +17087,16 @@ var GuardrailsConfigSchema = exports_external.object({
   max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
   warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
   idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
+  qa_gates: exports_external.object({
+    required_tools: exports_external.array(exports_external.string().min(1)).default([
+      "diff",
+      "syntax_check",
+      "placeholder_scan",
+      "lint",
+      "pre_check_batch"
+    ]),
+    require_reviewer_test_engineer: exports_external.boolean().default(true)
+  }).optional(),
   profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
 });
 var ToolFilterConfigSchema = exports_external.object({
@@ -18494,7 +18531,7 @@ __export(exports_util2, {
   floatSafeRemainder: () => floatSafeRemainder2,
   finalizeIssue: () => finalizeIssue2,
   extend: () => extend2,
-  escapeRegex: () => escapeRegex2,
+  escapeRegex: () => escapeRegex3,
   esc: () => esc2,
   defineLazy: () => defineLazy2,
   createTransparentProxy: () => createTransparentProxy2,
@@ -18741,7 +18778,7 @@ var getParsedType2 = (data) => {
 };
 var propertyKeyTypes2 = new Set(["string", "number", "symbol"]);
 var primitiveTypes2 = new Set(["string", "number", "bigint", "boolean", "symbol", "undefined"]);
-function escapeRegex2(str) {
+function escapeRegex3(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone2(inst, def, params) {
@@ -19894,7 +19931,7 @@ var $ZodCheckUpperCase2 = /* @__PURE__ */ $constructor2("$ZodCheckUpperCase", (i
 });
 var $ZodCheckIncludes2 = /* @__PURE__ */ $constructor2("$ZodCheckIncludes", (inst, def) => {
   $ZodCheck2.init(inst, def);
-  const escapedRegex = escapeRegex2(def.includes);
+  const escapedRegex = escapeRegex3(def.includes);
   const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
   def.pattern = pattern;
   inst._zod.onattach.push((inst2) => {
@@ -19918,7 +19955,7 @@ var $ZodCheckIncludes2 = /* @__PURE__ */ $constructor2("$ZodCheckIncludes", (ins
 });
 var $ZodCheckStartsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckStartsWith", (inst, def) => {
   $ZodCheck2.init(inst, def);
-  const pattern = new RegExp(`^${escapeRegex2(def.prefix)}.*`);
+  const pattern = new RegExp(`^${escapeRegex3(def.prefix)}.*`);
   def.pattern ?? (def.pattern = pattern);
   inst._zod.onattach.push((inst2) => {
     const bag = inst2._zod.bag;
@@ -19941,7 +19978,7 @@ var $ZodCheckStartsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckStartsWith", 
 });
 var $ZodCheckEndsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckEndsWith", (inst, def) => {
   $ZodCheck2.init(inst, def);
-  const pattern = new RegExp(`.*${escapeRegex2(def.suffix)}$`);
+  const pattern = new RegExp(`.*${escapeRegex3(def.suffix)}$`);
   def.pattern ?? (def.pattern = pattern);
   inst._zod.onattach.push((inst2) => {
     const bag = inst2._zod.bag;
@@ -21350,7 +21387,7 @@ var $ZodEnum2 = /* @__PURE__ */ $constructor2("$ZodEnum", (inst, def) => {
   const values = getEnumValues2(def.entries);
   const valuesSet = new Set(values);
   inst._zod.values = valuesSet;
-  inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex2(o) : o.toString()).join("|")})$`);
+  inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex3(o) : o.toString()).join("|")})$`);
   inst._zod.parse = (payload, _ctx) => {
     const input = payload.value;
     if (valuesSet.has(input)) {
@@ -21371,7 +21408,7 @@ var $ZodLiteral2 = /* @__PURE__ */ $constructor2("$ZodLiteral", (inst, def) => {
     throw new Error("Cannot create literal schema with no valid values");
   }
   inst._zod.values = new Set(def.values);
-  inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex2(o) : o ? escapeRegex2(o.toString()) : String(o)).join("|")})$`);
+  inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex3(o) : o ? escapeRegex3(o.toString()) : String(o)).join("|")})$`);
   inst._zod.parse = (payload, _ctx) => {
     const input = payload.value;
     if (inst._zod.values.has(input)) {
@@ -21719,7 +21756,7 @@ var $ZodTemplateLiteral2 = /* @__PURE__ */ $constructor2("$ZodTemplateLiteral", 
       const end = source.endsWith("$") ? source.length - 1 : source.length;
       regexParts.push(source.slice(start, end));
     } else if (part === null || primitiveTypes2.has(typeof part)) {
-      regexParts.push(escapeRegex2(`${part}`));
+      regexParts.push(escapeRegex3(`${part}`));
     } else {
       throw new Error(`Invalid template literal part: ${part}`);
     }
@@ -30879,6 +30916,7 @@ function serializeAgentSession(s) {
     lastGateFailure: s.lastGateFailure ?? null,
     partialGateWarningsIssuedForTask,
     selfFixAttempted: s.selfFixAttempted ?? false,
+    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
     catastrophicPhaseWarnings,
     lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
     lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
@@ -32538,10 +32576,8 @@ function findBuildFiles(workingDir, patterns) {
       const dir = workingDir;
       try {
         const files = fs2.readdirSync(dir);
-        const matches = files.filter((f) => {
-          const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
-          return regex.test(f);
-        });
+        const regex = simpleGlobToRegex(pattern);
+        const matches = files.filter((f) => regex.test(f));
         if (matches.length > 0) {
           return path10.join(dir, matches[0]);
         }
@@ -32594,7 +32630,7 @@ function findAllBuildFiles(workingDir) {
   for (const ecosystem of ECOSYSTEMS) {
     for (const pattern of ecosystem.buildFiles) {
       if (pattern.includes("*")) {
-        const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
+        const regex = simpleGlobToRegex(pattern);
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
         const filePath = path10.join(workingDir, pattern);

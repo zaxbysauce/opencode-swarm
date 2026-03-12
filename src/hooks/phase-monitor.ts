@@ -23,13 +23,15 @@ export type CuratorInitRunner = (
  * Creates a hook that monitors plan phase transitions and triggers preflight.
  *
  * @param directory - Project directory (where .swarm/ lives)
- * @param preflightManager - The PreflightTriggerManager to call on phase change
+ * @param preflightManager - Optional PreflightTriggerManager to call on phase change.
+ *   When undefined, preflight checks are skipped but curator initialization still runs
+ *   at session start (useful when knowledge.enabled but phase_preflight is disabled).
  * @param curatorRunner - Optional curator init runner (defaults to runCuratorInit; injectable for tests)
  * @returns A safeHook-wrapped system.transform handler
  */
 export function createPhaseMonitorHook(
 	directory: string,
-	preflightManager: PreflightTriggerManager,
+	preflightManager?: PreflightTriggerManager,
 	curatorRunner: CuratorInitRunner = defaultRunCuratorInit,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
@@ -67,11 +69,13 @@ export function createPhaseMonitorHook(
 				phase?.tasks.filter((t) => t.status === 'completed').length ?? 0;
 			const totalTasks = phase?.tasks.length ?? 0;
 
-			await preflightManager.checkAndTrigger(
-				currentPhase,
-				completedTasks,
-				totalTasks,
-			);
+			if (preflightManager) {
+				await preflightManager.checkAndTrigger(
+					currentPhase,
+					completedTasks,
+					totalTasks,
+				);
+			}
 		}
 	};
 

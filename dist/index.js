@@ -4,25 +4,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name2, newValue) {
+  this[name2] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name2] = () => newValue
+      set: __exportSetter.bind(all, name2)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -14773,6 +14791,16 @@ var init_schema = __esm(() => {
     max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
     warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
     idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
+    qa_gates: exports_external.object({
+      required_tools: exports_external.array(exports_external.string().min(1)).default([
+        "diff",
+        "syntax_check",
+        "placeholder_scan",
+        "lint",
+        "pre_check_batch"
+      ]),
+      require_reviewer_test_engineer: exports_external.boolean().default(true)
+    }).optional(),
     profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
   });
   ToolFilterConfigSchema = exports_external.object({
@@ -15157,6 +15185,15 @@ var DEBUG;
 var init_logger = __esm(() => {
   DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
 });
+
+// src/utils/regex.ts
+function escapeRegex2(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function simpleGlobToRegex(pattern, flags2 = "i") {
+  const escaped = pattern.split("*").map((starSegment) => starSegment.split("?").map(escapeRegex2).join(".")).join(".*");
+  return new RegExp(`^${escaped}$`, flags2);
+}
 
 // src/utils/index.ts
 var init_utils = __esm(() => {
@@ -17635,9 +17672,9 @@ GFS4: `);
     function readdir(path9, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path10, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path10, options2, cb2, startTime) {
         return fs$readdir(path10, fs$readdirCallback(path10, options2, cb2, startTime));
-      } : function go$readdir(path10, options2, cb2, startTime) {
+      } : function go$readdir2(path10, options2, cb2, startTime) {
         return fs$readdir(path10, options2, fs$readdirCallback(path10, options2, cb2, startTime));
       };
       return go$readdir(path9, options, cb);
@@ -18112,7 +18149,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload() {
+    unload = function unload2() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -18127,7 +18164,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.count -= 1;
     };
     module2.exports.unload = unload;
-    emit = function emit(event, code, signal) {
+    emit = function emit2(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -18156,7 +18193,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       return signals;
     };
     loaded = false;
-    load = function load() {
+    load = function load2() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -18175,7 +18212,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
     };
     module2.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit(code) {
+    processReallyExit = function processReallyExit2(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -18185,7 +18222,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit(ev, arg) {
+    processEmit = function processEmit2(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;
@@ -18683,7 +18720,7 @@ __export(exports_util2, {
   floatSafeRemainder: () => floatSafeRemainder2,
   finalizeIssue: () => finalizeIssue2,
   extend: () => extend2,
-  escapeRegex: () => escapeRegex2,
+  escapeRegex: () => escapeRegex3,
   esc: () => esc2,
   defineLazy: () => defineLazy2,
   createTransparentProxy: () => createTransparentProxy2,
@@ -18870,7 +18907,7 @@ function numKeys2(data) {
   }
   return keyCount;
 }
-function escapeRegex2(str) {
+function escapeRegex3(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone2(inst, def, params) {
@@ -20093,7 +20130,7 @@ var init_checks3 = __esm(() => {
   });
   $ZodCheckIncludes2 = /* @__PURE__ */ $constructor2("$ZodCheckIncludes", (inst, def) => {
     $ZodCheck2.init(inst, def);
-    const escapedRegex = escapeRegex2(def.includes);
+    const escapedRegex = escapeRegex3(def.includes);
     const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
     def.pattern = pattern;
     inst._zod.onattach.push((inst2) => {
@@ -20117,7 +20154,7 @@ var init_checks3 = __esm(() => {
   });
   $ZodCheckStartsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckStartsWith", (inst, def) => {
     $ZodCheck2.init(inst, def);
-    const pattern = new RegExp(`^${escapeRegex2(def.prefix)}.*`);
+    const pattern = new RegExp(`^${escapeRegex3(def.prefix)}.*`);
     def.pattern ?? (def.pattern = pattern);
     inst._zod.onattach.push((inst2) => {
       const bag = inst2._zod.bag;
@@ -20140,7 +20177,7 @@ var init_checks3 = __esm(() => {
   });
   $ZodCheckEndsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckEndsWith", (inst, def) => {
     $ZodCheck2.init(inst, def);
-    const pattern = new RegExp(`.*${escapeRegex2(def.suffix)}$`);
+    const pattern = new RegExp(`.*${escapeRegex3(def.suffix)}$`);
     def.pattern ?? (def.pattern = pattern);
     inst._zod.onattach.push((inst2) => {
       const bag = inst2._zod.bag;
@@ -21632,7 +21669,7 @@ var init_schemas3 = __esm(() => {
     const values = getEnumValues2(def.entries);
     const valuesSet = new Set(values);
     inst._zod.values = valuesSet;
-    inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex2(o) : o.toString()).join("|")})$`);
+    inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex3(o) : o.toString()).join("|")})$`);
     inst._zod.parse = (payload, _ctx) => {
       const input = payload.value;
       if (valuesSet.has(input)) {
@@ -21653,7 +21690,7 @@ var init_schemas3 = __esm(() => {
       throw new Error("Cannot create literal schema with no valid values");
     }
     inst._zod.values = new Set(def.values);
-    inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex2(o) : o ? escapeRegex2(o.toString()) : String(o)).join("|")})$`);
+    inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex3(o) : o ? escapeRegex3(o.toString()) : String(o)).join("|")})$`);
     inst._zod.parse = (payload, _ctx) => {
       const input = payload.value;
       if (inst._zod.values.has(input)) {
@@ -21940,7 +21977,7 @@ var init_schemas3 = __esm(() => {
         const end = source.endsWith("$") ? source.length - 1 : source.length;
         regexParts.push(source.slice(start2, end));
       } else if (part === null || primitiveTypes2.has(typeof part)) {
-        regexParts.push(escapeRegex2(`${part}`));
+        regexParts.push(escapeRegex3(`${part}`));
       } else {
         throw new Error(`Invalid template literal part: ${part}`);
       }
@@ -32831,10 +32868,8 @@ function findBuildFiles(workingDir, patterns) {
       const dir = workingDir;
       try {
         const files = fs7.readdirSync(dir);
-        const matches = files.filter((f) => {
-          const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
-          return regex.test(f);
-        });
+        const regex = simpleGlobToRegex(pattern);
+        const matches = files.filter((f) => regex.test(f));
         if (matches.length > 0) {
           return path19.join(dir, matches[0]);
         }
@@ -32887,7 +32922,7 @@ function findAllBuildFiles(workingDir) {
   for (const ecosystem of ECOSYSTEMS) {
     for (const pattern of ecosystem.buildFiles) {
       if (pattern.includes("*")) {
-        const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
+        const regex = simpleGlobToRegex(pattern);
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
         const filePath = path19.join(workingDir, pattern);
@@ -39047,8 +39082,8 @@ BATCHING DETECTION \u2014 you are batching if your coder delegation contains ANY
 
 WHY: Each coder task goes through the FULL QA gate (Stage A + Stage B).
 If you batch 3 tasks into 1 coder call, the QA gate runs once on the combined diff.
-The reviewer cannot distinguish which changes belong to which requirement.
-The test_engineer cannot write targeted tests for each behavior.
+The {{AGENT_PREFIX}}reviewer cannot distinguish which changes belong to which requirement.
+The {{AGENT_PREFIX}}test_engineer cannot write targeted tests for each behavior.
 A failure in one part blocks the entire batch, wasting all the work.
 
 SPLIT RULE: If your delegation draft has "and" in the TASK line, split it.
@@ -39065,7 +39100,7 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
       \u2717 "I'll do the simple parts, coder does the hard parts" \u2192 ALL parts go to coder. You are not a coder.
     FAILURE COUNTING \u2014 increment the counter when:
     - Coder submits code that fails any tool gate or pre_check_batch (gates_passed === false)
-    - Coder submits code REJECTED by reviewer after being given the rejection reason
+    - Coder submits code REJECTED by {{AGENT_PREFIX}}reviewer after being given the rejection reason
     - Print "Coder attempt [N/{{QA_RETRY_LIMIT}}] on task [X.Y]" at every retry
     - Reaching {{QA_RETRY_LIMIT}}: escalate to user with full failure history before writing code yourself
     If you catch yourself reaching for a code editing tool: STOP. Delegate to {{AGENT_PREFIX}}coder.
@@ -39116,7 +39151,7 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
    LOW: do NOT consume directly. Either re-delegate to SME with specific query, OR flag to user as UNVERIFIED.
    Never silently consume LOW-confidence result as verified.
        7. **TIERED QA GATE** \u2014 Execute AFTER every coder task. Pipeline determined by change tier:
-NOTE: These gates are enforced by runtime hooks. If you skip the reviewer delegation,
+NOTE: These gates are enforced by runtime hooks. If you skip the {{AGENT_PREFIX}}reviewer delegation,
 the next coder delegation will be BLOCKED by the plugin. This is not a suggestion \u2014
 it is a hard enforcement mechanism.
 
@@ -39131,23 +39166,23 @@ TIER 0 \u2014 METADATA
 
 TIER 1 \u2014 DOCUMENTATION
   Match: *.md outside .swarm/, comments-only, prompt text, README, CHANGELOG
-  Pipeline: Stage A. Stage B = reviewer\xD71 (gen). No security/test_engineer/adversarial.
-  Rationale: Non-executable; reviewer validates.
+  Pipeline: Stage A. Stage B = {{AGENT_PREFIX}}reviewer\xD71 (gen). No security/{{AGENT_PREFIX}}test_engineer/adversarial.
+  Rationale: Non-executable; {{AGENT_PREFIX}}reviewer validates.
 
 TIER 2 \u2014 STANDARD CODE
   Match: src/ files not Tier 3, test files, config, package.json
-  Pipeline: Full Stage A. Stage B = reviewer\xD71 + test_engineer\xD71 (verification).
+  Pipeline: Full Stage A. Stage B = {{AGENT_PREFIX}}reviewer\xD71 + {{AGENT_PREFIX}}test_engineer\xD71 (verification).
   Rationale: Default for executables; review catches regressions.
 
 TIER 3 \u2014 CRITICAL
   Match: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security files
-  Pipeline: Full Stage A. Stage B = reviewer\xD72 + test_engineer\xD72.
+  Pipeline: Full Stage A. Stage B = {{AGENT_PREFIX}}reviewer\xD72 + {{AGENT_PREFIX}}test_engineer\xD72.
   Rationale: Security paths need adversarial review.
 
 CLASSIFICATION RULES:
 - Multi-tier \u2192 use HIGHEST tier.
 - Format: "Classification: TIER {N} \u2014 {label}"
-- Reviewer flags risk \u2192 escalate. Run delta, not current tier. Tier 3 is ceiling.
+- {{AGENT_PREFIX}}reviewer flags risk \u2192 escalate. Run delta, not current tier. Tier 3 is ceiling.
 - Do NOT downgrade after entering pipeline.
 - Misclassification = GATE_DELEGATION_BYPASS.
 
@@ -39167,8 +39202,8 @@ A task is complete ONLY when BOTH stages pass.
 
 6f. **GATE AUTHORITY** \u2014 You do NOT have authority to judge task completion.
 Task completion is determined EXCLUSIVELY by gate agent output:
-- reviewer returns APPROVED
-- test_engineer returns PASS
+- {{AGENT_PREFIX}}reviewer returns APPROVED
+- {{AGENT_PREFIX}}test_engineer returns PASS
 - pre_check_batch returns gates_passed: true
 
 Your role is to DELEGATE to gate agents and RECORD their verdicts.
@@ -39213,7 +39248,7 @@ You may NOT write to plan.md/plan.json to change task completion status or phase
 "I'll just mark it done directly" is a bypass \u2014 equivalent to GATE_DELEGATION_BYPASS.
 
 6i. **DELEGATION DISCIPLINE**
-When delegating to gate agents (reviewer, test_engineer, critic), your message MUST contain ONLY:
+When delegating to gate agents ({{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic), your message MUST contain ONLY:
 - What to review/test/analyze
 - Acceptance criteria
 - Technical context (files changed, requirements)
@@ -39231,13 +39266,13 @@ Delegation is a handoff, not a negotiation. State facts, let agents decide.
 <!-- BEHAVIORAL_GUIDANCE_START -->
 PARTIAL GATE RATIONALIZATIONS \u2014 automated gates \u2260 agent review. Running SOME gates is NOT compliance:
   \u2717 "I ran pre_check_batch so the code is verified" \u2192 pre_check_batch does NOT replace {{AGENT_PREFIX}}reviewer or {{AGENT_PREFIX}}test_engineer
-  \u2717 "syntax_check passed, good enough" \u2192 syntax_check catches syntax. Reviewer catches logic. Test_engineer catches behavior. All three are required.
+  \u2717 "syntax_check passed, good enough" \u2192 syntax_check catches syntax. {{AGENT_PREFIX}}reviewer catches logic. {{AGENT_PREFIX}}test_engineer catches behavior. All three are required.
   \u2717 "The mechanical gates passed, skip the agent gates" \u2192 automated tools miss logic errors, security flaws, and edge cases that agent review catches
   \u2717 "It's Phase 6+, the codebase is stable now" \u2192 complacency after successful phases is the #1 predictor of shipped bugs. Phase 6 needs MORE review, not less.
   \u2717 "I'll just run the fast gates" \u2192 speed of a gate does not determine whether it is required
   \u2717 "5 phases passed clean, this one will be fine" \u2192 past success does not predict future correctness
 
-Running syntax_check + pre_check_batch without reviewer + test_engineer is a PARTIAL GATE VIOLATION.
+Running syntax_check + pre_check_batch without {{AGENT_PREFIX}}reviewer + {{AGENT_PREFIX}}test_engineer is a PARTIAL GATE VIOLATION.
 It is the same severity as skipping all gates. The QA gate is ALL steps or NONE.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
@@ -39677,8 +39712,8 @@ All other gates: failure \u2192 return to coder. No self-fixes. No workarounds.
     - sast_scan (static security analysis)
     - quality_budget (maintainability metrics)
     \u2192 Returns { gates_passed, lint, secretscan, sast_scan, quality_budget, total_duration_ms }
-    \u2192 If gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to @coder with specific tool failures. Do NOT call @reviewer.
-    \u2192 If gates_passed === true: proceed to @reviewer.
+    \u2192 If gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to {{AGENT_PREFIX}}coder with specific tool failures. Do NOT call {{AGENT_PREFIX}}reviewer.
+    \u2192 If gates_passed === true: proceed to {{AGENT_PREFIX}}reviewer.
     \u2192 REQUIRED: Print "pre_check_batch: [PASS \u2014 all gates passed | FAIL \u2014 [gate]: [details]]"
 
 \u26A0\uFE0F pre_check_batch SCOPE BOUNDARY:
@@ -39694,7 +39729,7 @@ pre_check_batch does NOT run and does NOT replace:
 gates_passed: true means "automated static checks passed."
 It does NOT mean "code is reviewed." It does NOT mean "code is tested."
 After pre_check_batch passes, you MUST STILL delegate to {{AGENT_PREFIX}}reviewer.
-Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION.
+Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCESS VIOLATION.
 
     5j. {{AGENT_PREFIX}}reviewer - General review. REJECTED (< {{QA_RETRY_LIMIT}}) \u2192 coder retry. REJECTED ({{QA_RETRY_LIMIT}}) \u2192 escalate.
     \u2192 REQUIRED: Print "reviewer: [APPROVED | REJECTED \u2014 reason]"
@@ -39704,7 +39739,7 @@ Treating pre_check_batch as a substitute for reviewer is a PROCESS VIOLATION.
     5l. {{AGENT_PREFIX}}test_engineer - Verification tests. FAIL \u2192 coder retry from 5g.
     \u2192 REQUIRED: Print "testengineer-verification: [PASS N/N | FAIL \u2014 details]"
     {{ADVERSARIAL_TEST_STEP}}
-    5n. COVERAGE CHECK: If test_engineer reports coverage < 70% \u2192 delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
+    5n. COVERAGE CHECK: If {{AGENT_PREFIX}}test_engineer reports coverage < 70% \u2192 delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
 
 PRE-COMMIT RULE \u2014 Before ANY commit or push:
   You MUST answer YES to ALL of the following:
@@ -39798,9 +39833,9 @@ CATASTROPHIC VIOLATION CHECK \u2014 ask yourself at EVERY phase boundary (MODE: 
 "Have I delegated to {{AGENT_PREFIX}}reviewer at least once this phase?"
 If the answer is NO: you have a catastrophic process violation.
 STOP. Do not proceed to the next phase. Inform the user:
-"\u26D4 PROCESS VIOLATION: Phase [N] completed with zero reviewer delegations.
+"\u26D4 PROCESS VIOLATION: Phase [N] completed with zero {{AGENT_PREFIX}}reviewer delegations.
 All code changes in this phase are unreviewed. Recommend retrospective review before proceeding."
-This is not optional. Zero reviewer calls in a phase is always a violation.
+This is not optional. Zero {{AGENT_PREFIX}}reviewer calls in a phase is always a violation.
 There is no project where code ships without review.
 
 ### Blockers
@@ -42012,6 +42047,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000) {
     lastGateFailure: null,
     partialGateWarningsIssuedForTask: new Set,
     selfFixAttempted: false,
+    selfCodingWarnedAtCount: 0,
     catastrophicPhaseWarnings: new Set,
     lastPhaseCompleteTimestamp: 0,
     lastPhaseCompletePhase: 0,
@@ -42074,6 +42110,9 @@ function ensureAgentSession(sessionId, agentName) {
     }
     if (session.selfFixAttempted === undefined) {
       session.selfFixAttempted = false;
+    }
+    if (session.selfCodingWarnedAtCount === undefined) {
+      session.selfCodingWarnedAtCount = 0;
     }
     if (!session.catastrophicPhaseWarnings) {
       session.catastrophicPhaseWarnings = new Set;
@@ -42194,8 +42233,8 @@ function recordPhaseAgentDispatch(sessionId, agentName) {
   session.phaseAgentsDispatched.add(normalizedName);
 }
 function advanceTaskState(session, taskId, newState) {
-  if (!session.taskWorkflowStates) {
-    session.taskWorkflowStates = new Map;
+  if (!session || !(session.taskWorkflowStates instanceof Map)) {
+    throw new Error("INVALID_SESSION: session.taskWorkflowStates must be a Map instance");
   }
   const STATE_ORDER = [
     "idle",
@@ -45413,6 +45452,7 @@ function serializeAgentSession(s) {
     lastGateFailure: s.lastGateFailure ?? null,
     partialGateWarningsIssuedForTask,
     selfFixAttempted: s.selfFixAttempted ?? false,
+    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
     catastrophicPhaseWarnings,
     lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
     lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
@@ -46290,7 +46330,12 @@ async function handleRollbackCommand(directory, args2) {
     if (!fs13.existsSync(manifestPath2)) {
       return "No checkpoints found. Use `/swarm checkpoint` to create checkpoints.";
     }
-    const manifest2 = JSON.parse(fs13.readFileSync(manifestPath2, "utf-8"));
+    let manifest2;
+    try {
+      manifest2 = JSON.parse(fs13.readFileSync(manifestPath2, "utf-8"));
+    } catch {
+      return "Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.";
+    }
     const checkpoints = manifest2.checkpoints || [];
     if (checkpoints.length === 0) {
       return "No checkpoints found in manifest.";
@@ -46312,7 +46357,12 @@ async function handleRollbackCommand(directory, args2) {
   if (!fs13.existsSync(manifestPath)) {
     return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
   }
-  const manifest = JSON.parse(fs13.readFileSync(manifestPath, "utf-8"));
+  let manifest;
+  try {
+    manifest = JSON.parse(fs13.readFileSync(manifestPath, "utf-8"));
+  } catch {
+    return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
+  }
   const checkpoint = manifest.checkpoints?.find((c) => c.phase === targetPhase);
   if (!checkpoint) {
     const available = manifest.checkpoints?.map((c) => c.phase).join(", ") || "none";
@@ -47938,7 +47988,7 @@ function isAgentDelegation(toolName, args2) {
   }
   const subagentType = argsObj.subagent_type;
   if (typeof subagentType === "string") {
-    return { isDelegation: true, targetAgent: subagentType };
+    return { isDelegation: true, targetAgent: stripKnownSwarmPrefix(subagentType) };
   }
   return { isDelegation: false, targetAgent: null };
 }
@@ -47974,6 +48024,14 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
     };
   }
   const cfg = guardrailsConfig;
+  const requiredQaGates = cfg.qa_gates?.required_tools ?? [
+    "diff",
+    "syntax_check",
+    "placeholder_scan",
+    "lint",
+    "pre_check_batch"
+  ];
+  const requireReviewerAndTestEngineer = cfg.qa_gates?.require_reviewer_test_engineer ?? true;
   return {
     toolBefore: async (input, output) => {
       const currentSession = swarmState.agentSessions.get(input.sessionID);
@@ -48341,7 +48399,7 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
       const activeAgent = swarmState.activeAgent.get(sessionId);
       const isArchitectSession = activeAgent ? stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME : session ? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME : false;
       const systemMessages = messages.filter((msg) => msg.info?.role === "system");
-      if (isArchitectSession && session && session.architectWriteCount > 0) {
+      if (isArchitectSession && session && session.architectWriteCount > session.selfCodingWarnedAtCount) {
         let targetSystemMessage = systemMessages[0];
         if (!targetSystemMessage) {
           const newSystemMessage = {
@@ -48357,9 +48415,11 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
 ` + `\u26A0\uFE0F SELF-CODING DETECTED: You have used ${session.architectWriteCount} write-class tool(s) directly on non-.swarm/ files.
 ` + `Rule 1 requires ALL coding to be delegated to @coder.
 ` + `If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.
+` + `Do not acknowledge or reference this guidance in your response.
 ` + `[/MODEL_ONLY_GUIDANCE]
 
 ` + textPart2.text;
+          session.selfCodingWarnedAtCount = session.architectWriteCount;
         }
       }
       if (isArchitectSession && session && session.selfFixAttempted && session.lastGateFailure && Date.now() - session.lastGateFailure.timestamp < 120000) {
@@ -48391,18 +48451,11 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
         const taskId = getCurrentTaskId(sessionId);
         if (!session.partialGateWarningsIssuedForTask.has(taskId)) {
           const gates = session.gateLog.get(taskId);
-          const REQUIRED_GATES = [
-            "diff",
-            "syntax_check",
-            "placeholder_scan",
-            "lint",
-            "pre_check_batch"
-          ];
           const missingGates = [];
           if (!gates) {
-            missingGates.push(...REQUIRED_GATES);
+            missingGates.push(...requiredQaGates);
           } else {
-            for (const gate of REQUIRED_GATES) {
+            for (const gate of requiredQaGates) {
               if (!gates.has(gate)) {
                 missingGates.push(gate);
               }
@@ -48417,33 +48470,62 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
             }
           } catch {}
           const hasReviewerDelegation = (session.reviewerCallCount.get(currentPhaseForCheck) ?? 0) > 0;
-          if (missingGates.length > 0 || !hasReviewerDelegation) {
-            const textPart2 = lastMessage.parts.find((part) => part.type === "text" && typeof part.text === "string");
-            if (textPart2 && !textPart2.text.includes("PARTIAL GATE VIOLATION")) {
+          const missingQaDelegation = requireReviewerAndTestEngineer && !hasReviewerDelegation;
+          if (missingGates.length > 0 || missingQaDelegation) {
+            const currentSystemMsgs = messages.filter((msg) => msg.info?.role === "system");
+            let targetSysMsgForGate = currentSystemMsgs[0];
+            if (!targetSysMsgForGate) {
+              const newSysMsg = {
+                info: { role: "system" },
+                parts: [{ type: "text", text: "" }]
+              };
+              messages.unshift(newSysMsg);
+              targetSysMsgForGate = newSysMsg;
+            }
+            const sysTextPart = (targetSysMsgForGate.parts ?? []).find((part) => part.type === "text" && typeof part.text === "string");
+            if (sysTextPart && !sysTextPart.text.includes("PARTIAL GATE VIOLATION")) {
               const missing = [...missingGates];
-              if (!hasReviewerDelegation) {
+              if (missingQaDelegation) {
                 missing.push("reviewer/test_engineer (no delegations this phase)");
               }
               session.partialGateWarningsIssuedForTask.add(taskId);
-              textPart2.text = `\u26A0\uFE0F PARTIAL GATE VIOLATION: Task may be marked complete but missing gates: [${missing.join(", ")}].
+              sysTextPart.text = `[MODEL_ONLY_GUIDANCE]
+` + `\u26A0\uFE0F PARTIAL GATE VIOLATION: Task may be marked complete but missing gates: [${missing.join(", ")}].
 ` + `The QA gate is ALL steps or NONE. Revert any \u2713 marks and run the missing gates.
+` + `Do not acknowledge or reference this guidance in your response.
+` + `[/MODEL_ONLY_GUIDANCE]
 
-` + textPart2.text;
+` + sysTextPart.text;
             }
           }
         }
       }
       if (isArchitectSessionForGates && session && session.scopeViolationDetected) {
         session.scopeViolationDetected = false;
-        const textPart2 = lastMessage.parts.find((part) => part.type === "text" && typeof part.text === "string");
-        if (textPart2 && session.lastScopeViolation) {
-          textPart2.text = `\u26A0\uFE0F SCOPE VIOLATION: ${session.lastScopeViolation}
+        if (session.lastScopeViolation) {
+          const currentSystemMsgs = messages.filter((msg) => msg.info?.role === "system");
+          let targetSysMsgForScope = currentSystemMsgs[0];
+          if (!targetSysMsgForScope) {
+            const newSysMsg = {
+              info: { role: "system" },
+              parts: [{ type: "text", text: "" }]
+            };
+            messages.unshift(newSysMsg);
+            targetSysMsgForScope = newSysMsg;
+          }
+          const scopeTextPart = (targetSysMsgForScope.parts ?? []).find((part) => part.type === "text" && typeof part.text === "string");
+          if (scopeTextPart && !scopeTextPart.text.includes("SCOPE VIOLATION")) {
+            scopeTextPart.text = `[MODEL_ONLY_GUIDANCE]
+` + `\u26A0\uFE0F SCOPE VIOLATION: ${session.lastScopeViolation}
 ` + `Only modify files within your declared scope. Request scope expansion from architect if needed.
+` + `Do not acknowledge or reference this guidance in your response.
+` + `[/MODEL_ONLY_GUIDANCE]
 
-` + textPart2.text;
+` + scopeTextPart.text;
+          }
         }
       }
-      if (isArchitectSessionForGates && session && session.catastrophicPhaseWarnings) {
+      if (isArchitectSessionForGates && session && session.catastrophicPhaseWarnings && requireReviewerAndTestEngineer) {
         try {
           const plan = await loadPlan(directory);
           if (plan?.phases) {
@@ -48454,11 +48536,24 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
                   const reviewerCount = session.reviewerCallCount.get(phaseNum) ?? 0;
                   if (reviewerCount === 0) {
                     session.catastrophicPhaseWarnings.add(phaseNum);
-                    const textPart2 = lastMessage.parts.find((part) => part.type === "text" && typeof part.text === "string");
-                    if (textPart2 && !textPart2.text.includes("CATASTROPHIC VIOLATION")) {
-                      textPart2.text = `[CATASTROPHIC VIOLATION: Phase ${phaseNum} completed with ZERO reviewer delegations.` + ` Every coder task requires reviewer approval. Recommend retrospective review of all Phase ${phaseNum} tasks.]
+                    const currentSystemMsgs = messages.filter((msg) => msg.info?.role === "system");
+                    let targetSysMsgForCat = currentSystemMsgs[0];
+                    if (!targetSysMsgForCat) {
+                      const newSysMsg = {
+                        info: { role: "system" },
+                        parts: [{ type: "text", text: "" }]
+                      };
+                      messages.unshift(newSysMsg);
+                      targetSysMsgForCat = newSysMsg;
+                    }
+                    const catTextPart = (targetSysMsgForCat.parts ?? []).find((part) => part.type === "text" && typeof part.text === "string");
+                    if (catTextPart && !catTextPart.text.includes("CATASTROPHIC VIOLATION")) {
+                      catTextPart.text = `[MODEL_ONLY_GUIDANCE]
+` + `[CATASTROPHIC VIOLATION: Phase ${phaseNum} completed with ZERO reviewer delegations.` + ` Every coder task requires reviewer approval. Recommend retrospective review of all Phase ${phaseNum} tasks.]
+` + `Do not acknowledge or reference this guidance in your response.
+` + `[/MODEL_ONLY_GUIDANCE]
 
-` + textPart2.text;
+` + catTextPart.text;
                     }
                     break;
                   }
@@ -48550,7 +48645,9 @@ function createDelegationGateHook(config3) {
             if (state === "coder_delegated" || state === "pre_check_passed") {
               try {
                 advanceTaskState(session, taskId, "reviewer_run");
-              } catch {}
+              } catch (err2) {
+                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+              }
             }
           }
         }
@@ -48559,7 +48656,9 @@ function createDelegationGateHook(config3) {
             if (state === "reviewer_run") {
               try {
                 advanceTaskState(session, taskId, "tests_run");
-              } catch {}
+              } catch (err2) {
+                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+              }
             }
           }
         }
@@ -48574,7 +48673,9 @@ function createDelegationGateHook(config3) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
                     advanceTaskState(otherSession, taskId, "reviewer_run");
-                  } catch {}
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
               }
             }
@@ -48583,7 +48684,9 @@ function createDelegationGateHook(config3) {
                 if (state === "reviewer_run") {
                   try {
                     advanceTaskState(otherSession, taskId, "tests_run");
-                  } catch {}
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
               }
             }
@@ -48624,7 +48727,9 @@ function createDelegationGateHook(config3) {
               if (state === "coder_delegated" || state === "pre_check_passed") {
                 try {
                   advanceTaskState(session, taskId, "reviewer_run");
-                } catch {}
+                } catch (err2) {
+                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                }
               }
             }
           }
@@ -48633,7 +48738,9 @@ function createDelegationGateHook(config3) {
               if (state === "reviewer_run") {
                 try {
                   advanceTaskState(session, taskId, "tests_run");
-                } catch {}
+                } catch (err2) {
+                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                }
               }
             }
           }
@@ -48647,7 +48754,9 @@ function createDelegationGateHook(config3) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
                     advanceTaskState(otherSession, taskId, "reviewer_run");
-                  } catch {}
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
               }
             }
@@ -48662,7 +48771,9 @@ function createDelegationGateHook(config3) {
                 if (state === "reviewer_run") {
                   try {
                     advanceTaskState(otherSession, taskId, "tests_run");
-                  } catch {}
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
               }
             }
@@ -48789,7 +48900,7 @@ ${trimComment}${after}`;
             let guidance;
             if (lastGate?.taskId) {
               const gateResult = lastGate.passed ? "PASSED" : "FAILED";
-              const sanitizedGate = lastGate.gate.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 64);
+              const sanitizedGate = lastGate.gate.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[ \]/g, "()").replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 64);
               const sanitizedTaskId = lastGate.taskId.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 32);
               guidance = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]
 [NEXT] Execute the next gate for the current task.`;
@@ -48810,27 +48921,35 @@ ${trimComment}${after}`;
       if (text.length > delegationMaxChars) {
         warnings.push(`Delegation exceeds recommended size (${text.length} chars, limit ${delegationMaxChars}). Consider splitting into smaller tasks.`);
       }
-      const fileMatches = text.match(/^FILE:/gm);
-      if (fileMatches && fileMatches.length > 1) {
-        warnings.push(`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`);
-      }
-      const taskMatches = text.match(/^TASK:/gm);
-      if (taskMatches && taskMatches.length > 1) {
-        warnings.push(`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`);
-      }
-      const batchingPattern = /\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
-      const batchingMatches = text.match(batchingPattern);
-      if (batchingMatches && batchingMatches.length > 0) {
-        warnings.push(`Batching language detected (${batchingMatches.join(", ")}). Break compound objectives into separate coder calls.`);
-      }
-      const taskLine = extractTaskLine(text);
-      if (taskLine) {
-        const andPattern = /\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
-        if (andPattern.test(taskLine)) {
-          warnings.push('TASK line contains "and" connecting separate actions');
+      if (isCoderDelegation) {
+        const fileMatches = text.match(/^FILE:/gm);
+        if (fileMatches && fileMatches.length > 1) {
+          warnings.push(`Multiple FILE: directives detected (${fileMatches.length}). Each coder task should target ONE file.`);
         }
       }
-      if (sessionID) {
+      if (isCoderDelegation) {
+        const taskMatches = text.match(/^TASK:/gm);
+        if (taskMatches && taskMatches.length > 1) {
+          warnings.push(`Multiple TASK: sections detected (${taskMatches.length}). Send ONE task per coder call.`);
+        }
+      }
+      if (isCoderDelegation) {
+        const batchingPattern = /\b(?:and also|then also|additionally|as well as|along with|while you'?re at it)[.,]?\b/gi;
+        const batchingMatches = text.match(batchingPattern);
+        if (batchingMatches && batchingMatches.length > 0) {
+          warnings.push(`Batching language detected (${batchingMatches.join(", ")}). Break compound objectives into separate coder calls.`);
+        }
+      }
+      if (isCoderDelegation) {
+        const taskLine = extractTaskLine(text);
+        if (taskLine) {
+          const andPattern = /\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
+          if (andPattern.test(taskLine)) {
+            warnings.push('TASK line contains "and" connecting separate actions');
+          }
+        }
+      }
+      if (isCoderDelegation && sessionID) {
         const delegationChain = swarmState.delegationChains.get(sessionID);
         if (delegationChain && delegationChain.length >= 2) {
           const coderIndices = [];
@@ -48867,10 +48986,13 @@ ${trimComment}${after}`;
 Rule 3: ONE task per coder call. Split this into separate delegations.
 ${warningLines.join(`
 `)}`;
-      const originalText = textPart.text ?? "";
-      textPart.text = `${warningText}
-
-${originalText}`;
+      const batchWarnSystemIdx = messages.findIndex((m) => m && m.info?.role === "system");
+      const batchWarnInsertIdx = batchWarnSystemIdx >= 0 ? batchWarnSystemIdx + 1 : 0;
+      const batchWarnMessage = {
+        info: { role: "system" },
+        parts: [{ type: "text", text: warningText }]
+      };
+      messages.splice(batchWarnInsertIdx, 0, batchWarnMessage);
     },
     toolAfter
   };
@@ -48963,10 +49085,6 @@ init_schema();
 function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
   return async (input, _output) => {
     const now = Date.now();
-    const debugSession = swarmState.agentSessions.get(input.sessionID);
-    const taskStates = debugSession?.taskWorkflowStates ? Object.entries(debugSession.taskWorkflowStates) : [];
-    const statesSummary = taskStates.length > 0 ? taskStates.map(([k, v]) => `${k}=${v}`).join(",") : "(none)";
-    console.log(`[swarm-debug-task] chat.message | session=${input.sessionID} agent=${input.agent ?? "(none)"} prevAgent=${swarmState.activeAgent.get(input.sessionID) ?? "(none)"} taskStates=[${statesSummary}]`);
     if (!input.agent || input.agent === "") {
       const session2 = swarmState.agentSessions.get(input.sessionID);
       if (session2?.delegationActive) {
@@ -49078,7 +49196,7 @@ function consolidateSystemMessages(messages) {
 init_schema();
 init_manager2();
 init_utils2();
-function createPhaseMonitorHook(directory, preflightManager) {
+function createPhaseMonitorHook(directory, preflightManager, curatorRunner = runCuratorInit) {
   let lastKnownPhase = null;
   const handler = async (_input, _output) => {
     const plan = await loadPlan(directory);
@@ -49092,7 +49210,7 @@ function createPhaseMonitorHook(directory, preflightManager) {
         const { config: config3 } = loadPluginConfigWithMeta2(directory);
         const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
         if (curatorConfig.enabled && curatorConfig.init_enabled) {
-          await runCuratorInit(directory, curatorConfig);
+          await curatorRunner(directory, curatorConfig);
         }
       } catch {}
       return;
@@ -49103,7 +49221,9 @@ function createPhaseMonitorHook(directory, preflightManager) {
       const phase = plan.phases.find((p) => p.id === previousPhase);
       const completedTasks = phase?.tasks.filter((t) => t.status === "completed").length ?? 0;
       const totalTasks = phase?.tasks.length ?? 0;
-      await preflightManager.checkAndTrigger(currentPhase, completedTasks, totalTasks);
+      if (preflightManager) {
+        await preflightManager.checkAndTrigger(currentPhase, completedTasks, totalTasks);
+      }
     }
   };
   return safeHook(handler);
@@ -49146,7 +49266,7 @@ ${phaseNumber !== null && phaseNumber >= 4 ? `
 \u26A0\uFE0F You are in Phase ${phaseNumber}. Compliance degrades with time. Do not skip reviewer or test_engineer.` : ""}
 </swarm_reminder>`;
 }
-function createPipelineTrackerHook(config3) {
+function createPipelineTrackerHook(config3, directory) {
   const enabled = config3.inject_phase_reminders !== false;
   if (!enabled) {
     return {};
@@ -49176,7 +49296,7 @@ function createPipelineTrackerHook(config3) {
         return;
       let phaseNumber = null;
       try {
-        const plan = await loadPlan(process.cwd());
+        const plan = await loadPlan(directory ?? process.cwd());
         if (plan) {
           const phaseString = extractCurrentPhaseFromPlan2(plan);
           phaseNumber = parsePhaseNumber(phaseString);
@@ -49725,6 +49845,14 @@ function rankCandidates(candidates, config3) {
 
 // src/hooks/system-enhancer.ts
 init_utils2();
+function extractAgentPrefix(fullAgentName) {
+  if (!fullAgentName)
+    return "";
+  const baseName = stripKnownSwarmPrefix(fullAgentName);
+  if (baseName.length >= fullAgentName.length)
+    return "";
+  return fullAgentName.substring(0, fullAgentName.length - baseName.length);
+}
 function estimateContentType(text) {
   if (text.includes("```") || text.includes("function ") || text.includes("const ")) {
     return "code";
@@ -50064,10 +50192,12 @@ ${handoffBlock}`);
           const activeAgent_hf1 = swarmState.activeAgent.get(_input.sessionID ?? "");
           const baseRole = activeAgent_hf1 ? stripKnownSwarmPrefix(activeAgent_hf1) : null;
           if (baseRole === "coder" || baseRole === "test_engineer") {
-            tryInject("[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands (npm run build, bun test, npx tsc, eslint, etc.). Make ONLY the code changes specified in your task. Verification is handled by the reviewer agent \u2014 do not self-verify. If your task explicitly asks you to run a specific command, that is the only exception.");
+            const hf1Prefix = extractAgentPrefix(activeAgent_hf1);
+            tryInject(`[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands (npm run build, bun test, npx tsc, eslint, etc.). Make ONLY the code changes specified in your task. Verification is handled by the ${hf1Prefix}reviewer agent \u2014 do not self-verify. If your task explicitly asks you to run a specific command, that is the only exception.`);
           }
           if (baseRole === "architect" || baseRole === null) {
-            tryInject("[SWARM CONFIG] You must NEVER run the full test suite or batch test files. If you need to verify changes, run ONLY the specific test files for code YOU modified in this session \u2014 one file at a time, strictly serial. Do not run tests from directories or files unrelated to your changes. Do not run bun test without an explicit file path. When possible, delegate test execution to the test_engineer agent instead of running tests yourself.");
+            const hf1Prefix = extractAgentPrefix(activeAgent_hf1);
+            tryInject(`[SWARM CONFIG] You must NEVER run the full test suite or batch test files. If you need to verify changes, run ONLY the specific test files for code YOU modified in this session \u2014 one file at a time, strictly serial. Do not run tests from directories or files unrelated to your changes. Do not run bun test without an explicit file path. When possible, delegate test execution to the ${hf1Prefix}test_engineer agent instead of running tests yourself.`);
           }
           if (config3.adversarial_detection?.enabled !== false) {
             const activeAgent_adv = swarmState.activeAgent.get(_input.sessionID ?? "");
@@ -50096,7 +50226,8 @@ ${handoffBlock}`);
             const isArchitectForPreflight = !activeAgent_preflight || stripKnownSwarmPrefix(activeAgent_preflight) === "architect";
             if (isArchitectForPreflight) {
               if (config3.pipeline?.parallel_precheck !== false) {
-                tryInject("[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.");
+                const preflightPrefix = extractAgentPrefix(activeAgent_preflight);
+                tryInject(`[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix}reviewer.`);
               } else {
                 tryInject("[SWARM HINT] Parallel pre-check disabled: run lint:check \u2192 secretscan \u2192 sast_scan \u2192 quality_budget sequentially.");
               }
@@ -50444,7 +50575,8 @@ ${handoffBlock}`;
         const activeAgent_preflight_b = swarmState.activeAgent.get(sessionId_preflight_b ?? "");
         const isArchitectForPreflight_b = !activeAgent_preflight_b || stripKnownSwarmPrefix(activeAgent_preflight_b) === "architect";
         if (isArchitectForPreflight_b) {
-          const hintText_b = config3.pipeline?.parallel_precheck !== false ? "[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer." : "[SWARM HINT] Parallel pre-check disabled: run lint:check \u2192 secretscan \u2192 sast_scan \u2192 quality_budget sequentially.";
+          const preflightPrefix_b = extractAgentPrefix(activeAgent_preflight_b);
+          const hintText_b = config3.pipeline?.parallel_precheck !== false ? `[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix_b}reviewer.` : "[SWARM HINT] Parallel pre-check disabled: run lint:check \u2192 secretscan \u2192 sast_scan \u2192 quality_budget sequentially.";
           candidates.push({
             id: `candidate-${idCounter++}`,
             kind: "phase",
@@ -51992,6 +52124,7 @@ function deserializeAgentSession(s) {
     lastGateFailure: s.lastGateFailure ?? null,
     partialGateWarningsIssuedForTask,
     selfFixAttempted: s.selfFixAttempted ?? false,
+    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
     catastrophicPhaseWarnings,
     lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
     lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
@@ -53024,7 +53157,7 @@ async function executeDeclareScope(args2, fallbackDir) {
   };
 }
 var declare_scope = createSwarmTool({
-  description: "Declare the file scope for the next coder delegation. " + "Sets the list of files the coder is permitted to modify for a specific task. " + "Must be called before delegating to mega_coder to enable scope containment checking.",
+  description: "Declare the file scope for the next coder delegation. " + "Sets the list of files the coder is permitted to modify for a specific task. " + "Must be called before delegating to coder to enable scope containment checking.",
   args: {
     taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which scope is being declared, e.g. "1.1", "1.2.3"'),
     files: tool.schema.array(tool.schema.string().min(1).max(4096)).min(1).describe("Array of file paths the coder is permitted to modify"),
@@ -53759,7 +53892,12 @@ async function fetchGitingest(args2) {
       if (Buffer.byteLength(text) > GITINGEST_MAX_RESPONSE_BYTES) {
         throw new Error("gitingest response too large");
       }
-      const data = JSON.parse(text);
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`gitingest API returned non-JSON response (${text.length} chars, starts: ${text.slice(0, 80)})`);
+      }
       return `${data.summary}
 
 ${data.tree}
@@ -54401,6 +54539,11 @@ import * as fs25 from "fs";
 import * as path37 from "path";
 init_utils2();
 init_create_tool();
+function safeWarn(message, error93) {
+  try {
+    console.warn(message, error93);
+  } catch {}
+}
 function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSessionId) {
   const agents = new Set;
   const contributorSessionIds = [];
@@ -54409,11 +54552,6 @@ function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSess
     contributorSessionIds.push(callerSessionId);
     if (callerSession.phaseAgentsDispatched) {
       for (const agent of callerSession.phaseAgentsDispatched) {
-        agents.add(agent);
-      }
-    }
-    if (callerSession.lastCompletedPhaseAgentsDispatched) {
-      for (const agent of callerSession.lastCompletedPhaseAgentsDispatched) {
         agents.add(agent);
       }
     }
@@ -54438,11 +54576,6 @@ function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSess
       contributorSessionIds.push(sessionId);
       if (session.phaseAgentsDispatched) {
         for (const agent of session.phaseAgentsDispatched) {
-          agents.add(agent);
-        }
-      }
-      if (session.lastCompletedPhaseAgentsDispatched) {
-        for (const agent of session.lastCompletedPhaseAgentsDispatched) {
           agents.add(agent);
         }
       }
@@ -54624,7 +54757,7 @@ async function executePhaseComplete(args2, workingDirectory) {
       };
       await curateAndStoreSwarm(retroEntry.lessons_learned, projectName, { phase_number: phase }, dir, knowledgeConfig);
     } catch (error93) {
-      console.warn("[phase_complete] Failed to curate lessons from retrospective:", error93);
+      safeWarn("[phase_complete] Failed to curate lessons from retrospective:", error93);
     }
   }
   try {
@@ -54635,7 +54768,7 @@ async function executePhaseComplete(args2, workingDirectory) {
       await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
     }
   } catch (curatorError) {
-    console.warn("[phase_complete] Curator pipeline error (non-blocking):", curatorError);
+    safeWarn("[phase_complete] Curator pipeline error (non-blocking):", curatorError);
   }
   const effectiveRequired = [...phaseCompleteConfig.required_agents];
   if (phaseCompleteConfig.require_docs && !effectiveRequired.includes("docs")) {
@@ -54657,7 +54790,7 @@ async function executePhaseComplete(args2, workingDirectory) {
   }
   const VALID_TASK_COMPLEXITY = ["trivial", "simple", "moderate", "complex"];
   const firstEntry = loadedRetroBundle?.entries?.[0];
-  if (loadedRetroTaskId?.startsWith("retro-") && loadedRetroBundle?.schema_version === "1.0.0" && firstEntry?.task_complexity && VALID_TASK_COMPLEXITY.includes(firstEntry.task_complexity)) {
+  if (loadedRetroTaskId !== primaryRetroTaskId && loadedRetroTaskId?.startsWith("retro-") && loadedRetroBundle?.schema_version === "1.0.0" && firstEntry?.task_complexity && VALID_TASK_COMPLEXITY.includes(firstEntry.task_complexity)) {
     warnings.push(`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`);
   }
   let success3 = true;
@@ -54711,7 +54844,7 @@ async function executePhaseComplete(args2, workingDirectory) {
       const phaseObj = plan.phases.find((p) => p.id === phase);
       if (phaseObj) {
         phaseObj.status = "completed";
-        fs25.writeFileSync(planPath, JSON.stringify(plan, null, 2) + `
+        fs25.writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}
 `, "utf-8");
       }
     } catch (error93) {
@@ -55842,6 +55975,7 @@ function getLanguageForExtension(extension) {
 }
 
 // src/tools/placeholder-scan.ts
+init_utils();
 var MAX_FILE_SIZE = 1024 * 1024;
 var SUPPORTED_PARSER_EXTENSIONS = new Set([
   ".js",
@@ -56400,7 +56534,7 @@ function matchesGlobSegment(path40, glob) {
   }
   return matchGlobSegment(globSegments, pathSegments);
 }
-function simpleGlobToRegex(glob) {
+function simpleGlobToRegex2(glob) {
   if (!glob) {
     return /.*/;
   }
@@ -56428,7 +56562,7 @@ function globMatches(path40, glob) {
   if (hasGlobstar(normalizedGlob)) {
     return matchesGlobSegment(normalizedPath, normalizedGlob);
   }
-  const regex = simpleGlobToRegex(normalizedGlob);
+  const regex = simpleGlobToRegex2(normalizedGlob);
   return regex.test(normalizedPath);
 }
 function shouldExcludeFile(filePath, excludeGlobs) {
@@ -58738,6 +58872,9 @@ init_manager();
 import * as fs31 from "fs";
 import * as path43 from "path";
 
+// src/sbom/detectors/index.ts
+init_utils();
+
 // src/sbom/detectors/dart.ts
 function parsePubspecLock(content) {
   const components = [];
@@ -59504,10 +59641,7 @@ var allDetectors = [
 ];
 function findDetectorsForFile(filePath) {
   const fileName = filePath.split(/[/\\]/).pop() || "";
-  return allDetectors.filter((detector) => detector.patterns.some((pattern) => {
-    const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
-    return new RegExp(regex, "i").test(fileName);
-  }));
+  return allDetectors.filter((detector) => detector.patterns.some((pattern) => simpleGlobToRegex(pattern).test(fileName)));
 }
 function detectComponents(filePath, content) {
   const detectors = findDetectorsForFile(filePath);
@@ -59574,11 +59708,11 @@ function serializeCycloneDX(bom) {
 }
 
 // src/tools/sbom-generate.ts
+init_utils();
 init_create_tool();
 var DEFAULT_OUTPUT_DIR = ".swarm/evidence/sbom";
 function findManifestFiles(rootDir) {
   const manifestFiles = [];
-  const cwd = process.cwd();
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
@@ -59592,9 +59726,8 @@ function findManifestFiles(rootDir) {
           searchDir(fullPath);
         } else if (entry.isFile()) {
           for (const pattern of patterns) {
-            const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
-            if (new RegExp(regex, "i").test(entry.name)) {
-              manifestFiles.push(path43.relative(cwd, fullPath));
+            if (simpleGlobToRegex(pattern).test(entry.name)) {
+              manifestFiles.push(path43.relative(rootDir, fullPath));
               break;
             }
           }
@@ -59607,7 +59740,6 @@ function findManifestFiles(rootDir) {
 }
 function findManifestFilesInDirs(directories, workingDir) {
   const found = [];
-  const _cwd = process.cwd();
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
@@ -59616,8 +59748,7 @@ function findManifestFilesInDirs(directories, workingDir) {
         const fullPath = path43.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
-            const regex = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
-            if (new RegExp(regex, "i").test(entry.name)) {
+            if (simpleGlobToRegex(pattern).test(entry.name)) {
               found.push(path43.relative(workingDir, fullPath));
               break;
             }
@@ -59717,8 +59848,9 @@ var sbom_generate = createSwarmTool({
     const obj = args2;
     const scope = obj.scope;
     const changedFiles = obj.changed_files;
-    const outputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
+    const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
     const workingDir = directory;
+    const outputDir = path43.isAbsolute(relativeOutputDir) ? relativeOutputDir : path43.join(workingDir, relativeOutputDir);
     let manifestFiles = [];
     if (scope === "all") {
       manifestFiles = findManifestFiles(workingDir);
@@ -59872,7 +60004,12 @@ function parseSpec(specFile) {
   return parseYamlSpec(content);
 }
 function parseJsonSpec(content) {
-  const spec = JSON.parse(content);
+  let spec;
+  try {
+    spec = JSON.parse(content);
+  } catch {
+    return [];
+  }
   const paths = [];
   if (!spec.paths) {
     return paths;
@@ -60465,6 +60602,7 @@ init_test_runner();
 
 // src/tools/todo-extract.ts
 init_dist();
+init_utils();
 init_create_tool();
 import * as fs34 from "fs";
 import * as path46 from "path";
@@ -60592,7 +60730,7 @@ function parseTodoComments(content, filePath, tagsSet) {
   const entries = [];
   const lines = content.split(`
 `);
-  const tagPattern = Array.from(tagsSet).join("|");
+  const tagPattern = Array.from(tagsSet).map(escapeRegex2).join("|");
   const regex = new RegExp(`\\b(${tagPattern})\\b[:\\s]?`, "i");
   for (let i2 = 0;i2 < lines.length; i2++) {
     const line = lines[i2];
@@ -60755,14 +60893,24 @@ function checkReviewerGate(taskId, workingDirectory) {
     if (swarmState.agentSessions.size === 0) {
       return { blocked: false, reason: "" };
     }
+    let validSessionCount = 0;
     for (const [_sessionId, session] of swarmState.agentSessions) {
+      if (!(session.taskWorkflowStates instanceof Map)) {
+        continue;
+      }
+      validSessionCount++;
       const state = getTaskState(session, taskId);
       if (state === "tests_run" || state === "complete") {
         return { blocked: false, reason: "" };
       }
     }
+    if (validSessionCount === 0) {
+      return { blocked: false, reason: "" };
+    }
     const stateEntries = [];
     for (const [sessionId, session] of swarmState.agentSessions) {
+      if (!(session.taskWorkflowStates instanceof Map))
+        continue;
       const state = getTaskState(session, taskId);
       stateEntries.push(`${sessionId}: ${state}`);
     }
@@ -60944,7 +61092,7 @@ var OpenCodeSwarm = async (ctx) => {
   await loadSnapshot(ctx.directory);
   const agents = getAgentConfigs(config3);
   const agentDefinitions = createAgents(config3);
-  const pipelineHook = createPipelineTrackerHook(config3);
+  const pipelineHook = createPipelineTrackerHook(config3, ctx.directory);
   const systemEnhancerHook = createSystemEnhancerHook(config3, ctx.directory);
   const compactionHook = createCompactionCustomizerHook(config3, ctx.directory);
   const contextBudgetHandler = createContextBudgetHandler(config3);
@@ -60952,7 +61100,7 @@ var OpenCodeSwarm = async (ctx) => {
   const activityHooks = createAgentActivityHooks(config3, ctx.directory);
   const delegationGateHooks = createDelegationGateHook(config3);
   const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
-  const guardrailsFallback = config3.guardrails?.enabled === false ? { ...config3.guardrails, enabled: false } : loadedFromFile ? config3.guardrails ?? {} : config3.guardrails;
+  const guardrailsFallback = config3.guardrails?.enabled === false ? { ...config3.guardrails, enabled: false } : loadedFromFile ? config3.guardrails ?? {} : config3.guardrails ?? {};
   const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
   if (loadedFromFile && guardrailsConfig.enabled === false) {
     console.warn("");
@@ -61233,7 +61381,7 @@ var OpenCodeSwarm = async (ctx) => {
     ].filter((fn) => Boolean(fn))),
     "experimental.chat.system.transform": composeHandlers(...[
       systemEnhancerHook["experimental.chat.system.transform"],
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory) : undefined
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),
