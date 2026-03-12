@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState, ToolCallEntry, ToolAggregate, DelegationEntry, startAgentSession, endAgentSession, getAgentSession, ensureAgentSession } from '../../src/state';
+import { swarmState, resetSwarmState, ToolCallEntry, ToolAggregate, DelegationEntry, startAgentSession, endAgentSession, getAgentSession, ensureAgentSession, updateAgentEventTime, beginInvocation, getActiveWindow, pruneOldWindows, advanceTaskState, getTaskState, type InvocationWindow, type TaskWorkflowState } from '../../src/state';
 
 describe('state module', () => {
 	beforeEach(() => {
@@ -405,12 +405,11 @@ describe('state module', () => {
 
 			expect(session).toBeDefined();
 			expect(session?.agentName).toBe('coder');
-			expect(session?.toolCallCount).toBe(0);
-			expect(session?.consecutiveErrors).toBe(0);
-			expect(session?.recentToolCalls).toEqual([]);
-			expect(session?.warningIssued).toBe(false);
-			expect(session?.hardLimitHit).toBe(false);
-			expect(typeof session?.startTime).toBe('number');
+			expect(session?.activeInvocationId).toBe(0);
+			expect(session?.lastInvocationIdByAgent).toEqual({});
+			expect(session?.windows).toEqual({});
+			expect(session?.delegationActive).toBe(false);
+			expect(typeof session?.lastToolCallTime).toBe('number');
 		});
 
 		it('endAgentSession removes entry', () => {
@@ -485,8 +484,8 @@ describe('state module', () => {
 		it('creates new session when none exists', () => {
 			const session = ensureAgentSession('new-session', 'architect');
 			expect(session.agentName).toBe('architect');
-			expect(session.toolCallCount).toBe(0);
-			expect(session.hardLimitHit).toBe(false);
+			expect(session.activeInvocationId).toBe(0);
+			expect(session.windows).toEqual({});
 			expect(session.lastToolCallTime).toBeGreaterThan(0);
 		});
 
@@ -522,62 +521,324 @@ describe('state module', () => {
 		expect(session.agentName).toBe('coder'); // Should change
 	});
 
-	it('resets guardrail state when switching agents', () => {
+	it('updates session metadata when switching agents', () => {
 		// Start with architect
 		const session = ensureAgentSession('test-session', 'architect');
-		session.toolCallCount = 50;
-		session.consecutiveErrors = 3;
-		session.warningIssued = true;
-		session.hardLimitHit = true;
-		session.recentToolCalls = [{ tool: 'read', argsHash: 123, timestamp: Date.now() }];
-		const oldStartTime = session.startTime;
-		const oldLastSuccessTime = session.lastSuccessTime;
-
-		// Small delay to ensure time difference
-		const beforeSwitch = Date.now();
 
 		// Switch to coder
 		ensureAgentSession('test-session', 'coder');
 
-		// All guardrail state should be reset
+		// Session metadata should be updated
 		expect(session.agentName).toBe('coder');
-		expect(session.toolCallCount).toBe(0);
-		expect(session.consecutiveErrors).toBe(0);
-		expect(session.warningIssued).toBe(false);
-		expect(session.hardLimitHit).toBe(false);
-		expect(session.recentToolCalls).toEqual([]);
-		expect(session.warningReason).toBe('');
-		expect(session.startTime).toBeGreaterThanOrEqual(oldStartTime); // Reset to now or later
-		expect(session.lastSuccessTime).toBeGreaterThanOrEqual(beforeSwitch);
+		expect(session.delegationActive).toBe(false);
+		expect(session.windows).toEqual({});
+		expect(session.activeInvocationId).toBe(0);
+		expect(session.lastInvocationIdByAgent).toEqual({});
 	});
 
-	it('resets startTime when updating from unknown', () => {
+	it('initializes window tracking when updating from unknown', () => {
 		const session = ensureAgentSession('test-session'); // unknown
-		const originalStart = session.startTime;
-		session.startTime = originalStart - 60000; // Simulate 1 min elapsed
-
-		ensureAgentSession('test-session', 'architect');
-		expect(session.startTime).toBeGreaterThan(originalStart - 60000); // Reset
-	});
-
-	it('resets startTime and guardrail state when switching from unknown to real agent', () => {
-		const session = ensureAgentSession('test-session'); // unknown
-		session.toolCallCount = 10;
-		session.hardLimitHit = true;
-		const originalStart = session.startTime;
-		session.startTime = originalStart - 60000;
 
 		ensureAgentSession('test-session', 'architect');
 		expect(session.agentName).toBe('architect');
-		expect(session.toolCallCount).toBe(0);
-		expect(session.hardLimitHit).toBe(false);
-		expect(session.startTime).toBeGreaterThan(originalStart - 60000);
+		expect(session.windows).toEqual({});
+		expect(session.activeInvocationId).toBe(0);
+	});
+
+	it('initializes window tracking when switching from unknown to real agent', () => {
+		const session = ensureAgentSession('test-session'); // unknown
+
+		ensureAgentSession('test-session', 'architect');
+		expect(session.agentName).toBe('architect');
+		expect(session.windows).toEqual({});
+		expect(session.activeInvocationId).toBe(0);
+		expect(session.lastInvocationIdByAgent).toEqual({});
 	});
 
 		it('returns same session object for same sessionID', () => {
 			const s1 = ensureAgentSession('same-id', 'architect');
 			const s2 = ensureAgentSession('same-id');
 			expect(s1).toBe(s2);
+		});
+	});
+
+	// Regression tests for v5.1.6 hotfix: architect identity-stuck
+	describe('lastAgentEventTime (v5.1.6 hotfix)', () => {
+		it('startAgentSession initializes lastAgentEventTime', () => {
+			startAgentSession('s1', 'architect');
+			const session = getAgentSession('s1');
+			expect(session!.lastAgentEventTime).toBeDefined();
+			expect(typeof session!.lastAgentEventTime).toBe('number');
+		});
+
+		it('ensureAgentSession updates lastAgentEventTime when agent changes', () => {
+			startAgentSession('s1', 'coder');
+			const session = getAgentSession('s1')!;
+			const originalTime = session.lastAgentEventTime;
+
+			// Small delay
+			const laterTime = originalTime + 100;
+			session.lastAgentEventTime = originalTime;
+
+			// Switch agent - should update lastAgentEventTime
+			ensureAgentSession('s1', 'reviewer');
+
+			expect(session.lastAgentEventTime).toBeGreaterThanOrEqual(originalTime);
+		});
+
+		it('ensureAgentSession does NOT update lastAgentEventTime when agent unchanged', () => {
+			startAgentSession('s1', 'coder');
+			const session = getAgentSession('s1')!;
+			const originalTime = session.lastAgentEventTime;
+
+			// Call ensureAgentSession with same agent - should NOT update lastAgentEventTime
+			ensureAgentSession('s1', 'coder');
+
+			// lastToolCallTime should be updated, but lastAgentEventTime should stay same
+			expect(session.lastToolCallTime).toBeGreaterThanOrEqual(originalTime);
+			// Note: lastAgentEventTime is not updated when agent doesn't change
+		});
+
+		it('updateAgentEventTime updates timestamp without changing agent', () => {
+			startAgentSession('s1', 'coder');
+			const session = getAgentSession('s1')!;
+			const originalTime = session.lastAgentEventTime;
+
+			// Small delay
+			session.lastAgentEventTime = originalTime;
+
+			// Call updateAgentEventTime
+			updateAgentEventTime('s1');
+
+			expect(session.lastAgentEventTime).toBeGreaterThanOrEqual(originalTime);
+			expect(session.agentName).toBe('coder'); // Agent unchanged
+		});
+
+		it('updateAgentEventTime does nothing for non-existent session', () => {
+			// Should not throw
+			expect(() => updateAgentEventTime('nonexistent')).not.toThrow();
+		});
+	});
+
+	// v6.21 Per-task state machine tests
+	describe('TaskWorkflowState machine', () => {
+		let sessionId: string;
+
+		beforeEach(() => {
+			resetSwarmState();
+			sessionId = 'test-session-taskwf';
+			startAgentSession(sessionId, 'architect');
+		});
+
+		describe('getTaskState', () => {
+			it('returns idle for unknown taskId', () => {
+				const session = getAgentSession(sessionId)!;
+				const state = getTaskState(session, 'nonexistent-task');
+				expect(state).toBe('idle');
+			});
+
+			it('returns current state after advanceTaskState sets it', () => {
+				const session = getAgentSession(sessionId)!;
+				
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
+
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				expect(getTaskState(session, 'task-1')).toBe('pre_check_passed');
+			});
+		});
+
+		describe('advanceTaskState valid forward transitions', () => {
+			it('idle → coder_delegated succeeds', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
+			});
+
+			it('coder_delegated → pre_check_passed succeeds', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				expect(() => advanceTaskState(session, 'task-1', 'pre_check_passed')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('pre_check_passed');
+			});
+
+			it('pre_check_passed → reviewer_run succeeds', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				expect(() => advanceTaskState(session, 'task-1', 'reviewer_run')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('reviewer_run');
+			});
+
+			it('reviewer_run → tests_run succeeds', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				advanceTaskState(session, 'task-1', 'reviewer_run');
+				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('tests_run');
+			});
+
+			it('tests_run → complete succeeds', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				advanceTaskState(session, 'task-1', 'reviewer_run');
+				advanceTaskState(session, 'task-1', 'tests_run');
+				expect(() => advanceTaskState(session, 'task-1', 'complete')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('complete');
+			});
+		});
+
+		describe('advanceTaskState skips forward (valid)', () => {
+			it('idle → reviewer_run succeeds (skips states)', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(() => advanceTaskState(session, 'task-1', 'reviewer_run')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('reviewer_run');
+			});
+
+			it('idle → complete throws (must pass through tests_run)', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			});
+
+			it('coder_delegated → tests_run succeeds (skips reviewer_run)', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).not.toThrow();
+				expect(getTaskState(session, 'task-1')).toBe('tests_run');
+			});
+		});
+
+		describe('advanceTaskState throws on invalid transitions', () => {
+			it('throws on backward transition (reviewer_run → coder_delegated)', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				advanceTaskState(session, 'task-1', 'reviewer_run');
+
+				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			});
+
+			it('throws on same-state transition (coder_delegated → coder_delegated)', () => {
+				const session = getAgentSession(sessionId)!;
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+
+				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			});
+
+			it('throws on idle → idle (same state)', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(() => advanceTaskState(session, 'task-1', 'idle')).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'idle')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			});
+
+			it('throws on complete → tests_run (backward)', () => {
+				const session = getAgentSession(sessionId)!;
+				// Must properly advance through all states to reach 'complete'
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				advanceTaskState(session, 'task-1', 'reviewer_run');
+				advanceTaskState(session, 'task-1', 'tests_run');
+				advanceTaskState(session, 'task-1', 'complete');
+
+				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			});
+		});
+
+		describe('startAgentSession initializes 4 new fields', () => {
+			it('initializes taskWorkflowStates to empty Map', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(session.taskWorkflowStates).toBeInstanceOf(Map);
+				expect(session.taskWorkflowStates.size).toBe(0);
+			});
+
+			it('initializes lastGateOutcome to null', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(session.lastGateOutcome).toBeNull();
+			});
+
+			it('initializes declaredCoderScope to null', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(session.declaredCoderScope).toBeNull();
+			});
+
+			it('initializes lastScopeViolation to null', () => {
+				const session = getAgentSession(sessionId)!;
+				expect(session.lastScopeViolation).toBeNull();
+			});
+		});
+
+		describe('ensureAgentSession migration safety', () => {
+			it('initializes taskWorkflowStates if missing (undefined)', () => {
+				// Create a session manually without taskWorkflowStates
+				const session = ensureAgentSession('migration-session', 'architect');
+				// @ts-expect-error - deliberately removing field to test migration
+				delete session.taskWorkflowStates;
+				
+				// Now call ensureAgentSession again - should initialize it
+				const migratedSession = ensureAgentSession('migration-session');
+				
+				expect(migratedSession.taskWorkflowStates).toBeInstanceOf(Map);
+			});
+
+			it('initializes taskWorkflowStates if null', () => {
+				const session = ensureAgentSession('migration-session2', 'architect');
+				// @ts-expect-error - deliberately setting to null to test migration
+				session.taskWorkflowStates = null;
+				
+				const migratedSession = ensureAgentSession('migration-session2');
+				
+				expect(migratedSession.taskWorkflowStates).toBeInstanceOf(Map);
+			});
+		});
+
+		describe('multiple tasks tracked independently', () => {
+			it('advancing task A does not affect task B', () => {
+				const session = getAgentSession(sessionId)!;
+				
+				// Advance task A
+				advanceTaskState(session, 'task-A', 'coder_delegated');
+				advanceTaskState(session, 'task-A', 'pre_check_passed');
+				
+				// Task B should still be idle
+				expect(getTaskState(session, 'task-B')).toBe('idle');
+				
+				// Advance task B independently
+				advanceTaskState(session, 'task-B', 'tests_run');
+				
+				// Verify each task has its own state
+				expect(getTaskState(session, 'task-A')).toBe('pre_check_passed');
+				expect(getTaskState(session, 'task-B')).toBe('tests_run');
+			});
+
+			it('full workflow for multiple tasks', () => {
+				const session = getAgentSession(sessionId)!;
+				
+				// Task 1: full workflow
+				advanceTaskState(session, 'task-1', 'coder_delegated');
+				advanceTaskState(session, 'task-1', 'pre_check_passed');
+				advanceTaskState(session, 'task-1', 'reviewer_run');
+				advanceTaskState(session, 'task-1', 'tests_run');
+				advanceTaskState(session, 'task-1', 'complete');
+				
+				// Task 2: partial workflow
+				advanceTaskState(session, 'task-2', 'coder_delegated');
+				advanceTaskState(session, 'task-2', 'pre_check_passed');
+				
+				// Verify task 1 is complete
+				expect(getTaskState(session, 'task-1')).toBe('complete');
+				
+				// Verify task 2 is at pre_check_passed
+				expect(getTaskState(session, 'task-2')).toBe('pre_check_passed');
+				
+				// Task 3 hasn't been touched
+				expect(getTaskState(session, 'task-3')).toBe('idle');
+			});
 		});
 	});
 });

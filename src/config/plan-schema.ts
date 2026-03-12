@@ -18,9 +18,31 @@ export const PhaseStatusSchema = z.enum([
 	'pending',
 	'in_progress',
 	'complete',
+	'completed', // Alias for 'complete' - both accepted
 	'blocked',
 ]);
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
+
+/**
+ * Normalize phase status - 'completed' maps to 'complete'.
+ * @param status - The phase status to normalize
+ * @returns Normalized status ('completed' becomes 'complete')
+ */
+export function normalizePhaseStatus(status: PhaseStatus): PhaseStatus {
+	if (status === 'completed') {
+		return 'complete';
+	}
+	return status;
+}
+
+/**
+ * Check if a phase status represents completion.
+ * @param status - The phase status to check
+ * @returns true if status is 'complete' or 'completed'
+ */
+export function isPhaseComplete(status: PhaseStatus): boolean {
+	return status === 'complete' || status === 'completed';
+}
 
 // Migration status enum (set when plan was converted from legacy plan.md)
 export const MigrationStatusSchema = z.enum([
@@ -59,8 +81,30 @@ export const PlanSchema = z.object({
 	schema_version: z.literal('1.0.0'),
 	title: z.string().min(1),
 	swarm: z.string().min(1),
-	current_phase: z.number().int().min(1),
+	current_phase: z.number().int().min(1).optional(),
 	phases: z.array(PhaseSchema).min(1),
 	migration_status: MigrationStatusSchema.optional(), // only set when migrated from legacy
 });
 export type Plan = z.infer<typeof PlanSchema>;
+
+/**
+ * Find the first phase that is in progress.
+ * @param phases - Array of phases
+ * @returns Phase number of first in-progress phase, or first phase if none
+ */
+export function findFirstActivePhase(phases: Phase[]): number | undefined {
+	const inProgressPhase = phases.find((p) => p.status === 'in_progress');
+	if (inProgressPhase) {
+		return inProgressPhase.id;
+	}
+	return phases[0]?.id;
+}
+
+/**
+ * Get the current phase from a plan, with fallback inference.
+ * @param plan - The plan object
+ * @returns The current phase number, or inferred value, or 1 as last resort
+ */
+export function getCurrentPhase(plan: Plan): number {
+	return plan.current_phase ?? findFirstActivePhase(plan.phases) ?? 1;
+}

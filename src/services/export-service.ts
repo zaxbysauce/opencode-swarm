@@ -1,0 +1,56 @@
+import { readSwarmFileAsync } from '../hooks/utils';
+import { loadPlanJsonOnly } from '../plan/manager';
+
+/**
+ * Structured export data.
+ */
+export interface ExportData {
+	version: string;
+	exported: string;
+	plan: unknown; // structured Plan object if available, else markdown string
+	context: string | null;
+}
+
+/**
+ * Get export data from the swarm directory.
+ * Returns structured data for GUI, background flows, or commands.
+ */
+export async function getExportData(directory: string): Promise<ExportData> {
+	const planStructured = await loadPlanJsonOnly(directory);
+	const planContent = await readSwarmFileAsync(directory, 'plan.md');
+	const contextContent = await readSwarmFileAsync(directory, 'context.md');
+
+	return {
+		version: '4.5.0',
+		exported: new Date().toISOString(),
+		plan: planStructured || planContent, // structured Plan object if available, else markdown
+		context: contextContent,
+	};
+}
+
+/**
+ * Format export data as markdown with JSON code block for command output.
+ */
+export function formatExportMarkdown(exportData: ExportData): string {
+	const lines = [
+		'## Swarm Export',
+		'',
+		'```json',
+		JSON.stringify(exportData, null, 2),
+		'```',
+	];
+
+	return lines.join('\n');
+}
+
+/**
+ * Handle export command - delegates to service and formats output.
+ * Kept for backward compatibility - thin adapter.
+ */
+export async function handleExportCommand(
+	directory: string,
+	_args: string[],
+): Promise<string> {
+	const exportData = await getExportData(directory);
+	return formatExportMarkdown(exportData);
+}

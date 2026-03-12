@@ -19,7 +19,9 @@ export declare function getAgentConfigs(config?: PluginConfig): Record<string, S
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createCriticAgent } from './critic';
+export { createDesignerAgent } from './designer';
+export { createDocsAgent } from './docs';
 export { createExplorerAgent } from './explorer';
-export { createReviewerAgent } from './reviewer';
+export { createReviewerAgent, SECURITY_CATEGORIES, type SecurityCategory, } from './reviewer';
 export { createSMEAgent } from './sme';
 export { createTestEngineerAgent } from './test-engineer';

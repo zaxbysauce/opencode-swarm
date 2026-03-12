@@ -37,11 +37,14 @@ export async function handleArchiveCommand(
 		const wouldArchiveAge: string[] = [];
 		const remainingBundles: Array<{ taskId: string; updatedAt: string }> = [];
 		for (const taskId of beforeTaskIds) {
-			const bundle = await loadEvidence(directory, taskId);
-			if (bundle && bundle.updated_at < cutoffIso) {
+			const result = await loadEvidence(directory, taskId);
+			if (result.status !== 'found') {
+				continue;
+			}
+			if (result.bundle.updated_at < cutoffIso) {
 				wouldArchiveAge.push(taskId);
-			} else if (bundle) {
-				remainingBundles.push({ taskId, updatedAt: bundle.updated_at });
+			} else {
+				remainingBundles.push({ taskId, updatedAt: result.bundle.updated_at });
 			}
 		}
 

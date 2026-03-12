@@ -386,6 +386,29 @@ describe('Agent Creation Functions', () => {
 			const agentWithBoth = createTestEngineerAgent(testModel, custom, append);
 			expect(agentWithBoth.config.prompt).toBe(custom);
 		});
+
+		describe('Prompt Content Verification', () => {
+			test('prompt includes test_runner tool with all required scopes', () => {
+				const prompt = agent.config.prompt || '';
+				expect(prompt).toContain('test_runner');
+				expect(prompt).toContain('all');
+				expect(prompt).toContain('convention');
+				expect(prompt).toContain('graph');
+			});
+
+			test('prompt includes framework-none fallback directive', () => {
+				const prompt = agent.config.prompt || '';
+				expect(prompt).toContain('framework');
+				expect(prompt).toContain('none');
+				expect(prompt).toContain('fall back');
+			});
+
+			test('prompt includes SKIPPED message for no framework', () => {
+				const prompt = agent.config.prompt || '';
+				expect(prompt).toContain('SKIPPED');
+				expect(prompt).toContain('No test framework detected');
+			});
+		});
 	});
 
 	describe('Identity Hardening', () => {

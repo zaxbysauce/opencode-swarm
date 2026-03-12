@@ -41,7 +41,7 @@ describe('archiveEvidence', () => {
 
 		// Verify deleted
 		const loaded = await loadEvidence(tempDir, taskId);
-		expect(loaded).toBeNull();
+		expect(loaded.status).toBe('not_found');
 	});
 
 	test('archiveEvidence keeps bundles newer than maxAgeDays', async () => {
@@ -55,8 +55,9 @@ describe('archiveEvidence', () => {
 
 		// Verify still exists
 		const loaded = await loadEvidence(tempDir, taskId);
-		expect(loaded).not.toBeNull();
-		expect(loaded?.task_id).toBe(taskId);
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') throw new Error('Expected found');
+		expect(loaded.bundle.task_id).toBe(taskId);
 	});
 
 	test('archiveEvidence with mixed old/new bundles only deletes old ones', async () => {
@@ -75,8 +76,10 @@ describe('archiveEvidence', () => {
 		expect(archived).not.toContain('new-task');
 
 		// Verify old deleted, new exists
-		expect(await loadEvidence(tempDir, oldTaskId)).toBeNull();
-		expect(await loadEvidence(tempDir, newTaskId)).not.toBeNull();
+		const oldLoaded = await loadEvidence(tempDir, oldTaskId);
+		expect(oldLoaded.status).toBe('not_found');
+		const newLoaded = await loadEvidence(tempDir, newTaskId);
+		expect(newLoaded.status).toBe('found');
 	});
 
 	test('archiveEvidence with maxBundles: if remaining > maxBundles, deletes oldest', async () => {
@@ -106,11 +109,16 @@ describe('archiveEvidence', () => {
 		expect(archived).not.toContain('task-5');
 
 		// Verify deleted
-		expect(await loadEvidence(tempDir, 'task-1')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-2')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-3')).not.toBeNull();
-		expect(await loadEvidence(tempDir, 'task-4')).not.toBeNull();
-		expect(await loadEvidence(tempDir, 'task-5')).not.toBeNull();
+		const task1Loaded = await loadEvidence(tempDir, 'task-1');
+		expect(task1Loaded.status).toBe('not_found');
+		const task2Loaded = await loadEvidence(tempDir, 'task-2');
+		expect(task2Loaded.status).toBe('not_found');
+		const task3Loaded = await loadEvidence(tempDir, 'task-3');
+		expect(task3Loaded.status).toBe('found');
+		const task4Loaded = await loadEvidence(tempDir, 'task-4');
+		expect(task4Loaded.status).toBe('found');
+		const task5Loaded = await loadEvidence(tempDir, 'task-5');
+		expect(task5Loaded.status).toBe('found');
 	});
 
 	test('archiveEvidence with maxBundles: if remaining <= maxBundles, does not delete extra', async () => {
@@ -128,7 +136,8 @@ describe('archiveEvidence', () => {
 
 		// Verify all still exist
 		for (const taskId of taskIds) {
-			expect(await loadEvidence(tempDir, taskId)).not.toBeNull();
+			const result = await loadEvidence(tempDir, taskId);
+			expect(result.status).toBe('found');
 		}
 	});
 
@@ -166,12 +175,18 @@ describe('archiveEvidence', () => {
 		expect(archived).not.toContain('task-6');
 
 		// Verify deleted
-		expect(await loadEvidence(tempDir, 'task-1')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-2')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-3')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-4')).toBeNull();
-		expect(await loadEvidence(tempDir, 'task-5')).not.toBeNull();
-		expect(await loadEvidence(tempDir, 'task-6')).not.toBeNull();
+		const task1Result = await loadEvidence(tempDir, 'task-1');
+		expect(task1Result.status).toBe('not_found');
+		const task2Result = await loadEvidence(tempDir, 'task-2');
+		expect(task2Result.status).toBe('not_found');
+		const task3Result = await loadEvidence(tempDir, 'task-3');
+		expect(task3Result.status).toBe('not_found');
+		const task4Result = await loadEvidence(tempDir, 'task-4');
+		expect(task4Result.status).toBe('not_found');
+		const task5Result = await loadEvidence(tempDir, 'task-5');
+		expect(task5Result.status).toBe('found');
+		const task6Result = await loadEvidence(tempDir, 'task-6');
+		expect(task6Result.status).toBe('found');
 	});
 
 	test('archiveEvidence with maxBundles=undefined: no bundle count enforcement', async () => {
@@ -189,7 +204,8 @@ describe('archiveEvidence', () => {
 
 		// Verify all still exist
 		for (const taskId of taskIds) {
-			expect(await loadEvidence(tempDir, taskId)).not.toBeNull();
+			const result = await loadEvidence(tempDir, taskId);
+			expect(result.status).toBe('found');
 		}
 	});
 });
@@ -210,10 +226,11 @@ async function makeBundleOld(
 	taskId: string,
 	daysOld: number,
 ): Promise<void> {
-	const bundle = await loadEvidence(directory, taskId);
-	if (!bundle) {
+	const result = await loadEvidence(directory, taskId);
+	if (result.status !== 'found') {
 		throw new Error(`Bundle not found for task ${taskId}`);
 	}
+	const bundle = result.bundle;
 
 	// Set updated_at and created_at to old date
 	const oldDate = new Date();

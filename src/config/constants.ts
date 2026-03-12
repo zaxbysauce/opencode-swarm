@@ -1,4 +1,5 @@
-// QA agents
+import type { ToolName } from '../tools/tool-names';
+import { TOOL_NAME_SET } from '../tools/tool-names';
 export const QA_AGENTS = ['reviewer', 'critic'] as const;
 
 export const PIPELINE_AGENTS = ['explorer', 'coder', 'test_engineer'] as const;
@@ -7,6 +8,8 @@ export const ORCHESTRATOR_NAME = 'architect' as const;
 
 export const ALL_SUBAGENT_NAMES = [
 	'sme',
+	'docs',
+	'designer',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -21,29 +24,136 @@ export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];
 
+// Tool permissions by agent - architect gets all tools, others capped at 12
+export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
+	architect: [
+		'checkpoint',
+		'complexity_hotspots',
+		'detect_domains',
+		'evidence_check',
+		'extract_code_blocks',
+		'gitingest',
+		'imports',
+		'knowledge_query',
+		'lint',
+		'diff',
+		'pkg_audit',
+		'pre_check_batch',
+		'retrieve_summary',
+		'save_plan',
+		'schema_drift',
+		'secretscan',
+		'symbols',
+		'test_runner',
+		'todo_extract',
+		'update_task_status',
+		'write_retro',
+		'declare_scope',
+	],
+	explorer: [
+		'complexity_hotspots',
+		'detect_domains',
+		'extract_code_blocks',
+		'gitingest',
+		'imports',
+		'retrieve_summary',
+		'schema_drift',
+		'symbols',
+		'todo_extract',
+	],
+	coder: [
+		'diff',
+		'imports',
+		'lint',
+		'symbols',
+		'extract_code_blocks',
+		'retrieve_summary',
+	],
+	test_engineer: [
+		'test_runner',
+		'diff',
+		'symbols',
+		'extract_code_blocks',
+		'retrieve_summary',
+		'imports',
+		'complexity_hotspots',
+		'pkg_audit',
+	],
+	sme: [
+		'complexity_hotspots',
+		'detect_domains',
+		'extract_code_blocks',
+		'imports',
+		'retrieve_summary',
+		'schema_drift',
+		'symbols',
+	],
+	reviewer: [
+		'diff',
+		'imports',
+		'lint',
+		'pkg_audit',
+		'pre_check_batch',
+		'secretscan',
+		'symbols',
+		'complexity_hotspots',
+		'retrieve_summary',
+		'extract_code_blocks',
+		'test_runner',
+	],
+	critic: [
+		'complexity_hotspots',
+		'detect_domains',
+		'imports',
+		'retrieve_summary',
+		'symbols',
+	],
+	docs: [
+		'detect_domains',
+		'extract_code_blocks',
+		'gitingest',
+		'imports',
+		'retrieve_summary',
+		'schema_drift',
+		'symbols',
+		'todo_extract',
+	],
+	designer: ['extract_code_blocks', 'retrieve_summary', 'symbols'],
+};
+
+// Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered
+for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
+	const invalidTools = tools.filter(
+		(tool) => !TOOL_NAME_SET.has(tool as ToolName),
+	);
+	if (invalidTools.length > 0) {
+		throw new Error(
+			`Agent '${agentName}' has invalid tool names: [${invalidTools.join(', ')}]. ` +
+				`All tools must be registered in TOOL_NAME_SET.`,
+		);
+	}
+}
+
 // Default models for each agent/category
+// v6.14: switched to free OpenCode Zen models; architect key intentionally
+// omitted so it inherits the OpenCode UI model selection.
 export const DEFAULT_MODELS: Record<string, string> = {
-	// Orchestrator
-	architect: 'anthropic/claude-sonnet-4-5',
+	// Explorer — fast read-heavy analysis
+	explorer: 'opencode/trinity-large-preview-free',
 
-	// Fast explorer agent (use cheap/fast model)
-	explorer: 'google/gemini-2.0-flash',
+	// Pipeline agents — differentiated models for writing vs reviewing
+	coder: 'opencode/minimax-m2.5-free',
+	reviewer: 'opencode/big-pickle',
+	test_engineer: 'opencode/gpt-5-nano',
 
-	// Pipeline agents
-	coder: 'anthropic/claude-sonnet-4-5',
-	test_engineer: 'google/gemini-2.0-flash',
-
-	// SME agent
-	sme: 'google/gemini-2.0-flash',
-
-	// Reviewer agent (QA)
-	reviewer: 'google/gemini-2.0-flash',
-
-	// Critic agent (QA - plan review gate)
-	critic: 'google/gemini-2.0-flash',
+	// SME, Critic, Docs, Designer — reasoning/general tasks
+	sme: 'opencode/trinity-large-preview-free',
+	critic: 'opencode/trinity-large-preview-free',
+	docs: 'opencode/trinity-large-preview-free',
+	designer: 'opencode/trinity-large-preview-free',
 
 	// Fallback
-	default: 'google/gemini-2.0-flash',
+	default: 'opencode/trinity-large-preview-free',
 };
 
 // Check if agent is in QA category
@@ -56,7 +166,7 @@ export function isSubagent(name: string): boolean {
 	return (ALL_SUBAGENT_NAMES as readonly string[]).includes(name);
 }
 
-import { deepMerge } from './loader';
+import { deepMerge } from '../utils/merge';
 import type { ScoringConfig } from './schema';
 
 // Default scoring configuration
@@ -106,4 +216,24 @@ export function resolveScoringConfig(
 	);
 
 	return merged as ScoringConfig;
+}
+
+/**
+ * Model ID substrings that identify low-capability models.
+ * If a model's ID contains any of these substrings (case-insensitive),
+ * it is considered a low-capability model.
+ */
+export const LOW_CAPABILITY_MODELS = ['mini', 'nano', 'small', 'free'] as const;
+
+/**
+ * Returns true if the given modelId contains any LOW_CAPABILITY_MODELS substring
+ * (case-insensitive comparison).
+ *
+ * @param modelId - The model ID to check
+ * @returns true if the model is considered low capability, false otherwise
+ */
+export function isLowCapabilityModel(modelId: string): boolean {
+	if (!modelId) return false;
+	const lower = modelId.toLowerCase();
+	return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }

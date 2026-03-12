@@ -6,23 +6,28 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 let originalXDG: string | undefined;
+let tempDir: string | undefined;
 
 beforeEach(() => {
     originalXDG = process.env.XDG_CONFIG_HOME;
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'factory-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'factory-test-'));
     process.env.XDG_CONFIG_HOME = tempDir;
 });
 
 afterEach(() => {
     if (originalXDG === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = originalXDG;
+    if (tempDir) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        tempDir = undefined;
+    }
 });
 
 describe('createAgents', () => {
     describe('no config', () => {
-        it('returns 7 agents', () => {
+        it('returns 8 agents (docs enabled by default, designer opt-in)', () => {
             const agents = createAgents();
-            expect(agents).toHaveLength(7);
+            expect(agents).toHaveLength(8);
         });
 
         it('agent names are correct', () => {
@@ -32,32 +37,42 @@ describe('createAgents', () => {
                 'architect',
                 'coder',
                 'critic',
+                'docs',
                 'explorer',
                 'reviewer',
                 'sme',
                 'test_engineer'
+                // Note: designer is opt-in (ui_review.enabled=true), not included by default
             ]);
         });
 
-        it('each agent has model, temperature, prompt, description', () => {
+        it('each agent has temperature, prompt, description', () => {
             const agents = createAgents();
             
             for (const agent of agents) {
                 expect(agent).toHaveProperty('name');
                 expect(agent).toHaveProperty('config');
-                expect(agent.config).toHaveProperty('model');
                 expect(agent.config).toHaveProperty('temperature');
                 expect(agent.config).toHaveProperty('prompt');
                 expect(agent).toHaveProperty('description');
                 
                 // Verify properties are not empty
                 expect(agent.name.length).toBeGreaterThan(0);
-                expect(agent.config.model?.length ?? 0).toBeGreaterThan(0);
                 expect(typeof agent.config.temperature).toBe('number');
                 expect(agent.config.temperature).toBeGreaterThanOrEqual(0);
                 expect(agent.config.temperature).toBeLessThanOrEqual(2);
                 expect(agent.config.prompt?.length ?? 0).toBeGreaterThan(0);
                 expect(agent.description?.length ?? 0).toBeGreaterThan(0);
+            }
+        });
+
+        it('each subagent has model (primary agents created with model but getAgentConfigs strips it)', () => {
+            const agents = createAgents();
+            
+            for (const agent of agents) {
+                // All agents initially have model in their config
+                expect(agent.config).toHaveProperty('model');
+                expect(agent.config.model?.length ?? 0).toBeGreaterThan(0);
             }
         });
     });
@@ -103,7 +118,8 @@ describe('createAgents', () => {
             const agents = createAgents(config as unknown as PluginConfig);
             const sme = agents.find(a => a.name === 'sme');
             expect(sme).toBeUndefined();
-            expect(agents).toHaveLength(6);
+            // 8 agents - 1 disabled = 7 agents (docs still included by default)
+            expect(agents).toHaveLength(7);
         });
     });
 
@@ -121,10 +137,12 @@ describe('createAgents', () => {
                 'architect',
                 'coder',
                 'critic',
+                'docs',
                 'explorer',
                 'reviewer',
                 'sme',
                 'test_engineer'
+                // Note: designer is opt-in, not included by default
             ]);
         });
 
@@ -143,10 +161,12 @@ describe('createAgents', () => {
                 'local_architect',
                 'local_coder',
                 'local_critic',
+                'local_docs',
                 'local_explorer',
                 'local_reviewer',
                 'local_sme',
                 'local_test_engineer'
+                // Note: designer is opt-in, not included by default
             ]);
         });
 
@@ -210,12 +230,56 @@ describe('getAgentConfigs', () => {
         for (const [name, config] of Object.entries(configs)) {
             expect(typeof name).toBe('string');
             expect(name.length).toBeGreaterThan(0);
-            expect(config).toHaveProperty('model');
             expect(config).toHaveProperty('temperature');
             expect(config).toHaveProperty('prompt');
             expect(config).toHaveProperty('description');
             expect(config).toHaveProperty('mode');
         }
+    });
+
+    it('primary agents omit model (architect and *_architect)', () => {
+        const configs = getAgentConfigs();
+        
+        // architect is a primary agent
+        expect(configs.architect).not.toHaveProperty('model');
+        
+        // Verify other agents have model (they are subagents)
+        for (const [name, config] of Object.entries(configs)) {
+            if (name !== 'architect') {
+                expect(config).toHaveProperty('model');
+            }
+        }
+    });
+
+    it('subagents retain model', () => {
+        const configs = getAgentConfigs();
+        
+        for (const [name, config] of Object.entries(configs)) {
+            if (config.mode === 'subagent') {
+                expect(config).toHaveProperty('model');
+                expect(config.model?.length ?? 0).toBeGreaterThan(0);
+            }
+        }
+    });
+
+    it('prefixed architect configs omit model', () => {
+        const config = {
+            swarms: {
+                local: {
+                    name: 'Local'
+                }
+            }
+        };
+        
+        const configs = getAgentConfigs(config as unknown as PluginConfig);
+        
+        // Prefixed architect should not have model
+        const localArchitect = configs.local_architect;
+        expect(localArchitect).not.toHaveProperty('model');
+        
+        // Other prefixed agents should have model
+        const localCoder = configs.local_coder;
+        expect(localCoder).toHaveProperty('model');
     });
 
     it('architect has mode primary', () => {
@@ -282,6 +346,7 @@ describe('getAgentConfigs', () => {
         
         const configs = getAgentConfigs(config as unknown as PluginConfig);
         expect(configs.sme).toBeUndefined();
-        expect(Object.keys(configs)).toHaveLength(6);
+        // 8 agents - 1 disabled = 7 agents (docs included by default)
+        expect(Object.keys(configs)).toHaveLength(7);
     });
 });

@@ -3,12 +3,24 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import {
+	handleAgentsCommand,
+	handleArchiveCommand,
+	handleHandoffCommand,
+	handleHistoryCommand,
+	handleKnowledgeMigrateCommand,
+	handleKnowledgeQuarantineCommand,
+	handleKnowledgeRestoreCommand,
+	handlePlanCommand,
+	handleStatusCommand,
+} from '../commands/index.js';
+
 const CONFIG_DIR = path.join(
 	process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
 	'opencode',
 );
 
-const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
+const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode.json');
 const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
@@ -52,9 +64,19 @@ async function install(): Promise<number> {
 	ensureDir(PROMPTS_DIR);
 
 	// Load or create OpenCode config
+	// Migration: if opencode.json doesn't exist but config.json does (old installer bug), use config.json as starting state
+	const LEGACY_CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 	let opencodeConfig = loadJson<OpenCodeConfig>(OPENCODE_CONFIG_PATH);
 	if (!opencodeConfig) {
-		opencodeConfig = {};
+		const legacyConfig = loadJson<OpenCodeConfig>(LEGACY_CONFIG_PATH);
+		if (legacyConfig) {
+			console.log(
+				'⚠ Migrating existing config from config.json to opencode.json...',
+			);
+			opencodeConfig = legacyConfig;
+		} else {
+			opencodeConfig = {};
+		}
 	}
 
 	// Add plugin to OpenCode config (note: 'plugin' not 'plugins')
@@ -86,26 +108,19 @@ async function install(): Promise<number> {
 	// Create default plugin config if not exists
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
 		const defaultConfig = {
-			preset: 'remote',
-			presets: {
-				remote: {
-					architect: { model: 'anthropic/claude-sonnet-4.5' },
-					coder: { model: 'openai/gpt-5.2-codex' },
-					sme: { model: 'google/gemini-3-flash' },
-					reviewer: { model: 'google/gemini-3-flash' },
-					test_engineer: { model: 'google/gemini-3-flash' },
-				},
-				hybrid: {
-					architect: { model: 'anthropic/claude-sonnet-4.5' },
-					coder: { model: 'ollama/qwen3:72b' },
-					sme: { model: 'npu/qwen3:14b' },
-					reviewer: { model: 'npu/qwen3:14b' },
-					test_engineer: { model: 'npu/qwen3:14b' },
-				},
+			// Must match PluginConfigSchema in src/config/schema.ts
+			// v6.14: free OpenCode Zen models; architect inherits OpenCode UI selection
+			agents: {
+				coder: { model: 'opencode/minimax-m2.5-free' },
+				reviewer: { model: 'opencode/big-pickle' },
+				test_engineer: { model: 'opencode/gpt-5-nano' },
+				explorer: { model: 'opencode/trinity-large-preview-free' },
+				sme: { model: 'opencode/trinity-large-preview-free' },
+				critic: { model: 'opencode/trinity-large-preview-free' },
+				docs: { model: 'opencode/trinity-large-preview-free' },
+				designer: { model: 'opencode/trinity-large-preview-free' },
 			},
-			swarm_mode: 'remote',
 			max_iterations: 5,
-			inject_phase_reminders: true,
 		};
 		saveJson(PLUGIN_CONFIG_PATH, defaultConfig);
 		console.log('✓ Created default plugin config at:', PLUGIN_CONFIG_PATH);
@@ -238,6 +253,7 @@ Usage: bunx opencode-swarm [command] [OPTIONS]
 Commands:
   install     Install and configure the plugin (default)
   uninstall   Remove the plugin from OpenCode config
+  run         Run a plugin command directly (for use outside OpenCode)
 
 Options:
   --clean     Also remove config files and custom prompts (with uninstall)
@@ -260,6 +276,9 @@ Examples:
   bunx opencode-swarm uninstall
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
+  bunx opencode-swarm run status
+  bunx opencode-swarm run knowledge migrate
+  bunx opencode-swarm run dark-matter
 `);
 }
 
@@ -280,6 +299,9 @@ async function main(): Promise<void> {
 	} else if (command === 'uninstall') {
 		const exitCode = await uninstall();
 		process.exit(exitCode);
+	} else if (command === 'run') {
+		const exitCode = await run(args.slice(1));
+		process.exit(exitCode);
 	} else {
 		console.error(`Unknown command: ${command}`);
 		console.error('Run with --help for usage information');
@@ -291,3 +313,83 @@ main().catch((err) => {
 	console.error('Fatal error:', err);
 	process.exit(1);
 });
+
+/**
+ * Dispatch function for routing argv tokens to plugin command handlers.
+ * Used by the "run" subcommand entry point.
+ */
+export async function run(args: string[]): Promise<number> {
+	const cwd = process.cwd();
+
+	// Handle empty args
+	if (!args || args.length === 0) {
+		console.error(
+			'Usage: bunx opencode-swarm run <command> [args]\nRun "bunx opencode-swarm --help" for a list of commands.',
+		);
+		return 1;
+	}
+
+	const subcommand = args[0];
+
+	// Dispatch table
+	switch (subcommand) {
+		case 'status': {
+			const result = await handleStatusCommand(cwd, {});
+			console.log(result);
+			return 0;
+		}
+		case 'plan': {
+			const result = await handlePlanCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'agents': {
+			const result = handleAgentsCommand({}, undefined);
+			console.log(result);
+			return 0;
+		}
+		case 'archive': {
+			const result = await handleArchiveCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'history': {
+			const result = await handleHistoryCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'handoff': {
+			const result = await handleHandoffCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'knowledge': {
+			const knowledgeSubcmd = args[1];
+			if (knowledgeSubcmd === 'migrate') {
+				const result = await handleKnowledgeMigrateCommand(cwd, args.slice(2));
+				console.log(result);
+			} else if (knowledgeSubcmd === 'quarantine') {
+				const result = await handleKnowledgeQuarantineCommand(
+					cwd,
+					args.slice(2),
+				);
+				console.log(result);
+			} else if (knowledgeSubcmd === 'restore') {
+				const result = await handleKnowledgeRestoreCommand(cwd, args.slice(2));
+				console.log(result);
+			} else {
+				console.error(
+					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
+				);
+				return 1;
+			}
+			return 0;
+		}
+		default: {
+			console.error(
+				`Unknown command: ${args[0]}\nRun "bunx opencode-swarm run" with no args for help.`,
+			);
+			return 1;
+		}
+	}
+}

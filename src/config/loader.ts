@@ -16,96 +16,124 @@ function getUserConfigDir(): string {
 }
 
 /**
- * Load and validate config from a specific file path.
+ * Load raw config JSON from a file path without Zod validation.
+ * Returns the raw JSON object for pre-validation merging.
+ * Also returns whether the file existed (vs. not existing at all).
  */
-function loadConfigFromPath(configPath: string): PluginConfig | null {
+function loadRawConfigFromPath(configPath: string): {
+	config: Record<string, unknown> | null;
+	fileExisted: boolean;
+	hadError: boolean;
+} {
 	try {
-		// Check file size before reading
 		const stats = fs.statSync(configPath);
 		if (stats.size > MAX_CONFIG_FILE_BYTES) {
 			console.warn(
 				`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`,
 			);
-			return null;
+			console.warn(
+				'[opencode-swarm] ⚠️ SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.',
+			);
+			return { config: null, fileExisted: true, hadError: true };
 		}
 
 		const content = fs.readFileSync(configPath, 'utf-8');
-		const rawConfig = JSON.parse(content);
-		const result = PluginConfigSchema.safeParse(rawConfig);
-
-		if (!result.success) {
-			console.warn(`[opencode-swarm] Invalid config at ${configPath}:`);
-			console.warn(result.error.format());
-			return null;
+		// TOCTOU guard: re-check size after read (file may have grown between statSync and readFileSync)
+		if (content.length > MAX_CONFIG_FILE_BYTES) {
+			console.warn(
+				`[opencode-swarm] Config file too large after read (max 100 KB): ${configPath}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.',
+			);
+			return { config: null, fileExisted: true, hadError: true };
 		}
 
-		return result.data;
-	} catch (error) {
+		// SECURITY: Strip UTF-8 BOM from file content
+		// BOM is a common marker that should be normalized, but must be at start of file
+		let sanitizedContent = content;
+		if (content.charCodeAt(0) === 0xfeff) {
+			sanitizedContent = content.slice(1);
+		}
+		const rawConfig = JSON.parse(sanitizedContent);
+
 		if (
-			error instanceof Error &&
-			'code' in error &&
-			(error as NodeJS.ErrnoException).code !== 'ENOENT'
+			typeof rawConfig !== 'object' ||
+			rawConfig === null ||
+			Array.isArray(rawConfig)
 		) {
 			console.warn(
-				`[opencode-swarm] Error reading config from ${configPath}:`,
-				error.message,
+				`[opencode-swarm] Invalid config at ${configPath}: expected an object`,
 			);
+			console.warn(
+				'[opencode-swarm] ⚠️ SECURITY: Config format invalid. Falling back to safe defaults with guardrails ENABLED.',
+			);
+			return { config: null, fileExisted: true, hadError: true };
 		}
-		return null;
+
+		return {
+			config: rawConfig as Record<string, unknown>,
+			fileExisted: true,
+			hadError: false,
+		};
+	} catch (error) {
+		// Check if this is a file-not-found error (ENOENT)
+		const isFileNotFoundError =
+			error instanceof Error &&
+			'code' in error &&
+			(error as NodeJS.ErrnoException).code === 'ENOENT';
+
+		if (!isFileNotFoundError) {
+			// Any other error (JSON parse error, permission denied, etc.) - treat as load failure
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
+			console.warn(
+				`[opencode-swarm] ⚠️ CONFIG LOAD FAILURE — config exists at ${configPath} but could not be loaded: ${errorMessage}`,
+			);
+			console.warn(
+				'[opencode-swarm] ⚠️ SECURITY: Config load failed. Falling back to safe defaults with guardrails ENABLED.',
+			);
+			return { config: null, fileExisted: true, hadError: true };
+		}
+		// File doesn't exist - not an error, just no config
+		return { config: null, fileExisted: false, hadError: false };
 	}
 }
 
-export const MAX_MERGE_DEPTH = 10;
+import { deepMerge as deepMergeFn } from '../utils/merge';
+
+// Re-export deepMerge and MAX_MERGE_DEPTH from src/utils/merge for backward compatibility.
+// Tests and src/config/constants.ts import these from loader.ts directly.
+export { deepMerge, MAX_MERGE_DEPTH } from '../utils/merge';
 
 /**
- * Deep merge two objects, with override values taking precedence.
- * Internal implementation with depth tracking to prevent infinite recursion.
+ * Migrate v6.12 presets-format config to v6.13+ agents format.
+ * v6.12 install() generated: { preset: 'remote', presets: { remote: { architect: {...} } } }
+ * v6.13+ expects:            { agents: { architect: {...} } }
  */
-function deepMergeInternal<T extends Record<string, unknown>>(
-	base: T,
-	override: T,
-	depth: number,
-): T {
-	if (depth >= MAX_MERGE_DEPTH) {
-		throw new Error(`deepMerge exceeded maximum depth of ${MAX_MERGE_DEPTH}`);
-	}
+function migratePresetsConfig(
+	raw: Record<string, unknown>,
+): Record<string, unknown> {
+	if (raw.presets && typeof raw.presets === 'object' && !raw.agents) {
+		const presetName = (raw.preset as string) || 'remote';
+		const presets = raw.presets as Record<string, unknown>;
+		const activePreset = presets[presetName] || Object.values(presets)[0];
 
-	const result = { ...base } as T;
-	for (const key of Object.keys(override) as (keyof T)[]) {
-		const baseVal = base[key];
-		const overrideVal = override[key];
-
-		if (
-			typeof baseVal === 'object' &&
-			baseVal !== null &&
-			typeof overrideVal === 'object' &&
-			overrideVal !== null &&
-			!Array.isArray(baseVal) &&
-			!Array.isArray(overrideVal)
-		) {
-			result[key] = deepMergeInternal(
-				baseVal as Record<string, unknown>,
-				overrideVal as Record<string, unknown>,
-				depth + 1,
-			) as T[keyof T];
-		} else {
-			result[key] = overrideVal;
+		if (activePreset && typeof activePreset === 'object') {
+			const migrated = { ...raw, agents: activePreset } as Record<
+				string,
+				unknown
+			>;
+			delete migrated.preset;
+			delete migrated.presets;
+			delete migrated.swarm_mode;
+			console.warn(
+				'[opencode-swarm] Migrated v6.12 presets config to agents format. Consider updating your opencode-swarm.json.',
+			);
+			return migrated;
 		}
 	}
-	return result;
-}
-
-/**
- * Deep merge two objects, with override values taking precedence.
- */
-export function deepMerge<T extends Record<string, unknown>>(
-	base?: T,
-	override?: T,
-): T | undefined {
-	if (!base) return override;
-	if (!override) return base;
-
-	return deepMergeInternal(base, override, 0);
+	return raw;
 }
 
 /**
@@ -116,6 +144,8 @@ export function deepMerge<T extends Record<string, unknown>>(
  * 2. Project config: <directory>/.opencode/opencode-swarm.json
  *
  * Project config takes precedence. Nested objects are deep-merged.
+ * IMPORTANT: Raw configs are merged BEFORE Zod parsing so that
+ * Zod defaults don't override explicit user values.
  */
 export function loadPluginConfig(directory: string): PluginConfig {
 	const userConfigPath = path.join(
@@ -126,22 +156,90 @@ export function loadPluginConfig(directory: string): PluginConfig {
 
 	const projectConfigPath = path.join(directory, '.opencode', CONFIG_FILENAME);
 
-	let config: PluginConfig = loadConfigFromPath(userConfigPath) ?? {
-		max_iterations: 5,
-		qa_retry_limit: 3,
-		inject_phase_reminders: true,
-	};
+	// Load raw configs (no Zod defaults applied yet)
+	const userResult = loadRawConfigFromPath(userConfigPath);
+	const projectResult = loadRawConfigFromPath(projectConfigPath);
 
-	const projectConfig = loadConfigFromPath(projectConfigPath);
-	if (projectConfig) {
-		config = {
-			...config,
-			...projectConfig,
-			agents: deepMerge(config.agents, projectConfig.agents),
-		};
+	const rawUserConfig = userResult.config;
+	const rawProjectConfig = projectResult.config;
+
+	// Track whether any config files existed AND whether there were load errors
+	// Use fileExisted to track if files existed (regardless of whether they loaded successfully)
+	const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
+	const configHadErrors = userResult.hadError || projectResult.hadError;
+
+	// Deep-merge raw objects before Zod parsing so that
+	// Zod defaults don't override explicit user values
+	let mergedRaw: Record<string, unknown> = rawUserConfig ?? {};
+	if (rawProjectConfig) {
+		mergedRaw = deepMergeFn(mergedRaw, rawProjectConfig) as Record<
+			string,
+			unknown
+		>;
 	}
 
-	return config;
+	// Migrate v6.12 presets format to v6.13+ agents format
+	mergedRaw = migratePresetsConfig(mergedRaw);
+
+	// Validate merged config with Zod (applies defaults ONCE)
+	const result = PluginConfigSchema.safeParse(mergedRaw);
+	if (!result.success) {
+		// If merged config fails validation, try user config alone
+		// (project config may have invalid values that should be ignored)
+		if (rawUserConfig) {
+			const userParseResult = PluginConfigSchema.safeParse(rawUserConfig);
+			if (userParseResult.success) {
+				console.warn(
+					'[opencode-swarm] Project config ignored due to validation errors. Using user config.',
+				);
+				return userParseResult.data;
+			}
+		}
+		// Neither merged nor user config is valid, return defaults with guardrails ENABLED (fail-secure)
+		console.warn('[opencode-swarm] Merged config validation failed:');
+		console.warn(result.error.format());
+		console.warn(
+			'[opencode-swarm] ⚠️ SECURITY: Falling back to conservative defaults with guardrails ENABLED. Fix the config file to restore custom configuration.',
+		);
+		// Fail-secure: return defaults with guardrails explicitly enabled
+		return PluginConfigSchema.parse({
+			guardrails: { enabled: true },
+		});
+	}
+
+	// If config files existed but had load errors, apply fail-secure defaults
+	if (loadedFromFile && configHadErrors) {
+		// Merge the valid parts with fail-secure guardrails
+		return PluginConfigSchema.parse({
+			...mergedRaw,
+			guardrails: { enabled: true },
+		});
+	}
+
+	return result.data;
+}
+
+/**
+ * Internal variant of loadPluginConfig that also returns loader metadata.
+ * Used only by src/index.ts to determine guardrails fallback behavior.
+ * NOT part of the public API — use loadPluginConfig() for all other callers.
+ */
+export function loadPluginConfigWithMeta(directory: string): {
+	config: PluginConfig;
+	loadedFromFile: boolean;
+} {
+	const userConfigPath = path.join(
+		getUserConfigDir(),
+		'opencode',
+		CONFIG_FILENAME,
+	);
+	const projectConfigPath = path.join(directory, '.opencode', CONFIG_FILENAME);
+	const userResult = loadRawConfigFromPath(userConfigPath);
+	const projectResult = loadRawConfigFromPath(projectConfigPath);
+	// Use fileExisted to track if files existed (regardless of load success)
+	const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
+	const config = loadPluginConfig(directory);
+	return { config, loadedFromFile };
 }
 
 /**

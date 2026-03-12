@@ -197,10 +197,11 @@ async function makeBundleOld(
 	daysOld: number,
 ): Promise<void> {
 	const { loadEvidence } = await import('../../../src/evidence/manager');
-	const bundle = await loadEvidence(directory, taskId);
-	if (!bundle) {
+	const result = await loadEvidence(directory, taskId);
+	if (result.status !== 'found') {
 		throw new Error(`Bundle not found for task ${taskId}`);
 	}
+	const bundle = result.bundle;
 
 	// Set updated_at and created_at to old date
 	const oldDate = new Date();

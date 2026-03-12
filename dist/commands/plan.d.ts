@@ -1,1 +1,1 @@
-export declare function handlePlanCommand(directory: string, args: string[]): Promise<string>;
+export { handlePlanCommand } from '../services/plan-service';

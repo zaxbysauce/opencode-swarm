@@ -7,7 +7,30 @@ import {
 	TaskSizeSchema,
 	PhaseStatusSchema,
 	MigrationStatusSchema,
+	findFirstActivePhase,
+	getCurrentPhase,
+	normalizePhaseStatus,
+	isPhaseComplete,
+	type Plan,
 } from '../../../src/config/plan-schema';
+
+function createTestPlan(overrides: Partial<Plan> = {}): Plan {
+	return {
+		schema_version: '1.0.0',
+		title: 'Test Plan',
+		swarm: 'test',
+		current_phase: 1,
+		phases: [
+			{
+				id: 1,
+				name: 'Phase 1',
+				status: 'pending',
+				tasks: [],
+			},
+		],
+		...overrides,
+	} as Plan;
+}
 
 describe('TaskStatusSchema', () => {
 	it('valid values: pending, in_progress, completed, blocked all parse', () => {
@@ -403,5 +426,109 @@ describe('PlanSchema', () => {
 		if (result.success) {
 			expect(result.data.migration_status).toBeUndefined();
 		}
+	});
+});
+
+describe('PhaseStatusSchema with completed alias', () => {
+	it('accepts both complete and completed', () => {
+		const complete = PhaseStatusSchema.safeParse('complete');
+		const completed = PhaseStatusSchema.safeParse('completed');
+		
+		expect(complete.success).toBe(true);
+		expect(completed.success).toBe(true);
+	});
+
+	it('normalizePhaseStatus converts completed to complete', () => {
+		expect(normalizePhaseStatus('complete')).toBe('complete');
+		expect(normalizePhaseStatus('completed')).toBe('complete');
+		expect(normalizePhaseStatus('pending')).toBe('pending');
+	});
+
+	it('isPhaseComplete returns true for both complete and completed', () => {
+		expect(isPhaseComplete('complete')).toBe(true);
+		expect(isPhaseComplete('completed')).toBe(true);
+		expect(isPhaseComplete('pending')).toBe(false);
+	});
+});
+
+describe('getCurrentPhase with inference', () => {
+	it('returns explicit current_phase when set', () => {
+		const plan = createTestPlan({ current_phase: 3 });
+		expect(getCurrentPhase(plan)).toBe(3);
+	});
+
+	it('infers from in_progress phase when current_phase not set', () => {
+		const plan = createTestPlan({
+			current_phase: undefined,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'complete',
+					tasks: [{ id: '1.1', phase: 1, status: 'complete', size: 'small', description: 't1', depends: [], files_touched: [] }],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					status: 'in_progress',
+					tasks: [{ id: '2.1', phase: 2, status: 'in_progress', size: 'small', description: 't2', depends: [], files_touched: [] }],
+				},
+			],
+		});
+		expect(getCurrentPhase(plan)).toBe(2);
+	});
+
+	it('defaults to 1 when neither current_phase nor in_progress exists', () => {
+		const plan = createTestPlan({
+			current_phase: undefined,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 't1', depends: [], files_touched: [] }],
+				},
+			],
+		});
+		expect(getCurrentPhase(plan)).toBe(1);
+	});
+});
+
+describe('PlanSchema with optional current_phase', () => {
+	it('parses plan without current_phase', () => {
+		const planWithoutPhase = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 't1', depends: [], files_touched: [] }],
+				},
+			],
+		};
+		
+		const result = PlanSchema.safeParse(planWithoutPhase);
+		expect(result.success).toBe(true);
+	});
+
+	it('parses plan with current_phase', () => {
+		const planWithPhase = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test',
+			current_phase: 3,
+			phases: [
+				{ id: 1, name: 'P1', status: 'complete', tasks: [] },
+				{ id: 2, name: 'P2', status: 'complete', tasks: [] },
+				{ id: 3, name: 'P3', status: 'in_progress', tasks: [] },
+			],
+		};
+		
+		const result = PlanSchema.safeParse(planWithPhase);
+		expect(result.success).toBe(true);
+		expect(result.data?.current_phase).toBe(3);
 	});
 });

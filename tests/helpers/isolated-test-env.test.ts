@@ -1,0 +1,183 @@
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+
+import { createIsolatedTestEnv, assertSafeForWrite } from './isolated-test-env';
+
+describe('isolated-test-env', () => {
+	describe('createIsolatedTestEnv', () => {
+		test('returns a temp dir that exists', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+
+			expect(fs.existsSync(configDir)).toBe(true);
+			expect(configDir).toContain(os.tmpdir());
+
+			cleanup();
+		});
+
+		test('XDG_CONFIG_HOME is set to the temp dir while active', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+
+			expect(process.env.XDG_CONFIG_HOME).toBe(configDir);
+
+			cleanup();
+		});
+
+		test('On Windows: APPDATA is also redirected', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+
+			expect(process.env.APPDATA).toBe(configDir);
+
+			cleanup();
+		});
+
+		test('LOCALAPPDATA is also redirected', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+
+			expect(process.env.LOCALAPPDATA).toBe(configDir);
+
+			cleanup();
+		});
+
+		test('HOME is also redirected', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+
+			expect(process.env.HOME).toBe(configDir);
+
+			cleanup();
+		});
+
+		test('After cleanup(), original env vars are restored', () => {
+			// Save originals
+			const originalXDG = process.env.XDG_CONFIG_HOME;
+			const originalAPPDATA = process.env.APPDATA;
+			const originalLOCALAPPDATA = process.env.LOCALAPPDATA;
+			const originalHOME = process.env.HOME;
+
+			const { cleanup } = createIsolatedTestEnv();
+			const newXDG = process.env.XDG_CONFIG_HOME;
+			const newAPPDATA = process.env.APPDATA;
+			const newLOCALAPPDATA = process.env.LOCALAPPDATA;
+			const newHOME = process.env.HOME;
+
+			// Verify they changed
+			expect(newXDG).not.toBe(originalXDG);
+			expect(newAPPDATA).not.toBe(originalAPPDATA);
+			expect(newLOCALAPPDATA).not.toBe(originalLOCALAPPDATA);
+			expect(newHOME).not.toBe(originalHOME);
+
+			cleanup();
+
+			// After cleanup, original values should be restored
+			expect(process.env.XDG_CONFIG_HOME).toBe(originalXDG);
+			expect(process.env.APPDATA).toBe(originalAPPDATA);
+			expect(process.env.LOCALAPPDATA).toBe(originalLOCALAPPDATA);
+			expect(process.env.HOME).toBe(originalHOME);
+		});
+
+		test('After cleanup(), env vars that were originally undefined are deleted', () => {
+			// Save originals
+			const originalXDG = process.env.XDG_CONFIG_HOME;
+			const originalAPPDATA = process.env.APPDATA;
+			const originalLOCALAPPDATA = process.env.LOCALAPPDATA;
+			const originalHOME = process.env.HOME;
+
+			// Ensure env vars are undefined for this test
+			delete process.env.XDG_CONFIG_HOME;
+			delete process.env.APPDATA;
+			delete process.env.LOCALAPPDATA;
+			delete process.env.HOME;
+
+			const { cleanup } = createIsolatedTestEnv();
+
+			// Verify they are set
+			expect(process.env.XDG_CONFIG_HOME).toBeDefined();
+			expect(process.env.APPDATA).toBeDefined();
+			expect(process.env.LOCALAPPDATA).toBeDefined();
+			expect(process.env.HOME).toBeDefined();
+
+			cleanup();
+
+			// After cleanup, undefined vars should be deleted (not set to "undefined" string)
+			// Check that they are truly deleted (not present in env)
+			if (originalXDG === undefined) {
+				expect(process.env.XDG_CONFIG_HOME).toBeUndefined();
+			}
+			if (originalAPPDATA === undefined) {
+				expect(process.env.APPDATA).toBeUndefined();
+			}
+			if (originalLOCALAPPDATA === undefined) {
+				expect(process.env.LOCALAPPDATA).toBeUndefined();
+			}
+			if (originalHOME === undefined) {
+				expect(process.env.HOME).toBeUndefined();
+			}
+
+			// Restore original state
+			if (originalXDG !== undefined) process.env.XDG_CONFIG_HOME = originalXDG;
+			if (originalAPPDATA !== undefined) process.env.APPDATA = originalAPPDATA;
+			if (originalLOCALAPPDATA !== undefined) process.env.LOCALAPPDATA = originalLOCALAPPDATA;
+			if (originalHOME !== undefined) process.env.HOME = originalHOME;
+		});
+
+		test('After cleanup(), the temp dir is removed', () => {
+			const { configDir, cleanup } = createIsolatedTestEnv();
+			const savedConfigDir = configDir;
+
+			cleanup();
+
+			expect(fs.existsSync(savedConfigDir)).toBe(false);
+		});
+	});
+
+	describe('assertSafeForWrite', () => {
+		test('throws for path.join(os.homedir(), ".config", "opencode", "opencode-swarm.json")', () => {
+			const targetPath = path.join(os.homedir(), '.config', 'opencode', 'opencode-swarm.json');
+
+			expect(() => assertSafeForWrite(targetPath)).toThrow();
+		});
+
+		test('throws for path.join(os.homedir(), ".config", "opencode", "config.json")', () => {
+			const targetPath = path.join(os.homedir(), '.config', 'opencode', 'config.json');
+
+			expect(() => assertSafeForWrite(targetPath)).toThrow();
+		});
+
+		test('does NOT throw for path.join(os.tmpdir(), "swarm-test-abc", "config.json")', () => {
+			const targetPath = path.join(os.tmpdir(), 'swarm-test-abc', 'config.json');
+
+			// Should not throw
+			expect(() => assertSafeForWrite(targetPath)).not.toThrow();
+		});
+
+		test('handles Windows backslash paths correctly', () => {
+			// Test with explicit Windows-style path under actual homedir
+			const homeDir = os.homedir();
+			const targetPath = path.join(homeDir, '.config', 'opencode', 'config.json');
+
+			// On Windows, this should use backslash separator but resolve correctly
+			expect(() => assertSafeForWrite(targetPath)).toThrow();
+		});
+
+		test('allows paths under tmpdir even on Windows', () => {
+			// Create a temp subdirectory and test
+			const tempSubdir = path.join(os.tmpdir(), 'swarm-test-allowed-123');
+			fs.mkdirSync(tempSubdir, { recursive: true });
+
+			try {
+				const targetPath = path.join(tempSubdir, 'config.json');
+				expect(() => assertSafeForWrite(targetPath)).not.toThrow();
+			} finally {
+				fs.rmSync(tempSubdir, { recursive: true, force: true });
+			}
+		});
+
+		test('throws for paths that resolve to home but not tmpdir', () => {
+			// Construct a path that is under homedir
+			const targetPath = path.join(os.homedir(), 'some-app-data', 'file.json');
+
+			expect(() => assertSafeForWrite(targetPath)).toThrow();
+		});
+	});
+});

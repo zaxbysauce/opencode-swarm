@@ -1,13 +1,94 @@
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import * as path from 'node:path';
+import { ZodError } from 'zod';
 import {
+	type BuildEvidence,
 	EVIDENCE_MAX_JSON_BYTES,
 	type Evidence,
 	type EvidenceBundle,
 	EvidenceBundleSchema,
+	type PlaceholderEvidence,
+	type QualityBudgetEvidence,
+	type SastEvidence,
+	type SbomEvidence,
+	type SyntaxEvidence,
 } from '../config/evidence-schema';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { warn } from '../utils';
+
+/**
+ * Discriminated union returned by loadEvidence.
+ * - 'found': file exists and passed Zod schema validation
+ * - 'not_found': file does not exist on disk
+ * - 'invalid_schema': file exists but failed Zod validation; errors contains field names
+ */
+export type LoadEvidenceResult =
+	| { status: 'found'; bundle: EvidenceBundle }
+	| { status: 'not_found' }
+	| { status: 'invalid_schema'; errors: string[] };
+
+/**
+ * All valid evidence types (12 total)
+ */
+export const VALID_EVIDENCE_TYPES = [
+	'review',
+	'test',
+	'diff',
+	'approval',
+	'note',
+	'retrospective',
+	'syntax',
+	'placeholder',
+	'sast',
+	'sbom',
+	'build',
+	'quality_budget',
+] as const;
+
+/**
+ * Check if a string is a valid evidence type.
+ * Returns true if the type is recognized, false otherwise.
+ */
+export function isValidEvidenceType(
+	type: string,
+): type is (typeof VALID_EVIDENCE_TYPES)[number] {
+	return VALID_EVIDENCE_TYPES.includes(
+		type as (typeof VALID_EVIDENCE_TYPES)[number],
+	);
+}
+
+/**
+ * Type guards for new evidence types
+ */
+export function isSyntaxEvidence(
+	evidence: Evidence,
+): evidence is SyntaxEvidence {
+	return evidence.type === 'syntax';
+}
+
+export function isPlaceholderEvidence(
+	evidence: Evidence,
+): evidence is PlaceholderEvidence {
+	return evidence.type === 'placeholder';
+}
+
+export function isSastEvidence(evidence: Evidence): evidence is SastEvidence {
+	return evidence.type === 'sast';
+}
+
+export function isSbomEvidence(evidence: Evidence): evidence is SbomEvidence {
+	return evidence.type === 'sbom';
+}
+
+export function isBuildEvidence(evidence: Evidence): evidence is BuildEvidence {
+	return evidence.type === 'build';
+}
+
+export function isQualityBudgetEvidence(
+	evidence: Evidence,
+): evidence is QualityBudgetEvidence {
+	return evidence.type === 'quality_budget';
+}
 
 /**
  * Task ID validation regex: alphanumeric, hyphens, and dots (for version-like IDs)
@@ -150,36 +231,151 @@ export async function saveEvidence(
 }
 
 /**
+ * Check if a parsed object is a flat retrospective (legacy format without EvidenceBundle wrapper).
+ * Flat retrospective: plain object with type === 'retrospective' but no schema_version field.
+ */
+function isFlatRetrospective(
+	parsed: unknown,
+): parsed is { type: 'retrospective'; task_id?: string; timestamp?: string } {
+	return (
+		parsed !== null &&
+		typeof parsed === 'object' &&
+		!Array.isArray(parsed) &&
+		(parsed as Record<string, unknown>).type === 'retrospective' &&
+		!(parsed as Record<string, unknown>).schema_version
+	);
+}
+
+/**
+ * Legacy to current task_complexity value mapping.
+ */
+const LEGACY_TASK_COMPLEXITY_MAP: Record<string, string> = {
+	low: 'simple',
+	medium: 'moderate',
+	high: 'complex',
+};
+
+/**
+ * Remap legacy task_complexity values in an evidence entry.
+ * Returns a new entry with remapped values (does not mutate).
+ */
+function remapLegacyTaskComplexity(
+	entry: Record<string, unknown>,
+): Record<string, unknown> {
+	const taskComplexity = entry.task_complexity;
+	if (
+		typeof taskComplexity === 'string' &&
+		taskComplexity in LEGACY_TASK_COMPLEXITY_MAP
+	) {
+		return {
+			...entry,
+			task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity],
+		};
+	}
+	return entry;
+}
+
+/**
+ * Transform a flat retrospective object into a valid EvidenceBundle.
+ */
+function wrapFlatRetrospective(
+	flatEntry: Record<string, unknown>,
+	taskId: string,
+): EvidenceBundle {
+	const now = new Date().toISOString();
+	// Remap legacy task_complexity values
+	const remappedEntry = remapLegacyTaskComplexity(flatEntry);
+	return {
+		schema_version: '1.0.0',
+		task_id: (remappedEntry.task_id as string) ?? taskId,
+		created_at: (remappedEntry.timestamp as string) ?? now,
+		updated_at: (remappedEntry.timestamp as string) ?? now,
+		entries: [remappedEntry as Evidence],
+	};
+}
+
+/**
  * Load evidence bundle for a task.
- * Returns null if file doesn't exist or validation fails.
+ * Returns a LoadEvidenceResult discriminated union.
  */
 export async function loadEvidence(
 	directory: string,
 	taskId: string,
-): Promise<EvidenceBundle | null> {
+): Promise<LoadEvidenceResult> {
 	// Validate task ID
 	const sanitizedTaskId = sanitizeTaskId(taskId);
 
 	// Construct relative path
 	const relativePath = path.join('evidence', sanitizedTaskId, 'evidence.json');
-	validateSwarmPath(directory, relativePath);
+	const evidencePath = validateSwarmPath(directory, relativePath);
 
 	// Read file
 	const content = await readSwarmFileAsync(directory, relativePath);
 	if (content === null) {
-		return null;
+		return { status: 'not_found' };
+	}
+
+	// Parse JSON
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(content);
+	} catch {
+		return { status: 'invalid_schema', errors: ['Invalid JSON'] };
+	}
+
+	// Check for flat retrospective format and transform if needed
+	if (isFlatRetrospective(parsed)) {
+		const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
+		// Validate the wrapped bundle
+		try {
+			const validated = EvidenceBundleSchema.parse(wrappedBundle);
+			// Persist repaired bundle back to the same file path
+			const evidenceDir = path.dirname(evidencePath);
+			const bundleJson = JSON.stringify(validated);
+			const tempPath = path.join(
+				evidenceDir,
+				`evidence.json.tmp.${Date.now()}.${process.pid}`,
+			);
+			try {
+				await Bun.write(tempPath, bundleJson);
+				renameSync(tempPath, evidencePath);
+			} catch (writeError) {
+				// Clean up temp file on failure
+				try {
+					rmSync(tempPath, { force: true });
+				} catch {}
+				warn(
+					`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+				);
+				// Still return the validated bundle even if write failed
+			}
+			return { status: 'found', bundle: validated };
+		} catch (error) {
+			// This shouldn't happen since we constructed it, but handle gracefully
+			warn(
+				`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			const errors =
+				error instanceof ZodError
+					? error.issues.map((e) => `${e.path.join('.')}: ${e.message}`)
+					: [String(error)];
+			return { status: 'invalid_schema', errors };
+		}
 	}
 
 	// Parse and validate
 	try {
-		const parsed = JSON.parse(content);
 		const validated = EvidenceBundleSchema.parse(parsed);
-		return validated;
+		return { status: 'found', bundle: validated };
 	} catch (error) {
 		warn(
 			`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error instanceof Error ? error.message : String(error)}`,
 		);
-		return null;
+		const errors =
+			error instanceof ZodError
+				? error.issues.map((e) => `${e.path.join('.')}: ${e.message}`)
+				: [String(error)];
+		return { status: 'invalid_schema', errors };
 	}
 }
 
@@ -292,13 +488,13 @@ export async function archiveEvidence(
 	const remainingBundles: Array<{ taskId: string; updatedAt: string }> = [];
 
 	for (const taskId of taskIds) {
-		const bundle = await loadEvidence(directory, taskId);
-		if (!bundle) {
+		const result = await loadEvidence(directory, taskId);
+		if (result.status !== 'found') {
 			continue;
 		}
 
 		// Archive if the bundle hasn't been updated since the cutoff
-		if (bundle.updated_at < cutoffIso) {
+		if (result.bundle.updated_at < cutoffIso) {
 			const deleted = await deleteEvidence(directory, taskId);
 			if (deleted) {
 				archived.push(taskId);
@@ -307,7 +503,7 @@ export async function archiveEvidence(
 			// Track remaining bundles for maxBundles enforcement
 			remainingBundles.push({
 				taskId,
-				updatedAt: bundle.updated_at,
+				updatedAt: result.bundle.updated_at,
 			});
 		}
 	}

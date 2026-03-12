@@ -1,4 +1,39 @@
 node_modules/
 .swarm/
 .newsroom/
+# PlanSyncWorker test temp directories
+.test-plan-sync-*/
+# Gate workflow test directories
+gate-workflow-test-*/
+# Adversarial detector test temp directories
+.test-adversarial-*/
+# Test output artifacts
+test-results.xml
+test_output.txt
+test_results.txt
+# Swarm scratch/context files
+ctx_*.txt
+# Windows null device redirect artifacts
+nul
+# Spurious test-created directories
+undefined/
+syntax-check-test-*/
+# Test output artifacts (numbered variants)
+testlog*.txt
+test_result*.txt
+dist-build-test/
+# Build tool type-declaration subdirs
+dist/build/
+dist/quality/
+dist/sbom/
+dist/tools/build-check.d.ts
+dist/tools/pre-check-batch.d.ts
+dist/tools/quality-budget.d.ts
+dist/tools/sbom-generate.d.ts
+# Swarm phase spec/planning scratch files (root-level only, not docs/releases/)
+/v6.*-*.md
+/v6.*.md
 
+# Test artifact directories created at project root by path-validation tests
+.temp-test-*/
+output_*.js

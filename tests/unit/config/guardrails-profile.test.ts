@@ -202,12 +202,22 @@ describe('resolveGuardrailsConfig', () => {
 		expect(result).toBe(baseConfig);
 	});
 
-	it('returns architect defaults when agentName not in built-in profiles', () => {
+	it('returns base config when agentName not in built-in profiles (unknown agent gets limits, not exempt)', () => {
 		const result = resolveGuardrailsConfig(baseConfig, 'unknown-agent');
-		expect(result.max_tool_calls).toBe(0); // Unlimited (architect default)
-		expect(result.max_duration_minutes).toBe(0); // Unlimited (architect default)
-		expect(result.max_consecutive_errors).toBe(8); // Architect default
-		expect(result.warning_threshold).toBe(0.75); // Architect default
+		// Unknown agents should get base config, NOT architect defaults
+		// This prevents guardrails bypass via unknown agent names
+		expect(result.max_tool_calls).toBe(10); // Base config value
+		expect(result.max_duration_minutes).toBe(30); // Base config value
+		expect(result.max_consecutive_errors).toBe(5); // Base config value
+		expect(result.warning_threshold).toBe(0.75); // Base config value
+	});
+
+	it('literal "unknown" agent name gets base config limits, not architect exempt', () => {
+		const result = resolveGuardrailsConfig(baseConfig, 'unknown');
+		// This is the specific regression case: "unknown" was falling back to architect (0 limits)
+		// Now it should get base config limits
+		expect(result.max_tool_calls).toBe(10); // Base config, NOT 0 (architect exempt)
+		expect(result.max_duration_minutes).toBe(30); // Base config, NOT 0 (architect exempt)
 	});
 
 	it('merges single field override (coder gets max_tool_calls=20 from profile)', () => {
@@ -439,6 +449,180 @@ describe('stripKnownSwarmPrefix', () => {
 	it('does not strip when no known agent name suffix found', () => {
 		const result = stripKnownSwarmPrefix('custom_unknown');
 		expect(result).toBe('custom_unknown');
+	});
+
+	// New tests for case-insensitive + separator-aware matching
+	describe('case-insensitive matching', () => {
+		it("strips 'PAID_ARCHITECT' (uppercase)", () => {
+			const result = stripKnownSwarmPrefix('PAID_ARCHITECT');
+			expect(result).toBe('architect');
+		});
+
+		it("strips 'Local_Coder' (mixed case)", () => {
+			const result = stripKnownSwarmPrefix('Local_Coder');
+			expect(result).toBe('coder');
+		});
+
+		it("strips 'MEGA_EXPLORER' (uppercase)", () => {
+			const result = stripKnownSwarmPrefix('MEGA_EXPLORER');
+			expect(result).toBe('explorer');
+		});
+
+		it("strips 'Default_SME' (mixed case)", () => {
+			const result = stripKnownSwarmPrefix('Default_SME');
+			expect(result).toBe('sme');
+		});
+
+		it("strips 'PAID_CODER' (uppercase)", () => {
+			const result = stripKnownSwarmPrefix('PAID_CODER');
+			expect(result).toBe('coder');
+		});
+	});
+
+	describe('separator-aware matching (hyphen)', () => {
+		it("strips 'paid-architect' (hyphen separator)", () => {
+			const result = stripKnownSwarmPrefix('paid-architect');
+			expect(result).toBe('architect');
+		});
+
+		it("strips 'local-coder' (hyphen separator)", () => {
+			const result = stripKnownSwarmPrefix('local-coder');
+			expect(result).toBe('coder');
+		});
+
+		it("strips 'mega-explorer' (hyphen separator)", () => {
+			const result = stripKnownSwarmPrefix('mega-explorer');
+			expect(result).toBe('explorer');
+		});
+
+		it("strips 'team-alpha-reviewer' (compound hyphen)", () => {
+			const result = stripKnownSwarmPrefix('team-alpha-reviewer');
+			expect(result).toBe('reviewer');
+		});
+	});
+
+	describe('separator-aware matching (space)', () => {
+		it("strips 'paid architect' (space separator)", () => {
+			const result = stripKnownSwarmPrefix('paid architect');
+			expect(result).toBe('architect');
+		});
+
+		it("strips 'local coder' (space separator)", () => {
+			const result = stripKnownSwarmPrefix('local coder');
+			expect(result).toBe('coder');
+		});
+
+		it("strips 'mega explorer' (space separator)", () => {
+			const result = stripKnownSwarmPrefix('mega explorer');
+			expect(result).toBe('explorer');
+		});
+	});
+
+	describe('combined case + separator variants', () => {
+		it("strips 'PAID-ARCHITECT' (uppercase + hyphen)", () => {
+			const result = stripKnownSwarmPrefix('PAID-ARCHITECT');
+			expect(result).toBe('architect');
+		});
+
+		it("strips 'Paid_Architect' (mixed case + underscore)", () => {
+			const result = stripKnownSwarmPrefix('Paid_Architect');
+			expect(result).toBe('architect');
+		});
+
+		it("strips 'Local-Coder' (mixed case + hyphen)", () => {
+			const result = stripKnownSwarmPrefix('Local-Coder');
+			expect(result).toBe('coder');
+		});
+
+		it("strips 'MEGA EXPLORER' (uppercase + space)", () => {
+			const result = stripKnownSwarmPrefix('MEGA EXPLORER');
+			expect(result).toBe('explorer');
+		});
+	});
+
+	describe('exact known agent name matching', () => {
+		it("returns 'architect' unchanged (exact)", () => {
+			const result = stripKnownSwarmPrefix('architect');
+			expect(result).toBe('architect');
+		});
+
+		it("returns 'coder' unchanged (exact)", () => {
+			const result = stripKnownSwarmPrefix('coder');
+			expect(result).toBe('coder');
+		});
+
+		it("returns 'ARCHITECT' unchanged (exact case-insensitive)", () => {
+			const result = stripKnownSwarmPrefix('ARCHITECT');
+			expect(result).toBe('architect');
+		});
+	});
+
+	describe('unknown agent behavior preserved', () => {
+		it('unknown agent with non-agent suffix returns unchanged', () => {
+			const result = stripKnownSwarmPrefix('unknown-agent');
+			expect(result).toBe('unknown-agent');
+		});
+
+		it('random name returns unchanged', () => {
+			const result = stripKnownSwarmPrefix('foo-bar-baz');
+			expect(result).toBe('foo-bar-baz');
+		});
+
+		it('name ending with architect token maps to architect (normalization)', () => {
+			// Per constraint: "unknown names must not map to architect UNLESS they
+			// clearly end with architect token" - so "not-an-architect" DOES
+			// clearly end with architect token and should map
+			const result = stripKnownSwarmPrefix('not-an-architect');
+			expect(result).toBe('architect');
+		});
+	});
+
+	// Focused tests for architect exemption with normalized variants
+	describe('architect exemption with normalized variants', () => {
+		const base: GuardrailsConfig = {
+			enabled: true,
+			max_tool_calls: 200,
+			max_duration_minutes: 30,
+			max_repetitions: 10,
+			max_consecutive_errors: 5,
+			warning_threshold: 0.75,
+			idle_timeout_minutes: 60,
+		};
+
+		it('paid-architect (hyphen) gets architect exempt limits', () => {
+			const result = resolveGuardrailsConfig(base, 'paid-architect');
+			expect(result.max_tool_calls).toBe(0); // Unlimited (architect exempt)
+			expect(result.max_duration_minutes).toBe(0);
+		});
+
+		it('paid architect (space) gets architect exempt limits', () => {
+			const result = resolveGuardrailsConfig(base, 'paid architect');
+			expect(result.max_tool_calls).toBe(0); // Unlimited (architect exempt)
+			expect(result.max_duration_minutes).toBe(0);
+		});
+
+		it('PAID_ARCHITECT (uppercase) gets architect exempt limits', () => {
+			const result = resolveGuardrailsConfig(base, 'PAID_ARCHITECT');
+			expect(result.max_tool_calls).toBe(0); // Unlimited (architect exempt)
+			expect(result.max_duration_minutes).toBe(0);
+		});
+
+		it('Paid_Architect (mixed case) gets architect exempt limits', () => {
+			const result = resolveGuardrailsConfig(base, 'Paid_Architect');
+			expect(result.max_tool_calls).toBe(0); // Unlimited (architect exempt)
+			expect(result.max_duration_minutes).toBe(0);
+		});
+
+		it('subagent variants get subagent limits, not architect', () => {
+			// Verify subagent guardrails still apply for normalized variants
+			const coderResult = resolveGuardrailsConfig(base, 'local-coder');
+			expect(coderResult.max_tool_calls).toBe(400); // Coder limit
+			expect(coderResult.max_duration_minutes).toBe(45);
+
+			const explorerResult = resolveGuardrailsConfig(base, 'mega explorer');
+			expect(explorerResult.max_tool_calls).toBe(150); // Explorer limit
+			expect(explorerResult.max_duration_minutes).toBe(20);
+		});
 	});
 });
 

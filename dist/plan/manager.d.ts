@@ -6,11 +6,17 @@ import { type Plan, type TaskStatus } from '../config/plan-schema';
  */
 export declare function loadPlanJsonOnly(directory: string): Promise<Plan | null>;
 /**
- * Load and validate plan from .swarm/plan.json with 4-step precedence:
- * 1. .swarm/plan.json exists AND validates → return parsed Plan
- * 2. .swarm/plan.json exists but FAILS validation → log warning, fall to step 3
- * 3. .swarm/plan.md exists → call migrateLegacyPlan(), save result, return it
- * 4. Neither exists → return null
+ * Load and validate plan from .swarm/plan.json with auto-heal sync.
+ *
+ * 4-step precedence with auto-heal:
+ * 1. .swarm/plan.json exists AND validates ->
+ *    a) If plan.md missing or stale -> regenerate plan.md from plan.json
+ *    b) Return parsed Plan
+ * 2. .swarm/plan.json exists but FAILS validation ->
+ *    a) If plan.md exists -> migrate from plan.md, save valid plan.json, then derive plan.md
+ *    b) Return migrated Plan
+ * 3. .swarm/plan.md exists only -> migrate from plan.md, save both files, return Plan
+ * 4. Neither exists -> return null
  */
 export declare function loadPlan(directory: string): Promise<Plan | null>;
 /**
@@ -24,7 +30,8 @@ export declare function savePlan(directory: string, plan: Plan): Promise<void>;
  */
 export declare function updateTaskStatus(directory: string, taskId: string, status: TaskStatus): Promise<Plan>;
 /**
- * Generate markdown view from plan object
+ * Generate deterministic markdown view from plan object.
+ * Ensures stable ordering: phases by ID (ascending), tasks by ID (natural numeric).
  */
 export declare function derivePlanMarkdown(plan: Plan): string;
 /**

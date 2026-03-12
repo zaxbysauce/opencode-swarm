@@ -1,0 +1,305 @@
+/**
+ * Declare scope tool for setting the file scope for coder delegations.
+ * Implements FR-010: Declare coder scope before delegation.
+ * This tool must be called before delegating to coder to enable scope containment checking.
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { getTaskState, swarmState } from '../state';
+import { createSwarmTool } from './create-tool';
+
+/**
+ * Arguments for the declare_scope tool
+ */
+export interface DeclareScopeArgs {
+	taskId: string;
+	files: string[];
+	whitelist?: string[];
+	working_directory?: string;
+}
+
+/**
+ * Result from executing declare_scope
+ */
+export interface DeclareScopeResult {
+	success: boolean;
+	message: string;
+	taskId?: string;
+	fileCount?: number;
+	errors?: string[];
+}
+
+/**
+ * Validate that taskId matches the required format (N.M or N.M.P).
+ * @param taskId - The task ID to validate
+ * @returns Error message if invalid, undefined if valid
+ */
+export function validateTaskIdFormat(taskId: string): string | undefined {
+	const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
+	if (!taskIdPattern.test(taskId)) {
+		return `Invalid taskId "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
+	}
+	return undefined;
+}
+
+/**
+ * Validate file entries for security concerns.
+ * @param files - Array of file paths to validate
+ * @returns Array of error messages, empty if all valid
+ */
+export function validateFiles(files: string[]): string[] {
+	const errors: string[] = [];
+
+	for (const file of files) {
+		// Check for null bytes
+		if (file.includes('\0')) {
+			errors.push(`Invalid file "${file}": null bytes are not allowed`);
+		}
+
+		// Check for path traversal
+		if (file.includes('..')) {
+			errors.push(
+				`Invalid file "${file}": path traversal sequences (..) are not allowed`,
+			);
+		}
+
+		// Check for length limit
+		if (file.length > 4096) {
+			errors.push(
+				`Invalid file "${file}": path exceeds maximum length of 4096 characters`,
+			);
+		}
+	}
+
+	return errors;
+}
+
+/**
+ * Execute the declare_scope tool.
+ * Validates the taskId and files, then sets the declared scope on all active architect sessions.
+ * @param args - The declare scope arguments
+ * @param fallbackDir - Fallback directory for plan lookup
+ * @returns DeclareScopeResult with success status and details
+ */
+export async function executeDeclareScope(
+	args: DeclareScopeArgs,
+	fallbackDir?: string,
+): Promise<DeclareScopeResult> {
+	// Step 1: Validate taskId format
+	const taskIdError = validateTaskIdFormat(args.taskId);
+	if (taskIdError) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: [taskIdError],
+		};
+	}
+
+	// Step 2: Validate files array
+	if (!Array.isArray(args.files) || args.files.length === 0) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: ['files must be a non-empty array'],
+		};
+	}
+
+	// Validate each file entry
+	const fileErrors = validateFiles(args.files);
+	if (fileErrors.length > 0) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: fileErrors,
+		};
+	}
+
+	// Validate whitelist entries if provided
+	if (args.whitelist) {
+		const whitelistErrors = validateFiles(args.whitelist);
+		if (whitelistErrors.length > 0) {
+			return {
+				success: false,
+				message: 'Validation failed',
+				errors: whitelistErrors,
+			};
+		}
+	}
+
+	// Step 3: Validate working_directory if provided
+	let normalizedDir: string | undefined;
+	if (args.working_directory != null) {
+		// Check for null-byte injection before any processing
+		if (args.working_directory.includes('\0')) {
+			return {
+				success: false,
+				message: 'Invalid working_directory: null bytes are not allowed',
+				errors: ['Invalid working_directory: null bytes are not allowed'],
+			};
+		}
+
+		// Check for Windows device paths (e.g., \\.\C:\, \\?\GLOBALROOT\)
+		if (process.platform === 'win32') {
+			const devicePathPattern =
+				/^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
+			if (devicePathPattern.test(args.working_directory)) {
+				return {
+					success: false,
+					message:
+						'Invalid working_directory: Windows device paths are not allowed',
+					errors: [
+						'Invalid working_directory: Windows device paths are not allowed',
+					],
+				};
+			}
+		}
+
+		// Normalize path first
+		normalizedDir = path.normalize(args.working_directory);
+
+		// Check for path traversal sequences
+		const pathParts = normalizedDir.split(path.sep);
+		if (pathParts.includes('..')) {
+			return {
+				success: false,
+				message:
+					'Invalid working_directory: path traversal sequences (..) are not allowed',
+				errors: [
+					'Invalid working_directory: path traversal sequences (..) are not allowed',
+				],
+			};
+		}
+
+		// Check if directory exists on disk and contains a valid .swarm/plan.json
+		const resolvedDir = path.resolve(normalizedDir);
+		try {
+			const realPath = fs.realpathSync(resolvedDir);
+			const planPath = path.join(realPath, '.swarm', 'plan.json');
+			if (!fs.existsSync(planPath)) {
+				return {
+					success: false,
+					message: `Invalid working_directory: plan not found in "${realPath}"`,
+					errors: [
+						`Invalid working_directory: plan not found in "${realPath}"`,
+					],
+				};
+			}
+		} catch {
+			return {
+				success: false,
+				message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
+				errors: [
+					`Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
+				],
+			};
+		}
+	}
+
+	// Step 4: Resolve target directory
+	const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+
+	// Step 5: Check that taskId exists in plan.json
+	const planPath = path.resolve(directory, '.swarm', 'plan.json');
+	if (!fs.existsSync(planPath)) {
+		return {
+			success: false,
+			message: 'No plan found',
+			errors: ['plan.json not found'],
+		};
+	}
+
+	let planContent: { phases?: { tasks?: { id: string }[] }[] };
+	try {
+		planContent = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+	} catch {
+		return {
+			success: false,
+			message: 'Failed to parse plan.json',
+			errors: ['plan.json is not valid JSON'],
+		};
+	}
+
+	const allTasks =
+		planContent.phases?.flatMap(
+			(p: { tasks?: { id: string }[] }) => p.tasks ?? [],
+		) ?? [];
+	const taskExists = allTasks.some((t: { id: string }) => t.id === args.taskId);
+
+	if (!taskExists) {
+		return {
+			success: false,
+			message: `Task ${args.taskId} not found in plan`,
+			errors: [`Task ${args.taskId} does not exist in plan.json`],
+		};
+	}
+
+	// Step 6: Check that task is NOT already in 'complete' state
+	// Check across all sessions - if any session has this task in 'complete' state, reject
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		const taskState = getTaskState(session, args.taskId);
+		if (taskState === 'complete') {
+			return {
+				success: false,
+				message: `Task ${args.taskId} is already completed`,
+				errors: [`Cannot declare scope for completed task ${args.taskId}`],
+			};
+		}
+	}
+
+	// Step 7: Merge files and whitelist (if provided)
+	const mergedFiles = [...args.files, ...(args.whitelist ?? [])];
+
+	// Step 8: Set declaredCoderScope on ALL active architect sessions
+	// Also clear lastScopeViolation for fresh start
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		session.declaredCoderScope = mergedFiles;
+		session.lastScopeViolation = null;
+	}
+
+	return {
+		success: true,
+		message: 'Scope declared successfully',
+		taskId: args.taskId,
+		fileCount: mergedFiles.length,
+	};
+}
+
+/**
+ * Tool definition for declare_scope
+ */
+export const declare_scope: ToolDefinition = createSwarmTool({
+	description:
+		'Declare the file scope for the next coder delegation. ' +
+		'Sets the list of files the coder is permitted to modify for a specific task. ' +
+		'Must be called before delegating to coder to enable scope containment checking.',
+	args: {
+		taskId: tool.schema
+			.string()
+			.min(1)
+			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
+			.describe(
+				'Task ID for which scope is being declared, e.g. "1.1", "1.2.3"',
+			),
+		files: tool.schema
+			.array(tool.schema.string().min(1).max(4096))
+			.min(1)
+			.describe('Array of file paths the coder is permitted to modify'),
+		whitelist: tool.schema
+			.array(tool.schema.string().min(1).max(4096))
+			.optional()
+			.describe('Additional file paths to whitelist (merged with files)'),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe('Working directory where the plan is located'),
+	},
+	execute: async (args: unknown, _directory: string) => {
+		return JSON.stringify(
+			await executeDeclareScope(args as DeclareScopeArgs, _directory),
+			null,
+			2,
+		);
+	},
+});

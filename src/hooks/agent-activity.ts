@@ -5,6 +5,7 @@
  * Records timing, success/failure, and periodically flushes aggregated stats.
  */
 
+import { renameSync, unlinkSync } from 'node:fs';
 import type { PluginConfig } from '../config/schema';
 import { swarmState } from '../state';
 import { warn } from '../utils';
@@ -149,9 +150,20 @@ async function doFlush(directory: string): Promise<void> {
 		// Capture pending count before write (new events may arrive during I/O)
 		const flushedCount = swarmState.pendingEvents;
 
-		// Write back
+		// Write back (atomic: write to temp then rename)
 		const path = `${directory}/.swarm/context.md`;
-		await Bun.write(path, updated);
+		const tempPath = `${path}.tmp`;
+		try {
+			await Bun.write(tempPath, updated);
+			renameSync(tempPath, path);
+		} catch (writeError) {
+			try {
+				unlinkSync(tempPath);
+			} catch {
+				/* ignore cleanup errors */
+			}
+			throw writeError; // re-throw so the outer catch still handles it
+		}
 
 		// Subtract flushed count (preserves events that arrived during write)
 		swarmState.pendingEvents = Math.max(

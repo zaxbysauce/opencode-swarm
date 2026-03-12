@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { AgentOverrideConfigSchema, SwarmConfigSchema, PluginConfigSchema, GuardrailsConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema } from '../../../src/config/schema';
+import { AgentOverrideConfigSchema, SwarmConfigSchema, PluginConfigSchema, GuardrailsConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, PipelineConfigSchema, stripKnownSwarmPrefix } from '../../../src/config/schema';
 import { DEFAULT_SCORING_CONFIG, resolveScoringConfig } from '../../../src/config/constants';
 
 describe('AgentOverrideConfigSchema', () => {
@@ -274,6 +274,29 @@ describe('GuardrailsConfigSchema', () => {
       expect(result.data.warning_threshold).toBe(0.75); // Default
     }
   });
+
+  it('supports qa_gates defaults', () => {
+    const result = GuardrailsConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.qa_gates).toBeUndefined();
+    }
+  });
+
+  it('supports configurable qa_gates overrides', () => {
+    const result = GuardrailsConfigSchema.safeParse({
+      qa_gates: {
+        required_tools: ['lint'],
+        require_reviewer_test_engineer: false,
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.qa_gates.required_tools).toEqual(['lint']);
+      expect(result.data.qa_gates.require_reviewer_test_engineer).toBe(false);
+    }
+  });
+
 
   it('rejects max_tool_calls below 0', () => {
     const result = GuardrailsConfigSchema.safeParse({ max_tool_calls: -1 });
@@ -783,5 +806,104 @@ describe('resolveScoringConfig', () => {
     expect(result.decision_decay.half_life_hours).toBe(12);
     expect(result.token_ratios.prose).toBe(0.3);
     expect(result.token_ratios.code).toBe(0.5);
+  });
+});
+
+describe('PipelineConfigSchema', () => {
+  it('accepts empty object and applies defaults', () => {
+    const result = PipelineConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ parallel_precheck: true });
+    }
+  });
+
+  it('accepts parallel_precheck: true', () => {
+    const result = PipelineConfigSchema.safeParse({ parallel_precheck: true });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ parallel_precheck: true });
+    }
+  });
+
+  it('accepts parallel_precheck: false', () => {
+    const result = PipelineConfigSchema.safeParse({ parallel_precheck: false });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ parallel_precheck: false });
+    }
+  });
+
+  it('rejects parallel_precheck as string', () => {
+    const result = PipelineConfigSchema.safeParse({ parallel_precheck: 'true' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects parallel_precheck as number', () => {
+    const result = PipelineConfigSchema.safeParse({ parallel_precheck: 1 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('PluginConfigSchema with pipeline', () => {
+  it('accepts pipeline block with parallel_precheck', () => {
+    const result = PluginConfigSchema.safeParse({ pipeline: { parallel_precheck: false } });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.pipeline).toEqual({ parallel_precheck: false });
+    }
+  });
+
+  it('pipeline is optional — absent config still parses', () => {
+    const result = PluginConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.pipeline).toBeUndefined();
+    }
+  });
+});
+
+describe('stripKnownSwarmPrefix', () => {
+  // Tests for the new 'synthetic' prefix (11th entry in KNOWN_SWARM_PREFIXES)
+  it('strips synthetic_reviewer and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic_reviewer')).toBe('reviewer');
+  });
+
+  it('strips synthetic_coder and returns coder', () => {
+    expect(stripKnownSwarmPrefix('synthetic_coder')).toBe('coder');
+  });
+
+  it('strips synthetic_test_engineer and returns test_engineer', () => {
+    expect(stripKnownSwarmPrefix('synthetic_test_engineer')).toBe('test_engineer');
+  });
+
+  it('strips synthetic-reviewer (dash separator) and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic-reviewer')).toBe('reviewer');
+  });
+
+  it('strips synthetic reviewer (space separator) and returns reviewer', () => {
+    expect(stripKnownSwarmPrefix('synthetic reviewer')).toBe('reviewer');
+  });
+
+  it('returns synthetic unchanged (bare prefix without separator is not an agent name)', () => {
+    expect(stripKnownSwarmPrefix('synthetic')).toBe('synthetic');
+  });
+
+  // Verify existing known prefix still works
+  it('strips mega_reviewer and returns reviewer (existing prefix)', () => {
+    expect(stripKnownSwarmPrefix('mega_reviewer')).toBe('reviewer');
+  });
+
+  // Additional edge cases
+  it('handles uppercase Synthetic_Architect', () => {
+    expect(stripKnownSwarmPrefix('Synthetic_Architect')).toBe('architect');
+  });
+
+  it('returns original string when no known agent found', () => {
+    expect(stripKnownSwarmPrefix('unknown_agent')).toBe('unknown_agent');
+  });
+
+  it('handles empty string', () => {
+    expect(stripKnownSwarmPrefix('')).toBe('');
   });
 });

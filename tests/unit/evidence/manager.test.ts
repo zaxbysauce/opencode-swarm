@@ -5,11 +5,27 @@ import {
 	loadEvidence,
 	listEvidenceTaskIds,
 	deleteEvidence,
+	isValidEvidenceType,
+	isSyntaxEvidence,
+	isPlaceholderEvidence,
+	isSastEvidence,
+	isSbomEvidence,
+	isBuildEvidence,
+	isQualityBudgetEvidence,
+	VALID_EVIDENCE_TYPES,
 } from '../../../src/evidence/manager';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Evidence } from '../../../src/config/evidence-schema';
+import type {
+	Evidence,
+	SyntaxEvidence,
+	PlaceholderEvidence,
+	SastEvidence,
+	SbomEvidence,
+	BuildEvidence,
+	QualityBudgetEvidence,
+} from '../../../src/config/evidence-schema';
 
 let tempDir: string;
 
@@ -91,10 +107,11 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(bundle.entries[0].summary).toBe('Test summary');
 
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).not.toBeNull();
-		expect(loaded?.task_id).toBe('1.1');
-		expect(loaded?.entries.length).toBe(1);
-		expect(loaded?.entries[0].summary).toBe('Test summary');
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.task_id).toBe('1.1');
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].summary).toBe('Test summary');
 	});
 
 	it('save appends to existing bundle', async () => {
@@ -109,12 +126,14 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(bundle2.entries[1].summary).toBe('Second entry');
 
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded?.entries.length).toBe(2);
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.entries.length).toBe(2);
 	});
 
 	it('load returns null when no evidence exists', async () => {
 		const loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).toBeNull();
+		expect(loaded.status).toBe('not_found');
 	});
 
 	it('save with invalid task ID throws', async () => {
@@ -213,17 +232,376 @@ describe('deleteEvidence', () => {
 
 		// Verify it exists
 		let loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).not.toBeNull();
+		expect(loaded.status).toBe('found');
 
 		// Delete it
 		await deleteEvidence(tempDir, '1.1');
 
 		// Verify it's gone
 		loaded = await loadEvidence(tempDir, '1.1');
-		expect(loaded).toBeNull();
+		expect(loaded.status).toBe('not_found');
 	});
 
 	it('invalid task ID throws', async () => {
 		await expect(deleteEvidence(tempDir, '../evil')).rejects.toThrow('Invalid task ID');
 	});
 });
+
+describe('isValidEvidenceType', () => {
+	it('returns true for all 12 valid evidence types', () => {
+		expect(isValidEvidenceType('review')).toBe(true);
+		expect(isValidEvidenceType('test')).toBe(true);
+		expect(isValidEvidenceType('diff')).toBe(true);
+		expect(isValidEvidenceType('approval')).toBe(true);
+		expect(isValidEvidenceType('note')).toBe(true);
+		expect(isValidEvidenceType('retrospective')).toBe(true);
+		expect(isValidEvidenceType('syntax')).toBe(true);
+		expect(isValidEvidenceType('placeholder')).toBe(true);
+		expect(isValidEvidenceType('sast')).toBe(true);
+		expect(isValidEvidenceType('sbom')).toBe(true);
+		expect(isValidEvidenceType('build')).toBe(true);
+		expect(isValidEvidenceType('quality_budget')).toBe(true);
+	});
+
+	it('returns false for unknown types', () => {
+		expect(isValidEvidenceType('unknown')).toBe(false);
+		expect(isValidEvidenceType('invalid')).toBe(false);
+		expect(isValidEvidenceType('')).toBe(false);
+		expect(isValidEvidenceType('REVIEW')).toBe(false); // case sensitive
+	});
+
+	it('VALID_EVIDENCE_TYPES constant has 12 types', () => {
+		expect(VALID_EVIDENCE_TYPES.length).toBe(12);
+	});
+});
+
+describe('Type guards', () => {
+	it('isSyntaxEvidence returns true for syntax type', () => {
+		const evidence = makeSyntaxEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(true);
+		expect(isPlaceholderEvidence(evidence)).toBe(false);
+		expect(isSastEvidence(evidence)).toBe(false);
+		expect(isSbomEvidence(evidence)).toBe(false);
+		expect(isBuildEvidence(evidence)).toBe(false);
+		expect(isQualityBudgetEvidence(evidence)).toBe(false);
+	});
+
+	it('isPlaceholderEvidence returns true for placeholder type', () => {
+		const evidence = makePlaceholderEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(false);
+		expect(isPlaceholderEvidence(evidence)).toBe(true);
+		expect(isSastEvidence(evidence)).toBe(false);
+		expect(isSbomEvidence(evidence)).toBe(false);
+		expect(isBuildEvidence(evidence)).toBe(false);
+		expect(isQualityBudgetEvidence(evidence)).toBe(false);
+	});
+
+	it('isSastEvidence returns true for sast type', () => {
+		const evidence = makeSastEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(false);
+		expect(isPlaceholderEvidence(evidence)).toBe(false);
+		expect(isSastEvidence(evidence)).toBe(true);
+		expect(isSbomEvidence(evidence)).toBe(false);
+		expect(isBuildEvidence(evidence)).toBe(false);
+		expect(isQualityBudgetEvidence(evidence)).toBe(false);
+	});
+
+	it('isSbomEvidence returns true for sbom type', () => {
+		const evidence = makeSbomEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(false);
+		expect(isPlaceholderEvidence(evidence)).toBe(false);
+		expect(isSastEvidence(evidence)).toBe(false);
+		expect(isSbomEvidence(evidence)).toBe(true);
+		expect(isBuildEvidence(evidence)).toBe(false);
+		expect(isQualityBudgetEvidence(evidence)).toBe(false);
+	});
+
+	it('isBuildEvidence returns true for build type', () => {
+		const evidence = makeBuildEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(false);
+		expect(isPlaceholderEvidence(evidence)).toBe(false);
+		expect(isSastEvidence(evidence)).toBe(false);
+		expect(isSbomEvidence(evidence)).toBe(false);
+		expect(isBuildEvidence(evidence)).toBe(true);
+		expect(isQualityBudgetEvidence(evidence)).toBe(false);
+	});
+
+	it('isQualityBudgetEvidence returns true for quality_budget type', () => {
+		const evidence = makeQualityBudgetEvidence();
+		expect(isSyntaxEvidence(evidence)).toBe(false);
+		expect(isPlaceholderEvidence(evidence)).toBe(false);
+		expect(isSastEvidence(evidence)).toBe(false);
+		expect(isSbomEvidence(evidence)).toBe(false);
+		expect(isBuildEvidence(evidence)).toBe(false);
+		expect(isQualityBudgetEvidence(evidence)).toBe(true);
+	});
+});
+
+describe('All 12 evidence types can be saved and loaded', () => {
+	const allTypes = [
+		'review',
+		'test',
+		'diff',
+		'approval',
+		'note',
+		'retrospective',
+		'syntax',
+		'placeholder',
+		'sast',
+		'sbom',
+		'build',
+		'quality_budget',
+	] as const;
+
+	it.each(allTypes)('can save and load %s evidence type', async (type) => {
+		let evidence: Evidence = makeNoteEvidence(); // Default initialization
+
+		switch (type) {
+			case 'review':
+				evidence = makeReviewEvidence();
+				break;
+			case 'test':
+				evidence = makeTestEvidence();
+				break;
+			case 'diff':
+				evidence = makeDiffEvidence();
+				break;
+			case 'approval':
+				evidence = makeApprovalEvidence();
+				break;
+			case 'note':
+				evidence = makeNoteEvidence();
+				break;
+			case 'retrospective':
+				evidence = makeRetrospectiveEvidence();
+				break;
+			case 'syntax':
+				evidence = makeSyntaxEvidence();
+				break;
+			case 'placeholder':
+				evidence = makePlaceholderEvidence();
+				break;
+			case 'sast':
+				evidence = makeSastEvidence();
+				break;
+			case 'sbom':
+				evidence = makeSbomEvidence();
+				break;
+			case 'build':
+				evidence = makeBuildEvidence();
+				break;
+			case 'quality_budget':
+				evidence = makeQualityBudgetEvidence();
+				break;
+		}
+
+		const taskId = `test-${type}`;
+		const saved = await saveEvidence(tempDir, taskId, evidence);
+		expect(saved.entries.length).toBe(1);
+		expect(saved.entries[0].type).toBe(type);
+
+		const loaded = await loadEvidence(tempDir, taskId);
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].type).toBe(type);
+	});
+});
+
+// Helper functions for creating specific evidence types
+
+function makeReviewEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'review' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'approved' as const,
+		summary: 'Code review passed',
+		risk: 'low' as const,
+		issues: [],
+	};
+}
+
+function makeTestEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'test' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'pass' as const,
+		summary: 'All tests passed',
+		tests_passed: 10,
+		tests_failed: 0,
+		failures: [],
+	};
+}
+
+function makeDiffEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'diff' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info' as const,
+		summary: 'Code changes',
+		files_changed: ['src/index.ts'],
+		additions: 50,
+		deletions: 10,
+	};
+}
+
+function makeApprovalEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'approval' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'approved' as const,
+		summary: 'Task approved',
+	};
+}
+
+function makeNoteEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'note' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info' as const,
+		summary: 'Note summary',
+	};
+}
+
+function makeRetrospectiveEvidence() {
+	return {
+		task_id: '1.1',
+		type: 'retrospective' as const,
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info' as const,
+		summary: 'Sprint retrospective',
+		phase_number: 1,
+		total_tool_calls: 100,
+		coder_revisions: 5,
+		reviewer_rejections: 2,
+		test_failures: 1,
+		security_findings: 0,
+		integration_issues: 0,
+		task_count: 10,
+		task_complexity: 'moderate' as const,
+		top_rejection_reasons: [],
+		lessons_learned: [],
+	};
+}
+
+function makeSyntaxEvidence(): SyntaxEvidence {
+	return {
+		task_id: '1.1',
+		type: 'syntax',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'pass',
+		summary: 'Syntax check passed',
+		files_checked: 10,
+		files_failed: 0,
+		skipped_count: 0,
+		files: [],
+	};
+}
+
+function makePlaceholderEvidence(): PlaceholderEvidence {
+	return {
+		task_id: '1.1',
+		type: 'placeholder',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info',
+		summary: 'No placeholders found',
+		findings: [],
+		files_scanned: 10,
+		files_with_findings: 0,
+		findings_count: 0,
+	};
+}
+
+function makeSastEvidence(): SastEvidence {
+	return {
+		task_id: '1.1',
+		type: 'sast',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'pass',
+		summary: 'Security scan passed',
+		findings: [],
+		engine: 'tier_a',
+		files_scanned: 10,
+		findings_count: 0,
+		findings_by_severity: {
+			critical: 0,
+			high: 0,
+			medium: 0,
+			low: 0,
+		},
+	};
+}
+
+function makeSbomEvidence(): SbomEvidence {
+	return {
+		task_id: '1.1',
+		type: 'sbom',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info',
+		summary: 'SBOM generated',
+		components: [],
+		metadata: {
+			timestamp: new Date().toISOString(),
+			tool: 'test-tool',
+			tool_version: '1.0.0',
+		},
+		files: ['package.json'],
+		components_count: 0,
+		output_path: '/sbom.json',
+	};
+}
+
+function makeBuildEvidence(): BuildEvidence {
+	return {
+		task_id: '1.1',
+		type: 'build',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'pass',
+		summary: 'Build succeeded',
+		runs: [],
+		files_scanned: 10,
+		runs_count: 1,
+		failed_count: 0,
+	};
+}
+
+function makeQualityBudgetEvidence(): QualityBudgetEvidence {
+	return {
+		task_id: '1.1',
+		type: 'quality_budget',
+		timestamp: new Date().toISOString(),
+		agent: 'test-agent',
+		verdict: 'info',
+		summary: 'Quality metrics within budget',
+		metrics: {
+			complexity_delta: 2,
+			public_api_delta: 5,
+			duplication_ratio: 2,
+			test_to_code_ratio: 35,
+		},
+		thresholds: {
+			max_complexity_delta: 5,
+			max_public_api_delta: 10,
+			max_duplication_ratio: 5,
+			min_test_to_code_ratio: 30,
+		},
+		violations: [],
+		files_analyzed: ['src/index.ts'],
+	};
+}

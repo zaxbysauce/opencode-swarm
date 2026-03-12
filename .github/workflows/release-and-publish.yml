@@ -1,0 +1,120 @@
+name: release-and-publish
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.rp.outputs.releases_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
+        id: rp
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
+        with:
+          bun-version: "1.x"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm
+        run: npm i -g npm@11.5.2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish to npm
+        run: |
+          echo "Trying OIDC trusted publishing..."
+          if npm publish --provenance --access public; then
+            exit 0
+          fi
+          echo "OIDC publish failed; retrying with NPM_TOKEN fallback..."
+          NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  update-release-notes:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Update release body from docs/releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          NOTES_FILE="docs/releases/${TAG_NAME}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "Found release notes at $NOTES_FILE — updating release body"
+            gh release edit "${TAG_NAME}" --notes-file "$NOTES_FILE"
+          else
+            echo "No release notes file found at $NOTES_FILE — skipping"
+          fi
+
+  update-pr-notes:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Update release PR body from docs/releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --label "autorelease: pending" --json number -q '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No autorelease PR found — skipping"
+            exit 0
+          fi
+          VERSION=$(gh pr view "$PR_NUMBER" --json title -q '.title' | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "No version found in PR title — skipping"
+            exit 0
+          fi
+          NOTES_FILE="docs/releases/v${VERSION}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "Found release notes at $NOTES_FILE — updating PR #$PR_NUMBER body"
+            gh pr edit "$PR_NUMBER" --body-file "$NOTES_FILE"
+          else
+            echo "No release notes file found at $NOTES_FILE — skipping"
+          fi

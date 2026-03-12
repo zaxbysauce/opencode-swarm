@@ -1,0 +1,291 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { RejectedLesson } from '../../../src/hooks/knowledge-types.js';
+import {
+	resolveSwarmKnowledgePath,
+	resolveSwarmRejectedPath,
+	resolveHiveKnowledgePath,
+	resolveHiveRejectedPath,
+	readKnowledge,
+	readRejectedLessons,
+	appendKnowledge,
+	rewriteKnowledge,
+	appendRejectedLesson,
+	normalize,
+	wordBigrams,
+	jaccardBigram,
+	findNearDuplicate,
+	computeConfidence,
+	inferTags,
+} from '../../../src/hooks/knowledge-store.js';
+
+describe('knowledge-store', () => {
+	describe('Path resolvers', () => {
+		it('resolveHiveKnowledgePath returns win32 path', () => {
+			vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+			const result = resolveHiveKnowledgePath();
+			expect(result).toMatch(/opencode-swarm/);
+			expect(result).toMatch(/Data/);
+			expect(result).toMatch(/shared-learnings.jsonl/);
+			vi.restoreAllMocks();
+		});
+
+		it('resolveHiveKnowledgePath returns darwin path', () => {
+			vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+			const result = resolveHiveKnowledgePath();
+			expect(result).toMatch(/Library/);
+			expect(result).toMatch(/Application Support/);
+			expect(result).toMatch(/opencode-swarm/);
+			vi.restoreAllMocks();
+		});
+
+		it('resolveHiveKnowledgePath returns linux path', () => {
+			vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+			const result = resolveHiveKnowledgePath();
+			expect(result).toMatch(/opencode-swarm/);
+			expect(
+				result.match(/\.local\/share/) || result.match(/opencode-swarm/),
+			).toBeTruthy();
+			vi.restoreAllMocks();
+		});
+	});
+
+	describe('readKnowledge', () => {
+		it('returns empty array when file does not exist', async () => {
+			const nonExistentPath = path.join(os.tmpdir(), 'does-not-exist.jsonl');
+			const result = await readKnowledge(nonExistentPath);
+			expect(result).toEqual([]);
+		});
+
+		it('skips corrupted JSONL lines and returns valid entries', async () => {
+			const tempPath = path.join(os.tmpdir(), `test-corrupt-${Date.now()}.jsonl`);
+			const content = JSON.stringify({ id: 1, text: 'valid1' }) + '\n' +
+				'{ invalid json here' + '\n' +
+				JSON.stringify({ id: 2, text: 'valid2' }) + '\n';
+			await fs.promises.writeFile(tempPath, content, 'utf-8');
+
+			const result = await readKnowledge(tempPath);
+			expect(result).toHaveLength(2);
+			expect(result[0]).toEqual({ id: 1, text: 'valid1' });
+			expect(result[1]).toEqual({ id: 2, text: 'valid2' });
+
+			await fs.promises.unlink(tempPath);
+		});
+	});
+
+	describe('appendKnowledge', () => {
+		it('creates missing directory and appends entry', async () => {
+			const deepPath = path.join(
+				os.tmpdir(),
+				`test-deep-${Date.now()}`,
+				'nested',
+				'dir',
+				'file.jsonl',
+			);
+			const entry = { id: 'test', message: 'test entry' };
+
+			await appendKnowledge(deepPath, entry);
+
+			// Verify directory exists
+			const dirExists = fs.existsSync(path.dirname(deepPath));
+			expect(dirExists).toBe(true);
+
+			// Verify file content
+			const content = await fs.promises.readFile(deepPath, 'utf-8');
+			const parsed = JSON.parse(content.trim());
+			expect(parsed).toEqual(entry);
+
+			// Cleanup
+			const baseDir = path.join(
+				os.tmpdir(),
+				`test-deep-${Date.now()}`,
+			);
+			await fs.promises.rm(baseDir, { recursive: true, force: true });
+		});
+	});
+
+	describe('rewriteKnowledge', () => {
+		it('writes all entries as JSONL', async () => {
+			const tempDir = path.join(os.tmpdir(), `test-rewrite-dir-${Date.now()}`);
+			fs.mkdirSync(tempDir, { recursive: true });
+			const tempPath = path.join(tempDir, `test-rewrite-${Date.now()}.jsonl`);
+			const entries = [
+				{ id: 1, text: 'entry1' },
+				{ id: 2, text: 'entry2' },
+				{ id: 3, text: 'entry3' },
+			];
+
+			await rewriteKnowledge(tempPath, entries);
+
+			const content = await fs.promises.readFile(tempPath, 'utf-8');
+			const lines = content.trim().split('\n');
+
+			expect(lines).toHaveLength(3);
+			expect(JSON.parse(lines[0])).toEqual({ id: 1, text: 'entry1' });
+			expect(JSON.parse(lines[1])).toEqual({ id: 2, text: 'entry2' });
+			expect(JSON.parse(lines[2])).toEqual({ id: 3, text: 'entry3' });
+
+			await fs.promises.rm(tempDir, { recursive: true });
+		});
+	});
+
+	describe('appendRejectedLesson', () => {
+		it('enforces FIFO cap at 20 entries', async () => {
+			const testDir = path.join(os.tmpdir(), `test-rejected-${Date.now()}`);
+			fs.mkdirSync(testDir, { recursive: true });
+
+			// Create 20 initial lessons
+			const initialLessons: RejectedLesson[] = [];
+			for (let i = 1; i <= 20; i++) {
+				initialLessons.push({
+					id: `lesson-${i}`,
+					lesson: `rejected lesson ${i}`,
+					rejection_reason: 'test',
+					rejected_at: new Date(Date.now() + i).toISOString(),
+					rejection_layer: 1,
+				});
+			}
+
+			// Write initial 20 lessons
+			const filePath = resolveSwarmRejectedPath(testDir);
+			await rewriteKnowledge(filePath, initialLessons);
+
+			// Append 21st lesson
+			const newLesson: RejectedLesson = {
+				id: 'lesson-21',
+				lesson: 'rejected lesson 21 (newest)',
+				rejection_reason: 'test',
+				rejected_at: new Date(Date.now() + 21).toISOString(),
+				rejection_layer: 1,
+			};
+			await appendRejectedLesson(testDir, newLesson);
+
+			// Read back and verify
+			const finalLessons = await readRejectedLessons(testDir);
+			expect(finalLessons).toHaveLength(20);
+
+			// Verify oldest entry (lesson 1) was dropped
+			expect(finalLessons[0].lesson).not.toBe('rejected lesson 1');
+
+			// Verify newest entry is the one we just appended
+			expect(finalLessons[19].lesson).toBe('rejected lesson 21 (newest)');
+
+			// Cleanup
+			await fs.promises.rm(testDir, { recursive: true, force: true });
+		});
+	});
+
+	describe('findNearDuplicate', () => {
+		it('finds exact duplicate (similarity = 1.0)', () => {
+			const candidate = 'always validate inputs before processing';
+			const entries = [
+				{ id: 1, lesson: 'always validate inputs before processing' },
+				{ id: 2, lesson: 'different lesson text' },
+			];
+
+			const result = findNearDuplicate(candidate, entries, 0.6);
+			expect(result).toBeDefined();
+			expect(result?.lesson).toBe('always validate inputs before processing');
+		});
+
+		it('finds near-duplicate above 0.6 threshold', () => {
+			const candidate = 'always validate inputs before processing anything';
+			const entries = [
+				{ id: 1, lesson: 'always validate inputs before processing' },
+				{ id: 2, lesson: 'different lesson text' },
+			];
+
+			const result = findNearDuplicate(candidate, entries, 0.6);
+			expect(result).toBeDefined();
+			expect(result?.lesson).toBe('always validate inputs before processing');
+		});
+
+		it('returns undefined when no match below threshold', () => {
+			const candidate = 'use vitest for testing';
+			const entries = [
+				{ id: 1, lesson: 'docker containerization best practices' },
+				{ id: 2, lesson: 'git workflow strategies' },
+			];
+
+			const result = findNearDuplicate(candidate, entries, 0.6);
+			expect(result).toBeUndefined();
+		});
+	});
+
+	describe('normalize', () => {
+		it('normalizes text to lowercase, collapses whitespace, strips punctuation', () => {
+			const input = 'Hello, World! This is a TEST.';
+			const result = normalize(input);
+			expect(result).toBe('hello world this is a test');
+		});
+	});
+
+	describe('inferTags', () => {
+		it('infers testing and typescript tags', () => {
+			const lesson = 'use vitest for testing TypeScript';
+			const tags = inferTags(lesson);
+			expect(tags).toContain('testing');
+			expect(tags).toContain('typescript');
+		});
+	});
+
+	describe('computeConfidence', () => {
+		it('returns 0.5 for 0 confirmations and autoGenerated=true', () => {
+			const result = computeConfidence(0, true);
+			expect(result).toBe(0.5);
+		});
+
+		it('returns 0.9 for 3 confirmations and autoGenerated=false', () => {
+			const result = computeConfidence(3, false);
+			expect(result).toBe(0.9);
+		});
+
+		it('returns 0.7 for 1 confirmation and autoGenerated=false', () => {
+			const result = computeConfidence(1, false);
+			expect(result).toBe(0.7);
+		});
+	});
+
+	describe('wordBigrams and jaccardBigram', () => {
+		it('generates word bigrams from text', () => {
+			const text = 'hello world test';
+			const bigrams = wordBigrams(text);
+			expect(bigrams).toBeInstanceOf(Set);
+			expect(bigrams.has('hello world')).toBe(true);
+			expect(bigrams.has('world test')).toBe(true);
+			expect(bigrams.size).toBe(2);
+		});
+
+		it('computes jaccard similarity between bigram sets', () => {
+			const set1 = new Set(['hello world', 'world test']);
+			const set2 = new Set(['hello world', 'world test', 'test done']);
+			const similarity = jaccardBigram(set1, set2);
+			expect(similarity).toBe(2 / 3); // 2 intersection / 3 union
+		});
+	});
+
+	describe('Additional path resolvers', () => {
+		it('resolveSwarmKnowledgePath returns correct path', () => {
+			const result = resolveSwarmKnowledgePath('/test/project');
+			expect(result).toMatch(/\.swarm/);
+			expect(result).toMatch(/knowledge.jsonl/);
+		});
+
+		it('resolveSwarmRejectedPath returns correct path', () => {
+			const result = resolveSwarmRejectedPath('/test/project');
+			expect(result).toMatch(/\.swarm/);
+			expect(result).toMatch(/knowledge-rejected.jsonl/);
+		});
+
+		it('resolveHiveRejectedPath returns path in same dir as hive knowledge', () => {
+			const hivePath = resolveHiveKnowledgePath();
+			const rejectedPath = resolveHiveRejectedPath();
+			const hiveDir = path.dirname(hivePath);
+			const rejectedDir = path.dirname(rejectedPath);
+			expect(rejectedDir).toBe(hiveDir);
+			expect(rejectedPath).toMatch(/shared-learnings-rejected.jsonl/);
+		});
+	});
+});

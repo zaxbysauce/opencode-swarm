@@ -1,0 +1,466 @@
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { mkdtemp, rm, readFile, writeFile, chmod } from 'node:fs/promises';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { savePlan } from '../../../src/plan/manager';
+import type { Plan } from '../../../src/config/plan-schema';
+
+function createTestPlan(overrides?: Partial<Plan>): Plan {
+	return {
+		schema_version: '1.0.0',
+		title: 'Test Plan',
+		swarm: 'test-swarm',
+		current_phase: 1,
+		phases: [
+			{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress',
+				tasks: [
+					{
+						id: '1.1',
+						phase: 1,
+						status: 'pending',
+						size: 'small',
+						description: 'Task one',
+						depends: [],
+						files_touched: [],
+					},
+				],
+			},
+		],
+		...overrides,
+	};
+}
+
+describe('savePlan write-marker adversarial tests', () => {
+	let tempDir: string;
+
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), 'opencode-adversarial-'));
+	});
+
+	afterEach(async () => {
+		if (existsSync(tempDir)) {
+			await rm(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	/**
+	 * ADVERSARIAL TEST 1: Marker path traversal
+	 * Verify that directory paths with trailing slashes/dots produce marker in correct .swarm/ subdirectory,
+	 * not somewhere unexpected.
+	 */
+	test('1. Marker path traversal - trailing slash does not escape directory', async () => {
+		const testPlan = createTestPlan();
+		
+		// Test with trailing slash
+		const dirWithTrailingSlash = tempDir + '/';
+		await savePlan(dirWithTrailingSlash, testPlan);
+
+		const expectedMarkerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const unexpectedPaths = [
+			join(tempDir, '.plan-write-marker'),
+			join(tempDir, '..', '.swarm', '.plan-write-marker'),
+			join(tempDir, '.', '.swarm', '.plan-write-marker'),
+		];
+
+		// Marker should be in the correct location
+		expect(existsSync(expectedMarkerPath)).toBe(true);
+
+		// Marker should NOT be in unexpected locations
+		for (const unexpectedPath of unexpectedPaths) {
+			if (unexpectedPath !== expectedMarkerPath) {
+				expect(existsSync(unexpectedPath)).toBe(false);
+			}
+		}
+	});
+
+	test('1. Marker path traversal - trailing dots do not escape directory', async () => {
+		const testPlan = createTestPlan();
+		
+		// Test with trailing dots
+		const dirWithDots = tempDir + '/.';
+		await savePlan(dirWithDots, testPlan);
+
+		const expectedMarkerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		
+		// Marker should be in the correct location
+		expect(existsSync(expectedMarkerPath)).toBe(true);
+	});
+
+	test('1. Marker path traversal - multiple trailing slashes', async () => {
+		const testPlan = createTestPlan();
+		
+		// Test with multiple trailing slashes
+		const dirWithMultipleSlashes = tempDir + '///';
+		await savePlan(dirWithMultipleSlashes, testPlan);
+
+		const expectedMarkerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		
+		// Marker should be in the correct location
+		expect(existsSync(expectedMarkerPath)).toBe(true);
+	});
+
+	/**
+	 * ADVERSARIAL TEST 2: JSON injection in marker
+	 * Verify marker is valid JSON even for edge-case plans.
+	 * Note: PlanSchema requires at least 1 phase and 1 task, so we test minimum valid values.
+	 */
+	test('2. JSON injection - marker is valid JSON with minimum phases/tasks', async () => {
+		// Minimum valid plan (1 phase, 1 task)
+		const minimalPlan = createTestPlan({
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Single task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		});
+		
+		await savePlan(tempDir, minimalPlan);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+
+		// Should parse as valid JSON
+		const marker = JSON.parse(markerContent);
+		
+		// Values should be numbers (not strings that could be injected)
+		expect(typeof marker.phases_count).toBe('number');
+		expect(typeof marker.tasks_count).toBe('number');
+		expect(marker.phases_count).toBe(1);
+		expect(marker.tasks_count).toBe(1);
+	});
+
+	test('2. JSON injection - marker is valid JSON with many tasks', async () => {
+		// Plan with many tasks in a single phase
+		const manyTasks = Array.from({ length: 100 }, (_, i) => ({
+			id: `1.${i + 1}`,
+			phase: 1,
+			status: 'pending' as const,
+			size: 'small' as const,
+			description: `Task ${i + 1}`,
+			depends: [] as string[],
+			files_touched: [] as string[],
+		}));
+
+		const largePlan = createTestPlan({
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: manyTasks,
+				},
+			],
+		});
+		
+		await savePlan(tempDir, largePlan);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+
+		// Should parse as valid JSON
+		const marker = JSON.parse(markerContent);
+		expect(marker.tasks_count).toBe(100);
+		expect(marker.phases_count).toBe(1);
+	});
+
+	test('2. JSON injection - marker has valid ISO timestamp format', async () => {
+		const testPlan = createTestPlan();
+		await savePlan(tempDir, testPlan);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+		const marker = JSON.parse(markerContent);
+
+		// Timestamp should be valid ISO 8601
+		const date = new Date(marker.timestamp);
+		expect(isNaN(date.getTime())).toBe(false);
+		
+		// Should contain T and Z (ISO 8601 format)
+		expect(marker.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+	});
+
+	/**
+	 * ADVERSARIAL TEST 3: Concurrent write race
+	 * If savePlan() is called twice concurrently, both should succeed without throwing.
+	 */
+	test('3. Concurrent writes - both calls succeed without throwing', async () => {
+		const testPlan = createTestPlan();
+
+		let error1: Error | null = null;
+		let error2: Error | null = null;
+
+		// Run two saves concurrently
+		const promise1 = savePlan(tempDir, testPlan).catch((e) => {
+			error1 = e as Error;
+		});
+		const promise2 = savePlan(tempDir, testPlan).catch((e) => {
+			error2 = e as Error;
+		});
+
+		await Promise.all([promise1, promise2]);
+
+		// Neither should throw
+		expect(error1).toBeNull();
+		expect(error2).toBeNull();
+
+		// Plan files should exist
+		expect(existsSync(join(tempDir, '.swarm', 'plan.json'))).toBe(true);
+		expect(existsSync(join(tempDir, '.swarm', 'plan.md'))).toBe(true);
+	});
+
+	test('3. Concurrent writes - marker exists after concurrent writes', async () => {
+		const testPlan = createTestPlan();
+
+		await Promise.all([
+			savePlan(tempDir, testPlan),
+			savePlan(tempDir, testPlan),
+			savePlan(tempDir, testPlan),
+		]);
+
+		// Marker should exist (last write wins)
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		expect(existsSync(markerPath)).toBe(true);
+		
+		// Marker should be valid JSON
+		const markerContent = await readFile(markerPath, 'utf-8');
+		const marker = JSON.parse(markerContent);
+		expect(marker.source).toBe('plan_manager');
+	});
+
+	/**
+	 * ADVERSARIAL TEST 4: Marker does not leak plan content
+	 * Marker must contain ONLY source, timestamp, phases_count, tasks_count.
+	 * No task descriptions, titles, or IDs.
+	 */
+	test('4. No content leak - marker contains only allowed fields', async () => {
+		const planWithSensitiveData = createTestPlan({
+			title: 'SECRET PROJECT - Top Secret',
+			swarm: 'secret-swarm',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Steal the nuclear codes',
+							depends: [],
+							files_touched: ['/etc/passwd', '/root/.ssh/id_rsa'],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'medium',
+							description: 'Delete all logs',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+					],
+				},
+				{
+					id: 2,
+					name: 'Phase 2 - Confidential',
+					status: 'pending',
+					tasks: [
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'pending',
+							size: 'large',
+							description: 'POISON PILL TASK - do not execute',
+							depends: [],
+							files_touched: [],
+							acceptance: 'Super secret acceptance criteria',
+							evidence_path: '/root/.env',
+							blocked_reason: 'Waiting for CIA',
+						},
+					],
+				},
+			],
+		});
+
+		await savePlan(tempDir, planWithSensitiveData);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+		const marker = JSON.parse(markerContent);
+
+		// Marker should have exactly these 4 fields
+		const allowedFields = ['source', 'timestamp', 'phases_count', 'tasks_count'];
+		const markerKeys = Object.keys(marker);
+		
+		expect(markerKeys.sort()).toEqual(allowedFields.sort());
+
+		// Verify values are safe (no leakage)
+		const content = markerContent.toLowerCase();
+		expect(content).not.toContain('secret');
+		expect(content).not.toContain('nuclear');
+		expect(content).not.toContain('password');
+		expect(content).not.toContain('poison');
+		expect(content).not.toContain('acceptance');
+		expect(content).not.toContain('evidence');
+		expect(content).not.toContain('passwd');
+		expect(content).not.toContain('.ssh');
+		expect(content).not.toContain('.env');
+		
+		// Verify counts are correct
+		expect(marker.phases_count).toBe(2);
+		expect(marker.tasks_count).toBe(3);
+	});
+
+	test('4. No content leak - no task IDs in marker', async () => {
+		const testPlan = createTestPlan();
+		await savePlan(tempDir, testPlan);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+
+		// Task IDs like "1.1" should NOT appear in marker
+		expect(markerContent).not.toContain('1.1');
+	});
+
+	/**
+	 * ADVERSARIAL TEST 5: Plan save succeeds even if marker cannot be written
+	 * If .swarm/ exists but marker file cannot be written, savePlan() still succeeds.
+	 */
+	test('5. Plan save succeeds - marker directory read-only (Unix)', async () => {
+		// Skip on Windows - chmod behavior is different
+		test.skipIf(process.platform === 'win32');
+
+		const testPlan = createTestPlan();
+		const swarmDir = join(tempDir, '.swarm');
+		
+		// Create .swarm directory
+		mkdirSync(swarmDir, { recursive: true });
+		
+		// Make the directory read-only (no write permission)
+		await chmod(swarmDir, 0o555);
+
+		try {
+			// savePlan should NOT throw even if marker write fails
+			let threw = false;
+			let error: Error | null = null;
+			try {
+				await savePlan(tempDir, testPlan);
+			} catch (e) {
+				threw = true;
+				error = e as Error;
+			}
+
+			expect(threw).toBe(false);
+			
+			// Plan files should still be written
+			expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
+			expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
+		} finally {
+			// Restore permissions for cleanup
+			await chmod(swarmDir, 0o755);
+		}
+	});
+
+	test('5. Plan save succeeds - pre-existing read-only marker file', async () => {
+		// Skip on Windows where this is less reliable
+		test.skipIf(process.platform === 'win32');
+
+		const testPlan = createTestPlan();
+		const swarmDir = join(tempDir, '.swarm');
+		const markerPath = join(swarmDir, '.plan-write-marker');
+		
+		// Create .swarm directory
+		mkdirSync(swarmDir, { recursive: true });
+		
+		// Create marker file as read-only
+		await writeFile(markerPath, 'existing');
+		await chmod(markerPath, 0o444);
+
+		try {
+			// savePlan should NOT throw - it should silently handle the failure
+			let threw = false;
+			try {
+				await savePlan(tempDir, testPlan);
+			} catch (e) {
+				threw = true;
+			}
+
+			expect(threw).toBe(false);
+			
+			// Plan files should still be written
+			expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
+			expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
+		} finally {
+			// Restore permissions for cleanup
+			await chmod(markerPath, 0o644);
+		}
+	});
+
+	test('5. Plan save succeeds - marker directory does not exist (will be created)', async () => {
+		const testPlan = createTestPlan();
+		
+		// Don't create .swarm directory - savePlan should create it
+		// and the marker should be written successfully
+		
+		await savePlan(tempDir, testPlan);
+
+		const swarmDir = join(tempDir, '.swarm');
+		const markerPath = join(swarmDir, '.plan-write-marker');
+		
+		// All files should exist
+		expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
+		expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
+		expect(existsSync(markerPath)).toBe(true);
+	});
+
+	/**
+	 * Additional boundary tests
+	 */
+	test('plan with many phases - marker counts correctly', async () => {
+		const manyPhases = Array.from({ length: 50 }, (_, i) => ({
+			id: i + 1,
+			name: `Phase ${i + 1}`,
+			status: 'pending' as const,
+			tasks: [
+				{
+					id: `${i + 1}.1`,
+					phase: i + 1,
+					status: 'pending' as const,
+					size: 'small' as const,
+					description: `Task in phase ${i + 1}`,
+					depends: [] as string[],
+					files_touched: [] as string[],
+				},
+			],
+		}));
+
+		const plan = createTestPlan({ phases: manyPhases });
+		await savePlan(tempDir, plan);
+
+		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
+		const markerContent = await readFile(markerPath, 'utf-8');
+		const marker = JSON.parse(markerContent);
+
+		expect(marker.phases_count).toBe(50);
+		expect(marker.tasks_count).toBe(50);
+	});
+});

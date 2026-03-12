@@ -281,3 +281,254 @@ export function extractIncompleteTasksFromPlan(
 	if (text.length <= maxChars) return text;
 	return `${text.slice(0, maxChars)}...`;
 }
+
+/**
+ * Extracts plan cursor - a concise summary of current phase, current task,
+ * and lookahead tasks for context-aware agent communication.
+ *
+ * @param planContent - The raw plan markdown content
+ * @param options - Optional configuration
+ * @param options.maxTokens - Target max tokens (default 1500, ~6000 chars)
+ * @param options.lookaheadTasks - Number of lookahead tasks (default 2)
+ * @returns A [SWARM PLAN CURSOR] block with phase summaries and task details
+ */
+export function extractPlanCursor(
+	planContent: string,
+	options?: { maxTokens?: number; lookaheadTasks?: number },
+): string {
+	const maxTokens = options?.maxTokens ?? 1500;
+	const maxChars = maxTokens * 4; // ~4 chars per token
+	const lookaheadCount = options?.lookaheadTasks ?? 2;
+
+	// Handle null/undefined/empty input
+	if (!planContent || typeof planContent !== 'string') {
+		return `[SWARM PLAN CURSOR]
+No plan content available. Start by creating a .swarm/plan.md file.
+[/SWARM PLAN CURSOR]`;
+	}
+
+	const lines = planContent.split('\n');
+	const result: string[] = [];
+	result.push('[SWARM PLAN CURSOR]');
+
+	// Track phases
+	const phases: Array<{
+		number: number;
+		title: string;
+		status: 'COMPLETE' | 'IN PROGRESS' | 'PENDING';
+		contentLines: string[];
+	}> = [];
+
+	let currentPhase: (typeof phases)[0] | null = null;
+	let inPhase = false;
+
+	// Parse phases from the content
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const trimmed = line.trim();
+
+		// Detect phase header
+		const phaseMatch = trimmed.match(
+			/^## Phase (\d+):?\s*(.*?)\s*\[(COMPLETE|IN PROGRESS|PENDING|BLOCKED)\]/i,
+		);
+		if (phaseMatch) {
+			// Save previous phase
+			if (currentPhase) {
+				phases.push(currentPhase);
+			}
+
+			const phaseNum = parseInt(phaseMatch[1], 10);
+			const phaseTitle = phaseMatch[2]?.trim() || '';
+			const status = phaseMatch[3].toUpperCase() as
+				| 'COMPLETE'
+				| 'IN PROGRESS'
+				| 'PENDING';
+
+			currentPhase = {
+				number: phaseNum,
+				title: phaseTitle,
+				status: status,
+				contentLines: [],
+			};
+			inPhase = true;
+			continue;
+		}
+
+		// Stop at next phase or horizontal rule
+		if (inPhase && (line.startsWith('## ') || trimmed === '---')) {
+			if (currentPhase) {
+				phases.push(currentPhase);
+			}
+			currentPhase = null;
+			inPhase = false;
+			continue;
+		}
+
+		// Collect content for current phase
+		if (currentPhase && inPhase && trimmed) {
+			currentPhase.contentLines.push(line);
+		}
+	}
+
+	// Don't forget the last phase
+	if (currentPhase) {
+		phases.push(currentPhase);
+	}
+
+	if (phases.length === 0) {
+		result.push('No phases found in plan.');
+		result.push('[/SWARM PLAN CURSOR]');
+		return result.join('\n');
+	}
+
+	// Find IN PROGRESS phase and COMPLETE phases
+	const inProgressPhase = phases.find((p) => p.status === 'IN PROGRESS');
+	const completePhases = phases.filter((p) => p.status === 'COMPLETE');
+	const pendingPhases = phases.filter((p) => p.status === 'PENDING');
+
+	// Output complete phases (earlier ones) - one-liners
+	if (completePhases.length > 0) {
+		// Get the last few complete phases (max 5 to stay under limit)
+		const recentComplete = completePhases.slice(-5);
+
+		// Check if there are even earlier phases
+		if (completePhases.length > 5) {
+			result.push('');
+			result.push(`## Earlier Phases (${completePhases.length - 5} more)`);
+			result.push(`- Phase 1-${completePhases.length - 5}: Complete`);
+		}
+
+		result.push('');
+		result.push('## Completed Phases');
+		for (const phase of recentComplete) {
+			// Extract task summaries from content
+			const taskLines = phase.contentLines
+				.filter((l) => l.trim().startsWith('- ['))
+				.map((l) =>
+					l
+						.replace(/^- \[[ xX]\]\s*/, '')
+						.replace(/\s*\[.*?\]/g, '')
+						.trim(),
+				)
+				.slice(0, 3); // Max 3 tasks per phase summary
+
+			const taskSummary =
+				taskLines.length > 0 ? taskLines.join(', ') : 'All tasks complete';
+
+			result.push(`- Phase ${phase.number}: ${phase.title}`);
+			result.push(`  - ${taskSummary}`);
+		}
+	}
+
+	// Find incomplete tasks in IN PROGRESS phase (cached for reuse)
+	const incompleteTasks = inProgressPhase
+		? inProgressPhase.contentLines
+				.filter((l) => l.trim().startsWith('- [ ]'))
+				.map((l) => l.trim())
+		: [];
+
+	// Output IN PROGRESS phase with full details
+	if (inProgressPhase) {
+		result.push('');
+		result.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+		result.push(`- ${inProgressPhase.title}`);
+
+		if (incompleteTasks.length > 0) {
+			// Current task (first incomplete)
+			const currentTask = incompleteTasks[0];
+			result.push('');
+			result.push(`- Current: ${currentTask.replace('- [ ] ', '')}`);
+
+			// Lookahead tasks
+			const lookahead = incompleteTasks.slice(1, 1 + lookaheadCount);
+			for (let i = 0; i < lookahead.length; i++) {
+				result.push(`- Next: ${lookahead[i].replace('- [ ] ', '')}`);
+			}
+		} else {
+			result.push('- (No pending tasks)');
+		}
+	}
+
+	// Output next pending phase(s)
+	const nextPending = pendingPhases[0];
+	if (nextPending) {
+		result.push('');
+		result.push(`## Phase ${nextPending.number} [PENDING]`);
+		result.push(`- ${nextPending.title}`);
+	}
+
+	// Trim to max chars
+	let output = result.join('\n');
+	output += '\n[/SWARM PLAN CURSOR]';
+
+	// Trim to max chars - truncate task summaries more aggressively while maintaining structure
+	if (output.length > maxChars) {
+		// Rebuild with truncated task summaries but same structure
+		const compactResult: string[] = [];
+		compactResult.push('[SWARM PLAN CURSOR]');
+
+		// Compact complete phases - fewer tasks
+		if (completePhases.length > 0) {
+			compactResult.push('## Completed Phases');
+			const recentCompact = completePhases.slice(-3);
+			for (const phase of recentCompact) {
+				// Get only first task summary
+				const taskLines = phase.contentLines
+					.filter((l) => l.trim().startsWith('- ['))
+					.map((l) =>
+						l
+							.replace(/^- \[[ xX]\]\s*/, '')
+							.replace(/\s*\[.*?\]/g, '')
+							.trim(),
+					)
+					.slice(0, 1);
+				const taskSummary = taskLines.length > 0 ? taskLines[0] : 'Complete';
+				compactResult.push(`- Phase ${phase.number}: ${taskSummary}`);
+			}
+			if (completePhases.length > 3) {
+				compactResult.push(
+					`- Earlier: Phase 1-${completePhases.length - 3} complete`,
+				);
+			}
+		}
+
+		// IN PROGRESS - reuse cached incompleteTasks
+		if (inProgressPhase) {
+			compactResult.push('');
+			compactResult.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+			compactResult.push(`- ${inProgressPhase.title}`);
+
+			if (incompleteTasks.length > 0) {
+				// Truncate task text if needed
+				const truncateTask = (task: string) => {
+					const text = task.replace('- [ ] ', '');
+					return text.length > 60 ? `${text.slice(0, 57)}...` : text;
+				};
+
+				compactResult.push(`- Current: ${truncateTask(incompleteTasks[0])}`);
+				// Fewer lookahead tasks in compact mode
+				const lookahead = incompleteTasks.slice(
+					1,
+					1 + Math.min(lookaheadCount, 1),
+				);
+				for (const task of lookahead) {
+					compactResult.push(`- Next: ${truncateTask(task)}`);
+				}
+			} else {
+				compactResult.push('- (No pending tasks)');
+			}
+		}
+
+		// Next pending
+		if (nextPending) {
+			compactResult.push('');
+			compactResult.push(`## Phase ${nextPending.number} [PENDING]`);
+			compactResult.push(`- ${nextPending.title}`);
+		}
+
+		compactResult.push('[/SWARM PLAN CURSOR]');
+		output = compactResult.join('\n');
+	}
+
+	return output;
+}

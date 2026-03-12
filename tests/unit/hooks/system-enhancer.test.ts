@@ -255,10 +255,11 @@ This phase is currently active.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Hooks Pipeline Enhancement [IN PROGRESS]',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
-		it('handler does not modify output.system when plan.md is missing', async () => {
+		it('handler appends only hint when plan.md is missing', async () => {
 			const config: PluginConfig = {
 				...defaultConfig,
 				hooks: {
@@ -277,11 +278,14 @@ This phase is currently active.
 
 			await transformHook(input, output);
 
-			// Should remain unchanged since plan.md doesn't exist
-			expect(output.system).toEqual(['Initial system prompt']);
+			// Only hint appended since plan.md doesn't exist
+			expect(output.system).toEqual([
+				'Initial system prompt',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
+			]);
 		});
 
-		it('handler does not modify output.system when no plan exists', async () => {
+		it('handler appends only hint when no plan exists', async () => {
 			// No plan files - should not modify output
 			const config: PluginConfig = {
 				...defaultConfig,
@@ -301,8 +305,11 @@ This phase is currently active.
 
 			await transformHook(input, output);
 
-			// Should remain unchanged since no plan exists
-			expect(output.system).toEqual(['Initial system prompt']);
+			// Only hint appended since no plan exists
+			expect(output.system).toEqual([
+				'Initial system prompt',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
+			]);
 		});
 
 		it('handler appends context with header fallback when no IN PROGRESS phase', async () => {
@@ -338,6 +345,7 @@ This plan has header phase info but no IN PROGRESS phase.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 2 [PENDING]',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
@@ -413,6 +421,7 @@ Testing is underway.
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
 				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
@@ -455,6 +464,7 @@ Testing is underway.
 			expect(output.system).toEqual([
 				'Initial system prompt',
 				'[SWARM CONTEXT] Key decisions: - **Decision A**: Use TypeScript for new code\n- **Decision B**: Prefer composition over inheritance',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
@@ -508,6 +518,7 @@ Testing is underway.
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
 				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
 				'[SWARM CONTEXT] Key decisions: - **Decision A**: Use TypeScript for new code\n- **Decision B**: Prefer composition over inheritance',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
@@ -547,7 +558,7 @@ Testing is underway.
 				'Initial system prompt',
 				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
 				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
-				// No decisions since context.md is missing
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
 			]);
 		});
 
@@ -1107,10 +1118,13 @@ ${longActivity}
 			const input = { sessionID: 'test-session' };
 			const output = { system: ['Initial system prompt'] };
 			
-			// Should not crash and should leave output.system unchanged
+			// Should not crash — hint still appended even when context.md fails
 			await transformHook(input, output);
 			
-			expect(output.system).toEqual(['Initial system prompt']);
+			expect(output.system).toEqual([
+				'Initial system prompt',
+				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
+			]);
 		});
 
 		describe('Injection budget (tryInject)', () => {

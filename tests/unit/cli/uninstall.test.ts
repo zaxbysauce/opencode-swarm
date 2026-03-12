@@ -34,9 +34,9 @@ describe('CLI uninstall command', () => {
         }
     });
 
-    test('Uninstall removes plugin from config.json', async () => {
-        // Setup: Create config.json with plugin and agent overrides
-        const configPath = join(tempDir, 'opencode', 'config.json');
+    test('Uninstall removes plugin from opencode.json', async () => {
+        // Setup: Create opencode.json with plugin and agent overrides
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             plugin: ['opencode-swarm'],
             agent: {
@@ -54,15 +54,15 @@ describe('CLI uninstall command', () => {
         expect(result.stdout).toContain('Removed opencode-swarm');
         expect(result.stdout).toContain('Re-enabled default OpenCode agents');
 
-        // Assert: Verify config.json was updated
+        // Assert: Verify opencode.json was updated
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig.plugin).not.toContain('opencode-swarm');
         expect(updatedConfig.agent).toBeUndefined();
     });
 
     test('Uninstall with --clean removes config files', async () => {
-        // Setup: Create config.json with plugin
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with plugin
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             plugin: ['opencode-swarm'],
             agent: {
@@ -94,14 +94,14 @@ describe('CLI uninstall command', () => {
         expect(existsSync(pluginConfigPath)).toBe(false);
         expect(existsSync(promptsDir)).toBe(false);
 
-        // Assert: Verify config.json still exists but plugin was removed
+        // Assert: Verify opencode.json still exists but plugin was removed
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig.plugin).not.toContain('opencode-swarm');
     });
 
     test('Uninstall when plugin not present (idempotent)', async () => {
-        // Setup: Create config.json with other plugin only
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with other plugin only
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             plugin: ['other-plugin']
         };
@@ -114,16 +114,16 @@ describe('CLI uninstall command', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('not installed');
 
-        // Assert: Verify config.json was not changed
+        // Assert: Verify opencode.json was not changed
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig.plugin).toEqual(['other-plugin']);
     });
 
-    test('Uninstall with missing config.json (no config file exists)', async () => {
-        // Setup: Create opencode dir but NO config.json
+    test('Uninstall with missing opencode.json (no config file exists)', async () => {
+        // Setup: Create opencode dir but NO opencode.json
         const opencodeDir = join(tempDir, 'opencode');
         expect(existsSync(opencodeDir)).toBe(true);
-        const configPath = join(opencodeDir, 'config.json');
+        const configPath = join(opencodeDir, 'opencode.json');
         expect(existsSync(configPath)).toBe(false);
 
         // Run: Run uninstall command
@@ -135,9 +135,9 @@ describe('CLI uninstall command', () => {
         expect(result.stdout).toContain('Nothing to uninstall');
     });
 
-    test('Uninstall with malformed config.json', async () => {
-        // Setup: Create config.json with invalid JSON
-        const configPath = join(tempDir, 'opencode', 'config.json');
+    test('Uninstall with malformed opencode.json', async () => {
+        // Setup: Create opencode.json with invalid JSON
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         await writeFile(configPath, 'this is not valid json{{{');
 
         // Run: Run uninstall command
@@ -149,8 +149,8 @@ describe('CLI uninstall command', () => {
     });
 
     test('Uninstall with empty/missing plugin array', async () => {
-        // Setup: Create config.json with no plugin field
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with no plugin field
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             other_key: true
         };
@@ -163,14 +163,14 @@ describe('CLI uninstall command', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('no plugins configured');
 
-        // Assert: Verify config.json was not changed
+        // Assert: Verify opencode.json was not changed
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig).toEqual(configData);
     });
 
     test('--clean with missing config files (silently succeeds)', async () => {
-        // Setup: Create config.json with plugin but no extra files
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with plugin but no extra files
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             plugin: ['opencode-swarm'],
             agent: {
@@ -193,14 +193,14 @@ describe('CLI uninstall command', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('No config files to clean up');
 
-        // Assert: Verify config.json was updated correctly
+        // Assert: Verify opencode.json was updated correctly
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig.plugin).not.toContain('opencode-swarm');
     });
 
     test('Uninstall handles JSONC comments correctly', async () => {
-        // Setup: Create config.json with comments (JSONC format)
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with comments (JSONC format)
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = `{
             // This is a comment
             "plugin": ["opencode-swarm"], // inline comment
@@ -218,15 +218,15 @@ describe('CLI uninstall command', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('Removed opencode-swarm');
 
-        // Assert: Verify config.json was updated correctly (comments stripped)
+        // Assert: Verify opencode.json was updated correctly (comments stripped)
         const updatedConfig = JSON.parse(await readFile(configPath, 'utf-8'));
         expect(updatedConfig.plugin).not.toContain('opencode-swarm');
         expect(updatedConfig.agent).toBeUndefined();
     });
 
     test('Uninstall removes multiple plugin versions correctly', async () => {
-        // Setup: Create config.json with multiple plugin versions
-        const configPath = join(tempDir, 'opencode', 'config.json');
+        // Setup: Create opencode.json with multiple plugin versions
+        const configPath = join(tempDir, 'opencode', 'opencode.json');
         const configData = {
             plugin: ['opencode-swarm', 'opencode-swarm@1.0.0', 'opencode-swarm@2.0.0', 'other-plugin'],
             agent: {
