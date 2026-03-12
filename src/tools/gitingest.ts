@@ -76,7 +76,14 @@ export async function fetchGitingest(args: GitingestArgs): Promise<string> {
 				throw new Error('gitingest response too large');
 			}
 
-			const data = JSON.parse(text) as GitingestResponse;
+			let data: GitingestResponse;
+			try {
+				data = JSON.parse(text) as GitingestResponse;
+			} catch {
+				throw new Error(
+					`gitingest API returned non-JSON response (${text.length} chars, starts: ${text.slice(0, 80)})`,
+				);
+			}
 			return `${data.summary}\n\n${data.tree}\n\n${data.content}`;
 		} catch (error) {
 			// Timeout errors — convert to domain-specific error

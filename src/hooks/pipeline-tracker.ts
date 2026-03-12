@@ -86,7 +86,10 @@ interface MessageWithParts {
  * Creates the experimental.chat.messages.transform hook for pipeline tracking.
  * Only injects for the architect agent.
  */
-export function createPipelineTrackerHook(config: PluginConfig) {
+export function createPipelineTrackerHook(
+	config: PluginConfig,
+	directory?: string,
+) {
 	const enabled = config.inject_phase_reminders !== false;
 
 	if (!enabled) {
@@ -130,7 +133,7 @@ export function createPipelineTrackerHook(config: PluginConfig) {
 				// Load plan and extract current phase for compliance escalation
 				let phaseNumber: number | null = null;
 				try {
-					const plan = await loadPlan(process.cwd());
+					const plan = await loadPlan(directory ?? process.cwd());
 					if (plan) {
 						const phaseString = extractCurrentPhaseFromPlan(plan);
 						phaseNumber = parsePhaseNumber(phaseString);

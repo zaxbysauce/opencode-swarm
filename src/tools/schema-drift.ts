@@ -137,7 +137,12 @@ function parseSpec(specFile: string): SpecPath[] {
 }
 
 function parseJsonSpec(content: string): SpecPath[] {
-	const spec = JSON.parse(content);
+	let spec: { paths?: Record<string, unknown> };
+	try {
+		spec = JSON.parse(content);
+	} catch {
+		return [];
+	}
 	const paths: SpecPath[] = [];
 
 	if (!spec.paths) {

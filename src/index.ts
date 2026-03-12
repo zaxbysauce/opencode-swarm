@@ -88,7 +88,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	await loadSnapshot(ctx.directory);
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
-	const pipelineHook = createPipelineTrackerHook(config);
+	const pipelineHook = createPipelineTrackerHook(config, ctx.directory);
 	const systemEnhancerHook = createSystemEnhancerHook(config, ctx.directory);
 	const compactionHook = createCompactionCustomizerHook(config, ctx.directory);
 	const contextBudgetHandler = createContextBudgetHandler(config);
