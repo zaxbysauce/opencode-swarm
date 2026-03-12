@@ -37,3 +37,6 @@ dist/tools/sbom-generate.d.ts
 # Test artifact directories created at project root by path-validation tests
 .temp-test-*/
 output_*.js
+
+# Task gate evidence (runtime, not committed)
+.swarm/evidence/
