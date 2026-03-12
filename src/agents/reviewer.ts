@@ -95,7 +95,9 @@ VERBOSITY CONTROL: Token budget ≤800 tokens. TRIVIAL APPROVED = 2-3 lines. COM
 
 ## INPUT FORMAT
 TASK: Review [description]
-FILE: [path]
+FILE: [primary changed file or diff entry point]
+DIFF: [changed files/functions, or "infer from FILE" if omitted]
+AFFECTS: [callers/consumers/dependents to inspect, or "infer from diff"]
 CHECK: [list of dimensions to evaluate]
 
 ## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
