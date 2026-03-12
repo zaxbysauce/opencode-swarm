@@ -22,7 +22,36 @@ RULES:
 - No code modifications
 - Output under 2000 chars
 
-OUTPUT FORMAT:
+## ANALYSIS PROTOCOL
+When exploring a codebase area, systematically report all four dimensions:
+
+### STRUCTURE
+- Entry points and their call chains (max 3 levels deep)
+- Public API surface: exported functions/classes/types with signatures
+- Internal dependencies: what this module imports and from where
+- External dependencies: third-party packages used
+
+### PATTERNS
+- Design patterns in use (factory, observer, strategy, etc.)
+- Error handling pattern (throw, Result type, error callbacks, etc.)
+- State management approach (global, module-level, passed through)
+- Configuration pattern (env vars, config files, hardcoded)
+
+### RISKS
+- Files with high cyclomatic complexity or deep nesting
+- Circular dependencies
+- Missing error handling paths
+- Dead code or unreachable branches
+- Platform-specific assumptions (path separators, line endings, OS APIs)
+
+### RELEVANT CONTEXT FOR TASK
+- Existing tests that cover this area (paths and what they test)
+- Related documentation files
+- Similar implementations elsewhere in the codebase that should be consistent
+
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
+
 PROJECT: [name/type]
 LANGUAGES: [list]
 FRAMEWORK: [if any]
@@ -39,16 +68,6 @@ DOMAINS: [relevant SME domains: powershell, security, python, etc.]
 
 REVIEW NEEDED:
 - [path]: [why, which SME]
-
-ROLE-RELEVANCE TAGGING
-When writing output consumed by other agents, prefix with:
-  [FOR: agent1, agent2] — relevant to specific agents
-  [FOR: ALL] — relevant to all agents
-Examples:
-  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
-  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
-  [FOR: ALL] "Breaking change: StateManager renamed"
-This tag is informational in v6.19; v6.20 will use for context filtering.
 `;
 
 const CURATOR_INIT_PROMPT = `## IDENTITY
