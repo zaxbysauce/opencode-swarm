@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import picomatch from 'picomatch';
 
 // ============ Constants ============
 const MAX_FILE_PATH_LENGTH = 500;
@@ -10,6 +11,8 @@ const MAX_FINDINGS = 100;
 const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
 const MAX_LINE_LENGTH = 10_000; // Skip lines longer than this
 const MAX_CONTENT_BYTES = 50 * 1024; // 50KB per file for scanning (not full file)
+const MAX_EXCLUDE_PATTERNS = 200;
+const MAX_EXCLUDE_PATTERN_LENGTH = 256;
 
 // ============ Secret Type Definitions ============
 type SecretType =
@@ -316,7 +319,7 @@ function containsPathTraversal(str: string): boolean {
 }
 
 function containsControlChars(str: string): boolean {
-	return /[\0\r]/.test(str);
+	return /[\0\t\r\n]/.test(str);
 }
 
 function validateDirectoryInput(dir: string): string | null {
@@ -568,6 +571,115 @@ interface ScanStats {
 	symlinkSkipped: number;
 }
 
+interface RejectedExcludePattern {
+	pattern: string;
+	reason: string;
+}
+
+interface ExcludeMatcher {
+	excludeDirNames: Set<string>;
+	globMatchers: Array<(relPath: string) => boolean>;
+	rejected: RejectedExcludePattern[];
+}
+
+function normalizeRelativePath(baseDir: string, targetPath: string): string {
+	return path.relative(baseDir, targetPath).split(path.sep).join('/');
+}
+
+function parseSecretscanIgnore(baseDir: string): string[] {
+	const ignorePath = path.join(baseDir, '.secretscanignore');
+	if (!fs.existsSync(ignorePath)) return [];
+
+	try {
+		const raw = fs.readFileSync(ignorePath, 'utf-8');
+		return raw
+			.split('\n')
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0 && !line.startsWith('#'));
+	} catch {
+		return [];
+	}
+}
+
+function isGlobLike(pattern: string): boolean {
+	return /[*?{}[\]]/.test(pattern);
+}
+
+function validateExcludePattern(pattern: string): string | null {
+	if (pattern.length === 0) return 'empty pattern';
+	if (pattern.length > MAX_EXCLUDE_PATTERN_LENGTH) return 'pattern too long';
+	if (/\0|\r/.test(pattern)) return 'contains control characters';
+	if (pattern.includes('..')) return 'contains path traversal';
+	if (pattern.startsWith('/') || pattern.startsWith('~')) {
+		return 'absolute/home paths are not allowed';
+	}
+	if (pattern.startsWith('!')) return 'negation patterns are not supported';
+	if (/^[A-Za-z]:/.test(pattern)) return 'windows drive paths are not allowed';
+
+	if (
+		pattern === '*' ||
+		pattern === '**' ||
+		pattern === '**/*' ||
+		pattern === '/**' ||
+		pattern === '**/**'
+	) {
+		return 'overbroad match-all pattern is not allowed';
+	}
+
+	return null;
+}
+
+function compileExcludes(scanDir: string, exclude?: string[]): ExcludeMatcher {
+	const excludeDirNames = new Set(DEFAULT_EXCLUDE_DIRS);
+	const globMatchers: Array<(relPath: string) => boolean> = [];
+	const rejected: RejectedExcludePattern[] = [];
+
+	const patterns = [
+		...(exclude || []),
+		...parseSecretscanIgnore(scanDir),
+	].slice(0, MAX_EXCLUDE_PATTERNS);
+
+	for (const raw of patterns) {
+		const pattern = raw.trim();
+		if (!pattern) continue;
+
+		const validationError = validateExcludePattern(pattern);
+		if (validationError) {
+			rejected.push({ pattern, reason: validationError });
+			continue;
+		}
+
+		if (isGlobLike(pattern) || pattern.includes('/')) {
+			globMatchers.push(picomatch(pattern, { dot: true, nocase: false }));
+		} else {
+			// Backward compatible behavior: exact directory entry names
+			excludeDirNames.add(pattern);
+		}
+	}
+
+	return { excludeDirNames, globMatchers, rejected };
+}
+
+function shouldExcludePath(
+	scanDir: string,
+	fullPath: string,
+	entryName: string,
+	isDir: boolean,
+	matcher: ExcludeMatcher,
+): boolean {
+	if (isDir && matcher.excludeDirNames.has(entryName)) {
+		return true;
+	}
+
+	const relPath = normalizeRelativePath(scanDir, fullPath);
+	for (const match of matcher.globMatchers) {
+		if (match(relPath)) return true;
+		if (isDir && match(`${relPath}/`)) return true;
+	}
+
+	return false;
+}
+
 // Per-scan visited real paths - avoids cross-scan state leakage
 type VisitedPaths = Set<string>;
 
@@ -594,9 +706,9 @@ function isPathWithinScope(realPath: string, scanDir: string): boolean {
 
 function findScannableFiles(
 	dir: string,
-	excludeDirs: Set<string>,
 	scanDir: string,
 	visited: VisitedPaths,
+	matcher: ExcludeMatcher,
 	stats: ScanStats = {
 		skippedDirs: 0,
 		skippedFiles: 0,
@@ -624,12 +736,6 @@ function findScannableFiles(
 	});
 
 	for (const entry of entries) {
-		// Skip excluded directories
-		if (excludeDirs.has(entry)) {
-			stats.skippedDirs++;
-			continue;
-		}
-
 		const fullPath = path.join(dir, entry);
 
 		let lstat: fs.Stats;
@@ -648,6 +754,11 @@ function findScannableFiles(
 		}
 
 		if (lstat.isDirectory()) {
+			if (shouldExcludePath(scanDir, fullPath, entry, true, matcher)) {
+				stats.skippedDirs++;
+				continue;
+			}
+
 			// Check for directory loops via real path
 			let realPath: string;
 			try {
@@ -671,13 +782,18 @@ function findScannableFiles(
 
 			const subFiles = findScannableFiles(
 				fullPath,
-				excludeDirs,
 				scanDir,
 				visited,
+				matcher,
 				stats,
 			);
 			files.push(...subFiles);
 		} else if (lstat.isFile()) {
+			if (shouldExcludePath(scanDir, fullPath, entry, false, matcher)) {
+				stats.skippedFiles++;
+				continue;
+			}
+
 			const ext = path.extname(fullPath).toLowerCase();
 			// Only scan text-like files
 			if (!DEFAULT_EXCLUDE_EXTENSIONS.has(ext)) {
@@ -703,7 +819,7 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			.array(tool.schema.string())
 			.optional()
 			.describe(
-				'Additional directories to exclude (added to default exclusions like node_modules, .git, dist)',
+				'Additional excludes. Supports exact directory names (backward-compatible) plus relative/glob patterns (e.g. .svelte-kit, src/**/*.test.ts).',
 			),
 	},
 	async execute(
@@ -807,13 +923,8 @@ export const secretscan: ReturnType<typeof tool> = tool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			// Build exclusion set
-			const excludeDirs = new Set(DEFAULT_EXCLUDE_DIRS);
-			if (exclude) {
-				for (const exc of exclude) {
-					excludeDirs.add(exc);
-				}
-			}
+			// Build exclusion matcher
+			const matcher = compileExcludes(scanDir, exclude);
 
 			// Find all scannable files
 			const stats: ScanStats = {
@@ -826,9 +937,9 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			const visited: VisitedPaths = new Set();
 			const files = findScannableFiles(
 				scanDir,
-				excludeDirs,
 				scanDir,
 				visited,
+				matcher,
 				stats,
 			);
 
@@ -914,6 +1025,13 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			}
 			if (parts.length > 0) {
 				result.message = `${parts.join('; ')}.`;
+			}
+
+			if (matcher.rejected.length > 0) {
+				const rejectionMsg = `Rejected ${matcher.rejected.length} unsafe/invalid exclude patterns`;
+				result.message = result.message
+					? `${result.message} ${rejectionMsg}.`
+					: `${rejectionMsg}.`;
 			}
 
 			// Check output size

@@ -49,12 +49,14 @@
 		"@opencode-ai/sdk": "^1.1.53",
 		"@vscode/tree-sitter-wasm": "^0.3.0",
 		"p-limit": "^7.3.0",
+		"picomatch": "^4.0.3",
 		"proper-lockfile": "^4.1.2",
 		"web-tree-sitter": "^0.25.0",
 		"zod": "^4.1.8"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.14",
+		"@types/picomatch": "^4.0.2",
 		"bun-types": "latest",
 		"js-yaml": "^4.1.1",
 		"typescript": "^5.7.3"
