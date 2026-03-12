@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.21](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.20...v6.22.21) (2026-03-12)
+
+
+### Bug Fixes
+
+* seed task workflow state in new sessions during cross-session propagation ([1b49604](https://github.com/zaxbysauce/opencode-swarm/commit/1b496042b581634adc53a0bcbaf7b4e9e99a4cee))
+* seed task workflow state in new sessions during cross-session propagation ([2c51514](https://github.com/zaxbysauce/opencode-swarm/commit/2c5151477866411e0dfb461b71d234a50d893f15))
+
 ## [6.22.20](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.19...v6.22.20) (2026-03-12)
 
 
