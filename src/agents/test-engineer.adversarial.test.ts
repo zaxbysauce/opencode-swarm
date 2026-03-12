@@ -351,3 +351,43 @@ describe('X4: Role-Relevance Tagging Removed', () => {
 		expect(agent.config.prompt).not.toContain('v6.20 will use for context filtering');
 	});
 });
+
+describe('T5: Adversarial Test Patterns', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should include ADVERSARIAL TEST PATTERNS section', () => {
+		expect(agent.config.prompt).toContain('ADVERSARIAL TEST PATTERNS');
+	});
+
+	it('should list OVERSIZED INPUT as an attack category', () => {
+		expect(agent.config.prompt).toContain('OVERSIZED INPUT');
+	});
+
+	it('should list INJECTION as an attack category (SQL, HTML, path traversal)', () => {
+		expect(agent.config.prompt).toContain('INJECTION');
+		expect(agent.config.prompt).toContain('../');
+	});
+
+	it('should list UNICODE as an attack category with null bytes and special chars', () => {
+		expect(agent.config.prompt).toContain('UNICODE');
+		expect(agent.config.prompt).toContain('\\x00');
+	});
+
+	it('should list AUTH BYPASS as an attack category', () => {
+		expect(agent.config.prompt).toContain('AUTH BYPASS');
+	});
+
+	it('should list CONCURRENCY as an attack category', () => {
+		expect(agent.config.prompt).toContain('CONCURRENCY');
+	});
+
+	it('should require SPECIFIC outcome assertions for adversarial tests', () => {
+		const advIdx = (agent.config.prompt ?? '').indexOf('ADVERSARIAL TEST PATTERNS');
+		const advSection = (agent.config.prompt ?? '').substring(advIdx, advIdx + 1200);
+		expect(advSection).toMatch(/specific.*outcome|SPECIFIC outcome/i);
+	});
+});
