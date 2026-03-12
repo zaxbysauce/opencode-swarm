@@ -99,15 +99,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
 	const delegationGateHooks = createDelegationGateHook(config);
 	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
-	// Fail-secure: honor explicit guardrails.enabled === false first (highest priority),
-	// then fall back to file-loaded config. When no config file exists, use config defaults
-	// (which now have guardrails enabled due to fail-secure loader behavior).
+	// Fail-secure: honor explicit guardrails.enabled === false (preserving the full
+	// guardrails block), otherwise let Zod schema defaults fill in enabled: true.
 	const guardrailsFallback =
 		config.guardrails?.enabled === false
 			? { ...config.guardrails, enabled: false }
-			: loadedFromFile
-				? (config.guardrails ?? {})
-				: (config.guardrails ?? {}); // Use loader defaults (fail-secure)
+			: (config.guardrails ?? {});
 	const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
 
 	// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
