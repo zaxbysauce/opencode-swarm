@@ -13,6 +13,7 @@ import {
 	getTaskState,
 	swarmState,
 } from '../state';
+import type { AgentSessionState } from '../state';
 import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
@@ -280,6 +281,14 @@ function extractPlanTaskId(text: string): string | null {
 }
 
 /**
+ * Returns the task ID to use when seeding cross-session state, derived from
+ * the originating session's currentTaskId or lastCoderDelegationTaskId.
+ */
+function getSeedTaskId(session: AgentSessionState): string | null {
+	return session.currentTaskId ?? session.lastCoderDelegationTaskId;
+}
+
+/**
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
@@ -401,6 +410,11 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 						// Pass 1: coder_delegated/pre_check_passed → reviewer_run
 						if (targetAgent === 'reviewer') {
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+								otherSession.taskWorkflowStates.set(seedTaskId, 'coder_delegated');
+							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (
 									state === 'coder_delegated' ||
@@ -419,6 +433,11 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 						// Pass 2: reviewer_run → tests_run
 						if (targetAgent === 'test_engineer') {
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
+							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (state === 'reviewer_run') {
 									try {
@@ -508,6 +527,11 @@ export function createDelegationGateHook(config: PluginConfig): {
 							if (otherSession === session) continue;
 							if (!otherSession.taskWorkflowStates) continue;
 
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+								otherSession.taskWorkflowStates.set(seedTaskId, 'coder_delegated');
+							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (
 									state === 'coder_delegated' ||
@@ -528,6 +552,11 @@ export function createDelegationGateHook(config: PluginConfig): {
 							if (otherSession === session) continue;
 							if (!otherSession.taskWorkflowStates) continue;
 
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
+							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (state === 'reviewer_run') {
 									try {
