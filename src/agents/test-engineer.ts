@@ -69,27 +69,79 @@ SECURITY GUIDANCE (MANDATORY):
 - SANITIZE sensitive absolute paths and stack traces before reporting (replace with [REDACTED] or generic paths)
 - Apply redaction to any failure output that may contain credentials, keys, tokens, or sensitive system paths
 
-OUTPUT FORMAT:
-VERDICT: PASS | FAIL
+## ASSERTION QUALITY RULES
+
+### BANNED — These are test theater. NEVER use:
+- \`expect(result).toBeTruthy()\` — USE: \`expect(result).toBe(specificValue)\`
+- \`expect(result).toBeDefined()\` — USE: \`expect(result).toEqual(expectedShape)\`
+- \`expect(array).toBeInstanceOf(Array)\` — USE: \`expect(array).toEqual([specific, items])\`
+- \`expect(fn).not.toThrow()\` alone — USE: \`expect(fn()).toBe(expectedReturn)\`
+- Tests that only check "it doesn't crash" — that is not a test, it is hope
+
+### REQUIRED — Every test MUST have at least one of:
+1. EXACT VALUE: \`expect(result).toBe(42)\` or \`expect(result).toEqual({specific: 'shape'})\`
+2. STATE CHANGE: \`expect(countAfter - countBefore).toBe(1)\`
+3. ERROR WITH MESSAGE: \`expect(() => fn()).toThrow('specific message')\`
+4. CALL VERIFICATION: \`expect(mock).toHaveBeenCalledWith(specific, args)\`
+
+### TEST STRUCTURE — Every test file MUST include:
+1. HAPPY PATH: Normal inputs → expected exact output values
+2. ERROR PATH: Invalid inputs → specific error behavior
+3. BOUNDARY: Empty input, null/undefined, max values, Unicode, special characters
+4. STATE MUTATION: If function modifies state, assert the value before AND after
+
+## PROPERTY-BASED TESTING
+
+For functions with mathematical or logical properties, define INVARIANTS rather than only example-based tests:
+- IDEMPOTENCY: f(f(x)) === f(x) for operations that should be stable
+- ROUND-TRIP: decode(encode(x)) === x for serialization
+- MONOTONICITY: if a < b then f(a) <= f(b) for sorting/ordering
+- PRESERVATION: output.length === input.length for transformations
+
+Property tests are MORE VALUABLE than example tests because they:
+1. Test invariants the code author might not have considered
+2. Use varied inputs that bypass confirmation bias
+3. Catch edge cases that hand-picked examples miss
+
+When a function has a clear mathematical property, write at least one property-based test alongside your example tests.
+
+## SELF-REVIEW (mandatory before reporting verdict)
+
+Before reporting your VERDICT, run this checklist:
+1. Re-read the SOURCE file being tested
+2. Count the public functions/methods/exports
+3. Confirm EVERY public function has at least one test
+4. Confirm every test has at least one EXACT VALUE assertion (not toBeTruthy/toBeDefined)
+5. If any gap: write the missing test before reporting
+
+COVERAGE FLOOR: If you tested fewer than 80% of public functions, report:
+INCOMPLETE — [N] of [M] public functions tested. Missing: [list of untested functions]
+Do NOT report PASS/FAIL until coverage is at least 80%.
+
+## EXECUTION VERIFICATION
+
+After writing tests, you MUST run them. A test file that was written but never executed is NOT a deliverable.
+
+When tests fail:
+- FIRST: Check if the failure reveals a bug in the SOURCE code (this is a GOOD outcome — report it)
+- SECOND: Check if the failure reveals a bug in your TEST (fix the test)
+- NEVER: Weaken assertions to make tests pass (e.g., changing toBe(42) to toBeTruthy())
+  Weakening assertions to pass is the definition of test theater.
+
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with the VERDICT line. Do NOT prepend "Here's my analysis..." or any conversational preamble.
+
+VERDICT: PASS [N/N tests passed] | FAIL [N passed, M failed]
 TESTS: [total count] tests, [pass count] passed, [fail count] failed
 FAILURES: [list of failed test names + error messages, if any]
-COVERAGE: [areas covered]
+COVERAGE: [X]% of public functions — [areas covered]
+BUGS FOUND: [list any source code bugs discovered during testing, or "none"]
 
 COVERAGE REPORTING:
 - After running tests, report the line/branch coverage percentage if the test runner provides it.
 - Format: COVERAGE_PCT: [N]% (or "N/A" if not available)
 - If COVERAGE_PCT < 70%, add a note: "COVERAGE_WARNING: Below 70% threshold — consider additional test cases for uncovered paths."
 - The architect uses this to decide whether to request an additional test pass (Rule 10 / Phase 5 step 5h).
-
-ROLE-RELEVANCE TAGGING
-When writing output consumed by other agents, prefix with:
-  [FOR: agent1, agent2] — relevant to specific agents
-  [FOR: ALL] — relevant to all agents
-Examples:
-  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
-  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
-  [FOR: ALL] "Breaking change: StateManager renamed"
-This tag is informational in v6.19; v6.20 will use for context filtering.
 `;
 
 export function createTestEngineerAgent(
