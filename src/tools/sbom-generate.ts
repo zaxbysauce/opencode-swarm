@@ -50,7 +50,6 @@ export interface SbomGenerateResult {
  */
 function findManifestFiles(rootDir: string): string[] {
 	const manifestFiles: string[] = [];
-	const cwd = process.cwd();
 
 	// Get all unique patterns from detectors
 	const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
@@ -86,7 +85,7 @@ function findManifestFiles(rootDir: string): string[] {
 							.replace(/\*/g, '.*')
 							.replace(/\?/g, '.');
 						if (new RegExp(regex, 'i').test(entry.name)) {
-							manifestFiles.push(path.relative(cwd, fullPath));
+							manifestFiles.push(path.relative(rootDir, fullPath));
 							break;
 						}
 					}
@@ -120,7 +119,6 @@ function findManifestFilesInDirs(
 	workingDir: string,
 ): string[] {
 	const found: string[] = [];
-	const _cwd = process.cwd();
 
 	// Get all unique patterns from detectors
 	const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
@@ -302,10 +300,16 @@ export const sbom_generate: ReturnType<typeof tool> = createSwarmTool({
 		const obj = args as SbomGenerateInput;
 		const scope = obj.scope;
 		const changedFiles = obj.changed_files;
-		const outputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
+		const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
 
 		// Get directory from createSwarmTool
 		const workingDir = directory;
+
+		// Resolve output directory against project root so .swarm/ is always created
+		// at the project root, not relative to process.cwd()
+		const outputDir = path.isAbsolute(relativeOutputDir)
+			? relativeOutputDir
+			: path.join(workingDir, relativeOutputDir);
 
 		// Find manifest files based on scope
 		let manifestFiles: string[] = [];
