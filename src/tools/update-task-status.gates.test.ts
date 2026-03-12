@@ -27,12 +27,15 @@ describe('checkReviewerGate', () => {
 		expect(result.blocked).toBe(false);
 	});
 
-	it('allows completion when all valid sessions show idle state', () => {
+	it('blocks completion when all valid sessions show idle state (no delegations)', () => {
 		startAgentSession('session-1', 'architect');
 		startAgentSession('session-2', 'architect');
 
+		// Idle means task was never worked on — gate should block.
+		// The recovery mechanism in executeUpdateTaskStatus handles
+		// cases where delegations occurred but state wasn't advanced.
 		const result = checkReviewerGate('2.2');
-		expect(result.blocked).toBe(false);
+		expect(result.blocked).toBe(true);
 	});
 
 	it('blocks completion when non-idle states exist but no tests_run/complete state', () => {

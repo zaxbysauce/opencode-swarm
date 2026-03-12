@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { stripKnownSwarmPrefix } from '../config/schema';
 import type { TaskStatus } from '../config/plan-schema';
 import { updateTaskStatus } from '../plan/manager';
 import { advanceTaskState, getTaskState, swarmState } from '../state';
@@ -125,16 +126,6 @@ export function checkReviewerGate(
 			stateEntries.push(`${sessionId}: ${state}`);
 		}
 
-		// Issue #81 regression detection: if all sessions are idle, states weren't persisted.
-		// No warning or log emitted — silently continue to plan.json fallback check (lines 121-135)
-		const allIdle =
-			stateEntries.length > 0 &&
-			stateEntries.every((e) => e.endsWith(': idle'));
-		if (allIdle) {
-			// Recovery path: if every valid session reports idle for this task,
-			// state progression likely wasn't tracked across sessions. Allow completion.
-			return { blocked: false, reason: '' };
-		}
 		// Bug 3 fix: no session has this task in tests_run or complete state.
 		// Check plan.json as fallback — covers session restarts where task was
 		// completed in a prior session and plan.json is the source of truth.
@@ -166,6 +157,78 @@ export function checkReviewerGate(
 	} catch {
 		// If state inspection throws, allow through
 		return { blocked: false, reason: '' };
+	}
+}
+
+/**
+ * Recovery mechanism: reconcile task state with delegation history.
+ * When reviewer/test_engineer delegations occurred but the state machine
+ * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,
+ * cross-session gaps, or pure verification tasks without coder delegation),
+ * this function walks all delegation chains and advances the task state
+ * so that checkReviewerGate can make an accurate decision.
+ *
+ * @param taskId - The task ID to recover state for
+ */
+export function recoverTaskStateFromDelegations(taskId: string): void {
+	// Scan ALL delegation chains for reviewer and test_engineer delegations
+	let hasReviewer = false;
+	let hasTestEngineer = false;
+
+	for (const [, chain] of swarmState.delegationChains) {
+		for (const delegation of chain) {
+			const target = stripKnownSwarmPrefix(delegation.to);
+			if (target === 'reviewer') hasReviewer = true;
+			if (target === 'test_engineer') hasTestEngineer = true;
+		}
+	}
+
+	if (!hasReviewer && !hasTestEngineer) return;
+
+	// Advance task state in all sessions based on observed delegations
+	for (const [, session] of swarmState.agentSessions) {
+		if (!(session.taskWorkflowStates instanceof Map)) continue;
+
+		const currentState = getTaskState(session, taskId);
+
+		// Already at or past tests_run — nothing to recover
+		if (currentState === 'tests_run' || currentState === 'complete') continue;
+
+		// Seed from idle if the task was never explicitly set to in_progress
+		if (hasReviewer && currentState === 'idle') {
+			try {
+				advanceTaskState(session, taskId, 'coder_delegated');
+			} catch {
+				/* non-fatal */
+			}
+		}
+
+		// Advance coder_delegated/pre_check_passed → reviewer_run
+		if (hasReviewer) {
+			const stateNow = getTaskState(session, taskId);
+			if (
+				stateNow === 'coder_delegated' ||
+				stateNow === 'pre_check_passed'
+			) {
+				try {
+					advanceTaskState(session, taskId, 'reviewer_run');
+				} catch {
+					/* non-fatal */
+				}
+			}
+		}
+
+		// Advance reviewer_run → tests_run
+		if (hasTestEngineer) {
+			const stateNow = getTaskState(session, taskId);
+			if (stateNow === 'reviewer_run') {
+				try {
+					advanceTaskState(session, taskId, 'tests_run');
+				} catch {
+					/* non-fatal */
+				}
+			}
+		}
 	}
 }
 
@@ -294,6 +357,12 @@ export async function executeUpdateTaskStatus(
 	// State machine check: task must have reached tests_run or complete state
 	// Uses the validated directory for plan.json fallback resolution
 	if (args.status === 'completed') {
+		// Recovery: reconcile task state with delegation history before gate check.
+		// This handles cases where the delegation-gate toolAfter hook did not
+		// advance the state (missing subagent_type, cross-session gaps, pure
+		// verification tasks without coder delegation, etc.).
+		recoverTaskStateFromDelegations(args.task_id);
+
 		const reviewerCheck = checkReviewerGate(args.task_id, directory);
 		if (reviewerCheck.blocked) {
 			return {

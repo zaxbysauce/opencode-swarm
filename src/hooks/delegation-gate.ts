@@ -476,13 +476,13 @@ export function createDelegationGateHook(config: PluginConfig): {
 						}
 					}
 
-					// If no coder in chain, do not reset qaSkip and do not advance states (early return)
-					if (lastCoderIndex === -1) {
-						return;
-					}
+					// If no coder in chain, skip qaSkip reset but still scan the
+					// full chain for reviewer/test_engineer so state advancement
+					// can proceed (pure verification tasks have no coder delegation).
+					const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex;
 
-					// Walk forward from coder index
-					const afterCoder = delegationChain.slice(lastCoderIndex);
+					// Walk forward from coder index (or start of chain if no coder)
+					const afterCoder = delegationChain.slice(searchStart);
 					for (const delegation of afterCoder) {
 						const target = stripKnownSwarmPrefix(delegation.to);
 						if (target === 'reviewer') hasReviewer = true;
@@ -490,7 +490,8 @@ export function createDelegationGateHook(config: PluginConfig): {
 					}
 
 					// Only reset qaSkip when BOTH have been seen since last coder
-					if (hasReviewer && hasTestEngineer) {
+					// (skip qaSkip reset entirely when there's no coder in chain)
+					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
 						session.qaSkipCount = 0;
 						session.qaSkipTaskIds = [];
 					}
