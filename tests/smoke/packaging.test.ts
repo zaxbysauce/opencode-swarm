@@ -49,7 +49,7 @@ describe('packaging smoke tests', () => {
 
     test('dist/cli/index.js file size is reasonable (< 2MB)', () => {
         const stats = Bun.file(path.join(ROOT, 'dist/cli/index.js'));
-        // CLI bundle should be under 2MB
+        // CLI bundle should be under 2MB (raised from 1MB due to v6.17+ knowledge system additions)
         expect(stats.size).toBeLessThan(2 * 1024 * 1024);
         // But should be at least 1KB (non-empty)
         expect(stats.size).toBeGreaterThan(1 * 1024);
