@@ -15792,6 +15792,18 @@ async function updateTaskStatus(directory, taskId, status) {
     throw new Error(`Plan not found in directory: ${directory}`);
   }
   let taskFound = false;
+  const derivePhaseStatusFromTasks = (tasks) => {
+    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) {
+      return "complete";
+    }
+    if (tasks.some((task) => task.status === "in_progress")) {
+      return "in_progress";
+    }
+    if (tasks.some((task) => task.status === "blocked")) {
+      return "blocked";
+    }
+    return "pending";
+  };
   const updatedPhases = plan.phases.map((phase) => {
     const updatedTasks = phase.tasks.map((task) => {
       if (task.id === taskId) {
@@ -15800,7 +15812,11 @@ async function updateTaskStatus(directory, taskId, status) {
       }
       return task;
     });
-    return { ...phase, tasks: updatedTasks };
+    return {
+      ...phase,
+      status: derivePhaseStatusFromTasks(updatedTasks),
+      tasks: updatedTasks
+    };
   });
   if (!taskFound) {
     throw new Error(`Task not found: ${taskId}`);
@@ -33558,13 +33574,66 @@ function isHighEntropyString(str) {
 function containsPathTraversal(str) {
   if (/\.\.[/\\]/.test(str))
     return true;
-  const normalized = path21.normalize(str);
-  if (/\.\.[/\\]/.test(normalized))
+  if (/[/\\]\.\.$/.test(str) || str === "..")
+    return true;
+  if (/\.\.[/\\]/.test(path21.normalize(str.replace(/\*/g, "x"))))
     return true;
   if (str.includes("%2e%2e") || str.includes("%2E%2E"))
     return true;
   if (str.includes("..") && /%2e/i.test(str))
     return true;
+  return false;
+}
+function validateExcludePattern(exc) {
+  if (exc.length === 0)
+    return null;
+  if (exc.length > MAX_FILE_PATH_LENGTH) {
+    return `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`;
+  }
+  if (containsControlChars(exc)) {
+    return "invalid exclude path: contains path traversal or control characters";
+  }
+  if (containsPathTraversal(exc)) {
+    return "invalid exclude path: contains path traversal or control characters";
+  }
+  if (exc.startsWith("!")) {
+    return "invalid exclude path: negation patterns are not supported";
+  }
+  if (exc.startsWith("/") || exc.startsWith("\\")) {
+    return "invalid exclude path: absolute paths are not supported";
+  }
+  return null;
+}
+function isGlobOrPathPattern(pattern) {
+  return pattern.includes("/") || pattern.includes("\\") || /[*?[\]{}]/.test(pattern);
+}
+function loadSecretScanIgnore(scanDir) {
+  const ignorePath = path21.join(scanDir, ".secretscanignore");
+  try {
+    if (!fs9.existsSync(ignorePath))
+      return [];
+    const content = fs9.readFileSync(ignorePath, "utf8");
+    const patterns = [];
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#"))
+        continue;
+      if (validateExcludePattern(line) === null) {
+        patterns.push(line);
+      }
+    }
+    return patterns;
+  } catch {
+    return [];
+  }
+}
+function isExcluded(entry, relPath, exactNames, globPatterns) {
+  if (exactNames.has(entry))
+    return true;
+  for (const pattern of globPatterns) {
+    if (path21.matchesGlob(relPath, pattern))
+      return true;
+  }
   return false;
 }
 function containsControlChars(str) {
@@ -33726,7 +33795,7 @@ function isPathWithinScope(realPath, scanDir) {
   const resolvedRealPath = path21.resolve(realPath);
   return resolvedRealPath === resolvedScanDir || resolvedRealPath.startsWith(resolvedScanDir + path21.sep) || resolvedRealPath.startsWith(`${resolvedScanDir}/`) || resolvedRealPath.startsWith(`${resolvedScanDir}\\`);
 }
-function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
+function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, stats = {
   skippedDirs: 0,
   skippedFiles: 0,
   fileErrors: 0,
@@ -33750,11 +33819,12 @@ function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
     return a.localeCompare(b);
   });
   for (const entry of entries) {
-    if (excludeDirs.has(entry)) {
+    const fullPath = path21.join(dir, entry);
+    const relPath = path21.relative(scanDir, fullPath).replace(/\\/g, "/");
+    if (isExcluded(entry, relPath, excludeExact, excludeGlobs)) {
       stats.skippedDirs++;
       continue;
     }
-    const fullPath = path21.join(dir, entry);
     let lstat;
     try {
       lstat = fs9.lstatSync(fullPath);
@@ -33782,7 +33852,7 @@ function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
         stats.symlinkSkipped++;
         continue;
       }
-      const subFiles = findScannableFiles(fullPath, excludeDirs, scanDir, visited, stats);
+      const subFiles = findScannableFiles(fullPath, excludeExact, excludeGlobs, scanDir, visited, stats);
       files.push(...subFiles);
     } else if (lstat.isFile()) {
       const ext = path21.extname(fullPath).toLowerCase();
@@ -33987,10 +34057,10 @@ var init_secretscan = __esm(() => {
   ];
   O_NOFOLLOW = process.platform !== "win32" ? fs9.constants.O_NOFOLLOW : undefined;
   secretscan = tool({
-    description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default.",
+    description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
     args: {
       directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
-      exclude: tool.schema.array(tool.schema.string()).optional().describe("Additional directories to exclude (added to default exclusions like node_modules, .git, dist)")
+      exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
     },
     async execute(args2, _context) {
       let directory;
@@ -34026,20 +34096,10 @@ var init_secretscan = __esm(() => {
       }
       if (exclude) {
         for (const exc of exclude) {
-          if (exc.length > MAX_FILE_PATH_LENGTH) {
+          const err2 = validateExcludePattern(exc);
+          if (err2) {
             const errorResult = {
-              error: `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`,
-              scan_dir: directory,
-              findings: [],
-              count: 0,
-              files_scanned: 0,
-              skipped_files: 0
-            };
-            return JSON.stringify(errorResult, null, 2);
-          }
-          if (containsPathTraversal(exc) || containsControlChars(exc)) {
-            const errorResult = {
-              error: `invalid exclude path: contains path traversal or control characters`,
+              error: err2,
               scan_dir: directory,
               findings: [],
               count: 0,
@@ -34075,10 +34135,20 @@ var init_secretscan = __esm(() => {
           };
           return JSON.stringify(errorResult, null, 2);
         }
-        const excludeDirs = new Set(DEFAULT_EXCLUDE_DIRS);
-        if (exclude) {
-          for (const exc of exclude) {
-            excludeDirs.add(exc);
+        const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
+        const excludeGlobs = [];
+        const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
+        const allUserPatterns = [
+          ...exclude ?? [],
+          ...ignoreFilePatterns
+        ];
+        for (const exc of allUserPatterns) {
+          if (exc.length === 0)
+            continue;
+          if (isGlobOrPathPattern(exc)) {
+            excludeGlobs.push(exc);
+          } else {
+            excludeExact.add(exc);
           }
         }
         const stats = {
@@ -34088,7 +34158,7 @@ var init_secretscan = __esm(() => {
           symlinkSkipped: 0
         };
         const visited = new Set;
-        const files = findScannableFiles(scanDir, excludeDirs, scanDir, visited, stats);
+        const files = findScannableFiles(scanDir, excludeExact, excludeGlobs, scanDir, visited, stats);
         files.sort((a, b) => {
           const aLower = a.toLowerCase();
           const bLower = b.toLowerCase();
@@ -47932,8 +48002,8 @@ function isOutsideSwarmDir(filePath, directory) {
     return false;
   const swarmDir = path26.resolve(directory, ".swarm");
   const resolved = path26.resolve(directory, filePath);
-  const relative3 = path26.relative(swarmDir, resolved);
-  return relative3.startsWith("..") || path26.isAbsolute(relative3);
+  const relative4 = path26.relative(swarmDir, resolved);
+  return relative4.startsWith("..") || path26.isAbsolute(relative4);
 }
 function isSourceCodePath(filePath) {
   if (!filePath)
@@ -48612,6 +48682,9 @@ function extractPlanTaskId(text) {
   }
   return null;
 }
+function getSeedTaskId(session) {
+  return session.currentTaskId ?? session.lastCoderDelegationTaskId;
+}
 function createDelegationGateHook(config3) {
   const enabled = config3.hooks?.delegation_gate !== false;
   const delegationMaxChars = config3.hooks?.delegation_max_chars ?? 4000;
@@ -48669,6 +48742,10 @@ function createDelegationGateHook(config3) {
             if (!otherSession.taskWorkflowStates)
               continue;
             if (targetAgent === "reviewer") {
+              const seedTaskId = getSeedTaskId(session);
+              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+              }
               for (const [taskId, state] of otherSession.taskWorkflowStates) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
@@ -48680,6 +48757,10 @@ function createDelegationGateHook(config3) {
               }
             }
             if (targetAgent === "test_engineer") {
+              const seedTaskId = getSeedTaskId(session);
+              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+              }
               for (const [taskId, state] of otherSession.taskWorkflowStates) {
                 if (state === "reviewer_run") {
                   try {
@@ -48707,10 +48788,8 @@ function createDelegationGateHook(config3) {
               break;
             }
           }
-          if (lastCoderIndex === -1) {
-            return;
-          }
-          const afterCoder = delegationChain.slice(lastCoderIndex);
+          const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex;
+          const afterCoder = delegationChain.slice(searchStart);
           for (const delegation of afterCoder) {
             const target = stripKnownSwarmPrefix(delegation.to);
             if (target === "reviewer")
@@ -48718,7 +48797,7 @@ function createDelegationGateHook(config3) {
             if (target === "test_engineer")
               hasTestEngineer = true;
           }
-          if (hasReviewer && hasTestEngineer) {
+          if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
             session.qaSkipCount = 0;
             session.qaSkipTaskIds = [];
           }
@@ -48750,6 +48829,10 @@ function createDelegationGateHook(config3) {
                 continue;
               if (!otherSession.taskWorkflowStates)
                 continue;
+              const seedTaskId = getSeedTaskId(session);
+              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+              }
               for (const [taskId, state] of otherSession.taskWorkflowStates) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
@@ -48767,6 +48850,10 @@ function createDelegationGateHook(config3) {
                 continue;
               if (!otherSession.taskWorkflowStates)
                 continue;
+              const seedTaskId = getSeedTaskId(session);
+              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+              }
               for (const [taskId, state] of otherSession.taskWorkflowStates) {
                 if (state === "reviewer_run") {
                   try {
@@ -58050,13 +58137,13 @@ function validatePath(inputPath, baseDir, workspaceDir) {
     resolved = path41.resolve(baseDir, inputPath);
   }
   const workspaceResolved = path41.resolve(workspaceDir);
-  let relative4;
+  let relative5;
   if (isWinAbs) {
-    relative4 = path41.win32.relative(workspaceResolved, resolved);
+    relative5 = path41.win32.relative(workspaceResolved, resolved);
   } else {
-    relative4 = path41.relative(workspaceResolved, resolved);
+    relative5 = path41.relative(workspaceResolved, resolved);
   }
-  if (relative4.startsWith("..")) {
+  if (relative5.startsWith("..")) {
     return "path traversal detected";
   }
   return null;
@@ -60865,6 +60952,7 @@ var todo_extract = createSwarmTool({
 });
 // src/tools/update-task-status.ts
 init_tool();
+init_schema();
 init_manager2();
 import * as fs35 from "fs";
 import * as path47 from "path";
@@ -60914,8 +61002,6 @@ function checkReviewerGate(taskId, workingDirectory) {
       const state = getTaskState(session, taskId);
       stateEntries.push(`${sessionId}: ${state}`);
     }
-    const allIdle = stateEntries.length > 0 && stateEntries.every((e) => e.endsWith(": idle"));
-    if (allIdle) {}
     try {
       const resolvedDir = workingDirectory ?? process.cwd();
       const planPath = path47.join(resolvedDir, ".swarm", "plan.json");
@@ -60932,10 +61018,53 @@ function checkReviewerGate(taskId, workingDirectory) {
     const currentStateStr = stateEntries.length > 0 ? stateEntries.join(", ") : "no active sessions";
     return {
       blocked: true,
-      reason: `Task ${taskId} has not passed QA gates. Current state: [${currentStateStr}]. Required state: tests_run or complete. Do not write directly to plan files \u2014 use update_task_status after running the reviewer and test_engineer agents.`
+      reason: `Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files \u2014 use update_task_status after running the reviewer and test_engineer agents.`
     };
   } catch {
     return { blocked: false, reason: "" };
+  }
+}
+function recoverTaskStateFromDelegations(taskId) {
+  let hasReviewer = false;
+  let hasTestEngineer = false;
+  for (const [, chain] of swarmState.delegationChains) {
+    for (const delegation of chain) {
+      const target = stripKnownSwarmPrefix(delegation.to);
+      if (target === "reviewer")
+        hasReviewer = true;
+      if (target === "test_engineer")
+        hasTestEngineer = true;
+    }
+  }
+  if (!hasReviewer && !hasTestEngineer)
+    return;
+  for (const [, session] of swarmState.agentSessions) {
+    if (!(session.taskWorkflowStates instanceof Map))
+      continue;
+    const currentState = getTaskState(session, taskId);
+    if (currentState === "tests_run" || currentState === "complete")
+      continue;
+    if (hasReviewer && currentState === "idle") {
+      try {
+        advanceTaskState(session, taskId, "coder_delegated");
+      } catch {}
+    }
+    if (hasReviewer) {
+      const stateNow = getTaskState(session, taskId);
+      if (stateNow === "coder_delegated" || stateNow === "pre_check_passed") {
+        try {
+          advanceTaskState(session, taskId, "reviewer_run");
+        } catch {}
+      }
+    }
+    if (hasTestEngineer) {
+      const stateNow = getTaskState(session, taskId);
+      if (stateNow === "reviewer_run") {
+        try {
+          advanceTaskState(session, taskId, "tests_run");
+        } catch {}
+      }
+    }
   }
 }
 async function executeUpdateTaskStatus(args2, fallbackDir) {
@@ -61021,6 +61150,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     directory = fallbackDir ?? process.cwd();
   }
   if (args2.status === "completed") {
+    recoverTaskStateFromDelegations(args2.task_id);
     const reviewerCheck = checkReviewerGate(args2.task_id, directory);
     if (reviewerCheck.blocked) {
       return {
@@ -61032,6 +61162,19 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   try {
     const updatedPlan = await updateTaskStatus(directory, args2.task_id, args2.status);
+    if (args2.status === "completed") {
+      for (const [_sessionId, session] of swarmState.agentSessions) {
+        if (!(session.taskWorkflowStates instanceof Map)) {
+          continue;
+        }
+        const currentState = getTaskState(session, args2.task_id);
+        if (currentState === "tests_run") {
+          try {
+            advanceTaskState(session, args2.task_id, "complete");
+          } catch {}
+        }
+      }
+    }
     return {
       success: true,
       message: "Task status updated successfully",
@@ -61100,7 +61243,7 @@ var OpenCodeSwarm = async (ctx) => {
   const activityHooks = createAgentActivityHooks(config3, ctx.directory);
   const delegationGateHooks = createDelegationGateHook(config3);
   const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
-  const guardrailsFallback = config3.guardrails?.enabled === false ? { ...config3.guardrails, enabled: false } : loadedFromFile ? config3.guardrails ?? {} : config3.guardrails ?? {};
+  const guardrailsFallback = config3.guardrails?.enabled === false ? { ...config3.guardrails, enabled: false } : config3.guardrails ?? {};
   const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
   if (loadedFromFile && guardrailsConfig.enabled === false) {
     console.warn("");

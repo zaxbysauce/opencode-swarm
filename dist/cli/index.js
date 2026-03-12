@@ -33333,13 +33333,66 @@ function isHighEntropyString(str) {
 function containsPathTraversal(str) {
   if (/\.\.[/\\]/.test(str))
     return true;
-  const normalized = path12.normalize(str);
-  if (/\.\.[/\\]/.test(normalized))
+  if (/[/\\]\.\.$/.test(str) || str === "..")
+    return true;
+  if (/\.\.[/\\]/.test(path12.normalize(str.replace(/\*/g, "x"))))
     return true;
   if (str.includes("%2e%2e") || str.includes("%2E%2E"))
     return true;
   if (str.includes("..") && /%2e/i.test(str))
     return true;
+  return false;
+}
+function validateExcludePattern(exc) {
+  if (exc.length === 0)
+    return null;
+  if (exc.length > MAX_FILE_PATH_LENGTH) {
+    return `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`;
+  }
+  if (containsControlChars(exc)) {
+    return "invalid exclude path: contains path traversal or control characters";
+  }
+  if (containsPathTraversal(exc)) {
+    return "invalid exclude path: contains path traversal or control characters";
+  }
+  if (exc.startsWith("!")) {
+    return "invalid exclude path: negation patterns are not supported";
+  }
+  if (exc.startsWith("/") || exc.startsWith("\\")) {
+    return "invalid exclude path: absolute paths are not supported";
+  }
+  return null;
+}
+function isGlobOrPathPattern(pattern) {
+  return pattern.includes("/") || pattern.includes("\\") || /[*?[\]{}]/.test(pattern);
+}
+function loadSecretScanIgnore(scanDir) {
+  const ignorePath = path12.join(scanDir, ".secretscanignore");
+  try {
+    if (!fs4.existsSync(ignorePath))
+      return [];
+    const content = fs4.readFileSync(ignorePath, "utf8");
+    const patterns = [];
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#"))
+        continue;
+      if (validateExcludePattern(line) === null) {
+        patterns.push(line);
+      }
+    }
+    return patterns;
+  } catch {
+    return [];
+  }
+}
+function isExcluded(entry, relPath, exactNames, globPatterns) {
+  if (exactNames.has(entry))
+    return true;
+  for (const pattern of globPatterns) {
+    if (path12.matchesGlob(relPath, pattern))
+      return true;
+  }
   return false;
 }
 function containsControlChars(str) {
@@ -33502,7 +33555,7 @@ function isPathWithinScope(realPath, scanDir) {
   const resolvedRealPath = path12.resolve(realPath);
   return resolvedRealPath === resolvedScanDir || resolvedRealPath.startsWith(resolvedScanDir + path12.sep) || resolvedRealPath.startsWith(`${resolvedScanDir}/`) || resolvedRealPath.startsWith(`${resolvedScanDir}\\`);
 }
-function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
+function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, stats = {
   skippedDirs: 0,
   skippedFiles: 0,
   fileErrors: 0,
@@ -33526,11 +33579,12 @@ function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
     return a.localeCompare(b);
   });
   for (const entry of entries) {
-    if (excludeDirs.has(entry)) {
+    const fullPath = path12.join(dir, entry);
+    const relPath = path12.relative(scanDir, fullPath).replace(/\\/g, "/");
+    if (isExcluded(entry, relPath, excludeExact, excludeGlobs)) {
       stats.skippedDirs++;
       continue;
     }
-    const fullPath = path12.join(dir, entry);
     let lstat;
     try {
       lstat = fs4.lstatSync(fullPath);
@@ -33558,7 +33612,7 @@ function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
         stats.symlinkSkipped++;
         continue;
       }
-      const subFiles = findScannableFiles(fullPath, excludeDirs, scanDir, visited, stats);
+      const subFiles = findScannableFiles(fullPath, excludeExact, excludeGlobs, scanDir, visited, stats);
       files.push(...subFiles);
     } else if (lstat.isFile()) {
       const ext = path12.extname(fullPath).toLowerCase();
@@ -33572,10 +33626,10 @@ function findScannableFiles(dir, excludeDirs, scanDir, visited, stats = {
   return files;
 }
 var secretscan = tool({
-  description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default.",
+  description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
   args: {
     directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
-    exclude: tool.schema.array(tool.schema.string()).optional().describe("Additional directories to exclude (added to default exclusions like node_modules, .git, dist)")
+    exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
   },
   async execute(args, _context) {
     let directory;
@@ -33611,20 +33665,10 @@ var secretscan = tool({
     }
     if (exclude) {
       for (const exc of exclude) {
-        if (exc.length > MAX_FILE_PATH_LENGTH) {
+        const err = validateExcludePattern(exc);
+        if (err) {
           const errorResult = {
-            error: `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`,
-            scan_dir: directory,
-            findings: [],
-            count: 0,
-            files_scanned: 0,
-            skipped_files: 0
-          };
-          return JSON.stringify(errorResult, null, 2);
-        }
-        if (containsPathTraversal(exc) || containsControlChars(exc)) {
-          const errorResult = {
-            error: `invalid exclude path: contains path traversal or control characters`,
+            error: err,
             scan_dir: directory,
             findings: [],
             count: 0,
@@ -33660,10 +33704,20 @@ var secretscan = tool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const excludeDirs = new Set(DEFAULT_EXCLUDE_DIRS);
-      if (exclude) {
-        for (const exc of exclude) {
-          excludeDirs.add(exc);
+      const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
+      const excludeGlobs = [];
+      const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
+      const allUserPatterns = [
+        ...exclude ?? [],
+        ...ignoreFilePatterns
+      ];
+      for (const exc of allUserPatterns) {
+        if (exc.length === 0)
+          continue;
+        if (isGlobOrPathPattern(exc)) {
+          excludeGlobs.push(exc);
+        } else {
+          excludeExact.add(exc);
         }
       }
       const stats = {
@@ -33673,7 +33727,7 @@ var secretscan = tool({
         symlinkSkipped: 0
       };
       const visited = new Set;
-      const files = findScannableFiles(scanDir, excludeDirs, scanDir, visited, stats);
+      const files = findScannableFiles(scanDir, excludeExact, excludeGlobs, scanDir, visited, stats);
       files.sort((a, b) => {
         const aLower = a.toLowerCase();
         const bLower = b.toLowerCase();
