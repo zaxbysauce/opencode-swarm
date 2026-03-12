@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.23.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.21...v6.23.0) (2026-03-12)
+
+
+### Features
+
+* implement glob/path exclude patterns and .secretscanignore support for secretscan ([4271898](https://github.com/zaxbysauce/opencode-swarm/commit/42718983db6f6bed160990a52c0906c3ac886da3))
+* **secretscan:** glob/path exclude patterns and .secretscanignore support ([4a3a91a](https://github.com/zaxbysauce/opencode-swarm/commit/4a3a91a613710a599831b1f159bf62ece963c957))
+
 ## [6.22.21](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.20...v6.22.21) (2026-03-12)
 
 
