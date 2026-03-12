@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.22.18](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.17...v6.22.18) (2026-03-12)
+
+
+### Bug Fixes
+
+* centralize regex safety with escapeRegex/simpleGlobToRegex utilities ([2139031](https://github.com/zaxbysauce/opencode-swarm/commit/2139031404d2573d92b631408df5be66042d488b))
+* centralize regex safety with escapeRegex/simpleGlobToRegex utilities ([efd034d](https://github.com/zaxbysauce/opencode-swarm/commit/efd034dd13eada386e15a3d259a37fa4269ec235))
+* resolve biome lint errors in regex utility and phase-complete ([bc2a2ac](https://github.com/zaxbysauce/opencode-swarm/commit/bc2a2acfb555e7bf16a0f8072a6cac71fde2295d))
+
 ## [6.22.17](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.16...v6.22.17) (2026-03-12)
 
 
