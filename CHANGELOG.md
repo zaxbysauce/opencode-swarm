@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.20](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.19...v6.22.20) (2026-03-12)
+
+
+### Bug Fixes
+
+* resolve 26 test failures from knowledge system audit ([5bda121](https://github.com/zaxbysauce/opencode-swarm/commit/5bda12182a1210de2f4b9c8c796c728d50f7d9e6))
+* resolve all 26 test failures in knowledge system audit ([ae49bc0](https://github.com/zaxbysauce/opencode-swarm/commit/ae49bc04f4bf219275c4801bfb92dccd07eaf962))
+
 ## [6.22.19](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.18...v6.22.19) (2026-03-12)
 
 
