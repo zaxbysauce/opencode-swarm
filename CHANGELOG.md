@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.23.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.0...v6.23.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* recover task state from delegation chains before gate check ([a6e3574](https://github.com/zaxbysauce/opencode-swarm/commit/a6e3574048996b4b60aa285692ddb064bfb76390))
+
 ## [6.23.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.21...v6.23.0) (2026-03-12)
 
 
