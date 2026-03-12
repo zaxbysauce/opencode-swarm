@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.16](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.15...v6.22.16) (2026-03-12)
+
+
+### Bug Fixes
+
+* resolve .swarm output dir against project root in sbom_generate ([af49bd5](https://github.com/zaxbysauce/opencode-swarm/commit/af49bd5c4cbaeef8700c2aa5783fdad02409c86d))
+* resolve .swarm output directory against project root in sbom-generate ([4e5a210](https://github.com/zaxbysauce/opencode-swarm/commit/4e5a210185577f46d65177f05de31f84069e75f4))
+
 ## [6.22.15](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.14...v6.22.15) (2026-03-11)
 
 
