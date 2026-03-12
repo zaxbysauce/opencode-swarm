@@ -35,16 +35,17 @@ export function simpleGlobToRegex(
 	pattern: string,
 	flags: string = 'i',
 ): RegExp {
-	// Stash wildcards, escape everything else, restore wildcards
-	let escaped = pattern
-		.replace(/\*/g, '\x00STAR\x00')
-		.replace(/\?/g, '\x00QMARK\x00');
-
-	escaped = escapeRegex(escaped);
-
-	escaped = escaped
-		.replace(/\x00STAR\x00/g, '.*')
-		.replace(/\x00QMARK\x00/g, '.');
+	// Split on wildcards, escape each literal segment, rejoin with regex equivalents.
+	// Two-pass: first handle *, then handle ? within each segment.
+	const escaped = pattern
+		.split('*')
+		.map((starSegment) =>
+			starSegment
+				.split('?')
+				.map(escapeRegex)
+				.join('.'),
+		)
+		.join('.*');
 
 	return new RegExp(`^${escaped}$`, flags);
 }

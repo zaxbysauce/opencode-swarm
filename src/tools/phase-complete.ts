@@ -662,7 +662,7 @@ export async function executePhaseComplete(
 				phaseObj.status = 'completed';
 				fs.writeFileSync(
 					planPath,
-					JSON.stringify(plan, null, 2) + '\n',
+					`${JSON.stringify(plan, null, 2)}\n`,
 					'utf-8',
 				);
 			}
