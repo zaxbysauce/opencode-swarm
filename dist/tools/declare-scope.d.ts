@@ -1,7 +1,7 @@
 /**
  * Declare scope tool for setting the file scope for coder delegations.
  * Implements FR-010: Declare coder scope before delegation.
- * This tool must be called before delegating to mega_coder to enable scope containment checking.
+ * This tool must be called before delegating to coder to enable scope containment checking.
  */
 import { type ToolDefinition } from '@opencode-ai/plugin/tool';
 /**

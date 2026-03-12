@@ -28,6 +28,7 @@ export interface SerializedAgentSession {
     } | null;
     partialGateWarningsIssuedForTask: string[];
     selfFixAttempted: boolean;
+    selfCodingWarnedAtCount: number;
     catastrophicPhaseWarnings: number[];
     lastPhaseCompleteTimestamp: number;
     lastPhaseCompletePhase: number;

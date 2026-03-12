@@ -51,6 +51,17 @@ export interface ReviewerGateResult {
  */
 export declare function checkReviewerGate(taskId: string, workingDirectory?: string): ReviewerGateResult;
 /**
+ * Recovery mechanism: reconcile task state with delegation history.
+ * When reviewer/test_engineer delegations occurred but the state machine
+ * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,
+ * cross-session gaps, or pure verification tasks without coder delegation),
+ * this function walks all delegation chains and advances the task state
+ * so that checkReviewerGate can make an accurate decision.
+ *
+ * @param taskId - The task ID to recover state for
+ */
+export declare function recoverTaskStateFromDelegations(taskId: string): void;
+/**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
  * @param args - The update task status arguments

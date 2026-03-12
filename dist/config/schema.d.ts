@@ -310,6 +310,10 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
     max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
     warning_threshold: z.ZodDefault<z.ZodNumber>;
     idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
+    qa_gates: z.ZodOptional<z.ZodObject<{
+        required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
     profiles: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         max_tool_calls: z.ZodOptional<z.ZodNumber>;
         max_duration_minutes: z.ZodOptional<z.ZodNumber>;
@@ -541,6 +545,10 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
         warning_threshold: z.ZodDefault<z.ZodNumber>;
         idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
+        qa_gates: z.ZodOptional<z.ZodObject<{
+            required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
+        }, z.core.$strip>>;
         profiles: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
             max_tool_calls: z.ZodOptional<z.ZodNumber>;
             max_duration_minutes: z.ZodOptional<z.ZodNumber>;

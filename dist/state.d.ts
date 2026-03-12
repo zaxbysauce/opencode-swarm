@@ -80,6 +80,9 @@ export interface AgentSessionState {
     partialGateWarningsIssuedForTask: Set<string>;
     /** Whether architect attempted self-fix write after gate failure */
     selfFixAttempted: boolean;
+    /** Value of architectWriteCount at the time the self-coding warning was last injected.
+     *  Warning is suppressed unless architectWriteCount has increased since last injection. */
+    selfCodingWarnedAtCount: number;
     /** Phases that have already received a catastrophic zero-reviewer warning */
     catastrophicPhaseWarnings: Set<number>;
     /** Number of consecutive coder delegations without reviewer/test_engineer between them */
@@ -174,6 +177,9 @@ export declare function resetSwarmState(): void;
 export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number): void;
 /**
  * End an agent session by removing it from the state.
+ * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
+ * Sessions accumulate for the process lifetime. Callers should integrate this into
+ * a session TTL or idle-timeout mechanism to prevent unbounded Map growth.
  * @param sessionId - The session identifier to remove
  */
 export declare function endAgentSession(sessionId: string): void;
@@ -247,6 +253,7 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
 /**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.
+ * If taskWorkflowStates is missing/invalid, initializes it as a new Map.
  *
  * @param session - The agent session state
  * @param taskId - The task identifier

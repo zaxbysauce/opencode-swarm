@@ -911,9 +911,9 @@ describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
 
 		// Assert the result
 		expect(result.blocked).toBe(true);
-		expect(result.reason).toContain('Current state:');
+		expect(result.reason).toContain('Current state by session:');
 		expect(result.reason).toContain('coder_delegated');
-		expect(result.reason).toContain('Required state: tests_run or complete');
+		expect(result.reason).toContain('required state: tests_run or complete');
 	});
 });
 
@@ -1321,8 +1321,8 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('QA gates');
-		expect(result.reason).toContain('Current state:');
-		expect(result.reason).toContain('Required state: tests_run or complete');
+		expect(result.reason).toContain('Current state by session:');
+		expect(result.reason).toContain('required state: tests_run or complete');
 	});
 
 	test('error message includes generic "QA gates" terminology', () => {
@@ -1336,8 +1336,8 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 		// Should use generic QA gates terminology
 		expect(result.reason).toContain('QA gates');
 		// Should include state information
-		expect(result.reason).toContain('Current state:');
-		expect(result.reason).toContain('Required state: tests_run or complete');
+		expect(result.reason).toContain('Current state by session:');
+		expect(result.reason).toContain('required state: tests_run or complete');
 	});
 });
 

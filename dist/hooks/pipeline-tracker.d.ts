@@ -31,7 +31,7 @@ interface MessageWithParts {
  * Creates the experimental.chat.messages.transform hook for pipeline tracking.
  * Only injects for the architect agent.
  */
-export declare function createPipelineTrackerHook(config: PluginConfig): {
+export declare function createPipelineTrackerHook(config: PluginConfig, directory?: string): {
     'experimental.chat.messages.transform'?: undefined;
 } | {
     'experimental.chat.messages.transform': (input: Record<string, never>, output: {
