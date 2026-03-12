@@ -1060,9 +1060,6 @@ Changes classified as TRIVIAL, MODERATE, or COMPLEX receive appropriate review d
 ### meta.summary Convention
 Agents include one-line summaries in state events for downstream consumption by other agents.
 
-### Role-Relevance Tagging
-Agents prefix outputs with [FOR: agent1, agent2] tags to prepare for v6.20's automatic context filtering.
-
 ---
 
 ## Testing

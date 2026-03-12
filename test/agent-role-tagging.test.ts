@@ -2,8 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect } from 'bun:test';
 
-// Test: Verify ROLE-RELEVANCE TAGGING blocks in all agent files
-describe('ROLE-RELEVANCE TAGGING Block Verification', () => {
+// Test: Verify stale ROLE-RELEVANCE TAGGING blocks are absent from agent files
+describe('ROLE-RELEVANCE TAGGING removal', () => {
   const agentFiles = [
     'architect.ts',
     'designer.ts',
@@ -19,47 +19,36 @@ describe('ROLE-RELEVANCE TAGGING Block Verification', () => {
   const agentsPath = join(__dirname, '../src/agents');
 
   agentFiles.forEach((agentFile) => {
-    it(`should have ROLE-RELEVANCE TAGGING block in ${agentFile}`, () => {
+    it(`should not have ROLE-RELEVANCE TAGGING block in ${agentFile}`, () => {
       const content = readFileSync(join(agentsPath, agentFile), 'utf-8');
-      expect(content).toContain('ROLE-RELEVANCE TAGGING');
+      expect(content).not.toContain('ROLE-RELEVANCE TAGGING');
     });
 
-    it(`should have exactly 3 examples in ${agentFile}`, () => {
+    it(`should not have stale tag examples in ${agentFile}`, () => {
       const content = readFileSync(join(agentsPath, agentFile), 'utf-8');
       const examples = content.match(/\[FOR:.*?\].*?"/g);
-      expect(examples).toBeDefined();
-      expect(examples?.length).toBe(3);
+      expect(examples).toBeNull();
     });
 
-    it(`should have v6.19/v6.20 note in ${agentFile}`, () => {
+    it(`should not have v6.19/v6.20 role-filtering note in ${agentFile}`, () => {
       const content = readFileSync(join(agentsPath, agentFile), 'utf-8');
-      expect(content).toContain('v6.19');
-      expect(content).toContain('v6.20');
-      expect(content).toContain('informational');
-      expect(content).toContain('context filtering');
+      expect(content).not.toContain('v6.20 will use for context filtering');
+      expect(content).not.toContain('informational in v6.19');
     });
 
-    it(`should have token budget ≤80 for each example in ${agentFile}`, () => {
+    it(`should not have stale role-target prefixes in ${agentFile}`, () => {
       const content = readFileSync(join(agentsPath, agentFile), 'utf-8');
-      const examples = content.match(/\[FOR:.*?\].*?"/g);
-
-      expect(examples).toBeDefined();
-      examples?.forEach((example) => {
-        // Rough token estimation (4 chars per token average)
-        const tokenEstimate = Math.ceil(example.length / 4);
-        expect(tokenEstimate).toBeLessThanOrEqual(80);
-      });
+      expect(content).not.toContain('[FOR: reviewer, test_engineer]');
+      expect(content).not.toContain('[FOR: architect]');
+      expect(content).not.toContain('[FOR: ALL]');
     });
 
-    it(`should have the three standard examples in ${agentFile}`, () => {
+    it(`should not have the standard tagging example strings in ${agentFile}`, () => {
       const content = readFileSync(join(agentsPath, agentFile), 'utf-8');
 
-      expect(content).toContain('[FOR: reviewer, test_engineer]');
-      expect(content).toContain('[FOR: architect]');
-      expect(content).toContain('[FOR: ALL]');
-      expect(content).toContain('Added validation — needs safety check');
-      expect(content).toContain('Research: Tree-sitter supports TypeScript AST');
-      expect(content).toContain('Breaking change: StateManager renamed');
+      expect(content).not.toContain('Added validation — needs safety check');
+      expect(content).not.toContain('Research: Tree-sitter supports TypeScript AST');
+      expect(content).not.toContain('Breaking change: StateManager renamed');
     });
   });
 
