@@ -49,4 +49,4 @@ Run:
 /swarm config
 ```
 
-For a full configuration reference, see the [README](../README.md#full-configuration-reference).
+For a full configuration reference, see the [README](../README.md#configuration-reference).
