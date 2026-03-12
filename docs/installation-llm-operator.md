@@ -4,7 +4,7 @@ Use this guide when an LLM is installing `opencode-swarm` for a user through Ope
 
 ## Goal
 
-Install, configure, and validate `opencode-swarm` v6.8 with all new tools enabled:
+Install, configure, and validate `opencode-swarm` with all tools enabled:
 - `todo_extract`
 - `evidence_check`
 - `pkg_audit`
@@ -123,7 +123,7 @@ Start OpenCode in the project and run:
 Success criteria:
 - swarm commands execute without plugin errors
 
-### Step A6: Verify v6.8 tools
+### Step A6: Verify tools
 
 Ask architect:
 
@@ -265,7 +265,7 @@ Return PASS only if all are true:
 - [ ] swarm config file exists and parses
 - [ ] `/swarm status` works
 - [ ] `@mega_architect` is callable
-- [ ] v6.8 tools callable (`todo_extract`, `evidence_check`, `pkg_audit`, `complexity_hotspots`, `schema_drift` when applicable)
+- [ ] Tools callable (`todo_extract`, `evidence_check`, `pkg_audit`, `complexity_hotspots`, `schema_drift` when applicable)
 - [ ] Background automation enabled by default (`plan_sync: true`, `evidence_auto_summaries: true`)
 
 ## Final Output Template (for the LLM)
@@ -282,7 +282,7 @@ Checks:
 - OpenCode plugin registration: PASS|FAIL
 - Swarm config presence: PASS|FAIL
 - /swarm status: PASS|FAIL
-- v6.8 tools callable: PASS|FAIL
+- Tools callable: PASS|FAIL
 - Background automation defaults: PASS|FAIL
 
 Notes:

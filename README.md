@@ -932,6 +932,16 @@ The following tools can be assigned to agents via overrides:
 
 ## Recent Changes
 
+### v6.22 — Curator Background Analysis + Session State Persistence
+
+This release adds the optional Curator system for phase-level intelligence and fixes session snapshot persistence for task workflow states.
+
+- **Curator system**: New optional background analysis system (`curator.enabled = false` by default). After each phase, collects events, checks compliance, and writes drift reports to `.swarm/drift-report-phase-N.json`. Three integration points: init on first phase, phase analysis after each phase, and drift injection into architect context at phase start.
+- **Drift reports**: `runCriticDriftCheck` compares planned vs. actual decisions and writes structured drift reports with alignment scores (`ALIGNED` / `MINOR_DRIFT` / `MAJOR_DRIFT` / `OFF_SPEC`). Latest drift summary is prepended to the architect's knowledge context each phase.
+- **Issue #81 fix — taskWorkflowStates persistence**: Session snapshots now correctly serialize and restore the per-task state machine. Invalid state values are filtered to `idle` on deserialization. `reconcileTaskStatesFromPlan` seeds task states from `plan.json` on snapshot load (completed → `tests_run`, in-progress → `coder_delegated`).
+
+See the [Curator section](#curator) above for configuration details and the [v6.22 release notes](docs/releases/v6.22.0.md) for the full change list.
+
 ### v6.21 — Gate Enforcement Hardening
 
 This release replaces soft advisory warnings with hard runtime blocks and adds structural compliance tooling for all model tiers.
@@ -1103,8 +1113,6 @@ OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three
 
 ---
 
-## Roadmap
-
 ## Curator
 
 The Curator is an optional background analysis system that runs after each phase. It is **disabled by default** (`curator.enabled = false`) and never blocks execution — all Curator operations are wrapped in try/catch.
@@ -1152,14 +1160,12 @@ Drift reports are written to `.swarm/drift-report-phase-N.json` after each phase
 
 ### Issue #81 Hotfix — taskWorkflowStates Persistence
 
-v6.21 includes a fix for session snapshot persistence of per-task workflow states:
+v6.22 includes a fix for session snapshot persistence of per-task workflow states:
 
 - **`SerializedAgentSession.taskWorkflowStates`**: Task workflow states are now serialized as `Record<string, string>` in session snapshots and deserialized back to a `Map` on load. Invalid state values are filtered out and default to `idle`.
 - **`reconcileTaskStatesFromPlan`**: On snapshot load, task states are reconciled against the current plan — tasks marked `completed` in the plan are seeded to `tests_run` state, and `in_progress` tasks are seeded to `coder_delegated` if currently `idle`. This is best-effort and never throws.
 
 See [CHANGELOG.md](CHANGELOG.md) for shipped features.
-
-Upcoming: v6.22 focuses on further context optimization and agent coordination improvements.
 
 ---
 
@@ -1184,6 +1190,7 @@ Run `/swarm reset --confirm`.
 
 ## Documentation
 
+- [Documentation Index](docs/index.md)
 - [Getting Started](docs/getting-started.md)
 - [Architecture Deep Dive](docs/architecture.md)
 - [Design Rationale](docs/design-rationale.md)
