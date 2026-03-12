@@ -454,6 +454,42 @@ export function createDelegationGateHook(config: PluginConfig): {
 				}
 			}
 
+			// Record gate evidence for stored-args path
+			if (typeof subagentType === 'string') {
+				const evidenceTaskId =
+					session.currentTaskId ?? session.lastCoderDelegationTaskId;
+				if (evidenceTaskId) {
+					try {
+						const gateAgents = [
+							'reviewer',
+							'test_engineer',
+							'docs',
+							'designer',
+							'critic',
+						];
+						const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
+						if (gateAgents.includes(targetAgentForEvidence)) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								process.cwd(),
+								evidenceTaskId,
+								targetAgentForEvidence,
+								input.sessionID,
+							);
+						} else {
+							const { recordAgentDispatch } = await import('../gate-evidence');
+							await recordAgentDispatch(
+								process.cwd(),
+								evidenceTaskId,
+								targetAgentForEvidence,
+							);
+						}
+					} catch {
+						/* non-fatal — evidence is additive, never blocks delegation */
+					}
+				}
+			}
+
 			// Always clean up stored args if they exist, regardless of subagent_type validity
 			if (storedArgs !== undefined) {
 				deleteStoredInputArgs(input.callID);
@@ -567,6 +603,26 @@ export function createDelegationGateHook(config: PluginConfig): {
 									}
 								}
 							}
+						}
+					}
+				}
+
+				// Record gate evidence for delegation-chain fallback path
+				{
+					const evidenceTaskId =
+						session.currentTaskId ?? session.lastCoderDelegationTaskId;
+					if (evidenceTaskId) {
+						try {
+							if (hasReviewer) {
+								const { recordGateEvidence } = await import('../gate-evidence');
+								await recordGateEvidence(process.cwd(), evidenceTaskId, 'reviewer', input.sessionID);
+							}
+							if (hasTestEngineer) {
+								const { recordGateEvidence } = await import('../gate-evidence');
+								await recordGateEvidence(process.cwd(), evidenceTaskId, 'test_engineer', input.sessionID);
+							}
+						} catch {
+							/* non-fatal — evidence is additive, never blocks delegation */
 						}
 					}
 				}

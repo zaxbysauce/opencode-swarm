@@ -269,6 +269,50 @@ export async function savePlan(directory: string, plan: Plan): Promise<void> {
 	// Validate against schema
 	const validated = PlanSchema.parse(plan);
 
+	// Protect completed tasks from regression (root cause #4):
+	// If any task was 'completed' in the current plan.json, preserve that status
+	// even if the incoming plan has it as 'pending'/'in_progress'/'blocked'.
+	try {
+		const currentPlan = await loadPlanJsonOnly(directory);
+		if (currentPlan) {
+			const completedTaskIds = new Set<string>();
+			for (const phase of currentPlan.phases) {
+				for (const task of phase.tasks) {
+					if (task.status === 'completed') completedTaskIds.add(task.id);
+				}
+			}
+			if (completedTaskIds.size > 0) {
+				for (const phase of validated.phases) {
+					for (const task of phase.tasks) {
+						if (
+							completedTaskIds.has(task.id) &&
+							task.status !== 'completed'
+						) {
+							task.status = 'completed';
+						}
+					}
+				}
+			}
+		}
+	} catch {
+		/* first write or corrupted plan — proceed without regression protection */
+	}
+
+	// Derive phase status from task statuses on every save (fixes remaining Issue #145):
+	// Ensures phase status is always consistent even when architect calls save_plan directly.
+	for (const phase of validated.phases) {
+		const tasks = phase.tasks;
+		if (tasks.length > 0 && tasks.every((t) => t.status === 'completed')) {
+			phase.status = 'complete';
+		} else if (tasks.some((t) => t.status === 'in_progress')) {
+			phase.status = 'in_progress';
+		} else if (tasks.some((t) => t.status === 'blocked')) {
+			phase.status = 'blocked';
+		} else {
+			phase.status = 'pending';
+		}
+	}
+
 	const swarmDir = path.resolve(directory, '.swarm');
 	const planPath = path.join(swarmDir, 'plan.json');
 	const tempPath = path.join(

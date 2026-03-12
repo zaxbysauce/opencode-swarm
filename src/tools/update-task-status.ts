@@ -89,6 +89,51 @@ export function checkReviewerGate(
 	workingDirectory?: string,
 ): ReviewerGateResult {
 	try {
+		// === evidence-first check (durable, survives restarts) ===
+		const resolvedDir = workingDirectory ?? process.cwd();
+		try {
+			const evidencePath = path.join(
+				resolvedDir,
+				'.swarm',
+				'evidence',
+				`${taskId}.json`,
+			);
+			const raw = fs.readFileSync(evidencePath, 'utf-8');
+			const evidence = JSON.parse(raw) as {
+				required_gates?: string[];
+				gates?: Record<string, unknown>;
+			};
+
+			if (
+				evidence?.required_gates &&
+				Array.isArray(evidence.required_gates) &&
+				evidence?.gates
+			) {
+				const allGatesMet = evidence.required_gates.every(
+					(gate: string) => evidence.gates![gate] != null,
+				);
+				if (allGatesMet) {
+					return { blocked: false, reason: '' };
+				}
+				// Evidence file is authoritative when it exists — don't fall through to session state
+				const missingGates = evidence.required_gates.filter(
+					(gate: string) => evidence.gates![gate] == null,
+				);
+				return {
+					blocked: true,
+					reason:
+						`Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
+						`Required: [${evidence.required_gates.join(', ')}]. ` +
+						`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
+						`Delegate the missing gate agents before marking task as completed.`,
+				};
+			}
+		} catch {
+			// No evidence file or parse error — fall through to session state
+		}
+
+		// === session state check (fallback for pre-evidence tasks) ===
+
 		// If no active sessions, allow through (test context)
 		if (swarmState.agentSessions.size === 0) {
 			return { blocked: false, reason: '' };
@@ -171,21 +216,29 @@ export function checkReviewerGate(
  * @param taskId - The task ID to recover state for
  */
 export function recoverTaskStateFromDelegations(taskId: string): void {
-	// Scan ALL delegation chains for reviewer and test_engineer delegations
+	// Scan delegation chains scoped to sessions working on THIS task
 	let hasReviewer = false;
 	let hasTestEngineer = false;
 
-	for (const [, chain] of swarmState.delegationChains) {
-		for (const delegation of chain) {
-			const target = stripKnownSwarmPrefix(delegation.to);
-			if (target === 'reviewer') hasReviewer = true;
-			if (target === 'test_engineer') hasTestEngineer = true;
+	for (const [sessionId, chain] of swarmState.delegationChains) {
+		const session = swarmState.agentSessions.get(sessionId);
+		// Only count delegations from sessions associated with the target task
+		if (
+			session &&
+			(session.currentTaskId === taskId ||
+				session.lastCoderDelegationTaskId === taskId)
+		) {
+			for (const delegation of chain) {
+				const target = stripKnownSwarmPrefix(delegation.to);
+				if (target === 'reviewer') hasReviewer = true;
+				if (target === 'test_engineer') hasTestEngineer = true;
+			}
 		}
 	}
 
 	if (!hasReviewer && !hasTestEngineer) return;
 
-	// Advance task state in all sessions based on observed delegations
+	// Advance the specific task state in all sessions
 	for (const [, session] of swarmState.agentSessions) {
 		if (!(session.taskWorkflowStates instanceof Map)) continue;
 
