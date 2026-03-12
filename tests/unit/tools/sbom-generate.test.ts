@@ -513,5 +513,32 @@ serde = "1.0"`,
 			expect(parsed.output_path).toContain('evidence');
 			expect(parsed.output_path).toContain('sbom');
 		});
+
+		it('should create .swarm in project root even when process.cwd() is a subdirectory', async () => {
+			// Create a subdirectory that simulates an agent working in src/export
+			const subDir = path.join(tempDir, 'src', 'export');
+			fs.mkdirSync(subDir, { recursive: true });
+
+			// Place package.json in the project root
+			fs.writeFileSync(
+				path.join(tempDir, 'package.json'),
+				JSON.stringify({ name: 'test', version: '1.0.0', dependencies: { lodash: '4.17.21' } }),
+			);
+
+			// Change CWD to the subdirectory (simulating agent working in src/export)
+			process.chdir(subDir);
+
+			// ctx.directory should still point to the project root (tempDir)
+			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const parsed = JSON.parse(result);
+
+			// .swarm output should be under project root (tempDir), NOT under src/export
+			expect(parsed.output_path).toContain(tempDir);
+			expect(parsed.output_path).not.toContain(subDir);
+			// The .swarm folder must NOT appear inside src/export
+			expect(fs.existsSync(path.join(subDir, '.swarm'))).toBe(false);
+			// The .swarm folder MUST appear at the project root
+			expect(fs.existsSync(path.join(tempDir, '.swarm'))).toBe(true);
+		});
 	});
 });
