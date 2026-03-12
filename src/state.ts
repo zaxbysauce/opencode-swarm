@@ -274,6 +274,9 @@ export function startAgentSession(
 
 /**
  * End an agent session by removing it from the state.
+ * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
+ * Sessions accumulate for the process lifetime. Callers should integrate this into
+ * a session TTL or idle-timeout mechanism to prevent unbounded Map growth.
  * @param sessionId - The session identifier to remove
  */
 export function endAgentSession(sessionId: string): void {

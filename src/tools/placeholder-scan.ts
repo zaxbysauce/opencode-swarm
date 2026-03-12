@@ -520,8 +520,11 @@ export async function placeholderScan(
 
 	if (deny_patterns && deny_patterns.length > 0) {
 		// Parse custom patterns - they can be simple strings like "TODO" or regex-like
+		// Escape regex metacharacters to prevent ReDoS from user config
+		const escapeRegex = (s: string) =>
+			s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		commentPatterns = deny_patterns.map((p) => ({
-			pattern: new RegExp(`\\b${p}\\b`, 'i'),
+			pattern: new RegExp(`\\b${escapeRegex(p)}\\b`, 'i'),
 			rule_id: `placeholder/custom-${p.toLowerCase()}`,
 		}));
 		// With custom patterns, disable string and code patterns

@@ -23,7 +23,12 @@ export async function handleRollbackCommand(
 			return 'No checkpoints found. Use `/swarm checkpoint` to create checkpoints.';
 		}
 
-		const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+		let manifest: { checkpoints?: Array<{ phase: number; label?: string; timestamp: string }> };
+		try {
+			manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+		} catch {
+			return 'Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.';
+		}
 		const checkpoints = manifest.checkpoints || [];
 
 		if (checkpoints.length === 0) {
@@ -34,8 +39,7 @@ export async function handleRollbackCommand(
 			'## Available Checkpoints',
 			'',
 			...checkpoints.map(
-				// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
-				(c: any) =>
+				(c) =>
 					`- Phase ${c.phase}: ${c.label || 'no label'} (${new Date(c.timestamp).toLocaleString()})`,
 			),
 			'',
@@ -57,16 +61,19 @@ export async function handleRollbackCommand(
 		return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
 	}
 
-	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+	let manifest: { checkpoints?: Array<{ phase: number; label?: string; timestamp: string }> };
+	try {
+		manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+	} catch {
+		return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
+	}
 	const checkpoint = manifest.checkpoints?.find(
-		// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
-		(c: any) => c.phase === targetPhase,
+		(c) => c.phase === targetPhase,
 	);
 
 	if (!checkpoint) {
 		const available =
-			// biome-ignore lint/suspicious/noExplicitAny: checkpoint shape from JSON.parse is untyped
-			manifest.checkpoints?.map((c: any) => c.phase).join(', ') || 'none';
+			manifest.checkpoints?.map((c) => c.phase).join(', ') || 'none';
 		return `Error: Checkpoint for phase ${targetPhase} not found. Available phases: ${available}`;
 	}
 
