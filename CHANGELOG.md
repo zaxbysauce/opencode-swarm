@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.19](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.18...v6.22.19) (2026-03-12)
+
+
+### Bug Fixes
+
+* correct broken anchor in docs/configuration.md ([40daacc](https://github.com/zaxbysauce/opencode-swarm/commit/40daaccd0a63ab81d876613e07a9c26f84af0b60))
+* correct broken anchor in docs/configuration.md to #configuration-reference ([169b4c7](https://github.com/zaxbysauce/opencode-swarm/commit/169b4c756e50d1d794e44de92cdd7d4a7183bff3))
+
 ## [6.22.18](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.17...v6.22.18) (2026-03-12)
 
 
