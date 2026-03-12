@@ -16215,6 +16215,39 @@ async function savePlan(directory, plan) {
     throw new Error(`Invalid directory: directory must be a non-empty string`);
   }
   const validated = PlanSchema.parse(plan);
+  try {
+    const currentPlan = await loadPlanJsonOnly(directory);
+    if (currentPlan) {
+      const completedTaskIds = new Set;
+      for (const phase of currentPlan.phases) {
+        for (const task of phase.tasks) {
+          if (task.status === "completed")
+            completedTaskIds.add(task.id);
+        }
+      }
+      if (completedTaskIds.size > 0) {
+        for (const phase of validated.phases) {
+          for (const task of phase.tasks) {
+            if (completedTaskIds.has(task.id) && task.status !== "completed") {
+              task.status = "completed";
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+  for (const phase of validated.phases) {
+    const tasks = phase.tasks;
+    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
+      phase.status = "complete";
+    } else if (tasks.some((t) => t.status === "in_progress")) {
+      phase.status = "in_progress";
+    } else if (tasks.some((t) => t.status === "blocked")) {
+      phase.status = "blocked";
+    } else {
+      phase.status = "pending";
+    }
+  }
   const swarmDir = path7.resolve(directory, ".swarm");
   const planPath = path7.join(swarmDir, "plan.json");
   const tempPath = path7.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);

@@ -11,7 +11,7 @@
  * Gates are append-only: required_gates can only grow, never shrink.
  */
 
-import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 
 export interface GateEvidence {
