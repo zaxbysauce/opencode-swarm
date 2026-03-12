@@ -11,7 +11,6 @@ import {
 	ensureAgentSession,
 	resetSwarmState,
 	startAgentSession,
-	swarmState,
 } from '../state';
 import { createDelegationGateHook } from './delegation-gate';
 

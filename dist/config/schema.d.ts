@@ -201,8 +201,8 @@ export declare const PhaseCompleteConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
         reviewer: "reviewer";
-        coder: "coder";
         test_engineer: "test_engineer";
+        coder: "coder";
     }>>>;
     require_docs: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
@@ -447,8 +447,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
             reviewer: "reviewer";
-            coder: "coder";
             test_engineer: "test_engineer";
+            coder: "coder";
         }>>>;
         require_docs: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
