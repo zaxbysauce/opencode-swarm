@@ -69,10 +69,12 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Verify the scope boundary is clear
-			expect(agent.config.prompt).toContain('do NOT recommend implementation approaches');
-			expect(agent.config.prompt).toContain('architect decisions');
-			expect(agent.config.prompt).toContain('code patterns');
-			expect(agent.config.prompt).toContain("Architect's domain");
+			expect(agent.config.prompt).toContain(
+				'You MAY recommend domain-specific approaches, APIs, constraints, and trade-offs',
+			);
+			expect(agent.config.prompt).toContain('do NOT make final architecture decisions');
+			expect(agent.config.prompt).toContain('choose product scope');
+			expect(agent.config.prompt).toContain("Architect's and Coder's domains");
 		});
 
 		it('SME prompt states what SME DOES do', () => {
