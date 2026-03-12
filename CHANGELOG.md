@@ -1,5 +1,23 @@
 # Changelog
 
+## [6.24.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.2...v6.24.0) (2026-03-12)
+
+
+### Features
+
+* **agents:** add defensive coding rules and error handling to coder (C1, C2, X3, X4) ([cbb2220](https://github.com/zaxbysauce/opencode-swarm/commit/cbb22202ecd289b824335abb6d99aacc66ffa87c))
+* **agents:** add differential review focus and structured reasoning to reviewer (R1, R2, X3, X4) ([45e9069](https://github.com/zaxbysauce/opencode-swarm/commit/45e9069f90609787d36a7e089e7f3b5a1dd8cde2))
+* **agents:** add documentation scope rules to docs (D1, X3, X4) ([e39d22b](https://github.com/zaxbysauce/opencode-swarm/commit/e39d22b9a16e57289a08b3288f5e8f573453f738))
+* **agents:** add research protocol and confidence calibration to sme (S1, X3, X4) ([b1f250d](https://github.com/zaxbysauce/opencode-swarm/commit/b1f250d00ba31f20d9265a2a0dad2f9c949c5d3c))
+* **agents:** add structured codebase analysis protocol to explorer (E1, X3, X4) ([b2d346c](https://github.com/zaxbysauce/opencode-swarm/commit/b2d346c8867a62e891d63d54768be29bba6a0b31))
+* **agents:** overhaul test-engineer prompt (T1-T4, X3, X4) ([b830f91](https://github.com/zaxbysauce/opencode-swarm/commit/b830f91ae2b82833607274227484b42977ab2293))
+
+
+### Bug Fixes
+
+* **agents:** escape backticks in coder and docs template literals ([2f4faf4](https://github.com/zaxbysauce/opencode-swarm/commit/2f4faf4f8522f77c9d84ea83aca52c5d176bfeac))
+* align agent prompt contracts and tests ([c5a906e](https://github.com/zaxbysauce/opencode-swarm/commit/c5a906e9c33d3e4a37aa4f515a55ee14e6cfea4f))
+
 ## [6.23.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.1...v6.23.2) (2026-03-12)
 
 
