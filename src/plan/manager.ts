@@ -343,6 +343,23 @@ export async function updateTaskStatus(
 
 	// Find task by ID
 	let taskFound = false;
+
+	const derivePhaseStatusFromTasks = (tasks: Task[]): Phase['status'] => {
+		if (tasks.length > 0 && tasks.every((task) => task.status === 'completed')) {
+			return 'complete';
+		}
+
+		if (tasks.some((task) => task.status === 'in_progress')) {
+			return 'in_progress';
+		}
+
+		if (tasks.some((task) => task.status === 'blocked')) {
+			return 'blocked';
+		}
+
+		return 'pending';
+	};
+
 	const updatedPhases: Phase[] = plan.phases.map((phase) => {
 		const updatedTasks: Task[] = phase.tasks.map((task) => {
 			if (task.id === taskId) {
@@ -351,7 +368,11 @@ export async function updateTaskStatus(
 			}
 			return task;
 		});
-		return { ...phase, tasks: updatedTasks };
+		return {
+			...phase,
+			status: derivePhaseStatusFromTasks(updatedTasks),
+			tasks: updatedTasks,
+		};
 	});
 
 	if (!taskFound) {
