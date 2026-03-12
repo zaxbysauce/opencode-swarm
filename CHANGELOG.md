@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.22.17](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.16...v6.22.17) (2026-03-12)
+
+
+### Bug Fixes
+
+* code review group A — JSON safety, regex escaping, directory threading ([590df9a](https://github.com/zaxbysauce/opencode-swarm/commit/590df9a4ca8bb0811ea0396691b4cb28a9598e57))
+* harden JSON.parse, escape regex injection, thread directory into pipeline-tracker ([20b1163](https://github.com/zaxbysauce/opencode-swarm/commit/20b1163f1ca0925ef53aec65018545b7af9d2974))
+
 ## [6.22.16](https://github.com/zaxbysauce/opencode-swarm/compare/v6.22.15...v6.22.16) (2026-03-12)
 
 
