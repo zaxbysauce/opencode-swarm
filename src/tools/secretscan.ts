@@ -306,12 +306,93 @@ function isHighEntropyString(str: string): boolean {
 function containsPathTraversal(str: string): boolean {
 	// Check for explicit path traversal
 	if (/\.\.[/\\]/.test(str)) return true;
+	// Check trailing ".." segment (e.g., "foo/..")
+	if (/[/\\]\.\.$/.test(str) || str === '..') return true;
 	// Check for dot-segment that resolves to parent (after normalization)
-	const normalized = path.normalize(str);
-	if (/\.\.[/\\]/.test(normalized)) return true;
+	// Note: do NOT use path.normalize on glob patterns - it collapses **/../etc to etc
+	if (/\.\.[/\\]/.test(path.normalize(str.replace(/\*/g, 'x')))) return true;
 	// Check for encoded traversal (double-encoded)
 	if (str.includes('%2e%2e') || str.includes('%2E%2E')) return true;
 	if (str.includes('..') && /%2e/i.test(str)) return true;
+	return false;
+}
+
+/**
+ * Validate an exclude pattern for safety.
+ * Returns an error message if the pattern is unsafe, or null if it is valid.
+ */
+function validateExcludePattern(exc: string): string | null {
+	if (exc.length === 0) return null; // Empty patterns are silently ignored
+	if (exc.length > MAX_FILE_PATH_LENGTH) {
+		return `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`;
+	}
+	if (containsControlChars(exc)) {
+		return 'invalid exclude path: contains path traversal or control characters';
+	}
+	if (containsPathTraversal(exc)) {
+		return 'invalid exclude path: contains path traversal or control characters';
+	}
+	// Reject negation patterns (could cause surprising behavior)
+	if (exc.startsWith('!')) {
+		return 'invalid exclude path: negation patterns are not supported';
+	}
+	// Reject absolute paths
+	if (exc.startsWith('/') || exc.startsWith('\\')) {
+		return 'invalid exclude path: absolute paths are not supported';
+	}
+	return null;
+}
+
+/**
+ * Determine if a pattern looks like a glob or path pattern (vs a plain name).
+ * Plain names are single path components with no glob characters.
+ */
+function isGlobOrPathPattern(pattern: string): boolean {
+	return pattern.includes('/') || pattern.includes('\\') || /[*?[\]{}]/.test(pattern);
+}
+
+/**
+ * Load patterns from a .secretscanignore file in the scan root.
+ * Returns an array of validated patterns; silently skips blank lines, comments, and unsafe patterns.
+ */
+function loadSecretScanIgnore(scanDir: string): string[] {
+	const ignorePath = path.join(scanDir, '.secretscanignore');
+	try {
+		if (!fs.existsSync(ignorePath)) return [];
+		const content = fs.readFileSync(ignorePath, 'utf8');
+		const patterns: string[] = [];
+		for (const rawLine of content.split(/\r?\n/)) {
+			const line = rawLine.trim();
+			if (!line || line.startsWith('#')) continue;
+			if (validateExcludePattern(line) === null) {
+				patterns.push(line);
+			}
+		}
+		return patterns;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Check whether a file-system entry should be excluded.
+ * @param entry - The entry's basename
+ * @param relPath - The entry's path relative to scanDir (forward slashes)
+ * @param exactNames - Set of exact basename patterns (backward-compatible)
+ * @param globPatterns - Array of glob/path patterns
+ */
+function isExcluded(
+	entry: string,
+	relPath: string,
+	exactNames: Set<string>,
+	globPatterns: string[],
+): boolean {
+	// Backward-compatible exact name match
+	if (exactNames.has(entry)) return true;
+	// Glob / path pattern match against the relative path
+	for (const pattern of globPatterns) {
+		if (path.matchesGlob(relPath, pattern)) return true;
+	}
 	return false;
 }
 
@@ -594,7 +675,8 @@ function isPathWithinScope(realPath: string, scanDir: string): boolean {
 
 function findScannableFiles(
 	dir: string,
-	excludeDirs: Set<string>,
+	excludeExact: Set<string>,
+	excludeGlobs: string[],
 	scanDir: string,
 	visited: VisitedPaths,
 	stats: ScanStats = {
@@ -624,13 +706,15 @@ function findScannableFiles(
 	});
 
 	for (const entry of entries) {
-		// Skip excluded directories
-		if (excludeDirs.has(entry)) {
+		const fullPath = path.join(dir, entry);
+		// Compute forward-slash relative path for glob matching
+		const relPath = path.relative(scanDir, fullPath).replace(/\\/g, '/');
+
+		// Skip excluded entries (applies to both files and directories)
+		if (isExcluded(entry, relPath, excludeExact, excludeGlobs)) {
 			stats.skippedDirs++;
 			continue;
 		}
-
-		const fullPath = path.join(dir, entry);
 
 		let lstat: fs.Stats;
 		try {
@@ -671,7 +755,8 @@ function findScannableFiles(
 
 			const subFiles = findScannableFiles(
 				fullPath,
-				excludeDirs,
+				excludeExact,
+				excludeGlobs,
 				scanDir,
 				visited,
 				stats,
@@ -694,7 +779,7 @@ function findScannableFiles(
 // ============ Tool Definition ============
 export const secretscan: ReturnType<typeof tool> = tool({
 	description:
-		'Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default.',
+		'Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.',
 	args: {
 		directory: tool.schema
 			.string()
@@ -703,7 +788,7 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			.array(tool.schema.string())
 			.optional()
 			.describe(
-				'Additional directories to exclude (added to default exclusions like node_modules, .git, dist)',
+				'Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.',
 			),
 	},
 	async execute(
@@ -752,20 +837,10 @@ export const secretscan: ReturnType<typeof tool> = tool({
 		// Validate exclude array items
 		if (exclude) {
 			for (const exc of exclude) {
-				if (exc.length > MAX_FILE_PATH_LENGTH) {
+				const err = validateExcludePattern(exc);
+				if (err) {
 					const errorResult: SecretscanErrorResult = {
-						error: `invalid exclude path: exceeds maximum length of ${MAX_FILE_PATH_LENGTH}`,
-						scan_dir: directory,
-						findings: [],
-						count: 0,
-						files_scanned: 0,
-						skipped_files: 0,
-					};
-					return JSON.stringify(errorResult, null, 2);
-				}
-				if (containsPathTraversal(exc) || containsControlChars(exc)) {
-					const errorResult: SecretscanErrorResult = {
-						error: `invalid exclude path: contains path traversal or control characters`,
+						error: err,
 						scan_dir: directory,
 						findings: [],
 						count: 0,
@@ -807,11 +882,23 @@ export const secretscan: ReturnType<typeof tool> = tool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			// Build exclusion set
-			const excludeDirs = new Set(DEFAULT_EXCLUDE_DIRS);
-			if (exclude) {
-				for (const exc of exclude) {
-					excludeDirs.add(exc);
+			// Build exclusion sets: exact names (backward-compat) + glob/path patterns
+			const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
+			const excludeGlobs: string[] = [];
+
+			// Load .secretscanignore patterns from scan root
+			const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
+
+			const allUserPatterns = [
+				...(exclude ?? []),
+				...ignoreFilePatterns,
+			];
+			for (const exc of allUserPatterns) {
+				if (exc.length === 0) continue;
+				if (isGlobOrPathPattern(exc)) {
+					excludeGlobs.push(exc);
+				} else {
+					excludeExact.add(exc);
 				}
 			}
 
@@ -826,7 +913,8 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			const visited: VisitedPaths = new Set();
 			const files = findScannableFiles(
 				scanDir,
-				excludeDirs,
+				excludeExact,
+				excludeGlobs,
 				scanDir,
 				visited,
 				stats,
