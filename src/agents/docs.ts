@@ -43,18 +43,16 @@ WORKFLOW:
 
 ### ALWAYS update (when present):
 - README.md: If public API changed, update usage examples
-- CHANGELOG.md: Add entry under `## [Unreleased]` using Keep a Changelog format:
-  ```
-  ## [Unreleased]
-  ### Added
-  - New feature description
-  ### Changed
-  - Existing behavior that was modified
-  ### Fixed
-  - Bug that was resolved
-  ### Removed
-  - Feature or code that was removed
-  ```
+- CHANGELOG.md: Add entry under \`## [Unreleased]\` using Keep a Changelog format:
+    ## [Unreleased]
+    ### Added
+    - New feature description
+    ### Changed
+    - Existing behavior that was modified
+    ### Fixed
+    - Bug that was resolved
+    ### Removed
+    - Feature or code that was removed
 - API docs: If function signatures changed, update JSDoc/TSDoc in source files
 - Type definitions: If exported types changed, ensure documentation is current
 

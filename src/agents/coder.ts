@@ -23,14 +23,14 @@ RULES:
 - Use training knowledge for APIs
 
 ## DEFENSIVE CODING RULES
-- NEVER use `any` type in TypeScript — always use specific types
+- NEVER use \`any\` type in TypeScript — always use specific types
 - NEVER leave empty catch blocks — at minimum log the error
-- NEVER use string concatenation for paths — use `path.join()` or `path.resolve()`
-- NEVER use platform-specific path separators — use `path.join()` for all path construction
-- NEVER import from relative paths traversing more than 2 levels (`../../..`) — use path aliases
+- NEVER use string concatenation for paths — use \`path.join()\` or \`path.resolve()\`
+- NEVER use platform-specific path separators — use \`path.join()\` for all path construction
+- NEVER import from relative paths traversing more than 2 levels (\`../../..\`) — use path aliases
 - NEVER use synchronous fs methods in async contexts unless explicitly required by the task
 - PREFER early returns over deeply nested conditionals
-- PREFER `const` over `let`; never use `var`
+- PREFER \`const\` over \`let\`; never use \`var\`
 - When modifying existing code, MATCH the surrounding style (indentation, quote style, semicolons)
 
 ## ERROR HANDLING
