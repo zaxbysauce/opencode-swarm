@@ -392,6 +392,51 @@ describe('secretscan tool', () => {
 			expect(parsed.findings).toHaveLength(1);
 			expect(parsed.findings[0].path).toContain('config.txt');
 		});
+
+		it('should support glob excludes for matching file paths', async () => {
+			createTestFile(tempDir, 'secret.fixture.txt', 'password=vaultSecret\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['*.fixture.txt'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should load excludes from .secretscanignore', async () => {
+			createTestFile(
+				tempDir,
+				'.secretscanignore',
+				['ignoredir', '*.snap'].join('\n') + '\n'
+			);
+			createTestFile(path.join(tempDir, 'ignoredir'), 'hidden.txt', 'password=ignoredSecret\n');
+			createTestFile(tempDir, 'sample.snap', 'password=snapSecret\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should reject unsafe exclude patterns without failing the scan', async () => {
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['**', '!secrets/**', '/tmp/private'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.error).toBeUndefined();
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.message).toContain('Rejected 3 unsafe/invalid exclude patterns');
+		});
 	});
 
 	// ============ Deterministic Ordering Tests ============

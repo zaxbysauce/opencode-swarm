@@ -693,7 +693,15 @@ function isSymlinkLoop(realPath: string, visited: VisitedPaths): boolean {
 
 function isPathWithinScope(realPath: string, scanDir: string): boolean {
 	// Resolve both paths and check if realPath is within scanDir
-	const resolvedScanDir = path.resolve(scanDir);
+	// Use realpath for scanDir so symlinked temp dirs (e.g. /var -> /private/var on macOS)
+	// still allow nested paths within the same canonical location.
+	const resolvedScanDir = (() => {
+		try {
+			return fs.realpathSync(scanDir);
+		} catch {
+			return path.resolve(scanDir);
+		}
+	})();
 	const resolvedRealPath = path.resolve(realPath);
 	// Use separator-aware check to prevent /abc vs /abcd confusion
 	return (
