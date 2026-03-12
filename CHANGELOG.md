@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.23.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.1...v6.23.2) (2026-03-12)
+
+
+### Bug Fixes
+
+* align gate evidence fixes with tracked dist output ([cb1405a](https://github.com/zaxbysauce/opencode-swarm/commit/cb1405ade97705b86a1664ea019502760507ad3e))
+* resolve CI typecheck failure — scope afterCoder in delegation-gate ([1f1c6bf](https://github.com/zaxbysauce/opencode-swarm/commit/1f1c6bf028a30be039bc2ec6f8b4c48b2c080ade))
+* tool-based task gate evidence store (Issue [#146](https://github.com/zaxbysauce/opencode-swarm/issues/146)) ([c2a34c2](https://github.com/zaxbysauce/opencode-swarm/commit/c2a34c213afdb67067656b91354bae62d4eda57e))
+* tool-based task gate evidence store (Issues [#146](https://github.com/zaxbysauce/opencode-swarm/issues/146), [#145](https://github.com/zaxbysauce/opencode-swarm/issues/145)) ([37cedaf](https://github.com/zaxbysauce/opencode-swarm/commit/37cedafc091ab9839ad222f6d4c52031829b0f92))
+
 ## [6.23.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.0...v6.23.1) (2026-03-12)
 
 
