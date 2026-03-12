@@ -108,7 +108,9 @@ describe('knowledge-store', () => {
 
 	describe('rewriteKnowledge', () => {
 		it('writes all entries as JSONL', async () => {
-			const tempPath = path.join(os.tmpdir(), `test-rewrite-${Date.now()}.jsonl`);
+			const tempDir = path.join(os.tmpdir(), `test-rewrite-dir-${Date.now()}`);
+			fs.mkdirSync(tempDir, { recursive: true });
+			const tempPath = path.join(tempDir, `test-rewrite-${Date.now()}.jsonl`);
 			const entries = [
 				{ id: 1, text: 'entry1' },
 				{ id: 2, text: 'entry2' },
@@ -125,7 +127,7 @@ describe('knowledge-store', () => {
 			expect(JSON.parse(lines[1])).toEqual({ id: 2, text: 'entry2' });
 			expect(JSON.parse(lines[2])).toEqual({ id: 3, text: 'entry3' });
 
-			await fs.promises.unlink(tempPath);
+			await fs.promises.rm(tempDir, { recursive: true });
 		});
 	});
 

@@ -29,7 +29,7 @@ export type CuratorInitRunner = (
  */
 export function createPhaseMonitorHook(
 	directory: string,
-	preflightManager: PreflightTriggerManager,
+	preflightManager?: PreflightTriggerManager,
 	curatorRunner: CuratorInitRunner = defaultRunCuratorInit,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
@@ -67,11 +67,13 @@ export function createPhaseMonitorHook(
 				phase?.tasks.filter((t) => t.status === 'completed').length ?? 0;
 			const totalTasks = phase?.tasks.length ?? 0;
 
-			await preflightManager.checkAndTrigger(
-				currentPhase,
-				completedTasks,
-				totalTasks,
-			);
+			if (preflightManager) {
+				await preflightManager.checkAndTrigger(
+					currentPhase,
+					completedTasks,
+					totalTasks,
+				);
+			}
 		}
 	};
 

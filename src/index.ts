@@ -107,7 +107,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			? { ...config.guardrails, enabled: false }
 			: loadedFromFile
 				? (config.guardrails ?? {})
-				: config.guardrails; // Use loader defaults (fail-secure)
+				: (config.guardrails ?? {}); // Use loader defaults (fail-secure)
 	const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
 
 	// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
@@ -515,14 +515,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		) as any,
 
-		// Inject system prompt enhancements + phase monitor (when phase_preflight enabled)
+		// Inject system prompt enhancements + phase monitor (when phase_preflight or knowledge enabled)
 		'experimental.chat.system.transform': composeHandlers(
 			...([
 				systemEnhancerHook['experimental.chat.system.transform'],
 				automationConfig.capabilities?.phase_preflight === true &&
 				preflightTriggerManager
 					? createPhaseMonitorHook(ctx.directory, preflightTriggerManager)
-					: undefined,
+					: knowledgeConfig.enabled
+						? createPhaseMonitorHook(ctx.directory)
+						: undefined,
 			].filter(Boolean) as Array<
 				(input: unknown, output: unknown) => Promise<void>
 			>),
