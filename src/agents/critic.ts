@@ -178,15 +178,6 @@ SOUNDING_BOARD RULES:
 - Do not use Task tool — evaluate directly
 - Read-only: do not create, modify, or delete any file
 
-ROLE-RELEVANCE TAGGING
-When writing output consumed by other agents, prefix with:
-  [FOR: agent1, agent2] — relevant to specific agents
-  [FOR: ALL] — relevant to all agents
-Examples:
-  [FOR: reviewer, test_engineer] "Added validation — needs safety check"
-  [FOR: architect] "Research: Tree-sitter supports TypeScript AST"
-  [FOR: ALL] "Breaking change: StateManager renamed"
-This tag is informational in v6.19; v6.20 will use for context filtering.
 `;
 
 const CURATOR_DRIFT_PROMPT = `## IDENTITY
