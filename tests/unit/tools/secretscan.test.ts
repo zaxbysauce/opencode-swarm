@@ -392,6 +392,120 @@ describe('secretscan tool', () => {
 			expect(parsed.findings).toHaveLength(1);
 			expect(parsed.findings[0].path).toContain('config.txt');
 		});
+
+		it('should support glob patterns in exclude (e.g. **/.svelte-kit/**)', async () => {
+			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), { recursive: true });
+			createTestFile(path.join(tempDir, '.svelte-kit', 'output'), 'chunk.js', 'password=generated\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['**/.svelte-kit/**'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should support glob patterns matching specific file types (e.g. **/*.test.ts)', async () => {
+			createTestFile(tempDir, 'app.test.ts', 'password=testSecret\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['**/*.test.ts'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should support excluding a specific file by relative path', async () => {
+			fs.mkdirSync(path.join(tempDir, 'src', 'routes'), { recursive: true });
+			createTestFile(path.join(tempDir, 'src', 'routes'), 'page.test.ts', 'password=testSecret\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['src/routes/page.test.ts'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should reject negation patterns in exclude array', async () => {
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['!node_modules'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('negation');
+		});
+
+		it('should reject absolute paths in exclude array', async () => {
+			const result = await secretscan.execute(
+				{ directory: tempDir, exclude: ['/etc/passwd'] },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('absolute paths');
+		});
+
+		it('should load and apply .secretscanignore patterns', async () => {
+			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), { recursive: true });
+			createTestFile(path.join(tempDir, '.svelte-kit', 'output'), 'chunk.js', 'password=generated\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+			// Write a .secretscanignore file
+			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '# ignore generated\n**/.svelte-kit/**\n', 'utf-8');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			expect(parsed.findings).toHaveLength(1);
+			expect(parsed.findings[0].path).toContain('config.txt');
+		});
+
+		it('should ignore blank lines and comments in .secretscanignore', async () => {
+			createTestFile(tempDir, 'app.test.ts', 'password=testSecret\n');
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+			// Write a .secretscanignore with comments and blanks only
+			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '# this is a comment\n\n  \n', 'utf-8');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			// Both files should be scanned since no valid patterns in ignore file
+			expect(parsed.findings.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it('should silently skip unsafe patterns in .secretscanignore', async () => {
+			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
+			// Write a .secretscanignore with a traversal attempt
+			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '../etc/passwd\n*.txt\n', 'utf-8');
+
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any
+			);
+			const parsed = parseResult(result);
+
+			// config.txt should be excluded by the *.txt pattern (traversal pattern silently skipped)
+			expect(parsed.findings).toHaveLength(0);
+		});
 	});
 
 	// ============ Deterministic Ordering Tests ============
