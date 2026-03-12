@@ -5,6 +5,8 @@
  * manifest and lock files across 8 ecosystems.
  */
 
+import { simpleGlobToRegex } from '../../utils';
+
 export interface SbomComponent {
 	/** Package name */
 	name: string;
@@ -180,14 +182,9 @@ export function findDetectorsForFile(filePath: string): Detector[] {
 	const fileName = filePath.split(/[/\\]/).pop() || '';
 
 	return allDetectors.filter((detector) =>
-		detector.patterns.some((pattern) => {
-			// Simple glob matching
-			const regex = pattern
-				.replace(/\./g, '\\.')
-				.replace(/\*/g, '.*')
-				.replace(/\?/g, '.');
-			return new RegExp(regex, 'i').test(fileName);
-		}),
+		detector.patterns.some((pattern) =>
+			simpleGlobToRegex(pattern).test(fileName),
+		),
 	);
 }
 

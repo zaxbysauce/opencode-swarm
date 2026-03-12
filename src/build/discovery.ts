@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { detectProjectLanguages } from '../lang/detector';
 import { LANGUAGE_REGISTRY } from '../lang/profiles';
-import { warn } from '../utils';
+import { simpleGlobToRegex, warn } from '../utils';
 
 // ============ Types ============
 
@@ -194,11 +194,8 @@ function findBuildFiles(workingDir: string, patterns: string[]): string | null {
 			const dir = workingDir;
 			try {
 				const files = fs.readdirSync(dir);
-				const matches = files.filter((f) => {
-					// Convert glob to regex
-					const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
-					return regex.test(f);
-				});
+				const regex = simpleGlobToRegex(pattern);
+				const matches = files.filter((f) => regex.test(f));
 				if (matches.length > 0) {
 					return path.join(dir, matches[0]);
 				}
@@ -285,7 +282,7 @@ function findAllBuildFiles(workingDir: string): string[] {
 		for (const pattern of ecosystem.buildFiles) {
 			if (pattern.includes('*')) {
 				// Glob pattern - search recursively
-				const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
+				const regex = simpleGlobToRegex(pattern);
 				findFilesRecursive(workingDir, regex, allBuildFiles);
 			} else {
 				// Exact file
