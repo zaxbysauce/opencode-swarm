@@ -907,7 +907,6 @@ The following tools can be assigned to agents via overrides:
 | Tool | Purpose |
 |------|---------|
 | `checkpoint` | Save/restore git checkpoints |
-| `check_gate_status` | Read-only query of task gate status |
 | `complexity_hotspots` | Identify high-risk code areas |
 | `detect_domains` | Detect SME domains from text |
 | `diff` | Analyze git diffs and changes |
