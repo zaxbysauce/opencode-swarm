@@ -49,7 +49,7 @@ async function fireToolAfter(
 	subagentType: string,
 	callID = 'call-1',
 ): Promise<void> {
-	const hook = createDelegationGateHook(testConfig);
+	const hook = createDelegationGateHook(testConfig, tmpDir);
 	await hook.toolAfter(
 		{
 			tool: 'Task',
@@ -192,7 +192,11 @@ describe('delegation-gate evidence recording', () => {
 		// coder delegation — expands required_gates: [docs, reviewer, test_engineer]
 		await fireToolAfter('sess-10', 'coder', 'call-2');
 		evidence = await readTaskEvidence(tmpDir, '3.1');
-		expect(evidence!.required_gates).toEqual(['docs', 'reviewer', 'test_engineer']);
+		expect(evidence!.required_gates).toEqual([
+			'docs',
+			'reviewer',
+			'test_engineer',
+		]);
 
 		// Not all gates passed yet
 		expect(await hasPassedAllGates(tmpDir, '3.1')).toBe(false);

@@ -12,8 +12,25 @@ const PLAN_FILE = '.swarm/plan.md';
 // Shell metacharacters that are not allowed in required_types
 const SHELL_METACHAR_REGEX = /[;&|%$`\\]/;
 
-// Valid filename regex for evidence files
-const VALID_EVIDENCE_FILENAME_REGEX = /^[a-zA-Z0-9_-]+\.json$/;
+// Valid filename regex for evidence files - accepts alphanumeric, underscores, hyphens, and dotted numeric task IDs (e.g., 1.21.json)
+const VALID_EVIDENCE_FILENAME_REGEX =
+	/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*\.json$/;
+
+// ============ Legacy Evidence Type Normalization ============
+// Maps legacy evidence type names to their current gate equivalents
+const LEGACY_EVIDENCE_ALIAS_MAP: Record<string, string> = {
+	review: 'reviewer',
+	test: 'test_engineer',
+};
+
+/**
+ * Normalize legacy evidence type names to current gate names.
+ * @param type - The evidence type to normalize
+ * @returns The normalized type name
+ */
+function normalizeEvidenceType(type: string): string {
+	return LEGACY_EVIDENCE_ALIAS_MAP[type.toLowerCase()] || type;
+}
 
 // ============ Types ============
 interface CompletedTask {
@@ -75,9 +92,11 @@ function isPathWithinSwarm(filePath: string, cwd: string): boolean {
 }
 
 // ============ Plan Parsing ============
-function parseCompletedTasks(planContent: string): CompletedTask[] {
+export function parseCompletedTasks(planContent: string): CompletedTask[] {
 	const tasks: CompletedTask[] = [];
-	const regex = /^-\s+\[x\]\s+(\d+\.\d+):\s+(.+)/gm;
+	// Match task IDs of any depth: 1.2, 1.21, 1.2.3, 1.2.3.4, etc.
+	// Allows optional whitespace between task ID and colon (e.g., "- [x] 1.1   : Task")
+	const regex = /^-\s+\[x\]\s+(\d+(?:\.\d+)+)\s*:\s+(.+)/gm;
 	for (
 		let match = regex.exec(planContent);
 		match !== null;
@@ -169,17 +188,35 @@ function readEvidenceFiles(evidenceDir: string, _cwd: string): EvidenceFile[] {
 			continue;
 		}
 
-		// Validate structure
-		if (
-			parsed &&
-			typeof parsed === 'object' &&
-			typeof (parsed as Record<string, unknown>).task_id === 'string' &&
-			typeof (parsed as Record<string, unknown>).type === 'string'
-		) {
-			evidence.push({
-				taskId: (parsed as Record<string, unknown>).task_id as string,
-				type: (parsed as Record<string, unknown>).type as string,
-			});
+		// Validate structure - support both legacy flat format and aggregate gate-evidence format
+		// Legacy flat: { task_id: string, type: string }
+		// Aggregate gate-evidence: { taskId: string, required_gates: string[], gates: { [key: string]: {...} } }
+		if (parsed && typeof parsed === 'object') {
+			const obj = parsed as Record<string, unknown>;
+
+			// Check for legacy flat format: { task_id, type }
+			if (typeof obj.task_id === 'string' && typeof obj.type === 'string') {
+				evidence.push({
+					taskId: obj.task_id as string,
+					type: normalizeEvidenceType(obj.type as string),
+				});
+			}
+			// Check for aggregate gate-evidence format: { taskId, gates }
+			else if (
+				typeof obj.taskId === 'string' &&
+				obj.gates &&
+				typeof obj.gates === 'object' &&
+				!Array.isArray(obj.gates)
+			) {
+				const gatesObj = obj.gates as Record<string, unknown>;
+				// Expand each key in gates object into separate evidence records
+				for (const gateType of Object.keys(gatesObj)) {
+					evidence.push({
+						taskId: obj.taskId as string,
+						type: normalizeEvidenceType(gateType),
+					});
+				}
+			}
 		}
 	}
 
@@ -201,7 +238,8 @@ function analyzeGaps(
 		if (!evidenceByTask.has(ev.taskId)) {
 			evidenceByTask.set(ev.taskId, new Set());
 		}
-		evidenceByTask.get(ev.taskId)!.add(ev.type);
+		// Normalize legacy evidence types when building the map
+		evidenceByTask.get(ev.taskId)!.add(normalizeEvidenceType(ev.type));
 	}
 
 	for (const task of completedTasks) {
@@ -248,7 +286,7 @@ export const evidence_check: ReturnType<typeof tool> = createSwarmTool({
 			.string()
 			.optional()
 			.describe(
-				'Comma-separated evidence types required per task (default: "review,test")',
+				'Comma-separated evidence types required per task (default: "reviewer,test_engineer")',
 			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
@@ -270,7 +308,7 @@ export const evidence_check: ReturnType<typeof tool> = createSwarmTool({
 		const cwd = directory;
 
 		// Validate required_types
-		const requiredTypesValue = requiredTypesInput || 'review,test';
+		const requiredTypesValue = requiredTypesInput || 'reviewer,test_engineer';
 		const validationError = validateRequiredTypes(requiredTypesValue);
 		if (validationError) {
 			const errorResult = {
@@ -284,11 +322,12 @@ export const evidence_check: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(errorResult, null, 2);
 		}
 
-		// Parse required types
+		// Parse required types and normalize legacy names to current gate types
 		const requiredTypes = requiredTypesValue
 			.split(',')
 			.map((t) => t.trim())
-			.filter((t) => t.length > 0);
+			.filter((t) => t.length > 0)
+			.map(normalizeEvidenceType);
 
 		// Read plan file
 		const planPath = path.join(cwd, PLAN_FILE);
