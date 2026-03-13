@@ -248,7 +248,8 @@ describe('test-runner.ts - Validation Tests (no execution)', () => {
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
-		const result = await test_runner.execute({}, {} as any);
+		// Use explicit scope to reach framework detection (not scope: 'all' which is rejected first)
+		const result = await test_runner.execute({ scope: 'convention', files: ['src/utils.ts'] }, {} as any);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -474,4 +475,265 @@ describe('test-runner.ts - Security Validation', () => {
 		// This test verifies validation passes by checking the schema is defined
 		expect(test_runner.args.files).toBeDefined();
 	});
+
+	test('rejects convention scope without files', async () => {
+		const result = await test_runner.execute(
+			{ scope: 'convention' },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('convention');
+		expect(parsed.error).toContain('require explicit files');
+		expect(parsed.error).toContain('unsafe full-project discovery');
+	});
+
+	test('rejects graph scope without files', async () => {
+		const result = await test_runner.execute(
+			{ scope: 'graph' },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('graph');
+		expect(parsed.error).toContain('require explicit files');
+		expect(parsed.error).toContain('unsafe full-project discovery');
+	});
+
+	test('rejects convention scope with empty files array', async () => {
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: [] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('convention');
+		expect(parsed.error).toContain('require explicit files');
+	});
+
+	test('rejects graph scope with empty files array', async () => {
+		const result = await test_runner.execute(
+			{ scope: 'graph', files: [] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('graph');
+		expect(parsed.error).toContain('require explicit files');
+	});
+
+	test('rejects non-source files array for convention scope', async () => {
+		// Set up a detectable framework first so we can test the non-source-file guard
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-conv-'));
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create minimal package.json for vitest detection
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: ['README.md', 'config.json'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('convention');
+		expect(parsed.error).toContain('no source files with recognized extensions');
+		expect(parsed.message).toContain('Non-source files like README.md or config.json');
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 10000);
+
+	test('rejects non-source files array for graph scope', async () => {
+		// Set up a detectable framework first so we can test the non-source-file guard
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-graph-'));
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create minimal package.json for vitest detection
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+
+		const result = await test_runner.execute(
+			{ scope: 'graph', files: ['README.md', 'config.json'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('graph');
+		expect(parsed.error).toContain('no source files with recognized extensions');
+		expect(parsed.message).toContain('Non-source files like README.md or config.json');
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 10000);
+});
+
+describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
+	test('rejects scope "all" with structured error for interactive sessions', async () => {
+		const result = await test_runner.execute(
+			{ scope: 'all' },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('all');
+		expect(parsed.error).toContain('Full-suite test execution');
+		expect(parsed.error).toContain('prohibited in interactive sessions');
+		expect(parsed.message).toContain('scope "convention" or "graph"');
+	});
+
+	test('allows narrow scope requests to execute normally', async () => {
+		// Create a temp directory with a simple test file
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-narrow-'));
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create minimal package.json for vitest detection
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+
+		// Create src directory FIRST, then source file
+		fs.mkdirSync('src', { recursive: true });
+		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+		// Create corresponding test file
+		fs.writeFileSync('src/utils.test.ts', 'import { describe, test, expect } from "vitest"; import { add } from "./utils"; describe("add", () => { test("adds", () => { expect(add(1, 2)).toBe(3); }); });');
+
+		// Use convention scope with explicit file - should NOT be rejected
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: ['src/utils.ts'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+
+		// First verify execution succeeded (not blocked by safety guards)
+		expect(parsed.success).toBe(true);
+
+		// Should NOT have an error field when successful
+		expect(parsed.error).toBeUndefined();
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 15000);
+
+	test('rejects source file with no matching test file for convention scope', async () => {
+		// Create a temp directory with a source file but NO test file
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-conv-'));
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create minimal package.json for vitest detection
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+
+		// Create src directory and source file WITHOUT a corresponding test file
+		fs.mkdirSync('src', { recursive: true });
+		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+		// Provide the source file - should be rejected because no test file exists
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: ['src/utils.ts'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+
+		// Should be rejected with clear error about no matching test files
+		expect(parsed.success).toBe(false);
+		expect(parsed.scope).toBe('convention');
+		expect(parsed.error).toContain('resolved to zero test files');
+		expect(parsed.message).toContain('No matching test files found');
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 15000);
+
+	test('rejects source file with no matching test file for graph scope', async () => {
+		// Create a temp directory with a source file but NO test file
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-graph-'));
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create minimal package.json for vitest detection
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+
+		// Create src directory and source file WITHOUT a corresponding test file
+		fs.mkdirSync('src', { recursive: true });
+		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+		// Provide the source file - should be rejected because no test file exists
+		const result = await test_runner.execute(
+			{ scope: 'graph', files: ['src/utils.ts'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+
+		// Should be rejected with clear error about no matching test files
+		expect(parsed.success).toBe(false);
+		// Graph scope falls back to convention when imports resolution returns no results
+		expect(parsed.scope).toBe('convention');
+		expect(parsed.error).toContain('resolved to zero test files');
+		expect(parsed.message).toContain('No matching test files found');
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 15000);
 });

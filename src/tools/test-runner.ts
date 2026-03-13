@@ -9,6 +9,7 @@ export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
 export const MAX_COMMAND_LENGTH = 500;
 export const DEFAULT_TIMEOUT_MS = 60_000; // 60 seconds default
 export const MAX_TIMEOUT_MS = 300_000; // 5 minutes max
+export const MAX_SAFE_TEST_FILES = 50; // Maximum resolved test files allowed in interactive session
 
 // Supported test frameworks
 export const SUPPORTED_FRAMEWORKS = [
@@ -1355,6 +1356,39 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		const scope = args.scope || 'all';
+
+		// Guard 1: Reject scope === 'all' for interactive session safety
+		// Full-suite execution is prohibited in interactive sessions
+		if (scope === 'all') {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error:
+					'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
+				message:
+					'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
+		// Hard guard: convention and graph scopes require explicit files to prevent unsafe full-project discovery
+		if (
+			(scope === 'convention' || scope === 'graph') &&
+			(!args.files || args.files.length === 0)
+		) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope,
+				error:
+					'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
+				message:
+					'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
 		const _files = args.files || [];
 		const coverage = args.coverage || false;
 		const timeout_ms = Math.min(
@@ -1383,35 +1417,57 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(result, null, 2);
 		}
 
-		// Handle different scopes
+		// Handle different scopes (only 'convention' or 'graph' possible - 'all' rejected above)
 		let testFiles: string[] = [];
 		let graphFallbackReason: string | undefined;
-		let effectiveScope: 'all' | 'convention' | 'graph' = scope;
+		let effectiveScope: 'convention' | 'graph' = scope as
+			| 'convention'
+			| 'graph';
 
-		if (scope === 'all') {
-			// Full suite, no specific files
-			testFiles = [];
-		} else if (scope === 'convention') {
+		if (scope === 'convention') {
 			// Map source files to test files by naming convention
-			// If args.files provided, use those as source files; otherwise find all source files
-			const sourceFiles =
-				args.files && args.files.length > 0
-					? args.files.filter((f) => {
-							const ext = path.extname(f).toLowerCase();
-							return SOURCE_EXTENSIONS.has(ext);
-						})
-					: findSourceFiles(workingDir);
+			// args.files is guaranteed non-empty by the guard above
+			const sourceFiles = args.files!.filter((f) => {
+				const ext = path.extname(f).toLowerCase();
+				return SOURCE_EXTENSIONS.has(ext);
+			});
+
+			// Guard: If args.files was provided but all entries are non-source files, reject
+			if (sourceFiles.length === 0) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework,
+					scope,
+					error:
+						'Provided files contain no source files with recognized extensions',
+					message:
+						'The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+
 			testFiles = getTestFilesFromConvention(sourceFiles);
 		} else if (scope === 'graph') {
 			// Try to find related tests via import analysis
-			// If args.files provided, use those; otherwise find all source files
-			const sourceFiles =
-				args.files && args.files.length > 0
-					? args.files.filter((f) => {
-							const ext = path.extname(f).toLowerCase();
-							return SOURCE_EXTENSIONS.has(ext);
-						})
-					: findSourceFiles(workingDir);
+			// args.files is guaranteed non-empty by the guard above
+			const sourceFiles = args.files!.filter((f) => {
+				const ext = path.extname(f).toLowerCase();
+				return SOURCE_EXTENSIONS.has(ext);
+			});
+
+			// Guard: If args.files was provided but all entries are non-source files, reject
+			if (sourceFiles.length === 0) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework,
+					scope,
+					error:
+						'Provided files contain no source files with recognized extensions',
+					message:
+						'The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
 
 			// Try graph-based discovery via imports (best effort)
 			const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
@@ -1424,6 +1480,33 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				effectiveScope = 'convention';
 				testFiles = getTestFilesFromConvention(sourceFiles);
 			}
+		}
+
+		// Guard: Reject when source files resolve to zero test files (prevents accidental full-suite run)
+		if (testFiles.length === 0) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework,
+				scope: effectiveScope,
+				error: 'Provided source files resolved to zero test files',
+				message:
+					'No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/).',
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+
+		// Guard 2: Reject execution when resolved test-file count exceeds safe maximum
+		if (testFiles.length > MAX_SAFE_TEST_FILES) {
+			// List first few resolved filenames for debugging
+			const sampleFiles = testFiles.slice(0, 5);
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework,
+				scope: effectiveScope,
+				error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
+				message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(', ')}`,
+			};
+			return JSON.stringify(errorResult, null, 2);
 		}
 
 		// Run the tests
