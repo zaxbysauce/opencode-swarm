@@ -1,5 +1,19 @@
 # Changelog
 
+## [6.25.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.24.0...v6.25.0) (2026-03-13)
+
+
+### Features
+
+* **agents:** complete audit phase 4-6 — remaining 13 deferred items ([d4001fa](https://github.com/zaxbysauce/opencode-swarm/commit/d4001fa0e07d94f429e59a3003078826bc052c66))
+* **agents:** complete audit phase 4-6 — remaining 13 deferred items ([d60f3e2](https://github.com/zaxbysauce/opencode-swarm/commit/d60f3e2e0b176c52a8182b1c09d0ae66abdd8ce9))
+
+
+### Bug Fixes
+
+* **agents:** align prompt contracts with audit intent ([1999097](https://github.com/zaxbysauce/opencode-swarm/commit/19990975925bf61facb448b0b24472e09df870f4))
+* align prompt drift contracts and tests ([3d94e0f](https://github.com/zaxbysauce/opencode-swarm/commit/3d94e0fce3fc3e2b8668a48ab190f6012ef9faca))
+
 ## [6.24.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.23.2...v6.24.0) (2026-03-12)
 
 
