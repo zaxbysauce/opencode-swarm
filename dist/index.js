@@ -4,25 +4,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name2, newValue) {
+  this[name2] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name2] = () => newValue
+      set: __exportSetter.bind(all, name2)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -17705,9 +17723,9 @@ GFS4: `);
     function readdir(path9, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path10, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path10, options2, cb2, startTime) {
         return fs$readdir(path10, fs$readdirCallback(path10, options2, cb2, startTime));
-      } : function go$readdir(path10, options2, cb2, startTime) {
+      } : function go$readdir2(path10, options2, cb2, startTime) {
         return fs$readdir(path10, options2, fs$readdirCallback(path10, options2, cb2, startTime));
       };
       return go$readdir(path9, options, cb);
@@ -18182,7 +18200,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload() {
+    unload = function unload2() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -18197,7 +18215,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.count -= 1;
     };
     module2.exports.unload = unload;
-    emit = function emit(event, code, signal) {
+    emit = function emit2(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -18226,7 +18244,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       return signals;
     };
     loaded = false;
-    load = function load() {
+    load = function load2() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -18245,7 +18263,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
     };
     module2.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit(code) {
+    processReallyExit = function processReallyExit2(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -18255,7 +18273,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit(ev, arg) {
+    processEmit = function processEmit2(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;
@@ -34155,7 +34173,10 @@ var init_secretscan = __esm(() => {
         const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
         const excludeGlobs = [];
         const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
-        const allUserPatterns = [...exclude ?? [], ...ignoreFilePatterns];
+        const allUserPatterns = [
+          ...exclude ?? [],
+          ...ignoreFilePatterns
+        ];
         for (const exc of allUserPatterns) {
           if (exc.length === 0)
             continue;
@@ -48496,10 +48517,7 @@ function isAgentDelegation(toolName, args2) {
   }
   const subagentType = argsObj.subagent_type;
   if (typeof subagentType === "string") {
-    return {
-      isDelegation: true,
-      targetAgent: stripKnownSwarmPrefix(subagentType)
-    };
+    return { isDelegation: true, targetAgent: stripKnownSwarmPrefix(subagentType) };
   }
   return { isDelegation: false, targetAgent: null };
 }
@@ -49337,11 +49355,11 @@ function createDelegationGateHook(config3, directory) {
             try {
               if (hasReviewer) {
                 const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-                await recordGateEvidence2(process.cwd(), evidenceTaskId, "reviewer", input.sessionID);
+                await recordGateEvidence2(directory, evidenceTaskId, "reviewer", input.sessionID);
               }
               if (hasTestEngineer) {
                 const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-                await recordGateEvidence2(process.cwd(), evidenceTaskId, "test_engineer", input.sessionID);
+                await recordGateEvidence2(directory, evidenceTaskId, "test_engineer", input.sessionID);
               }
             } catch (err2) {
               console.warn(`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err2 instanceof Error ? err2.message : String(err2)}`);
