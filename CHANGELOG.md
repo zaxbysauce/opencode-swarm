@@ -1,5 +1,37 @@
 # Changelog
 
+## [6.25.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.2...v6.25.3) (2026-03-13)
+
+
+### Bug Fixes
+
+* record explorer and sme gate evidence ([f3e60de](https://github.com/zaxbysauce/opencode-swarm/commit/f3e60de2a096450d6302b2a19a68180b8a500c08))
+* record explorer and sme gate evidence ([833cced](https://github.com/zaxbysauce/opencode-swarm/commit/833cced7a61a1fb5cba004a8cbcef1dbff4b4c81))
+
+## [6.25.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.1...v6.25.2) (2026-03-13)
+
+
+### Bug Fixes
+
+* delegation-gate fallback evidence writes use process.cwd() instead of directory ([b163737](https://github.com/zaxbysauce/opencode-swarm/commit/b16373712cefa323c760aa0d368d3c44dc519af2))
+* reconcile evidence handling and contain test scope ([cea26ec](https://github.com/zaxbysauce/opencode-swarm/commit/cea26ec1aa5754d5a8b213d4c13a05fd658978b7))
+* reconcile evidence handling and contain test scope ([8ebf15a](https://github.com/zaxbysauce/opencode-swarm/commit/8ebf15a4e84685feda136dce66421c9c6076683a))
+* use directory instead of process.cwd() in delegation-gate fallback evidence path ([3aef904](https://github.com/zaxbysauce/opencode-swarm/commit/3aef904459c470bbfe30c6e873ef03a50b3474cf))
+
+## [6.25.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.0...v6.25.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* restore architect delegation and add gate status tool ([2223d95](https://github.com/zaxbysauce/opencode-swarm/commit/2223d954b635c769e3e1ecf3ba35f78b16f04a8e))
+* restore architect delegation and add gate status tool ([ef8bcb2](https://github.com/zaxbysauce/opencode-swarm/commit/ef8bcb2e1d1ade91b704f1ba26779ac557de714f))
+* restore architect delegation and add gate status tool ([8a655ea](https://github.com/zaxbysauce/opencode-swarm/commit/8a655ea7328da6acfd617b5b690000e182666604))
+
+
+### Reverts
+
+* undo direct push of architect delegation and gate status hotfix ([326b323](https://github.com/zaxbysauce/opencode-swarm/commit/326b323eab6b60e9c23d5fbf34fb338b72ca0553))
+
 ## [6.25.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.24.0...v6.25.0) (2026-03-13)
 
 
