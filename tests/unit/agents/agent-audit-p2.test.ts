@@ -111,8 +111,10 @@ describe('CR2: Drift-check quantitative metrics', () => {
 		expect(driftSection).toContain('ALIGNED');
 	});
 
-	it('defines DRIFTED threshold', () => {
-		expect(driftSection).toContain('DRIFTED');
+	it('defines MINOR_DRIFT, MAJOR_DRIFT, and OFF_SPEC thresholds', () => {
+		expect(driftSection).toContain('MINOR_DRIFT');
+		expect(driftSection).toContain('MAJOR_DRIFT');
+		expect(driftSection).toContain('OFF_SPEC');
 	});
 });
 

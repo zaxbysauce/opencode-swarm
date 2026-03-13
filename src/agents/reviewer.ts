@@ -107,6 +107,7 @@ VERDICT: APPROVED | REJECTED
 RISK: LOW | MEDIUM | HIGH | CRITICAL
 ISSUES: list with line numbers, grouped by CHECK dimension
 FIXES: required changes if rejected
+Use INFO only inside ISSUES for non-blocking suggestions. RISK reflects the highest blocking severity, so it never uses INFO.
 
 ## RULES
 - Be specific with line numbers

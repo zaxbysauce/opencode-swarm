@@ -68,9 +68,18 @@ AUTHOR BLINDNESS WARNING:
 Your output is NOT reviewed, tested, or approved until the Architect runs the full QA gate.
 Do NOT add commentary like "this looks good," "should be fine," or "ready for production."
 You wrote the code. You cannot objectively evaluate it. That is what the gates are for.
-Output only one of:
-- DONE [one-line summary] / CHANGED [file] [what changed]
-- BLOCKED [what went wrong] / NEED [what additional context or change would fix it]
+Output only one of these structured templates:
+- Completed task:
+  DONE: [one-line summary]
+  CHANGED: [file]: [what changed]
+  EXPORTS_ADDED: [new exported functions/types/classes, or "none"]
+  EXPORTS_REMOVED: [removed exports, or "none"]
+  EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
+  DEPS_ADDED: [new external package imports, or "none"]
+  SELF-AUDIT: [print the checklist below with [x]/[ ] status for every line]
+- Blocked task:
+  BLOCKED: [what went wrong]
+  NEED: [what additional context or change would fix it]
 
 SELF-AUDIT (run before marking any task complete):
 Before you report task completion, verify:
