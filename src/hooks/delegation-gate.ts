@@ -289,6 +289,23 @@ function getSeedTaskId(session: AgentSessionState): string | null {
 }
 
 /**
+ * Returns the task ID for evidence recording, with fallback to taskWorkflowStates
+ * when currentTaskId and lastCoderDelegationTaskId are both null.
+ */
+function getEvidenceTaskId(session: AgentSessionState): string | null {
+	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
+	if (primary) return primary;
+
+	// Fallback: derive from taskWorkflowStates if it has entries
+	if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
+		// Return any key from the map (deterministic: first entry)
+		return session.taskWorkflowStates.keys().next().value ?? null;
+	}
+
+	return null;
+}
+
+/**
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
@@ -468,8 +485,7 @@ export function createDelegationGateHook(
 
 			// Record gate evidence for stored-args path
 			if (typeof subagentType === 'string') {
-				const evidenceTaskId =
-					session.currentTaskId ?? session.lastCoderDelegationTaskId;
+				const evidenceTaskId = getEvidenceTaskId(session);
 				if (evidenceTaskId) {
 					try {
 						const gateAgents = [
@@ -478,6 +494,8 @@ export function createDelegationGateHook(
 							'docs',
 							'designer',
 							'critic',
+							'explorer',
+							'sme',
 						];
 						const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
 						if (gateAgents.includes(targetAgentForEvidence)) {
@@ -641,14 +659,13 @@ export function createDelegationGateHook(
 
 				// Record gate evidence for delegation-chain fallback path
 				{
-					const evidenceTaskId =
-						session.currentTaskId ?? session.lastCoderDelegationTaskId;
+					const evidenceTaskId = getEvidenceTaskId(session);
 					if (evidenceTaskId) {
 						try {
 							if (hasReviewer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									directory,
+									process.cwd(),
 									evidenceTaskId,
 									'reviewer',
 									input.sessionID,
@@ -657,7 +674,7 @@ export function createDelegationGateHook(
 							if (hasTestEngineer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									directory,
+									process.cwd(),
 									evidenceTaskId,
 									'test_engineer',
 									input.sessionID,
