@@ -341,6 +341,8 @@ export function getAgentConfigs(
 			// Architects are primary, everything else is subagent
 			if (agent.name === 'architect' || agent.name.endsWith('_architect')) {
 				sdkConfig.mode = 'primary';
+				// Allow task delegation for architect agents
+				(sdkConfig.permission as Record<string, 'allow'>) = { task: 'allow' };
 			} else {
 				sdkConfig.mode = 'subagent';
 			}
