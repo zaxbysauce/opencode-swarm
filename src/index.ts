@@ -45,6 +45,7 @@ import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import {
+	check_gate_status,
 	checkpoint,
 	complexity_hotspots,
 	declare_scope,
@@ -334,6 +335,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 		// Register tools
 		tool: {
+			check_gate_status,
 			checkpoint,
 			complexity_hotspots,
 			detect_domains,

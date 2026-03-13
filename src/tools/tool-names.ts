@@ -20,6 +20,7 @@ export type ToolName =
 	| 'schema_drift'
 	| 'todo_extract'
 	| 'evidence_check'
+	| 'check_gate_status'
 	| 'sbom_generate'
 	| 'checkpoint'
 	| 'pkg_audit'
@@ -52,6 +53,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'schema_drift',
 	'todo_extract',
 	'evidence_check',
+	'check_gate_status',
 	'sbom_generate',
 	'checkpoint',
 	'pkg_audit',
