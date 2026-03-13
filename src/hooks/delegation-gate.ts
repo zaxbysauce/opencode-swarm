@@ -648,7 +648,7 @@ export function createDelegationGateHook(
 							if (hasReviewer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									process.cwd(),
+									directory,
 									evidenceTaskId,
 									'reviewer',
 									input.sessionID,
@@ -657,7 +657,7 @@ export function createDelegationGateHook(
 							if (hasTestEngineer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									process.cwd(),
+									directory,
 									evidenceTaskId,
 									'test_engineer',
 									input.sessionID,
