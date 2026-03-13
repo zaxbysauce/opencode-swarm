@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.25.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.2...v6.25.3) (2026-03-13)
+
+
+### Bug Fixes
+
+* record explorer and sme gate evidence ([f3e60de](https://github.com/zaxbysauce/opencode-swarm/commit/f3e60de2a096450d6302b2a19a68180b8a500c08))
+* record explorer and sme gate evidence ([833cced](https://github.com/zaxbysauce/opencode-swarm/commit/833cced7a61a1fb5cba004a8cbcef1dbff4b4c81))
+
 ## [6.25.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.1...v6.25.2) (2026-03-13)
 
 
