@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.25.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.1...v6.25.2) (2026-03-13)
+
+
+### Bug Fixes
+
+* delegation-gate fallback evidence writes use process.cwd() instead of directory ([b163737](https://github.com/zaxbysauce/opencode-swarm/commit/b16373712cefa323c760aa0d368d3c44dc519af2))
+* reconcile evidence handling and contain test scope ([cea26ec](https://github.com/zaxbysauce/opencode-swarm/commit/cea26ec1aa5754d5a8b213d4c13a05fd658978b7))
+* reconcile evidence handling and contain test scope ([8ebf15a](https://github.com/zaxbysauce/opencode-swarm/commit/8ebf15a4e84685feda136dce66421c9c6076683a))
+* use directory instead of process.cwd() in delegation-gate fallback evidence path ([3aef904](https://github.com/zaxbysauce/opencode-swarm/commit/3aef904459c470bbfe30c6e873ef03a50b3474cf))
+
 ## [6.25.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.0...v6.25.1) (2026-03-13)
 
 
