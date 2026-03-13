@@ -1,5 +1,19 @@
 # Changelog
 
+## [6.25.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.0...v6.25.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* restore architect delegation and add gate status tool ([2223d95](https://github.com/zaxbysauce/opencode-swarm/commit/2223d954b635c769e3e1ecf3ba35f78b16f04a8e))
+* restore architect delegation and add gate status tool ([ef8bcb2](https://github.com/zaxbysauce/opencode-swarm/commit/ef8bcb2e1d1ade91b704f1ba26779ac557de714f))
+* restore architect delegation and add gate status tool ([8a655ea](https://github.com/zaxbysauce/opencode-swarm/commit/8a655ea7328da6acfd617b5b690000e182666604))
+
+
+### Reverts
+
+* undo direct push of architect delegation and gate status hotfix ([326b323](https://github.com/zaxbysauce/opencode-swarm/commit/326b323eab6b60e9c23d5fbf34fb338b72ca0553))
+
 ## [6.25.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.24.0...v6.25.0) (2026-03-13)
 
 
