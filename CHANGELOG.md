@@ -1,5 +1,15 @@
 # Changelog
 
+## [6.25.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.3...v6.25.4) (2026-03-13)
+
+
+### Bug Fixes
+
+* align tests with wired detectors and hardened interactive safety gates ([5c9701e](https://github.com/zaxbysauce/opencode-swarm/commit/5c9701e8793bd0d807be27d2623c155851dd67ab))
+* harden interactive test runner safety gates ([0a1e66e](https://github.com/zaxbysauce/opencode-swarm/commit/0a1e66e232a6895cc8dc3d49fa811c9588d5c731))
+* harden interactive test runner safety gates ([3b489f4](https://github.com/zaxbysauce/opencode-swarm/commit/3b489f46e248bcc4dccd78cf6d62395a63a34718))
+* update test expectations to match wired detectors and hardened safety guards ([6f50f6e](https://github.com/zaxbysauce/opencode-swarm/commit/6f50f6e3246c2a5555ee65e74ec757f1da0b600b))
+
 ## [6.25.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.2...v6.25.3) (2026-03-13)
 
 
