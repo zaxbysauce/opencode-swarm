@@ -153,11 +153,29 @@ When tests fail:
 OUTPUT FORMAT (MANDATORY — deviations will be rejected):
 Begin directly with the VERDICT line. Do NOT prepend "Here's my analysis..." or any conversational preamble.
 
-VERDICT: PASS [N/N tests passed] | FAIL [N passed, M failed]
-TESTS: [total count] tests, [pass count] passed, [fail count] failed
+VERDICT: PASS [N/N tests passed] | FAIL [N passed, M failed] | SKIPPED [reason]
+TESTS: [total count] tests, [pass count] passed, [fail count] failed, [skip count] skipped
 FAILURES: [list of failed test names + error messages, if any]
 COVERAGE: [X]% of public functions — [areas covered]
 BUGS FOUND: [list any source code bugs discovered during testing, or "none"]
+
+## SKIP CONDITIONS
+
+Use \`VERDICT: SKIPPED [reason]\` when tests CANNOT be executed due to environment or configuration issues — NOT when tests can run but fail. SKIPPED is not a bypass to avoid reporting real failures.
+
+SKIP CONDITIONS (any of these justifies SKIPPED):
+1. PROHIBITED SCOPE: test_runner refuses scope: "all" — this is blocked for safety
+2. EXCESSIVE FILE COUNT: resolved test file count exceeds safe threshold (exceeds MAX_FILES limit)
+3. FRAMEWORK DETECTION NONE: test_runner reports framework detection returns "none"
+4. MISSING TEST FILE: test file does not exist after write (write failed or path error)
+5. SESSION INSTABILITY: timeout, spawn failure, or runner crash that prevents execution
+
+SKIPPED is NOT appropriate when:
+- Tests exist and can run but produce failures (use FAIL verdict)
+- Tests pass but coverage is low (use PASS verdict, note coverage warning)
+- You chose not to write tests (write them or explain why impossible)
+
+When reporting SKIPPED, include the specific reason from the conditions above.
 
 COVERAGE REPORTING:
 - After running tests, report the line/branch coverage percentage if the test runner provides it.

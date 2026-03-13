@@ -113,10 +113,11 @@ describe('test-runner detector functions - adversarial tests', () => {
 				return cmd === 'rspec' || cmd === 'bundle';
 			});
 
-			// existsSync doesn't distinguish files vs dirs, so it would return true
-			// This test verifies no crash occurs
+			// existsSync doesn't distinguish files vs dirs, so it returns true for the spec FILE too.
+			// Gemfile + existsSync('spec') === true satisfies detectRSpec, so the detector fires.
+			// The key assertion is: no crash occurs and a deterministic value is returned.
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none'); // Detector not wired, so 'none'
+			expect(result).toBe('rspec'); // Detector is wired; existsSync(spec file) counts as spec dir present
 		});
 
 		it('with .rspec file and spec as a FILE', async () => {
@@ -129,8 +130,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 				return cmd === 'rspec' || cmd === 'bundle';
 			});
 
+			// .rspec file present + bundle available → detectRSpec returns true
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none'); // No crash
+			expect(result).toBe('rspec'); // No crash; .rspec marker detected correctly
 		});
 	});
 
@@ -196,15 +198,10 @@ describe('test-runner detector functions - adversarial tests', () => {
 			// Mock: ctest available
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ctest' ? true : false);
 
-			// detectCTest accepts either source (CMakeLists.txt) OR build cache
-			// So this SHOULD return true (detector not wired yet, but would)
+			// detectCTest accepts either source (CMakeLists.txt) OR build cache (CMakeCache.txt).
+			// CMakeCache.txt exists + ctest binary available → detector fires.
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none'); // Detector not wired
-
-			// The detector logic (if wired) would be:
-			// hasSource = false (no CMakeLists.txt)
-			// hasBuildCache = true (CMakeCache.txt exists)
-			// return true && isCommandAvailable('ctest')
+			expect(result).toBe('ctest');
 		});
 
 		it('with CMakeCache.txt in build/ subdirectory', async () => {
@@ -216,8 +213,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 			// Mock: ctest available
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ctest' ? true : false);
 
+			// build/CMakeCache.txt satisfies the hasBuildCache check in detectCTest.
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none');
+			expect(result).toBe('ctest');
 		});
 	});
 
@@ -243,9 +241,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 				return cmd === 'flutter' ? true : cmd === 'dart' ? false : false;
 			});
 
-			// Detector would return true (dart OR flutter)
+			// detectDartTest checks: dart OR flutter → flutter available → returns true
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none'); // Detector not wired
+			expect(result).toBe('dart-test');
 		});
 
 		it('pubspec.yaml exists, dart available but flutter not', async () => {
@@ -256,8 +254,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 				return cmd === 'dart' ? true : cmd === 'flutter' ? false : false;
 			});
 
+			// detectDartTest checks: dart OR flutter → dart available → returns true
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none');
+			expect(result).toBe('dart-test');
 		});
 	});
 

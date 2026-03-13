@@ -53,173 +53,158 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	}
 
 	describe('Go test detector (detectGoTest)', () => {
-		it('should return none for Go project with go.mod (detector not yet wired)', async () => {
+		it('should detect go-test for Go project with go.mod when go binary is available', async () => {
 			const tempDir = createTempDir('go');
 			createFile(tempDir, 'go.mod', 'module example\n\ngo 1.21');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Go detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('go-test');
 		});
 	});
 
 	describe('Java/Maven detector (detectJavaMaven)', () => {
-		it('should return none for Maven project with pom.xml (detector not yet wired)', async () => {
+		it('should detect maven for Maven project with pom.xml when mvn binary is available', async () => {
 			const tempDir = createTempDir('maven');
 			createFile(tempDir, 'pom.xml', '<project></project>');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Maven detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('maven');
 		});
 	});
 
 	describe('Gradle detector (detectGradle)', () => {
-		it('should return none for Gradle project with build.gradle (detector not yet wired)', async () => {
+		it('should detect gradle for Gradle project with build.gradle when gradle binary is available', async () => {
 			const tempDir = createTempDir('gradle');
 			createFile(tempDir, 'build.gradle', 'plugins { id "java" }');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Gradle detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('gradle');
 		});
 
-		it('should return none for Gradle project with build.gradle.kts (detector not yet wired)', async () => {
+		it('should detect gradle for Gradle project with build.gradle.kts when gradle binary is available', async () => {
 			const tempDir = createTempDir('gradle-kts');
 			createFile(tempDir, 'build.gradle.kts', 'plugins { java }');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Gradle detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('gradle');
 		});
 	});
 
 	describe('.NET detector (detectDotnetTest)', () => {
-		it('should return none for .NET project with .csproj (detector not yet wired)', async () => {
+		it('should detect dotnet-test for .NET project with .csproj when dotnet binary is available', async () => {
 			const tempDir = createTempDir('dotnet');
 			createFile(tempDir, 'MyProject.csproj', '<Project></Project>');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: .NET detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('dotnet-test');
 		});
 	});
 
 	describe('C/C++ CTest detector (detectCTest)', () => {
-		it('should return none for CMake project with CMakeLists.txt (detector not yet wired)', async () => {
+		it('should detect ctest for CMake project with CMakeLists.txt when ctest binary is available', async () => {
 			const tempDir = createTempDir('ctest-source');
 			createFile(tempDir, 'CMakeLists.txt', 'cmake_minimum_required(VERSION 3.0)');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: CTest detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('ctest');
 		});
 
-		it('should return none for CMake build directory with CMakeCache.txt (detector not yet wired)', async () => {
+		it('should detect ctest for CMake build directory with CMakeCache.txt when ctest binary is available', async () => {
 			const tempDir = createTempDir('ctest-build');
 			createFile(tempDir, 'CMakeCache.txt', '# CMake configuration');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: CTest detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('ctest');
 		});
 
-		it('should return none for CMake project with build/CMakeCache.txt (detector not yet wired)', async () => {
+		it('should detect ctest for CMake project with build/CMakeCache.txt when ctest binary is available', async () => {
 			const tempDir = createTempDir('ctest-build-subdir');
 			createFile(tempDir, 'build/CMakeCache.txt', '# CMake configuration');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: CTest detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('ctest');
 		});
 	});
 
 	describe('Swift detector (detectSwiftTest)', () => {
-		it('should return none for Swift project with Package.swift (detector not yet wired)', async () => {
+		it('should detect swift-test for Swift project with Package.swift when swift binary is available', async () => {
 			const tempDir = createTempDir('swift');
 			createFile(tempDir, 'Package.swift', '// swift-tools-version: 5.9');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Swift detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('swift-test');
 		});
 	});
 
 	describe('Dart/Flutter detector (detectDartTest)', () => {
-		it('should return none for Dart project with pubspec.yaml (detector not yet wired)', async () => {
+		it('should detect dart-test for Dart project with pubspec.yaml when dart binary is available', async () => {
 			const tempDir = createTempDir('dart');
 			createFile(tempDir, 'pubspec.yaml', 'name: my_app\ndescription: A Dart app');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Dart detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('dart-test');
 		});
 
-		it('should return none for Flutter project with pubspec.yaml (detector not yet wired)', async () => {
+		it('should detect dart-test for Flutter project with pubspec.yaml when flutter binary is available', async () => {
 			const tempDir = createTempDir('flutter');
 			createFile(tempDir, 'pubspec.yaml', 'name: my_app\ndescription: A Flutter app');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Flutter detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('dart-test');
 		});
 	});
 
 	describe('Ruby/RSpec detector (detectRSpec)', () => {
-		it('should return none for RSpec project with .rspec file (detector not yet wired)', async () => {
+		it('should detect rspec for RSpec project with .rspec file when bundle/rspec binary is available', async () => {
 			const tempDir = createTempDir('rspec');
 			createFile(tempDir, '.rspec', '--require spec_helper\n--color');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: RSpec detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('rspec');
 		});
 
-		it('should return none for RSpec project with Gemfile + spec/ directory (detector not yet wired)', async () => {
+		it('should detect rspec for RSpec project with Gemfile + spec/ directory when bundle/rspec binary is available', async () => {
 			const tempDir = createTempDir('rspec-gemfile');
 			createFile(tempDir, 'Gemfile', "source 'https://rubygems.org'");
 			createFile(tempDir, 'spec/my_spec.rb', '# spec file');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: RSpec detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('rspec');
 		});
 	});
 
 	describe('Ruby/Minitest detector (detectMinitest)', () => {
-		it('should return none for Minitest project with test/ directory + Gemfile (detector not yet wired)', async () => {
+		it('should detect minitest for Minitest project with test/ directory + Gemfile when ruby binary is available', async () => {
 			const tempDir = createTempDir('minitest-gemfile');
 			createFile(tempDir, 'test/my_test.rb', '# test file');
 			createFile(tempDir, 'Gemfile', "source 'https://rubygems.org'");
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Minitest detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('minitest');
 		});
 
-		it('should return none for Minitest project with test/ directory + Rakefile (detector not yet wired)', async () => {
+		it('should detect minitest for Minitest project with test/ directory + Rakefile when ruby binary is available', async () => {
 			const tempDir = createTempDir('minitest-rakefile');
 			createFile(tempDir, 'test/my_test.rb', '# test file');
 			createFile(tempDir, 'Rakefile', 'task :default => [:test]');
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
-			// Document current behavior: Minitest detection not yet wired
-			expect(result).toBe('none');
+			expect(result).toBe('minitest');
 		});
 	});
 
@@ -285,9 +270,10 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 			expect(fs.existsSync(path.join(tempDir, 'build.gradle'))).toBe(true);
 			expect(fs.existsSync(path.join(tempDir, 'gradlew'))).toBe(true);
 
-			// Since detector is not wired, detectTestFramework returns none
+			// detectGradle checks: hasBuildFile && (hasGradlew || isCommandAvailable('gradle'))
+			// gradlew file exists on disk → hasGradlew = true → detector fires without needing binary
 			const result = await detectTestFramework(tempDir);
-			expect(result).toBe('none');
+			expect(result).toBe('gradle');
 		});
 	});
 
