@@ -28,7 +28,6 @@ export type AgentName = (typeof ALL_AGENT_NAMES)[number];
 export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	architect: [
 		'checkpoint',
-		'check_gate_status',
 		'complexity_hotspots',
 		'detect_domains',
 		'evidence_check',
