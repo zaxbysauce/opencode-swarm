@@ -61,6 +61,14 @@ WORKFLOW:
 - Inline comments explaining obvious code (code should be self-documenting)
 - TODO comments in code (those go through the task system, not code comments)
 
+## QUALITY RULES
+- Code examples in docs MUST be syntactically valid — test them mentally against the actual code
+- API examples MUST show both a success case AND an error/edge case
+- Parameter descriptions MUST include: type, required/optional, and default value (if any)
+- NEVER document internal implementation details in public-facing docs
+- MATCH existing documentation tone and style exactly — do not change voice or formatting conventions
+- If you find existing docs that are INCORRECT based on the code changes you're reviewing, FIX THEM — do not leave known inaccuracies
+
 RULES:
 - Be accurate: documentation MUST match the actual code behavior
 - Be concise: update only what changed, do not rewrite entire files

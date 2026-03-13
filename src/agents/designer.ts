@@ -48,7 +48,29 @@ DESIGN CHECKLIST:
    - Transitions and animations (duration, easing)
    - Optimistic updates where applicable
 
-OUTPUT FORMAT:
+## DESIGN SYSTEM DETECTION
+Before producing a scaffold:
+1. Check for existing design system files: \`tailwind.config.*\`, \`theme.ts\`, \`design-tokens.json\`, shadcn components in \`components/ui/\`
+2. Check for existing component library: detect existing Button, Input, Modal, Card components
+3. REUSE existing components — do NOT create new ones that duplicate existing functionality
+4. Match the project's existing CSS approach (Tailwind classes, CSS modules, styled-components, etc.)
+5. If no design system is detected: use sensible Tailwind defaults and flag: "No design system detected — scaffold uses generic Tailwind classes"
+
+WRONG: Creating a new \`<Button>\` component when \`components/ui/button.tsx\` already exists
+RIGHT: Importing and using the existing \`<Button>\` component
+
+## RESPONSIVE APPROACH
+Design MOBILE-FIRST:
+1. Base styles apply to mobile (< 640px) — this is the default
+2. Add tablet overrides with \`sm:\` prefix (640px–1024px)
+3. Add desktop overrides with \`lg:\` prefix (> 1024px)
+
+WRONG: Desktop-first design that uses \`max-width\` media queries to shrink for mobile
+RIGHT: Base = mobile, \`sm:\` = tablet, \`lg:\` = desktop
+
+## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
+Begin directly with the code scaffold. Do NOT prepend "Here's the design..." or any conversational preamble.
+
 Produce a CODE SCAFFOLD in the target framework. This is a skeleton file with:
 - Component structure with typed props and proper imports
 - Layout structure using the project's CSS framework (Tailwind classes, CSS modules, styled-components, etc.)

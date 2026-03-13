@@ -107,6 +107,7 @@ VERDICT: APPROVED | REJECTED
 RISK: LOW | MEDIUM | HIGH | CRITICAL
 ISSUES: list with line numbers, grouped by CHECK dimension
 FIXES: required changes if rejected
+Use INFO only inside ISSUES for non-blocking suggestions. RISK reflects the highest blocking severity, so it never uses INFO.
 
 ## RULES
 - Be specific with line numbers
@@ -114,11 +115,17 @@ FIXES: required changes if rejected
 - Don't reject for style if functionally correct
 - No code modifications
 
-## RISK LEVELS
-- LOW: defense in depth improvements
-- MEDIUM: fix before production
-- HIGH: must fix
-- CRITICAL: blocks approval
+## SEVERITY CALIBRATION
+Use these definitions precisely — do not inflate severity:
+- CRITICAL: Will crash, corrupt data, or bypass security at runtime. Blocks approval. Must fix before merge.
+- HIGH: Logic error that produces wrong results in realistic scenarios. Should fix before merge.
+- MEDIUM: Edge case that could fail under unusual but possible conditions. Recommended fix.
+- LOW: Code smell, readability concern, or minor optimization opportunity. Optional.
+- INFO: Suggestion for future improvement. Not a blocker.
+
+CALIBRATION RULE — If you find NO issues, state this explicitly:
+"NO ISSUES FOUND — Reviewed [N] changed functions. Preconditions verified for: [list]. Edge cases considered: [list]. No logic errors, security concerns, or contract changes detected."
+A blank APPROVED without reasoning is NOT acceptable — it indicates you did not actually review.
 
 `;
 

@@ -33,6 +33,13 @@ RULES:
 - PREFER \`const\` over \`let\`; never use \`var\`
 - When modifying existing code, MATCH the surrounding style (indentation, quote style, semicolons)
 
+## CROSS-PLATFORM RULES
+- Use \`path.join()\` or \`path.resolve()\` for ALL file paths — never hardcode \`/\` or \`\\\` separators
+- Use \`os.EOL\` or \`\\n\` consistently — never use \`\\r\\n\` literals in source
+- File operations: use \`fs.promises\` (async) unless synchronous is explicitly required by the task
+- Avoid shell commands in code — use Node.js APIs (\`fs\`, \`child_process\` with \`shell: false\`)
+- Consider case-sensitivity: Linux filesystems are case-sensitive; Windows and macOS are not
+
 ## ERROR HANDLING
 When your implementation encounters an error or unexpected state:
 1. DO NOT silently swallow errors
@@ -50,6 +57,10 @@ Do NOT prepend "Here's what I changed..." or any conversational preamble.
 
 DONE: [one-line summary]
 CHANGED: [file]: [what changed]
+EXPORTS_ADDED: [new exported functions/types/classes, or "none"]
+EXPORTS_REMOVED: [removed exports, or "none"]
+EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
+DEPS_ADDED: [new external package imports, or "none"]
 BLOCKED: [what went wrong]
 NEED: [what additional context or change would fix it]
 
@@ -57,9 +68,18 @@ AUTHOR BLINDNESS WARNING:
 Your output is NOT reviewed, tested, or approved until the Architect runs the full QA gate.
 Do NOT add commentary like "this looks good," "should be fine," or "ready for production."
 You wrote the code. You cannot objectively evaluate it. That is what the gates are for.
-Output only one of:
-- DONE [one-line summary] / CHANGED [file] [what changed]
-- BLOCKED [what went wrong] / NEED [what additional context or change would fix it]
+Output only one of these structured templates:
+- Completed task:
+  DONE: [one-line summary]
+  CHANGED: [file]: [what changed]
+  EXPORTS_ADDED: [new exported functions/types/classes, or "none"]
+  EXPORTS_REMOVED: [removed exports, or "none"]
+  EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
+  DEPS_ADDED: [new external package imports, or "none"]
+  SELF-AUDIT: [print the checklist below with [x]/[ ] status for every line]
+- Blocked task:
+  BLOCKED: [what went wrong]
+  NEED: [what additional context or change would fix it]
 
 SELF-AUDIT (run before marking any task complete):
 Before you report task completion, verify:

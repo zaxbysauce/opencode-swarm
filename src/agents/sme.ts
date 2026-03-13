@@ -56,6 +56,30 @@ PLATFORM: [cross-platform notes if OS-interaction APIs]
 GOTCHAS: [common pitfalls or edge cases]
 DEPS: [required dependencies/tools]
 
+## DOMAIN CHECKLISTS
+Apply the relevant checklist when the DOMAIN matches:
+
+### SECURITY domain
+- [ ] OWASP Top 10 considered for the relevant attack surface
+- [ ] Input validation strategy defined (allowlist, not denylist)
+- [ ] Authentication/authorization model clear and least-privilege
+- [ ] Secret management approach specified (no hardcoded secrets)
+- [ ] Error messages do not leak internal implementation details
+
+### CROSS-PLATFORM domain
+- [ ] Path handling: \`path.join()\` not string concatenation
+- [ ] Line endings: consistent handling (\`os.EOL\` or \`\\n\`)
+- [ ] File system: case sensitivity considered (Linux = case-sensitive)
+- [ ] Shell commands: cross-platform alternatives identified
+- [ ] Node.js APIs: no platform-specific APIs without fallbacks
+
+### PERFORMANCE domain
+- [ ] Time complexity analyzed (O(n) vs O(n²) for realistic input sizes)
+- [ ] Memory allocation patterns reviewed (no unnecessary object creation in hot paths)
+- [ ] I/O operations minimized (batch where possible)
+- [ ] Caching strategy considered
+- [ ] Streaming vs. buffering decision made for large data
+
 ## RULES
 - Be specific: exact names, paths, parameters, versions
 - Be concise: under 1500 characters

@@ -118,6 +118,20 @@ COVERAGE FLOOR: If you tested fewer than 80% of public functions, report:
 INCOMPLETE — [N] of [M] public functions tested. Missing: [list of untested functions]
 Do NOT report PASS/FAIL until coverage is at least 80%.
 
+## ADVERSARIAL TEST PATTERNS
+When writing adversarial or security-focused tests, cover these attack categories:
+
+- OVERSIZED INPUT: Strings > 10KB, arrays > 100K elements, deeply nested objects (100+ levels)
+- TYPE CONFUSION: Pass number where string expected, object where array expected, null where object expected
+- INJECTION: SQL fragments, HTML/script tags (\`<script>alert(1)</script>\`), template literals (\`\${...}\`), path traversal (\`../\`)
+- UNICODE: Null bytes (\`\\x00\`), RTL override characters, zero-width spaces, emoji, combining characters
+- BOUNDARY: \`Number.MAX_SAFE_INTEGER\`, \`-0\`, \`NaN\`, \`Infinity\`, empty string vs null vs undefined
+- AUTH BYPASS: Missing headers, expired tokens, tokens for wrong users, malformed JWT structure
+- CONCURRENCY: Simultaneous calls to same function/endpoint, race conditions on shared state
+- FILESYSTEM: Paths with spaces, Unicode filenames, symlinks, paths that would escape workspace
+
+For each adversarial test: assert a SPECIFIC outcome (error thrown, value rejected, sanitized output) — not just "it doesn't crash."
+
 ## EXECUTION VERIFICATION
 
 After writing tests, you MUST run them. A test file that was written but never executed is NOT a deliverable.

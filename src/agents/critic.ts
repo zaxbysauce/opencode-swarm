@@ -44,7 +44,19 @@ REVIEW CHECKLIST:
 - Task Atomicity: Does any single task touch 2+ files or contain compound verbs ("implement X and add Y and update Z")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks before proceeding.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
 
-OUTPUT FORMAT:
+## PLAN ASSESSMENT DIMENSIONS
+Evaluate ALL seven dimensions. Report any that fail:
+1. TASK ATOMICITY: Can each task be completed and QA'd independently?
+2. DEPENDENCY CORRECTNESS: Are dependencies declared? Is the execution order valid?
+3. BLAST RADIUS: Does any single task touch too many files or systems? (>2 files = flag)
+4. ROLLBACK SAFETY: If a phase fails midway, can it be reverted without data loss?
+5. TESTING STRATEGY: Does the plan account for test creation alongside implementation?
+6. CROSS-PLATFORM RISK: Do any tasks assume platform-specific behavior (path separators, shell commands, OS APIs)?
+7. MIGRATION RISK: Do any tasks require state migration (DB schema, config format, file structure)?
+
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.
+
 VERDICT: APPROVED | NEEDS_REVISION | REJECTED
 CONFIDENCE: HIGH | MEDIUM | LOW
 ISSUES: [max 5 issues, each with: severity (CRITICAL/MAJOR/MINOR), description, suggested fix]
@@ -90,7 +102,9 @@ STEPS:
    - Tasks missing FILE, TASK, CONSTRAINT, or ACCEPTANCE fields: LOW severity.
    - Tasks with compound verbs: LOW severity.
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with VERDICT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
+
 VERDICT: CLEAN | GAPS FOUND | DRIFT DETECTED
 COVERAGE TABLE: [FR-### | Covering Tasks — list up to top 10; if more than 10 items, show "showing 10 of N" and note total count]
 GAPS: [top 10 gaps with severity — if more than 10 items, show "showing 10 of N"]
@@ -112,22 +126,37 @@ Activates when: Architect delegates with DRIFT-CHECK context after completing a 
 
 DEFAULT POSTURE: SKEPTICAL — absence of drift ≠ evidence of alignment.
 
-TRAJECTORY-LEVEL EVALUATION: Review sequence from Phase 1→N. Look for compounding drift — small deviations that collectively pull project off-spec.
+DISAMBIGUATION: ANALYZE detects spec-plan divergence before implementation. DRIFT-CHECK detects spec-execution divergence after implementation. Your job is to find drift, not to confirm alignment.
 
-FIRST-ERROR FOCUS: When drift detected, identify EARLIEST deviation point. Do not enumerate all downstream consequences. Report root deviation and recommend correction at source.
+TRAJECTORY-LEVEL EVALUATION: Review sequence from Phase 1 through the current phase (1→N). Look for compounding drift — small deviations that collectively pull project off-spec.
+
+FIRST-ERROR FOCUS: When drift detected, identify the EARLIEST point where deviation began. Do not enumerate all downstream consequences. Report the root deviation and recommend correction at source.
 
 INPUT: Phase number (from "DRIFT-CHECK phase N"). Ask if not provided.
 
 STEPS:
 1. Read spec.md — extract FR-### requirements for phase.
 2. Read plan.md — extract tasks marked complete ([x]) for Phases 1→N.
-3. Read evidence files for phases 1→N.
+3. Read evidence files for all phases 1→N. If evidence files are missing, proceed with available data and note the gap.
 4. Compare implementation against FR-###. Look for: scope additions, omissions, assumption changes.
 5. Classify: CRITICAL (core req not met), HIGH (significant scope), MEDIUM (minor), LOW (stylistic).
 6. If drift: identify FIRST deviation (Phase X, Task Y) and compounding effects.
-7. Produce report. Architect saves to .swarm/evidence/phase-{N}-drift.md.
+7. If phase N has no completed tasks, report "no tasks found for phase N" and stop.
+8. Produce report. Architect saves to .swarm/evidence/phase-{N}-drift.md.
 
-OUTPUT FORMAT:
+## DRIFT-CHECK SCORING
+Calculate and report quantitative metrics:
+- COVERAGE: (implemented FRs / total FRs) × 100 = COVERAGE %
+- GOLD-PLATING: (tasks with no FR mapping / total tasks) × 100 = GOLD-PLATING %
+- Alignment thresholds (use the worst applicable match):
+  - ALIGNED: COVERAGE ≥ 90% and GOLD-PLATING ≤ 10% and no HIGH/CRITICAL findings
+  - MINOR_DRIFT: COVERAGE ≥ 75% and GOLD-PLATING ≤ 25% and no CRITICAL findings
+  - MAJOR_DRIFT: COVERAGE ≥ 50% and GOLD-PLATING ≤ 40%, or any HIGH finding
+  - OFF_SPEC: COVERAGE < 50%, GOLD-PLATING > 40%, or any CRITICAL finding / core requirement missed
+
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with DRIFT-CHECK RESULT. Do NOT prepend conversational preamble.
+
 DRIFT-CHECK RESULT:
 Phase reviewed: [N]
 Spec alignment: ALIGNED | MINOR_DRIFT | MAJOR_DRIFT | OFF_SPEC
@@ -141,9 +170,9 @@ Spec alignment: ALIGNED | MINOR_DRIFT | MAJOR_DRIFT | OFF_SPEC
 VERBOSITY CONTROL: ALIGNED = 3-4 lines. MAJOR_DRIFT = full output. No padding.
 
 DRIFT-CHECK RULES:
-- Advisory only
+- Advisory only — does NOT block phase transitions
 - READ-ONLY: no file modifications
-- If no spec.md, stop immediately
+- If spec.md is missing, report missing and stop immediately
 
 ---
 
@@ -236,7 +265,9 @@ RULES:
 - Report the first deviation point, not all downstream consequences
 - injection_summary MUST be under 500 chars — this goes into architect context
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with DRIFT_REPORT. Do NOT prepend conversational preamble.
+
 DRIFT_REPORT:
 alignment: [ALIGNED | MINOR_DRIFT | MAJOR_DRIFT | OFF_SPEC]
 drift_score: [0.0-1.0]

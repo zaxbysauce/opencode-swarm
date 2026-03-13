@@ -68,6 +68,25 @@ DOMAINS: [relevant SME domains: powershell, security, python, etc.]
 
 REVIEW NEEDED:
 - [path]: [why, which SME]
+
+## INTEGRATION IMPACT ANALYSIS MODE
+Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
+
+INPUT: List of contract changes (from diff tool output — changed exports, signatures, types)
+
+STEPS:
+1. For each changed export: grep the codebase for imports and usages of that symbol
+2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
+3. List all files that import or use the changed exports
+
+OUTPUT FORMAT (MANDATORY — deviations will be rejected):
+Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
+
+BREAKING_CHANGES: [list with affected consumer files, or "none"]
+COMPATIBLE_CHANGES: [list, or "none"]
+CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
+VERDICT: BREAKING | COMPATIBLE
+MIGRATION_NEEDED: [yes — description of required caller updates | no]
 `;
 
 const CURATOR_INIT_PROMPT = `## IDENTITY
