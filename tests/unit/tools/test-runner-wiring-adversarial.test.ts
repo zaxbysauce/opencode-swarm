@@ -17,19 +17,19 @@ import * as path from 'node:path';
 
 // Use vi.spyOn instead of vi.mock for fs.existsSync so the spy can be properly
 // restored in afterEach and does not contaminate other test files in the same process.
-let existsSyncSpy: ReturnType<typeof vi.spyOn<typeof fs, 'existsSync'>>;
+let fsExistsSyncSpy: ReturnType<typeof vi.spyOn<typeof fs, 'existsSync'>>;
 
 describe('detectTestFramework - Adversarial Security Tests', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockIsCommandAvailable.mockReturnValue(false);
 		// Spy on existsSync per-test so it's automatically restored in afterEach
-		existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+		fsExistsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
 	});
 
 	afterEach(() => {
 		// Restore the real existsSync so other test files are not affected
-		existsSyncSpy.mockRestore();
+		fsExistsSyncSpy.mockRestore();
 	});
 
 	describe('1. Path traversal in cwd argument', () => {
@@ -163,7 +163,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 		it('should return go-test when both go.mod and pom.xml exist', async () => {
 			// Mock go test detection
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'go' || cmd === 'mvn');
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				// Return true for both go.mod and pom.xml
 				return pathStr.endsWith('go.mod') || pathStr.endsWith('pom.xml');
@@ -176,7 +176,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return maven when only pom.xml exists (no go.mod)', async () => {
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'mvn');
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('pom.xml');
 			});
@@ -187,7 +187,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return gradle when build.gradle exists', async () => {
 			mockIsCommandAvailable.mockReturnValue(true);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('build.gradle');
 			});
@@ -198,7 +198,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should respect priority: go > maven > gradle', async () => {
 			mockIsCommandAvailable.mockReturnValue(true);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				// All three exist
 				return (
@@ -214,7 +214,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should respect priority: maven > gradle > dotnet-test', async () => {
 			mockIsCommandAvailable.mockReturnValue(true);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return (
 					pathStr.endsWith('pom.xml') ||
@@ -231,7 +231,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 	describe('5. Binary check bypass', () => {
 		it('should return none when go.mod exists but go binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false); // No binaries available
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('go.mod');
 			});
@@ -242,7 +242,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when pom.xml exists but mvn binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('pom.xml');
 			});
@@ -253,7 +253,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when build.gradle exists but gradle/gradlew not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('build.gradle');
 			});
@@ -264,7 +264,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when .csproj exists but dotnet binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('.csproj') || pathStr === '/fake/cwd';
 			});
@@ -275,7 +275,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when CMakeLists.txt exists but ctest binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('CMakeLists.txt');
 			});
@@ -286,7 +286,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when Package.swift exists but swift binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('Package.swift');
 			});
@@ -297,7 +297,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when pubspec.yaml exists but dart/flutter binaries are not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('pubspec.yaml');
 			});
@@ -308,7 +308,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when .rspec exists but rspec/bundle binaries are not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr.endsWith('.rspec');
 			});
@@ -319,7 +319,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should return none when test dir exists but ruby binary is not available', async () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				return pathStr === 'test' || pathStr.endsWith('Gemfile');
 			});
@@ -365,7 +365,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 			mockIsCommandAvailable.mockImplementation(() => {
 				throw new Error('Simulated error');
 			});
-			existsSyncSpy.mockImplementation(() => {
+			fsExistsSyncSpy.mockImplementation(() => {
 				throw new Error('Simulated error');
 			});
 
@@ -377,7 +377,7 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 		it('should not crash when mock behavior is inconsistent', async () => {
 			let callCount = 0;
 			mockIsCommandAvailable.mockImplementation(() => callCount++ % 2 === 0);
-			existsSyncSpy.mockImplementation((p) => {
+			fsExistsSyncSpy.mockImplementation((p) => {
 				const idx = callCount++;
 				const pathStr = String(p);
 				// Only return true for paths that don't match any framework marker
