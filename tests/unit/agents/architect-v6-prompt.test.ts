@@ -2655,8 +2655,11 @@ describe('MODE: PHASE-WRAP — drift-check delegation (v6.15 Task 7.5)', () => {
 		expect(phaseWrapSection).toContain('.swarm/evidence/');
 	});
 
-	it('Step 5.5 surfaces SIGNIFICANT DRIFT as warning to user', () => {
-		expect(phaseWrapSection).toContain('SIGNIFICANT DRIFT');
+	it('Step 5.5 surfaces non-ALIGNED drift results as warning to user', () => {
+		expect(phaseWrapSection).toContain('anything other than ALIGNED');
+		expect(phaseWrapSection).toContain('MINOR_DRIFT');
+		expect(phaseWrapSection).toContain('MAJOR_DRIFT');
+		expect(phaseWrapSection).toContain('OFF_SPEC');
 	});
 
 	it('Step 5.5 is conditional on spec.md existence (skip if absent)', () => {

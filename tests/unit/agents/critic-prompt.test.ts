@@ -232,6 +232,11 @@ describe('MODE: ANALYZE — adversarial security', () => {
 describe('MODE: DRIFT-CHECK — verification', () => {
 	const agent = createCriticAgent('test-model');
 	const prompt = agent.config.prompt!;
+	const driftCheckSection = prompt.split('### MODE: DRIFT-CHECK')[1] ?? '';
+	const driftCheckOutputSection = driftCheckSection.slice(
+		driftCheckSection.indexOf('OUTPUT FORMAT (MANDATORY'),
+		driftCheckSection.indexOf('VERBOSITY CONTROL:'),
+	);
 
 	it('1. Contains literal string "MODE: DRIFT-CHECK"', () => {
 		expect(prompt).toContain('MODE: DRIFT-CHECK');
@@ -246,92 +251,69 @@ describe('MODE: DRIFT-CHECK — verification', () => {
 		expect(prompt).toContain('.swarm/evidence/');
 	});
 
-	it('4. Contains DRIFT-CHECK specific verdict vocabulary: "CLEAN", "MINOR DRIFT", "SIGNIFICANT DRIFT"', () => {
-		expect(prompt).toContain('CLEAN');
-		expect(prompt).toContain('MINOR DRIFT');
-		expect(prompt).toContain('SIGNIFICANT DRIFT');
+	it('4. Contains DRIFT-CHECK specific verdict vocabulary: "ALIGNED", "MINOR_DRIFT", "MAJOR_DRIFT", "OFF_SPEC"', () => {
+		expect(prompt).toContain('ALIGNED');
+		expect(prompt).toContain('MINOR_DRIFT');
+		expect(prompt).toContain('MAJOR_DRIFT');
+		expect(prompt).toContain('OFF_SPEC');
 	});
 
 	it('5. Has disambiguation Note distinguishing DRIFT-CHECK from ANALYZE', () => {
-		// Look for text explaining the difference between spec-execution divergence and spec-plan divergence
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should contain the disambiguation note
 		expect(driftCheckSection).toContain('spec-execution divergence');
-		expect(driftCheckSection).toContain('ANALYZE detects');
+		expect(driftCheckSection).toContain('ANALYZE detects spec-plan divergence');
 	});
 
-	it('6. Has severity-to-verdict mapping (CRITICAL/HIGH to SIGNIFICANT, MEDIUM/LOW to MINOR)', () => {
-		// Look for the mapping logic
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
+	it('6. Has alignment-threshold mapping for drift metrics and severity', () => {
 		// Should contain the mapping
-		expect(driftCheckSection).toContain('SIGNIFICANT DRIFT verdict = at least one CRITICAL or HIGH');
-		expect(driftCheckSection).toContain('MINOR DRIFT verdict = only MEDIUM or LOW');
+		expect(driftCheckSection).toContain('ALIGNED: COVERAGE ≥ 90%');
+		expect(driftCheckSection).toContain('MINOR_DRIFT: COVERAGE ≥ 75%');
+		expect(driftCheckSection).toContain('MAJOR_DRIFT: COVERAGE ≥ 50%');
+		expect(driftCheckSection).toContain('OFF_SPEC: COVERAGE < 50%');
 	});
 
 	it('7. Has severity classification in Step 5: CRITICAL, HIGH, MEDIUM, LOW', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckEnd = prompt.indexOf('OUTPUT FORMAT:', driftCheckStart);
-		const driftCheckSection = prompt.substring(driftCheckStart, driftCheckEnd);
-		
 		// Check that Step 5 contains all severity levels
-		const step5 = driftCheckSection.indexOf('5. Classify each finding by severity:');
+		const step5 = driftCheckSection.indexOf('5. Classify:');
 		const step5Section = driftCheckSection.substring(step5, driftCheckSection.indexOf('6.', step5));
 		
-		expect(step5Section).toContain('CRITICAL:');
-		expect(step5Section).toContain('HIGH:');
-		expect(step5Section).toContain('MEDIUM:');
-		expect(step5Section).toContain('LOW:');
+		expect(step5Section).toContain('CRITICAL');
+		expect(step5Section).toContain('HIGH');
+		expect(step5Section).toContain('MEDIUM');
+		expect(step5Section).toContain('LOW');
 	});
 
-	it('8. Has 6-step structure (steps 1 through 6)', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckEnd = prompt.indexOf('OUTPUT FORMAT:', driftCheckStart);
-		const driftCheckSection = prompt.substring(driftCheckStart, driftCheckEnd);
-		
-		// Verify all 6 steps are present
+	it('8. Has 8-step structure (steps 1 through 8)', () => {
+		// Verify all 8 steps are present
 		expect(driftCheckSection).toMatch(/1\./);
 		expect(driftCheckSection).toMatch(/2\./);
 		expect(driftCheckSection).toMatch(/3\./);
 		expect(driftCheckSection).toMatch(/4\./);
 		expect(driftCheckSection).toMatch(/5\./);
 		expect(driftCheckSection).toMatch(/6\./);
+		expect(driftCheckSection).toMatch(/7\./);
+		expect(driftCheckSection).toMatch(/8\./);
 	});
 
 	it('9. Has "advisory only" rule', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should mention that DRIFT-CHECK is advisory only (capital A in prompt)
-		expect(driftCheckSection).toContain('Advisory');
-		expect(driftCheckSection).toContain('does NOT block');
+		expect(driftCheckSection).toContain('Advisory only');
+		expect(driftCheckSection).toContain('does NOT block phase transitions');
 	});
 
 	it('10. Edge case: missing spec.md handled (looks for "missing" + "stop")', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should mention stopping if spec.md is missing
 		expect(driftCheckSection).toContain('missing');
 		expect(driftCheckSection).toContain('stop');
 	});
 
 	it('11. Edge case: missing phase number handled (looks for "ask" + "phase")', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should mention asking the user if phase number is not provided
 		expect(driftCheckSection).toContain('ask');
 		expect(driftCheckSection).toContain('phase');
 	});
 
 	it('12. Has output instruction: report produced in response, architect saves it', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should mention that the Architect saves the report
 		expect(driftCheckSection).toContain('Architect');
 		expect(driftCheckSection).toContain('save');
@@ -341,65 +323,50 @@ describe('MODE: DRIFT-CHECK — verification', () => {
 describe('MODE: DRIFT-CHECK — adversarial', () => {
 	const agent = createCriticAgent('test-model');
 	const prompt = agent.config.prompt!;
+	const driftCheckSection = prompt.split('### MODE: DRIFT-CHECK')[1] ?? '';
+	const driftCheckOutputSection = driftCheckSection.slice(
+		driftCheckSection.indexOf('OUTPUT FORMAT (MANDATORY'),
+		driftCheckSection.indexOf('VERBOSITY CONTROL:'),
+	);
 
 	it('1. Does NOT instruct critic to write files directly', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		// DRIFT-CHECK is at the end of the prompt, so use prompt.length
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should NOT contain the exact phrase "Write the report file to"
 		expect(driftCheckSection).not.toContain('Write the report file to');
 	});
 
 	it('2. Does NOT use APPROVED/NEEDS_REVISION/REJECTED as DRIFT-CHECK verdicts', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckOutputStart = prompt.indexOf('OUTPUT FORMAT:', driftCheckStart);
-		const driftCheckOutputEnd = prompt.indexOf('DRIFT-CHECK RULES:', driftCheckOutputStart);
-		const driftCheckOutputSection = prompt.substring(driftCheckOutputStart, driftCheckOutputEnd);
-		
 		// Should NOT contain plan-review verdicts in DRIFT-CHECK OUTPUT FORMAT
 		expect(driftCheckOutputSection).not.toContain('APPROVED');
 		expect(driftCheckOutputSection).not.toContain('NEEDS_REVISION');
 		expect(driftCheckOutputSection).not.toContain('REJECTED');
 		
 		// Should contain DRIFT-CHECK verdicts
-		expect(driftCheckOutputSection).toContain('CLEAN');
-		expect(driftCheckOutputSection).toContain('MINOR DRIFT');
-		expect(driftCheckOutputSection).toContain('SIGNIFICANT DRIFT');
+		expect(driftCheckOutputSection).toContain('ALIGNED');
+		expect(driftCheckOutputSection).toContain('MINOR_DRIFT');
+		expect(driftCheckOutputSection).toContain('MAJOR_DRIFT');
+		expect(driftCheckOutputSection).toContain('OFF_SPEC');
 	});
 
 	it('3. Does NOT use CRITICAL/MAJOR/MINOR (plan-review severity) as DRIFT-CHECK severity scheme', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftCheckEnd = prompt.indexOf('OUTPUT FORMAT:', driftCheckStart);
-		const driftCheckSection = prompt.substring(driftCheckStart, driftCheckEnd);
-		
 		// Find Step 5 specifically
-		const step5 = driftCheckSection.indexOf('5. Classify each finding by severity:');
+		const step5 = driftCheckSection.indexOf('5. Classify:');
 		const step6 = driftCheckSection.indexOf('6.', step5);
 		const step5Section = driftCheckSection.substring(step5, step6);
 		
 		// DRIFT-CHECK Step 5 should use HIGH, not MAJOR
-		expect(step5Section).toContain('HIGH:');
+		expect(step5Section).toContain('HIGH');
 		expect(step5Section).not.toContain('MAJOR:');
 	});
 
 	it('4. Does NOT proceed when spec.md is missing — must report and stop', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		// DRIFT-CHECK is at the end of the prompt, so use prompt.length
-		const driftCheckSection = prompt.substring(driftCheckStart);
-		
 		// Should mention reporting missing spec.md and stopping
 		expect(driftCheckSection).toContain('spec.md is missing');
 		expect(driftCheckSection).toContain('stop');
 	});
 
 	it('5. Does NOT proceed when no phase number given — must ask', () => {
-		const driftCheckStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		// DRIFT-CHECK is at the end of the prompt, so use prompt.length
-		const driftCheckSection = prompt.substring(driftCheckStart);
-
 		// Should mention asking the user if no phase number is provided
-		expect(driftCheckSection).toContain('ask the user');
+		expect(driftCheckSection).toContain('Ask if not provided');
 	});
 });
 

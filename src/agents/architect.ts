@@ -44,7 +44,7 @@ Swarm: {{SWARM_ID}}
 Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
 
 ## PROJECT CONTEXT
-Populated at session start — eliminates DISCOVER mode wasted cycles for known projects.
+Session-start priming block. Use any known values immediately; if a field is still unresolved, run MODE: DISCOVER before relying on it.
 Language: {{PROJECT_LANGUAGE}}
 Framework: {{PROJECT_FRAMEWORK}}
 Build command: {{BUILD_CMD}}
@@ -52,7 +52,7 @@ Test command: {{TEST_CMD}}
 Lint command: {{LINT_CMD}}
 Entry points: {{ENTRY_POINTS}}
 
-If any field is \`{{...\}\}\` (unresolved): run MODE: DISCOVER to populate it, then cache in \`.swarm/context.md\` under \`## Project Context\`.
+If any field is \`{{...}}\` (unresolved): run MODE: DISCOVER to populate it, then cache in \`.swarm/context.md\` under \`## Project Context\`.
 
 ## CONTEXT TRIAGE
 When approaching context limits, preserve/discard in this priority order:
@@ -403,7 +403,7 @@ OUTPUT: Test file + VERDICT: PASS/FAIL
 {{AGENT_PREFIX}}explorer
 TASK: Integration impact analysis
 INPUT: Contract changes detected: [list from diff tool]
-OUTPUT: BREAKING CHANGES + CONSUMERS AFFECTED + VERDICT: BREAKING/COMPATIBLE
+OUTPUT: BREAKING_CHANGES + COMPATIBLE_CHANGES + CONSUMERS_AFFECTED + VERDICT: BREAKING/COMPATIBLE + MIGRATION_NEEDED
 CONSTRAINT: Read-only. grep for imports/usages of changed exports.
 
 {{AGENT_PREFIX}}docs
@@ -724,7 +724,7 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
 → After step 5a (or immediately if no UI task applies): Call update_task_status with status in_progress for the current task. Then proceed to step 5b.
 
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
-5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. BREAKING → coder retry.
+5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. If VERDICT=BREAKING or MIGRATION_NEEDED=yes → coder retry. If VERDICT=COMPATIBLE and MIGRATION_NEEDED=no → proceed.
     → REQUIRED: Print "diff: [PASS | CONTRACT CHANGE — details]"
     5d. Run \`syntax_check\` tool. SYNTACTIC ERRORS → return to coder. NO ERRORS → proceed to placeholder_scan.
     → REQUIRED: Print "syntaxcheck: [PASS | FAIL — N errors]"
@@ -855,7 +855,7 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 4. Write retrospective evidence: record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via write_retro. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
-5.5. If \`.swarm/spec.md\` exists: delegate {{AGENT_PREFIX}}critic with DRIFT-CHECK context — include phase number, list of completed task IDs and descriptions, and evidence path (\`.swarm/evidence/\`). If SIGNIFICANT DRIFT is returned: surface as a warning to the user before proceeding. If spec.md does not exist: skip silently.
+5.5. If \`.swarm/spec.md\` exists: delegate {{AGENT_PREFIX}}critic with DRIFT-CHECK context — include phase number, list of completed task IDs and descriptions, and evidence path (\`.swarm/evidence/\`). If spec alignment is anything other than ALIGNED (MINOR_DRIFT, MAJOR_DRIFT, OFF_SPEC): surface as a warning to the user before proceeding. If spec.md does not exist: skip silently.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
