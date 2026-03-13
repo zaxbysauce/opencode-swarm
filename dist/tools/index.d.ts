@@ -1,4 +1,5 @@
 export { build_check } from './build-check';
+export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
 export { complexity_hotspots } from './complexity-hotspots';
 export { declare_scope } from './declare-scope';
