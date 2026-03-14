@@ -28,6 +28,7 @@ export interface SerializedAgentSession {
 	architectWriteCount: number;
 	lastCoderDelegationTaskId: string | null;
 	currentTaskId: string | null;
+	turboMode: boolean;
 	gateLog: Record<string, string[]>;
 	reviewerCallCount: Record<string, number>;
 	lastGateFailure: { tool: string; taskId: string; timestamp: number } | null;
@@ -145,6 +146,7 @@ export function serializeAgentSession(
 		architectWriteCount: s.architectWriteCount ?? 0,
 		lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
 		currentTaskId: s.currentTaskId ?? null,
+		turboMode: s.turboMode ?? false,
 		gateLog,
 		reviewerCallCount,
 		lastGateFailure: s.lastGateFailure ?? null,

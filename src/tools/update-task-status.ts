@@ -77,6 +77,53 @@ export interface ReviewerGateResult {
 }
 
 /**
+ * Tier 3 patterns that require full gate review even in Turbo Mode.
+ * These are critical security-sensitive files that must always pass Stage B.
+ */
+const TIER_3_PATTERNS = [
+	/^architect.*\.ts$/i,
+	/^delegation.*\.ts$/i,
+	/^guardrails.*\.ts$/i,
+	/^adversarial.*\.ts$/i,
+	/^sanitiz.*\.ts$/i,
+	/^auth.*$/i,
+	/^permission.*$/i,
+	/^crypto.*$/i,
+	/^secret.*$/i,
+	/^security.*\.ts$/i,
+];
+
+/**
+ * Check if any file in the list matches a Tier 3 pattern.
+ * @param files - Array of file paths/names to check
+ * @returns true if any file matches a Tier 3 pattern
+ */
+function matchesTier3Pattern(files: string[]): boolean {
+	for (const file of files) {
+		const fileName = path.basename(file);
+		for (const pattern of TIER_3_PATTERNS) {
+			if (pattern.test(fileName)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Check if ANY active session has Turbo Mode enabled.
+ * @returns true if any session has turboMode: true
+ */
+function hasActiveTurboMode(): boolean {
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.turboMode === true) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Check if a task has passed required QA gates using the state machine.
  * Requires the task to be in 'tests_run' or 'complete' state, which means
  * both reviewer delegation and test_engineer runs have been recorded.
@@ -89,6 +136,43 @@ export function checkReviewerGate(
 	workingDirectory?: string,
 ): ReviewerGateResult {
 	try {
+		// === Turbo Mode bypass check ===
+		// If Turbo Mode is active AND task does not touch Tier 3 patterns, bypass Stage B
+		if (hasActiveTurboMode()) {
+			const resolvedDir = workingDirectory ?? process.cwd();
+			try {
+				const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
+				const planRaw = fs.readFileSync(planPath, 'utf-8');
+				const plan = JSON.parse(planRaw) as {
+					phases: Array<{
+						tasks: Array<{
+							id: string;
+							files_touched?: string[];
+						}>;
+					}>;
+				};
+
+				// Find the task and check its files_touched
+				for (const planPhase of plan.phases ?? []) {
+					for (const task of planPhase.tasks ?? []) {
+						if (task.id === taskId && task.files_touched) {
+							// If no Tier 3 patterns matched, bypass Stage B
+							if (!matchesTier3Pattern(task.files_touched)) {
+								return {
+									blocked: false,
+									reason: 'Turbo Mode bypass',
+								};
+							}
+							// Task touches Tier 3 patterns - fall through to normal gate check
+							break;
+						}
+					}
+				}
+			} catch {
+				// plan.json missing or unreadable — fall through to normal gate check
+			}
+		}
+
 		// === evidence-first check (durable, survives restarts) ===
 		const resolvedDir = workingDirectory ?? process.cwd();
 		try {

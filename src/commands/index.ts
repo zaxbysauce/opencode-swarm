@@ -32,6 +32,7 @@ import { handleSimulateCommand } from './simulate';
 import { handleSpecifyCommand } from './specify';
 import { handleStatusCommand } from './status';
 import { handleSyncPlanCommand } from './sync-plan';
+import { handleTurboCommand } from './turbo';
 import { handleWriteRetroCommand } from './write_retro';
 
 // Re-export individual handlers
@@ -68,6 +69,7 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
+export { handleTurboCommand } from './turbo';
 export { handleWriteRetroCommand } from './write_retro';
 
 const HELP_TEXT = [
@@ -101,6 +103,7 @@ const HELP_TEXT = [
 	'- `/swarm knowledge migrate` — Migrate knowledge entries to the current format',
 	'- `/swarm promote "<lesson>" | --category <cat> | --from-swarm <id> — Manually promote lesson to hive knowledge',
 	'- `/swarm handoff` — Prepare state for clean model switch (new session)',
+	'- `/swarm turbo [on|off]` — Toggle Turbo Mode for the active session (default: toggle)',
 	'- `/swarm write-retro <json>` — Write a retrospective evidence bundle for a completed phase',
 ].join('\n');
 
@@ -229,6 +232,9 @@ export function createSwarmCommandHandler(
 				break;
 			case 'handoff':
 				text = await handleHandoffCommand(directory, args);
+				break;
+			case 'turbo':
+				text = await handleTurboCommand(directory, args, input.sessionID);
 				break;
 			default:
 				text = HELP_TEXT;

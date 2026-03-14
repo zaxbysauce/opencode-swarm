@@ -24,6 +24,7 @@ export interface TaskEvidence {
 	taskId: string;
 	required_gates: string[];
 	gates: Record<string, GateEvidence>;
+	turbo?: boolean;
 }
 
 export const DEFAULT_REQUIRED_GATES = ['reviewer', 'test_engineer'];
@@ -142,6 +143,7 @@ export async function recordGateEvidence(
 	taskId: string,
 	gate: string,
 	sessionId: string,
+	turbo?: boolean,
 ): Promise<void> {
 	assertValidTaskId(taskId);
 	const evidenceDir = getEvidenceDir(directory);
@@ -157,6 +159,7 @@ export async function recordGateEvidence(
 	const updated: TaskEvidence = {
 		taskId,
 		required_gates: requiredGates,
+		turbo: turbo === true ? true : existing?.turbo,
 		gates: {
 			...(existing?.gates ?? {}),
 			[gate]: {
@@ -179,6 +182,7 @@ export async function recordAgentDispatch(
 	directory: string,
 	taskId: string,
 	agentType: string,
+	turbo?: boolean,
 ): Promise<void> {
 	assertValidTaskId(taskId);
 	const evidenceDir = getEvidenceDir(directory);
@@ -194,6 +198,7 @@ export async function recordAgentDispatch(
 	const updated: TaskEvidence = {
 		taskId,
 		required_gates: requiredGates,
+		turbo: turbo === true ? true : existing?.turbo,
 		gates: existing?.gates ?? {},
 	};
 

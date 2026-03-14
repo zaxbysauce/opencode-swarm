@@ -10,6 +10,7 @@ export interface StatusData {
     totalTasks: number;
     agentCount: number;
     isLegacy: boolean;
+    turboMode: boolean;
 }
 /**
  * Get status data from the swarm directory.

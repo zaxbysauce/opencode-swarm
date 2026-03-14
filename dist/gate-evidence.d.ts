@@ -19,6 +19,7 @@ export interface TaskEvidence {
     taskId: string;
     required_gates: string[];
     gates: Record<string, GateEvidence>;
+    turbo?: boolean;
 }
 export declare const DEFAULT_REQUIRED_GATES: string[];
 /**
@@ -50,13 +51,13 @@ export declare function expandRequiredGates(existingGates: string[], newAgentTyp
  * If file exists: merges gate entry, expands required_gates via expandRequiredGates.
  * Atomic write: temp file + rename.
  */
-export declare function recordGateEvidence(directory: string, taskId: string, gate: string, sessionId: string): Promise<void>;
+export declare function recordGateEvidence(directory: string, taskId: string, gate: string, sessionId: string, turbo?: boolean): Promise<void>;
 /**
  * Sets or expands required_gates WITHOUT recording a gate pass.
  * Used when non-gate agents are dispatched (coder, explorer, sme, etc.).
  * Creates evidence file if it doesn't exist yet.
  */
-export declare function recordAgentDispatch(directory: string, taskId: string, agentType: string): Promise<void>;
+export declare function recordAgentDispatch(directory: string, taskId: string, agentType: string, turbo?: boolean): Promise<void>;
 /**
  * Returns the TaskEvidence for a task, or null if file missing or parse error.
  * Never throws.

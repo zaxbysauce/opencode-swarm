@@ -92,6 +92,7 @@ export function deserializeAgentSession(
 		architectWriteCount: s.architectWriteCount ?? 0,
 		lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
 		currentTaskId: s.currentTaskId ?? null,
+		turboMode: s.turboMode ?? false,
 		gateLog,
 		reviewerCallCount,
 		lastGateFailure: s.lastGateFailure ?? null,

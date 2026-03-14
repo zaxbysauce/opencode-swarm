@@ -7,8 +7,18 @@
  * and delegation chains.
  */
 
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+
 import { ORCHESTRATOR_NAME } from './config/constants';
+import {
+	type Plan,
+	PlanSchema,
+	type Task,
+	type TaskStatus,
+} from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
+import type { TaskEvidence } from './gate-evidence';
 
 /**
  * Represents a single tool call entry for tracking purposes
@@ -135,6 +145,10 @@ export interface AgentSessionState {
 	phaseAgentsDispatched: Set<string>;
 	/** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
 	lastCompletedPhaseAgentsDispatched: Set<string>;
+
+	// Turbo Mode (v6.26)
+	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
+	turboMode: boolean;
 }
 
 /**
@@ -208,11 +222,13 @@ export function resetSwarmState(): void {
  * @param sessionId - The session identifier
  * @param agentName - The agent associated with this session
  * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
+ * @param directory - Optional project directory for rehydrating workflow state from disk
  */
 export function startAgentSession(
 	sessionId: string,
 	agentName: string,
 	staleDurationMs = 7200000,
+	directory?: string,
 ): void {
 	const now = Date.now();
 
@@ -264,12 +280,21 @@ export function startAgentSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: false,
 		modifiedFilesThisCoderTask: [],
+		// Turbo Mode (v6.26)
+		turboMode: false,
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
 	// Keep activeAgent map in sync so guardrails can always resolve the agent name
 	// without falling back to ORCHESTRATOR_NAME for legitimately-named sessions.
 	swarmState.activeAgent.set(sessionId, agentName);
+
+	// Rehydrate workflow state from disk if directory provided (non-fatal, fire-and-forget)
+	if (directory) {
+		rehydrateSessionFromDisk(directory, sessionState).catch(() => {
+			// Swallow rehydration errors - fallback to current pre-rehydration path
+		});
+	}
 }
 
 /**
@@ -301,11 +326,13 @@ export function getAgentSession(
  * Always updates lastToolCallTime.
  * @param sessionId - The session identifier
  * @param agentName - Optional agent name (if known)
+ * @param directory - Optional project directory for rehydrating workflow state from disk
  * @returns The AgentSessionState
  */
 export function ensureAgentSession(
 	sessionId: string,
 	agentName?: string,
+	directory?: string,
 ): AgentSessionState {
 	const now = Date.now();
 	let session = swarmState.agentSessions.get(sessionId);
@@ -407,13 +434,17 @@ export function ensureAgentSession(
 		if (session.scopeViolationDetected === undefined) {
 			session.scopeViolationDetected = false;
 		}
+		// Turbo Mode migration safety (v6.26)
+		if (session.turboMode === undefined) {
+			session.turboMode = false;
+		}
 
 		session.lastToolCallTime = now;
 		return session;
 	}
 
 	// Create new session
-	startAgentSession(sessionId, agentName ?? 'unknown');
+	startAgentSession(sessionId, agentName ?? 'unknown', 7200000, directory);
 	session = swarmState.agentSessions.get(sessionId);
 	if (!session) {
 		// This should never happen, but TypeScript needs it
@@ -661,4 +692,220 @@ export function getTaskState(
 	}
 
 	return session.taskWorkflowStates.get(taskId) ?? 'idle';
+}
+
+/**
+ * Maps plan task status to task workflow state.
+ * - 'pending' -> 'idle' (no work started yet)
+ * - 'in_progress' -> 'coder_delegated' (work has started)
+ * - 'completed' -> 'complete' (done)
+ * - 'blocked' -> 'idle' (blocked tasks haven't progressed)
+ */
+function planStatusToWorkflowState(status: TaskStatus): TaskWorkflowState {
+	switch (status) {
+		case 'in_progress':
+			return 'coder_delegated';
+		case 'completed':
+			return 'complete';
+		case 'pending':
+		case 'blocked':
+		default:
+			return 'idle';
+	}
+}
+
+/**
+ * Maps evidence gates to task workflow state.
+ * Evidence provides stronger signal than plan-only status.
+ * - 'coder' dispatched -> 'coder_delegated'
+ * - 'reviewer' passed -> 'reviewer_run'
+ * - 'test_engineer' passed -> 'tests_run'
+ * - All required gates passed -> 'complete'
+ */
+function evidenceToWorkflowState(evidence: TaskEvidence): TaskWorkflowState {
+	const gates = evidence.gates ?? {};
+	const requiredGates = evidence.required_gates ?? [];
+
+	// Check if all required gates have evidence
+	if (requiredGates.length > 0) {
+		const allPassed = requiredGates.every((gate) => gates[gate] != null);
+		if (allPassed) {
+			return 'complete';
+		}
+	}
+
+	// Check the highest gate passed
+	if (gates['test_engineer'] != null) {
+		return 'tests_run';
+	}
+	if (gates['reviewer'] != null) {
+		return 'reviewer_run';
+	}
+	if (Object.keys(gates).length > 0) {
+		return 'coder_delegated';
+	}
+
+	return 'idle';
+}
+
+/**
+ * Reads and parses plan.json from the given directory.
+ * Returns null if file doesn't exist or is malformed (non-fatal).
+ */
+async function readPlanFromDisk(directory: string): Promise<Plan | null> {
+	try {
+		const planPath = path.join(directory, '.swarm', 'plan.json');
+		const content = await fs.readFile(planPath, 'utf-8');
+		const parsed = JSON.parse(content);
+		return PlanSchema.parse(parsed) as Plan;
+	} catch {
+		// Non-fatal: missing or malformed plan.json
+		return null;
+	}
+}
+
+/**
+ * Reads all evidence files from .swarm/evidence/*.json
+ * Returns a Map of taskId -> TaskEvidence (only valid evidence parsed).
+ * Non-fatal: skips malformed files.
+ */
+async function readEvidenceFromDisk(
+	directory: string,
+): Promise<Map<string, TaskEvidence>> {
+	const evidenceMap = new Map<string, TaskEvidence>();
+
+	try {
+		const evidenceDir = path.join(directory, '.swarm', 'evidence');
+		const entries = await fs.readdir(evidenceDir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			if (!entry.isFile() || !entry.name.endsWith('.json')) {
+				continue;
+			}
+
+			const taskId = entry.name.replace(/\.json$/, '');
+			// Validate taskId format to prevent path traversal
+			if (!/^\d+\.\d+(\.\d+)*$/.test(taskId)) {
+				continue;
+			}
+
+			try {
+				const filePath = path.join(evidenceDir, entry.name);
+				const content = await fs.readFile(filePath, 'utf-8');
+				const parsed = JSON.parse(content);
+
+				// Basic validation: must have taskId and required_gates
+				if (
+					parsed &&
+					typeof parsed.taskId === 'string' &&
+					Array.isArray(parsed.required_gates)
+				) {
+					evidenceMap.set(taskId, parsed as TaskEvidence);
+				}
+			} catch {
+				// Skip malformed evidence files (non-fatal)
+			}
+		}
+	} catch {
+		// Evidence directory doesn't exist (non-fatal)
+	}
+
+	return evidenceMap;
+}
+
+/**
+ * Rehydrates session workflow state from durable swarm files.
+ *
+ * Reads `.swarm/plan.json` and `.swarm/evidence/*.json` from the provided
+ * project directory, derives task workflow states from this data, and merges
+ * them into the target AgentSessionState.
+ *
+ * Merge rules:
+ * - Evidence-derived progression wins over plan-only state
+ * - Existing in-memory workflow states for the same task IDs are NOT downgraded
+ * - Missing/malformed `.swarm` data is non-fatal (silently skipped)
+ *
+ * This helper is useful for session restart scenarios where in-memory state
+ * is lost but durable files persist.
+ *
+ * @param directory - Project root containing .swarm/ subdirectory
+ * @param session - Target AgentSessionState to merge rehydrated state into
+ */
+export async function rehydrateSessionFromDisk(
+	directory: string,
+	session: AgentSessionState,
+): Promise<void> {
+	// Ensure taskWorkflowStates exists
+	if (!session.taskWorkflowStates) {
+		session.taskWorkflowStates = new Map();
+	}
+
+	// Read plan.json (non-fatal)
+	const plan = await readPlanFromDisk(directory);
+	if (!plan) {
+		return;
+	}
+
+	// Build task status map from plan
+	const planTaskStates = new Map<string, TaskWorkflowState>();
+	for (const phase of plan.phases ?? []) {
+		for (const task of phase.tasks ?? []) {
+			const taskState = planStatusToWorkflowState(task.status);
+			planTaskStates.set(task.id, taskState);
+		}
+	}
+
+	// Read evidence files (non-fatal)
+	const evidenceMap = await readEvidenceFromDisk(directory);
+
+	// Merge: evidence > plan > existing memory (no downgrade)
+	for (const [taskId, planState] of planTaskStates) {
+		const existingState = session.taskWorkflowStates.get(taskId);
+		const evidence = evidenceMap.get(taskId);
+
+		let derivedState: TaskWorkflowState;
+
+		if (evidence) {
+			// Evidence provides strongest signal
+			derivedState = evidenceToWorkflowState(evidence);
+		} else {
+			// Fall back to plan state
+			derivedState = planState;
+		}
+
+		// Determine final state: use derived state ONLY if it's further ahead
+		// than existing in-memory state, or if no in-memory state exists
+		const STATE_ORDER: TaskWorkflowState[] = [
+			'idle',
+			'coder_delegated',
+			'pre_check_passed',
+			'reviewer_run',
+			'tests_run',
+			'complete',
+		];
+
+		const existingIndex = existingState
+			? STATE_ORDER.indexOf(existingState)
+			: -1;
+		const derivedIndex = STATE_ORDER.indexOf(derivedState);
+
+		// Only upgrade if derived state is further ahead than existing
+		if (derivedIndex > existingIndex) {
+			session.taskWorkflowStates.set(taskId, derivedState);
+		}
+		// If existing state is further ahead, keep it (no downgrade)
+	}
+}
+
+/**
+ * Check if ANY active session has Turbo Mode enabled.
+ * @returns true if any session has turboMode: true
+ */
+export function hasActiveTurboMode(): boolean {
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.turboMode === true) {
+			return true;
+		}
+	}
+	return false;
 }
