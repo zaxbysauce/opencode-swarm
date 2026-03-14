@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.25.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.7...v6.25.8) (2026-03-14)
+
+
+### Bug Fixes
+
+* clean up remaining workflow tech debt ([5b8cabc](https://github.com/zaxbysauce/opencode-swarm/commit/5b8cabc5f605d5764ca3faff27066a028f173f72))
+* clean up remaining workflow tech debt ([e052c3d](https://github.com/zaxbysauce/opencode-swarm/commit/e052c3d51f121202b45350dd7c43ecd6dd35761b))
+* remove platform guard from Windows device path check in declare-scope ([10f1b1f](https://github.com/zaxbysauce/opencode-swarm/commit/10f1b1f71f0efb149cf0ed54948288fb46170cbb))
+* remove platform guard from Windows device path check in declare-scope ([8aef2c6](https://github.com/zaxbysauce/opencode-swarm/commit/8aef2c6e5379f02a121664e6c2a01ebd4f054377))
+* restore evidence ID compatibility ([7c71e9a](https://github.com/zaxbysauce/opencode-swarm/commit/7c71e9acf5f6c0871262c0088bf792af7bccdc45))
+
 ## [6.25.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.6...v6.25.7) (2026-03-14)
 
 
