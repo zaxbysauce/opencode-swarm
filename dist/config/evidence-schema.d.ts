@@ -6,8 +6,8 @@ export declare const EvidenceTypeSchema: z.ZodEnum<{
     diff: "diff";
     quality_budget: "quality_budget";
     placeholder: "placeholder";
-    review: "review";
     test: "test";
+    review: "review";
     approval: "approval";
     note: "note";
     retrospective: "retrospective";
@@ -31,8 +31,8 @@ export declare const BaseEvidenceSchema: z.ZodObject<{
         diff: "diff";
         quality_budget: "quality_budget";
         placeholder: "placeholder";
-        review: "review";
         test: "test";
+        review: "review";
         approval: "approval";
         note: "note";
         retrospective: "retrospective";
@@ -69,8 +69,8 @@ export declare const ReviewEvidenceSchema: z.ZodObject<{
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     type: z.ZodLiteral<"review">;
     risk: z.ZodEnum<{
-        low: "low";
         medium: "medium";
+        low: "low";
         high: "high";
         critical: "critical";
     }>;
@@ -295,8 +295,8 @@ export declare const SastEvidenceSchema: z.ZodObject<{
     findings: z.ZodDefault<z.ZodArray<z.ZodObject<{
         rule_id: z.ZodString;
         severity: z.ZodEnum<{
-            low: "low";
             medium: "medium";
+            low: "low";
             high: "high";
             critical: "critical";
         }>;
@@ -447,8 +447,8 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     type: z.ZodLiteral<"review">;
     risk: z.ZodEnum<{
-        low: "low";
         medium: "medium";
+        low: "low";
         high: "high";
         critical: "critical";
     }>;
@@ -657,8 +657,8 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     findings: z.ZodDefault<z.ZodArray<z.ZodObject<{
         rule_id: z.ZodString;
         severity: z.ZodEnum<{
-            low: "low";
             medium: "medium";
+            low: "low";
             high: "high";
             critical: "critical";
         }>;
@@ -806,8 +806,8 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
         metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
         type: z.ZodLiteral<"review">;
         risk: z.ZodEnum<{
-            low: "low";
             medium: "medium";
+            low: "low";
             high: "high";
             critical: "critical";
         }>;
@@ -1016,8 +1016,8 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
         findings: z.ZodDefault<z.ZodArray<z.ZodObject<{
             rule_id: z.ZodString;
             severity: z.ZodEnum<{
-                low: "low";
                 medium: "medium";
+                low: "low";
                 high: "high";
                 critical: "critical";
             }>;

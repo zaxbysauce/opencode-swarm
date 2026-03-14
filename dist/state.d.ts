@@ -114,6 +114,8 @@ export interface AgentSessionState {
     phaseAgentsDispatched: Set<string>;
     /** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
     lastCompletedPhaseAgentsDispatched: Set<string>;
+    /** Session-scoped Turbo Mode flag for controlling LLM inference speed */
+    turboMode: boolean;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
@@ -173,8 +175,9 @@ export declare function resetSwarmState(): void;
  * @param sessionId - The session identifier
  * @param agentName - The agent associated with this session
  * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
+ * @param directory - Optional project directory for rehydrating workflow state from disk
  */
-export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number): void;
+export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number, directory?: string): void;
 /**
  * End an agent session by removing it from the state.
  * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
@@ -196,9 +199,10 @@ export declare function getAgentSession(sessionId: string): AgentSessionState | 
  * Always updates lastToolCallTime.
  * @param sessionId - The session identifier
  * @param agentName - Optional agent name (if known)
+ * @param directory - Optional project directory for rehydrating workflow state from disk
  * @returns The AgentSessionState
  */
-export declare function ensureAgentSession(sessionId: string, agentName?: string): AgentSessionState;
+export declare function ensureAgentSession(sessionId: string, agentName?: string, directory?: string): AgentSessionState;
 /**
  * Update only the agent event timestamp (for stale detection).
  * Does NOT change agent name or reset guardrail state.
@@ -262,3 +266,27 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * @returns Current task workflow state
  */
 export declare function getTaskState(session: AgentSessionState, taskId: string): TaskWorkflowState;
+/**
+ * Rehydrates session workflow state from durable swarm files.
+ *
+ * Reads `.swarm/plan.json` and `.swarm/evidence/*.json` from the provided
+ * project directory, derives task workflow states from this data, and merges
+ * them into the target AgentSessionState.
+ *
+ * Merge rules:
+ * - Evidence-derived progression wins over plan-only state
+ * - Existing in-memory workflow states for the same task IDs are NOT downgraded
+ * - Missing/malformed `.swarm` data is non-fatal (silently skipped)
+ *
+ * This helper is useful for session restart scenarios where in-memory state
+ * is lost but durable files persist.
+ *
+ * @param directory - Project root containing .swarm/ subdirectory
+ * @param session - Target AgentSessionState to merge rehydrated state into
+ */
+export declare function rehydrateSessionFromDisk(directory: string, session: AgentSessionState): Promise<void>;
+/**
+ * Check if ANY active session has Turbo Mode enabled.
+ * @returns true if any session has turboMode: true
+ */
+export declare function hasActiveTurboMode(): boolean;

@@ -5,6 +5,7 @@ import {
 } from '../hooks/extractors';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
+import { hasActiveTurboMode } from '../state';
 
 /**
  * Structured status data returned by the status service.
@@ -17,6 +18,7 @@ export interface StatusData {
 	totalTasks: number;
 	agentCount: number;
 	isLegacy: boolean;
+	turboMode: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export async function getStatusData(
 			totalTasks,
 			agentCount,
 			isLegacy: false,
+			turboMode: hasActiveTurboMode(),
 		};
 	}
 
@@ -65,6 +68,7 @@ export async function getStatusData(
 			totalTasks: 0,
 			agentCount: Object.keys(agents).length,
 			isLegacy: true,
+			turboMode: hasActiveTurboMode(),
 		};
 	}
 
@@ -81,6 +85,7 @@ export async function getStatusData(
 		totalTasks,
 		agentCount,
 		isLegacy: true,
+		turboMode: hasActiveTurboMode(),
 	};
 }
 
@@ -96,6 +101,11 @@ export function formatStatusMarkdown(status: StatusData): string {
 		`**Tasks**: ${status.completedTasks}/${status.totalTasks} complete`,
 		`**Agents**: ${status.agentCount} registered`,
 	];
+
+	if (status.turboMode) {
+		lines.push('', `**TURBO MODE**: active`);
+	}
+
 	return lines.join('\n');
 }
 

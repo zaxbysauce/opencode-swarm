@@ -14,6 +14,7 @@ import {
 	handlePlanCommand,
 	handleStatusCommand,
 	handleSyncPlanCommand,
+	handleTurboCommand,
 } from '../commands/index.js';
 
 const CONFIG_DIR = path.join(
@@ -367,6 +368,11 @@ export async function run(args: string[]): Promise<number> {
 		}
 		case 'handoff': {
 			const result = await handleHandoffCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'turbo': {
+			const result = await handleTurboCommand(cwd, args.slice(1), '');
 			console.log(result);
 			return 0;
 		}

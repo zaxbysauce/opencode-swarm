@@ -5,6 +5,9 @@
  * Uses experimental.chat.messages.transform to provide non-blocking guidance.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import type { AgentSessionState } from '../state';
@@ -12,6 +15,7 @@ import {
 	advanceTaskState,
 	ensureAgentSession,
 	getTaskState,
+	hasActiveTurboMode,
 	swarmState,
 } from '../state';
 import type {
@@ -290,9 +294,15 @@ function getSeedTaskId(session: AgentSessionState): string | null {
 
 /**
  * Returns the task ID for evidence recording, with fallback to taskWorkflowStates
- * when currentTaskId and lastCoderDelegationTaskId are both null.
+ * and plan.json when currentTaskId and lastCoderDelegationTaskId are both null.
+ * Uses synchronous disk reads for the plan.json fallback.
+ * Security-hardened: validates paths and only swallows expected errors.
  */
-function getEvidenceTaskId(session: AgentSessionState): string | null {
+function getEvidenceTaskId(
+	session: AgentSessionState,
+	directory: string,
+): string | null {
+	// Primary: currentTaskId or lastCoderDelegationTaskId
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
 
@@ -300,6 +310,72 @@ function getEvidenceTaskId(session: AgentSessionState): string | null {
 	if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
 		// Return any key from the map (deterministic: first entry)
 		return session.taskWorkflowStates.keys().next().value ?? null;
+	}
+
+	// Fallback: read from .swarm/plan.json to find first in_progress task
+	// Security hardening: validate and resolve paths safely
+	try {
+		// Validate directory is a non-empty string
+		if (typeof directory !== 'string' || directory.length === 0) {
+			return null;
+		}
+
+		// Resolve both paths to normalize and check for path traversal
+		const resolvedDirectory = path.resolve(directory);
+		const planPath = path.join(resolvedDirectory, '.swarm', 'plan.json');
+		const resolvedPlanPath = path.resolve(planPath);
+
+		// Security check: ensure resolved plan path is within the working directory
+		// This prevents path traversal attacks (e.g., ../../etc/plan.json)
+		if (
+			!resolvedPlanPath.startsWith(resolvedDirectory + path.sep) &&
+			resolvedPlanPath !== resolvedDirectory
+		) {
+			// Path traversal attempt detected - reject
+			return null;
+		}
+
+		// Read and parse the plan file
+		const planContent = fs.readFileSync(resolvedPlanPath, 'utf-8');
+		const plan = JSON.parse(planContent);
+
+		// Only expected: missing phases array or malformed structure - return null quietly
+		if (!plan || !Array.isArray(plan.phases)) {
+			return null;
+		}
+
+		for (const phase of plan.phases) {
+			if (Array.isArray(phase.tasks)) {
+				for (const task of phase.tasks) {
+					if (task.status === 'in_progress') {
+						return task.id ?? null;
+					}
+				}
+			}
+		}
+	} catch (err) {
+		// Only silently swallow expected cases:
+		// - ENOENT: file doesn't exist (missing plan.json)
+		// - ENOTDIR: path component is not a directory
+		// - SyntaxError: malformed JSON (invalid plan.json)
+		// Re-throw unexpected errors (permission, disk, etc.) so they're not hidden
+		if (err instanceof Error) {
+			// Check for expected error types
+			if (err instanceof SyntaxError) {
+				// Expected: malformed JSON - return null quietly
+				return null;
+			}
+			// Check for expected error codes
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === 'ENOENT' || code === 'ENOTDIR') {
+				// Expected: missing file - return null quietly
+				return null;
+			}
+			// Unexpected error - re-throw to not hide potential issues
+			throw err;
+		}
+		// Unknown error type - re-throw
+		throw err;
 	}
 
 	return null;
@@ -485,9 +561,10 @@ export function createDelegationGateHook(
 
 			// Record gate evidence for stored-args path
 			if (typeof subagentType === 'string') {
-				const evidenceTaskId = getEvidenceTaskId(session);
+				const evidenceTaskId = getEvidenceTaskId(session, directory);
 				if (evidenceTaskId) {
 					try {
+						const turbo = hasActiveTurboMode();
 						const gateAgents = [
 							'reviewer',
 							'test_engineer',
@@ -505,6 +582,7 @@ export function createDelegationGateHook(
 								evidenceTaskId,
 								targetAgentForEvidence,
 								input.sessionID,
+								turbo,
 							);
 						} else {
 							const { recordAgentDispatch } = await import('../gate-evidence');
@@ -512,6 +590,7 @@ export function createDelegationGateHook(
 								directory,
 								evidenceTaskId,
 								targetAgentForEvidence,
+								turbo,
 							);
 						}
 					} catch (err) {
@@ -659,25 +738,28 @@ export function createDelegationGateHook(
 
 				// Record gate evidence for delegation-chain fallback path
 				{
-					const evidenceTaskId = getEvidenceTaskId(session);
+					const evidenceTaskId = getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
 						try {
+							const turbo = hasActiveTurboMode();
 							if (hasReviewer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									process.cwd(),
+									directory,
 									evidenceTaskId,
 									'reviewer',
 									input.sessionID,
+									turbo,
 								);
 							}
 							if (hasTestEngineer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
 								await recordGateEvidence(
-									process.cwd(),
+									directory,
 									evidenceTaskId,
 									'test_engineer',
 									input.sessionID,
+									turbo,
 								);
 							}
 						} catch (err) {

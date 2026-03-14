@@ -5,43 +5,25 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: __accessProp.bind(mod, key),
+        get: () => mod[key],
         enumerable: true
       });
-  if (canCache)
-    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __returnValue = (v) => v;
-function __exportSetter(name, newValue) {
-  this[name] = __returnValue.bind(null, newValue);
-}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: __exportSetter.bind(all, name)
+      set: (newValue) => all[name] = () => newValue
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -14275,10 +14257,16 @@ function sanitizeTaskId(taskId) {
   if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
     throw new Error("Invalid task ID: path traversal detected");
   }
-  if (!TASK_ID_REGEX.test(taskId)) {
-    throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, got "${taskId}"`);
+  if (TASK_ID_REGEX.test(taskId)) {
+    return taskId;
   }
-  return taskId;
+  if (RETRO_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, ^retro-\\d+$, or ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$, got "${taskId}"`);
 }
 async function saveEvidence(directory, taskId, evidence) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
@@ -14488,18 +14476,71 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
+var TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager = __esm(() => {
   init_zod();
   init_evidence_schema();
   init_utils2();
   init_utils();
   TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
+  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
     high: "complex"
   };
+});
+
+// src/config/plan-schema.ts
+var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
+var init_plan_schema = __esm(() => {
+  init_zod();
+  TaskStatusSchema = exports_external.enum([
+    "pending",
+    "in_progress",
+    "completed",
+    "blocked"
+  ]);
+  TaskSizeSchema = exports_external.enum(["small", "medium", "large"]);
+  PhaseStatusSchema = exports_external.enum([
+    "pending",
+    "in_progress",
+    "complete",
+    "completed",
+    "blocked"
+  ]);
+  MigrationStatusSchema = exports_external.enum([
+    "native",
+    "migrated",
+    "migration_failed"
+  ]);
+  TaskSchema = exports_external.object({
+    id: exports_external.string(),
+    phase: exports_external.number().int().min(1),
+    status: TaskStatusSchema.default("pending"),
+    size: TaskSizeSchema.default("small"),
+    description: exports_external.string().min(1),
+    depends: exports_external.array(exports_external.string()).default([]),
+    acceptance: exports_external.string().optional(),
+    files_touched: exports_external.array(exports_external.string()).default([]),
+    evidence_path: exports_external.string().optional(),
+    blocked_reason: exports_external.string().optional()
+  });
+  PhaseSchema = exports_external.object({
+    id: exports_external.number().int().min(1),
+    name: exports_external.string().min(1),
+    status: PhaseStatusSchema.default("pending"),
+    tasks: exports_external.array(TaskSchema).default([])
+  });
+  PlanSchema = exports_external.object({
+    schema_version: exports_external.literal("1.0.0"),
+    title: exports_external.string().min(1),
+    swarm: exports_external.string().min(1),
+    current_phase: exports_external.number().int().min(1).optional(),
+    phases: exports_external.array(PhaseSchema).min(1),
+    migration_status: MigrationStatusSchema.optional()
+  });
 });
 
 // node_modules/graceful-fs/polyfills.js
@@ -15083,9 +15124,9 @@ GFS4: `);
     function readdir(path4, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path5, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path5, options2, cb2, startTime) {
         return fs$readdir(path5, fs$readdirCallback(path5, options2, cb2, startTime));
-      } : function go$readdir2(path5, options2, cb2, startTime) {
+      } : function go$readdir(path5, options2, cb2, startTime) {
         return fs$readdir(path5, options2, fs$readdirCallback(path5, options2, cb2, startTime));
       };
       return go$readdir(path4, options, cb);
@@ -15560,7 +15601,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload2() {
+    unload = function unload() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -15575,7 +15616,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.count -= 1;
     };
     module.exports.unload = unload;
-    emit = function emit2(event, code, signal) {
+    emit = function emit(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -15604,7 +15645,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       return signals;
     };
     loaded = false;
-    load = function load2() {
+    load = function load() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -15623,7 +15664,7 @@ var require_signal_exit = __commonJS((exports, module) => {
     };
     module.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit2(code) {
+    processReallyExit = function processReallyExit(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -15633,7 +15674,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit2(ev, arg) {
+    processEmit = function processEmit(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;
@@ -16020,57 +16061,6 @@ var require_proper_lockfile = __commonJS((exports, module) => {
   module.exports.unlockSync = unlockSync;
   module.exports.check = check2;
   module.exports.checkSync = checkSync;
-});
-
-// src/config/plan-schema.ts
-var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
-var init_plan_schema = __esm(() => {
-  init_zod();
-  TaskStatusSchema = exports_external.enum([
-    "pending",
-    "in_progress",
-    "completed",
-    "blocked"
-  ]);
-  TaskSizeSchema = exports_external.enum(["small", "medium", "large"]);
-  PhaseStatusSchema = exports_external.enum([
-    "pending",
-    "in_progress",
-    "complete",
-    "completed",
-    "blocked"
-  ]);
-  MigrationStatusSchema = exports_external.enum([
-    "native",
-    "migrated",
-    "migration_failed"
-  ]);
-  TaskSchema = exports_external.object({
-    id: exports_external.string(),
-    phase: exports_external.number().int().min(1),
-    status: TaskStatusSchema.default("pending"),
-    size: TaskSizeSchema.default("small"),
-    description: exports_external.string().min(1),
-    depends: exports_external.array(exports_external.string()).default([]),
-    acceptance: exports_external.string().optional(),
-    files_touched: exports_external.array(exports_external.string()).default([]),
-    evidence_path: exports_external.string().optional(),
-    blocked_reason: exports_external.string().optional()
-  });
-  PhaseSchema = exports_external.object({
-    id: exports_external.number().int().min(1),
-    name: exports_external.string().min(1),
-    status: PhaseStatusSchema.default("pending"),
-    tasks: exports_external.array(TaskSchema).default([])
-  });
-  PlanSchema = exports_external.object({
-    schema_version: exports_external.literal("1.0.0"),
-    title: exports_external.string().min(1),
-    swarm: exports_external.string().min(1),
-    current_phase: exports_external.number().int().min(1).optional(),
-    phases: exports_external.array(PhaseSchema).min(1),
-    migration_status: MigrationStatusSchema.optional()
-  });
 });
 
 // src/plan/manager.ts
@@ -17413,6 +17403,7 @@ async function handleArchiveCommand(directory, args) {
 init_manager();
 
 // src/state.ts
+init_plan_schema();
 var swarmState = {
   activeToolCalls: new Map,
   toolAggregates: new Map,
@@ -17421,6 +17412,17 @@ var swarmState = {
   pendingEvents: 0,
   agentSessions: new Map
 };
+function getAgentSession(sessionId) {
+  return swarmState.agentSessions.get(sessionId);
+}
+function hasActiveTurboMode() {
+  for (const [_sessionId, session] of swarmState.agentSessions) {
+    if (session.turboMode === true) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // src/commands/benchmark.ts
 init_utils();
@@ -33745,10 +33747,7 @@ var secretscan = tool({
       const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
       const excludeGlobs = [];
       const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
-      const allUserPatterns = [
-        ...exclude ?? [],
-        ...ignoreFilePatterns
-      ];
+      const allUserPatterns = [...exclude ?? [], ...ignoreFilePatterns];
       for (const exc of allUserPatterns) {
         if (exc.length === 0)
           continue;
@@ -35631,7 +35630,8 @@ async function getStatusData(directory, agents) {
       completedTasks: completedTasks2,
       totalTasks: totalTasks2,
       agentCount: agentCount2,
-      isLegacy: false
+      isLegacy: false,
+      turboMode: hasActiveTurboMode()
     };
   }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
@@ -35642,7 +35642,8 @@ async function getStatusData(directory, agents) {
       completedTasks: 0,
       totalTasks: 0,
       agentCount: Object.keys(agents).length,
-      isLegacy: true
+      isLegacy: true,
+      turboMode: hasActiveTurboMode()
     };
   }
   const currentPhase = extractCurrentPhase(planContent) || "Unknown";
@@ -35656,7 +35657,8 @@ async function getStatusData(directory, agents) {
     completedTasks,
     totalTasks,
     agentCount,
-    isLegacy: true
+    isLegacy: true,
+    turboMode: hasActiveTurboMode()
   };
 }
 function formatStatusMarkdown(status) {
@@ -35667,6 +35669,9 @@ function formatStatusMarkdown(status) {
     `**Tasks**: ${status.completedTasks}/${status.totalTasks} complete`,
     `**Agents**: ${status.agentCount} registered`
   ];
+  if (status.turboMode) {
+    lines.push("", `**TURBO MODE**: active`);
+  }
   return lines.join(`
 `);
 }
@@ -35700,6 +35705,32 @@ No active swarm plan found. Nothing to sync.`;
   ];
   return lines.join(`
 `);
+}
+
+// src/commands/turbo.ts
+async function handleTurboCommand(_directory, args, sessionID) {
+  if (!sessionID || sessionID.trim() === "") {
+    return "Error: No active session context. Turbo Mode requires an active session. Use /swarm turbo from within an OpenCode session, or start a session first.";
+  }
+  const session = getAgentSession(sessionID);
+  if (!session) {
+    return "Error: No active session. Turbo Mode requires an active session to operate.";
+  }
+  const arg = args[0]?.toLowerCase();
+  let newTurboMode;
+  let feedback;
+  if (arg === "on") {
+    newTurboMode = true;
+    feedback = "Turbo Mode enabled";
+  } else if (arg === "off") {
+    newTurboMode = false;
+    feedback = "Turbo Mode disabled";
+  } else {
+    newTurboMode = !session.turboMode;
+    feedback = newTurboMode ? "Turbo Mode enabled" : "Turbo Mode disabled";
+  }
+  session.turboMode = newTurboMode;
+  return feedback;
 }
 
 // src/tools/write-retro.ts
@@ -35856,6 +35887,7 @@ var HELP_TEXT = [
   "- `/swarm knowledge migrate` \u2014 Migrate knowledge entries to the current format",
   '- `/swarm promote "<lesson>" | --category <cat> | --from-swarm <id> \u2014 Manually promote lesson to hive knowledge',
   "- `/swarm handoff` \u2014 Prepare state for clean model switch (new session)",
+  "- `/swarm turbo [on|off]` \u2014 Toggle Turbo Mode for the active session (default: toggle)",
   "- `/swarm write-retro <json>` \u2014 Write a retrospective evidence bundle for a completed phase"
 ].join(`
 `);
@@ -36115,6 +36147,11 @@ Run "bunx opencode-swarm --help" for a list of commands.`);
     }
     case "handoff": {
       const result = await handleHandoffCommand(cwd, args.slice(1));
+      console.log(result);
+      return 0;
+    }
+    case "turbo": {
+      const result = await handleTurboCommand(cwd, args.slice(1), "");
       console.log(result);
       return 0;
     }

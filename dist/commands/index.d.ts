@@ -24,6 +24,7 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
+export { handleTurboCommand } from './turbo';
 export { handleWriteRetroCommand } from './write_retro';
 /**
  * Creates a command.execute.before handler for /swarm commands.
