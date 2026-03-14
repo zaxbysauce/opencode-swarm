@@ -53,7 +53,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('null/undefined message handling', () => {
 		it('should not throw when messages is null', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = { messages: null as never };
 
@@ -62,7 +62,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when messages is undefined', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = { messages: undefined };
 
@@ -71,7 +71,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when messages array is empty', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = { messages: [] };
 
@@ -80,7 +80,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when messages array contains null entries', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
 				messages: [null, undefined, { info: { role: 'user' as const, sessionID: 'test-session' }, parts: [{ type: 'text', text: 'test' }] }] as never[],
@@ -91,7 +91,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when message has no parts', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
 				messages: [{
@@ -105,7 +105,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when message parts array is empty', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
 				messages: [{
@@ -119,7 +119,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when parts contain null entries', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
 				messages: [{
@@ -133,7 +133,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when text part has no text field', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
 				messages: [{
@@ -149,7 +149,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('malformed task ID handling', () => {
 		it('should handle task ID of 10000 characters without OOM', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const longTaskId = 'T' + 'a'.repeat(9999);
 			const text = `coder\nTASK: ${longTaskId}\nFILE: src/test.ts`;
@@ -166,7 +166,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle task ID with special characters', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const specialTaskId = 'Task with \\n newline, \\t tab, "quotes", \'apostrophes\', <html>, &amp;';
 			const text = `coder\nTASK: ${specialTaskId}\nFILE: src/test.ts`;
@@ -181,7 +181,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle task ID with emoji and unicode', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const unicodeTaskId = '🎉 Task with émojis 🚀 and 特殊符号';
 			const text = `coder\nTASK: ${unicodeTaskId}\nFILE: src/test.ts`;
@@ -196,7 +196,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle TASK line with no content', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const text = 'coder\nTASK:\nFILE: src/test.ts';
 
@@ -213,7 +213,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('qaSkipCount boundary conditions', () => {
 		it('should handle qaSkipCount at MAX_SAFE_INTEGER - 1 without overflow', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup session with qaSkipCount at MAX_SAFE_INTEGER - 1
 			const session = ensureAgentSession('test-session');
@@ -239,7 +239,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle qaSkipCount at 0 (initial state)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup with fresh session
 			const session = ensureAgentSession('test-session');
@@ -262,7 +262,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle negative qaSkipCount (migration safety)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate corrupted state from migration
 			const session = ensureAgentSession('test-session');
@@ -288,7 +288,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('qaSkipTaskIds with large number of entries', () => {
 		it('should handle error message with 1000 skipped task IDs', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Create array of 1000 task IDs
 			const skippedTasks: string[] = [];
@@ -321,7 +321,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should add new task ID to large qaSkipTaskIds array', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Pre-fill with 500 tasks
 			const skippedTasks: string[] = [];
@@ -354,7 +354,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('disabled hook edge cases', () => {
 		it('messagesTransform should be no-op when disabled regardless of session state', async () => {
 			const config = makeConfig({ hooks: { delegation_gate: false } });
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup session that would normally trigger a warning
 			const session = ensureAgentSession('test-session');
@@ -378,7 +378,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('toolAfter should be no-op when disabled regardless of session state', async () => {
 			const config = makeConfig({ hooks: { delegation_gate: false } });
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup session with non-zero skip count
 			const session = ensureAgentSession('test-session');
@@ -403,7 +403,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('messagesTransform should be no-op when disabled even with malformed input', async () => {
 			const config = makeConfig({ hooks: { delegation_gate: false } });
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const malformedMessages = {
 				messages: null as never,
@@ -417,7 +417,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('concurrent session isolation', () => {
 		it('two sessions with different skip counts should not interfere', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session 1: has QA skips - will throw on second consecutive skip
 			const session1 = ensureAgentSession('session-1');
@@ -454,7 +454,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('resetting qaSkipCount in one session should not affect other sessions', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup both sessions with QA skips
 			const session1 = ensureAgentSession('session-1');
@@ -492,7 +492,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('toolAfter edge cases', () => {
 		it('should not throw when called with empty delegationChains', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			ensureAgentSession('test-session');
 
@@ -510,7 +510,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when called with missing sessionID', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const toolAfterInput = {
 				tool: 'tool.execute.Task',
@@ -523,7 +523,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when called with undefined sessionID', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const toolAfterInput = {
 				tool: 'tool.execute.Task',
@@ -536,7 +536,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not throw when session does not exist', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// No session created
 			swarmState.delegationChains.set('test-session', [
@@ -554,7 +554,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle delegationChain with null entries gracefully', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			ensureAgentSession('test-session');
 
@@ -578,7 +578,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle non-Task tool name gracefully', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			ensureAgentSession('test-session');
 
@@ -597,7 +597,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle tool name with no prefix', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			ensureAgentSession('test-session');
 
@@ -618,7 +618,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('non-coder tool in message', () => {
 		it('should not increment qaSkipCount for bash tool calls', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 0;
@@ -646,7 +646,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should not warn about batching for bash-only messages', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Long message with "and also" but no coder delegation
 			const longText = 'TASK: Check logs and also check error messages\n\nbash\ntail -f logs/app.log';
@@ -668,7 +668,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('migration safety for qaSkipTaskIds', () => {
 		it('should handle session with undefined qaSkipTaskIds', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Create session without qaSkipTaskIds (simulating old state)
 			swarmState.agentSessions.set('test-session', {
@@ -710,7 +710,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle session with null qaSkipTaskIds', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Create session with null qaSkipTaskIds
 			swarmState.agentSessions.set('test-session', {
@@ -752,7 +752,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle session with non-array qaSkipTaskIds', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Create session with string qaSkipTaskIds (corrupted state)
 			swarmState.agentSessions.set('test-session', {
@@ -793,7 +793,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('delegationChains edge cases', () => {
 		it('should handle delegationChains with only coder entries', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain with only coder entries (no architect in between)
 			swarmState.delegationChains.set('test-session', [
@@ -809,7 +809,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle malformed delegation entries with missing fields', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			ensureAgentSession('test-session');
 
@@ -828,7 +828,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle delegationChains with very long agent names', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const longAgentName = 'a'.repeat(1000);
 			swarmState.delegationChains.set('test-session', [
@@ -846,7 +846,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('edge case: unknown task ID', () => {
 		it('should handle message without TASK: line (not a coder delegation)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 0;
@@ -870,7 +870,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle undefined currentTaskId when pushing to qaSkipTaskIds', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 0;
@@ -894,7 +894,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('agent name edge cases', () => {
 		it('should handle agent name with special characters', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const messages = makeMessages('coder\nTASK: test\nFILE: src/test.ts', 'agent-with-dash');
 			const originalText = messages.messages[0].parts[0].text;
@@ -906,7 +906,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle agent name with numbers', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const messages = makeMessages('coder\nTASK: test\nFILE: src/test.ts', 'agent123');
 			const originalText = messages.messages[0].parts[0].text;
@@ -917,7 +917,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle agent name that is empty string', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const messages = makeMessages('coder\nTASK: test\nFILE: src/test.ts', '');
 			const originalText = messages.messages[0].parts[0].text;
@@ -933,7 +933,7 @@ describe('delegation gate adversarial tests', () => {
 	describe('toolAfter input.args.subagent_type adversarial tests', () => {
 		it('should handle input.args as null', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -951,7 +951,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle input.args as undefined', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -969,7 +969,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle input.args as primitive string', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -987,7 +987,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle input.args as primitive number', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1005,7 +1005,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle input.args as primitive boolean', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1023,7 +1023,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle input.args as array', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1041,7 +1041,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle subagent_type as number', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1059,7 +1059,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle subagent_type as object', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1077,7 +1077,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle subagent_type as array', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1095,7 +1095,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle subagent_type as boolean true', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1113,7 +1113,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle subagent_type as boolean false', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1131,7 +1131,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle SQL injection attempt in subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1149,7 +1149,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle command injection attempt in subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1167,7 +1167,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle extremely long subagent_type (10000 chars)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1186,7 +1186,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle prototype pollution attempt (__proto__)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1204,7 +1204,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle constructor pollution attempt', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1222,7 +1222,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle null subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1240,7 +1240,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle undefined subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1258,7 +1258,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should advance state when valid reviewer in input.args', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1276,7 +1276,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should advance state when valid test_engineer in input.args', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'reviewer_run']]);
@@ -1294,7 +1294,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle empty string subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1312,7 +1312,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle whitespace-only subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1330,7 +1330,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle swarm prefix in subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
@@ -1348,7 +1348,7 @@ describe('delegation gate adversarial tests', () => {
 
 		it('should handle unicode in subagent_type', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.taskWorkflowStates = new Map([['1.1', 'coder_delegated']]);
