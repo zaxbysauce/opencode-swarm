@@ -14,6 +14,7 @@ import {
 	type DeclareScopeArgs,
 } from '../../../src/tools/declare-scope';
 import { swarmState, resetSwarmState, advanceTaskState, getTaskState } from '../../../src/state';
+import { createWorkflowTestSession } from '../../helpers/workflow-session-factory';
 
 describe('declare-scope adversarial tests', () => {
 	let tempDir: string;
@@ -574,28 +575,8 @@ describe('declare-scope adversarial tests', () => {
 
 	// ========== GROUP 9: Session state isolation ==========
 	describe('Group 9: Session state isolation', () => {
-		function makeSession(): any {
-			return {
-				agentName: 'test-architect',
-				lastToolCallTime: Date.now(),
-				lastAgentEventTime: Date.now(),
-				delegationActive: false,
-				activeInvocationId: 0,
-				lastInvocationIdByAgent: {},
-				windows: {},
-				lastCompactionHint: 0,
-				architectWriteCount: 0,
-				lastCoderDelegationTaskId: null,
-				currentTaskId: null,
-				taskWorkflowStates: new Map(),
-				lastGateOutcome: null,
-				declaredCoderScope: null,
-				lastScopeViolation: null,
-			};
-		}
-
 		it('blocks declare scope when task is complete in ANY session', async () => {
-			const session = makeSession();
+			const session = createWorkflowTestSession();
 			// Set task to complete state through proper progression
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
@@ -635,7 +616,7 @@ describe('declare-scope adversarial tests', () => {
 		});
 
 		it('allows declare scope when task is NOT complete in any session', async () => {
-			const session = makeSession();
+			const session = createWorkflowTestSession();
 			// Set task to tests_run but NOT complete
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
@@ -665,7 +646,7 @@ describe('declare-scope adversarial tests', () => {
 		});
 
 		it('blocks task complete in one session but allows different task', async () => {
-			const session = makeSession();
+			const session = createWorkflowTestSession();
 			// Set 1.1 to complete through proper progression
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
@@ -685,7 +666,7 @@ describe('declare-scope adversarial tests', () => {
 		});
 
 		it('blocks when one session has task complete, different session has it in progress', async () => {
-			const sessionA = makeSession();
+			const sessionA = createWorkflowTestSession();
 			// Set to complete through proper progression
 			advanceTaskState(sessionA, '1.1', 'coder_delegated');
 			advanceTaskState(sessionA, '1.1', 'pre_check_passed');
@@ -694,7 +675,7 @@ describe('declare-scope adversarial tests', () => {
 			advanceTaskState(sessionA, '1.1', 'complete');
 			swarmState.agentSessions.set('session-a', sessionA);
 
-			const sessionB = makeSession();
+			const sessionB = createWorkflowTestSession();
 			advanceTaskState(sessionB, '1.1', 'coder_delegated');
 			swarmState.agentSessions.set('session-b', sessionB);
 
@@ -1011,29 +992,9 @@ describe('declare-scope adversarial tests', () => {
 
 	// ========== GROUP 15: Successful scope declaration ==========
 	describe('Group 15: Successful scope declaration behavior', () => {
-		function makeSession(): any {
-			return {
-				agentName: 'test-architect',
-				lastToolCallTime: Date.now(),
-				lastAgentEventTime: Date.now(),
-				delegationActive: false,
-				activeInvocationId: 0,
-				lastInvocationIdByAgent: {},
-				windows: {},
-				lastCompactionHint: 0,
-				architectWriteCount: 0,
-				lastCoderDelegationTaskId: null,
-				currentTaskId: null,
-				taskWorkflowStates: new Map(),
-				lastGateOutcome: null,
-				declaredCoderScope: null,
-				lastScopeViolation: null,
-			};
-		}
-
 		it('sets declaredCoderScope on all sessions on success', async () => {
-			const session1 = makeSession();
-			const session2 = makeSession();
+			const session1 = createWorkflowTestSession();
+			const session2 = createWorkflowTestSession();
 			swarmState.agentSessions.set('session-1', session1);
 			swarmState.agentSessions.set('session-2', session2);
 
@@ -1053,7 +1014,7 @@ describe('declare-scope adversarial tests', () => {
 		});
 
 		it('clears lastScopeViolation on success', async () => {
-			const session = makeSession();
+			const session = createWorkflowTestSession() as any;
 			session.lastScopeViolation = { file: 'src/bad.ts', action: 'write' };
 			swarmState.agentSessions.set('session-with-violation', session);
 

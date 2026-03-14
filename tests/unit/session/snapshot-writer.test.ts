@@ -570,6 +570,7 @@ describe('writeSnapshot', () => {
 			lastGateFailure: null,
 			partialGateWarningsIssuedForTask: ['task-2'],
 			selfFixAttempted: false,
+			selfCodingWarnedAtCount: 0,
 			catastrophicPhaseWarnings: [1, 2],
 			lastPhaseCompleteTimestamp: 0,
 			lastPhaseCompletePhase: 0,
@@ -930,5 +931,134 @@ describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
 		expect(result.taskWorkflowStates!['constructor']).toBe('complete');
 		expect(result.taskWorkflowStates!['toString']).toBe('complete');
 		expect(result.taskWorkflowStates!['hasOwnProperty']).toBe('complete');
+	});
+});
+
+describe('serializeAgentSession - scopeViolationDetected', () => {
+	it('includes scopeViolationDetected when set to true', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			scopeViolationDetected: true,
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result.scopeViolationDetected).toBe(true);
+	});
+
+	it('includes scopeViolationDetected when set to false', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			scopeViolationDetected: false,
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result.scopeViolationDetected).toBe(false);
+	});
+
+	it('omits scopeViolationDetected when undefined (additive-only schema)', () => {
+		const session: AgentSessionState = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+		};
+
+		const result = serializeAgentSession(session);
+
+		expect(result).not.toHaveProperty('scopeViolationDetected');
+	});
+
+	it('omits scopeViolationDetected when explicitly undefined', () => {
+		const session = {
+			agentName: 'architect',
+			lastToolCallTime: 1000,
+			lastAgentEventTime: 1000,
+			delegationActive: false,
+			activeInvocationId: 0,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: new Map(),
+			reviewerCallCount: new Map(),
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: new Set(),
+			selfFixAttempted: false,
+			catastrophicPhaseWarnings: new Set(),
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: new Set(),
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			scopeViolationDetected: undefined,
+		} as unknown as AgentSessionState;
+
+		const result = serializeAgentSession(session);
+
+		expect(result).not.toHaveProperty('scopeViolationDetected');
 	});
 });

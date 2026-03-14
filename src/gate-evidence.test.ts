@@ -6,6 +6,7 @@ import {
 	deriveRequiredGates,
 	expandRequiredGates,
 	hasPassedAllGates,
+	isValidTaskId,
 	readTaskEvidence,
 	recordAgentDispatch,
 	recordGateEvidence,
@@ -168,6 +169,44 @@ describe('hasPassedAllGates', () => {
 
 // ── taskId validation ───────────────────────────────────────────────────────
 
+describe('isValidTaskId', () => {
+	it('accepts valid N.M format (e.g., "1.1", "2.3")', () => {
+		expect(isValidTaskId('1.1')).toBe(true);
+		expect(isValidTaskId('2.3')).toBe(true);
+		expect(isValidTaskId('10.5')).toBe(true);
+	});
+
+	it('accepts valid N.M.P format (e.g., "1.2.3")', () => {
+		expect(isValidTaskId('1.2.3')).toBe(true);
+		expect(isValidTaskId('1.0.0')).toBe(true);
+		expect(isValidTaskId('10.20.30')).toBe(true);
+	});
+
+	it('rejects empty string', () => {
+		expect(isValidTaskId('')).toBe(false);
+	});
+
+	it('rejects non-numeric formats', () => {
+		expect(isValidTaskId('abc')).toBe(false);
+		expect(isValidTaskId('1.a')).toBe(false);
+		expect(isValidTaskId('a.1')).toBe(false);
+	});
+
+	it('rejects path traversal patterns', () => {
+		expect(isValidTaskId('../etc/passwd')).toBe(false);
+		expect(isValidTaskId('1.1..2')).toBe(false);
+	});
+
+	it('rejects path separators', () => {
+		expect(isValidTaskId('foo/bar')).toBe(false);
+		expect(isValidTaskId('foo\\bar')).toBe(false);
+	});
+
+	it('rejects null bytes', () => {
+		expect(isValidTaskId('1.1\0')).toBe(false);
+	});
+});
+
 describe('taskId validation', () => {
 	it('18. rejects ../etc/passwd, foo/bar, foo\\bar', async () => {
 		await expect(
@@ -185,7 +224,7 @@ describe('taskId validation', () => {
 // ── concurrency ─────────────────────────────────────────────────────────────
 
 describe('concurrency', () => {
-	it('19. concurrent writes don\'t corrupt — both gates present after parallel writes', async () => {
+	it("19. concurrent writes don't corrupt — both gates present after parallel writes", async () => {
 		await Promise.all([
 			recordGateEvidence(tmpDir, '3.1', 'reviewer', 'sess-A'),
 			recordGateEvidence(tmpDir, '3.1', 'test_engineer', 'sess-B'),
@@ -208,7 +247,11 @@ describe('append-only expansion', () => {
 
 		await recordAgentDispatch(tmpDir, '4.1', 'coder');
 		const after = await readTaskEvidence(tmpDir, '4.1');
-		expect(after!.required_gates).toEqual(['docs', 'reviewer', 'test_engineer']);
+		expect(after!.required_gates).toEqual([
+			'docs',
+			'reviewer',
+			'test_engineer',
+		]);
 
 		// docs gate still present after expansion
 		expect(after!.gates.docs).toBeDefined();

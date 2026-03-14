@@ -51,11 +51,27 @@ function makeEvidence(overrides: Partial<Evidence> = {}): Evidence {
 }
 
 describe('sanitizeTaskId', () => {
-	it("valid IDs: '1.1', 'task-1', 'my-task.sub-1', 'abc' all return the ID", () => {
+	it("valid IDs: '1.1', '1.2.3', '2.1', '10.5.3' all return the ID", () => {
 		expect(sanitizeTaskId('1.1')).toBe('1.1');
-		expect(sanitizeTaskId('task-1')).toBe('task-1');
-		expect(sanitizeTaskId('my-task.sub-1')).toBe('my-task.sub-1');
-		expect(sanitizeTaskId('abc')).toBe('abc');
+		expect(sanitizeTaskId('1.2.3')).toBe('1.2.3');
+		expect(sanitizeTaskId('2.1')).toBe('2.1');
+		expect(sanitizeTaskId('10.5.3')).toBe('10.5.3');
+	});
+
+	it("retrospective IDs: 'retro-1', 'retro-2', 'retro-10' all return the ID (FR-001, FR-002)", () => {
+		// These IDs were previously rejected but are now allowed for backward compatibility
+		expect(sanitizeTaskId('retro-1')).toBe('retro-1');
+		expect(sanitizeTaskId('retro-2')).toBe('retro-2');
+		expect(sanitizeTaskId('retro-10')).toBe('retro-10');
+		expect(sanitizeTaskId('retro-100')).toBe('retro-100');
+	});
+
+	it("invalid retrospective IDs throw: 'retro', 'retro-abc', 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
+		// Invalid formats should still be rejected
+		expect(() => sanitizeTaskId('retro')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('retro-abc')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('Retro-1')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID: must match pattern');
 	});
 
 	it('empty string throws', () => {
@@ -91,8 +107,7 @@ describe('sanitizeTaskId', () => {
 	});
 
 	it("leading dot '.hidden' throws", () => {
-		// Leading dot is valid for the regex, but we should check if it's handled
-		// The regex ^[\w-]+(\.[\w-]+)*$ allows starting with word char or hyphen, not dot
+		// Leading dot is not valid for the canonical numeric regex ^\d+\.\d+(\.\d+)*$
 		expect(() => sanitizeTaskId('.hidden')).toThrow('Invalid task ID: must match pattern');
 	});
 });
@@ -156,6 +171,28 @@ describe('saveEvidence + loadEvidence', () => {
 		});
 
 		await expect(saveEvidence(tempDir, '1.1', evidence)).rejects.toThrow('exceeds maximum');
+	});
+
+	it('save and load retrospective evidence with ID retro-1 (FR-001, FR-002)', async () => {
+		const evidence = makeEvidence({ task_id: 'retro-1', summary: 'Phase 1 retrospective' });
+		const bundle = await saveEvidence(tempDir, 'retro-1', evidence);
+
+		expect(bundle.task_id).toBe('retro-1');
+		expect(bundle.entries.length).toBe(1);
+		expect(bundle.entries[0].summary).toBe('Phase 1 retrospective');
+
+		const loaded = await loadEvidence(tempDir, 'retro-1');
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.task_id).toBe('retro-1');
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].summary).toBe('Phase 1 retrospective');
+	});
+
+	it('save with invalid retrospective ID throws (FR-003, FR-004)', async () => {
+		const evidence = makeEvidence();
+		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow('Invalid task ID');
 	});
 });
 
@@ -395,7 +432,7 @@ describe('All 12 evidence types can be saved and loaded', () => {
 				break;
 		}
 
-		const taskId = `test-${type}`;
+		const taskId = '1.1'; // Use valid numeric format for canonical rule
 		const saved = await saveEvidence(tempDir, taskId, evidence);
 		expect(saved.entries.length).toBe(1);
 		expect(saved.entries[0].type).toBe(type);

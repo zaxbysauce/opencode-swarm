@@ -37,6 +37,8 @@ export interface SerializedAgentSession {
     qaSkipCount: number;
     qaSkipTaskIds: string[];
     taskWorkflowStates?: Record<string, string>;
+    /** Flag for one-shot scope violation warning injection (omitted when undefined for additive-only schema) */
+    scopeViolationDetected?: boolean;
 }
 /**
  * Minimal interface for serialized InvocationWindow

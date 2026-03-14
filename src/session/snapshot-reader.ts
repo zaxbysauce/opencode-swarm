@@ -109,6 +109,7 @@ export function deserializeAgentSession(
 		lastGateOutcome: null,
 		declaredCoderScope: null,
 		lastScopeViolation: null,
+		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
 	};
 }

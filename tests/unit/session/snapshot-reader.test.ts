@@ -368,6 +368,108 @@ describe('deserializeAgentSession', () => {
 		expect(result.qaSkipCount).toBe(0);
 		expect(result.qaSkipTaskIds).toEqual([]);
 	});
+
+	it('restores scopeViolationDetected: true when present in snapshot', () => {
+		const serialized: SerializedAgentSession = {
+			agentName: 'architect',
+			lastToolCallTime: 123456,
+			lastAgentEventTime: 123456,
+			delegationActive: false,
+			activeInvocationId: 1,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: {},
+			reviewerCallCount: {},
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: [],
+			selfFixAttempted: false,
+			selfCodingWarnedAtCount: 0,
+			catastrophicPhaseWarnings: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: [],
+			lastCompletedPhaseAgentsDispatched: [],
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			scopeViolationDetected: true,
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.scopeViolationDetected).toBe(true);
+	});
+
+	it('restores scopeViolationDetected: false when present in snapshot', () => {
+		const serialized: SerializedAgentSession = {
+			agentName: 'architect',
+			lastToolCallTime: 123456,
+			lastAgentEventTime: 123456,
+			delegationActive: false,
+			activeInvocationId: 1,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: {},
+			reviewerCallCount: {},
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: [],
+			selfFixAttempted: false,
+			selfCodingWarnedAtCount: 0,
+			catastrophicPhaseWarnings: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: [],
+			lastCompletedPhaseAgentsDispatched: [],
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			scopeViolationDetected: false,
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.scopeViolationDetected).toBe(false);
+	});
+
+	it('legacy snapshot without scopeViolationDetected field → undefined (absent-safe)', () => {
+		const serialized: SerializedAgentSession = {
+			agentName: 'architect',
+			lastToolCallTime: 123456,
+			lastAgentEventTime: 123456,
+			delegationActive: false,
+			activeInvocationId: 1,
+			lastInvocationIdByAgent: {},
+			windows: {},
+			lastCompactionHint: 0,
+			architectWriteCount: 0,
+			lastCoderDelegationTaskId: null,
+			currentTaskId: null,
+			gateLog: {},
+			reviewerCallCount: {},
+			lastGateFailure: null,
+			partialGateWarningsIssuedForTask: [],
+			selfFixAttempted: false,
+			selfCodingWarnedAtCount: 0,
+			catastrophicPhaseWarnings: [],
+			lastPhaseCompleteTimestamp: 0,
+			lastPhaseCompletePhase: 0,
+			phaseAgentsDispatched: [],
+			lastCompletedPhaseAgentsDispatched: [],
+			qaSkipCount: 0,
+			qaSkipTaskIds: [],
+			// scopeViolationDetected NOT set - simulates legacy snapshot
+		};
+
+		const result = deserializeAgentSession(serialized);
+
+		expect(result.scopeViolationDetected).toBeUndefined();
+	});
 });
 
 describe('readSnapshot', () => {

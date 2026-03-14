@@ -22,6 +22,19 @@ export interface TaskEvidence {
 }
 export declare const DEFAULT_REQUIRED_GATES: string[];
 /**
+ * Canonical task-id validation helper.
+ * Returns true if the taskId is a valid numeric format (N.M or N.M.P),
+ * false otherwise.
+ *
+ * Validates:
+ * - Non-empty string
+ * - Matches N.M or N.M.P numeric pattern (e.g., "1.1", "1.2.3")
+ * - No path traversal (..)
+ * - No path separators (/, \)
+ * - No null bytes
+ */
+export declare function isValidTaskId(taskId: string): boolean;
+/**
  * Maps the first-dispatched agent type to the initial required_gates array.
  * Unknown agent types fall back to the safe default ["reviewer", "test_engineer"].
  */

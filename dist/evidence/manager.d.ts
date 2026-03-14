@@ -34,8 +34,8 @@ export declare function isBuildEvidence(evidence: Evidence): evidence is BuildEv
 export declare function isQualityBudgetEvidence(evidence: Evidence): evidence is QualityBudgetEvidence;
 /**
  * Validate and sanitize task ID.
- * Must match regex ^[\w-]+(\.[\w-]+)*$
- * Rejects: .., ../, null bytes, control characters, empty string
+ * Must match regex ^\d+\.\d+(\.\d+)*$ (canonical N.M or N.M.P numeric format)
+ * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
  * @throws Error with descriptive message on failure
  */
 export declare function sanitizeTaskId(taskId: string): string;

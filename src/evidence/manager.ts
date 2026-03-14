@@ -91,16 +91,26 @@ export function isQualityBudgetEvidence(
 }
 
 /**
- * Task ID validation regex: alphanumeric, hyphens, and dots (for version-like IDs)
- * Pattern: ^[\w-]+(\.[\w-]+)*$
- * Rejects: .., ../, null bytes, control characters, empty string
+ * Task ID validation pattern: strict N.M or N.M.P numeric format
+ * Same pattern as gate-evidence.ts and check-gate-status.ts
+ * Pattern: ^\d+\.\d+(\.\d+)*$
+ * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
  */
-const TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+const TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+
+/**
+ * Retrospective evidence ID pattern: retro-<number>
+ * Allows existing retrospective evidence directories like retro-1, retro-2
+ * Pattern: ^retro-\d+$
+ */
+const RETRO_TASK_ID_REGEX = /^retro-\d+$/;
 
 /**
  * Validate and sanitize task ID.
- * Must match regex ^[\w-]+(\.[\w-]+)*$
- * Rejects: .., ../, null bytes, control characters, empty string
+ * Accepts two formats:
+ * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
+ * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
+ * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
  * @throws Error with descriptive message on failure
  */
 export function sanitizeTaskId(taskId: string): string {
@@ -130,14 +140,20 @@ export function sanitizeTaskId(taskId: string): string {
 		throw new Error('Invalid task ID: path traversal detected');
 	}
 
-	// Validate against regex
-	if (!TASK_ID_REGEX.test(taskId)) {
-		throw new Error(
-			`Invalid task ID: must match pattern ^[\\w-]+(\\.[\\w-]+)*$, got "${taskId}"`,
-		);
+	// Validate against canonical numeric regex
+	if (TASK_ID_REGEX.test(taskId)) {
+		return taskId;
 	}
 
-	return taskId;
+	// Also accept retrospective IDs like retro-1, retro-2
+	if (RETRO_TASK_ID_REGEX.test(taskId)) {
+		return taskId;
+	}
+
+	// Reject anything else
+	throw new Error(
+		`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$ or ^retro-\\d+$, got "${taskId}"`,
+	);
 }
 
 /**

@@ -35,6 +35,20 @@ interface GateStatusResult {
 	message: string;
 }
 
+// ============ Canonical Task ID Validation ============
+// Align with gate-evidence.ts: allows N.M or N.M.P or N.M.P.Q (any number of segments)
+// Plus security checks: no path traversal (..), no path separators (/, \), no null bytes
+const TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
+
+function isValidTaskId(taskId: string): boolean {
+	if (!taskId) return false;
+	if (taskId.includes('..')) return false;
+	if (taskId.includes('/')) return false;
+	if (taskId.includes('\\')) return false;
+	if (taskId.includes('\0')) return false;
+	return TASK_ID_PATTERN.test(taskId);
+}
+
 // ============ Path Security ============
 function isPathWithinSwarm(filePath: string, workspaceRoot: string): boolean {
 	// Validate against the actual workspace root, not user-provided working_directory
@@ -89,7 +103,10 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 		task_id: tool.schema
 			.string()
 			.min(1)
-			.regex(/^\d+\.\d+(\.\d+)?$/, 'Task ID must be in N.M or N.M.P format')
+			.regex(
+				/^\d+\.\d+(\.\d+)*$/,
+				'Task ID must be in N.M or N.M.P format (e.g., "1.1", "1.2.3", "1.2.3.4")',
+			)
 			.describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")'),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
@@ -119,9 +136,8 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(errorResult, null, 2);
 		}
 
-		// Validate task_id format (N.M or N.M.P)
-		const taskIdPattern = /^\d+\.\d+(\.\d+)?$/;
-		if (!taskIdPattern.test(taskIdInput)) {
+		// Validate task_id format (canonical N.M or N.M.P or N.M.P.Q pattern with security checks)
+		if (!isValidTaskId(taskIdInput)) {
 			const errorResult: GateStatusResult = {
 				taskId: taskIdInput,
 				status: 'no_evidence',
@@ -129,7 +145,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				passed_gates: [],
 				missing_gates: [],
 				gates: {},
-				message: `Invalid task_id format: "${taskIdInput}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`,
+				message: `Invalid task_id format: "${taskIdInput}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3", "1.2.3.4")`,
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}

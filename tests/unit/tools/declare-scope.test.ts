@@ -10,6 +10,7 @@ import {
 	type DeclareScopeArgs,
 } from '../../../src/tools/declare-scope';
 import { swarmState, advanceTaskState, getTaskState } from '../../../src/state';
+import { createWorkflowTestSession } from '../../helpers/workflow-session-factory';
 
 describe('validateTaskIdFormat', () => {
 	test('accepts valid taskId formats', () => {
@@ -66,40 +67,6 @@ describe('executeDeclareScope', () => {
 	let tempDir: string;
 	let originalCwd: string;
 	let originalAgentSessions: Map<string, any>;
-
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			scopeViolationDetected: false,
-			modifiedFilesThisCoderTask: [],
-			...overrides,
-		};
-	}
 
 	beforeEach(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'declare-scope-test-'));
@@ -165,7 +132,7 @@ describe('executeDeclareScope', () => {
 
 	// Test 1: Success path - valid taskId + files + plan with task
 	test('success path: valid taskId + files + plan with task returns success', async () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		const args: DeclareScopeArgs = {
@@ -241,7 +208,7 @@ describe('executeDeclareScope', () => {
 
 	// Test 6: Task already 'complete' in session
 	test('task already complete returns error', async () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		// Advance task to complete state
 		advanceTaskState(session, '1.1', 'coder_delegated');
 		advanceTaskState(session, '1.1', 'pre_check_passed');
@@ -268,7 +235,7 @@ describe('executeDeclareScope', () => {
 
 	// Test 7: Whitelist merges into declaredCoderScope
 	test('whitelist merges into declaredCoderScope - fileCount = files.length + whitelist.length', async () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		const args: DeclareScopeArgs = {
@@ -286,7 +253,7 @@ describe('executeDeclareScope', () => {
 
 	// Test 8: Sets declaredCoderScope and clears lastScopeViolation on session
 	test('sets declaredCoderScope and clears lastScopeViolation on session', async () => {
-		const session = makeSession({
+		const session = createWorkflowTestSession({
 			lastScopeViolation: 'Previous violation',
 		});
 		swarmState.agentSessions.set('test-session', session);
@@ -308,9 +275,9 @@ describe('executeDeclareScope', () => {
 
 	// Test 9: Sets declaredCoderScope on ALL sessions
 	test('sets declaredCoderScope on ALL active architect sessions', async () => {
-		const session1 = makeSession();
-		const session2 = makeSession();
-		const session3 = makeSession();
+		const session1 = createWorkflowTestSession();
+		const session2 = createWorkflowTestSession();
+		const session3 = createWorkflowTestSession();
 
 		swarmState.agentSessions.set('session-1', session1);
 		swarmState.agentSessions.set('session-2', session2);
@@ -421,7 +388,7 @@ describe('executeDeclareScope', () => {
 
 	// Test 15: Valid working_directory with valid plan succeeds
 	test('valid working_directory with plan succeeds', async () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		const args: DeclareScopeArgs = {
