@@ -798,7 +798,7 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 });
 
 describe('executeUpdateTaskStatus in_progress state machine seeding (Task 2.3)', () => {
-	let originalAgentSessions: Map<string, any>;
+	let originalAgentSessions: typeof swarmState.agentSessions;
 	let tempDir: string;
 	let originalCwd: string;
 
@@ -881,6 +881,228 @@ describe('executeUpdateTaskStatus in_progress state machine seeding (Task 2.3)',
 		// Assert the task is now at 'coder_delegated' using getTaskState
 		const finalState = getTaskState(session, '1.1');
 		expect(finalState).toBe('coder_delegated');
+	});
+
+	test('update_task_status(in_progress) synchronizes session currentTaskId for gate recording', async () => {
+		// Set up a session using ensureAgentSession
+		const sessionId = 'test-task-identity-session';
+		const session = ensureAgentSession(sessionId, 'test-agent');
+
+		// Verify currentTaskId starts as null
+		expect(session.currentTaskId).toBeNull();
+
+		// Call executeUpdateTaskStatus with status: 'in_progress' for task 1.1
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.1',
+			status: 'in_progress',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Assert the call succeeded
+		expect(result.success).toBe(true);
+
+		// Assert the session's currentTaskId is now set to the task_id
+		expect(session.currentTaskId).toBe('1.1');
+	});
+});
+
+// Task 1.2 regression: evidence-sync bug - in_progress activation before durable gate recording
+// Tests that when a new task is moved to in_progress while a prior task exists in session state,
+// the new task's identity is properly synchronized so that later reviewer/test_engineer evidence
+// can satisfy completion for the new task without manual evidence repair.
+describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation syncs task identity for durable gate recording', () => {
+	let originalAgentSessions: typeof swarmState.agentSessions;
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		// Save and clear agent sessions
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+
+		// Create tempDir with valid plan.json containing two tasks
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-12-regression-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with plan containing two tasks
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed',
+							size: 'small',
+							description: 'Prior task already completed',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'New task to be activated',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
+		// Create evidence directory for task 1.1 (prior task with completed evidence)
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+		const priorTaskEvidence = {
+			task_id: '1.1',
+			required_gates: ['reviewer', 'test_engineer'],
+			gates: {
+				reviewer: { timestamp: Date.now(), result: 'PASS' },
+				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+			},
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			JSON.stringify(priorTaskEvidence, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		// Restore agent sessions
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+
+		// Restore cwd and cleanup tempDir
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('moving new task to in_progress synchronizes currentTaskId for later durable evidence', async () => {
+		// Step 1: Set up a session with prior task 1.1 in workflow state
+		const session = ensureAgentSession('test-session', 'test-agent');
+
+		// Simulate prior task (1.1) already at complete state in session workflow
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		advanceTaskState(session, '1.1', 'complete');
+
+		// Verify prior task is at complete state
+		expect(getTaskState(session, '1.1')).toBe('complete');
+
+		// Verify session's currentTaskId is currently null (no active task)
+		expect(session.currentTaskId).toBeNull();
+
+		// Step 2: Move NEW task (1.2) to in_progress via executeUpdateTaskStatus
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.2',
+			status: 'in_progress',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Assert the call succeeded
+		expect(result.success).toBe(true);
+		expect(result.new_status).toBe('in_progress');
+
+		// Step 3: Verify the new task's workflow state was advanced
+		expect(getTaskState(session, '1.2')).toBe('coder_delegated');
+
+		// Step 4: CRITICAL - Verify session's currentTaskId is now set to the NEW task (1.2)
+		// This is the key fix: task identity synchronization so later gate recording uses correct task
+		expect(session.currentTaskId).toBe('1.2');
+
+		// Step 5: Simulate durable evidence for the NEW task (1.2) - should satisfy completion
+		const newTaskEvidence = {
+			task_id: '1.2',
+			required_gates: ['reviewer', 'test_engineer'],
+			gates: {
+				reviewer: { timestamp: Date.now(), result: 'PASS' },
+				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+			},
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.2.json'),
+			JSON.stringify(newTaskEvidence, null, 2),
+		);
+
+		// Step 6: Verify checkReviewerGate passes for the NEW task (1.2) using durable evidence
+		const gateResult = checkReviewerGate('1.2', tempDir);
+
+		// Should pass because durable evidence exists for task 1.2
+		expect(gateResult.blocked).toBe(false);
+		expect(gateResult.reason).toBe('');
+
+		// Step 7: Verify completing the new task succeeds without manual evidence repair
+		const completeArgs: UpdateTaskStatusArgs = {
+			task_id: '1.2',
+			status: 'completed',
+		};
+
+		const completeResult = await executeUpdateTaskStatus(completeArgs, tempDir);
+
+		// Should succeed because evidence-first check passes (no manual repair needed)
+		expect(completeResult.success).toBe(true);
+		expect(completeResult.new_status).toBe('completed');
+	});
+
+	test('prior task identity is preserved when switching to new task in_progress', async () => {
+		// Set up a session with prior task 1.1 already tracked
+		const session = ensureAgentSession('test-session', 'test-agent');
+
+		// Set currentTaskId to prior task (simulating prior work)
+		session.currentTaskId = '1.1';
+
+		// Advance prior task to complete state
+		advanceTaskState(session, '1.1', 'coder_delegated');
+		advanceTaskState(session, '1.1', 'pre_check_passed');
+		advanceTaskState(session, '1.1', 'reviewer_run');
+		advanceTaskState(session, '1.1', 'tests_run');
+		advanceTaskState(session, '1.1', 'complete');
+
+		// Verify prior task is tracked
+		expect(session.currentTaskId).toBe('1.1');
+		expect(getTaskState(session, '1.1')).toBe('complete');
+
+		// Move NEW task (1.2) to in_progress
+		const args: UpdateTaskStatusArgs = {
+			task_id: '1.2',
+			status: 'in_progress',
+		};
+
+		const result = await executeUpdateTaskStatus(args, tempDir);
+
+		// Should succeed
+		expect(result.success).toBe(true);
+
+		// CRITICAL: session's currentTaskId should now point to the NEW task (1.2)
+		// This ensures later gate recording uses the correct task identity
+		expect(session.currentTaskId).toBe('1.2');
+
+		// Verify prior task state is still intact (not corrupted)
+		expect(getTaskState(session, '1.1')).toBe('complete');
+
+		// Verify new task is now at coder_delegated
+		expect(getTaskState(session, '1.2')).toBe('coder_delegated');
 	});
 });
 

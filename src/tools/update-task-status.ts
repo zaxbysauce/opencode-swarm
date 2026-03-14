@@ -6,8 +6,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import { stripKnownSwarmPrefix } from '../config/schema';
 import type { TaskStatus } from '../config/plan-schema';
+import { stripKnownSwarmPrefix } from '../config/schema';
 import { updateTaskStatus } from '../plan/manager';
 import { advanceTaskState, getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
@@ -259,10 +259,7 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 		// Advance coder_delegated/pre_check_passed → reviewer_run
 		if (hasReviewer) {
 			const stateNow = getTaskState(session, taskId);
-			if (
-				stateNow === 'coder_delegated' ||
-				stateNow === 'pre_check_passed'
-			) {
+			if (stateNow === 'coder_delegated' || stateNow === 'pre_check_passed') {
 				try {
 					advanceTaskState(session, taskId, 'reviewer_run');
 				} catch {
@@ -316,7 +313,7 @@ export async function executeUpdateTaskStatus(
 	}
 
 	// Seed the task state machine: when transitioning to in_progress, advance idle → coder_delegated
-	// This is required so that delegation-gate.ts can later advance the task to reviewer_run and tests_run
+	// Also synchronize session task identity fields so later gate recording uses the correct task
 	if (args.status === 'in_progress') {
 		for (const [_sessionId, session] of swarmState.agentSessions) {
 			const currentState = getTaskState(session, args.task_id);
@@ -327,6 +324,8 @@ export async function executeUpdateTaskStatus(
 					// Non-fatal: session may not support state advancement
 				}
 			}
+			// Synchronize active task identity for durable gate recording
+			session.currentTaskId = args.task_id;
 		}
 	}
 
