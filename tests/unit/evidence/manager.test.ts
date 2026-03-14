@@ -74,6 +74,28 @@ describe('sanitizeTaskId', () => {
 		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID: must match pattern');
 	});
 
+	it("internal automated-tool IDs: 'sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build' all return the ID", () => {
+		// These IDs are allowed for internal automated-tool evidence
+		expect(sanitizeTaskId('sast_scan')).toBe('sast_scan');
+		expect(sanitizeTaskId('quality_budget')).toBe('quality_budget');
+		expect(sanitizeTaskId('syntax_check')).toBe('syntax_check');
+		expect(sanitizeTaskId('placeholder_scan')).toBe('placeholder_scan');
+		expect(sanitizeTaskId('sbom_generate')).toBe('sbom_generate');
+		expect(sanitizeTaskId('build')).toBe('build');
+	});
+
+	it("invalid internal tool IDs throw: 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra'", () => {
+		// Partial matches should still be rejected - must match exact pattern
+		expect(() => sanitizeTaskId('sast')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('scan')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('quality')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('syntax')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('placeholder')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('sbom')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('build_extra')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('sast-scan')).toThrow('Invalid task ID: must match pattern');
+	});
+
 	it('empty string throws', () => {
 		expect(() => sanitizeTaskId('')).toThrow('Invalid task ID: empty string');
 	});
@@ -194,6 +216,33 @@ describe('saveEvidence + loadEvidence', () => {
 		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow('Invalid task ID');
 		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow('Invalid task ID');
 	});
+
+	it('save and load internal automated-tool evidence: sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build', async () => {
+		const toolIds = ['sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build'] as const;
+
+		for (const toolId of toolIds) {
+			const evidence = makeEvidence({ task_id: toolId, summary: `${toolId} scan result` });
+			const bundle = await saveEvidence(tempDir, toolId, evidence);
+
+			expect(bundle.task_id).toBe(toolId);
+			expect(bundle.entries.length).toBe(1);
+			expect(bundle.entries[0].summary).toBe(`${toolId} scan result`);
+
+			const loaded = await loadEvidence(tempDir, toolId);
+			expect(loaded.status).toBe('found');
+			if (loaded.status !== 'found') return;
+			expect(loaded.bundle.task_id).toBe(toolId);
+			expect(loaded.bundle.entries.length).toBe(1);
+			expect(loaded.bundle.entries[0].summary).toBe(`${toolId} scan result`);
+		}
+	});
+
+	it('save with invalid internal tool ID throws', async () => {
+		const evidence = makeEvidence();
+		await expect(saveEvidence(tempDir, 'sast', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'scan', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'sast-scan', evidence)).rejects.toThrow('Invalid task ID');
+	});
 });
 
 describe('listEvidenceTaskIds', () => {
@@ -245,6 +294,22 @@ describe('listEvidenceTaskIds', () => {
 
 		const ids = await listEvidenceTaskIds(tempDir);
 		expect(ids).toEqual([]);
+	});
+
+	it('includes internal automated-tool IDs in listing', async () => {
+		// Save evidence for numeric IDs and internal tool IDs
+		await saveEvidence(tempDir, '2.1', makeEvidence({ task_id: '2.1' }));
+		await saveEvidence(tempDir, 'sast_scan', makeEvidence({ task_id: 'sast_scan' }));
+		await saveEvidence(tempDir, '1.1', makeEvidence({ task_id: '1.1' }));
+		await saveEvidence(tempDir, 'quality_budget', makeEvidence({ task_id: 'quality_budget' }));
+
+		const ids = await listEvidenceTaskIds(tempDir);
+		// Should include both numeric and internal tool IDs
+		expect(ids).toContain('1.1');
+		expect(ids).toContain('2.1');
+		expect(ids).toContain('sast_scan');
+		expect(ids).toContain('quality_budget');
+		expect(ids.length).toBe(4);
 	});
 });
 

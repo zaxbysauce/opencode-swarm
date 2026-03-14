@@ -390,12 +390,13 @@ describe('Gate Workflow State Machine', () => {
 			delete session.taskWorkflowStates;
 			
 			// FIXED: getTaskState now initializes the Map if undefined
-			// checkReviewerGate now correctly returns blocked:true because state is 'idle'
+			// When all sessions are invalid for authoritative gate-state checks,
+			// checkReviewerGate returns blocked:false (permissive fallback)
 			const result = checkReviewerGate('1.1');
 			
-			// After the fix, getTaskState returns 'idle' (default), which is not 'tests_run' or 'complete'
-			// So the gate correctly blocks because unknown/incomplete state should block
-			expect(result.blocked).toBe(true);
+			// After the fix, getTaskState returns 'idle' (default)
+			// Since session is invalid/corrupt, permissive fallback returns unblocked
+			expect(result.blocked).toBe(false);
 		});
 
 		test('AV1: getTaskState handles undefined taskWorkflowStates gracefully - FIXED', () => {

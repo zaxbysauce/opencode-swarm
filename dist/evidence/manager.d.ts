@@ -34,8 +34,11 @@ export declare function isBuildEvidence(evidence: Evidence): evidence is BuildEv
 export declare function isQualityBudgetEvidence(evidence: Evidence): evidence is QualityBudgetEvidence;
 /**
  * Validate and sanitize task ID.
- * Must match regex ^\d+\.\d+(\.\d+)*$ (canonical N.M or N.M.P numeric format)
- * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
+ * Accepts three formats:
+ * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
+ * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
+ * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build)
+ * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
  * @throws Error with descriptive message on failure
  */
 export declare function sanitizeTaskId(taskId: string): string;

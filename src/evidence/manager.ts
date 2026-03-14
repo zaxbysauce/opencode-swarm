@@ -106,10 +106,20 @@ const TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
 const RETRO_TASK_ID_REGEX = /^retro-\d+$/;
 
 /**
+ * Internal automated-tool evidence ID pattern.
+ * Allows only the specific internal tool IDs: sast_scan, quality_budget,
+ * syntax_check, placeholder_scan, sbom_generate, build.
+ * Pattern: ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$
+ */
+const INTERNAL_TOOL_ID_REGEX =
+	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
+
+/**
  * Validate and sanitize task ID.
- * Accepts two formats:
+ * Accepts three formats:
  * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
  * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
+ * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build)
  * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
  * @throws Error with descriptive message on failure
  */
@@ -150,9 +160,14 @@ export function sanitizeTaskId(taskId: string): string {
 		return taskId;
 	}
 
+	// Also accept internal automated-tool IDs like sast_scan, quality_budget, etc.
+	if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
+		return taskId;
+	}
+
 	// Reject anything else
 	throw new Error(
-		`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$ or ^retro-\\d+$, got "${taskId}"`,
+		`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, ^retro-\\d+$, or ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$, got "${taskId}"`,
 	);
 }
 
