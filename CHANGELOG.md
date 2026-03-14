@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.26.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.9...v6.26.0) (2026-03-14)
+
+
+### Features
+
+* implement session durability and Turbo Mode controls (v6.26) ([a87eb95](https://github.com/zaxbysauce/opencode-swarm/commit/a87eb95065985e82f9a158e24cd64dc6dc2902df))
+* session durability and Turbo Mode controls (v6.26) ([9d7eb32](https://github.com/zaxbysauce/opencode-swarm/commit/9d7eb32f0a69c06e5566d75c4620c023d7a71cfd))
+
+
+### Bug Fixes
+
+* resolve TypeScript CI failures ([e752163](https://github.com/zaxbysauce/opencode-swarm/commit/e75216340ceeb42374a5f628c3370cd1d277a39b))
+
 ## [6.25.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.8...v6.25.9) (2026-03-14)
 
 
