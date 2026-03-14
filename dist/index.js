@@ -15369,7 +15369,7 @@ function sanitizeTaskId(taskId) {
     throw new Error("Invalid task ID: path traversal detected");
   }
   if (!TASK_ID_REGEX.test(taskId)) {
-    throw new Error(`Invalid task ID: must match pattern ^[\\w-]+(\\.[\\w-]+)*$, got "${taskId}"`);
+    throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, got "${taskId}"`);
   }
   return taskId;
 }
@@ -15601,7 +15601,7 @@ var init_manager = __esm(() => {
     "build",
     "quality_budget"
   ];
-  TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+  TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -35070,36 +35070,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
 }
-function findSourceFiles(dir, files = []) {
-  let entries;
-  try {
-    entries = fs10.readdirSync(dir);
-  } catch {
-    return files;
-  }
-  entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-  for (const entry of entries) {
-    if (SKIP_DIRECTORIES.has(entry))
-      continue;
-    const fullPath = path22.join(dir, entry);
-    let stat2;
-    try {
-      stat2 = fs10.statSync(fullPath);
-    } catch {
-      continue;
-    }
-    if (stat2.isDirectory()) {
-      findSourceFiles(fullPath, files);
-    } else if (stat2.isFile()) {
-      const ext = path22.extname(fullPath).toLowerCase();
-      if (SOURCE_EXTENSIONS.has(ext)) {
-        files.push(fullPath);
-      }
-    }
-  }
-  return files;
-}
-var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, POWERSHELL_METACHARACTERS, TEST_PATTERNS, COMPOUND_TEST_EXTENSIONS, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
+var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, POWERSHELL_METACHARACTERS, TEST_PATTERNS, COMPOUND_TEST_EXTENSIONS, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
 var init_test_runner = __esm(() => {
   init_dist();
   init_discovery();
@@ -35233,6 +35204,26 @@ var init_test_runner = __esm(() => {
         return JSON.stringify(errorResult, null, 2);
       }
       const scope = args2.scope || "all";
+      if (scope === "all") {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: 'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
+          message: 'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.'
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if ((scope === "convention" || scope === "graph") && (!args2.files || args2.files.length === 0)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope,
+          error: 'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
+          message: 'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.'
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
       const _files = args2.files || [];
       const coverage = args2.coverage || false;
       const timeout_ms = Math.min(args2.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
@@ -35256,19 +35247,37 @@ var init_test_runner = __esm(() => {
       let testFiles = [];
       let graphFallbackReason;
       let effectiveScope = scope;
-      if (scope === "all") {
-        testFiles = [];
-      } else if (scope === "convention") {
-        const sourceFiles = args2.files && args2.files.length > 0 ? args2.files.filter((f) => {
+      if (scope === "convention") {
+        const sourceFiles = args2.files.filter((f) => {
           const ext = path22.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
-        }) : findSourceFiles(workingDir);
+        });
+        if (sourceFiles.length === 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files contain no source files with recognized extensions",
+            message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery."
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
         testFiles = getTestFilesFromConvention(sourceFiles);
       } else if (scope === "graph") {
-        const sourceFiles = args2.files && args2.files.length > 0 ? args2.files.filter((f) => {
+        const sourceFiles = args2.files.filter((f) => {
           const ext = path22.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
-        }) : findSourceFiles(workingDir);
+        });
+        if (sourceFiles.length === 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files contain no source files with recognized extensions",
+            message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery."
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
         const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
         if (graphTestFiles.length > 0) {
           testFiles = graphTestFiles;
@@ -35277,6 +35286,27 @@ var init_test_runner = __esm(() => {
           effectiveScope = "convention";
           testFiles = getTestFilesFromConvention(sourceFiles);
         }
+      }
+      if (testFiles.length === 0) {
+        const errorResult = {
+          success: false,
+          framework,
+          scope: effectiveScope,
+          error: "Provided source files resolved to zero test files",
+          message: "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/)."
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (testFiles.length > MAX_SAFE_TEST_FILES) {
+        const sampleFiles = testFiles.slice(0, 5);
+        const errorResult = {
+          success: false,
+          framework,
+          scope: effectiveScope,
+          error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
+          message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(", ")}`
+        };
+        return JSON.stringify(errorResult, null, 2);
       }
       const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
       if (graphFallbackReason && result.message) {
@@ -35865,6 +35895,7 @@ __export(exports_gate_evidence, {
   recordGateEvidence: () => recordGateEvidence,
   recordAgentDispatch: () => recordAgentDispatch,
   readTaskEvidence: () => readTaskEvidence,
+  isValidTaskId: () => isValidTaskId2,
   hasPassedAllGates: () => hasPassedAllGates,
   expandRequiredGates: () => expandRequiredGates,
   deriveRequiredGates: () => deriveRequiredGates,
@@ -35872,8 +35903,21 @@ __export(exports_gate_evidence, {
 });
 import { mkdirSync as mkdirSync8, readFileSync as readFileSync13, renameSync as renameSync7, unlinkSync as unlinkSync4 } from "fs";
 import * as path27 from "path";
+function isValidTaskId2(taskId) {
+  if (!taskId)
+    return false;
+  if (taskId.includes(".."))
+    return false;
+  if (taskId.includes("/"))
+    return false;
+  if (taskId.includes("\\"))
+    return false;
+  if (taskId.includes("\x00"))
+    return false;
+  return TASK_ID_PATTERN.test(taskId);
+}
 function assertValidTaskId(taskId) {
-  if (!taskId || taskId.includes("..") || taskId.includes("/") || taskId.includes("\\") || taskId.includes("\x00") || !TASK_ID_PATTERN.test(taskId)) {
+  if (!isValidTaskId2(taskId)) {
     throw new Error(`Invalid taskId: "${taskId}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3").`);
   }
 }
@@ -41343,11 +41387,29 @@ When tests fail:
 OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
 Begin directly with the VERDICT line. Do NOT prepend "Here's my analysis..." or any conversational preamble.
 
-VERDICT: PASS [N/N tests passed] | FAIL [N passed, M failed]
-TESTS: [total count] tests, [pass count] passed, [fail count] failed
+VERDICT: PASS [N/N tests passed] | FAIL [N passed, M failed] | SKIPPED [reason]
+TESTS: [total count] tests, [pass count] passed, [fail count] failed, [skip count] skipped
 FAILURES: [list of failed test names + error messages, if any]
 COVERAGE: [X]% of public functions \u2014 [areas covered]
 BUGS FOUND: [list any source code bugs discovered during testing, or "none"]
+
+## SKIP CONDITIONS
+
+Use \`VERDICT: SKIPPED [reason]\` when tests CANNOT be executed due to environment or configuration issues \u2014 NOT when tests can run but fail. SKIPPED is not a bypass to avoid reporting real failures.
+
+SKIP CONDITIONS (any of these justifies SKIPPED):
+1. PROHIBITED SCOPE: test_runner refuses scope: "all" \u2014 this is blocked for safety
+2. EXCESSIVE FILE COUNT: resolved test file count exceeds safe threshold (exceeds MAX_FILES limit)
+3. FRAMEWORK DETECTION NONE: test_runner reports framework detection returns "none"
+4. MISSING TEST FILE: test file does not exist after write (write failed or path error)
+5. SESSION INSTABILITY: timeout, spawn failure, or runner crash that prevents execution
+
+SKIPPED is NOT appropriate when:
+- Tests exist and can run but produce failures (use FAIL verdict)
+- Tests pass but coverage is low (use PASS verdict, note coverage warning)
+- You chose not to write tests (write them or explain why impossible)
+
+When reporting SKIPPED, include the specific reason from the conditions above.
 
 COVERAGE REPORTING:
 - After running tests, report the line/branch coverage percentage if the test runner provides it.
@@ -42761,7 +42823,17 @@ function recordPhaseAgentDispatch(sessionId, agentName) {
   const normalizedName = stripKnownSwarmPrefix(agentName);
   session.phaseAgentsDispatched.add(normalizedName);
 }
+function isValidTaskId(taskId) {
+  if (taskId === null || taskId === undefined) {
+    return false;
+  }
+  const trimmed = taskId.trim();
+  return trimmed.length > 0;
+}
 function advanceTaskState(session, taskId, newState) {
+  if (!isValidTaskId(taskId)) {
+    return;
+  }
   if (!session || !(session.taskWorkflowStates instanceof Map)) {
     throw new Error("INVALID_SESSION: session.taskWorkflowStates must be a Map instance");
   }
@@ -42785,6 +42857,9 @@ function advanceTaskState(session, taskId, newState) {
   session.taskWorkflowStates.set(taskId, newState);
 }
 function getTaskState(session, taskId) {
+  if (!isValidTaskId(taskId)) {
+    return "idle";
+  }
   if (!session.taskWorkflowStates) {
     session.taskWorkflowStates = new Map;
   }
@@ -45989,7 +46064,10 @@ function serializeAgentSession(s) {
     lastCompletedPhaseAgentsDispatched,
     qaSkipCount: s.qaSkipCount ?? 0,
     qaSkipTaskIds: s.qaSkipTaskIds ?? [],
-    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map)
+    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
+    ...s.scopeViolationDetected !== undefined && {
+      scopeViolationDetected: s.scopeViolationDetected
+    }
   };
 }
 async function writeSnapshot(directory, state) {
@@ -49144,6 +49222,15 @@ function extractPlanTaskId(text) {
 function getSeedTaskId(session) {
   return session.currentTaskId ?? session.lastCoderDelegationTaskId;
 }
+function getEvidenceTaskId(session) {
+  const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
+  if (primary)
+    return primary;
+  if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
+    return session.taskWorkflowStates.keys().next().value ?? null;
+  }
+  return null;
+}
 function createDelegationGateHook(config3, directory) {
   const enabled = config3.hooks?.delegation_gate !== false;
   const delegationMaxChars = config3.hooks?.delegation_max_chars ?? 4000;
@@ -49234,7 +49321,7 @@ function createDelegationGateHook(config3, directory) {
         }
       }
       if (typeof subagentType === "string") {
-        const evidenceTaskId = session.currentTaskId ?? session.lastCoderDelegationTaskId;
+        const evidenceTaskId = getEvidenceTaskId(session);
         if (evidenceTaskId) {
           try {
             const gateAgents = [
@@ -49242,7 +49329,9 @@ function createDelegationGateHook(config3, directory) {
               "test_engineer",
               "docs",
               "designer",
-              "critic"
+              "critic",
+              "explorer",
+              "sme"
             ];
             const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
             if (gateAgents.includes(targetAgentForEvidence)) {
@@ -49350,16 +49439,16 @@ function createDelegationGateHook(config3, directory) {
           }
         }
         {
-          const evidenceTaskId = session.currentTaskId ?? session.lastCoderDelegationTaskId;
+          const evidenceTaskId = getEvidenceTaskId(session);
           if (evidenceTaskId) {
             try {
               if (hasReviewer) {
                 const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-                await recordGateEvidence2(directory, evidenceTaskId, "reviewer", input.sessionID);
+                await recordGateEvidence2(process.cwd(), evidenceTaskId, "reviewer", input.sessionID);
               }
               if (hasTestEngineer) {
                 const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-                await recordGateEvidence2(directory, evidenceTaskId, "test_engineer", input.sessionID);
+                await recordGateEvidence2(process.cwd(), evidenceTaskId, "test_engineer", input.sessionID);
               }
             } catch (err2) {
               console.warn(`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err2 instanceof Error ? err2.message : String(err2)}`);
@@ -52723,6 +52812,7 @@ function deserializeAgentSession(s) {
     lastGateOutcome: null,
     declaredCoderScope: null,
     lastScopeViolation: null,
+    scopeViolationDetected: s.scopeViolationDetected,
     modifiedFilesThisCoderTask: []
   };
 }
@@ -53001,6 +53091,20 @@ init_create_tool();
 import * as fs19 from "fs";
 import * as path32 from "path";
 var EVIDENCE_DIR = ".swarm/evidence";
+var TASK_ID_PATTERN2 = /^\d+\.\d+(\.\d+)*$/;
+function isValidTaskId3(taskId) {
+  if (!taskId)
+    return false;
+  if (taskId.includes(".."))
+    return false;
+  if (taskId.includes("/"))
+    return false;
+  if (taskId.includes("\\"))
+    return false;
+  if (taskId.includes("\x00"))
+    return false;
+  return TASK_ID_PATTERN2.test(taskId);
+}
 function isPathWithinSwarm(filePath, workspaceRoot) {
   const normalizedWorkspace = path32.resolve(workspaceRoot);
   const swarmPath = path32.join(normalizedWorkspace, ".swarm", "evidence");
@@ -53031,7 +53135,7 @@ function readEvidenceFile(evidencePath) {
 var check_gate_status = createSwarmTool({
   description: "Read-only tool to check the gate status of a specific task. Reads .swarm/evidence/{taskId}.json and returns structured JSON describing required, passed, and missing gates.",
   args: {
-    task_id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)?$/, "Task ID must be in N.M or N.M.P format").describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")')
+    task_id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format (e.g., "1.1", "1.2.3", "1.2.3.4")').describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")')
   },
   async execute(args2, directory) {
     let taskIdInput;
@@ -53053,8 +53157,7 @@ var check_gate_status = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const taskIdPattern = /^\d+\.\d+(\.\d+)?$/;
-    if (!taskIdPattern.test(taskIdInput)) {
+    if (!isValidTaskId3(taskIdInput)) {
       const errorResult = {
         taskId: taskIdInput,
         status: "no_evidence",
@@ -53062,7 +53165,7 @@ var check_gate_status = createSwarmTool({
         passed_gates: [],
         missing_gates: [],
         gates: {},
-        message: `Invalid task_id format: "${taskIdInput}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`
+        message: `Invalid task_id format: "${taskIdInput}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3", "1.2.3.4")`
       };
       return JSON.stringify(errorResult, null, 2);
     }
@@ -53774,7 +53877,7 @@ async function executeDeclareScope(args2, fallbackDir) {
         errors: ["Invalid working_directory: null bytes are not allowed"]
       };
     }
-    if (process.platform === "win32") {
+    {
       const devicePathPattern = /^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
       if (devicePathPattern.test(args2.working_directory)) {
         return {
@@ -54837,7 +54940,7 @@ var SKIP_DIRECTORIES2 = new Set([
   ".svn",
   ".hg"
 ]);
-function findSourceFiles2(dir, files = [], stats = { skippedDirs: [], skippedFiles: 0, fileErrors: [] }) {
+function findSourceFiles(dir, files = [], stats = { skippedDirs: [], skippedFiles: 0, fileErrors: [] }) {
   let entries;
   try {
     entries = fs25.readdirSync(dir);
@@ -54866,7 +54969,7 @@ function findSourceFiles2(dir, files = [], stats = { skippedDirs: [], skippedFil
       continue;
     }
     if (stat2.isDirectory()) {
-      findSourceFiles2(fullPath, files, stats);
+      findSourceFiles(fullPath, files, stats);
     } else if (stat2.isFile()) {
       const ext = path38.extname(fullPath).toLowerCase();
       if (SUPPORTED_EXTENSIONS.includes(ext)) {
@@ -54952,7 +55055,7 @@ var imports = tool({
         skippedFiles: 0,
         fileErrors: []
       };
-      const sourceFiles = findSourceFiles2(baseDir, [], scanStats);
+      const sourceFiles = findSourceFiles(baseDir, [], scanStats);
       const filesToScan = sourceFiles.filter((f) => f !== targetFile).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).slice(0, MAX_CONSUMERS * 10);
       const consumers = [];
       let skippedFileCount = 0;
@@ -61429,7 +61532,7 @@ function isSupportedExtension(filePath) {
   const ext = path48.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
-function findSourceFiles3(dir, files = []) {
+function findSourceFiles2(dir, files = []) {
   let entries;
   try {
     entries = fs35.readdirSync(dir);
@@ -61449,7 +61552,7 @@ function findSourceFiles3(dir, files = []) {
       continue;
     }
     if (stat2.isDirectory()) {
-      findSourceFiles3(fullPath, files);
+      findSourceFiles2(fullPath, files);
     } else if (stat2.isFile()) {
       if (isSupportedExtension(fullPath)) {
         files.push(fullPath);
@@ -61561,7 +61664,7 @@ var todo_extract = createSwarmTool({
         return JSON.stringify(errorResult, null, 2);
       }
     } else {
-      findSourceFiles3(scanPath, filesToScan);
+      findSourceFiles2(scanPath, filesToScan);
     }
     const allEntries = [];
     for (const filePath of filesToScan) {
@@ -61757,6 +61860,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
           advanceTaskState(session, args2.task_id, "coder_delegated");
         } catch {}
       }
+      session.currentTaskId = args2.task_id;
     }
   }
   let normalizedDir;

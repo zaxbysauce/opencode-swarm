@@ -141,7 +141,8 @@ export async function executeDeclareScope(
 		}
 
 		// Check for Windows device paths (e.g., \\.\C:\, \\?\GLOBALROOT\)
-		if (process.platform === 'win32') {
+		// Applied on all platforms for defense-in-depth (paths may originate from Windows clients)
+		{
 			const devicePathPattern =
 				/^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
 			if (devicePathPattern.test(args.working_directory)) {
