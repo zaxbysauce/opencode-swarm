@@ -42,6 +42,8 @@ export interface SerializedAgentSession {
 	qaSkipCount: number;
 	qaSkipTaskIds: string[];
 	taskWorkflowStates?: Record<string, string>;
+	/** Flag for one-shot scope violation warning injection (omitted when undefined for additive-only schema) */
+	scopeViolationDetected?: boolean;
 }
 
 /**
@@ -157,6 +159,9 @@ export function serializeAgentSession(
 		qaSkipCount: s.qaSkipCount ?? 0,
 		qaSkipTaskIds: s.qaSkipTaskIds ?? [],
 		taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map()),
+		...(s.scopeViolationDetected !== undefined && {
+			scopeViolationDetected: s.scopeViolationDetected,
+		}),
 	};
 }
 

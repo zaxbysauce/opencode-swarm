@@ -11,6 +11,12 @@ import {
 	type UpdateTaskStatusArgs,
 } from '../../../src/tools/update-task-status';
 import { swarmState, advanceTaskState, getTaskState, ensureAgentSession } from '../../../src/state';
+import {
+	createWorkflowTestSession,
+	createWorkflowTestSessionWithPassedTask,
+	createWorkflowTestSessionWithCompletedTask,
+	createWorkflowTestSessionWithTaskAtState,
+} from '../../helpers/workflow-session-factory';
 
 describe('validateStatus', () => {
 	test('returns undefined for valid statuses', () => {
@@ -326,9 +332,48 @@ describe('executeUpdateTaskStatus', () => {
 });
 
 describe('checkReviewerGate', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkreviewer-gate-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 	});
@@ -338,81 +383,42 @@ describe('checkReviewerGate', () => {
 		for (const [key, value] of originalAgentSessions) {
 			swarmState.agentSessions.set(key, value);
 		}
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
-
 	test('returns blocked: false when agentSessions is empty', () => {
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(false);
 		expect(result.reason).toBe('');
 	});
 
 	test('returns blocked: false when task is in tests_run state', () => {
 		const sessionId = 'test-session-1';
-		const session = makeSession();
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
+		const session = createWorkflowTestSessionWithPassedTask('1.1');
 		swarmState.agentSessions.set(sessionId, session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(false);
 		expect(result.reason).toBe('');
 	});
 
 	test('returns blocked: false when task is in complete state', () => {
 		const sessionId = 'test-session-2';
-		const session = makeSession();
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
-		advanceTaskState(session, '1.1', 'complete');
+		const session = createWorkflowTestSessionWithCompletedTask('1.1');
 		swarmState.agentSessions.set(sessionId, session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(false);
 		expect(result.reason).toBe('');
 	});
 
 	test('returns blocked: true when task is in idle state (not started)', () => {
 		const sessionId = 'test-session-3';
-		const session = makeSession(); // taskWorkflowStates is empty, so 1.1 is 'idle'
+		const session = createWorkflowTestSession(); // taskWorkflowStates is empty, so 1.1 is 'idle'
 		swarmState.agentSessions.set(sessionId, session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('Task 1.1');
 		expect(result.reason).toContain('QA gates');
@@ -420,39 +426,34 @@ describe('checkReviewerGate', () => {
 
 	test('returns blocked: true when task is in coder_delegated state', () => {
 		const sessionId = 'test-session-4';
-		const session = makeSession();
-		advanceTaskState(session, '1.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
 		swarmState.agentSessions.set(sessionId, session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('Task 1.1');
 	});
 
 	test('returns blocked: true when task is in reviewer_run state (tests not yet run)', () => {
 		const sessionId = 'test-session-5';
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		advanceTaskState(session, '1.1', 'coder_delegated');
 		advanceTaskState(session, '1.1', 'pre_check_passed');
 		advanceTaskState(session, '1.1', 'reviewer_run');
 		swarmState.agentSessions.set(sessionId, session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('Task 1.1');
 	});
 
 	test('returns blocked: true for different task ID even if another task passed', () => {
 		const sessionId = 'test-session-6';
-		const session = makeSession();
-		advanceTaskState(session, '2.1', 'coder_delegated');
-		advanceTaskState(session, '2.1', 'pre_check_passed');
-		advanceTaskState(session, '2.1', 'reviewer_run');
-		advanceTaskState(session, '2.1', 'tests_run');
+		const session = createWorkflowTestSessionWithPassedTask('2.1');
 		swarmState.agentSessions.set(sessionId, session);
 
 		// Check for a DIFFERENT task ID — should be blocked since 1.1 is idle
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 	});
 });
@@ -517,34 +518,7 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 
 	test('returns failure when status is completed and reviewer gate is blocked', async () => {
 		// Set up a session with task in idle state (will block)
-		const session: any = {
-			agentName: 'architect',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(), // Empty = task 1.1 is in 'idle' state
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-		};
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-blocked', session);
 
 		const args: UpdateTaskStatusArgs = {
@@ -563,39 +537,7 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 
 	test('proceeds normally when status is completed and reviewer gate passes', async () => {
 		// Set up a session with task in tests_run state (will pass)
-		const session: any = {
-			agentName: 'architect',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-		};
-		// Advance task 1.1 to tests_run state so the gate passes
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
+		const session = createWorkflowTestSessionWithPassedTask('1.1');
 		swarmState.agentSessions.set('session-pass', session);
 
 		const args: UpdateTaskStatusArgs = {
@@ -611,34 +553,7 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 
 	test('does not check reviewer gate when status is in_progress', async () => {
 		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
-		const session: any = {
-			agentName: 'architect',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-		};
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-would-block', session);
 
 		const args: UpdateTaskStatusArgs = {
@@ -655,34 +570,7 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 
 	test('does not check reviewer gate when status is pending', async () => {
 		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
-		const session: any = {
-			agentName: 'architect',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-		};
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-would-block', session);
 
 		const args: UpdateTaskStatusArgs = {
@@ -699,34 +587,7 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 
 	test('does not check reviewer gate when status is blocked', async () => {
 		// Set up an architect session with empty taskWorkflowStates (task idle - would block if checked)
-		const session: any = {
-			agentName: 'architect',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-		};
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-would-block', session);
 
 		const args: UpdateTaskStatusArgs = {
@@ -745,9 +606,66 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 // ===== Batch reviewer delegation test =====
 
 describe('Batch reviewer delegation advances all coder_delegated tasks to reviewer_run', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'batch-delegation-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: 'p2.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task p2.1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: 'p2.2',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task p2.2',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: 'p2.3',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task p2.3',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 	});
@@ -757,6 +675,8 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 		for (const [key, value] of originalAgentSessions) {
 			swarmState.agentSessions.set(key, value);
 		}
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
 	test('Batch reviewer delegation advances all coder_delegated tasks to reviewer_run', () => {
@@ -784,9 +704,9 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 		advanceTaskState(session, 'p2.3', 'tests_run');
 
 		// Verify that checkReviewerGate now passes - meaning update_task_status("completed") would succeed
-		const result1 = checkReviewerGate('p2.1');
-		const result2 = checkReviewerGate('p2.2');
-		const result3 = checkReviewerGate('p2.3');
+		const result1 = checkReviewerGate('p2.1', tempDir);
+		const result2 = checkReviewerGate('p2.2', tempDir);
+		const result3 = checkReviewerGate('p2.3', tempDir);
 
 		expect(result1.blocked).toBe(false);
 		expect(result1.reason).toBe('');
@@ -997,14 +917,8 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 
 	test('moving new task to in_progress synchronizes currentTaskId for later durable evidence', async () => {
 		// Step 1: Set up a session with prior task 1.1 in workflow state
-		const session = ensureAgentSession('test-session', 'test-agent');
-
-		// Simulate prior task (1.1) already at complete state in session workflow
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
-		advanceTaskState(session, '1.1', 'complete');
+		const session = createWorkflowTestSessionWithCompletedTask('1.1');
+		swarmState.agentSessions.set('test-session', session);
 
 		// Verify prior task is at complete state
 		expect(getTaskState(session, '1.1')).toBe('complete');
@@ -1067,17 +981,11 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 
 	test('prior task identity is preserved when switching to new task in_progress', async () => {
 		// Set up a session with prior task 1.1 already tracked
-		const session = ensureAgentSession('test-session', 'test-agent');
+		const session = createWorkflowTestSessionWithCompletedTask('1.1');
 
 		// Set currentTaskId to prior task (simulating prior work)
 		session.currentTaskId = '1.1';
-
-		// Advance prior task to complete state
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
-		advanceTaskState(session, '1.1', 'complete');
+		swarmState.agentSessions.set('test-session', session);
 
 		// Verify prior task is tracked
 		expect(session.currentTaskId).toBe('1.1');
@@ -1107,9 +1015,48 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 });
 
 describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: typeof swarmState.agentSessions;
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dynamic-error-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		// Save the original agentSessions state
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		// Clear for test
@@ -1118,18 +1065,21 @@ describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
 
 	afterEach(() => {
 		// Restore the original agentSessions state
-		swarmState.agentSessions = originalAgentSessions;
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
 	test('checkReviewerGate error includes current state debug info', () => {
-		// Create a session using ensureAgentSession
-		const session = ensureAgentSession('test-session');
-
-		// Advance task '1.1' to 'coder_delegated' using advanceTaskState
-		advanceTaskState(session, '1.1', 'coder_delegated');
+		// Create a session using helper with task at coder_delegated state
+		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+		swarmState.agentSessions.set('test-session', session);
 
 		// Call checkReviewerGate('1.1')
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 
 		// Assert the result
 		expect(result.blocked).toBe(true);
@@ -1140,11 +1090,50 @@ describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
 });
 
 describe('checkReviewerGate Issue #81 regression warning', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: typeof swarmState.agentSessions;
 	let originalConsoleWarn: typeof console.warn;
 	let warnCalls: string[];
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue81-warning-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '5.4',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 5.4',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 		// Capture console.warn calls by stubbing
@@ -1161,49 +1150,19 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 			swarmState.agentSessions.set(key, value);
 		}
 		console.warn = originalConsoleWarn;
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
-
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
 
 	test('does NOT fire warn when all sessions are idle (Issue #81 warning suppressed)', () => {
 		// Given 2 sessions both at idle for taskId '5.4'
-		const session1 = makeSession();
-		const session2 = makeSession();
+		const session1 = createWorkflowTestSession();
+		const session2 = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-1', session1);
 		swarmState.agentSessions.set('session-2', session2);
 
 		// Call checkReviewerGate('5.4')
-		const result = checkReviewerGate('5.4');
+		const result = checkReviewerGate('5.4', tempDir);
 
 		// Should be blocked (no tests_run or complete state)
 		expect(result.blocked).toBe(true);
@@ -1214,12 +1173,11 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 
 	test('does NOT fire warn when any session is at non-idle state', () => {
 		// Given 1 session at coder_delegated (not idle)
-		const session = makeSession();
-		advanceTaskState(session, '5.4', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState('5.4', 'coder_delegated');
 		swarmState.agentSessions.set('session-1', session);
 
 		// Call checkReviewerGate('5.4')
-		const result = checkReviewerGate('5.4');
+		const result = checkReviewerGate('5.4', tempDir);
 
 		// Should be blocked
 		expect(result.blocked).toBe(true);
@@ -1230,15 +1188,11 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 
 	test('does NOT fire warn when a session has tests_run (gate passes)', () => {
 		// Given a session with task in tests_run state
-		const session = makeSession();
-		advanceTaskState(session, '5.4', 'coder_delegated');
-		advanceTaskState(session, '5.4', 'pre_check_passed');
-		advanceTaskState(session, '5.4', 'reviewer_run');
-		advanceTaskState(session, '5.4', 'tests_run');
+		const session = createWorkflowTestSessionWithPassedTask('5.4');
 		swarmState.agentSessions.set('session-1', session);
 
 		// Call checkReviewerGate('5.4')
-		const result = checkReviewerGate('5.4');
+		const result = checkReviewerGate('5.4', tempDir);
 
 		// Gate passes - returns blocked: false BEFORE reaching the warn logic
 		expect(result.blocked).toBe(false);
@@ -1253,7 +1207,7 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 		// swarmState.agentSessions is already cleared in beforeEach
 
 		// Call checkReviewerGate('5.4')
-		const result = checkReviewerGate('5.4');
+		const result = checkReviewerGate('5.4', tempDir);
 
 		// Should return early without warn
 		expect(result.blocked).toBe(false);
@@ -1265,15 +1219,15 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 
 	test('does NOT fire warn when all sessions are idle (3 sessions)', () => {
 		// Given 3 sessions all at idle
-		const session1 = makeSession();
-		const session2 = makeSession();
-		const session3 = makeSession();
+		const session1 = createWorkflowTestSession();
+		const session2 = createWorkflowTestSession();
+		const session3 = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-1', session1);
 		swarmState.agentSessions.set('session-2', session2);
 		swarmState.agentSessions.set('session-3', session3);
 
 		// Call checkReviewerGate('5.4')
-		const result = checkReviewerGate('5.4');
+		const result = checkReviewerGate('5.4', tempDir);
 
 		// Should be blocked
 		expect(result.blocked).toBe(true);
@@ -1284,11 +1238,59 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 });
 
 describe('checkReviewerGate — adversarial warn', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: typeof swarmState.agentSessions;
 	let originalConsoleWarn: typeof console.warn;
 	let warnCalls: string[];
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adversarial-warn-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '5.4',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 5.4',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 		warnCalls = [];
@@ -1304,48 +1306,18 @@ describe('checkReviewerGate — adversarial warn', () => {
 			swarmState.agentSessions.set(key, value);
 		}
 		console.warn = originalConsoleWarn;
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
-
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
 
 	// ====== Attack Vector 1: taskId with special characters ======
 	test('does not throw with taskId containing path traversal characters', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// Should not throw, should return blocked result
-		expect(() => checkReviewerGate('../../etc/task')).not.toThrow();
-		const result = checkReviewerGate('../../etc/task');
+		expect(() => checkReviewerGate('../../etc/task', tempDir)).not.toThrow();
+		const result = checkReviewerGate('../../etc/task', tempDir);
 		expect(result.blocked).toBe(true);
 	});
 
@@ -1355,13 +1327,13 @@ describe('checkReviewerGate — adversarial warn', () => {
 		warnCalls = [];
 		
 		const longTaskId = 'a'.repeat(10000);
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		// Ensure ONLY this session exists by clearing first
 		swarmState.agentSessions.clear();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// Should not throw, and warn should be suppressed (not fired)
-		const result = checkReviewerGate(longTaskId);
+		const result = checkReviewerGate(longTaskId, tempDir);
 		expect(result.blocked).toBe(true);
 		// Should NOT fire warn - regression warning is suppressed
 		expect(warnCalls.length).toBe(0);
@@ -1369,12 +1341,12 @@ describe('checkReviewerGate — adversarial warn', () => {
 
 	// ====== Attack Vector 3: taskId is empty string ======
 	test('does not throw with empty string taskId', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// Should not throw, function completes without throwing
-		expect(() => checkReviewerGate('')).not.toThrow();
-		const result = checkReviewerGate('');
+		expect(() => checkReviewerGate('', tempDir)).not.toThrow();
+		const result = checkReviewerGate('', tempDir);
 		// With empty taskId, stateEntries will have ": idle" suffix
 		// Should be blocked since task is not in tests_run/complete
 		expect(result.blocked).toBe(true);
@@ -1383,13 +1355,12 @@ describe('checkReviewerGate — adversarial warn', () => {
 	// ====== Attack Vector 4: sessionId contains ": idle" in the middle ======
 	test('does NOT trigger warn when sessionId contains ": idle" but state is not idle', () => {
 		// Create session with ID that contains "idle" - but state is coder_delegated
-		const session = makeSession();
-		advanceTaskState(session, '1.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
 		// Manually inject a session with ID containing "idle"
 		// We need to check that endsWith(': idle') is correct - it checks STATE, not sessionId
 		swarmState.agentSessions.set('ses_idle: coder_delegated', session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		// Should NOT fire warn because state is coder_delegated, not idle
 		expect(warnCalls.length).toBe(0);
@@ -1397,13 +1368,13 @@ describe('checkReviewerGate — adversarial warn', () => {
 
 	// ====== Attack Vector 5: Mixed case status ======
 	test('does NOT trigger warn with uppercase state (case-sensitive check)', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		// Manually set taskWorkflowStates to have uppercase 'IDLE' state
 		// This simulates the case where state might be stored differently
 		session.taskWorkflowStates.set('1.1', 'IDLE');
 		swarmState.agentSessions.set('ses_abc', session);
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		// Should still be blocked (not tests_run or complete)
 		expect(result.blocked).toBe(true);
 		// Should NOT fire warn because 'IDLE' (uppercase) doesn't end with ': idle' (lowercase)
@@ -1414,11 +1385,11 @@ describe('checkReviewerGate — adversarial warn', () => {
 	test('does NOT fire warn when all sessions are idle (Issue #81 warning suppressed)', () => {
 		// Create 100 sessions, all at idle state
 		for (let i = 0; i < 100; i++) {
-			const session = makeSession();
+			const session = createWorkflowTestSession();
 			swarmState.agentSessions.set(`session-${i}`, session);
 		}
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 
 		// Should NOT fire any warn - regression warning is now suppressed
@@ -1427,12 +1398,12 @@ describe('checkReviewerGate — adversarial warn', () => {
 
 	// ====== Attack Vector 7: Session state advances during check (mutation) ======
 	test('warn uses snapshot of stateEntries - no race condition possible (synchronous)', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// Even if we mutate the session during check (which shouldn't happen in practice),
 		// the function uses a snapshot of stateEntries collected synchronously
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		// Should NOT fire warn - regression warning is suppressed when all sessions idle
 		expect(warnCalls.length).toBe(0);
@@ -1443,15 +1414,15 @@ describe('checkReviewerGate — adversarial warn', () => {
 		// Reset warnCalls to ensure clean state
 		warnCalls = [];
 		
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.clear();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// getTaskState returns 'idle' for non-existent taskId, so null/undefined
 		// will be treated as having task in idle state - NOT caught by outer try/catch
 		// We call checkReviewerGate twice: once for null, once for undefined
-		const resultNull = checkReviewerGate(null as unknown as string);
-		const resultUndefined = checkReviewerGate(undefined as unknown as string);
+		const resultNull = checkReviewerGate(null as unknown as string, tempDir);
+		const resultUndefined = checkReviewerGate(undefined as unknown as string, tempDir);
 
 		// Both should return blocked: true because task is in idle state (not tests_run/complete)
 		expect(resultNull.blocked).toBe(true);
@@ -1465,7 +1436,7 @@ describe('checkReviewerGate — adversarial warn', () => {
 	test('does NOT fire warn when no sessions exist (early return)', () => {
 		// swarmState.agentSessions is already empty from beforeEach
 
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		// Returns early with blocked: false
 		expect(result.blocked).toBe(false);
 		expect(warnCalls.length).toBe(0);
@@ -1475,11 +1446,11 @@ describe('checkReviewerGate — adversarial warn', () => {
 	test('does NOT fire warn when stateEntries is empty', () => {
 		// This is covered by the early return case, but let's be explicit
 		// If stateEntries.length === 0, allIdle will be false (short-circuit)
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('ses_abc', session);
 
 		// Even with a session, the allIdle check requires length > 0
-		const result = checkReviewerGate('1.1');
+		const result = checkReviewerGate('1.1', tempDir);
 		expect(result.blocked).toBe(true);
 		// Should NOT fire warn - regression warning is suppressed when all sessions idle
 		expect(warnCalls.length).toBe(0);
@@ -1487,9 +1458,57 @@ describe('checkReviewerGate — adversarial warn', () => {
 });
 
 describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: typeof swarmState.agentSessions;
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'generic-reviewer-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '2.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 2.1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '3.5',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 3.5',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 	});
@@ -1499,47 +1518,15 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 		for (const [key, value] of originalAgentSessions) {
 			swarmState.agentSessions.set(key, value);
 		}
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
-
 	test('error message includes generic "QA gates" wording without hardcoded agent names', () => {
-		const session = makeSession();
-		// Task in coder_delegated state (not passed gates)
-		advanceTaskState(session, '2.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState('2.1', 'coder_delegated');
 		swarmState.agentSessions.set('test-session', session);
 
-		const result = checkReviewerGate('2.1');
+		const result = checkReviewerGate('2.1', tempDir);
 
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('QA gates');
@@ -1548,11 +1535,10 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 	});
 
 	test('error message includes generic "QA gates" terminology', () => {
-		const session = makeSession();
-		advanceTaskState(session, '3.5', 'pre_check_passed');
+		const session = createWorkflowTestSessionWithTaskAtState('3.5', 'pre_check_passed');
 		swarmState.agentSessions.set('test-session', session);
 
-		const result = checkReviewerGate('3.5');
+		const result = checkReviewerGate('3.5', tempDir);
 
 		expect(result.blocked).toBe(true);
 		// Should use generic QA gates terminology
@@ -1564,11 +1550,50 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 });
 
 describe('checkReviewerGate — non-visible regression warning handling (Task 2.2)', () => {
+	let tempDir: string;
+	let originalCwd: string;
 	let originalAgentSessions: typeof swarmState.agentSessions;
 	let originalConsoleWarn: typeof console.warn;
 	let warnCalls: string[];
 
 	beforeEach(() => {
+		// Create isolated temp directory for test isolation
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'regression-warning-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with a valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '7.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 7.1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 		warnCalls = [];
@@ -1584,48 +1609,18 @@ describe('checkReviewerGate — non-visible regression warning handling (Task 2.
 			swarmState.agentSessions.set(key, value);
 		}
 		console.warn = originalConsoleWarn;
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
-
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
 
 	test('does NOT emit console.warn when all sessions are idle (Issue #81 regression suppressed)', () => {
 		// Create two sessions both at idle state for task '7.1'
-		const session1 = makeSession();
-		const session2 = makeSession();
+		const session1 = createWorkflowTestSession();
+		const session2 = createWorkflowTestSession();
 		swarmState.agentSessions.set('session-a', session1);
 		swarmState.agentSessions.set('session-b', session2);
 
-		const result = checkReviewerGate('7.1');
+		const result = checkReviewerGate('7.1', tempDir);
 
 		// Should be blocked
 		expect(result.blocked).toBe(true);
@@ -1634,57 +1629,47 @@ describe('checkReviewerGate — non-visible regression warning handling (Task 2.
 	});
 
 	test('still falls back to plan.json when all sessions are idle', () => {
-		// Create temp directory with plan showing task completed
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'regression-fallback-test-'));
-		const originalCwd = process.cwd();
+		// Update the plan.json in the temp directory to show task completed
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '7.1',
+							phase: 1,
+							status: 'completed',
+							size: 'small',
+							description: 'Test task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
 
-		try {
-			process.chdir(tempDir);
-			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
-			const plan = {
-				schema_version: '1.0.0',
-				title: 'Test Plan',
-				swarm: 'test-swarm',
-				current_phase: 1,
-				migration_status: 'migrated',
-				phases: [
-					{
-						id: 1,
-						name: 'Phase 1',
-						status: 'in_progress',
-						tasks: [
-							{
-								id: '7.1',
-								phase: 1,
-								status: 'completed',
-								size: 'small',
-								description: 'Test task',
-								depends: [],
-								files_touched: [],
-							},
-						],
-					},
-				],
-			};
-			fs.writeFileSync(
-				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(plan, null, 2),
-			);
+		// Sessions at idle
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('session-idle', session);
 
-			// Sessions at idle
-			const session = makeSession();
-			swarmState.agentSessions.set('session-idle', session);
+		// Pass workingDirectory to enable fallback check
+		const result = checkReviewerGate('7.1', tempDir);
 
-			// Pass workingDirectory to enable fallback check
-			const result = checkReviewerGate('7.1', tempDir);
-
-			// Should pass because plan.json shows completed
-			expect(result.blocked).toBe(false);
-			expect(result.reason).toBe('');
-		} finally {
-			process.chdir(originalCwd);
-			fs.rmSync(tempDir, { recursive: true, force: true });
-		}
+		// Should pass because plan.json shows completed
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
 	});
 });
 
@@ -1780,41 +1765,9 @@ describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () 
 		process.chdir(originalCwd);
 	});
 
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
-
 	test('uses workingDirectory to resolve plan.json for fallback check', () => {
 		// Session at idle state - would normally be blocked
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Pass tempDirA where task is completed in plan.json
@@ -1826,7 +1779,7 @@ describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () 
 
 	test('blocks when workingDirectory plan shows task NOT completed', () => {
 		// Session at idle state - would normally be blocked
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Pass tempDirB where task is pending (not completed)
@@ -1841,7 +1794,7 @@ describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () 
 		process.chdir(tempDirA);
 
 		// Session at idle state
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Don't pass workingDirectory - should use cwd
@@ -1870,40 +1823,8 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		}
 	});
 
-	function makeSession(overrides: Partial<any> = {}): any {
-		return {
-			agentName: 'test-agent',
-			lastToolCallTime: Date.now(),
-			lastAgentEventTime: Date.now(),
-			delegationActive: false,
-			activeInvocationId: 0,
-			lastInvocationIdByAgent: {},
-			windows: {},
-			lastCompactionHint: 0,
-			architectWriteCount: 0,
-			lastCoderDelegationTaskId: null,
-			currentTaskId: null,
-			gateLog: new Map(),
-			reviewerCallCount: new Map(),
-			lastGateFailure: null,
-			partialGateWarningsIssuedForTask: new Set(),
-			selfFixAttempted: false,
-			catastrophicPhaseWarnings: new Set(),
-			qaSkipCount: 0,
-			qaSkipTaskIds: [],
-			lastPhaseCompleteTimestamp: 0,
-			lastPhaseCompletePhase: 0,
-			phaseAgentsDispatched: new Set(),
-			taskWorkflowStates: new Map(),
-			lastGateOutcome: null,
-			declaredCoderScope: null,
-			lastScopeViolation: null,
-			...overrides,
-		};
-	}
-
 	test('returns blocked when workingDirectory points to non-existent path', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Pass a non-existent directory
@@ -1914,7 +1835,7 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 	});
 
 	test('returns blocked when .swarm/plan.json does not exist in workingDirectory', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir without .swarm/plan.json
@@ -1930,7 +1851,7 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 	});
 
 	test('returns blocked when plan.json is invalid JSON', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with invalid JSON
@@ -1952,7 +1873,7 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 	});
 
 	test('returns blocked when task not found in plan.json', () => {
-		const session = makeSession();
+		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with plan that has different task

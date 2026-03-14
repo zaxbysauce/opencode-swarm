@@ -51,11 +51,11 @@ function makeEvidence(overrides: Partial<Evidence> = {}): Evidence {
 }
 
 describe('sanitizeTaskId', () => {
-	it("valid IDs: '1.1', 'task-1', 'my-task.sub-1', 'abc' all return the ID", () => {
+	it("valid IDs: '1.1', '1.2.3', '2.1', '10.5.3' all return the ID", () => {
 		expect(sanitizeTaskId('1.1')).toBe('1.1');
-		expect(sanitizeTaskId('task-1')).toBe('task-1');
-		expect(sanitizeTaskId('my-task.sub-1')).toBe('my-task.sub-1');
-		expect(sanitizeTaskId('abc')).toBe('abc');
+		expect(sanitizeTaskId('1.2.3')).toBe('1.2.3');
+		expect(sanitizeTaskId('2.1')).toBe('2.1');
+		expect(sanitizeTaskId('10.5.3')).toBe('10.5.3');
 	});
 
 	it('empty string throws', () => {
@@ -91,8 +91,7 @@ describe('sanitizeTaskId', () => {
 	});
 
 	it("leading dot '.hidden' throws", () => {
-		// Leading dot is valid for the regex, but we should check if it's handled
-		// The regex ^[\w-]+(\.[\w-]+)*$ allows starting with word char or hyphen, not dot
+		// Leading dot is not valid for the canonical numeric regex ^\d+\.\d+(\.\d+)*$
 		expect(() => sanitizeTaskId('.hidden')).toThrow('Invalid task ID: must match pattern');
 	});
 });
@@ -395,7 +394,7 @@ describe('All 12 evidence types can be saved and loaded', () => {
 				break;
 		}
 
-		const taskId = `test-${type}`;
+		const taskId = '1.1'; // Use valid numeric format for canonical rule
 		const saved = await saveEvidence(tempDir, taskId, evidence);
 		expect(saved.entries.length).toBe(1);
 		expect(saved.entries[0].type).toBe(type);

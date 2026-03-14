@@ -31,15 +31,29 @@ export const DEFAULT_REQUIRED_GATES = ['reviewer', 'test_engineer'];
 /** Strict N.M or N.M.P pattern — same as validateTaskId in update-task-status.ts */
 const TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
 
+/**
+ * Canonical task-id validation helper.
+ * Returns true if the taskId is a valid numeric format (N.M or N.M.P),
+ * false otherwise.
+ *
+ * Validates:
+ * - Non-empty string
+ * - Matches N.M or N.M.P numeric pattern (e.g., "1.1", "1.2.3")
+ * - No path traversal (..)
+ * - No path separators (/, \)
+ * - No null bytes
+ */
+export function isValidTaskId(taskId: string): boolean {
+	if (!taskId) return false;
+	if (taskId.includes('..')) return false;
+	if (taskId.includes('/')) return false;
+	if (taskId.includes('\\')) return false;
+	if (taskId.includes('\0')) return false;
+	return TASK_ID_PATTERN.test(taskId);
+}
+
 function assertValidTaskId(taskId: string): void {
-	if (
-		!taskId ||
-		taskId.includes('..') ||
-		taskId.includes('/') ||
-		taskId.includes('\\') ||
-		taskId.includes('\0') ||
-		!TASK_ID_PATTERN.test(taskId)
-	) {
+	if (!isValidTaskId(taskId)) {
 		throw new Error(
 			`Invalid taskId: "${taskId}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3").`,
 		);
@@ -212,7 +226,10 @@ export async function hasPassedAllGates(
 ): Promise<boolean> {
 	const evidence = await readTaskEvidence(directory, taskId);
 	if (!evidence) return false;
-	if (!Array.isArray(evidence.required_gates) || evidence.required_gates.length === 0)
+	if (
+		!Array.isArray(evidence.required_gates) ||
+		evidence.required_gates.length === 0
+	)
 		return false;
 	return evidence.required_gates.every((gate) => evidence.gates[gate] != null);
 }

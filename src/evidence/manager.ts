@@ -91,16 +91,17 @@ export function isQualityBudgetEvidence(
 }
 
 /**
- * Task ID validation regex: alphanumeric, hyphens, and dots (for version-like IDs)
- * Pattern: ^[\w-]+(\.[\w-]+)*$
- * Rejects: .., ../, null bytes, control characters, empty string
+ * Task ID validation pattern: strict N.M or N.M.P numeric format
+ * Same pattern as gate-evidence.ts and check-gate-status.ts
+ * Pattern: ^\d+\.\d+(\.\d+)*$
+ * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
  */
-const TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+const TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
 
 /**
  * Validate and sanitize task ID.
- * Must match regex ^[\w-]+(\.[\w-]+)*$
- * Rejects: .., ../, null bytes, control characters, empty string
+ * Must match regex ^\d+\.\d+(\.\d+)*$ (canonical N.M or N.M.P numeric format)
+ * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
  * @throws Error with descriptive message on failure
  */
 export function sanitizeTaskId(taskId: string): string {
@@ -133,7 +134,7 @@ export function sanitizeTaskId(taskId: string): string {
 	// Validate against regex
 	if (!TASK_ID_REGEX.test(taskId)) {
 		throw new Error(
-			`Invalid task ID: must match pattern ^[\\w-]+(\\.[\\w-]+)*$, got "${taskId}"`,
+			`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, got "${taskId}"`,
 		);
 	}
 
