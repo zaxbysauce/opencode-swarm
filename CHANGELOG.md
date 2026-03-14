@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.25.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.8...v6.25.9) (2026-03-14)
+
+
+### Bug Fixes
+
+* restore evidence compatibility and stale workflow expectation ([f91e69e](https://github.com/zaxbysauce/opencode-swarm/commit/f91e69eb1e49b53406699b0b936c023bac84b64a))
+* restore evidence compatibility and stale workflow expectation ([2d91300](https://github.com/zaxbysauce/opencode-swarm/commit/2d91300ea733f5c04ae0281c40f7d27a72e116fb))
+
 ## [6.25.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.7...v6.25.8) (2026-03-14)
 
 
