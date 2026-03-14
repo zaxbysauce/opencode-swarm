@@ -98,7 +98,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
-	const delegationGateHooks = createDelegationGateHook(config);
+	const delegationGateHooks = createDelegationGateHook(config, ctx.directory);
 	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
 	// Fail-secure: honor explicit guardrails.enabled === false (preserving the full
 	// guardrails block), otherwise let Zod schema defaults fill in enabled: true.

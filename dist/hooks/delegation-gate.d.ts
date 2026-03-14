@@ -39,7 +39,7 @@ interface MessageWithParts {
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
-export declare function createDelegationGateHook(config: PluginConfig): {
+export declare function createDelegationGateHook(config: PluginConfig, directory: string): {
     messagesTransform: (input: Record<string, never>, output: {
         messages?: MessageWithParts[];
     }) => Promise<void>;

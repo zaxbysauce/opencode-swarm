@@ -7,13 +7,13 @@
 
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
 	ensureAgentSession,
 	getTaskState,
 	swarmState,
 } from '../state';
-import type { AgentSessionState } from '../state';
 import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
@@ -289,10 +289,30 @@ function getSeedTaskId(session: AgentSessionState): string | null {
 }
 
 /**
+ * Returns the task ID for evidence recording, with fallback to taskWorkflowStates
+ * when currentTaskId and lastCoderDelegationTaskId are both null.
+ */
+function getEvidenceTaskId(session: AgentSessionState): string | null {
+	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
+	if (primary) return primary;
+
+	// Fallback: derive from taskWorkflowStates if it has entries
+	if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
+		// Return any key from the map (deterministic: first entry)
+		return session.taskWorkflowStates.keys().next().value ?? null;
+	}
+
+	return null;
+}
+
+/**
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
-export function createDelegationGateHook(config: PluginConfig): {
+export function createDelegationGateHook(
+	config: PluginConfig,
+	directory: string,
+): {
 	messagesTransform: (
 		input: Record<string, never>,
 		output: { messages?: MessageWithParts[] },
@@ -412,8 +432,14 @@ export function createDelegationGateHook(config: PluginConfig): {
 						if (targetAgent === 'reviewer') {
 							// Seed task state in sessions that don't have an entry yet
 							const seedTaskId = getSeedTaskId(session);
-							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-								otherSession.taskWorkflowStates.set(seedTaskId, 'coder_delegated');
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
+								otherSession.taskWorkflowStates.set(
+									seedTaskId,
+									'coder_delegated',
+								);
 							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (
@@ -435,7 +461,10 @@ export function createDelegationGateHook(config: PluginConfig): {
 						if (targetAgent === 'test_engineer') {
 							// Seed task state in sessions that don't have an entry yet
 							const seedTaskId = getSeedTaskId(session);
-							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
 								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
 							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
@@ -456,8 +485,7 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 			// Record gate evidence for stored-args path
 			if (typeof subagentType === 'string') {
-				const evidenceTaskId =
-					session.currentTaskId ?? session.lastCoderDelegationTaskId;
+				const evidenceTaskId = getEvidenceTaskId(session);
 				if (evidenceTaskId) {
 					try {
 						const gateAgents = [
@@ -466,12 +494,14 @@ export function createDelegationGateHook(config: PluginConfig): {
 							'docs',
 							'designer',
 							'critic',
+							'explorer',
+							'sme',
 						];
 						const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
 						if (gateAgents.includes(targetAgentForEvidence)) {
 							const { recordGateEvidence } = await import('../gate-evidence');
 							await recordGateEvidence(
-								process.cwd(),
+								directory,
 								evidenceTaskId,
 								targetAgentForEvidence,
 								input.sessionID,
@@ -479,13 +509,16 @@ export function createDelegationGateHook(config: PluginConfig): {
 						} else {
 							const { recordAgentDispatch } = await import('../gate-evidence');
 							await recordAgentDispatch(
-								process.cwd(),
+								directory,
 								evidenceTaskId,
 								targetAgentForEvidence,
 							);
 						}
-					} catch {
+					} catch (err) {
 						/* non-fatal — evidence is additive, never blocks delegation */
+						console.warn(
+							`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
+						);
 					}
 				}
 			}
@@ -539,7 +572,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 								try {
 									advanceTaskState(session, taskId, 'reviewer_run');
 								} catch (err) {
-									console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`);
+									console.warn(
+										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
 								}
 							}
 						}
@@ -552,7 +587,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 								try {
 									advanceTaskState(session, taskId, 'tests_run');
 								} catch (err) {
-									console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`);
+									console.warn(
+										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
 								}
 							}
 						}
@@ -566,8 +603,14 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 							// Seed task state in sessions that don't have an entry yet
 							const seedTaskId = getSeedTaskId(session);
-							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-								otherSession.taskWorkflowStates.set(seedTaskId, 'coder_delegated');
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
+								otherSession.taskWorkflowStates.set(
+									seedTaskId,
+									'coder_delegated',
+								);
 							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
 								if (
@@ -577,7 +620,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 									try {
 										advanceTaskState(otherSession, taskId, 'reviewer_run');
 									} catch (err) {
-										console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`);
+										console.warn(
+											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
 									}
 								}
 							}
@@ -591,7 +636,10 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 							// Seed task state in sessions that don't have an entry yet
 							const seedTaskId = getSeedTaskId(session);
-							if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
 								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
 							}
 							for (const [taskId, state] of otherSession.taskWorkflowStates) {
@@ -599,7 +647,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 									try {
 										advanceTaskState(otherSession, taskId, 'tests_run');
 									} catch (err) {
-										console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`);
+										console.warn(
+											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
 									}
 								}
 							}
@@ -609,20 +659,32 @@ export function createDelegationGateHook(config: PluginConfig): {
 
 				// Record gate evidence for delegation-chain fallback path
 				{
-					const evidenceTaskId =
-						session.currentTaskId ?? session.lastCoderDelegationTaskId;
+					const evidenceTaskId = getEvidenceTaskId(session);
 					if (evidenceTaskId) {
 						try {
 							if (hasReviewer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(process.cwd(), evidenceTaskId, 'reviewer', input.sessionID);
+								await recordGateEvidence(
+									process.cwd(),
+									evidenceTaskId,
+									'reviewer',
+									input.sessionID,
+								);
 							}
 							if (hasTestEngineer) {
 								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(process.cwd(), evidenceTaskId, 'test_engineer', input.sessionID);
+								await recordGateEvidence(
+									process.cwd(),
+									evidenceTaskId,
+									'test_engineer',
+									input.sessionID,
+								);
 							}
-						} catch {
+						} catch (err) {
 							/* non-fatal — evidence is additive, never blocks delegation */
+							console.warn(
+								`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
+							);
 						}
 					}
 				}
@@ -924,7 +986,9 @@ export function createDelegationGateHook(config: PluginConfig): {
 					const andPattern =
 						/\s+and\s+(update|add|remove|modify|refactor|implement|create|delete|fix|change|build|deploy|write|test|move|rename|extend|extract|convert|migrate|upgrade|replace)\b/i;
 					if (andPattern.test(taskLine)) {
-						warnings.push('TASK line contains "and" connecting separate actions');
+						warnings.push(
+							'TASK line contains "and" connecting separate actions',
+						);
 					}
 				}
 			}

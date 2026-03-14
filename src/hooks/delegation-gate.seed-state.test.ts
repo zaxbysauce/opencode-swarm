@@ -4,10 +4,15 @@
  * Verifies that new sessions with empty taskWorkflowStates Maps get seeded
  * with the correct initial state so that cross-session propagation works correctly.
  */
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from './delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession, getTaskState } from '../state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../config';
+import {
+	ensureAgentSession,
+	getTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../state';
+import { createDelegationGateHook } from './delegation-gate';
 
 function makeConfig(): PluginConfig {
 	return {
@@ -37,7 +42,7 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 
 	it('reviewer delegation seeds task state in new sessions with empty Maps', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Session-1 is the originating (architect) session that knows about the task
 		const session1 = ensureAgentSession('session-1');
@@ -55,7 +60,12 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 		// session-2.taskWorkflowStates is empty — simulates a newly created session
 
 		await hook.toolAfter(
-			{ tool: 'tool.execute.Task', sessionID: 'session-1', callID: 'call-reviewer-1', args: { subagent_type: 'mega_reviewer' } },
+			{
+				tool: 'tool.execute.Task',
+				sessionID: 'session-1',
+				callID: 'call-reviewer-1',
+				args: { subagent_type: 'mega_reviewer' },
+			},
 			{},
 		);
 
@@ -66,7 +76,7 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 
 	it('test_engineer delegation seeds task state in new sessions with empty Maps', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Session-1 is the originating session
 		const session1 = ensureAgentSession('session-1');
@@ -85,7 +95,12 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 		ensureAgentSession('session-2');
 
 		await hook.toolAfter(
-			{ tool: 'tool.execute.Task', sessionID: 'session-1', callID: 'call-te-1', args: { subagent_type: 'mega_test_engineer' } },
+			{
+				tool: 'tool.execute.Task',
+				sessionID: 'session-1',
+				callID: 'call-te-1',
+				args: { subagent_type: 'mega_test_engineer' },
+			},
 			{},
 		);
 
@@ -96,7 +111,7 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 
 	it('seeding does not overwrite existing state in other sessions', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Session-1 is the originating session
 		const session1 = ensureAgentSession('session-1');
@@ -114,7 +129,12 @@ describe('delegation-gate: cross-session seed-state fix', () => {
 		session2.taskWorkflowStates.set('1.1', 'tests_run');
 
 		await hook.toolAfter(
-			{ tool: 'tool.execute.Task', sessionID: 'session-1', callID: 'call-no-overwrite-1', args: { subagent_type: 'mega_reviewer' } },
+			{
+				tool: 'tool.execute.Task',
+				sessionID: 'session-1',
+				callID: 'call-no-overwrite-1',
+				args: { subagent_type: 'mega_reviewer' },
+			},
 			{},
 		);
 
