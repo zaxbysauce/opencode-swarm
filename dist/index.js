@@ -4,43 +4,25 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: __accessProp.bind(mod, key),
+        get: () => mod[key],
         enumerable: true
       });
-  if (canCache)
-    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __returnValue = (v) => v;
-function __exportSetter(name2, newValue) {
-  this[name2] = __returnValue.bind(null, newValue);
-}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: __exportSetter.bind(all, name2)
+      set: (newValue) => all[name2] = () => newValue
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -15368,10 +15350,16 @@ function sanitizeTaskId(taskId) {
   if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
     throw new Error("Invalid task ID: path traversal detected");
   }
-  if (!TASK_ID_REGEX.test(taskId)) {
-    throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, got "${taskId}"`);
+  if (TASK_ID_REGEX.test(taskId)) {
+    return taskId;
   }
-  return taskId;
+  if (RETRO_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, ^retro-\\d+$, or ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$, got "${taskId}"`);
 }
 async function saveEvidence(directory, taskId, evidence) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
@@ -15581,7 +15569,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
+var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager = __esm(() => {
   init_zod();
   init_evidence_schema();
@@ -15602,6 +15590,8 @@ var init_manager = __esm(() => {
     "quality_budget"
   ];
   TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
+  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -17723,9 +17713,9 @@ GFS4: `);
     function readdir(path9, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path10, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path10, options2, cb2, startTime) {
         return fs$readdir(path10, fs$readdirCallback(path10, options2, cb2, startTime));
-      } : function go$readdir2(path10, options2, cb2, startTime) {
+      } : function go$readdir(path10, options2, cb2, startTime) {
         return fs$readdir(path10, options2, fs$readdirCallback(path10, options2, cb2, startTime));
       };
       return go$readdir(path9, options, cb);
@@ -18200,7 +18190,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload2() {
+    unload = function unload() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -18215,7 +18205,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       emitter.count -= 1;
     };
     module2.exports.unload = unload;
-    emit = function emit2(event, code, signal) {
+    emit = function emit(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -18244,7 +18234,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       return signals;
     };
     loaded = false;
-    load = function load2() {
+    load = function load() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -18263,7 +18253,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
     };
     module2.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit2(code) {
+    processReallyExit = function processReallyExit(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -18273,7 +18263,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit2(ev, arg) {
+    processEmit = function processEmit(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;

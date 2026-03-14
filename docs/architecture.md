@@ -712,17 +712,17 @@ Audits completed tasks in `.swarm/evidence/` against required evidence types (re
 **Input**: Task ID pattern (wildcard support)  
 **Output**: JSON with per-task evidence status, missing types, and overall completeness score
 
-**Safety**: Validates task ID format, skips symlinks, reads JSON with size limits
+**Safety**: Validates task ID format (N.M, N.M.P, retro-N, or internal tool IDs), skips symlinks, reads JSON with size limits
 
 ### `check_gate_status` — Task Gate Status Query
 Read-only tool to query the gate status of a specific task. Reads `.swarm/evidence/{taskId}.json` and returns structured JSON describing which gates have passed, which are missing, and the overall task status.
 
 **Usage**: Any phase to check task completion status without mutating evidence
 
-**Input**: `task_id` (task identifier in N.M or N.M.P format, e.g., "1.1", "2.3.1")  
+**Input**: `task_id` (task identifier in N.M, N.M.P, retro-N format, or internal tool ID like "sast_scan", "quality_budget", etc.)  
 **Output**: JSON with `taskId`, `status` (all_passed|incomplete|no_evidence), `required_gates`, `passed_gates`, `missing_gates`, `gates` map, and `message`
 
-**Safety**: Validates task ID format against N.M or N.M.P pattern, enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
+**Safety**: Validates task ID format against three accepted patterns (canonical N.M or N.M.P numeric format, retrospective format retro-N, or internal tool IDs like sast_scan/quality_budget/syntax_check/placeholder_scan/sbom_generate/build), enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
 
 ### `pkg_audit` — Vulnerability Scanner
 Wraps `npm audit`, `pip-audit`, and `cargo audit` via Bun.spawn to identify security vulnerabilities in project dependencies.
