@@ -74,7 +74,7 @@ describe('delegation gate hook', () => {
 
 	it('no-op when disabled', async () => {
 		const config = makeConfig({ hooks: { delegation_gate: false } });
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const messages = makeMessages('coder\nTASK: Add validation\nFILE: src/test.ts', 'architect');
 		const originalText = getPrimaryText(messages);
@@ -86,7 +86,7 @@ describe('delegation gate hook', () => {
 
 	it('ignores non-coder delegations', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Long message without coder TASK: pattern - use null sessionID to skip preamble
 		const longText = 'TASK: Review this very long task description ' + 'a'.repeat(5000);
@@ -105,7 +105,7 @@ describe('delegation gate hook', () => {
 
 	it('ignores non-architect agents', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Coder delegation from non-architect agent - should be skipped entirely
 		const longText = 'coder\nTASK: ' + 'a'.repeat(5000);
@@ -120,7 +120,7 @@ describe('delegation gate hook', () => {
 
 	it('detects oversized delegation', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Coder delegation > 4000 chars
 		const longText = 'coder\nTASK: Add validation\nINPUT: ' + 'a'.repeat(4000) + '\nFILE: src/test.ts';
@@ -143,7 +143,7 @@ describe('delegation gate hook', () => {
 
 	it('detects multiple FILE: directives', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const longText = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(longText, 'architect');
@@ -164,7 +164,7 @@ describe('delegation gate hook', () => {
 
 	it('detects multiple TASK: sections', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const longText = 'coder\nTASK: Add validation\nFILE: src/test.ts\n\nTASK: Add tests';
 		const messages = makeMessages(longText, 'architect');
@@ -185,7 +185,7 @@ describe('delegation gate hook', () => {
 
 	it('detects batching language', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const longText = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
@@ -206,7 +206,7 @@ describe('delegation gate hook', () => {
 
 	it('no warning when delegation is small and clean', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const cleanText = 'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email format';
 		const messages = makeMessages(cleanText, 'architect', null);
@@ -219,7 +219,7 @@ describe('delegation gate hook', () => {
 
 	it('works when agent is undefined (main session)', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Agent undefined (main session = architect)
 		const longText = 'coder\nTASK: ' + 'a'.repeat(5000);
@@ -241,7 +241,7 @@ describe('delegation gate hook', () => {
 
 	it('custom delegation_max_chars respected', async () => {
 		const config = makeConfig({ hooks: { delegation_max_chars: 100 } });
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// 150+ char delegation exceeds custom limit of 100
 		const longText = 'coder\nTASK: ' + 'a'.repeat(150) + '\nFILE: src/test.ts';
@@ -264,7 +264,7 @@ describe('delegation gate hook', () => {
 
 	it('should warn when coder delegates to coder without reviewer', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Simulate delegation chain: architect → coder → architect → (now delegating to coder again)
 		swarmState.delegationChains.set('test-session', [
@@ -293,7 +293,7 @@ describe('delegation gate hook', () => {
 
 	it('should NOT warn when proper QA sequence is followed', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Proper sequence: coder → architect → reviewer → architect → test_engineer → architect → coder
 		swarmState.delegationChains.set('test-session', [
@@ -325,7 +325,7 @@ describe('delegation gate hook', () => {
 
 	it('should warn when reviewer present but test_engineer missing', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Chain: coder → arch → reviewer → arch → coder (no test_engineer)
 		swarmState.delegationChains.set('test-session', [
@@ -359,7 +359,7 @@ describe('delegation gate hook', () => {
 	describe('zero-coder-delegation detection', () => {
 		it('should warn when architect writes code without delegating to coder', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect has written files
 			const session = ensureAgentSession('test-session');
@@ -386,7 +386,7 @@ describe('delegation gate hook', () => {
 
 		it('should NOT warn when task ID matches last coder delegation', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect wrote files BUT also delegated to coder for same task
 			const session = ensureAgentSession('test-session');
@@ -405,7 +405,7 @@ describe('delegation gate hook', () => {
 
 		it('should NOT warn when architect has not written any files', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session exists but no writes
 			const session = ensureAgentSession('test-session');
@@ -422,7 +422,7 @@ describe('delegation gate hook', () => {
 
 		it('should NOT warn on coder delegation messages', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Architect has written files
 			const session = ensureAgentSession('test-session');
@@ -441,7 +441,7 @@ describe('delegation gate hook', () => {
 
 		it('should track coder delegation task IDs', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Send a coder delegation
 			const messages1 = makeMessages('coder\nTASK: Task Alpha\nFILE: src/alpha.ts', 'architect');
@@ -454,7 +454,7 @@ describe('delegation gate hook', () => {
 
 		it('should NOT track task ID from non-coder messages', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Send a non-coder message
 			const messages = makeMessages('TASK: Review this please', 'architect');
@@ -467,7 +467,7 @@ describe('delegation gate hook', () => {
 
 		it('should warn on subsequent different tasks after writing files', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// First: architect delegates to coder for Task A
 			const messages1 = makeMessages('coder\nTASK: Task A\nFILE: src/a.ts', 'architect');
@@ -488,7 +488,7 @@ describe('delegation gate hook', () => {
 
 		it('should NOT warn for messages without TASK line', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const session = ensureAgentSession('test-session');
 			session.architectWriteCount = 5;
@@ -504,7 +504,7 @@ describe('delegation gate hook', () => {
 
 	it('should not warn when sessionID is missing', async () => {
 		const config = makeConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// No sessionID
 		const messages = {
@@ -528,7 +528,7 @@ describe('delegation gate hook', () => {
 	describe('QA skip hard-block enforcement', () => {
 		it('first coder delegation issues warning not error: After one coder delegation with no reviewer/test_engineer, a second coder delegation injects a warning into a system message but does NOT throw', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup delegation chain with 2 coder delegations (architect→coder→architect→coder)
 			// This simulates the case where the first coder delegation happened, and now architect is delegating to coder again without QA
@@ -571,7 +571,7 @@ describe('delegation gate hook', () => {
 
 		it('second consecutive coder delegation throws hard-block Error: After two coder delegations without reviewer/test_engineer, a third coder delegation throws an Error', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup delegation chain with multiple coder delegations without reviewer/test_engineer
 			swarmState.delegationChains.set('test-session', [
@@ -596,7 +596,7 @@ describe('delegation gate hook', () => {
 
 		it('thrown error message names skipped task IDs: The thrown error message contains the task IDs that were skipped', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
@@ -620,7 +620,7 @@ describe('delegation gate hook', () => {
 
 		it('reviewer delegation resets counter so next coder does not throw: After reviewer delegation detected in toolAfter, qaSkipCount resets and next coder can proceed without throw', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup: previous QA skip state
 		swarmState.delegationChains.set('test-session', [
@@ -675,7 +675,7 @@ describe('delegation gate hook', () => {
 
 		it('test_engineer delegation resets counter so next coder does not throw: Same as above but for test_engineer', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup: previous QA skip state
 		swarmState.delegationChains.set('test-session', [
@@ -736,7 +736,7 @@ describe('delegation gate hook', () => {
 	describe('qaSkipCount reset requires BOTH reviewer AND test_engineer', () => {
 		it('coder → test_engineer → toolAfter: qaSkipCount should NOT reset (needs reviewer too)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain: coder → test_engineer (no reviewer)
 			swarmState.delegationChains.set('test-session', [
@@ -763,7 +763,7 @@ describe('delegation gate hook', () => {
 
 		it('coder → reviewer → toolAfter: qaSkipCount should NOT reset (needs test_engineer too)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain: coder → reviewer (no test_engineer)
 			swarmState.delegationChains.set('test-session', [
@@ -790,7 +790,7 @@ describe('delegation gate hook', () => {
 
 		it('coder → reviewer → test_engineer → toolAfter: qaSkipCount SHOULD reset (BOTH present)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain: coder → reviewer → test_engineer
 			swarmState.delegationChains.set('test-session', [
@@ -819,7 +819,7 @@ describe('delegation gate hook', () => {
 
 		it('coder → test_engineer → reviewer → toolAfter: qaSkipCount SHOULD reset (order does not matter)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain: coder → test_engineer → reviewer (reverse order)
 			swarmState.delegationChains.set('test-session', [
@@ -848,7 +848,7 @@ describe('delegation gate hook', () => {
 
 		it('no coder in chain → toolAfter: qaSkipCount should NOT reset', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain: reviewer → test_engineer (no coder at all)
 			swarmState.delegationChains.set('test-session', [
@@ -875,7 +875,7 @@ describe('delegation gate hook', () => {
 
 		it('after reset, subsequent coder delegation does not trigger hard block', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Full QA sequence: coder → reviewer → test_engineer → back to architect
 			swarmState.delegationChains.set('test-session', [
@@ -926,7 +926,7 @@ describe('delegation gate hook', () => {
 
 		it('after reset, new coder without QA should warn (first skip)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup: coder → reviewer → test_engineer - this is where toolAfter should reset
 			swarmState.delegationChains.set('test-session', [
@@ -992,7 +992,7 @@ describe('delegation gate hook', () => {
 		// 1. Chain manipulation: coder-named-reviewer should NOT be confused for 'coder'
 		it('mega_reviewer_coder should NOT be detected as coder (attack vector)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain with "mega_reviewer_coder" - should NOT match as coder
 			swarmState.delegationChains.set('test-session', [
@@ -1019,7 +1019,7 @@ describe('delegation gate hook', () => {
 		// 2. Empty delegationChain - no crash, no reset
 		it('empty delegationChain should not crash and not reset', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Empty chain
 			swarmState.delegationChains.set('test-session', []);
@@ -1043,7 +1043,7 @@ describe('delegation gate hook', () => {
 		// 3. Chain with coder as LAST entry (no reviewer/test_engineer after it) - no reset
 		it('coder as last entry with no QA after should NOT reset', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Chain ends with coder - no QA after
 			swarmState.delegationChains.set('test-session', [
@@ -1071,7 +1071,7 @@ describe('delegation gate hook', () => {
 		// Only ONE of BOTH seen after LAST coder
 		it('coder1 → reviewer → coder2 → test_engineer should NOT reset (only one of BOTH after last coder)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Two coders, but QA is split across them
 			swarmState.delegationChains.set('test-session', [
@@ -1101,7 +1101,7 @@ describe('delegation gate hook', () => {
 		// SHOULD reset (both present after last coder)
 		it('coder1 → reviewer → test_engineer → coder2 → reviewer → test_engineer SHOULD reset', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Two coders with full QA for each
 			swarmState.delegationChains.set('test-session', [
@@ -1134,7 +1134,7 @@ describe('delegation gate hook', () => {
 		// 6. Agent name variants: mega_coder, local_coder, paid_coder all detected as 'coder'
 		it('mega_coder should be detected as coder target', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
@@ -1160,7 +1160,7 @@ describe('delegation gate hook', () => {
 
 		it('local_coder should be detected as coder target', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'local_coder', timestamp: 1 },
@@ -1186,7 +1186,7 @@ describe('delegation gate hook', () => {
 
 		it('paid_coder should be detected as coder target', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'paid_coder', timestamp: 1 },
@@ -1213,7 +1213,7 @@ describe('delegation gate hook', () => {
 		// 7. Null/undefined session - no crash
 		it('undefined session should not crash in toolAfter', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// No session set up
 			const toolAfterInput = {
@@ -1228,7 +1228,7 @@ describe('delegation gate hook', () => {
 
 		it('null sessionID should not crash in toolAfter', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			const toolAfterInput = {
 				tool: 'tool.execute.Task',
@@ -1243,7 +1243,7 @@ describe('delegation gate hook', () => {
 		// Additional edge case: delegationChain is undefined
 		it('undefined delegationChain should not crash', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Ensure session exists but has no delegation chain
 			const session = ensureAgentSession('test-session');
@@ -1264,7 +1264,7 @@ describe('delegation gate hook', () => {
 		// Edge case: tool is not Task - should not trigger reset logic
 		it('non-Tool tool should not trigger reset logic', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
@@ -1303,7 +1303,7 @@ describe('delegation gate hook', () => {
 
 		it('no trimming when 5 or fewer tasks present', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-1';
 
 			// No sessionID to skip preamble injection
@@ -1330,7 +1330,7 @@ describe('delegation gate hook', () => {
 
 		it('trims task list when more than 5 tasks and current task in middle', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-2';
 
 			// 10 tasks, current is 1.5 (index 4)
@@ -1384,7 +1384,7 @@ describe('delegation gate hook', () => {
 
 		it('no trimming when currentTaskId is null', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-3';
 
 			// More than 5 tasks but currentTaskId is null - no sessionID to skip preamble
@@ -1410,7 +1410,7 @@ describe('delegation gate hook', () => {
 
 		it('trims correctly when current task is near the start', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-4';
 
 			// 10 tasks, current is 1.2 (index 1)
@@ -1458,7 +1458,7 @@ describe('delegation gate hook', () => {
 
 		it('trims correctly when current task is near the end', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-5';
 
 			// 10 tasks, current is 1.9 (index 8)
@@ -1511,7 +1511,7 @@ describe('delegation gate hook', () => {
 
 		it('handles currentTaskId not found in task list gracefully', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-6';
 
 			// 10 tasks, but currentTaskId is 9.9 (not in list)
@@ -1549,7 +1549,7 @@ describe('delegation gate hook', () => {
 
 		it('preserves text before and after task list', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-7';
 
 			// Set up session with currentTaskId for task window trimming
@@ -1598,7 +1598,7 @@ describe('delegation gate hook', () => {
 
 		it('works with mega_architect agent', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-8';
 
 			// Using mega_architect should also work (architect prefix stripped)
@@ -1623,7 +1623,7 @@ describe('delegation gate hook', () => {
 
 		it('does not trim for non-architect agents', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-9';
 
 			const taskList = [
@@ -1649,7 +1649,7 @@ describe('delegation gate hook', () => {
 
 		it('handles different task list formats (checked, unchecked, plain)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-task-window-10';
 
 			// Mixed format: - [x] checked, - [ ] unchecked, - plain
@@ -1701,7 +1701,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 1: ReDoS probe - many repeated spaces/chars before task match
 		it('should not hang on ReDoS probe with 10000 spaces before task', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-redos-1';
 
 			// Build message with 10,000 spaces before a valid task
@@ -1733,7 +1733,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 2: Crafted task ID with special regex chars (deep nesting)
 		it('should correctly match deep nesting task ID like 1.1.1.1.1.1.1', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-deep-nesting-1';
 
 			const taskList = [
@@ -1761,7 +1761,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 3: Fake task line that looks like task but isn't
 		it('should NOT match fake task lines like "- not-a-task:" or "- abc.def:"', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-fake-1';
 
 			// These should NOT be matched as tasks (don't have \d+\.\d+ pattern)
@@ -1800,7 +1800,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 4: Empty task ID scenario
 		it('should NOT transform when currentTaskId is empty string (falsy check)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-empty-1';
 
 			// More than 5 tasks - no sessionID to skip preamble
@@ -1829,7 +1829,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 5: Very large number of tasks (200+)
 		it('should handle 200+ tasks with correct window calculation (tasks 98-103 visible for currentTaskId 1.100)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-large-1';
 
 			// Generate 200 task lines
@@ -1867,7 +1867,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 6: Task list with no blank lines between tasks
 		it('should correctly parse tasks with no blank lines between them', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-no-blank-1';
 
 			// 10 tasks all back-to-back with no newlines between
@@ -1908,7 +1908,7 @@ describe('delegation gate hook', () => {
 		// Attack Vector 7: Unicode task format
 		it('should handle unicode characters in task descriptions without crash', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-unicode-1';
 
 			const taskList = [
@@ -1948,7 +1948,7 @@ describe('delegation gate hook', () => {
 	describe('Task 2.2 — state machine wiring', () => {
 		it('when a coder delegation is processed in messagesTransform, getTaskState(session, taskId) returns coder_delegated afterward', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-state-1';
 
 			// Send a coder delegation with a task ID
@@ -1968,7 +1968,7 @@ describe('delegation gate hook', () => {
 
 		it('when advanceTaskState would throw (already at coder_delegated state), the delegation still proceeds successfully - no error thrown, no rejection', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-state-2';
 
 			// First delegation: advance to coder_delegated
@@ -2002,7 +2002,7 @@ describe('delegation gate hook', () => {
 
 		it('when isCoderDelegation is false (delegating to reviewer, not coder), getTaskState is NOT advanced to coder_delegated', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-state-3';
 
 			// Delegation to reviewer (not coder)
@@ -2022,7 +2022,7 @@ describe('delegation gate hook', () => {
 
 		it('when currentTaskId is null/undefined (no task ID in the delegation), state is NOT advanced', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-state-4';
 
 			// Coder delegation without TASK: line
@@ -2044,7 +2044,7 @@ describe('delegation gate hook', () => {
 
 		it('state machine works with various coder variants (mega_coder, local_coder)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-state-5';
 
 			// mega_coder delegation
@@ -2080,7 +2080,7 @@ describe('delegation gate hook', () => {
 
 		it('State machine stuck detection — warn path: priorCoderTaskId stuck at coder_delegated triggers warning even with hasReviewer && hasTestEngineer from chain', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-1';
 
 			// Setup: First coder delegation for task 2.1
@@ -2123,7 +2123,7 @@ describe('delegation gate hook', () => {
 
 		it('State machine stuck detection — block path: priorCoderTaskId stuck at coder_delegated with qaSkipCount >= 1 throws hard block', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-2';
 
 			// Setup: Prior task 2.1 is stuck at coder_delegated
@@ -2159,7 +2159,7 @@ describe('delegation gate hook', () => {
 
 		it('State machine clear — no false positive: priorCoderTaskId advanced past coder_delegated does NOT trigger escalation', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-3';
 
 			// Setup: First task 2.1 has ADVANCED past coder_delegated (e.g., to reviewer_run)
@@ -2191,7 +2191,7 @@ describe('delegation gate hook', () => {
 
 		it('No prior coder task — no false positive: priorCoderTaskId === null does NOT trigger state machine check', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-4';
 
 			// Setup: No prior coder delegation (first coder ever)
@@ -2222,7 +2222,7 @@ describe('delegation gate hook', () => {
 
 		it('priorCoderTaskId captured correctly: first coder sets lastCoderDelegationTaskId, second coder captures the first task ID', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-5';
 
 			// First coder delegation
@@ -2273,7 +2273,7 @@ describe('delegation gate hook', () => {
 
 		it('state machine stuck detection works with task advanced to tests_run (clear, not stuck)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-6';
 
 			// Setup: First task 2.1 has advanced to tests_run (complete QA cycle)
@@ -2308,7 +2308,7 @@ describe('delegation gate hook', () => {
 
 		it('state machine stuck detection works with task at pre_check_passed (not stuck)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-7';
 
 			// Setup: First task 2.1 is at pre_check_passed (moved past coder_delegated but not full cycle)
@@ -2338,7 +2338,7 @@ describe('delegation gate hook', () => {
 
 		it('state machine stuck detection works with task at idle (never delegated before)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'test-session-3-2-8';
 
 			// Setup: prior task 2.1 is at idle (default state, never delegated)
@@ -2396,7 +2396,7 @@ describe('delegation gate hook', () => {
 
 		it('null lastGateOutcome → [NEXT] guidance injected as model-only system message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'deliberation-test-1';
 
 			// Setup session with no lastGateOutcome (null)
@@ -2422,7 +2422,7 @@ describe('delegation gate hook', () => {
 
 		it('passed gate → [NEXT] guidance with PASSED status in system message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'deliberation-test-2';
 
 			// Setup session with a passed gate outcome
@@ -2452,7 +2452,7 @@ describe('delegation gate hook', () => {
 
 		it('failed gate → [NEXT] guidance with FAILED status in system message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'deliberation-test-3';
 
 			// Setup session with a failed gate outcome
@@ -2482,7 +2482,7 @@ describe('delegation gate hook', () => {
 
 		it('original text unchanged - [NEXT] guidance in separate system message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'deliberation-test-4';
 
 			// Setup session with passed gate
@@ -2512,7 +2512,7 @@ describe('delegation gate hook', () => {
 
 		it('no sessionID → no [NEXT] guidance (original text unchanged)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Message without sessionID
 			const messages = {
@@ -2536,7 +2536,7 @@ describe('delegation gate hook', () => {
 
 		it('non-coder delegation also gets [NEXT] guidance (runs before isCoderDelegation check)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'deliberation-test-6';
 
 			// Setup session with a passed gate
@@ -2595,7 +2595,7 @@ describe('delegation gate hook', () => {
 		// 1. Malicious sessionID — SQL/path injection attempt
 		it('should NOT inject [NEXT] guidance for SQL injection attempt in sessionID', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = "' OR 1=1 --";
 
 			// Set up lastGateOutcome to verify guidance would be injected if format were valid
@@ -2624,7 +2624,7 @@ describe('delegation gate hook', () => {
 		// 2. Malicious sessionID — spaces
 		it('should NOT inject [NEXT] guidance for sessionID with spaces', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = "session id with spaces";
 
 			const session = ensureAgentSession(sessionID);
@@ -2651,7 +2651,7 @@ describe('delegation gate hook', () => {
 		// 3. Malicious sessionID — exactly 129 chars (too long)
 		it('should NOT inject [NEXT] guidance for sessionID with 129 characters (too long)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			// 129 valid alphanumeric chars - exceeds max of 128
 			const sessionID = 'a'.repeat(129);
 
@@ -2679,7 +2679,7 @@ describe('delegation gate hook', () => {
 		// 4. Malicious sessionID — exactly 128 chars (boundary, valid)
 		it('should inject [NEXT] guidance for sessionID with exactly 128 characters (boundary)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			// Exactly 128 valid alphanumeric chars - at the boundary
 			const sessionID = 'a'.repeat(128);
 
@@ -2709,7 +2709,7 @@ describe('delegation gate hook', () => {
 		// 5. Prompt injection via lastGate.gate — bracket attack
 		it('should sanitize brackets in lastGate.gate to prevent prompt injection', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-123';
 
 			const session = ensureAgentSession(sessionID);
@@ -2751,7 +2751,7 @@ describe('delegation gate hook', () => {
 		// 6. Prompt injection via lastGate.taskId — bracket attack
 		it('should sanitize brackets in lastGate.taskId to prevent prompt injection', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-456';
 
 			const session = ensureAgentSession(sessionID);
@@ -2789,7 +2789,7 @@ describe('delegation gate hook', () => {
 		// 7. Oversized gate field — 1000 char gate (truncated to 64)
 		it('should truncate oversized gate field to 64 characters', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-789';
 
 			const session = ensureAgentSession(sessionID);
@@ -2826,7 +2826,7 @@ describe('delegation gate hook', () => {
 		// 8. Oversized taskId field — 200 char taskId (truncated to 32)
 		it('should truncate oversized taskId field to 32 characters', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-abc';
 
 			const session = ensureAgentSession(sessionID);
@@ -2863,7 +2863,7 @@ describe('delegation gate hook', () => {
 		// 9. Null/empty textPart.text
 		it('should handle null/undefined textPart.text without crashing', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-null-text';
 
 			const session = ensureAgentSession(sessionID);
@@ -2898,7 +2898,7 @@ describe('delegation gate hook', () => {
 		// 10. Newline injection in gate field
 		it('should replace newlines with spaces in gate field to prevent injection', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'valid-session-newline';
 
 			const session = ensureAgentSession(sessionID);
@@ -2956,7 +2956,7 @@ describe('delegation gate hook', () => {
 
 		it('[NEXT] guidance should be in system message only, NOT in visible user message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-1';
 
 			// Setup session with lastGateOutcome
@@ -2989,7 +2989,7 @@ describe('delegation gate hook', () => {
 
 		it('[DELEGATION VIOLATION] should be in system message only, NOT in visible user message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-2';
 
 			// Setup session with architect writes
@@ -3016,7 +3016,7 @@ describe('delegation gate hook', () => {
 
 		it('⚠️ BATCH DETECTED warning should be in system message only, NOT in visible user message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-3';
 
 			// Setup session for [NEXT] guidance
@@ -3049,7 +3049,7 @@ describe('delegation gate hook', () => {
 
 		it('⚠️ PROTOCOL VIOLATION warning should be in system message only, NOT in visible user message', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-4';
 
 			// Setup session with QA skip scenario
@@ -3093,7 +3093,7 @@ describe('delegation gate hook', () => {
 
 		it('Multiple warnings should all be consolidated in system messages, not visible in user output', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-5';
 
 			// Setup session with lastGateOutcome
@@ -3130,7 +3130,7 @@ describe('delegation gate hook', () => {
 
 		it('Original task text should be preserved unchanged in user message (no debug prefix/suffix)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-6';
 
 			// Setup session
@@ -3160,7 +3160,7 @@ describe('delegation gate hook', () => {
 
 		it('No delegation debug text should leak when sessionID is null (no system guidance injected)', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Large message but no sessionID - should still not leak debug info
 			const largeText = 'TASK: ' + 'a'.repeat(5000);
@@ -3184,7 +3184,7 @@ describe('delegation gate hook', () => {
 
 		it('Combined test: both [NEXT] guidance and batch warnings in separate system messages', async () => {
 			const config = makeConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 			const sessionID = 'model-only-test-7';
 
 			// Setup session

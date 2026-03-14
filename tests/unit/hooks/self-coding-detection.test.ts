@@ -230,7 +230,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('single-task delegation -> no warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const cleanText = 'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email';
 		const messages = makeMessages(cleanText, 'architect');
@@ -245,7 +245,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('TASK with AND connecting two actions -> warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
@@ -259,7 +259,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('multiple FILE lines -> warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(text, 'architect');
@@ -272,7 +272,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('"additionally" -> warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation additionally add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
@@ -285,7 +285,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('"and also" -> warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
@@ -298,7 +298,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('"also" alone (without and) -> no warning (needs "and also" pattern)', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// "also" alone doesn't match the batching pattern - needs "and also" or "then also"
 		const text = 'coder\nTASK: Add validation also add tests\nFILE: src/test.ts';
@@ -314,7 +314,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('"while you\'re at it" -> warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation while you\'re at it add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
@@ -327,7 +327,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('warning includes matched heuristic name (Detected signal: ...)', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		const text = 'coder\nTASK: Add validation\nFILE: src/a.ts\nFILE: src/b.ts';
 		const messages = makeMessages(text, 'architect');
@@ -341,7 +341,7 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 	it('long single-task delegation under maxChars -> no warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Long but single task - under 4000 chars
 		const text = 'coder\nTASK: Add comprehensive validation\nFILE: src/test.ts\nINPUT: ' + 'x'.repeat(1000);
@@ -1677,7 +1677,7 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 	// Batch detection boundary cases
 	it('batch detection: exact char limit (4000) -> no warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Prefix is 42 chars ('coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ')
 		const prefix = 'coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ';
@@ -1694,7 +1694,7 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 
 	it('batch detection: 4001 chars -> triggers oversized warning', async () => {
 		const config = makeDelegationConfig();
-		const hook = createDelegationGateHook(config);
+		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Prefix is 42 chars, so need 3959 x's to get 4001 total
 		const prefix = 'coder\nTASK: Test\nFILE: src/test.ts\nINPUT: ';

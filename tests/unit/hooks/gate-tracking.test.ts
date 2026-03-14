@@ -581,7 +581,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 	describe('Delegation Violation Detection (Task 3.1)', () => {
 		it('architectWriteCount > 0 and lastCoderDelegationTaskId != currentTaskId -> warning', async () => {
 			const config = makeDelegationConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect has written files but NOT for current task
 			const session = getAgentSession('delegation-test') || swarmState.agentSessions.get('delegation-test') || (() => {
@@ -601,7 +601,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('architectWriteCount > 0 but lastCoderDelegationTaskId == currentTaskId -> no warning', async () => {
 			const config = makeDelegationConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect wrote files BUT also delegated to coder for same task
 			const session = getAgentSession('delegation-match-test') || swarmState.agentSessions.get('delegation-match-test') || (() => {
@@ -629,7 +629,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('coder delegated then architect writes .swarm/ -> no warning', async () => {
 			const config = makeDelegationConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session with no architect writes (e.g., only .swarm/state.json updates)
 			const session = getAgentSession('no-writes-test') || swarmState.agentSessions.get('no-writes-test') || (() => {
@@ -656,7 +656,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('architectWriteCount > 0 with coder delegation message -> no warning', async () => {
 			const config = makeDelegationConfig();
-			const hook = createDelegationGateHook(config);
+			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session with architect writes
 			const session = getAgentSession('coder-delegation-test') || swarmState.agentSessions.get('coder-delegation-test') || (() => {
