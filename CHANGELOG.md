@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.25.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.4...v6.25.5) (2026-03-14)
+
+
+### Bug Fixes
+
+* sync active task identity for durable evidence ([f2f7291](https://github.com/zaxbysauce/opencode-swarm/commit/f2f729195b66bdaa0fedf200c0d45dc6078b953c))
+* sync active task identity for durable evidence ([058e036](https://github.com/zaxbysauce/opencode-swarm/commit/058e0366769a85ac27a1d29596ca23ca9838afc6))
+
 ## [6.25.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.3...v6.25.4) (2026-03-13)
 
 
