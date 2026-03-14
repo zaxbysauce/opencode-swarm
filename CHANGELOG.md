@@ -1,5 +1,47 @@
 # Changelog
 
+## [6.25.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.3...v6.25.4) (2026-03-13)
+
+
+### Bug Fixes
+
+* align tests with wired detectors and hardened interactive safety gates ([5c9701e](https://github.com/zaxbysauce/opencode-swarm/commit/5c9701e8793bd0d807be27d2623c155851dd67ab))
+* harden interactive test runner safety gates ([0a1e66e](https://github.com/zaxbysauce/opencode-swarm/commit/0a1e66e232a6895cc8dc3d49fa811c9588d5c731))
+* harden interactive test runner safety gates ([3b489f4](https://github.com/zaxbysauce/opencode-swarm/commit/3b489f46e248bcc4dccd78cf6d62395a63a34718))
+* update test expectations to match wired detectors and hardened safety guards ([6f50f6e](https://github.com/zaxbysauce/opencode-swarm/commit/6f50f6e3246c2a5555ee65e74ec757f1da0b600b))
+
+## [6.25.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.2...v6.25.3) (2026-03-13)
+
+
+### Bug Fixes
+
+* record explorer and sme gate evidence ([f3e60de](https://github.com/zaxbysauce/opencode-swarm/commit/f3e60de2a096450d6302b2a19a68180b8a500c08))
+* record explorer and sme gate evidence ([833cced](https://github.com/zaxbysauce/opencode-swarm/commit/833cced7a61a1fb5cba004a8cbcef1dbff4b4c81))
+
+## [6.25.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.1...v6.25.2) (2026-03-13)
+
+
+### Bug Fixes
+
+* delegation-gate fallback evidence writes use process.cwd() instead of directory ([b163737](https://github.com/zaxbysauce/opencode-swarm/commit/b16373712cefa323c760aa0d368d3c44dc519af2))
+* reconcile evidence handling and contain test scope ([cea26ec](https://github.com/zaxbysauce/opencode-swarm/commit/cea26ec1aa5754d5a8b213d4c13a05fd658978b7))
+* reconcile evidence handling and contain test scope ([8ebf15a](https://github.com/zaxbysauce/opencode-swarm/commit/8ebf15a4e84685feda136dce66421c9c6076683a))
+* use directory instead of process.cwd() in delegation-gate fallback evidence path ([3aef904](https://github.com/zaxbysauce/opencode-swarm/commit/3aef904459c470bbfe30c6e873ef03a50b3474cf))
+
+## [6.25.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.0...v6.25.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* restore architect delegation and add gate status tool ([2223d95](https://github.com/zaxbysauce/opencode-swarm/commit/2223d954b635c769e3e1ecf3ba35f78b16f04a8e))
+* restore architect delegation and add gate status tool ([ef8bcb2](https://github.com/zaxbysauce/opencode-swarm/commit/ef8bcb2e1d1ade91b704f1ba26779ac557de714f))
+* restore architect delegation and add gate status tool ([8a655ea](https://github.com/zaxbysauce/opencode-swarm/commit/8a655ea7328da6acfd617b5b690000e182666604))
+
+
+### Reverts
+
+* undo direct push of architect delegation and gate status hotfix ([326b323](https://github.com/zaxbysauce/opencode-swarm/commit/326b323eab6b60e9c23d5fbf34fb338b72ca0553))
+
 ## [6.25.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.24.0...v6.25.0) (2026-03-13)
 
 

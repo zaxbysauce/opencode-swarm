@@ -376,90 +376,103 @@ tokio = { version = "1.0", features = ["full"] }
 
 	describe('execute() ToolContext extraction', () => {
 		test('uses ctx.directory as workingDir when provided', async () => {
-			// Set up bun framework in tempDir
+			// Set up a real vitest project in tempDir so scope: 'convention' can run fully
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
 			}));
-			createTestFile(tempDir, 'bun.lock', '');
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			mockStdout = '1 passed';
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
-			// Call execute with mock context
-			await test_runner.execute({}, {
-				directory: tempDir,
-				worktree: '/some/other/path',
-			} as any);
+			// Pass ctx.directory explicitly — createSwarmTool extracts ctx?.directory ?? process.cwd()
+			await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{ directory: tempDir } as any,
+			);
 
-			// Verify cwd passed to spawn was ctx.directory
+			// Verify cwd passed to spawn was ctx.directory (tempDir)
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 		});
 
-		test('uses ctx.worktree as workingDir when directory is not provided', async () => {
-			// Set up bun framework in tempDir
+		test('ctx.worktree is NOT used as fallback — createSwarmTool only supports ctx.directory', async () => {
+			// The createSwarmTool implementation is: const directory = ctx?.directory ?? process.cwd()
+			// ctx.worktree is NOT consulted. When only worktree is provided, process.cwd() is used.
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
 			}));
-			createTestFile(tempDir, 'bun.lock', '');
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			mockStdout = '1 passed';
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
-			await test_runner.execute({}, {
-				worktree: tempDir,
-			} as any);
+			// Provide only worktree (no directory) — createSwarmTool will use process.cwd() instead
+			await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{ worktree: '/some/other/path' } as any,
+			);
 
+			// Spawn cwd should be process.cwd() (tempDir), NOT the worktree path
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 		});
 
 		test('falls back to process.cwd() when neither directory nor worktree is provided', async () => {
-			// Change to tempDir and set up bun framework there
+			// Change to tempDir and set up vitest framework there
 			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
 			}));
-			createTestFile(tempDir, 'bun.lock', '');
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			mockStdout = '1 passed';
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
 			// Call with empty context (should fall back to process.cwd())
-			await test_runner.execute({}, {} as any);
+			await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{} as any,
+			);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 		});
 
-		test('prioritizes ctx.directory over ctx.worktree', async () => {
-			// Set up bun framework in tempDir (used as directory)
+		test('ctx.directory is used (not worktree) when both are provided', async () => {
+			// Set up vitest framework in tempDir (used as ctx.directory)
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
 			}));
-			createTestFile(tempDir, 'bun.lock', '');
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			// Create another dir for worktree
+			// Create another dir for worktree (not used by createSwarmTool)
 			const worktreeDir = createTempDir();
 
-			mockStdout = '1 passed';
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
 			try {
-				await test_runner.execute({}, {
-					directory: tempDir,
-					worktree: worktreeDir,
-				} as any);
+				await test_runner.execute(
+					{ scope: 'convention', files: ['src/utils.ts'] },
+					{ directory: tempDir, worktree: worktreeDir } as any,
+				);
 
-				// Verify that directory was used, not worktree
+				// createSwarmTool uses ctx.directory (tempDir), not worktree
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 			} finally {
-				// Cleanup worktree dir
 				try {
 					fs.rmSync(worktreeDir, { recursive: true, force: true });
 				} catch {
@@ -470,71 +483,72 @@ tokio = { version = "1.0", features = ["full"] }
 
 		test('correctly detects vitest framework from ctx.directory path', async () => {
 			// Set up vitest framework in tempDir
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
 				scripts: { test: 'vitest run' },
 				devDependencies: { vitest: '^1.0.0' },
 			}));
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			mockStdout = JSON.stringify({
-				numTotalTests: 1,
-				numPassedTests: 1,
-				numFailedTests: 0,
-			});
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
-			const result = await test_runner.execute({}, {
-				directory: tempDir,
-			} as any);
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{ directory: tempDir } as any,
+			);
 
 			const parsed = parseResult(result);
-			// Verify the correct framework was detected
+			// Verify the correct framework was detected from ctx.directory (tempDir)
 			expect(parsed.framework).toBe('vitest');
 		});
 
 		test('correctly detects jest framework from ctx.directory path', async () => {
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'package.json', JSON.stringify({
 				scripts: { test: 'jest' },
 				devDependencies: { jest: '^29.0.0' },
 			}));
+			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+			createTestFile(tempDir, 'src/utils.test.ts', 'import { describe, test, expect } from "@jest/globals"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
 
-			mockStdout = JSON.stringify({
-				numTotalTests: 1,
-				numPassedTests: 1,
-				numFailedTests: 0,
-			});
-
+			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
 			Bun.spawn = mockSpawn as any;
 
-			const result = await test_runner.execute({}, {
-				directory: tempDir,
-			} as any);
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{ directory: tempDir } as any,
+			);
 
 			const parsed = parseResult(result);
 			expect(parsed.framework).toBe('jest');
 		});
 
 		test('correctly detects pytest framework from ctx.directory path', async () => {
+			process.chdir(tempDir);
 			createTestFile(tempDir, 'requirements.txt', 'pytest>=7.0.0');
+			createTestFile(tempDir, 'utils.py', 'def add(a, b): return a + b');
+			createTestFile(tempDir, 'utils_test.py', 'from utils import add\ndef test_add(): assert add(1, 2) == 3');
 
 			mockStdout = '1 passed';
-
 			Bun.spawn = mockSpawn as any;
 
-			const result = await test_runner.execute({}, {
-				directory: tempDir,
-			} as any);
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['utils.py'] },
+				{ directory: tempDir } as any,
+			);
 
 			const parsed = parseResult(result);
 			expect(parsed.framework).toBe('pytest');
 		});
 
 		test('returns "none" framework when ctx.directory has no test framework', async () => {
-			// tempDir is empty
-
-			const result = await test_runner.execute({}, {
-				directory: tempDir,
-			} as any);
+			// tempDir is empty (no framework markers)
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{ directory: tempDir } as any,
+			);
 
 			const parsed = parseResult(result);
 			expect(parsed.success).toBe(false);
