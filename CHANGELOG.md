@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.25.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.5...v6.25.6) (2026-03-14)
+
+
+### Bug Fixes
+
+* complete remaining workflow reliability hotfixes ([a88d0a8](https://github.com/zaxbysauce/opencode-swarm/commit/a88d0a8970663bc3e787f9cd04098dd06d91197c))
+* complete remaining workflow reliability hotfixes ([d76fa58](https://github.com/zaxbysauce/opencode-swarm/commit/d76fa586bd5c846a4d823ce3d2999edaaa78f225))
+
 ## [6.25.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.4...v6.25.5) (2026-03-14)
 
 
