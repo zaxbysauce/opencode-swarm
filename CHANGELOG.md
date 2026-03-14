@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.25.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.6...v6.25.7) (2026-03-14)
+
+
+### Bug Fixes
+
+* pass explicit directories to delegation gate tests ([3a798d4](https://github.com/zaxbysauce/opencode-swarm/commit/3a798d477f8d7f4fd2674867e1f6aca2e61ee203))
+* pass explicit directories to delegation gate tests ([6d722bb](https://github.com/zaxbysauce/opencode-swarm/commit/6d722bb5c79a837a77ed4025a48b7a9c8343e121))
+
 ## [6.25.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.25.5...v6.25.6) (2026-03-14)
 
 
