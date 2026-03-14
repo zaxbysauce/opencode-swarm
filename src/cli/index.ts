@@ -13,6 +13,7 @@ import {
 	handleKnowledgeRestoreCommand,
 	handlePlanCommand,
 	handleStatusCommand,
+	handleSyncPlanCommand,
 } from '../commands/index.js';
 
 const CONFIG_DIR = path.join(
@@ -277,6 +278,7 @@ Examples:
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
   bunx opencode-swarm run status
+  bunx opencode-swarm run sync-plan
   bunx opencode-swarm run knowledge migrate
   bunx opencode-swarm run dark-matter
 `);
@@ -355,6 +357,11 @@ export async function run(args: string[]): Promise<number> {
 		}
 		case 'history': {
 			const result = await handleHistoryCommand(cwd, args.slice(1));
+			console.log(result);
+			return 0;
+		}
+		case 'sync-plan': {
+			const result = await handleSyncPlanCommand(cwd, args.slice(1));
 			console.log(result);
 			return 0;
 		}
