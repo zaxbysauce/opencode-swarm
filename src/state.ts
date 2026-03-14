@@ -569,8 +569,22 @@ export function recordPhaseAgentDispatch(
 }
 
 /**
+ * Check if a task ID is valid (not null, undefined, empty, or whitespace-only).
+ * @param taskId - The task identifier to validate
+ * @returns true if valid, false otherwise
+ */
+function isValidTaskId(taskId: string | null | undefined): boolean {
+	if (taskId === null || taskId === undefined) {
+		return false;
+	}
+	const trimmed = taskId.trim();
+	return trimmed.length > 0;
+}
+
+/**
  * Advance a task's workflow state. Validates forward-only transitions.
  * Throws 'INVALID_TASK_STATE_TRANSITION: [taskId] [current] → [requested]' on illegal transition.
+ * Safely returns without mutating state when taskId is null, undefined, empty, or whitespace-only.
  *
  * Valid forward order: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
  *
@@ -583,6 +597,11 @@ export function advanceTaskState(
 	taskId: string,
 	newState: TaskWorkflowState,
 ): void {
+	// Guard against invalid taskId - safely return without mutating state
+	if (!isValidTaskId(taskId)) {
+		return;
+	}
+
 	if (!session || !(session.taskWorkflowStates instanceof Map)) {
 		throw new Error(
 			'INVALID_SESSION: session.taskWorkflowStates must be a Map instance',
@@ -621,6 +640,7 @@ export function advanceTaskState(
 /**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.
+ * Returns 'idle' for invalid taskId (null, undefined, empty, or whitespace-only).
  * If taskWorkflowStates is missing/invalid, initializes it as a new Map.
  *
  * @param session - The agent session state
@@ -631,6 +651,11 @@ export function getTaskState(
 	session: AgentSessionState,
 	taskId: string,
 ): TaskWorkflowState {
+	// Guard against invalid taskId - safely return 'idle'
+	if (!isValidTaskId(taskId)) {
+		return 'idle';
+	}
+
 	if (!session.taskWorkflowStates) {
 		session.taskWorkflowStates = new Map();
 	}

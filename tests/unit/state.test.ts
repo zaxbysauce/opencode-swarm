@@ -648,6 +648,77 @@ describe('state module', () => {
 			});
 		});
 
+		describe('invalid taskId guards', () => {
+			const session: any = { taskWorkflowStates: new Map() };
+
+			describe('getTaskState returns idle for invalid taskId', () => {
+				it('returns idle for null taskId', () => {
+					expect(getTaskState(session, null as any)).toBe('idle');
+				});
+
+				it('returns idle for undefined taskId', () => {
+					expect(getTaskState(session, undefined as any)).toBe('idle');
+				});
+
+				it('returns idle for empty string taskId', () => {
+					expect(getTaskState(session, '')).toBe('idle');
+				});
+
+				it('returns idle for whitespace-only taskId', () => {
+					expect(getTaskState(session, '   ')).toBe('idle');
+				});
+
+				it('returns idle for tab/whitespace taskId', () => {
+					expect(getTaskState(session, '\t\n')).toBe('idle');
+				});
+			});
+
+			describe('advanceTaskState returns without mutation for invalid taskId', () => {
+				it('returns without throwing for null taskId', () => {
+					expect(() => advanceTaskState(session, null as any, 'coder_delegated')).not.toThrow();
+					// Verify no entry was added
+					expect(session.taskWorkflowStates.size).toBe(0);
+				});
+
+				it('returns without throwing for undefined taskId', () => {
+					expect(() => advanceTaskState(session, undefined as any, 'coder_delegated')).not.toThrow();
+					expect(session.taskWorkflowStates.size).toBe(0);
+				});
+
+				it('returns without throwing for empty string taskId', () => {
+					expect(() => advanceTaskState(session, '', 'coder_delegated')).not.toThrow();
+					expect(session.taskWorkflowStates.size).toBe(0);
+				});
+
+				it('returns without throwing for whitespace-only taskId', () => {
+					expect(() => advanceTaskState(session, '   ', 'coder_delegated')).not.toThrow();
+					expect(session.taskWorkflowStates.size).toBe(0);
+				});
+
+				it('returns without throwing for tab/newline taskId', () => {
+					expect(() => advanceTaskState(session, '\t\n', 'coder_delegated')).not.toThrow();
+					expect(session.taskWorkflowStates.size).toBe(0);
+				});
+
+				it('does not add entries for invalid taskId even after session has valid tasks', () => {
+					// First add a valid task
+					advanceTaskState(session, 'valid-task', 'coder_delegated');
+					expect(session.taskWorkflowStates.size).toBe(1);
+					expect(getTaskState(session, 'valid-task')).toBe('coder_delegated');
+
+					// Now try to add invalid tasks - should not add them
+					advanceTaskState(session, '', 'pre_check_passed');
+					advanceTaskState(session, '   ', 'pre_check_passed');
+					advanceTaskState(session, null as any, 'pre_check_passed');
+
+					// Should still only have 1 entry
+					expect(session.taskWorkflowStates.size).toBe(1);
+					// Valid task should be unaffected
+					expect(getTaskState(session, 'valid-task')).toBe('coder_delegated');
+				});
+			});
+		});
+
 		describe('advanceTaskState valid forward transitions', () => {
 			it('idle → coder_delegated succeeds', () => {
 				const session = getAgentSession(sessionId)!;
