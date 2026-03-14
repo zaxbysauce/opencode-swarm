@@ -58,6 +58,22 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('10.5.3')).toBe('10.5.3');
 	});
 
+	it("retrospective IDs: 'retro-1', 'retro-2', 'retro-10' all return the ID (FR-001, FR-002)", () => {
+		// These IDs were previously rejected but are now allowed for backward compatibility
+		expect(sanitizeTaskId('retro-1')).toBe('retro-1');
+		expect(sanitizeTaskId('retro-2')).toBe('retro-2');
+		expect(sanitizeTaskId('retro-10')).toBe('retro-10');
+		expect(sanitizeTaskId('retro-100')).toBe('retro-100');
+	});
+
+	it("invalid retrospective IDs throw: 'retro', 'retro-abc', 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
+		// Invalid formats should still be rejected
+		expect(() => sanitizeTaskId('retro')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('retro-abc')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('Retro-1')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID: must match pattern');
+	});
+
 	it('empty string throws', () => {
 		expect(() => sanitizeTaskId('')).toThrow('Invalid task ID: empty string');
 	});
@@ -155,6 +171,28 @@ describe('saveEvidence + loadEvidence', () => {
 		});
 
 		await expect(saveEvidence(tempDir, '1.1', evidence)).rejects.toThrow('exceeds maximum');
+	});
+
+	it('save and load retrospective evidence with ID retro-1 (FR-001, FR-002)', async () => {
+		const evidence = makeEvidence({ task_id: 'retro-1', summary: 'Phase 1 retrospective' });
+		const bundle = await saveEvidence(tempDir, 'retro-1', evidence);
+
+		expect(bundle.task_id).toBe('retro-1');
+		expect(bundle.entries.length).toBe(1);
+		expect(bundle.entries[0].summary).toBe('Phase 1 retrospective');
+
+		const loaded = await loadEvidence(tempDir, 'retro-1');
+		expect(loaded.status).toBe('found');
+		if (loaded.status !== 'found') return;
+		expect(loaded.bundle.task_id).toBe('retro-1');
+		expect(loaded.bundle.entries.length).toBe(1);
+		expect(loaded.bundle.entries[0].summary).toBe('Phase 1 retrospective');
+	});
+
+	it('save with invalid retrospective ID throws (FR-003, FR-004)', async () => {
+		const evidence = makeEvidence();
+		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow('Invalid task ID');
 	});
 });
 
