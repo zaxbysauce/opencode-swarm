@@ -242,6 +242,7 @@ export declare function recordPhaseAgentDispatch(sessionId: string, agentName: s
 /**
  * Advance a task's workflow state. Validates forward-only transitions.
  * Throws 'INVALID_TASK_STATE_TRANSITION: [taskId] [current] → [requested]' on illegal transition.
+ * Safely returns without mutating state when taskId is null, undefined, empty, or whitespace-only.
  *
  * Valid forward order: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
  *
@@ -253,6 +254,7 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
 /**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.
+ * Returns 'idle' for invalid taskId (null, undefined, empty, or whitespace-only).
  * If taskWorkflowStates is missing/invalid, initializes it as a new Map.
  *
  * @param session - The agent session state

@@ -14276,7 +14276,7 @@ function sanitizeTaskId(taskId) {
     throw new Error("Invalid task ID: path traversal detected");
   }
   if (!TASK_ID_REGEX.test(taskId)) {
-    throw new Error(`Invalid task ID: must match pattern ^[\\w-]+(\\.[\\w-]+)*$, got "${taskId}"`);
+    throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, got "${taskId}"`);
   }
   return taskId;
 }
@@ -14494,7 +14494,7 @@ var init_manager = __esm(() => {
   init_evidence_schema();
   init_utils2();
   init_utils();
-  TASK_ID_REGEX = /^[\w-]+(\.[\w-]+)*$/;
+  TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -30959,7 +30959,10 @@ function serializeAgentSession(s) {
     lastCompletedPhaseAgentsDispatched,
     qaSkipCount: s.qaSkipCount ?? 0,
     qaSkipTaskIds: s.qaSkipTaskIds ?? [],
-    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map)
+    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
+    ...s.scopeViolationDetected !== undefined && {
+      scopeViolationDetected: s.scopeViolationDetected
+    }
   };
 }
 async function writeSnapshot(directory, state) {
@@ -33858,6 +33861,7 @@ var MAX_OUTPUT_BYTES3 = 512000;
 var MAX_COMMAND_LENGTH2 = 500;
 var DEFAULT_TIMEOUT_MS = 60000;
 var MAX_TIMEOUT_MS = 300000;
+var MAX_SAFE_TEST_FILES = 50;
 function containsPathTraversal2(str) {
   if (/\.\.[/\\]/.test(str))
     return true;
@@ -34714,35 +34718,6 @@ var SKIP_DIRECTORIES = new Set([
   ".bundle",
   ".tox"
 ]);
-function findSourceFiles(dir, files = []) {
-  let entries;
-  try {
-    entries = fs5.readdirSync(dir);
-  } catch {
-    return files;
-  }
-  entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-  for (const entry of entries) {
-    if (SKIP_DIRECTORIES.has(entry))
-      continue;
-    const fullPath = path13.join(dir, entry);
-    let stat2;
-    try {
-      stat2 = fs5.statSync(fullPath);
-    } catch {
-      continue;
-    }
-    if (stat2.isDirectory()) {
-      findSourceFiles(fullPath, files);
-    } else if (stat2.isFile()) {
-      const ext = path13.extname(fullPath).toLowerCase();
-      if (SOURCE_EXTENSIONS.has(ext)) {
-        files.push(fullPath);
-      }
-    }
-  }
-  return files;
-}
 var test_runner = createSwarmTool({
   description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, or "graph" to find related tests via imports.',
   args: {
@@ -34800,6 +34775,26 @@ var test_runner = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scope = args.scope || "all";
+    if (scope === "all") {
+      const errorResult = {
+        success: false,
+        framework: "none",
+        scope: "all",
+        error: 'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
+        message: 'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.'
+      };
+      return JSON.stringify(errorResult, null, 2);
+    }
+    if ((scope === "convention" || scope === "graph") && (!args.files || args.files.length === 0)) {
+      const errorResult = {
+        success: false,
+        framework: "none",
+        scope,
+        error: 'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
+        message: 'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.'
+      };
+      return JSON.stringify(errorResult, null, 2);
+    }
     const _files = args.files || [];
     const coverage = args.coverage || false;
     const timeout_ms = Math.min(args.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
@@ -34823,19 +34818,37 @@ var test_runner = createSwarmTool({
     let testFiles = [];
     let graphFallbackReason;
     let effectiveScope = scope;
-    if (scope === "all") {
-      testFiles = [];
-    } else if (scope === "convention") {
-      const sourceFiles = args.files && args.files.length > 0 ? args.files.filter((f) => {
+    if (scope === "convention") {
+      const sourceFiles = args.files.filter((f) => {
         const ext = path13.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
-      }) : findSourceFiles(workingDir);
+      });
+      if (sourceFiles.length === 0) {
+        const errorResult = {
+          success: false,
+          framework,
+          scope,
+          error: "Provided files contain no source files with recognized extensions",
+          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery."
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
       testFiles = getTestFilesFromConvention(sourceFiles);
     } else if (scope === "graph") {
-      const sourceFiles = args.files && args.files.length > 0 ? args.files.filter((f) => {
+      const sourceFiles = args.files.filter((f) => {
         const ext = path13.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
-      }) : findSourceFiles(workingDir);
+      });
+      if (sourceFiles.length === 0) {
+        const errorResult = {
+          success: false,
+          framework,
+          scope,
+          error: "Provided files contain no source files with recognized extensions",
+          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery."
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
       const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
       if (graphTestFiles.length > 0) {
         testFiles = graphTestFiles;
@@ -34844,6 +34857,27 @@ var test_runner = createSwarmTool({
         effectiveScope = "convention";
         testFiles = getTestFilesFromConvention(sourceFiles);
       }
+    }
+    if (testFiles.length === 0) {
+      const errorResult = {
+        success: false,
+        framework,
+        scope: effectiveScope,
+        error: "Provided source files resolved to zero test files",
+        message: "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/)."
+      };
+      return JSON.stringify(errorResult, null, 2);
+    }
+    if (testFiles.length > MAX_SAFE_TEST_FILES) {
+      const sampleFiles = testFiles.slice(0, 5);
+      const errorResult = {
+        success: false,
+        framework,
+        scope: effectiveScope,
+        error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
+        message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(", ")}`
+      };
+      return JSON.stringify(errorResult, null, 2);
     }
     const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
     if (graphFallbackReason && result.message) {
@@ -35645,6 +35679,28 @@ async function handleStatusCommand(directory, agents) {
 }
 // src/commands/sync-plan.ts
 init_manager2();
+async function handleSyncPlanCommand(directory, _args) {
+  const plan = await loadPlan(directory);
+  if (!plan) {
+    return `## Plan Sync Report
+
+No active swarm plan found. Nothing to sync.`;
+  }
+  const currentMarkdown = derivePlanMarkdown(plan);
+  const lines = [
+    "## Plan Sync Report",
+    "",
+    "**Status**: \u2705 Synced",
+    "",
+    "The plan.json and plan.md are now synchronized.",
+    "",
+    "### Current Plan",
+    "",
+    currentMarkdown
+  ];
+  return lines.join(`
+`);
+}
 
 // src/tools/write-retro.ts
 init_manager();
@@ -35987,6 +36043,7 @@ Examples:
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
   bunx opencode-swarm run status
+  bunx opencode-swarm run sync-plan
   bunx opencode-swarm run knowledge migrate
   bunx opencode-swarm run dark-matter
 `);
@@ -36048,6 +36105,11 @@ Run "bunx opencode-swarm --help" for a list of commands.`);
     }
     case "history": {
       const result = await handleHistoryCommand(cwd, args.slice(1));
+      console.log(result);
+      return 0;
+    }
+    case "sync-plan": {
+      const result = await handleSyncPlanCommand(cwd, args.slice(1));
       console.log(result);
       return 0;
     }
