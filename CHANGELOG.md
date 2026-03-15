@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.27.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.0...v6.27.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* widen gate recovery scan for pure-verification and code-organization tasks ([865a8cf](https://github.com/zaxbysauce/opencode-swarm/commit/865a8cfa33d4b610d2b0da79cab10460039783b9))
+
 ## [6.27.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.26.0...v6.27.0) (2026-03-14)
 
 
