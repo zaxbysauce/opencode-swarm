@@ -5,11 +5,17 @@ import * as path from 'node:path';
 import { recordGateEvidence } from '../gate-evidence';
 import {
 	advanceTaskState,
+	getTaskState,
 	resetSwarmState,
 	startAgentSession,
 	swarmState,
+	type DelegationEntry,
 } from '../state';
-import { checkReviewerGate, executeUpdateTaskStatus } from './update-task-status';
+import {
+	checkReviewerGate,
+	executeUpdateTaskStatus,
+	recoverTaskStateFromDelegations,
+} from './update-task-status';
 
 let tmpDir: string;
 
@@ -50,7 +56,7 @@ describe('checkReviewerGate', () => {
 		// Idle means task was never worked on — gate should block.
 		// The recovery mechanism in executeUpdateTaskStatus handles
 		// cases where delegations occurred but state wasn't advanced.
-		const result = checkReviewerGate('2.2');
+		const result = checkReviewerGate('2.2', tmpDir);
 		expect(result.blocked).toBe(true);
 	});
 
@@ -62,7 +68,7 @@ describe('checkReviewerGate', () => {
 
 		advanceTaskState(session, '2.3', 'coder_delegated');
 
-		const result = checkReviewerGate('2.3');
+		const result = checkReviewerGate('2.3', tmpDir);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('session-1: coder_delegated');
 		expect(result.reason).toContain('Missing required state');
@@ -203,5 +209,106 @@ describe('checkReviewerGate', () => {
 		const result = checkReviewerGate('3.9', tmpDir);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('test_engineer');
+	});
+
+	// ── unscoped fallback tests ─────────────────────────────────────────────
+
+	it('allows completion via delegation-chain fallback for pure-verification task', () => {
+		// Scenario: Architect delegates reviewer then test_engineer for a code-organization task.
+		// No coder delegation occurred. currentTaskId is null in all sessions.
+		// The delegation chain has: [..., reviewer, test_engineer]
+		// Expected: checkReviewerGate returns blocked: false (via delegation-chain fallback)
+
+		// Set up a session with idle state
+		startAgentSession('session-1', 'architect');
+
+		// Create delegation chain with reviewer + test_engineer (no coder)
+		const chain: DelegationEntry[] = [
+			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
+			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+		];
+		swarmState.delegationChains.set('session-1', chain);
+
+		// Session state is idle (task never assigned to this session)
+		const result = checkReviewerGate('4.1', tmpDir);
+		expect(result.blocked).toBe(false);
+	});
+
+	it('recoverTaskStateFromDelegations unscoped fallback advances state', () => {
+		// Scenario: Same as Test 1, but test recoverTaskStateFromDelegations directly.
+		// After calling recoverTaskStateFromDelegations(taskId), the session state should be 'tests_run'.
+		// Then checkReviewerGate should return blocked: false via session state.
+
+		startAgentSession('session-1', 'architect');
+
+		// Create delegation chain with reviewer + test_engineer (no coder)
+		const chain: DelegationEntry[] = [
+			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
+			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+		];
+		swarmState.delegationChains.set('session-1', chain);
+
+		// Verify initial state is idle
+		const sessionBefore = swarmState.agentSessions.get('session-1')!;
+		expect(getTaskState(sessionBefore, '4.2')).toBe('idle');
+
+		// Call recoverTaskStateFromDelegations to advance state
+		recoverTaskStateFromDelegations('4.2');
+
+		// State should now be tests_run (both reviewer and test_engineer found)
+		const sessionAfter = swarmState.agentSessions.get('session-1')!;
+		expect(getTaskState(sessionAfter, '4.2')).toBe('tests_run');
+
+		// checkReviewerGate should now pass via session state
+		const result = checkReviewerGate('4.2', tmpDir);
+		expect(result.blocked).toBe(false);
+	});
+
+	it('unscoped fallback blocks when coder delegation exists but reviewer/test_engineer are missing', () => {
+		// Scenario: Delegation chain has coder but no reviewer or test_engineer after it.
+		// Expected: checkReviewerGate returns blocked: true (unscoped fallback finds nothing)
+
+		startAgentSession('session-1', 'architect');
+
+		// Create delegation chain with coder but no reviewer/test_engineer after it
+		const chain: DelegationEntry[] = [
+			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() },
+		];
+		swarmState.delegationChains.set('session-1', chain);
+
+		// Also set lastCoderDelegationTaskId to simulate coder was delegated for this task
+		const session = swarmState.agentSessions.get('session-1')!;
+		session.lastCoderDelegationTaskId = '4.3';
+
+		const result = checkReviewerGate('4.3', tmpDir);
+		expect(result.blocked).toBe(true);
+	});
+
+	it('unscoped fallback only counts reviewer/test_engineer AFTER the last coder delegation', () => {
+		// Scenario: Delegation chain is: [reviewer, test_engineer, coder] (reviewer/test_engineer BEFORE coder)
+		// Expected: checkReviewerGate returns blocked: true (reviewer/test_engineer are before the last coder, not after)
+		//
+		// Note: This tests Pass 2 (unscoped fallback) by NOT setting currentTaskId or
+		// lastCoderDelegationTaskId, so Pass 1 (task-scoped) doesn't match this task.
+		// The unscoped fallback then scans all chains and correctly ignores
+		// reviewer/test_engineer that appear BEFORE the last coder.
+
+		startAgentSession('session-1', 'architect');
+
+		// Create delegation chain: reviewer/test_engineer BEFORE coder
+		const chain: DelegationEntry[] = [
+			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
+			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() + 2 },
+		];
+		swarmState.delegationChains.set('session-1', chain);
+
+		// IMPORTANT: Do NOT set lastCoderDelegationTaskId or currentTaskId to this task.
+		// This forces the unscoped fallback (Pass 2) to be used, which correctly
+		// ignores reviewer/test_engineer that appear BEFORE the last coder.
+
+		// checkReviewerGate should block because reviewer/test_engineer came BEFORE the coder
+		const result = checkReviewerGate('4.4', tmpDir);
+		expect(result.blocked).toBe(true);
 	});
 });

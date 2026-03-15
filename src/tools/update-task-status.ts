@@ -277,6 +277,58 @@ export function checkReviewerGate(
 			// plan.json missing or unreadable — fall through to blocked:true
 		}
 
+		// Final fallback: scan delegation chains directly for reviewer+test_engineer.
+		// This covers cases where:
+		// - Session was restarted (in-memory state lost)
+		// - Pure-verification/code-organization tasks with no coder delegation
+		// - toolAfter hook didn't fire (subagent_type not captured)
+		// Uses the same unscoped scan as recoverTaskStateFromDelegations.
+		{
+			let hasReviewer = false;
+			let hasTestEngineer = false;
+
+			// Pass 1: task-scoped scan
+			for (const [sessionId, chain] of swarmState.delegationChains) {
+				const session = swarmState.agentSessions.get(sessionId);
+				if (
+					session &&
+					(session.currentTaskId === taskId ||
+						session.lastCoderDelegationTaskId === taskId)
+				) {
+					for (const delegation of chain) {
+						const target = stripKnownSwarmPrefix(delegation.to);
+						if (target === 'reviewer') hasReviewer = true;
+						if (target === 'test_engineer') hasTestEngineer = true;
+					}
+				}
+			}
+
+			// Pass 2: unscoped fallback when no task-scoped sessions found
+			if (!hasReviewer && !hasTestEngineer) {
+				for (const [, chain] of swarmState.delegationChains) {
+					let lastCoderIndex = -1;
+					for (let i = chain.length - 1; i >= 0; i--) {
+						const target = stripKnownSwarmPrefix(chain[i].to);
+						if (target === 'coder') {
+							lastCoderIndex = i;
+							break;
+						}
+					}
+					const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex + 1;
+					for (let i = searchStart; i < chain.length; i++) {
+						const target = stripKnownSwarmPrefix(chain[i].to);
+						if (target === 'reviewer') hasReviewer = true;
+						if (target === 'test_engineer') hasTestEngineer = true;
+					}
+				}
+			}
+
+			// If both reviewer and test_engineer are confirmed in delegation chains, allow through
+			if (hasReviewer && hasTestEngineer) {
+				return { blocked: false, reason: '' };
+			}
+		}
+
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
 		return {
@@ -300,13 +352,13 @@ export function checkReviewerGate(
  * @param taskId - The task ID to recover state for
  */
 export function recoverTaskStateFromDelegations(taskId: string): void {
-	// Scan delegation chains scoped to sessions working on THIS task
 	let hasReviewer = false;
 	let hasTestEngineer = false;
 
+	// Pass 1 (task-scoped): scan only sessions explicitly associated with this task.
+	// This is the authoritative path — covers normal coder→reviewer→test_engineer flows.
 	for (const [sessionId, chain] of swarmState.delegationChains) {
 		const session = swarmState.agentSessions.get(sessionId);
-		// Only count delegations from sessions associated with the target task
 		if (
 			session &&
 			(session.currentTaskId === taskId ||
@@ -314,6 +366,34 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 		) {
 			for (const delegation of chain) {
 				const target = stripKnownSwarmPrefix(delegation.to);
+				if (target === 'reviewer') hasReviewer = true;
+				if (target === 'test_engineer') hasTestEngineer = true;
+			}
+		}
+	}
+
+	// Pass 2 (unscoped fallback): when no task-scoped sessions were found,
+	// scan ALL delegation chains. This covers pure-verification tasks and
+	// code-organization tasks where no coder delegation occurred, so
+	// currentTaskId / lastCoderDelegationTaskId were never set to this taskId.
+	// Safety: only scan delegations that occurred after the last coder delegation
+	// in each chain (or from the start if no coder delegation exists), to avoid
+	// attributing reviewer/test_engineer from a prior task to this one.
+	if (!hasReviewer && !hasTestEngineer) {
+		for (const [, chain] of swarmState.delegationChains) {
+			// Find the last coder delegation index in this chain
+			let lastCoderIndex = -1;
+			for (let i = chain.length - 1; i >= 0; i--) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
+				if (target === 'coder') {
+					lastCoderIndex = i;
+					break;
+				}
+			}
+			// Scan from after the last coder delegation (or from start if no coder)
+			const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex + 1;
+			for (let i = searchStart; i < chain.length; i++) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
 				if (target === 'reviewer') hasReviewer = true;
 				if (target === 'test_engineer') hasTestEngineer = true;
 			}
