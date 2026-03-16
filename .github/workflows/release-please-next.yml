@@ -19,7 +19,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: next
-          versioning-strategy: prerelease
+          # release-as pins the first beta version. Remove after 7.0.0-beta.1 is released
+          # and replace with versioning-strategy: prerelease for subsequent increments.
+          release-as: 7.0.0-beta.1
 
   publish-npm-next:
     needs: release-please
