@@ -1,6 +1,6 @@
 {
 	"name": "@opencode-swarm/claude-code",
-	"version": "7.0.0",
+	"version": "7.0.0-beta.1",
 	"description": "Claude Code adapter for opencode-swarm — hooks, agents, and state bridge for Claude Code integration",
 	"type": "module",
 	"main": "dist/index.js",
@@ -29,7 +29,9 @@
 	"dependencies": {
 		"@opencode-swarm/core": "workspace:*"
 	},
-	"bundledDependencies": ["@opencode-swarm/core"],
+	"bundledDependencies": [
+		"@opencode-swarm/core"
+	],
 	"devDependencies": {
 		"bun-types": "latest",
 		"typescript": "^5.7.3"

@@ -1,6 +1,6 @@
 {
 	"name": "@opencode-swarm/core",
-	"version": "7.0.0",
+	"version": "7.0.0-beta.1",
 	"description": "Platform-agnostic core logic for opencode-swarm — hooks, tools, agents, services",
 	"type": "module",
 	"main": "dist/index.js",
