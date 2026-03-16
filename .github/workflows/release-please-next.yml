@@ -19,7 +19,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: next
-          prerelease: true
+          versioning-strategy: prerelease
 
   publish-npm-next:
     needs: release-please
