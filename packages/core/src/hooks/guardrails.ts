@@ -74,7 +74,7 @@ function extractPhaseNumber(phaseString: string | null): number {
  */
 function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
-	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const normalized = toolName.replace(/^[^:]+[:.]/, '').toLowerCase();
 	const writeTools = [
 		'write',
 		'edit',
@@ -564,10 +564,10 @@ export function createGuardrailsHooks(
 			// v6.25: Evidence write protection - block bash redirect attacks
 			// Block attempts to write to .swarm/evidence/ via shell redirects (> , >>, | tee)
 			// This check runs for the architect but doesn't require isWriteTool (bash is not a write tool)
-			if (
-				isArchitect(input.sessionID) &&
-				(input.tool === 'bash' || input.tool === 'Bash')
-			) {
+			const normalizedTool = input.tool
+				.replace(/^[^:]+[:.]/, '')
+				.toLowerCase();
+			if (isArchitect(input.sessionID) && normalizedTool === 'bash') {
 				const args = output.args as Record<string, unknown> | undefined;
 				const command = typeof args?.command === 'string' ? args.command : '';
 				const normalizedCmd = command.replace(/\\/g, '/');
