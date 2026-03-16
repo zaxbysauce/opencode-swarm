@@ -29,7 +29,7 @@ if (stopHookActive) {
 
 // Emit session-end event
 try {
-	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	const { getEventWriter } = await import('@opencode-swarm/core/telemetry');
 	getEventWriter(swarmDir, sessionId).emit({
 		type: 'agent_status',
 		timestamp: new Date().toISOString(),

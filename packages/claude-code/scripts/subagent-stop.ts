@@ -23,7 +23,7 @@ const swarmDir = path.join(cwd, '.swarm');
 
 // Emit delegation_end event
 try {
-	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	const { getEventWriter } = await import('@opencode-swarm/core/telemetry');
 	getEventWriter(swarmDir, sessionId).emit({
 		type: 'delegation_end',
 		timestamp: new Date().toISOString(),

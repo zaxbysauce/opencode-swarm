@@ -24,7 +24,7 @@ const swarmDir = path.join(cwd, '.swarm');
 
 // Emit file_touch for write operations
 try {
-	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	const { getEventWriter } = await import('@opencode-swarm/core/telemetry');
 	const writer = getEventWriter(swarmDir, sessionId);
 
 	// Track file modifications

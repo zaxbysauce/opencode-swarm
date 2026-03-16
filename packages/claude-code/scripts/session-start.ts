@@ -22,7 +22,7 @@ const swarmDir = path.join(cwd, '.swarm');
 
 // Emit session_metadata event
 try {
-	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	const { getEventWriter } = await import('@opencode-swarm/core/telemetry');
 	getEventWriter(swarmDir, sessionId).emit({
 		type: 'session_metadata',
 		timestamp: new Date().toISOString(),

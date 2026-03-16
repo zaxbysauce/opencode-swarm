@@ -23,7 +23,7 @@ const swarmDir = path.join(cwd, '.swarm');
 
 // Log compaction event
 try {
-	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	const { getEventWriter } = await import('@opencode-swarm/core/telemetry');
 	getEventWriter(swarmDir, sessionId).emit({
 		type: 'phase_transition',
 		timestamp: new Date().toISOString(),

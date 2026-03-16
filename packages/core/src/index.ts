@@ -258,6 +258,8 @@ export * from './session/snapshot-writer';
 export * from './state';
 // Re-export summaries module
 export * from './summaries';
+// Telemetry writer — EventWriter and getEventWriter for claude-code hook scripts
+export { EventWriter, getEventWriter } from './telemetry/writer';
 // Re-export tools module
 export * from './tools';
 // Re-export types

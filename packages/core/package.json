@@ -28,6 +28,12 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./src/lang/index.ts"
+		},
+		"./telemetry": {
+			"source": "./src/telemetry/index.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/telemetry/index.ts"
 		}
 	},
 	"files": [
