@@ -12,4 +12,4 @@ export {
 	type BuildCommand,
 	type TestFramework,
 	type LintTool,
-} from '@opencode-swarm/core/lang/profiles';
+} from '@opencode-swarm/core';

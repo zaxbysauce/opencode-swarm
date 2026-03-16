@@ -6,11 +6,34 @@
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"exports": {
-		".": "./src/index.ts",
-		"./lang/detector": "./src/lang/detector.ts",
-		"./lang/profiles": "./src/lang/profiles.ts",
-		"./lang": "./src/lang/index.ts"
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		},
+		"./lang/detector": {
+			"source": "./src/lang/detector.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/detector.ts"
+		},
+		"./lang/profiles": {
+			"source": "./src/lang/profiles.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/profiles.ts"
+		},
+		"./lang": {
+			"source": "./src/lang/index.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/index.ts"
+		}
 	},
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"license": "MIT",
 	"scripts": {
 		"build": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",

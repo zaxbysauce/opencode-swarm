@@ -5,6 +5,13 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
 	"bin": {
 		"opencode-swarm": "./dist/cli/index.js"
 	},
@@ -43,13 +50,8 @@
 	},
 	"dependencies": {
 		"@opencode-swarm/core": "workspace:*",
-		"@opencode-swarm/telemetry": "workspace:*",
 		"@opencode-ai/plugin": "^1.1.53",
 		"@opencode-ai/sdk": "^1.1.53",
-		"@vscode/tree-sitter-wasm": "^0.3.0",
-		"p-limit": "^7.3.0",
-		"proper-lockfile": "^4.1.2",
-		"web-tree-sitter": "^0.25.0",
 		"zod": "^4.1.8"
 	},
 	"devDependencies": {

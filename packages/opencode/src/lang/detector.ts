@@ -8,4 +8,4 @@
 export {
 	detectProjectLanguages,
 	getProfileForFile,
-} from '@opencode-swarm/core/lang/detector';
+} from '@opencode-swarm/core';

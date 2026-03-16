@@ -5,6 +5,13 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
 	"license": "MIT",
 	"files": [
 		"dist",
@@ -14,19 +21,13 @@
 		".claude-plugin",
 		"README.md"
 	],
-	"bundledDependencies": [
-		"@opencode-swarm/core",
-		"@opencode-swarm/telemetry"
-	],
 	"scripts": {
 		"build": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test"
 	},
 	"dependencies": {
-		"@opencode-swarm/core": "workspace:*",
-		"@opencode-swarm/telemetry": "workspace:*",
-		"zod": "^4.1.8"
+		"@opencode-swarm/core": "workspace:*"
 	},
 	"devDependencies": {
 		"bun-types": "latest",

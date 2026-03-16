@@ -23,8 +23,6 @@
       "version": "7.0.0",
       "dependencies": {
         "@opencode-swarm/core": "workspace:*",
-        "@opencode-swarm/telemetry": "workspace:*",
-        "zod": "^4.1.8",
       },
       "devDependencies": {
         "bun-types": "latest",
@@ -57,11 +55,6 @@
         "@opencode-ai/plugin": "^1.1.53",
         "@opencode-ai/sdk": "^1.1.53",
         "@opencode-swarm/core": "workspace:*",
-        "@opencode-swarm/telemetry": "workspace:*",
-        "@vscode/tree-sitter-wasm": "^0.3.0",
-        "p-limit": "^7.3.0",
-        "proper-lockfile": "^4.1.2",
-        "web-tree-sitter": "^0.25.0",
         "zod": "^4.1.8",
       },
       "devDependencies": {

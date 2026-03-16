@@ -253,6 +253,17 @@ export * from './state';
 export * from './summaries';
 // Re-export tools module
 export * from './tools';
+// Re-export lang module (language detection and profiles) - explicit re-export to disambiguate TestFramework
+export {
+	detectProjectLanguages,
+	getProfileForFile,
+	LANGUAGE_REGISTRY,
+	LanguageRegistry,
+	type LanguageProfile,
+	type BuildCommand,
+	type TestFramework,
+	type LintTool,
+} from './lang';
 // Re-export utils module
 export * from './utils';
 export { truncateToolOutput } from './utils/tool-output';
