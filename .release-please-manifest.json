@@ -1,6 +1,6 @@
 {
-  "packages/telemetry": "6.27.1",
-  "packages/core": "6.27.1",
-  "packages/claude-code": "6.27.1",
-  "packages/opencode": "6.27.1"
+  "packages/telemetry": "7.0.0",
+  "packages/core": "7.0.0",
+  "packages/claude-code": "7.0.0",
+  "packages/opencode": "7.0.0"
 }
