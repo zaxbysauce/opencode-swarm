@@ -1,6 +1,6 @@
 {
   "packages/telemetry": "7.0.0-beta.1",
   "packages/core": "7.0.0-beta.1",
-  "packages/claude-code": "7.0.0-beta.1",
+  "packages/claude-code": "7.0.0-beta.2",
   "packages/opencode": "7.0.0-beta.1"
 }
