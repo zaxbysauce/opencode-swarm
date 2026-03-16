@@ -1,7 +1,14 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
 	"files": {
-		"includes": ["src/**", "biome.json", "package.json", "tsconfig.json"]
+		"includes": [
+			"packages/*/src/**/*.ts",
+			"packages/*/src/**/*.tsx",
+			"packages/*/scripts/**/*.ts",
+			"biome.json",
+			"package.json",
+			"!**/*.d.ts"
+		]
 	},
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {

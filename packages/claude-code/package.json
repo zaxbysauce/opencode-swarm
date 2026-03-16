@@ -1,0 +1,37 @@
+{
+	"name": "@opencode-swarm/claude-code",
+	"version": "7.0.0",
+	"description": "Claude Code adapter for opencode-swarm — hooks, agents, and state bridge for Claude Code integration",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"license": "MIT",
+	"files": [
+		"dist",
+		"scripts",
+		"hooks",
+		"agents",
+		".claude-plugin",
+		"README.md"
+	],
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@opencode-swarm/core": "workspace:*"
+	},
+	"bundledDependencies": ["@opencode-swarm/core"],
+	"devDependencies": {
+		"bun-types": "latest",
+		"typescript": "^5.7.3"
+	}
+}

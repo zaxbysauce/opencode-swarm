@@ -1,3 +1,7 @@
 {
-  ".": "6.27.1"
+  ".": "7.0.0",
+  "packages/telemetry": "7.0.0",
+  "packages/core": "7.0.0",
+  "packages/claude-code": "7.0.0",
+  "packages/opencode": "7.0.0"
 }

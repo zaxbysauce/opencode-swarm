@@ -38,5 +38,14 @@ dist/tools/sbom-generate.d.ts
 .temp-test-*/
 output_*.js
 
+# Windows temp path artifacts (e.g. C:temptest_output.txt from path-join bugs)
+C:temp*.txt
+# npm lock file — this repo uses bun.lockb
+package-lock.json
+
+# Monorepo package build outputs
+packages/*/dist/
+
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/
+*.jsonl

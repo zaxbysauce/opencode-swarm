@@ -1,0 +1,61 @@
+{
+	"name": "@opencode-swarm/core",
+	"version": "7.0.0",
+	"description": "Platform-agnostic core logic for opencode-swarm — hooks, tools, agents, services",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		},
+		"./lang/detector": {
+			"source": "./src/lang/detector.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/detector.ts"
+		},
+		"./lang/profiles": {
+			"source": "./src/lang/profiles.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/profiles.ts"
+		},
+		"./lang": {
+			"source": "./src/lang/index.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/lang/index.ts"
+		},
+		"./telemetry": {
+			"source": "./src/telemetry/index.ts",
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./src/telemetry/index.ts"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"license": "MIT",
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@opencode-swarm/telemetry": "workspace:*",
+		"@vscode/tree-sitter-wasm": "^0.3.0",
+		"p-limit": "^7.3.0",
+		"proper-lockfile": "^4.1.2",
+		"web-tree-sitter": "^0.25.0",
+		"zod": "^4.1.8"
+	},
+	"devDependencies": {
+		"bun-types": "latest",
+		"typescript": "^5.7.3"
+	}
+}

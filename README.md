@@ -1063,6 +1063,121 @@ Agents include one-line summaries in state events for downstream consumption by 
 
 ---
 
+## Claude Code Adapter
+
+OpenCode Swarm includes a **Claude Code adapter** (`@opencode-swarm/claude-code`) that brings the full architect-centric swarm orchestration system to Claude Code. This adapter provides:
+
+- **9 specialized swarm agents** for Claude Code's Task tool
+- **7 lifecycle hooks** that integrate with Claude Code's subprocess hook system
+- **Disk-based state bridge** for swarm state persistence across hook invocations
+- **Telemetry** via session-scoped events files
+
+### Installation
+
+```bash
+npm install -g @opencode-swarm/claude-code
+```
+
+Then add to your Claude Code `settings.json`:
+
+```json
+{
+  "plugins": [
+    "/path/to/node_modules/@opencode-swarm/claude-code"
+  ]
+}
+```
+
+### Usage
+
+Once installed, use swarm agents via the Task tool:
+
+```
+Use swarm-architect to plan and orchestrate the implementation of [feature].
+```
+
+The architect will:
+1. Analyze the codebase with swarm-explorer
+2. Create a plan in `.swarm/plan.md`
+3. Delegate implementation to swarm-coder
+4. Run QA gates (swarm-reviewer + swarm-test-engineer)
+5. Mark tasks complete
+
+### Available Agents
+
+| Agent | Role |
+|------|------|
+| swarm-architect | Orchestrator — plans, delegates, runs gates |
+| swarm-coder | Implementation — writes code |
+| swarm-reviewer | Code review — APPROVED/REJECTED |
+| swarm-test-engineer | Test generation + execution |
+| swarm-critic | Plan review — APPROVED/NEEDS_REVISION |
+| swarm-explorer | Codebase analysis |
+| swarm-sme | Domain expertise |
+| swarm-docs | Documentation updates |
+| swarm-designer | UI/UX scaffolding |
+
+### Lifecycle Hooks
+
+The adapter integrates with Claude Code's 7 lifecycle hooks:
+
+| Hook | Purpose |
+|------|---------|
+| SessionStart | Initialize swarm state, inject context |
+| PreToolUse | Track tool invocations, emit telemetry |
+| PostToolUse | Track file modifications |
+| UserPromptSubmit | Inject current task context |
+| Stop | Emit session-end telemetry |
+| SubagentStop | Track delegation completion |
+| PreCompact | Log compaction events |
+
+See [`packages/claude-code/README.md`](packages/claude-code/README.md) for full documentation.
+
+---
+
+## Packages
+
+OpenCode Swarm is organized as a monorepo with the following packages:
+
+| Package | Description |
+|---------|-------------|
+| `opencode-swarm` | Main OpenCode plugin — orchestration + CLI (deprecated, use @opencode-swarm/core) |
+| `@opencode-swarm/core` | Core orchestration, parallel execution planning, dependency graph analysis |
+| `@opencode-swarm/telemetry` | Event schemas, type guards, and telemetry infrastructure |
+| `@opencode-swarm/claude-code` | Claude Code plugin adapter with lifecycle hooks |
+
+> **Note**: The `opencode-swarm` package is deprecated. New installations should use `@opencode-swarm/core` instead.
+
+### Parallel Execution Planning (v7.0)
+
+The `@opencode-swarm/core` package includes the `ExecutionCoordinator` for wave-based parallel task execution:
+
+- **`ExecutionPlan`**: Groups tasks into dependency-ordered waves for parallel execution
+- **Serial fallbacks**: Tasks involved in circular dependencies are automatically identified and scheduled serially
+- **Conflict detection**: Tracks file modifications across agents for merge conflict resolution
+
+This is a planning scaffold — full parallel dispatch and result merging is targeted for v7.3.
+
+### Telemetry Events (v7.0)
+
+The `@opencode-swarm/telemetry` package provides structured event schemas:
+
+| Event | Description |
+|-------|-------------|
+| `session_metadata` | Session initialization |
+| `delegation_start` / `delegation_end` | Subagent delegation tracking |
+| `agent_status` | Agent activity monitoring |
+| `token_usage` | LLM token consumption |
+| `tool_invocation` | Tool call tracking |
+| `gate_evaluation` | QA gate results |
+| `file_reservation` | File scope locking |
+| `phase_transition` | Phase start/complete |
+| `file_touch` | File modifications |
+| `state_file_update` | Swarm state writes |
+| `parallel_wave_start` / `parallel_wave_end` | Parallel execution wave events |
+
+---
+
 ## Testing
 
 6,000+ tests. Unit, integration, adversarial, and smoke. Zero additional test dependencies.
