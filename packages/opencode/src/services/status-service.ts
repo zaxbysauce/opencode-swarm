@@ -1,11 +1,12 @@
 // Bridge module - adapts local OpenCode agent definition type to core service
-import type { AgentDefinition as OpenCodeAgentDefinition } from '../agents';
+
 import {
-	formatStatusMarkdown,
 	getStatusData as coreGetStatusData,
 	handleStatusCommand as coreHandleStatusCommand,
+	formatStatusMarkdown,
 	type StatusData,
 } from '@opencode-swarm/core';
+import type { AgentDefinition as OpenCodeAgentDefinition } from '../agents';
 
 /**
  * Get status data - adapts local OpenCode agents to core type.

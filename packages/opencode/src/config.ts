@@ -7,16 +7,16 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 // Import from @opencode-swarm/core (resolves via paths in tsconfig)
 import {
-	deepMerge,
-	loadRawConfigFromPath,
 	type AgentName,
 	type AutomationCapabilities,
 	type AutomationConfig,
 	type AutomationMode,
+	deepMerge,
+	loadRawConfigFromPath,
 	type PipelineAgentName,
-	type QAAgentName,
 	type PluginConfig,
 	PluginConfigSchema,
+	type QAAgentName,
 } from '@opencode-swarm/core';
 
 const CONFIG_FILENAME = 'opencode-swarm.json';

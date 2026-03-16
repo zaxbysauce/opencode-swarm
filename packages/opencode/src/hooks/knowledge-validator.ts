@@ -1,15 +1,15 @@
 // Bridge module - re-exports from core hooks knowledge-validator
 export type {
-	ValidationResult,
-	QuarantinedEntry,
 	EntryHealthResult,
+	QuarantinedEntry,
+	ValidationResult,
 } from '@opencode-swarm/core';
 export {
-	DANGEROUS_COMMAND_PATTERNS,
-	SECURITY_DEGRADING_PATTERNS,
-	INJECTION_PATTERNS,
-	validateLesson,
 	auditEntryHealth,
+	DANGEROUS_COMMAND_PATTERNS,
+	INJECTION_PATTERNS,
 	quarantineEntry,
 	restoreEntry,
+	SECURITY_DEGRADING_PATTERNS,
+	validateLesson,
 } from '@opencode-swarm/core';

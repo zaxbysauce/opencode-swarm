@@ -10,10 +10,10 @@ import * as path from 'node:path';
 const stdinData = readFileSync('/dev/stdin', 'utf-8');
 let input: Record<string, unknown>;
 try {
-    input = JSON.parse(stdinData);
+	input = JSON.parse(stdinData);
 } catch {
-    // Invalid JSON input — exit cleanly
-    process.exit(0);
+	// Invalid JSON input — exit cleanly
+	process.exit(0);
 }
 
 const sessionId = (input.session_id as string) ?? 'unknown';
@@ -23,24 +23,24 @@ const swarmDir = path.join(cwd, '.swarm');
 
 // Prevent infinite loops
 if (stopHookActive) {
-    process.stdout.write(JSON.stringify({}) + '\n');
-    process.exit(0);
+	process.stdout.write(`${JSON.stringify({})}\n`);
+	process.exit(0);
 }
 
 // Emit session-end event
 try {
-    const { getEventWriter } = await import('../../core/src/telemetry/writer');
-    getEventWriter(swarmDir, sessionId).emit({
-        type: 'agent_status',
-        timestamp: new Date().toISOString(),
-        sessionId,
-        version: '1.0.0',
-        agentName: 'architect',
-        status: 'complete',
-    });
+	const { getEventWriter } = await import('../../core/src/telemetry/writer');
+	getEventWriter(swarmDir, sessionId).emit({
+		type: 'agent_status',
+		timestamp: new Date().toISOString(),
+		sessionId,
+		version: '1.0.0',
+		agentName: 'architect',
+		status: 'complete',
+	});
 } catch {
-    // Non-fatal - telemetry should not crash swarm
+	// Non-fatal - telemetry should not crash swarm
 }
 
-process.stdout.write(JSON.stringify({}) + '\n');
+process.stdout.write(`${JSON.stringify({})}\n`);
 process.exit(0);

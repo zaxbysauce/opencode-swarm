@@ -11,7 +11,10 @@
 
 import { appendFileSync, mkdirSync } from 'node:fs';
 import * as path from 'node:path';
-import { TELEMETRY_SCHEMA_VERSION, type SwarmEvent } from '@opencode-swarm/telemetry';
+import {
+	type SwarmEvent,
+	TELEMETRY_SCHEMA_VERSION,
+} from '@opencode-swarm/telemetry';
 
 /** In-process singleton registry: key = `${swarmDir}::${sessionId}` */
 const registry = new Map<string, EventWriter>();
@@ -73,7 +76,10 @@ export class EventWriter {
  * @param swarmDir - Absolute path to the .swarm/ directory
  * @param sessionId - Session identifier (used in filename)
  */
-export function getEventWriter(swarmDir: string, sessionId: string): EventWriter {
+export function getEventWriter(
+	swarmDir: string,
+	sessionId: string,
+): EventWriter {
 	const key = `${swarmDir}::${sessionId}`;
 	let writer = registry.get(key);
 	if (!writer) {

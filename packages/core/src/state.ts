@@ -384,7 +384,10 @@ export function ensureAgentSession(
 			session.gateLog = new Map();
 		}
 		// Repair reviewerCallCount if missing OR not a Map (malformed)
-		if (!session.reviewerCallCount || !(session.reviewerCallCount instanceof Map)) {
+		if (
+			!session.reviewerCallCount ||
+			!(session.reviewerCallCount instanceof Map)
+		) {
 			session.reviewerCallCount = new Map();
 		}
 		if (session.lastGateFailure === undefined) {
@@ -424,7 +427,10 @@ export function ensureAgentSession(
 		}
 		// v6.21 Per-task state machine migration safety
 		// Repair taskWorkflowStates if missing OR not a Map (malformed)
-		if (!session.taskWorkflowStates || !(session.taskWorkflowStates instanceof Map)) {
+		if (
+			!session.taskWorkflowStates ||
+			!(session.taskWorkflowStates instanceof Map)
+		) {
 			session.taskWorkflowStates = new Map();
 		}
 		if (session.lastGateOutcome === undefined) {
@@ -760,72 +766,76 @@ function evidenceToWorkflowState(evidence: TaskEvidence): TaskWorkflowState {
 	return 'idle';
 }
 
-	/**
-	 * Reads and parses plan.json from the given directory.
-	 * Returns null if file doesn't exist or is malformed (non-fatal).
-	 * Tolerant of schema version mismatches - tries schema validation first,
-	 * then falls back to extracting raw data if validation fails.
-	 */
-	async function readPlanFromDisk(directory: string): Promise<Plan | null> {
+/**
+ * Reads and parses plan.json from the given directory.
+ * Returns null if file doesn't exist or is malformed (non-fatal).
+ * Tolerant of schema version mismatches - tries schema validation first,
+ * then falls back to extracting raw data if validation fails.
+ */
+async function readPlanFromDisk(directory: string): Promise<Plan | null> {
+	try {
+		const planPath = path.join(directory, '.swarm', 'plan.json');
+		const content = await fs.readFile(planPath, 'utf-8');
+		const parsed = JSON.parse(content);
+
+		// Try schema validation first
 		try {
-			const planPath = path.join(directory, '.swarm', 'plan.json');
-			const content = await fs.readFile(planPath, 'utf-8');
-			const parsed = JSON.parse(content);
+			return PlanSchema.parse(parsed) as Plan;
+		} catch {
+			// Schema validation failed (e.g., schema_version mismatch or invalid content)
+			// Fall back to extracting data without strict validation
 
-			// Try schema validation first
-			try {
-				return PlanSchema.parse(parsed) as Plan;
-			} catch {
-				// Schema validation failed (e.g., schema_version mismatch or invalid content)
-				// Fall back to extracting data without strict validation
-
-				// Check if this looks like evidence content (has taskId but no phases)
-				// In this case, it's not a valid plan - return null
-				if (parsed && parsed.taskId && (!parsed.phases || !Array.isArray(parsed.phases))) {
-					// This looks like evidence content that overwrote plan.json
-					// Return null - we'll rely on evidence reading instead
-					return null;
-				}
-
-				// If we have phases, try to extract them
-				if (parsed && parsed.phases && Array.isArray(parsed.phases)) {
-					// Extract minimal required data from raw JSON
-					const phases = parsed.phases.map((phase: Record<string, unknown>) => ({
-						id: typeof phase.id === 'number' ? phase.id : 1,
-						name: typeof phase.name === 'string' ? phase.name : 'Phase',
-						status: phase.status ?? 'pending',
-						tasks: Array.isArray(phase.tasks)
-							? phase.tasks.map((task: Record<string, unknown>) => ({
-									id: typeof task.id === 'string' ? task.id : '1.1',
-									phase: typeof task.phase === 'number' ? task.phase : 1,
-									status: task.status ?? 'pending',
-									size: task.size ?? 'small',
-									description:
-										typeof task.description === 'string'
-											? task.description
-											: 'Task',
-									depends: Array.isArray(task.depends) ? task.depends : [],
-									files_touched: Array.isArray(task.files_touched)
-										? task.files_touched
-										: [],
-							  }))
-							: [],
-					}));
-
-					return {
-						schema_version: '1.0.0',
-						title: typeof parsed.title === 'string' ? parsed.title : 'Plan',
-						swarm: typeof parsed.swarm === 'string' ? parsed.swarm : 'swarm',
-						phases,
-					} as Plan;
-				}
+			// Check if this looks like evidence content (has taskId but no phases)
+			// In this case, it's not a valid plan - return null
+			if (
+				parsed &&
+				parsed.taskId &&
+				(!parsed.phases || !Array.isArray(parsed.phases))
+			) {
+				// This looks like evidence content that overwrote plan.json
+				// Return null - we'll rely on evidence reading instead
 				return null;
 			}
-		} catch {
-			// Non-fatal: missing or malformed plan.json
+
+			// If we have phases, try to extract them
+			if (parsed && parsed.phases && Array.isArray(parsed.phases)) {
+				// Extract minimal required data from raw JSON
+				const phases = parsed.phases.map((phase: Record<string, unknown>) => ({
+					id: typeof phase.id === 'number' ? phase.id : 1,
+					name: typeof phase.name === 'string' ? phase.name : 'Phase',
+					status: phase.status ?? 'pending',
+					tasks: Array.isArray(phase.tasks)
+						? phase.tasks.map((task: Record<string, unknown>) => ({
+								id: typeof task.id === 'string' ? task.id : '1.1',
+								phase: typeof task.phase === 'number' ? task.phase : 1,
+								status: task.status ?? 'pending',
+								size: task.size ?? 'small',
+								description:
+									typeof task.description === 'string'
+										? task.description
+										: 'Task',
+								depends: Array.isArray(task.depends) ? task.depends : [],
+								files_touched: Array.isArray(task.files_touched)
+									? task.files_touched
+									: [],
+							}))
+						: [],
+				}));
+
+				return {
+					schema_version: '1.0.0',
+					title: typeof parsed.title === 'string' ? parsed.title : 'Plan',
+					swarm: typeof parsed.swarm === 'string' ? parsed.swarm : 'swarm',
+					phases,
+				} as Plan;
+			}
 			return null;
 		}
+	} catch {
+		// Non-fatal: missing or malformed plan.json
+		return null;
 	}
+}
 
 /**
  * Reads all evidence files from .swarm/evidence/*.json
@@ -902,7 +912,7 @@ async function readEvidenceFromDisk(
  *
  * @param directory - Project root containing .swarm/ subdirectory
  * @param session - Target AgentSessionState to merge rehydrated state into
-	 */
+ */
 export async function rehydrateSessionFromDisk(
 	directory: string,
 	session: AgentSessionState,
@@ -935,7 +945,10 @@ export async function rehydrateSessionFromDisk(
 	}
 
 	// Collect all task IDs from both plan and evidence
-	const allTaskIds = new Set<string>([...planTaskStates.keys(), ...evidenceMap.keys()]);
+	const allTaskIds = new Set<string>([
+		...planTaskStates.keys(),
+		...evidenceMap.keys(),
+	]);
 
 	// Merge: evidence > plan > existing memory (no downgrade)
 	for (const taskId of allTaskIds) {

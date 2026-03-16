@@ -1,6 +1,13 @@
 // Parallel execution framework for swarm tasks
 
 export {
+	type AgentHandle,
+	type ConflictInfo,
+	ExecutionCoordinator,
+	type ExecutionPlan,
+	type MergeOutcome,
+} from './coordinator.js';
+export {
 	type DependencyGraph,
 	getDependencyChain,
 	getExecutionOrder,
@@ -33,10 +40,3 @@ export {
 	routeReviewForChanges,
 	shouldParallelizeReview,
 } from './review-router.js';
-export {
-	ExecutionCoordinator,
-	type ExecutionPlan,
-	type AgentHandle,
-	type MergeOutcome,
-	type ConflictInfo,
-} from './coordinator.js';

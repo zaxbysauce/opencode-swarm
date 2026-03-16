@@ -1,1 +1,5 @@
-export { EventWriter, getEventWriter, _clearEventWriterRegistry } from './writer';
+export {
+	_clearEventWriterRegistry,
+	EventWriter,
+	getEventWriter,
+} from './writer';

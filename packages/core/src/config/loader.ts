@@ -3,8 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { deepMerge } from '../utils/merge';
-import { PluginConfigSchema } from './schema';
 import type { PluginConfig } from './schema';
+import { PluginConfigSchema } from './schema';
 
 const CONFIG_FILENAME = 'opencode-swarm.json';
 const PROMPTS_DIR_NAME = 'opencode-swarm';

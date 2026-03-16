@@ -232,7 +232,10 @@ export async function runBuildCheck(
 		// Generate skipped reason
 		if (discoveryResult.skipped.length > 0) {
 			skipped_reason = discoveryResult.skipped
-				.map((s: { ecosystem: string; reason: string }) => `${s.ecosystem}: ${s.reason}`)
+				.map(
+					(s: { ecosystem: string; reason: string }) =>
+						`${s.ecosystem}: ${s.reason}`,
+				)
 				.join('; ');
 		} else {
 			skipped_reason = 'No build commands discovered (no toolchains found)';

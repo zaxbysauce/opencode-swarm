@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EventWriter, getEventWriter, _clearEventWriterRegistry } from './writer';
+import {
+	_clearEventWriterRegistry,
+	EventWriter,
+	getEventWriter,
+} from './writer';
 
 describe('EventWriter', () => {
 	let tempDir: string;
@@ -95,7 +99,10 @@ describe('EventWriter', () => {
 			// For cross-platform testing, we'll test by passing an invalid path
 
 			// Try to emit to an invalid path - should not throw
-			const invalidWriter = new EventWriter('/dev/null/does/not/exist', 'invalid-session');
+			const invalidWriter = new EventWriter(
+				'/dev/null/does/not/exist',
+				'invalid-session',
+			);
 			expect(() => {
 				invalidWriter.emit({ type: 'should_not_crash' });
 			}).not.toThrow();

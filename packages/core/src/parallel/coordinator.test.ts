@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ExecutionCoordinator } from './coordinator';
@@ -20,7 +20,9 @@ describe('ExecutionCoordinator', () => {
 	describe('planParallelExecution', () => {
 		it('returns empty plan for non-existent plan file', () => {
 			const coordinator = new ExecutionCoordinator(tempDir);
-			const plan = coordinator.planParallelExecution(join(tempDir, 'nonexistent.json'));
+			const plan = coordinator.planParallelExecution(
+				join(tempDir, 'nonexistent.json'),
+			);
 
 			expect(plan.waves).toEqual([]);
 			expect(plan.estimatedWaves).toBe(0);
@@ -78,7 +80,11 @@ describe('ExecutionCoordinator', () => {
 								{ id: 'task-a', description: 'Task A' },
 								{ id: 'task-b', description: 'Task B', depends: ['task-a'] },
 								{ id: 'task-c', description: 'Task C', depends: ['task-a'] },
-								{ id: 'task-d', description: 'Task D', depends: ['task-b', 'task-c'] },
+								{
+									id: 'task-d',
+									description: 'Task D',
+									depends: ['task-b', 'task-c'],
+								},
 							],
 						},
 					],
@@ -92,7 +98,10 @@ describe('ExecutionCoordinator', () => {
 			// Wave 1: task-a (no dependencies)
 			expect(plan.waves[0].map((t) => t.id)).toEqual(['task-a']);
 			// Wave 2: task-b, task-c (both depend on task-a only)
-			expect(plan.waves[1].map((t) => t.id).sort()).toEqual(['task-b', 'task-c']);
+			expect(plan.waves[1].map((t) => t.id).sort()).toEqual([
+				'task-b',
+				'task-c',
+			]);
 			// Wave 3: task-d (depends on both task-b and task-c)
 			expect(plan.waves[2].map((t) => t.id)).toEqual(['task-d']);
 		});
@@ -109,7 +118,13 @@ describe('ExecutionCoordinator', () => {
 						},
 						{
 							id: 2,
-							tasks: [{ id: 'phase2-task', description: 'Phase 2 Task', depends: ['phase1-task'] }],
+							tasks: [
+								{
+									id: 'phase2-task',
+									description: 'Phase 2 Task',
+									depends: ['phase1-task'],
+								},
+							],
 						},
 					],
 				}),
@@ -131,7 +146,13 @@ describe('ExecutionCoordinator', () => {
 					phases: [
 						{
 							id: 3,
-							tasks: [{ id: 'task-phase3', description: 'Phase 3', depends: ['task-phase1'] }],
+							tasks: [
+								{
+									id: 'task-phase3',
+									description: 'Phase 3',
+									depends: ['task-phase1'],
+								},
+							],
 						},
 						{
 							id: 1,
@@ -139,7 +160,13 @@ describe('ExecutionCoordinator', () => {
 						},
 						{
 							id: 2,
-							tasks: [{ id: 'task-phase2', description: 'Phase 2', depends: ['task-phase1'] }],
+							tasks: [
+								{
+									id: 'task-phase2',
+									description: 'Phase 2',
+									depends: ['task-phase1'],
+								},
+							],
 						},
 					],
 				}),
@@ -219,7 +246,13 @@ describe('ExecutionCoordinator', () => {
 					phases: [
 						{
 							id: 1,
-							tasks: [{ id: 'self-task', description: 'Self Task', depends: ['self-task'] }],
+							tasks: [
+								{
+									id: 'self-task',
+									description: 'Self Task',
+									depends: ['self-task'],
+								},
+							],
 						},
 					],
 				}),
@@ -306,9 +339,21 @@ describe('ExecutionCoordinator', () => {
 							id: 1,
 							tasks: [
 								{ id: 'diamond-start', description: 'Start' },
-								{ id: 'diamond-left', description: 'Left', depends: ['diamond-start'] },
-								{ id: 'diamond-right', description: 'Right', depends: ['diamond-start'] },
-								{ id: 'diamond-end', description: 'End', depends: ['diamond-left', 'diamond-right'] },
+								{
+									id: 'diamond-left',
+									description: 'Left',
+									depends: ['diamond-start'],
+								},
+								{
+									id: 'diamond-right',
+									description: 'Right',
+									depends: ['diamond-start'],
+								},
+								{
+									id: 'diamond-end',
+									description: 'End',
+									depends: ['diamond-left', 'diamond-right'],
+								},
 							],
 						},
 					],
@@ -321,7 +366,10 @@ describe('ExecutionCoordinator', () => {
 			// Wave 1: diamond-start
 			expect(plan.waves[0].map((t) => t.id)).toEqual(['diamond-start']);
 			// Wave 2: diamond-left and diamond-right (parallel after diamond-start)
-			expect(plan.waves[1].map((t) => t.id).sort()).toEqual(['diamond-left', 'diamond-right']);
+			expect(plan.waves[1].map((t) => t.id).sort()).toEqual([
+				'diamond-left',
+				'diamond-right',
+			]);
 			// Wave 3: diamond-end (depends on both)
 			expect(plan.waves[2].map((t) => t.id)).toEqual(['diamond-end']);
 		});
@@ -339,9 +387,9 @@ describe('ExecutionCoordinator', () => {
 		it('throws not implemented error with worktreeId', () => {
 			const coordinator = new ExecutionCoordinator(tempDir);
 
-			expect(() => coordinator.dispatchAgent('task-id', 'agent-name', 'worktree-1')).toThrow(
-				'Parallel execution not yet implemented',
-			);
+			expect(() =>
+				coordinator.dispatchAgent('task-id', 'agent-name', 'worktree-1'),
+			).toThrow('Parallel execution not yet implemented');
 		});
 	});
 
@@ -552,7 +600,9 @@ describe('Adversarial: Malformed plan data', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [{ id: 'task-a', description: 'Task A', status: 'invalid-status' }],
+						tasks: [
+							{ id: 'task-a', description: 'Task A', status: 'invalid-status' },
+						],
 					},
 				],
 			}),
@@ -668,7 +718,11 @@ describe('Adversarial: Missing dependencies', () => {
 					{
 						id: 1,
 						tasks: [
-							{ id: 'task-a', description: 'Task A', depends: ['non-existent-task'] },
+							{
+								id: 'task-a',
+								description: 'Task A',
+								depends: ['non-existent-task'],
+							},
 						],
 					},
 				],
@@ -943,9 +997,17 @@ describe('Adversarial: Complex circular dependencies', () => {
 					{
 						id: 1,
 						tasks: [
-							{ id: 'self-task', description: 'Self Task', depends: ['self-task'] },
+							{
+								id: 'self-task',
+								description: 'Self Task',
+								depends: ['self-task'],
+							},
 							{ id: 'normal-task', description: 'Normal Task' },
-							{ id: 'dependent-on-self', description: 'Dependent', depends: ['self-task'] },
+							{
+								id: 'dependent-on-self',
+								description: 'Dependent',
+								depends: ['self-task'],
+							},
 						],
 					},
 				],

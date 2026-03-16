@@ -1,3 +1,4 @@
+export { deepMerge, MAX_MERGE_DEPTH } from '../utils/merge';
 export type {
 	AgentName,
 	PipelineAgentName,
@@ -48,7 +49,6 @@ export {
 	loadPluginConfigWithMeta,
 	MAX_CONFIG_FILE_BYTES,
 } from './loader';
-export { deepMerge, MAX_MERGE_DEPTH } from '../utils/merge';
 export type {
 	MigrationStatus,
 	Phase,
@@ -87,7 +87,7 @@ export {
 	PhaseCompleteConfigSchema,
 	PipelineConfigSchema,
 	PluginConfigSchema,
-	SwarmConfigSchema,
 	resolveGuardrailsConfig,
+	SwarmConfigSchema,
 	stripKnownSwarmPrefix,
 } from './schema';

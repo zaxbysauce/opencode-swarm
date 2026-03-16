@@ -6,10 +6,10 @@
  */
 
 export {
-	LANGUAGE_REGISTRY,
-	LanguageRegistry,
-	type LanguageProfile,
 	type BuildCommand,
-	type TestFramework,
+	LANGUAGE_REGISTRY,
+	type LanguageProfile,
+	LanguageRegistry,
 	type LintTool,
+	type TestFramework,
 } from '@opencode-swarm/core';

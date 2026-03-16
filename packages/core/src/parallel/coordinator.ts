@@ -1,4 +1,9 @@
-import { parseDependencyGraph, getRunnableTasks, DependencyGraph, TaskNode } from './dependency-graph.js';
+import {
+	type DependencyGraph,
+	getRunnableTasks,
+	parseDependencyGraph,
+	type TaskNode,
+} from './dependency-graph.js';
 
 /**
  * Execution plan with waves of tasks that can run in parallel
@@ -105,7 +110,9 @@ export class ExecutionCoordinator {
 				const taskIdsInGraph = new Set(graph.tasks.keys());
 				validDepends = task.depends.filter(
 					(dep): dep is string =>
-						typeof dep === 'string' && dep.length > 0 && taskIdsInGraph.has(dep),
+						typeof dep === 'string' &&
+						dep.length > 0 &&
+						taskIdsInGraph.has(dep),
 				);
 			}
 
@@ -276,8 +283,14 @@ export class ExecutionCoordinator {
 	 * Dispatch an agent to execute a specific task
 	 * @throws Error - Parallel execution not yet implemented
 	 */
-	dispatchAgent(taskId: string, agent: string, worktreeId?: string): AgentHandle {
-		throw new Error('Parallel execution not yet implemented — see v7.3 roadmap');
+	dispatchAgent(
+		taskId: string,
+		agent: string,
+		worktreeId?: string,
+	): AgentHandle {
+		throw new Error(
+			'Parallel execution not yet implemented — see v7.3 roadmap',
+		);
 	}
 
 	/**
@@ -285,7 +298,9 @@ export class ExecutionCoordinator {
 	 * @throws Error - Parallel execution not yet implemented
 	 */
 	async awaitCompletion(handles: AgentHandle[]): Promise<void> {
-		throw new Error('Parallel execution not yet implemented — see v7.3 roadmap');
+		throw new Error(
+			'Parallel execution not yet implemented — see v7.3 roadmap',
+		);
 	}
 
 	/**
@@ -293,6 +308,8 @@ export class ExecutionCoordinator {
 	 * @throws Error - Parallel execution not yet implemented
 	 */
 	async mergeResults(handles: AgentHandle[]): Promise<MergeOutcome> {
-		throw new Error('Parallel execution not yet implemented — see v7.3 roadmap');
+		throw new Error(
+			'Parallel execution not yet implemented — see v7.3 roadmap',
+		);
 	}
 }

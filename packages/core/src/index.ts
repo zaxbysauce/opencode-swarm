@@ -6,6 +6,8 @@
 
 // Re-export agents module
 export * from './agents';
+// Re-export background module
+export * from './background';
 // Re-export config module (constants, evidence-schema, loader, plan-schema, schema)
 export * from './config/index';
 // Re-export additional loader items not in config/index
@@ -13,24 +15,31 @@ export { loadRawConfigFromPath, MAX_CONFIG_FILE_BYTES } from './config/loader';
 // Re-export config schema exports needed by opencode commands
 export type { KnowledgeConfig } from './config/schema';
 export { KnowledgeConfigSchema, SummaryConfigSchema } from './config/schema';
-
-// Re-export background module
-export * from './background';
 // Re-export evidence module
 export * from './evidence';
 // Re-export specific evidence utilities needed by opencode
-export { VALID_EVIDENCE_TYPES, isValidEvidenceType } from './evidence/manager';
+export { isValidEvidenceType, VALID_EVIDENCE_TYPES } from './evidence/manager';
 // Re-export gate-evidence module
 export * from './gate-evidence';
 
 // Re-export hooks module (selective to avoid conflicts with knowledge exports)
 export {
+	classifyMessage,
+	classifyMessages,
+	composeHandlers,
+	consolidateSystemMessages,
+	containsPlanContent,
 	createAgentActivityHooks,
 	createCompactionCustomizerHook,
 	createContextBudgetHandler,
 	createDelegationGateHook,
 	createDelegationSanitizerHook,
 	createDelegationTrackerHook,
+	createGuardrailsHooks,
+	createPhaseMonitorHook,
+	createPipelineTrackerHook,
+	createSystemEnhancerHook,
+	createToolSummarizerHook,
 	extractCurrentPhase,
 	extractCurrentPhaseFromPlan,
 	extractCurrentTask,
@@ -38,28 +47,18 @@ export {
 	extractDecisions,
 	extractIncompleteTasks,
 	extractIncompleteTasksFromPlan,
+	extractModelInfo,
 	extractPatterns,
-	createGuardrailsHooks,
-	classifyMessage,
-	classifyMessages,
-	containsPlanContent,
 	isDuplicateToolRead,
 	isStaleError,
 	isToolResult,
 	MessagePriority,
 	type MessagePriorityType,
-	consolidateSystemMessages,
-	extractModelInfo,
 	NATIVE_MODEL_LIMITS,
 	PROVIDER_CAPS,
-	resolveModelLimit,
-	createPhaseMonitorHook,
-	createPipelineTrackerHook,
-	createSystemEnhancerHook,
-	createToolSummarizerHook,
-	resetSummaryIdCounter,
-	composeHandlers,
 	readSwarmFileAsync,
+	resetSummaryIdCounter,
+	resolveModelLimit,
 	safeHook,
 	validateSwarmPath,
 	// Note: estimateTokens excluded to avoid conflict with services/context-budget-service
@@ -68,81 +67,77 @@ export {
 // Export remaining hooks directly from their modules
 export { createCoChangeSuggesterHook } from './hooks/co-change-suggester';
 export { createDarkMatterDetectorHook } from './hooks/dark-matter-detector';
-export { createKnowledgeCuratorHook } from './hooks/knowledge-curator';
-export { createKnowledgeInjectorHook } from './hooks/knowledge-injector';
-export { createSteeringConsumedHook } from './hooks/steering-consumed';
-
 // Re-export knowledge helpers used by opencode commands
 export type { HivePromotionSummary } from './hooks/hive-promoter';
 export {
-	createHivePromoterHook,
 	checkHivePromotions,
-	promoteToHive,
+	createHivePromoterHook,
 	promoteFromSwarm,
+	promoteToHive,
 } from './hooks/hive-promoter';
+export { createKnowledgeCuratorHook } from './hooks/knowledge-curator';
+export { createKnowledgeInjectorHook } from './hooks/knowledge-injector';
 export type { MigrationResult } from './hooks/knowledge-migrator';
 export { migrateContextToKnowledge } from './hooks/knowledge-migrator';
 export {
+	appendKnowledge,
+	appendRejectedLesson,
+	computeConfidence,
+	findNearDuplicate,
 	getPlatformConfigDir,
-	resolveSwarmKnowledgePath,
-	resolveSwarmRejectedPath,
-	resolveHiveKnowledgePath,
-	resolveHiveRejectedPath,
+	inferTags,
+	jaccardBigram,
+	normalize,
 	readKnowledge,
 	readRejectedLessons,
-	appendKnowledge,
+	resolveHiveKnowledgePath,
+	resolveHiveRejectedPath,
+	resolveSwarmKnowledgePath,
+	resolveSwarmRejectedPath,
 	rewriteKnowledge,
-	appendRejectedLesson,
-	normalize,
 	wordBigrams,
-	jaccardBigram,
-	findNearDuplicate,
-	computeConfidence,
-	inferTags,
 } from './hooks/knowledge-store';
 export type {
-	KnowledgeCategory,
-	PhaseConfirmationRecord,
-	ProjectConfirmationRecord,
-	RetrievalOutcome,
-	KnowledgeEntryBase,
-	SwarmKnowledgeEntry,
 	HiveKnowledgeEntry,
-	RejectedLesson,
+	KnowledgeCategory,
+	KnowledgeEntryBase,
 	MessageInfo,
 	MessagePart,
+	PhaseConfirmationRecord,
+	ProjectConfirmationRecord,
+	RejectedLesson,
+	RetrievalOutcome,
+	SwarmKnowledgeEntry,
 	// Note: KnowledgeConfig and MessageWithParts excluded to avoid conflicts
 } from './hooks/knowledge-types';
 export type {
-	ValidationResult,
-	QuarantinedEntry,
 	EntryHealthResult,
+	QuarantinedEntry,
+	ValidationResult,
 } from './hooks/knowledge-validator';
 export {
-	DANGEROUS_COMMAND_PATTERNS,
-	SECURITY_DEGRADING_PATTERNS,
-	INJECTION_PATTERNS,
-	validateLesson,
 	auditEntryHealth,
+	DANGEROUS_COMMAND_PATTERNS,
+	INJECTION_PATTERNS,
 	quarantineEntry,
 	restoreEntry,
+	SECURITY_DEGRADING_PATTERNS,
+	validateLesson,
 } from './hooks/knowledge-validator';
-
+export { createSteeringConsumedHook } from './hooks/steering-consumed';
+// Re-export lang module (language detection and profiles) - explicit re-export to disambiguate TestFramework
+export {
+	type BuildCommand,
+	detectProjectLanguages,
+	getProfileForFile,
+	LANGUAGE_REGISTRY,
+	type LanguageProfile,
+	LanguageRegistry,
+	type LintTool,
+	type TestFramework,
+} from './lang';
 // Re-export plan module
 export * from './plan';
-// Re-export services module (selective to avoid conflict with hooks estimateTokens)
-export {
-	analyzeDecisionDrift,
-	DEFAULT_DRIFT_CONFIG,
-	type Decision,
-	type DriftAnalysisResult,
-	type DriftAnalyzerConfig,
-	type DriftSeverity,
-	type DriftSignal,
-	extractDecisionsFromContext,
-	findContradictions,
-	formatDriftForContext,
-} from './services/decision-drift-analyzer';
 export {
 	applySafeAutoFixes,
 	type ConfigBackup,
@@ -168,6 +163,19 @@ export {
 	getContextBudgetReport,
 	getDefaultConfig,
 } from './services/context-budget-service';
+// Re-export services module (selective to avoid conflict with hooks estimateTokens)
+export {
+	analyzeDecisionDrift,
+	DEFAULT_DRIFT_CONFIG,
+	type Decision,
+	type DriftAnalysisResult,
+	type DriftAnalyzerConfig,
+	type DriftSeverity,
+	type DriftSignal,
+	extractDecisionsFromContext,
+	findContradictions,
+	formatDriftForContext,
+} from './services/decision-drift-analyzer';
 export {
 	type DiagnoseData,
 	formatDiagnoseMarkdown,
@@ -243,7 +251,6 @@ export {
 	handleStatusCommand,
 	type StatusData,
 } from './services/status-service';
-
 // Re-export session snapshot utilities
 export * from './session/snapshot-reader';
 export * from './session/snapshot-writer';
@@ -253,21 +260,9 @@ export * from './state';
 export * from './summaries';
 // Re-export tools module
 export * from './tools';
-// Re-export lang module (language detection and profiles) - explicit re-export to disambiguate TestFramework
-export {
-	detectProjectLanguages,
-	getProfileForFile,
-	LANGUAGE_REGISTRY,
-	LanguageRegistry,
-	type LanguageProfile,
-	type BuildCommand,
-	type TestFramework,
-	type LintTool,
-} from './lang';
-// Re-export utils module
-export * from './utils';
-export { truncateToolOutput } from './utils/tool-output';
-
 // Re-export types
 export * from './types/delegation';
 export * from './types/events';
+// Re-export utils module
+export * from './utils';
+export { truncateToolOutput } from './utils/tool-output';

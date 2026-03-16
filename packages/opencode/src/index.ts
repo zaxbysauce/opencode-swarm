@@ -664,6 +664,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 export default OpenCodeSwarm;
 
 export type { AgentDefinition } from './agents';
+// Re-export backward-compat layer for README-named exports
+export * from './compat';
 // Export types for consumers
 export type {
 	AgentName,
@@ -674,6 +676,3 @@ export type {
 	PluginConfig,
 	QAAgentName,
 } from './config';
-
-// Re-export backward-compat layer for README-named exports
-export * from './compat';

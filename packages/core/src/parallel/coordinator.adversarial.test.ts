@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, mock } from 'bun:test';
-import { ExecutionCoordinator } from './coordinator.js';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import { ExecutionCoordinator } from './coordinator.js';
 
 describe('ExecutionCoordinator - Adversarial Tests', () => {
 	let coordinator: ExecutionCoordinator;
@@ -18,7 +18,9 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 	// ═══════════════════════════════════════════════════════════════════
 
 	test('non-existent plan file returns empty execution plan', () => {
-		const result = coordinator.planParallelExecution('/nonexistent/path/plan.json');
+		const result = coordinator.planParallelExecution(
+			'/nonexistent/path/plan.json',
+		);
 		expect(result.waves).toEqual([]);
 		expect(result.estimatedWaves).toBe(0);
 		expect(result.serialFallbacks).toEqual([]);
@@ -176,10 +178,7 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [
-							{ id: 'task1', depends: [123, 'task2'] },
-							{ id: 'task2' },
-						],
+						tasks: [{ id: 'task1', depends: [123, 'task2'] }, { id: 'task2' }],
 					},
 				],
 			}),
@@ -188,8 +187,8 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 		// task2 runs first (no deps), then task1 (has task2 as dep via index iteration issue)
 		const result = coordinator.planParallelExecution(planPath);
 		expect(result.waves.length).toBe(2);
-		expect(result.waves[0].map(t => t.id)).toContain('task2');
-		expect(result.waves[1].map(t => t.id)).toContain('task1');
+		expect(result.waves[0].map((t) => t.id)).toContain('task2');
+		expect(result.waves[1].map((t) => t.id)).toContain('task1');
 	});
 
 	test('task with empty depends array is valid', () => {
@@ -234,11 +233,15 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 		fs.writeFileSync(
 			planPath,
 			JSON.stringify({
-				phases: [{ id: 1, tasks: [{ id: 'task1', depends: { invalid: 'type' } }] }],
+				phases: [
+					{ id: 1, tasks: [{ id: 'task1', depends: { invalid: 'type' } }] },
+				],
 			}),
 		);
 		// Object depends cause TypeError in dependency-graph.ts when iterating
-		expect(() => coordinator.planParallelExecution(planPath)).toThrow(TypeError);
+		expect(() => coordinator.planParallelExecution(planPath)).toThrow(
+			TypeError,
+		);
 	});
 
 	test('task with invalid status defaults to pending', () => {
@@ -277,10 +280,7 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [
-							{ id: 'task1', depends: ['nonexistent'] },
-							{ id: 'task2' },
-						],
+						tasks: [{ id: 'task1', depends: ['nonexistent'] }, { id: 'task2' }],
 					},
 				],
 			}),
@@ -325,10 +325,7 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [
-							{ id: 'task1', depends: ['', 'task2'] },
-							{ id: 'task2' },
-						],
+						tasks: [{ id: 'task1', depends: ['', 'task2'] }, { id: 'task2' }],
 					},
 				],
 			}),
@@ -510,11 +507,7 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [
-							{ description: 'no id' },
-							{ id: null },
-							{ id: 123 },
-						],
+						tasks: [{ description: 'no id' }, { id: null }, { id: 123 }],
 					},
 				],
 			}),
@@ -658,7 +651,8 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 		);
 		const result = coordinator.planParallelExecution(planPath);
 		// Only one task should exist (the second overwrites)
-		const task1Count = result.waves[0]?.filter((t) => t.id === 'task1').length || 0;
+		const task1Count =
+			result.waves[0]?.filter((t) => t.id === 'task1').length || 0;
 		expect(task1Count).toBe(1);
 	});
 
@@ -720,9 +714,7 @@ describe('ExecutionCoordinator - Adversarial Tests', () => {
 				phases: [
 					{
 						id: 1,
-						tasks: [
-							{ id: 'task1', depends: ['missing1', 'missing2'] },
-						],
+						tasks: [{ id: 'task1', depends: ['missing1', 'missing2'] }],
 					},
 				],
 			}),

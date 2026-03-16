@@ -140,7 +140,9 @@ function detectEcosystems(workingDir: string): string[] {
 /**
  * Get build-related scripts from package.json
  */
-function getBuildScripts(pkg: PackageJson): Array<{ name: string; command: string }> {
+function getBuildScripts(
+	pkg: PackageJson,
+): Array<{ name: string; command: string }> {
 	const scripts: Array<{ name: string; command: string }> = [];
 
 	if (!pkg.scripts) {
@@ -150,7 +152,10 @@ function getBuildScripts(pkg: PackageJson): Array<{ name: string; command: strin
 	// Map of script keywords to identify build/typecheck/test commands
 	const scriptPatterns: Array<{ keywords: string[]; prefix: string }> = [
 		{ keywords: ['build', 'compile', 'bundle'], prefix: 'build' },
-		{ keywords: ['typecheck', 'type-check', 'tsc', 'check', 'type'], prefix: 'typecheck' },
+		{
+			keywords: ['typecheck', 'type-check', 'tsc', 'check', 'type'],
+			prefix: 'typecheck',
+		},
 		{ keywords: ['test', 'spec', 'test:watch'], prefix: 'test' },
 	];
 
@@ -170,7 +175,10 @@ function getBuildScripts(pkg: PackageJson): Array<{ name: string; command: strin
 		for (const { keywords, prefix } of scriptPatterns) {
 			const lowerName = scriptName.toLowerCase();
 			const matchesKeyword = keywords.some(
-				(k) => lowerName === k || lowerName.startsWith(`${k}:`) || lowerName.includes(`-${k}`),
+				(k) =>
+					lowerName === k ||
+					lowerName.startsWith(`${k}:`) ||
+					lowerName.includes(`-${k}`),
 			);
 
 			if (matchesKeyword) {
@@ -188,7 +196,10 @@ function getBuildScripts(pkg: PackageJson): Array<{ name: string; command: strin
 async function discoverNpmCommands(
 	workingDir: string,
 	_options: BuildDiscoveryOptions,
-): Promise<{ commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] }> {
+): Promise<{
+	commands: BuildCommand[];
+	skipped: BuildDiscoveryResult['skipped'];
+}> {
 	const commands: BuildCommand[] = [];
 	const skipped: BuildDiscoveryResult['skipped'] = [];
 
@@ -206,7 +217,10 @@ async function discoverNpmCommands(
 		const buildScripts = getBuildScripts(pkg);
 
 		if (buildScripts.length === 0) {
-			skipped.push({ ecosystem: 'npm', reason: 'No build scripts found in package.json' });
+			skipped.push({
+				ecosystem: 'npm',
+				reason: 'No build scripts found in package.json',
+			});
 			return { commands, skipped };
 		}
 
@@ -235,7 +249,10 @@ async function discoverNpmCommands(
 async function discoverCargoCommands(
 	workingDir: string,
 	_options: BuildDiscoveryOptions,
-): Promise<{ commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] }> {
+): Promise<{
+	commands: BuildCommand[];
+	skipped: BuildDiscoveryResult['skipped'];
+}> {
 	const commands: BuildCommand[] = [];
 	const skipped: BuildDiscoveryResult['skipped'] = [];
 
@@ -287,7 +304,10 @@ async function discoverCargoCommands(
 async function discoverGoCommands(
 	workingDir: string,
 	_options: BuildDiscoveryOptions,
-): Promise<{ commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] }> {
+): Promise<{
+	commands: BuildCommand[];
+	skipped: BuildDiscoveryResult['skipped'];
+}> {
 	const commands: BuildCommand[] = [];
 	const skipped: BuildDiscoveryResult['skipped'] = [];
 
@@ -337,15 +357,23 @@ async function discoverGoCommands(
 async function discoverPipCommands(
 	workingDir: string,
 	_options: BuildDiscoveryOptions,
-): Promise<{ commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] }> {
+): Promise<{
+	commands: BuildCommand[];
+	skipped: BuildDiscoveryResult['skipped'];
+}> {
 	const commands: BuildCommand[] = [];
 	const skipped: BuildDiscoveryResult['skipped'] = [];
 
 	const hasPyproject = fs.existsSync(path.join(workingDir, 'pyproject.toml'));
-	const hasRequirements = fs.existsSync(path.join(workingDir, 'requirements.txt'));
+	const hasRequirements = fs.existsSync(
+		path.join(workingDir, 'requirements.txt'),
+	);
 
 	if (!hasPyproject && !hasRequirements) {
-		skipped.push({ ecosystem: 'pip', reason: 'No pyproject.toml or requirements.txt found' });
+		skipped.push({
+			ecosystem: 'pip',
+			reason: 'No pyproject.toml or requirements.txt found',
+		});
 		return { commands, skipped };
 	}
 
@@ -409,22 +437,33 @@ async function discoverPipCommands(
 async function discoverDotnetCommands(
 	workingDir: string,
 	_options: BuildDiscoveryOptions,
-): Promise<{ commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] }> {
+): Promise<{
+	commands: BuildCommand[];
+	skipped: BuildDiscoveryResult['skipped'];
+}> {
 	const commands: BuildCommand[] = [];
 	const skipped: BuildDiscoveryResult['skipped'] = [];
 
 	// Check for .csproj or .sln files
-	const hasCsproj = fs.readdirSync(workingDir).some((f) => f.endsWith('.csproj'));
+	const hasCsproj = fs
+		.readdirSync(workingDir)
+		.some((f) => f.endsWith('.csproj'));
 	const hasSln = fs.readdirSync(workingDir).some((f) => f.endsWith('.sln'));
 
 	if (!hasCsproj && !hasSln) {
-		skipped.push({ ecosystem: 'dotnet', reason: 'No .csproj or .sln files found' });
+		skipped.push({
+			ecosystem: 'dotnet',
+			reason: 'No .csproj or .sln files found',
+		});
 		return { commands, skipped };
 	}
 
 	// Check if dotnet is available
 	if (!isCommandAvailable('dotnet')) {
-		skipped.push({ ecosystem: 'dotnet', reason: 'dotnet command not available' });
+		skipped.push({
+			ecosystem: 'dotnet',
+			reason: 'dotnet command not available',
+		});
 		return { commands, skipped };
 	}
 
@@ -462,7 +501,10 @@ export async function discoverBuildCommands(
 
 	// Discover commands for each ecosystem
 	for (const ecosystem of ecosystems) {
-		let result: { commands: BuildCommand[]; skipped: BuildDiscoveryResult['skipped'] };
+		let result: {
+			commands: BuildCommand[];
+			skipped: BuildDiscoveryResult['skipped'];
+		};
 
 		switch (ecosystem) {
 			case 'npm':
@@ -492,7 +534,8 @@ export async function discoverBuildCommands(
 	if (ecosystems.length === 0) {
 		allSkipped.push({
 			ecosystem: 'unknown',
-			reason: 'No recognized project files found (package.json, Cargo.toml, go.mod, etc.)',
+			reason:
+				'No recognized project files found (package.json, Cargo.toml, go.mod, etc.)',
 		});
 	}
 
