@@ -48,3 +48,4 @@ packages/*/dist/
 
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/
+*.jsonl
