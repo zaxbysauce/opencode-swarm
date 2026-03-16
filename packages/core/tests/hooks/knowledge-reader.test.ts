@@ -1,0 +1,567 @@
+/**
+ * Verification tests for src/hooks/knowledge-reader.ts
+ *
+ * Tests cover:
+ * - readMergedKnowledge basic merge (deduplication logic)
+ * - readMergedKnowledge ranking (composite scoring)
+ * - updateRetrievalOutcome (outcome tracking)
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'bun:test';
+import {
+	readMergedKnowledge,
+	updateRetrievalOutcome,
+	type ProjectContext,
+	type RankedEntry,
+} from '../../src/hooks/knowledge-reader.js';
+import type {
+	KnowledgeConfig,
+	SwarmKnowledgeEntry,
+	HiveKnowledgeEntry,
+	PhaseConfirmationRecord,
+} from '../../src/hooks/knowledge-types.js';
+
+// ============================================================================
+// Mocks Setup
+// ============================================================================
+
+// Mock knowledge-store.ts
+vi.mock('../../src/hooks/knowledge-store.js', () => ({
+	jaccardBigram: vi.fn((a: Set<string>, b: Set<string>) => {
+		if (a.size === 0 && b.size === 0) return 1.0;
+		const intersection = new Set(Array.from(a).filter((x) => b.has(x)));
+		const union = new Set([...Array.from(a), ...Array.from(b)]);
+		return intersection.size / union.size;
+	}),
+	normalize: vi.fn((text: string) =>
+		text
+			.toLowerCase()
+			.replace(/[^\w\s]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim(),
+	),
+	readKnowledge: vi.fn(async () => []),
+	rewriteKnowledge: vi.fn(async () => {}),
+	resolveSwarmKnowledgePath: vi.fn(() => '/mock/.swarm/knowledge.jsonl'),
+	resolveHiveKnowledgePath: vi.fn(() => '/mock/hive/shared-learnings.jsonl'),
+	wordBigrams: vi.fn((text: string) => {
+		const words = text
+			.toLowerCase()
+			.replace(/[^\w\s]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.split(' ')
+			.filter(Boolean);
+		const bigrams = new Set<string>();
+		for (let i = 0; i < words.length - 1; i++) {
+			bigrams.add(`${words[i]} ${words[i + 1]}`);
+		}
+		return bigrams;
+	}),
+}));
+
+// Mock node:fs
+vi.mock('node:fs', () => ({
+	existsSync: vi.fn(() => false),
+}));
+
+// Mock node:fs/promises
+vi.mock('node:fs/promises', () => ({
+	mkdir: vi.fn(async () => {}),
+	readFile: vi.fn(async () => ''),
+	writeFile: vi.fn(async () => {}),
+}));
+
+// Import mocked modules
+import { readKnowledge, rewriteKnowledge, resolveSwarmKnowledgePath, resolveHiveKnowledgePath } from '../../src/hooks/knowledge-store.js';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+
+// ============================================================================
+// Helper Factories
+// ============================================================================
+
+const defaultPhaseConfirmation: PhaseConfirmationRecord = {
+	phase_number: 1,
+	confirmed_at: '2026-03-02T00:00:00.000Z',
+	project_name: 'test-project',
+};
+
+function makeSwarmEntry(overrides?: Partial<SwarmKnowledgeEntry>): SwarmKnowledgeEntry {
+	return {
+		id: 'swarm-' + Math.random().toString(36).substring(2, 9),
+		tier: 'swarm',
+		lesson: 'Test lesson for verification',
+		category: 'testing',
+		tags: [],
+		scope: 'global',
+		confidence: 0.5,
+		status: 'candidate',
+		confirmed_by: [defaultPhaseConfirmation],
+		retrieval_outcomes: {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+		},
+		schema_version: 1,
+		created_at: '2026-03-02T00:00:00.000Z',
+		updated_at: '2026-03-02T00:00:00.000Z',
+		project_name: 'test-project',
+		...overrides,
+	};
+}
+
+function makeHiveEntry(overrides?: Partial<HiveKnowledgeEntry>): HiveKnowledgeEntry {
+	return {
+		id: 'hive-' + Math.random().toString(36).substring(2, 9),
+		tier: 'hive',
+		lesson: 'Test lesson for verification',
+		category: 'testing',
+		tags: [],
+		scope: 'global',
+		confidence: 0.5,
+		status: 'established',
+		confirmed_by: [
+			{
+				project_name: 'other-project',
+				confirmed_at: '2026-03-02T00:00:00.000Z',
+				phase_number: 1,
+			},
+		],
+		retrieval_outcomes: {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+		},
+		schema_version: 1,
+		created_at: '2026-03-02T00:00:00.000Z',
+		updated_at: '2026-03-02T00:00:00.000Z',
+		source_project: 'other-project',
+		encounter_score: 1.0,
+		...overrides,
+	};
+}
+
+function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
+	return {
+		enabled: true,
+		swarm_max_entries: 100,
+		hive_max_entries: 200,
+		auto_promote_days: 90,
+		max_inject_count: 5,
+		dedup_threshold: 0.6,
+		scope_filter: ['global'],
+		hive_enabled: true,
+		rejected_max_entries: 20,
+		validation_enabled: true,
+		evergreen_confidence: 0.9,
+		evergreen_utility: 0.8,
+		low_utility_threshold: 0.3,
+		min_retrievals_for_utility: 3,
+		schema_version: 1,
+		same_project_weight: 1.0,
+		cross_project_weight: 0.5,
+		min_encounter_score: 0.1,
+		initial_encounter_score: 1.0,
+		encounter_increment: 0.1,
+		max_encounter_score: 10.0,
+		...overrides,
+	};
+}
+
+// ============================================================================
+// Test Suite: readMergedKnowledge — basic merge
+// ============================================================================
+
+describe('readMergedKnowledge — basic merge', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+	});
+
+	it('Test 1: empty both tiers returns empty array', async () => {
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [];
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config);
+
+		expect(result).toEqual([]);
+		expect(result.length).toBe(0);
+	});
+
+	it('Test 2: swarm only entries returned when hive disabled', async () => {
+		const swarmEntries = [
+			makeSwarmEntry({ lesson: 'First swarm lesson' }),
+			makeSwarmEntry({ lesson: 'Second swarm lesson' }),
+		];
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return swarmEntries;
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		const config = makeConfig({ hive_enabled: false });
+		const result = await readMergedKnowledge('/proj', config);
+
+		expect(result.length).toBe(2);
+		expect(result.every((e) => e.tier === 'swarm')).toBe(true);
+	});
+
+	it('Test 3: hive entries win over swarm exact duplicate', async () => {
+		const lessonText = 'Always use dependency injection for testability';
+		const swarmEntry = makeSwarmEntry({ lesson: lessonText });
+		const hiveEntry = makeHiveEntry({ lesson: lessonText });
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [hiveEntry];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config);
+
+		expect(result.length).toBe(1);
+		expect(result[0].tier).toBe('hive');
+	});
+
+	it('Test 4: hive dedup suppresses swarm near-duplicate (Jaccard >= 0.6)', async () => {
+		// These two sentences should have high Jaccard similarity (>= 0.6)
+		// swarm: "use dependency injection for testability" -> 4 bigrams
+		// hive: "use dependency injection for testability code" -> 5 bigrams
+		// shared: 4, total unique: 5, Jaccard = 4/5 = 0.8
+		const swarmLesson = 'use dependency injection for testability';
+		const hiveLesson = 'use dependency injection for testability code';
+
+		const swarmEntry = makeSwarmEntry({ lesson: swarmLesson });
+		const hiveEntry = makeHiveEntry({ lesson: hiveLesson });
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [hiveEntry];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config);
+
+		// Should only return the hive entry (swarm near-duplicate suppressed)
+		expect(result.length).toBe(1);
+		expect(result[0].tier).toBe('hive');
+	});
+
+	it('Test 5: swarm entry not near-dup of hive is included', async () => {
+		const swarmLesson = 'Use bun for fast JavaScript runtime execution';
+		const hiveLesson = 'Always use dependency injection for testability';
+
+		const swarmEntry = makeSwarmEntry({ lesson: swarmLesson });
+		const hiveEntry = makeHiveEntry({ lesson: hiveLesson });
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [hiveEntry];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config);
+
+		// Both entries should be included (low similarity)
+		expect(result.length).toBe(2);
+		const tiers = result.map((e) => e.tier);
+		expect(tiers).toContain('swarm');
+		expect(tiers).toContain('hive');
+	});
+});
+
+// ============================================================================
+// Test Suite: readMergedKnowledge — ranking
+// ============================================================================
+
+describe('readMergedKnowledge — ranking', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+	});
+
+	it('Test 6: hive entries ranked above equal-confidence swarm entries', async () => {
+		const swarmEntry = makeSwarmEntry({
+			lesson: 'always write unit tests first for better code',
+			confidence: 0.7,
+		});
+		const hiveEntry = makeHiveEntry({
+			lesson: 'use dependency injection for testability',
+			confidence: 0.7,
+		});
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [hiveEntry];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config);
+
+		expect(result.length).toBe(2);
+		// Hive should be ranked first due to HIVE_TIER_BOOST (0.05)
+		expect(result[0].tier).toBe('hive');
+		expect(result[1].tier).toBe('swarm');
+		expect(result[0].finalScore).toBeGreaterThan(result[1].finalScore);
+	});
+
+	it('Test 7: max_inject_count limits results', async () => {
+		const swarmEntries = Array.from({ length: 10 }, (_, i) =>
+			makeSwarmEntry({
+				lesson: `Swarm lesson ${i + 1}`,
+				id: `swarm-${i + 1}`,
+			}),
+		);
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return swarmEntries;
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		const config = makeConfig({ max_inject_count: 3 });
+		const result = await readMergedKnowledge('/proj', config);
+
+		expect(result.length).toBe(3);
+	});
+
+	it('Test 8: context-less call still returns entries (relevanceScore defaults to 0.5 base)', async () => {
+		const swarmEntries = [
+			makeSwarmEntry({
+				lesson: 'First global lesson',
+				scope: 'global',
+			}),
+			makeSwarmEntry({
+				lesson: 'Second global lesson',
+				scope: 'global',
+			}),
+		];
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return swarmEntries;
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config); // No context
+
+		expect(result.length).toBe(2);
+		// All entries should have relevanceScore > 0 (base 0.5 + global boost 0.1)
+		expect(result.every((e) => (e as unknown as { relevanceScore: number }).relevanceScore > 0)).toBe(true);
+	});
+
+	it('Test 9: same-project hive entry penalized in ranking', async () => {
+		const context: ProjectContext = {
+			projectName: 'my-project',
+			currentPhase: 'implementation',
+		};
+
+		const hiveEntrySameProject = makeHiveEntry({
+			lesson: 'Hive lesson from same project',
+			confidence: 0.8,
+			source_project: 'my-project',
+			scope: 'global',
+		});
+
+		const hiveEntryOtherProject = makeHiveEntry({
+			lesson: 'Hive lesson from other project',
+			confidence: 0.8,
+			source_project: 'other-project',
+			scope: 'global',
+		});
+
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [];
+			if (path.includes('hive')) return [hiveEntrySameProject, hiveEntryOtherProject];
+			return [];
+		});
+
+		const config = makeConfig();
+		const result = await readMergedKnowledge('/proj', config, context);
+
+		expect(result.length).toBe(2);
+		// Other project should rank higher due to SAME_PROJECT_PENALTY
+		expect(result[0].id).toBe(hiveEntryOtherProject.id);
+		expect(result[1].id).toBe(hiveEntrySameProject.id);
+		expect(result[0].finalScore).toBeGreaterThan(result[1].finalScore);
+	});
+});
+
+// ============================================================================
+// Test Suite: updateRetrievalOutcome
+// ============================================================================
+
+describe('updateRetrievalOutcome', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+		(rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('');
+	});
+
+	it('Test 10: no-op when shown file does not exist', async () => {
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+		await updateRetrievalOutcome('/proj', 'phase-5', true);
+
+		expect(rewriteKnowledge).not.toHaveBeenCalled();
+	});
+
+	it('Test 11: increments applied_count and succeeded_after_count on success', async () => {
+		const phaseInfo = 'phase-5';
+		const shownData = {
+			[phaseInfo]: ['id-1'],
+		};
+
+		const swarmEntry = makeSwarmEntry({
+			id: 'id-1',
+			lesson: 'Test lesson',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+		});
+
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		await updateRetrievalOutcome('/proj', phaseInfo, true); // phaseSucceeded
+
+		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
+
+		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const updatedEntries = rewriteCall[1] as SwarmKnowledgeEntry[];
+		const updatedEntry = updatedEntries.find((e) => e.id === 'id-1');
+
+		expect(updatedEntry).toBeDefined();
+		expect(updatedEntry?.retrieval_outcomes.applied_count).toBe(1);
+		expect(updatedEntry?.retrieval_outcomes.succeeded_after_count).toBe(1);
+		expect(updatedEntry?.retrieval_outcomes.failed_after_count).toBe(0);
+	});
+
+	it('Test 12: increments failed_after_count on failure', async () => {
+		const phaseInfo = 'phase-5';
+		const shownData = {
+			[phaseInfo]: ['id-1'],
+		};
+
+		const swarmEntry = makeSwarmEntry({
+			id: 'id-1',
+			lesson: 'Test lesson',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+		});
+
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		await updateRetrievalOutcome('/proj', phaseInfo, false); // phaseSucceeded = false
+
+		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
+
+		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const updatedEntries = rewriteCall[1] as SwarmKnowledgeEntry[];
+		const updatedEntry = updatedEntries.find((e) => e.id === 'id-1');
+
+		expect(updatedEntry).toBeDefined();
+		expect(updatedEntry?.retrieval_outcomes.applied_count).toBe(1);
+		expect(updatedEntry?.retrieval_outcomes.succeeded_after_count).toBe(0);
+		expect(updatedEntry?.retrieval_outcomes.failed_after_count).toBe(1);
+	});
+
+	it('Test 13: cleans up phase key from shown file after update', async () => {
+		const phaseInfo = 'phase-5';
+		const shownData = {
+			[phaseInfo]: ['id-1'],
+		};
+
+		const swarmEntry = makeSwarmEntry({
+			id: 'id-1',
+			lesson: 'Test lesson',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+		});
+
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			if (path.includes('hive')) return [];
+			return [];
+		});
+
+		await updateRetrievalOutcome('/proj', phaseInfo, true);
+
+		expect(writeFile).toHaveBeenCalled();
+
+		const writeFileCall = (writeFile as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const writtenData = JSON.parse(writeFileCall[1] as string);
+
+		expect(writtenData[phaseInfo]).toBeUndefined();
+	});
+
+	it('Test 14: skips hive update when all shown IDs found in swarm', async () => {
+		const phaseInfo = 'phase-5';
+		const shownData = {
+			[phaseInfo]: ['id-1'],
+		};
+
+		const swarmEntry = makeSwarmEntry({
+			id: 'id-1',
+			lesson: 'Test lesson',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+		});
+
+		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+			if (path.includes('swarm')) return [swarmEntry];
+			// Hive should NOT be called
+			throw new Error('Hive readKnowledge should not be called');
+		});
+
+		await updateRetrievalOutcome('/proj', phaseInfo, true);
+
+		// rewriteKnowledge should only be called once (for swarm)
+		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
+
+		// Verify it was called for swarm path
+		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const rewritePath = rewriteCall[0] as string;
+		expect(rewritePath).toContain('swarm');
+		expect(rewritePath).not.toContain('hive');
+	});
+});

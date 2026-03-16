@@ -1,0 +1,306 @@
+import { describe, it, expect, beforeEach } from 'bun:test';
+import { createGuardrailsHooks } from '../../src/hooks/guardrails';
+import { resetSwarmState } from '../../src/state';
+import type { GuardrailsConfig } from '../../src/config/schema';
+
+function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+	return {
+		enabled: true,
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		idle_timeout_minutes: 60,
+		max_repetitions: 10,
+		max_consecutive_errors: 5,
+		warning_threshold: 0.75,
+		profiles: undefined,
+		...overrides,
+	};
+}
+
+describe('guardrails prompt trimming for low-capability models (Task 4.5)', () => {
+	beforeEach(() => {
+		resetSwarmState();
+	});
+
+	function makeSystemMessage(text: string) {
+		return {
+			info: { role: 'system' as const, sessionID: 'test-session' },
+			parts: [{ type: 'text' as const, text }],
+		};
+	}
+
+	function makeAssistantMessage(modelID: string) {
+		return {
+			info: { role: 'assistant' as const, sessionID: 'test-session', modelID },
+			parts: [{ type: 'text' as const, text: 'assistant response' }],
+		};
+	}
+
+	function makeUserMessage(text: string) {
+		return {
+			info: { role: 'user' as const, sessionID: 'test-session' },
+			parts: [{ type: 'text' as const, text }],
+		};
+	}
+
+	describe('behavioral guidance trimming', () => {
+		it('Low-capability model trims all 3 marker pairs', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System prompt start
+Some content
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 1: Always delegate to coder
+<!-- BEHAVIORAL_GUIDANCE_END -->
+Middle content
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 2: Never write code directly
+<!-- BEHAVIORAL_GUIDANCE_END -->
+More content
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 3: Use programmatic gates
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End of prompt`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
+
+			const replacementCount = (resultText.match(/\[Enforcement: programmatic gates active\]/g) || []).length;
+			expect(replacementCount).toBe(3);
+
+			expect(resultText).toContain('System prompt start');
+			expect(resultText).toContain('Some content');
+			expect(resultText).toContain('Middle content');
+			expect(resultText).toContain('More content');
+			expect(resultText).toContain('End of prompt');
+		});
+
+		it('High-capability model does NOT trim', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System prompt
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 1: Always delegate
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
+			expect(resultText).toContain('Rule 1: Always delegate');
+		});
+
+		it('No modelID → no trim', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System prompt
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 1: Always delegate
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText)];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
+		});
+
+		it('Non-system message NOT trimmed', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const userText = `User message
+<!-- BEHAVIORAL_GUIDANCE_START -->
+This should not be removed
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeUserMessage(userText), makeAssistantMessage('gpt-4o-mini')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+			expect(resultText).toContain('This should not be removed');
+		});
+
+		it('Case-insensitive: GPT-4O-NANO trims', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System prompt
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule to remove
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('GPT-4O-NANO')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+			expect(resultText).toContain('[Enforcement: programmatic gates active]');
+		});
+
+		it('Multiple system messages - both trimmed', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText1 = `First system
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 1
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End 1`;
+
+			const systemText2 = `Second system
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 2
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End 2`;
+
+			const messages = [
+				makeSystemMessage(systemText1),
+				makeSystemMessage(systemText2),
+				makeAssistantMessage('gpt-4o-mini'),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText1 = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText2 = (messages[1].parts[0] as { type: string; text: string }).text;
+
+			expect(resultText1).not.toContain('BEHAVIORAL_GUIDANCE_START');
+			expect(resultText2).not.toContain('BEHAVIORAL_GUIDANCE_START');
+
+			expect((resultText1.match(/\[Enforcement: programmatic gates active\]/g) || []).length).toBe(1);
+			expect((resultText2.match(/\[Enforcement: programmatic gates active\]/g) || []).length).toBe(1);
+		});
+
+		it('System message WITHOUT markers - not modified', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System prompt without any behavioral guidance markers.
+Just regular content here.
+End of prompt.`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toBe(systemText);
+		});
+
+		it('nano model triggers trimming', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('claude-3-nano')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('[Enforcement: programmatic gates active]');
+		});
+
+		it('small model triggers trimming', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-35-turbo-small')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('[Enforcement: programmatic gates active]');
+		});
+
+		it('empty messages array - no error, early return', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			await expect(hooks.messagesTransform({}, { messages: [] })).resolves.toBeUndefined();
+		});
+
+		it('messages without sessionID - no trim (early return)', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [
+				{
+					info: { role: 'system' as const },
+					parts: [{ type: 'text' as const, text: systemText }],
+				},
+				{
+					info: { role: 'assistant' as const, modelID: 'gpt-4o-mini' },
+					parts: [{ type: 'text' as const, text: 'response' }],
+				},
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
+		});
+
+		it('multi-line content within markers is removed', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+
+			const systemText = `System
+<!-- BEHAVIORAL_GUIDANCE_START -->
+Rule 1: Delegate all coding tasks
+Rule 2: Never write code directly
+Rule 3: Use automated gates
+This is multi-line content
+That should be removed
+<!-- BEHAVIORAL_GUIDANCE_END -->
+End`;
+
+			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+
+			await hooks.messagesTransform({}, { messages });
+
+			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			expect(resultText).toContain('[Enforcement: programmatic gates active]');
+			expect(resultText).not.toContain('Rule 1: Delegate');
+			expect(resultText).not.toContain('multi-line content');
+			expect(resultText).toContain('End');
+		});
+	});
+});

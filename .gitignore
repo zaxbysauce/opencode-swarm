@@ -38,5 +38,8 @@ dist/tools/sbom-generate.d.ts
 .temp-test-*/
 output_*.js
 
+# Monorepo package build outputs
+packages/*/dist/
+
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/

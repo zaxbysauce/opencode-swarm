@@ -1,0 +1,32 @@
+{
+	"name": "@opencode-swarm/core",
+	"version": "7.0.0",
+	"description": "Platform-agnostic core logic for opencode-swarm — hooks, tools, agents, services",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./lang/detector": "./src/lang/detector.ts",
+		"./lang/profiles": "./src/lang/profiles.ts",
+		"./lang": "./src/lang/index.ts"
+	},
+	"license": "MIT",
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@opencode-swarm/telemetry": "workspace:*",
+		"@vscode/tree-sitter-wasm": "^0.3.0",
+		"p-limit": "^7.3.0",
+		"proper-lockfile": "^4.1.2",
+		"web-tree-sitter": "^0.25.0",
+		"zod": "^4.1.8"
+	},
+	"devDependencies": {
+		"bun-types": "latest",
+		"typescript": "^5.7.3"
+	}
+}

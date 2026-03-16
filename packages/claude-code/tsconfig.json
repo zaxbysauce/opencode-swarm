@@ -1,0 +1,13 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"paths": {
+			"@opencode-swarm/core": ["../core/src/index.ts"],
+			"@opencode-swarm/telemetry": ["../telemetry/src/index.ts"]
+		}
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist"]
+}

@@ -21,7 +21,7 @@ jobs:
 
   publish-npm:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created }}
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -47,23 +47,24 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build
+      - name: Build all packages
         run: bun run build
 
-      - name: Publish to npm
-        run: |
-          echo "Trying OIDC trusted publishing..."
-          if npm publish --provenance --access public; then
-            exit 0
-          fi
-          echo "OIDC publish failed; retrying with NPM_TOKEN fallback..."
-          NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish @opencode-swarm/telemetry
+        run: cd packages/telemetry && npm publish --access public
+
+      - name: Publish @opencode-swarm/core
+        run: cd packages/core && npm publish --access public
+
+      - name: Publish @opencode-swarm/claude-code
+        run: cd packages/claude-code && npm publish --access public
+
+      - name: Publish opencode-swarm
+        run: cd packages/opencode && npm publish --access public
 
   update-release-notes:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -87,7 +88,7 @@ jobs:
 
   update-pr-notes:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created != 'true' }}
+    if: ${{ !needs.release-please.outputs.releases_created }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

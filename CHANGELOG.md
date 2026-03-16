@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **@opencode-swarm/claude-code package**: New Claude Code adapter with 9 specialized agents (swarm-architect, swarm-coder, swarm-reviewer, swarm-test-engineer, swarm-critic, swarm-explorer, swarm-sme, swarm-docs, swarm-designer) and 7 lifecycle hooks (SessionStart, PreToolUse, PostToolUse, UserPromptSubmit, Stop, SubagentStop, PreCompact)
+- **StateBridge class**: Disk-based state management for Claude Code hook scripts with mtime-based caching
+- **Agent generator**: Programmatic agent file generation from core agent definitions
+- **@opencode-swarm/telemetry package**: New telemetry package with 11 Zod event schemas (`SwarmEvent`, `SessionMetadataEvent`, `DelegationStartEvent`, `DelegationEndEvent`, `AgentStatusEvent`, `TokenUsageEvent`, `ToolInvocationEvent`, `GateEvaluationEvent`, `FileReservationEvent`, `PhaseTransitionEvent`, `FileTouchEvent`, `StateFileUpdateEvent`) and corresponding type guard functions
+- **EventWriter class**: Session-scoped event writer in `@opencode-swarm/core` that writes to `.swarm/events-{sessionId}.jsonl` with atomic appends, auto-emits `session_metadata` on construction, error-safe (never throws), and singleton factory pattern
+
+### Changed
+
+- **Event file naming**: Events are now written to session-scoped files (`.swarm/events-{sessionId}.jsonl`) instead of a single shared file (`.swarm/events.jsonl`)
+- **Event field normalization**: All event objects now use `type` field (not `event` field) for the event discriminator
+- **Read compatibility**: Read operations fall back to legacy `.swarm/events.jsonl` if no session-scoped files exist
+- **state_file_update events**: New event type emitted when plan/manager.ts and snapshot-writer.ts update state files
+
+### Migrated to EventWriter
+
+- `src/context/role-filter.ts`
+- `src/hooks/curator.ts`
+- `src/hooks/delegation-sanitizer.ts`
+- `src/hooks/steering-consumed.ts`
+- `src/commands/rollback.ts`
+- `src/tools/phase-complete.ts`
+- `src/services/diagnose-service.ts`
+- `src/services/context-budget-service.ts`
+- `src/parallel/meta-indexer.ts`
+
+### Added to EventWriter emission
+
+- `src/plan/manager.ts`: Emits `state_file_update` on plan.json/plan.md writes
+- `src/session/snapshot-writer.ts`: Emits `state_file_update` on context.md updates
+
 ## [6.27.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.0...v6.27.1) (2026-03-15)
 
 

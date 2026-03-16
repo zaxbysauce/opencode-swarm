@@ -1,0 +1,11 @@
+{
+  "name": "opencode-swarm",
+  "description": "Architect-centric agentic swarm for Claude Code — hub-and-spoke orchestration with SME consultation, code generation, and QA review",
+  "version": "7.0.0",
+  "author": {
+    "name": "opencode-swarm contributors"
+  },
+  "homepage": "https://github.com/zaxbysauce/opencode-swarm",
+  "repository": "https://github.com/zaxbysauce/opencode-swarm",
+  "license": "MIT"
+}
