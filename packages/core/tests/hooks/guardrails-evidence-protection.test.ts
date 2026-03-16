@@ -60,10 +60,7 @@ describe('guardrails evidence write protection (Hotfix B)', () => {
 			);
 		});
 
-		it('Namespaced opencode:Write to evidence path - NOT blocked (isWriteTool does not handle namespaced tools)', async () => {
-			// NOTE: The code uses isWriteTool() which doesn't normalize namespaced tools like 'opencode:Write'.
-			// This is a limitation of the implementation - the evidence check at line 373 never runs for namespaced tools.
-			// We document this behavior rather than expecting it to block.
+		it('Namespaced opencode:Write to evidence path is blocked', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
@@ -72,12 +69,12 @@ describe('guardrails evidence write protection (Hotfix B)', () => {
 			const input = makeInput('test-session', 'opencode:Write', 'call-1');
 			const output = makeOutput({ filePath: '.swarm/evidence/5.5.json' });
 
-			// Does not throw - isWriteTool('opencode:Write') returns false
-			await hooks.toolBefore(input, output);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'Direct writes to .swarm/evidence/ are blocked',
+			);
 		});
 
-		it('Namespaced opencode:Edit to evidence path - NOT blocked (isWriteTool does not handle namespaced tools)', async () => {
-			// Same limitation as above - document the actual behavior
+		it('Namespaced opencode:Edit to evidence path is blocked', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
@@ -86,8 +83,9 @@ describe('guardrails evidence write protection (Hotfix B)', () => {
 			const input = makeInput('test-session', 'opencode:Edit', 'call-1');
 			const output = makeOutput({ filePath: '.swarm/evidence/test-task.json' });
 
-			// Does not throw - isWriteTool('opencode:Edit') returns false
-			await hooks.toolBefore(input, output);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'Direct writes to .swarm/evidence/ are blocked',
+			);
 		});
 
 		it('Write to .swarm/plan.json (non-evidence) is NOT blocked', async () => {
@@ -232,6 +230,20 @@ describe('guardrails evidence write protection (Hotfix B)', () => {
 			swarmState.activeAgent.set('test-session', 'architect');
 
 			const input = makeInput('test-session', 'Bash', 'call-1');
+			const output = makeOutput({ command: 'echo test > .swarm/evidence/fake.json' });
+
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'Direct writes to .swarm/evidence/ are blocked',
+			);
+		});
+
+		it('Namespaced opencode:Bash redirect to evidence path is blocked', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('test-session', ORCHESTRATOR_NAME);
+			swarmState.activeAgent.set('test-session', 'architect');
+
+			const input = makeInput('test-session', 'opencode:Bash', 'call-1');
 			const output = makeOutput({ command: 'echo test > .swarm/evidence/fake.json' });
 
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(

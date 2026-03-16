@@ -111,14 +111,14 @@ describe('Hotfix A: recoverTaskStateFromDelegations Pass 2 fallback', () => {
 	});
 
 	/**
-	 * Test: Pass 2 skips chains with lastCoderIndex === -1
+	 * Test: Pass 2 scans the full chain when no coder exists
 	 *
 	 * Scenario: Task has NO currentTaskId/lastCoderDelegationTaskId (Pass 1 finds nothing).
 	 * Pass 2 runs. Chain has reviewer+test_engineer but NO coder.
 	 *
-	 * Expected: Chain is skipped; state remains idle; gate blocks
+	 * Expected: Entire chain is scanned; state advances to tests_run; gate passes
 	 */
-	it('Pass 2 skips chains with no coder (lastCoderIndex === -1)', () => {
+	it('Pass 2 scans full chain when no coder exists', () => {
 		// Set up active session
 		startAgentSession('session-1', 'architect');
 		// Do NOT set currentTaskId or lastCoderDelegationTaskId - triggers Pass 2
@@ -133,13 +133,13 @@ describe('Hotfix A: recoverTaskStateFromDelegations Pass 2 fallback', () => {
 		// Call recoverTaskStateFromDelegations
 		recoverTaskStateFromDelegations('5.3');
 
-		// State should remain idle (chain was skipped due to no coder)
+		// State should advance to tests_run even without coder
 		const sessionAfter = swarmState.agentSessions.get('session-1')!;
-		expect(getTaskState(sessionAfter, '5.3')).toBe('idle');
+		expect(getTaskState(sessionAfter, '5.3')).toBe('tests_run');
 
-		// checkReviewerGate should block
+		// checkReviewerGate should pass
 		const result = checkReviewerGate('5.3', tmpDir);
-		expect(result.blocked).toBe(true);
+		expect(result.blocked).toBe(false);
 	});
 
 	/**
@@ -230,14 +230,14 @@ describe('Hotfix A: checkReviewerGate chain fallback', () => {
 	});
 
 	/**
-	 * Test: checkReviewerGate chain fallback does NOT unblock on chains with no coder
+	 * Test: checkReviewerGate chain fallback scans full chain when no coder exists
 	 *
 	 * Scenario: Session state is idle (no tests_run).
 	 * Chain has: [reviewer, test_engineer] (no coder)
 	 *
-	 * Expected: Chain is skipped; gate blocks
+	 * Expected: Gate passes via full-chain scan
 	 */
-	it('chain fallback does NOT unblock on chains with no coder', () => {
+	it('chain fallback scans full chain when no coder exists', () => {
 		// Set up session with idle state
 		startAgentSession('session-1', 'architect');
 
@@ -248,9 +248,9 @@ describe('Hotfix A: checkReviewerGate chain fallback', () => {
 		];
 		swarmState.delegationChains.set('session-1', chain);
 
-		// Gate should block (chain was skipped due to no coder)
+		// Gate should pass via full-chain scan
 		const result = checkReviewerGate('6.3', tmpDir);
-		expect(result.blocked).toBe(true);
+		expect(result.blocked).toBe(false);
 	});
 
 	/**

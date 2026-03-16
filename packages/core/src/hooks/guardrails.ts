@@ -70,11 +70,19 @@ function extractPhaseNumber(phaseString: string | null): number {
 }
 
 /**
+ * Normalize a tool name for guardrail comparisons by stripping any leading
+ * namespace prefix separated by `:` or `.` (for example `opencode:Write`)
+ * and lowercasing the remaining tool name.
+ */
+function normalizeToolName(toolName: string): string {
+	return toolName.replace(/^[^:]+[:.]/, '').toLowerCase();
+}
+
+/**
  * Detects if a tool is a write-class tool that modifies file contents
  */
 function isWriteTool(toolName: string): boolean {
-	// Strip namespace prefix (e.g., "opencode:write" -> "write")
-	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const normalized = normalizeToolName(toolName);
 	const writeTools = [
 		'write',
 		'edit',
@@ -564,10 +572,8 @@ export function createGuardrailsHooks(
 			// v6.25: Evidence write protection - block bash redirect attacks
 			// Block attempts to write to .swarm/evidence/ via shell redirects (> , >>, | tee)
 			// This check runs for the architect but doesn't require isWriteTool (bash is not a write tool)
-			if (
-				isArchitect(input.sessionID) &&
-				(input.tool === 'bash' || input.tool === 'Bash')
-			) {
+			const normalizedTool = normalizeToolName(input.tool);
+			if (isArchitect(input.sessionID) && normalizedTool === 'bash') {
 				const args = output.args as Record<string, unknown> | undefined;
 				const command = typeof args?.command === 'string' ? args.command : '';
 				const normalizedCmd = command.replace(/\\/g, '/');

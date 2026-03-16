@@ -9,15 +9,32 @@
  */
 
 import { existsSync, mkdirSync, copyFileSync, readdirSync, cpSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 
-const SOURCE_DIR = join(
-	process.cwd(),
-	'node_modules',
-	'@vscode',
-	'tree-sitter-wasm',
-	'wasm',
-);
+/**
+ * Locate the `@vscode/tree-sitter-wasm/wasm` directory from the current
+ * workspace, its parent, or its grandparent directory. This supports monorepo
+ * package builds where Bun hoists dependencies to the repository root.
+ *
+ * @returns The resolved wasm directory, or null if it cannot be found
+ */
+function resolveSourceDir(): string | null {
+	const cwd = process.cwd();
+	const candidates = [
+		join(cwd, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+		join(cwd, '..', 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+		join(cwd, '..', '..', 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'),
+	];
+
+	for (const candidate of candidates) {
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+	}
+
+	return null;
+}
+
 const TARGET_DIR = join(process.cwd(), 'src', 'lang', 'grammars');
 const DIST_TARGET_DIR = join(process.cwd(), 'dist', 'lang', 'grammars');
 
@@ -44,6 +61,8 @@ const VENDORED_GRAMMARS = [
 ] as const;
 
 function copyGrammars(): void {
+	const sourceDir = resolveSourceDir();
+
 	// Ensure target directory exists
 	if (!existsSync(TARGET_DIR)) {
 		mkdirSync(TARGET_DIR, { recursive: true });
@@ -51,15 +70,17 @@ function copyGrammars(): void {
 	}
 
 	// Check source directory exists
-	if (!existsSync(SOURCE_DIR)) {
+	if (sourceDir == null) {
 		console.error('Error: @vscode/tree-sitter-wasm not installed');
-		console.error('Expected at:', SOURCE_DIR);
+		console.error(
+			'Could not locate @vscode/tree-sitter-wasm/wasm in the current workspace or ancestor workspaces',
+		);
 		console.error('Run: bun install');
 		process.exit(1);
 	}
 
 	// Copy core tree-sitter.wasm
-	const coreSource = join(SOURCE_DIR, 'tree-sitter.wasm');
+	const coreSource = join(sourceDir, 'tree-sitter.wasm');
 	const coreTarget = join(TARGET_DIR, 'tree-sitter.wasm');
 
 	if (!existsSync(coreSource)) {
@@ -75,14 +96,14 @@ function copyGrammars(): void {
 	let copied = 0;
 	let skipped = 0;
 
-	const files = readdirSync(SOURCE_DIR);
+	const files = readdirSync(sourceDir);
 	for (const file of files) {
 		// Skip tree-sitter.wasm (already copied) and non-wasm files
 		if (file === 'tree-sitter.wasm' || !file.endsWith('.wasm') || file === 'tree-sitter.js') {
 			continue;
 		}
 
-		const sourceFile = join(SOURCE_DIR, file);
+		const sourceFile = join(sourceDir, file);
 		const targetFile = join(TARGET_DIR, file);
 
 		if (existsSync(sourceFile)) {
