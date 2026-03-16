@@ -70,7 +70,9 @@ function extractPhaseNumber(phaseString: string | null): number {
 }
 
 /**
- * Detects if a tool is a write-class tool that modifies file contents
+ * Normalize a tool name for guardrail comparisons by stripping any leading
+ * namespace prefix separated by `:` or `.` (for example `opencode:Write`)
+ * and lowercasing the remaining tool name.
  */
 function normalizeToolName(toolName: string): string {
 	return toolName.replace(/^[^:]+[:.]/, '').toLowerCase();

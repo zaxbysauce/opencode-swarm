@@ -121,6 +121,16 @@ function hasActiveTurboMode(): boolean {
 	return false;
 }
 
+/**
+ * Scan a delegation chain for reviewer/test_engineer gates.
+ * If the chain contains a coder delegation, only gates after the last coder count.
+ * If the chain contains no coder delegation, the full chain is scanned so docs-only
+ * and code-organization verification flows still recover/persist QA gate state.
+ *
+ * @param chain - Delegation chain to inspect
+ * @returns Object indicating whether the relevant scan window contains a
+ * reviewer delegation and whether it contains a test_engineer delegation
+ */
 function scanReviewerGatesInChain(chain: Array<{ to: string }>): {
 	hasReviewer: boolean;
 	hasTestEngineer: boolean;

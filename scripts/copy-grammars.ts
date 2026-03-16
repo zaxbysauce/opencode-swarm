@@ -11,6 +11,13 @@
 import { existsSync, mkdirSync, copyFileSync, readdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * Locate the `@vscode/tree-sitter-wasm/wasm` directory from the current
+ * workspace, its parent, or its grandparent directory. This supports monorepo
+ * package builds where Bun hoists dependencies to the repository root.
+ *
+ * @returns The resolved wasm directory, or null if it cannot be found
+ */
 function resolveSourceDir(): string | null {
 	const cwd = process.cwd();
 	const candidates = [
