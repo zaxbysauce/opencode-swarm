@@ -4,6 +4,11 @@ on:
   push:
     branches: [next]
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: "Force publish without a new release (use to retry failed publishes)"
+        type: boolean
+        default: false
 
 jobs:
   release-please:
@@ -23,7 +28,7 @@ jobs:
 
   publish-npm-next:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' || inputs.force_publish == true }}
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -56,21 +61,21 @@ jobs:
         run: bun run build
 
       - name: Publish @opencode-swarm/telemetry (next)
-        run: cd packages/telemetry && npm publish --tag next --access public
+        run: cd packages/telemetry && npm publish --tag next --access public 2>&1 | tee /tmp/pub.log; grep -q 'E403\|already exists' /tmp/pub.log && echo "Already published, skipping" || cat /tmp/pub.log
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @opencode-swarm/core (next)
-        run: cd packages/core && npm publish --tag next --access public
+        run: cd packages/core && npm publish --tag next --access public 2>&1 | tee /tmp/pub.log; grep -q 'E403\|already exists' /tmp/pub.log && echo "Already published, skipping" || cat /tmp/pub.log
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @opencode-swarm/claude-code (next)
-        run: cd packages/claude-code && npm publish --tag next --access public
+        run: cd packages/claude-code && npm publish --tag next --access public 2>&1 | tee /tmp/pub.log; grep -q 'E403\|already exists' /tmp/pub.log && echo "Already published, skipping" || cat /tmp/pub.log
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish opencode-swarm (next)
-        run: cd packages/opencode && npm publish --tag next --access public
+        run: cd packages/opencode && npm publish --tag next --access public 2>&1 | tee /tmp/pub.log; grep -q 'E403\|already exists' /tmp/pub.log && echo "Already published, skipping" || cat /tmp/pub.log
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
