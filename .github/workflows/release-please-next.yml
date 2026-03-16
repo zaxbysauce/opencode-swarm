@@ -3,6 +3,12 @@ name: release-please-next
 on:
   push:
     branches: [next]
+  workflow_dispatch:
+    inputs:
+      skip_release_please:
+        description: 'Skip release-please and go straight to publish'
+        type: boolean
+        default: false
 
 jobs:
   release-please:
@@ -22,7 +28,7 @@ jobs:
 
   publish-npm-next:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.skip_release_please == true) }}
     runs-on: ubuntu-latest
     environment: npm
     permissions:
