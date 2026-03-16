@@ -70,6 +70,9 @@ import {
 	write_retro,
 } from './tools/register';
 
+// Module-level banner to confirm module loaded
+console.log('[opencode-swarm] Module loaded — dist/index.js executing');
+
 /**
  * OpenCode Swarm Plugin
  *
@@ -81,248 +84,320 @@ import {
  * - Iterative refinement with triage
  */
 const OpenCodeSwarm: Plugin = async (ctx) => {
-	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
-	// v6.18 Session persistence — restore state from previous session (non-blocking)
-	await loadSnapshot(ctx.directory);
-	const agents = getAgentConfigs(config);
-	const agentDefinitions = createAgents(config);
-	const pipelineHook = createPipelineTrackerHook(config, ctx.directory);
-	const systemEnhancerHook = createSystemEnhancerHook(config, ctx.directory);
-	const compactionHook = createCompactionCustomizerHook(config, ctx.directory);
-	const contextBudgetHandler = createContextBudgetHandler(config);
-	const commandHandler = createSwarmCommandHandler(
-		ctx.directory,
-		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
+	console.log(
+		'[opencode-swarm] 🚀 Plugin startup begin — version 8.0.0-beta.0',
 	);
-	const activityHooks = createAgentActivityHooks(config, ctx.directory);
-	const delegationGateHooks = createDelegationGateHook(config, ctx.directory);
-	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
-	// Fail-secure: honor explicit guardrails.enabled === false (preserving the full
-	// guardrails block), otherwise let Zod schema defaults fill in enabled: true.
-	const guardrailsFallback =
-		config.guardrails?.enabled === false
-			? { ...config.guardrails, enabled: false }
-			: (config.guardrails ?? {});
-	const guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
+	console.log('[opencode-swarm] ctx.directory:', ctx.directory);
 
-	// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
-	// This is a security-relevant action that requires explicit acknowledgment
-	if (loadedFromFile && guardrailsConfig.enabled === false) {
-		console.warn('');
-		console.warn(
-			'══════════════════════════════════════════════════════════════',
+	let config: ReturnType<typeof loadPluginConfigWithMeta>['config'];
+	let loadedFromFile: boolean;
+	try {
+		const result = loadPluginConfigWithMeta(ctx.directory);
+		config = result.config;
+		loadedFromFile = result.loadedFromFile;
+		console.log(
+			'[opencode-swarm] ✓ Config loaded, loadedFromFile:',
+			loadedFromFile,
 		);
-		console.warn(
-			'[opencode-swarm] 🔴 SECURITY WARNING: GUARDRAILS ARE DISABLED',
+	} catch (err) {
+		console.error(
+			'[opencode-swarm] ✗ FATAL: loadPluginConfigWithMeta failed:',
+			err instanceof Error ? err.stack : err,
 		);
-		console.warn(
-			'══════════════════════════════════════════════════════════════',
-		);
-		console.warn(
-			'Guardrails have been explicitly disabled in user configuration.',
-		);
-		console.warn('This disables safety measures including:');
-		console.warn('  - Tool call limits');
-		console.warn('  - Duration limits');
-		console.warn('  - Repetition detection');
-		console.warn('  - Error rate limits');
-		console.warn('  - Idle timeouts');
-		console.warn('');
-		console.warn(
-			'Only disable guardrails if you fully understand the security implications.',
-		);
-		console.warn(
-			'To re-enable guardrails, set "guardrails.enabled" to true in your config.',
-		);
-		console.warn(
-			'══════════════════════════════════════════════════════════════',
-		);
-		console.warn('');
+		throw err;
 	}
 
-	const delegationHandler = createDelegationTrackerHook(
-		config,
-		guardrailsConfig.enabled,
-	);
-	const guardrailsHooks = createGuardrailsHooks(
-		ctx.directory,
-		guardrailsConfig,
-	);
-	const summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});
-	const toolSummarizerHook = createToolSummarizerHook(
-		summaryConfig,
-		ctx.directory,
-	);
+	try {
+		console.log('[opencode-swarm] → loadSnapshot...');
+		await loadSnapshot(ctx.directory);
+		console.log('[opencode-swarm] ✓ loadSnapshot complete');
+	} catch (err) {
+		console.error(
+			'[opencode-swarm] ✗ FATAL: loadSnapshot failed:',
+			err instanceof Error ? err.stack : err,
+		);
+		throw err;
+	}
 
-	// v6.17 Knowledge system hooks — fire-and-forget, wrapped in safeHook
-	const knowledgeConfig = KnowledgeConfigSchema.parse(config.knowledge ?? {});
-	const knowledgeCuratorHook = knowledgeConfig.enabled
-		? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig)
-		: undefined;
-	const hivePromoterHook =
-		knowledgeConfig.enabled && knowledgeConfig.hive_enabled
-			? createHivePromoterHook(ctx.directory, knowledgeConfig)
-			: undefined;
-	const knowledgeInjectorHook = knowledgeConfig.enabled
-		? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
-		: undefined;
-
-	// v6.18 Steering acknowledgment hook — auto-acknowledges unconsumed steering directives
-	const steeringConsumedHook = createSteeringConsumedHook(ctx.directory);
-
-	// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
-	const coChangeSuggesterHook = createCoChangeSuggesterHook(ctx.directory);
-	const darkMatterDetectorHook = createDarkMatterDetectorHook(ctx.directory);
-	// v6.18 Session persistence — write state snapshot after each tool call
-	const snapshotWriterHook = createSnapshotWriterHook(ctx.directory);
-
-	// Parse automation config (v6.7 feature flags)
-	// Read flags without activating - scaffold only for now
-	const automationConfig = AutomationConfigSchema.parse(
-		config.automation ?? {},
-	);
-
-	// Initialize background automation framework (scaffold only - no business features yet)
-	// Only enabled when automation mode is not 'manual' (default-off behavior)
+	// Declare all variables upfront so they're accessible in return statement
+	let agents: ReturnType<typeof getAgentConfigs>;
+	let agentDefinitions: ReturnType<typeof createAgents>;
+	let pipelineHook: ReturnType<typeof createPipelineTrackerHook>;
+	let systemEnhancerHook: ReturnType<typeof createSystemEnhancerHook>;
+	let compactionHook: ReturnType<typeof createCompactionCustomizerHook>;
+	let contextBudgetHandler: ReturnType<typeof createContextBudgetHandler>;
+	let commandHandler: ReturnType<typeof createSwarmCommandHandler>;
+	let activityHooks: ReturnType<typeof createAgentActivityHooks>;
+	let delegationGateHooks: ReturnType<typeof createDelegationGateHook>;
+	let delegationSanitizerHook: ReturnType<typeof createDelegationSanitizerHook>;
+	let guardrailsConfig: ReturnType<typeof GuardrailsConfigSchema.parse>;
+	let delegationHandler: ReturnType<typeof createDelegationTrackerHook>;
+	let guardrailsHooks: ReturnType<typeof createGuardrailsHooks>;
+	let summaryConfig: ReturnType<typeof SummaryConfigSchema.parse>;
+	let toolSummarizerHook: ReturnType<typeof createToolSummarizerHook>;
+	let knowledgeConfig: ReturnType<typeof KnowledgeConfigSchema.parse>;
+	let knowledgeCuratorHook:
+		| ReturnType<typeof createKnowledgeCuratorHook>
+		| undefined;
+	let hivePromoterHook: ReturnType<typeof createHivePromoterHook> | undefined;
+	let knowledgeInjectorHook:
+		| ReturnType<typeof createKnowledgeInjectorHook>
+		| undefined;
+	let steeringConsumedHook: ReturnType<typeof createSteeringConsumedHook>;
+	let coChangeSuggesterHook: ReturnType<typeof createCoChangeSuggesterHook>;
+	let darkMatterDetectorHook: ReturnType<typeof createDarkMatterDetectorHook>;
+	let snapshotWriterHook: ReturnType<typeof createSnapshotWriterHook>;
+	let automationConfig: ReturnType<typeof AutomationConfigSchema.parse>;
 	let automationManager: BackgroundAutomationManager | undefined;
 	let preflightTriggerManager: PreflightTriggerManager | undefined;
-	let statusArtifact: AutomationStatusArtifact | undefined;
 
-	if (automationConfig.mode !== 'manual') {
-		automationManager = createAutomationManager(automationConfig);
+	try {
+		console.log('[opencode-swarm] → initializing hooks and managers...');
 
-		// v6.7 Task 5.5: Initialize trigger manager (plumbing only, no preflight logic yet)
-		const { PreflightTriggerManager: PTM } = await import(
-			'@opencode-swarm/core'
+		// Now assign all values (variables declared before try block for scope access)
+		agents = getAgentConfigs(config);
+		agentDefinitions = createAgents(config);
+		pipelineHook = createPipelineTrackerHook(config, ctx.directory);
+		systemEnhancerHook = createSystemEnhancerHook(config, ctx.directory);
+		compactionHook = createCompactionCustomizerHook(config, ctx.directory);
+		contextBudgetHandler = createContextBudgetHandler(config);
+		commandHandler = createSwarmCommandHandler(
+			ctx.directory,
+			Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 		);
-		preflightTriggerManager = new PTM(automationConfig);
+		activityHooks = createAgentActivityHooks(config, ctx.directory);
+		delegationGateHooks = createDelegationGateHook(config, ctx.directory);
+		delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
+		// Fail-secure: honor explicit guardrails.enabled === false (preserving the full
+		// guardrails block), otherwise let Zod schema defaults fill in enabled: true.
+		const guardrailsFallback =
+			config.guardrails?.enabled === false
+				? { ...config.guardrails, enabled: false }
+				: (config.guardrails ?? {});
+		guardrailsConfig = GuardrailsConfigSchema.parse(guardrailsFallback);
 
-		// v6.7 Task 5.5: Initialize status artifact for GUI visibility
-		const { AutomationStatusArtifact: ASA } = await import(
-			'@opencode-swarm/core'
-		);
-		const swarmDir = path.resolve(ctx.directory, '.swarm');
-		statusArtifact = new ASA(swarmDir);
-		statusArtifact.updateConfig(
-			automationConfig.mode,
-			automationConfig.capabilities,
-		);
-
-		// v6.8 Task 1.1: Wire evidence summary integration
-		if (automationConfig.capabilities?.evidence_auto_summaries === true) {
-			const { createEvidenceSummaryIntegration } = await import(
-				'@opencode-swarm/core'
+		// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
+		// This is a security-relevant action that requires explicit acknowledgment
+		if (loadedFromFile && guardrailsConfig.enabled === false) {
+			console.warn('');
+			console.warn(
+				'══════════════════════════════════════════════════════════════',
 			);
-			createEvidenceSummaryIntegration({
-				automationConfig,
-				directory: ctx.directory,
-				swarmDir: ctx.directory, // NOTE: persistSummary appends .swarm/ internally
-				summaryFilename: 'evidence-summary.json',
-			});
-			log('Evidence summary integration initialized', {
-				directory: ctx.directory,
-			});
+			console.warn(
+				'[opencode-swarm] 🔴 SECURITY WARNING: GUARDRAILS ARE DISABLED',
+			);
+			console.warn(
+				'══════════════════════════════════════════════════════════════',
+			);
+			console.warn(
+				'Guardrails have been explicitly disabled in user configuration.',
+			);
+			console.warn('This disables safety measures including:');
+			console.warn('  - Tool call limits');
+			console.warn('  - Duration limits');
+			console.warn('  - Repetition detection');
+			console.warn('  - Error rate limits');
+			console.warn('  - Idle timeouts');
+			console.warn('');
+			console.warn(
+				'Only disable guardrails if you fully understand the security implications.',
+			);
+			console.warn(
+				'To re-enable guardrails, set "guardrails.enabled" to true in your config.',
+			);
+			console.warn(
+				'══════════════════════════════════════════════════════════════',
+			);
+			console.warn('');
 		}
 
-		// v6.8 Task 2.2: Wire preflight integration
-		if (automationConfig.capabilities?.phase_preflight === true) {
-			const { createPreflightIntegration } = await import(
+		delegationHandler = createDelegationTrackerHook(
+			config,
+			guardrailsConfig.enabled,
+		);
+		guardrailsHooks = createGuardrailsHooks(ctx.directory, guardrailsConfig);
+		summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});
+		toolSummarizerHook = createToolSummarizerHook(summaryConfig, ctx.directory);
+
+		// v6.17 Knowledge system hooks — fire-and-forget, wrapped in safeHook
+		knowledgeConfig = KnowledgeConfigSchema.parse(config.knowledge ?? {});
+		knowledgeCuratorHook = knowledgeConfig.enabled
+			? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig)
+			: undefined;
+		hivePromoterHook =
+			knowledgeConfig.enabled && knowledgeConfig.hive_enabled
+				? createHivePromoterHook(ctx.directory, knowledgeConfig)
+				: undefined;
+		knowledgeInjectorHook = knowledgeConfig.enabled
+			? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
+			: undefined;
+
+		// v6.18 Steering acknowledgment hook — auto-acknowledges unconsumed steering directives
+		steeringConsumedHook = createSteeringConsumedHook(ctx.directory);
+
+		// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
+		coChangeSuggesterHook = createCoChangeSuggesterHook(ctx.directory);
+		darkMatterDetectorHook = createDarkMatterDetectorHook(ctx.directory);
+		// v6.18 Session persistence — write state snapshot after each tool call
+		snapshotWriterHook = createSnapshotWriterHook(ctx.directory);
+
+		// Parse automation config (v6.7 feature flags)
+		// Read flags without activating - scaffold only for now
+		automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+
+		// Initialize background automation framework (scaffold only - no business features yet)
+		// Only enabled when automation mode is not 'manual' (default-off behavior)
+
+		if (automationConfig.mode !== 'manual') {
+			automationManager = createAutomationManager(automationConfig);
+
+			// v6.7 Task 5.5: Initialize trigger manager (plumbing only, no preflight logic yet)
+			const { PreflightTriggerManager: PTM } = await import(
 				'@opencode-swarm/core'
 			);
-			try {
-				const { manager } = createPreflightIntegration({
+			preflightTriggerManager = new PTM(automationConfig);
+
+			// v6.7 Task 5.5: Initialize status artifact for GUI visibility
+			const { AutomationStatusArtifact: ASA } = await import(
+				'@opencode-swarm/core'
+			);
+			const swarmDir = path.resolve(ctx.directory, '.swarm');
+			const statusArtifact = new ASA(swarmDir);
+			statusArtifact.updateConfig(
+				automationConfig.mode,
+				automationConfig.capabilities,
+			);
+
+			// v6.8 Task 1.1: Wire evidence summary integration
+			if (automationConfig.capabilities?.evidence_auto_summaries === true) {
+				const { createEvidenceSummaryIntegration } = await import(
+					'@opencode-swarm/core'
+				);
+				createEvidenceSummaryIntegration({
 					automationConfig,
 					directory: ctx.directory,
-					swarmDir,
+					swarmDir: ctx.directory, // NOTE: persistSummary appends .swarm/ internally
+					summaryFilename: 'evidence-summary.json',
 				});
-				preflightTriggerManager = manager;
-				log('Preflight integration initialized', { directory: ctx.directory });
-			} catch (err) {
-				log('Preflight integration failed to initialize (non-fatal)', {
-					error: err instanceof Error ? err.message : String(err),
-				});
-			}
-		}
-
-		// v6.8 Task 3.2: Wire PlanSyncWorker for plan.json -> plan.md sync
-		if (automationConfig.capabilities?.plan_sync === true) {
-			try {
-				const planSyncWorker = new PlanSyncWorker({
+				log('Evidence summary integration initialized', {
 					directory: ctx.directory,
-					// Using defaults: debounceMs=300, pollIntervalMs=2000
-				});
-				planSyncWorker.start();
-				log('PlanSyncWorker initialized', { directory: ctx.directory });
-			} catch (err) {
-				log('PlanSyncWorker failed to initialize (non-fatal)', {
-					error: err instanceof Error ? err.message : String(err),
 				});
 			}
-		}
 
-		log('Automation framework initialized', {
-			mode: automationConfig.mode,
-			enabled: automationManager?.isEnabled(),
-			preflightEnabled: preflightTriggerManager?.isEnabled(),
-		});
-	}
-
-	// v6.7 Task 5.7: Config Doctor - run on startup if automation flags permit
-	// Runs in background-safe way (non-blocking, no errors propagate)
-	// SECURITY: Default is scan-only (autoFix=false). Autofix requires explicit opt-in
-	// via config_doctor_autofix capability.
-	if (shouldRunOnStartup(automationConfig)) {
-		// Autofix is opt-in only - requires explicit config_doctor_autofix capability
-		const enableAutofix =
-			automationConfig.capabilities?.config_doctor_autofix === true;
-
-		// Dynamically import to avoid circular dependencies
-		import('@opencode-swarm/core').then(({ runConfigDoctorWithFixes }) => {
-			// Default to scan-only mode (autoFix=false) for security
-			// Autofix only runs when explicitly enabled via capability
-			runConfigDoctorWithFixes(ctx.directory, config, enableAutofix)
-				.then((doctorResult) => {
-					if (doctorResult.result.findings.length > 0) {
-						log('Config Doctor ran on startup', {
-							findings: doctorResult.result.findings.length,
-							errors: doctorResult.result.summary.error,
-							warnings: doctorResult.result.summary.warn,
-							appliedFixes: doctorResult.appliedFixes.length,
-							autofixEnabled: enableAutofix,
-						});
-					}
-				})
-				.catch((err) => {
-					// Config doctor errors should NOT block startup
-					log('Config Doctor error (non-fatal)', {
+			// v6.8 Task 2.2: Wire preflight integration
+			if (automationConfig.capabilities?.phase_preflight === true) {
+				const { createPreflightIntegration } = await import(
+					'@opencode-swarm/core'
+				);
+				try {
+					const { manager } = createPreflightIntegration({
+						automationConfig,
+						directory: ctx.directory,
+						swarmDir,
+					});
+					preflightTriggerManager = manager;
+					log('Preflight integration initialized', {
+						directory: ctx.directory,
+					});
+				} catch (err) {
+					log('Preflight integration failed to initialize (non-fatal)', {
 						error: err instanceof Error ? err.message : String(err),
 					});
-				});
+				}
+			}
+
+			// v6.8 Task 3.2: Wire PlanSyncWorker for plan.json -> plan.md sync
+			if (automationConfig.capabilities?.plan_sync === true) {
+				try {
+					const planSyncWorker = new PlanSyncWorker({
+						directory: ctx.directory,
+						// Using defaults: debounceMs=300, pollIntervalMs=2000
+					});
+					planSyncWorker.start();
+					log('PlanSyncWorker initialized', { directory: ctx.directory });
+				} catch (err) {
+					log('PlanSyncWorker failed to initialize (non-fatal)', {
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+
+			log('Automation framework initialized', {
+				mode: automationConfig.mode,
+				enabled: automationManager?.isEnabled(),
+				preflightEnabled: preflightTriggerManager?.isEnabled(),
+			});
+		}
+
+		// v6.7 Task 5.7: Config Doctor - run on startup if automation flags permit
+		// Runs in background-safe way (non-blocking, no errors propagate)
+		// SECURITY: Default is scan-only (autoFix=false). Autofix requires explicit opt-in
+		// via config_doctor_autofix capability.
+		if (shouldRunOnStartup(automationConfig)) {
+			// Autofix is opt-in only - requires explicit config_doctor_autofix capability
+			const enableAutofix =
+				automationConfig.capabilities?.config_doctor_autofix === true;
+
+			// Dynamically import to avoid circular dependencies
+			import('@opencode-swarm/core').then(({ runConfigDoctorWithFixes }) => {
+				// Default to scan-only mode (autoFix=false) for security
+				// Autofix only runs when explicitly enabled via capability
+				runConfigDoctorWithFixes(ctx.directory, config, enableAutofix)
+					.then((doctorResult) => {
+						if (doctorResult.result.findings.length > 0) {
+							log('Config Doctor ran on startup', {
+								findings: doctorResult.result.findings.length,
+								errors: doctorResult.result.summary.error,
+								warnings: doctorResult.result.summary.warn,
+								appliedFixes: doctorResult.appliedFixes.length,
+								autofixEnabled: enableAutofix,
+							});
+						}
+					})
+					.catch((err) => {
+						// Config doctor errors should NOT block startup
+						log('Config Doctor error (non-fatal)', {
+							error: err instanceof Error ? err.message : String(err),
+						});
+					});
+			});
+		}
+
+		log('Plugin initialized', {
+			maxIterations: config.max_iterations,
+			agentCount: Object.keys(agents).length,
+			hooks: {
+				pipeline: !!pipelineHook['experimental.chat.messages.transform'],
+				systemEnhancer:
+					!!systemEnhancerHook['experimental.chat.system.transform'],
+				compaction: !!compactionHook['experimental.session.compacting'],
+				contextBudget: !!contextBudgetHandler,
+				commands: true,
+				agentActivity: config.hooks?.agent_activity !== false,
+				delegationTracker: config.hooks?.delegation_tracker === true,
+				guardrails: guardrailsConfig.enabled,
+				toolSummarizer: summaryConfig.enabled,
+				knowledge: knowledgeConfig.enabled,
+			},
+			// v6.7 automation flags (scaffold only - not yet active)
+			automation: {
+				mode: automationConfig.mode,
+				capabilities: automationConfig.capabilities,
+			},
 		});
+
+		console.log('[opencode-swarm] ✓ all hooks initialized');
+	} catch (err) {
+		console.error(
+			'[opencode-swarm] ✗ FATAL: hook/manager initialization failed:',
+			err instanceof Error ? err.stack : err,
+		);
+		throw err;
 	}
 
-	log('Plugin initialized', {
-		maxIterations: config.max_iterations,
-		agentCount: Object.keys(agents).length,
-		hooks: {
-			pipeline: !!pipelineHook['experimental.chat.messages.transform'],
-			systemEnhancer:
-				!!systemEnhancerHook['experimental.chat.system.transform'],
-			compaction: !!compactionHook['experimental.session.compacting'],
-			contextBudget: !!contextBudgetHandler,
-			commands: true,
-			agentActivity: config.hooks?.agent_activity !== false,
-			delegationTracker: config.hooks?.delegation_tracker === true,
-			guardrails: guardrailsConfig.enabled,
-			toolSummarizer: summaryConfig.enabled,
-			knowledge: knowledgeConfig.enabled,
-		},
-		// v6.7 automation flags (scaffold only - not yet active)
-		automation: {
-			mode: automationConfig.mode,
-			capabilities: automationConfig.capabilities,
-		},
-	});
+	console.log(
+		'[opencode-swarm] ✓ Plugin startup complete — returning plugin object',
+	);
 
 	return {
 		name: 'opencode-swarm',
