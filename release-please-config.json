@@ -19,5 +19,9 @@
       "release-type": "node",
       "package-name": "@opencode-swarm/telemetry"
     }
-  }
+  },
+  "branches": [
+    { "branch": "main" },
+    { "branch": "next", "prerelease": true, "prerelease-type": "beta" }
+  ]
 }
