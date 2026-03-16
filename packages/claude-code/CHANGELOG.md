@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.0-beta.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.0-beta.1...v7.0.0-beta.1) (2026-03-16)
+
+
+### Bug Fixes
+
+* remove bundledDependencies from claude-code to fix npm publish E415 ([ffb9021](https://github.com/zaxbysauce/opencode-swarm/commit/ffb9021e76d67a399ac01e6b9716a739f4f5955c))
+
 ## [7.0.0-beta.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.1...v7.0.0-beta.1) (2026-03-16)
 
 
