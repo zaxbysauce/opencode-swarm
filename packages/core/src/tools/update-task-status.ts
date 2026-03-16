@@ -275,6 +275,44 @@ export function checkReviewerGate(
 			// plan.json missing or unreadable — fall through to blocked:true
 		}
 
+		// === Delegation chain direct-check fallback ===
+		// Scan same-session delegation chains for reviewer+test_engineer after last coder.
+		// This handles cases where state machine wasn't advanced but delegations exist.
+		const activeSessionIds = new Set(swarmState.agentSessions.keys());
+		let chainHasReviewer = false;
+		let chainHasTestEngineer = false;
+
+		for (const [sessionId, chain] of swarmState.delegationChains) {
+			// Same-session constraint: only scan chains from active sessions
+			if (!activeSessionIds.has(sessionId)) continue;
+			if (!chain || chain.length === 0) continue;
+
+			// Find the index of the last coder in the chain
+			let lastCoderIndex = -1;
+			for (let i = chain.length - 1; i >= 0; i--) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
+				if (target.includes('coder')) {
+					lastCoderIndex = i;
+					break;
+				}
+			}
+
+			// Skip chains with no coder (prevents false positives from docs-only chains)
+			if (lastCoderIndex === -1) continue;
+
+			// Count reviewer/test_engineer from lastCoderIndex+1 onward
+			for (let i = lastCoderIndex + 1; i < chain.length; i++) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
+				if (target === 'reviewer') chainHasReviewer = true;
+				if (target === 'test_engineer') chainHasTestEngineer = true;
+			}
+		}
+
+		// If both gates found after last coder in any same-session chain, allow through
+		if (chainHasReviewer && chainHasTestEngineer) {
+			return { blocked: false, reason: '' };
+		}
+
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
 		return {
@@ -298,7 +336,7 @@ export function checkReviewerGate(
  * @param taskId - The task ID to recover state for
  */
 export function recoverTaskStateFromDelegations(taskId: string): void {
-	// Scan delegation chains scoped to sessions working on THIS task
+	// Scan delegation chains scoped to sessions working on THIS task (Pass 1)
 	let hasReviewer = false;
 	let hasTestEngineer = false;
 
@@ -312,6 +350,42 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 		) {
 			for (const delegation of chain) {
 				const target = stripKnownSwarmPrefix(delegation.to);
+				if (target === 'reviewer') hasReviewer = true;
+				if (target === 'test_engineer') hasTestEngineer = true;
+			}
+		}
+	}
+
+	// Pass 2: Fallback for docs-only/pure-verification tasks where neither
+	// session.currentTaskId nor session.lastCoderDelegationTaskId is set.
+	// Same-session only: scan ONLY chains belonging to active sessions.
+	// Skip chains with no coder (lastCoderIndex === -1).
+	// Count reviewer/test_engineer AFTER the last coder.
+	if (!hasReviewer && !hasTestEngineer) {
+		// Get all active session IDs
+		const activeSessionIds = new Set(swarmState.agentSessions.keys());
+
+		for (const [sessionId, chain] of swarmState.delegationChains) {
+			// Same-session constraint: only scan chains from active sessions
+			if (!activeSessionIds.has(sessionId)) continue;
+			if (!chain || chain.length === 0) continue;
+
+			// Find the index of the last coder in the chain
+			let lastCoderIndex = -1;
+			for (let i = chain.length - 1; i >= 0; i--) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
+				if (target.includes('coder')) {
+					lastCoderIndex = i;
+					break;
+				}
+			}
+
+			// Skip chains with no coder (prevents docs-only false positives)
+			if (lastCoderIndex === -1) continue;
+
+			// Count reviewer/test_engineer from lastCoderIndex+1 onward
+			for (let i = lastCoderIndex + 1; i < chain.length; i++) {
+				const target = stripKnownSwarmPrefix(chain[i].to);
 				if (target === 'reviewer') hasReviewer = true;
 				if (target === 'test_engineer') hasTestEngineer = true;
 			}

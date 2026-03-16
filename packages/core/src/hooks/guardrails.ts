@@ -362,12 +362,30 @@ export function createGuardrailsHooks(
 				}
 			}
 
-			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
-				const args = output.args as Record<string, unknown> | undefined;
-				const targetPath =
-					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
+		if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+			const args = output.args as Record<string, unknown> | undefined;
+			const targetPath =
+				args?.filePath ?? args?.path ?? args?.file ?? args?.target;
 
-				// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
+			// v6.25: Evidence write protection - block direct writes to .swarm/evidence/
+			// Gate evidence is recorded automatically by the delegation-gate hook
+			// when reviewer/test_engineer agents complete. Block attempts to fabricate evidence.
+			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '').toLowerCase();
+			if (normalizedTool === 'write' || normalizedTool === 'edit') {
+				const normalizedPath = typeof targetPath === 'string'
+					? targetPath.replace(/\\/g, '/')
+					: '';
+				if (normalizedPath.includes('.swarm/evidence/')) {
+					throw new Error(
+						'[GUARDRAIL] Direct writes to .swarm/evidence/ are blocked. ' +
+						'Gate evidence is recorded automatically by the delegation-gate hook ' +
+						'when reviewer/test_engineer agents complete. If evidence is missing, ' +
+						're-run the required gate agents instead of writing evidence files manually.',
+					);
+				}
+			}
+
+			// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
 				// plan.md is auto-regenerated from plan.json by PlanSyncWorker.
 				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
@@ -537,6 +555,26 @@ export function createGuardrailsHooks(
 							// The warning will be injected via messagesTransform based on lastGateFailure
 						}
 					}
+				}
+			}
+
+			// v6.25: Evidence write protection - block bash redirect attacks
+			// Block attempts to write to .swarm/evidence/ via shell redirects (> , >>, | tee)
+			// This check runs for the architect but doesn't require isWriteTool (bash is not a write tool)
+			if (isArchitect(input.sessionID) && (input.tool === 'bash' || input.tool === 'Bash')) {
+				const args = output.args as Record<string, unknown> | undefined;
+				const command = typeof args?.command === 'string' ? args.command : '';
+				const normalizedCmd = command.replace(/\\/g, '/');
+				if (
+					normalizedCmd.includes('.swarm/evidence/') &&
+					/(\||>|>>|\btee\b)/.test(normalizedCmd)
+				) {
+					throw new Error(
+						'[GUARDRAIL] Direct writes to .swarm/evidence/ are blocked. ' +
+						'Gate evidence is recorded automatically by the delegation-gate hook ' +
+						'when reviewer/test_engineer agents complete. If evidence is missing, ' +
+						're-run the required gate agents instead of writing evidence files manually.',
+					);
 				}
 			}
 
