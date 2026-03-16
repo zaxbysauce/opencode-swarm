@@ -29,9 +29,6 @@
 	"dependencies": {
 		"@opencode-swarm/core": "workspace:*"
 	},
-	"bundledDependencies": [
-		"@opencode-swarm/core"
-	],
 	"devDependencies": {
 		"bun-types": "latest",
 		"typescript": "^5.7.3"
