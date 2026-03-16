@@ -121,6 +121,32 @@ function hasActiveTurboMode(): boolean {
 	return false;
 }
 
+function scanReviewerGatesInChain(chain: Array<{ to: string }>): {
+	hasReviewer: boolean;
+	hasTestEngineer: boolean;
+} {
+	let lastCoderIndex = -1;
+	for (let i = chain.length - 1; i >= 0; i--) {
+		const target = stripKnownSwarmPrefix(chain[i].to);
+		if (target.includes('coder')) {
+			lastCoderIndex = i;
+			break;
+		}
+	}
+
+	let hasReviewer = false;
+	let hasTestEngineer = false;
+	const startIndex = lastCoderIndex === -1 ? 0 : lastCoderIndex + 1;
+
+	for (let i = startIndex; i < chain.length; i++) {
+		const target = stripKnownSwarmPrefix(chain[i].to);
+		if (target === 'reviewer') hasReviewer = true;
+		if (target === 'test_engineer') hasTestEngineer = true;
+	}
+
+	return { hasReviewer, hasTestEngineer };
+}
+
 /**
  * Check if a task has passed required QA gates using the state machine.
  * Requires the task to be in 'tests_run' or 'complete' state, which means
@@ -276,8 +302,9 @@ export function checkReviewerGate(
 		}
 
 		// === Delegation chain direct-check fallback ===
-		// Scan same-session delegation chains for reviewer+test_engineer after last coder.
-		// This handles cases where state machine wasn't advanced but delegations exist.
+		// Scan same-session delegation chains for reviewer+test_engineer.
+		// When a coder exists, only count gates after the last coder. For docs-only /
+		// code-organization tasks with no coder delegation, scan the entire chain.
 		const activeSessionIds = new Set(swarmState.agentSessions.keys());
 		let chainHasReviewer = false;
 		let chainHasTestEngineer = false;
@@ -287,25 +314,9 @@ export function checkReviewerGate(
 			if (!activeSessionIds.has(sessionId)) continue;
 			if (!chain || chain.length === 0) continue;
 
-			// Find the index of the last coder in the chain
-			let lastCoderIndex = -1;
-			for (let i = chain.length - 1; i >= 0; i--) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target.includes('coder')) {
-					lastCoderIndex = i;
-					break;
-				}
-			}
-
-			// Skip chains with no coder (prevents false positives from docs-only chains)
-			if (lastCoderIndex === -1) continue;
-
-			// Count reviewer/test_engineer from lastCoderIndex+1 onward
-			for (let i = lastCoderIndex + 1; i < chain.length; i++) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target === 'reviewer') chainHasReviewer = true;
-				if (target === 'test_engineer') chainHasTestEngineer = true;
-			}
+			const chainGates = scanReviewerGatesInChain(chain);
+			chainHasReviewer = chainHasReviewer || chainGates.hasReviewer;
+			chainHasTestEngineer = chainHasTestEngineer || chainGates.hasTestEngineer;
 		}
 
 		// If both gates found after last coder in any same-session chain, allow through
@@ -359,8 +370,8 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 	// Pass 2: Fallback for docs-only/pure-verification tasks where neither
 	// session.currentTaskId nor session.lastCoderDelegationTaskId is set.
 	// Same-session only: scan ONLY chains belonging to active sessions.
-	// Skip chains with no coder (lastCoderIndex === -1).
-	// Count reviewer/test_engineer AFTER the last coder.
+	// If a coder exists, count reviewer/test_engineer AFTER the last coder.
+	// If no coder exists, scan the entire chain.
 	if (!hasReviewer && !hasTestEngineer) {
 		// Get all active session IDs
 		const activeSessionIds = new Set(swarmState.agentSessions.keys());
@@ -370,25 +381,9 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 			if (!activeSessionIds.has(sessionId)) continue;
 			if (!chain || chain.length === 0) continue;
 
-			// Find the index of the last coder in the chain
-			let lastCoderIndex = -1;
-			for (let i = chain.length - 1; i >= 0; i--) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target.includes('coder')) {
-					lastCoderIndex = i;
-					break;
-				}
-			}
-
-			// Skip chains with no coder (prevents docs-only false positives)
-			if (lastCoderIndex === -1) continue;
-
-			// Count reviewer/test_engineer from lastCoderIndex+1 onward
-			for (let i = lastCoderIndex + 1; i < chain.length; i++) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target === 'reviewer') hasReviewer = true;
-				if (target === 'test_engineer') hasTestEngineer = true;
-			}
+			const chainGates = scanReviewerGatesInChain(chain);
+			hasReviewer = hasReviewer || chainGates.hasReviewer;
+			hasTestEngineer = hasTestEngineer || chainGates.hasTestEngineer;
 		}
 	}
 
