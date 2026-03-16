@@ -6,22 +6,22 @@
     "packages/opencode": {
       "release-type": "node",
       "package-name": "opencode-swarm",
-      "release-as": "7.0.0-beta.1"
+      "release-as": "7.0.0-beta.2"
     },
     "packages/core": {
       "release-type": "node",
       "package-name": "@opencode-swarm/core",
-      "release-as": "7.0.0-beta.1"
+      "release-as": "7.0.0-beta.2"
     },
     "packages/claude-code": {
       "release-type": "node",
       "package-name": "@opencode-swarm/claude-code",
-      "release-as": "7.0.0-beta.1"
+      "release-as": "7.0.0-beta.2"
     },
     "packages/telemetry": {
       "release-type": "node",
       "package-name": "@opencode-swarm/telemetry",
-      "release-as": "7.0.0-beta.1"
+      "release-as": "7.0.0-beta.2"
     }
   },
   "branches": [
