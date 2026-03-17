@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.28.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.1...v6.28.0) (2026-03-17)
+
+
+### Features
+
+* add next pre-release pipeline for v7.0 beta testing ([a35ebb4](https://github.com/zaxbysauce/opencode-swarm/commit/a35ebb477acd08baadf19437995a97aafbaf93f9))
+
+
+### Bug Fixes
+
+* harden evidence guard — case-insensitive, length-bound, double-slash safe ([3873a21](https://github.com/zaxbysauce/opencode-swarm/commit/3873a21f17783462014099e311a92bd82159713f))
+* revert monorepo config, broaden evidence guardrail, prefer directArgs task_id, relax task granularity ([#208](https://github.com/zaxbysauce/opencode-swarm/issues/208)) ([c9b8e9a](https://github.com/zaxbysauce/opencode-swarm/commit/c9b8e9a78da54b24f8742a0e67104cee4cb32e15))
+
 ## [6.27.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.0...v6.27.1) (2026-03-15)
 
 
