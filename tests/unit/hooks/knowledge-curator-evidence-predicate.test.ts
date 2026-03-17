@@ -62,14 +62,14 @@ describe('isWriteToEvidenceFile - negative matches', () => {
 		expect(isWriteToEvidenceFile(input)).toBe(false);
 	});
 
-	test('write to .swarm/evidence/other.json - no retro- prefix', () => {
+	test('write to .swarm/evidence/other.json - now correctly blocked by broad guard', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/other.json' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
-	test('write to .swarm/evidence/retro-3/other.json - wrong filename', () => {
+	test('write to .swarm/evidence/retro-3/other.json - now correctly blocked by broad guard', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/retro-3/other.json' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
 	test('read to .swarm/evidence/retro-3/evidence.json - read is not a write op', () => {
@@ -123,19 +123,19 @@ describe('isWriteToEvidenceFile - negative matches', () => {
 		expect(isWriteToEvidenceFile(input)).toBe(false);
 	});
 
-	test('write to .swarm/evidence/retro-3/ - directory path without file', () => {
+	test('write to .swarm/evidence/retro-3/ - directory path without file - now correctly blocked', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/retro-3/' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
-	test('write to .swarm/evidence/retro-/evidence.json - empty retro identifier', () => {
+	test('write to .swarm/evidence/retro-/evidence.json - empty retro identifier - now correctly blocked', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/retro-/evidence.json' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
-	test('write to .swarm/evidence/retro-3/evidence.json.md - wrong extension', () => {
+	test('write to .swarm/evidence/retro-3/evidence.json.md - wrong extension - now correctly blocked', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/retro-3/evidence.json.md' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
 	test('write to evidence.json - missing .swarm prefix', () => {
@@ -164,9 +164,9 @@ describe('isWriteToEvidenceFile - edge cases', () => {
 		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
-	test('path with trailing slash', () => {
+	test('path with trailing slash - now correctly blocked by broad guard', () => {
 		const input = { toolName: 'write', path: '.swarm/evidence/retro-3/' };
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
 	test('path with leading slash', () => {
@@ -246,6 +246,37 @@ describe('isWriteToEvidenceFile - edge cases', () => {
 	test('Write tool (mixed case) should work - check case sensitivity', () => {
 		const input = { toolName: 'Write', path: '.swarm/evidence/retro-3/evidence.json' };
 		// The function checks exact string matches in array, so mixed case should fail
+		expect(isWriteToEvidenceFile(input)).toBe(false);
+	});
+});
+
+// ============================================================================
+// Broadened guard — previously-negative now correctly blocked (plan task 2.2)
+// ============================================================================
+
+describe('isWriteToEvidenceFile - broadened guard (plan task 2.2)', () => {
+	test('write to .swarm/evidence/3.1.json returns true', () => {
+		const input = { toolName: 'write', path: '.swarm/evidence/3.1.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
+	});
+
+	test('edit to .swarm/evidence/phase-2/results.json returns true', () => {
+		const input = { toolName: 'edit', file: '.swarm/evidence/phase-2/results.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
+	});
+
+	test('apply_patch to .swarm/evidence/retro-1/evidence.json returns true (legacy pattern still works)', () => {
+		const input = { toolName: 'apply_patch', path: '.swarm/evidence/retro-1/evidence.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
+	});
+
+	test('write to .swarm/plan.json returns false (not under evidence/)', () => {
+		const input = { toolName: 'write', path: '.swarm/plan.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(false);
+	});
+
+	test('read to .swarm/evidence/3.1.json returns false (read is not a write op)', () => {
+		const input = { toolName: 'read', path: '.swarm/evidence/3.1.json' };
 		expect(isWriteToEvidenceFile(input)).toBe(false);
 	});
 });

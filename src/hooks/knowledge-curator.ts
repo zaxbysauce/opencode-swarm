@@ -97,8 +97,8 @@ export function isWriteToEvidenceFile(input: unknown): boolean {
 	const fileField =
 		typeof rawFile === 'string' ? rawFile.replace(/\\/g, '/') : undefined;
 
-	// Match paths like .swarm/evidence/retro-<something>/evidence.json
-	const evidenceRegex = /\.swarm\/evidence\/retro-[^/]+\/evidence\.json$/;
+	// Block ALL writes to .swarm/evidence/ (any path under evidence dir)
+	const evidenceRegex = /\.swarm\/evidence\//;
 
 	if (typeof pathField === 'string' && evidenceRegex.test(pathField)) {
 		return true;

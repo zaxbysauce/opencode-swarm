@@ -41,7 +41,7 @@ REVIEW CHECKLIST:
 - Dependencies: Are task dependencies correct? Will ordering work?
 - Risk: Are high-risk changes identified? Is there a rollback path?
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
-- Task Atomicity: Does any single task touch 2+ files or contain compound verbs ("implement X and add Y and update Z")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks before proceeding.
+- Task Atomicity: Does any single task touch 6+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into logical units grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
 
 ## PLAN ASSESSMENT DIMENSIONS

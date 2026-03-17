@@ -1,5 +1,7 @@
 node_modules/
 .swarm/
+.tmp/
+packages/
 .newsroom/
 # PlanSyncWorker test temp directories
 .test-plan-sync-*/

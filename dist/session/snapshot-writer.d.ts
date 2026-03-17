@@ -19,6 +19,7 @@ export interface SerializedAgentSession {
     architectWriteCount: number;
     lastCoderDelegationTaskId: string | null;
     currentTaskId: string | null;
+    turboMode: boolean;
     gateLog: Record<string, string[]>;
     reviewerCallCount: Record<string, number>;
     lastGateFailure: {

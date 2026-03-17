@@ -561,7 +561,11 @@ export function createDelegationGateHook(
 
 			// Record gate evidence for stored-args path
 			if (typeof subagentType === 'string') {
-				const evidenceTaskId = getEvidenceTaskId(session, directory);
+				const rawTaskId = directArgs?.task_id;
+				const evidenceTaskId =
+					typeof rawTaskId === 'string' && /^\d+\.\d+$/.test(rawTaskId.trim())
+						? rawTaskId.trim()
+						: getEvidenceTaskId(session, directory);
 				if (evidenceTaskId) {
 					try {
 						const turbo = hasActiveTurboMode();
@@ -738,7 +742,11 @@ export function createDelegationGateHook(
 
 				// Record gate evidence for delegation-chain fallback path
 				{
-					const evidenceTaskId = getEvidenceTaskId(session, directory);
+					const rawTaskId = directArgs?.task_id;
+					const evidenceTaskId =
+						typeof rawTaskId === 'string' && /^\d+\.\d+$/.test(rawTaskId.trim())
+							? rawTaskId.trim()
+							: getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
 						try {
 							const turbo = hasActiveTurboMode();

@@ -645,11 +645,11 @@ INPUT: [provide the complete plan content below]
 CONSTRAINT: Write EXACTLY the content provided. Do not modify, summarize, or interpret.
 
 TASK GRANULARITY RULES:
-- SMALL task: 1 file, 1 function/class/component, 1 logical concern. Delegate as-is.
-- MEDIUM task: If it touches >1 file, SPLIT into sequential file-scoped subtasks before writing to plan.
-- LARGE task: MUST be decomposed before writing to plan. A LARGE task in the plan is a planning error.
-- Litmus test: If you cannot write TASK + FILE + constraint in 3 bullet points, the task is too large. Split it.
-- NEVER write a task with compound verbs: "implement X and add Y and update Z" = 3 tasks, not 1. Split before writing to plan.
+- SMALL task: 1-2 files, 1 logical concern. Delegate as-is.
+- MEDIUM task: 3-5 files within a single logical concern (e.g., implementation + test + type update). Delegate as-is.
+- LARGE task: 6+ files OR multiple unrelated concerns. SPLIT into logical units (not per-file) before writing to plan.
+- Litmus test: If the task has ONE clear purpose and the coder can hold the full context, it's fine. Split only when concerns are unrelated.
+- Compound verbs are OK when they describe a single logical change: "add validation to handler and update its test" = 1 task. "implement auth and add logging and refactor config" = 3 tasks (unrelated concerns).
 - Coder receives ONE task. You make ALL scope decisions in the plan. Coder makes zero scope decisions.
 
 PHASE COUNT GUIDANCE:
