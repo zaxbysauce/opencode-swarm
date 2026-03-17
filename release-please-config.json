@@ -3,25 +3,6 @@
   "include-component-in-tag": false,
   "changelog-notes-type": "github",
   "packages": {
-    "packages/opencode": {
-      "release-type": "node",
-      "package-name": "opencode-swarm"
-    },
-    "packages/core": {
-      "release-type": "node",
-      "package-name": "@opencode-swarm/core"
-    },
-    "packages/claude-code": {
-      "release-type": "node",
-      "package-name": "@opencode-swarm/claude-code"
-    },
-    "packages/telemetry": {
-      "release-type": "node",
-      "package-name": "@opencode-swarm/telemetry"
-    }
-  },
-  "branches": [
-    { "branch": "main" },
-    { "branch": "next", "prerelease": true, "prerelease-type": "beta" }
-  ]
+    ".": {}
+  }
 }
