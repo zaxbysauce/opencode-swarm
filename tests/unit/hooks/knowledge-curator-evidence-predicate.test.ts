@@ -211,10 +211,10 @@ describe('isWriteToEvidenceFile - edge cases', () => {
 		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
-	test('path with double backslashes (escaped) - should not match', () => {
+	test('path with double backslashes (escaped) - correctly blocked (normalizes to double-slash path)', () => {
 		const input = { toolName: 'write', path: '.swarm\\\\evidence\\\\retro-3\\\\evidence.json' };
-		// Literal double backslashes are not valid paths, so this correctly returns false
-		expect(isWriteToEvidenceFile(input)).toBe(false);
+		// Double backslashes normalize to double slashes (.swarm//evidence//) which the broad guard correctly blocks
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 
 	test('object with extra properties should still match', () => {
@@ -278,5 +278,26 @@ describe('isWriteToEvidenceFile - broadened guard (plan task 2.2)', () => {
 	test('read to .swarm/evidence/3.1.json returns false (read is not a write op)', () => {
 		const input = { toolName: 'read', path: '.swarm/evidence/3.1.json' };
 		expect(isWriteToEvidenceFile(input)).toBe(false);
+	});
+});
+
+// ============================================================================
+// Case-insensitive path matching (security fix — /i flag)
+// ============================================================================
+
+describe('isWriteToEvidenceFile - case-insensitive path guard', () => {
+	test('write to .swarm/EVIDENCE/file.json returns true (uppercase EVIDENCE)', () => {
+		const input = { toolName: 'write', path: '.swarm/EVIDENCE/file.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
+	});
+
+	test('write to .SWARM/EVIDENCE/retro-1/evidence.json returns true (fully uppercase)', () => {
+		const input = { toolName: 'write', path: '.SWARM/EVIDENCE/retro-1/evidence.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
+	});
+
+	test('write to .Swarm/Evidence/Retro-1/evidence.json returns true (mixed case)', () => {
+		const input = { toolName: 'write', path: '.Swarm/Evidence/Retro-1/evidence.json' };
+		expect(isWriteToEvidenceFile(input)).toBe(true);
 	});
 });

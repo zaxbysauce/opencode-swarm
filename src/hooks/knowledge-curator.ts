@@ -98,7 +98,7 @@ export function isWriteToEvidenceFile(input: unknown): boolean {
 		typeof rawFile === 'string' ? rawFile.replace(/\\/g, '/') : undefined;
 
 	// Block ALL writes to .swarm/evidence/ (any path under evidence dir)
-	const evidenceRegex = /\.swarm\/evidence\//;
+	const evidenceRegex = /\.swarm\/+evidence\/+/i;
 
 	if (typeof pathField === 'string' && evidenceRegex.test(pathField)) {
 		return true;

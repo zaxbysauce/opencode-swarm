@@ -563,7 +563,9 @@ export function createDelegationGateHook(
 			if (typeof subagentType === 'string') {
 				const rawTaskId = directArgs?.task_id;
 				const evidenceTaskId =
-					typeof rawTaskId === 'string' && /^\d+\.\d+$/.test(rawTaskId.trim())
+					typeof rawTaskId === 'string' &&
+					rawTaskId.length <= 20 &&
+					/^\d+\.\d+$/.test(rawTaskId.trim())
 						? rawTaskId.trim()
 						: getEvidenceTaskId(session, directory);
 				if (evidenceTaskId) {
@@ -744,7 +746,9 @@ export function createDelegationGateHook(
 				{
 					const rawTaskId = directArgs?.task_id;
 					const evidenceTaskId =
-						typeof rawTaskId === 'string' && /^\d+\.\d+$/.test(rawTaskId.trim())
+						typeof rawTaskId === 'string' &&
+						rawTaskId.length <= 20 &&
+						/^\d+\.\d+$/.test(rawTaskId.trim())
 							? rawTaskId.trim()
 							: getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
