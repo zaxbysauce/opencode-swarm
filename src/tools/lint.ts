@@ -326,8 +326,48 @@ export function detectAdditionalLinter(
 	return null;
 }
 
+// ============ Path Helpers (exported for testability) ============
+/** Compute the local biome binary path for a given project directory. */
+export function getBiomeBinPath(directory: string): string {
+	const isWindows = process.platform === 'win32';
+	return isWindows
+		? path.join(directory, 'node_modules', '.bin', 'biome.EXE')
+		: path.join(directory, 'node_modules', '.bin', 'biome');
+}
+
+/** Compute the local eslint binary path for a given project directory. */
+export function getEslintBinPath(directory: string): string {
+	const isWindows = process.platform === 'win32';
+	return isWindows
+		? path.join(directory, 'node_modules', '.bin', 'eslint.cmd')
+		: path.join(directory, 'node_modules', '.bin', 'eslint');
+}
+
 // ============ Linter Detection ============
-export async function detectAvailableLinter(): Promise<SupportedLinter | null> {
+export async function detectAvailableLinter(
+	directory?: string,
+): Promise<SupportedLinter | null> {
+	// Timeout for linter detection (in ms)
+	const DETECT_TIMEOUT = 2000;
+
+	const projectDir = directory ?? process.cwd();
+	const isWindows = process.platform === 'win32';
+	const biomeBin = isWindows
+		? path.join(projectDir, 'node_modules', '.bin', 'biome.EXE')
+		: path.join(projectDir, 'node_modules', '.bin', 'biome');
+	const eslintBin = isWindows
+		? path.join(projectDir, 'node_modules', '.bin', 'eslint.cmd')
+		: path.join(projectDir, 'node_modules', '.bin', 'eslint');
+
+	return _detectAvailableLinter(projectDir, biomeBin, eslintBin);
+}
+
+/** Internal implementation — accepts pre-computed binary paths for testability. */
+export async function _detectAvailableLinter(
+	projectDir: string,
+	biomeBin: string,
+	eslintBin: string,
+): Promise<SupportedLinter | null> {
 	// Timeout for linter detection (in ms)
 	const DETECT_TIMEOUT = 2000;
 
@@ -348,7 +388,7 @@ export async function detectAvailableLinter(): Promise<SupportedLinter | null> {
 		if (result === 'timeout') {
 			biomeProc.kill();
 			// biome not available or timed out
-		} else if (biomeProc.exitCode === 0) {
+		} else if (biomeProc.exitCode === 0 && fs.existsSync(biomeBin)) {
 			return 'biome';
 		}
 	} catch {
@@ -372,7 +412,7 @@ export async function detectAvailableLinter(): Promise<SupportedLinter | null> {
 		if (result === 'timeout') {
 			eslintProc.kill();
 			// eslint not available or timed out
-		} else if (eslintProc.exitCode === 0) {
+		} else if (eslintProc.exitCode === 0 && fs.existsSync(eslintBin)) {
 			return 'eslint';
 		}
 	} catch {
@@ -576,7 +616,7 @@ export const lint: ReturnType<typeof tool> = createSwarmTool({
 		const cwd = directory;
 
 		// Primary: detect Biome or ESLint (JS/TS projects)
-		const linter = await detectAvailableLinter();
+		const linter = await detectAvailableLinter(directory);
 		if (linter) {
 			const result = await runLint(linter, mode, directory);
 			return JSON.stringify(result, null, 2);

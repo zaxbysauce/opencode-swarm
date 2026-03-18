@@ -194,7 +194,7 @@ async function runLintWrapped(
 	const start = process.hrtime.bigint();
 
 	try {
-		const linter = await detectAvailableLinter();
+		const linter = await detectAvailableLinter(directory);
 
 		if (!linter) {
 			return {
