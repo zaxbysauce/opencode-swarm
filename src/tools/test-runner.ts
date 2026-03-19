@@ -295,10 +295,8 @@ function detectMinitest(cwd: string): boolean {
 	);
 }
 
-export async function detectTestFramework(
-	cwd?: string,
-): Promise<TestFramework> {
-	const baseDir = cwd || process.cwd();
+export async function detectTestFramework(cwd: string): Promise<TestFramework> {
+	const baseDir = cwd;
 	// Check for package.json to detect JS/TS frameworks
 	try {
 		const packageJsonPath = path.join(baseDir, 'package.json');

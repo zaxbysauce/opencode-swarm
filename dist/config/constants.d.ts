@@ -35,3 +35,22 @@ export declare const LOW_CAPABILITY_MODELS: readonly ["mini", "nano", "small", "
  * @returns true if the model is considered low capability, false otherwise
  */
 export declare function isLowCapabilityModel(modelId: string): boolean;
+export declare const SLOP_DETECTOR_DEFAULTS: {
+    readonly enabled: true;
+    readonly classThreshold: 3;
+    readonly commentStripThreshold: 5;
+    readonly diffLineThreshold: 200;
+};
+export declare const INCREMENTAL_VERIFY_DEFAULTS: {
+    readonly enabled: true;
+    readonly command: null;
+    readonly timeoutMs: 30000;
+    readonly triggerAgents: readonly ["coder"];
+};
+export declare const COMPACTION_DEFAULTS: {
+    readonly enabled: true;
+    readonly observationThreshold: 40;
+    readonly reflectionThreshold: 60;
+    readonly emergencyThreshold: 80;
+    readonly preserveLastNTurns: 5;
+};

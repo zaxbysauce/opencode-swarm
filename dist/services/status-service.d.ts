@@ -11,6 +11,12 @@ export interface StatusData {
     agentCount: number;
     isLegacy: boolean;
     turboMode: boolean;
+    /** Last known context budget percentage (0-100), or null if not yet measured */
+    contextBudgetPct: number | null;
+    /** Number of context compaction events triggered this session */
+    compactionCount: number;
+    /** ISO timestamp of last compaction snapshot, or null if none */
+    lastSnapshotAt: string | null;
 }
 /**
  * Get status data from the swarm directory.

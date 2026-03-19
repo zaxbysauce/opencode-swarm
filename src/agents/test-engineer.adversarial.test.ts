@@ -348,7 +348,9 @@ describe('X4: Role-Relevance Tagging Removed', () => {
 	it('should not contain stale role-relevance tagging block', () => {
 		const agent = createTestEngineerAgent('gpt-4');
 		expect(agent.config.prompt).not.toContain('ROLE-RELEVANCE TAGGING');
-		expect(agent.config.prompt).not.toContain('v6.20 will use for context filtering');
+		expect(agent.config.prompt).not.toContain(
+			'v6.20 will use for context filtering',
+		);
 	});
 });
 
@@ -386,8 +388,13 @@ describe('T5: Adversarial Test Patterns', () => {
 	});
 
 	it('should require SPECIFIC outcome assertions for adversarial tests', () => {
-		const advIdx = (agent.config.prompt ?? '').indexOf('ADVERSARIAL TEST PATTERNS');
-		const advSection = (agent.config.prompt ?? '').substring(advIdx, advIdx + 1200);
+		const advIdx = (agent.config.prompt ?? '').indexOf(
+			'ADVERSARIAL TEST PATTERNS',
+		);
+		const advSection = (agent.config.prompt ?? '').substring(
+			advIdx,
+			advIdx + 1200,
+		);
 		expect(advSection).toMatch(/specific.*outcome|SPECIFIC outcome/i);
 	});
 });

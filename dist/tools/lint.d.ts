@@ -40,7 +40,13 @@ export declare function getAdditionalLinterCommand(linter: AdditionalLinter, mod
  * Returns null when no additional linter is detected or its binary is unavailable.
  */
 export declare function detectAdditionalLinter(cwd: string): 'ruff' | 'clippy' | 'golangci-lint' | 'checkstyle' | 'ktlint' | 'dotnet-format' | 'cppcheck' | 'swiftlint' | 'dart-analyze' | 'rubocop' | null;
-export declare function detectAvailableLinter(): Promise<SupportedLinter | null>;
+/** Compute the local biome binary path for a given project directory. */
+export declare function getBiomeBinPath(directory: string): string;
+/** Compute the local eslint binary path for a given project directory. */
+export declare function getEslintBinPath(directory: string): string;
+export declare function detectAvailableLinter(directory?: string): Promise<SupportedLinter | null>;
+/** Internal implementation — accepts pre-computed binary paths for testability. */
+export declare function _detectAvailableLinter(projectDir: string, biomeBin: string, eslintBin: string): Promise<SupportedLinter | null>;
 export declare function runLint(linter: SupportedLinter, mode: 'fix' | 'check', directory: string): Promise<LintResult>;
 /**
  * Run an additional (non-JS/TS) linter.

@@ -39,12 +39,7 @@ export function simpleGlobToRegex(
 	// Two-pass: first handle *, then handle ? within each segment.
 	const escaped = pattern
 		.split('*')
-		.map((starSegment) =>
-			starSegment
-				.split('?')
-				.map(escapeRegex)
-				.join('.'),
-		)
+		.map((starSegment) => starSegment.split('?').map(escapeRegex).join('.'))
 		.join('.*');
 
 	return new RegExp(`^${escaped}$`, flags);

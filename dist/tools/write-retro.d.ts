@@ -24,6 +24,8 @@ export interface WriteRetroArgs {
     coder_revisions: number;
     /** Number of reviewer rejections received */
     reviewer_rejections: number;
+    loop_detections?: number;
+    circuit_breaker_trips?: number;
     /** Number of test failures encountered */
     test_failures: number;
     /** Number of security findings */

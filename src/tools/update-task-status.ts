@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { validateDiffScope } from '../hooks/diff-scope';
 import { updateTaskStatus } from '../plan/manager';
 import { advanceTaskState, getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
@@ -342,6 +343,29 @@ export function checkReviewerGate(
 }
 
 /**
+ * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
+ * Keeps checkReviewerGate synchronous for backward compatibility.
+ * @param taskId - The task ID to check gate state for
+ * @param workingDirectory - Optional working directory for plan.json fallback
+ * @returns ReviewerGateResult with optional scope warning appended to reason
+ */
+export async function checkReviewerGateWithScope(
+	taskId: string,
+	workingDirectory?: string,
+): Promise<ReviewerGateResult> {
+	const result = checkReviewerGate(taskId, workingDirectory);
+	const scopeWarning = await validateDiffScope(
+		taskId,
+		workingDirectory ?? process.cwd(),
+	).catch(() => null);
+	if (!scopeWarning) return result;
+	return {
+		...result,
+		reason: result.reason ? `${result.reason}\n${scopeWarning}` : scopeWarning,
+	};
+}
+
+/**
  * Recovery mechanism: reconcile task state with delegation history.
  * When reviewer/test_engineer delegations occurred but the state machine
  * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,
@@ -579,7 +603,10 @@ export async function executeUpdateTaskStatus(
 		// verification tasks without coder delegation, etc.).
 		recoverTaskStateFromDelegations(args.task_id);
 
-		const reviewerCheck = checkReviewerGate(args.task_id, directory);
+		const reviewerCheck = await checkReviewerGateWithScope(
+			args.task_id,
+			directory,
+		);
 		if (reviewerCheck.blocked) {
 			return {
 				success: false,

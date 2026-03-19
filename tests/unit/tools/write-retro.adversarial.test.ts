@@ -238,7 +238,7 @@ describe('write-retro adversarial security tests', () => {
 	// OVERSIZED INPUT ATTACKS
 
 	describe('oversized input attacks', () => {
-		test('rejects extremely long task_id (exceeds evidence bundle size limit or path length)', async () => {
+		test('rejects extremely long task_id (exceeds pattern validation)', async () => {
 			const args: WriteRetroArgs = {
 				phase: 1,
 				summary: 'Test summary',
@@ -256,9 +256,9 @@ describe('write-retro adversarial security tests', () => {
 			const result = await executeWriteRetro(args, tempDir);
 			const parsed = JSON.parse(result);
 
-			// Should fail - either due to bundle size limit or OS path length limit
+			// sanitizeTaskId rejects long non-matching strings with invalid pattern error
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/exceeds maximum|size|ENOENT|no such file or directory/);
+			expect(parsed.message).toMatch(/Invalid task ID|must match pattern/);
 		});
 
 		test('handles oversized lessons_learned without crashing', async () => {
@@ -315,7 +315,7 @@ describe('write-retro adversarial security tests', () => {
 	// NUMERIC VALIDATION ATTACKS
 
 	describe('numeric validation attacks', () => {
-		test('accepts negative numeric fields (stored as-is)', async () => {
+		test('rejects negative total_tool_calls', async () => {
 			const args: WriteRetroArgs = {
 				phase: 1,
 				summary: 'Test summary',
@@ -332,8 +332,9 @@ describe('write-retro adversarial security tests', () => {
 			const result = await executeWriteRetro(args, tempDir);
 			const parsed = JSON.parse(result);
 
-			// Should succeed - negative values are stored as-is
-			expect(parsed.success).toBe(true);
+			// Negative values are not allowed - all numeric fields have min(0)
+			expect(parsed.success).toBe(false);
+			expect(parsed.message).toMatch(/Invalid total_tool_calls/);
 		});
 
 		test('rejects NaN phase', async () => {
@@ -378,7 +379,7 @@ describe('write-retro adversarial security tests', () => {
 			expect(parsed.message).toMatch(/Invalid phase.*positive integer/);
 		});
 
-		test('accepts very large phase number', async () => {
+		test('rejects very large phase number', async () => {
 			const args: WriteRetroArgs = {
 				phase: 999999,
 				summary: 'Test summary',
@@ -395,8 +396,8 @@ describe('write-retro adversarial security tests', () => {
 			const result = await executeWriteRetro(args, tempDir);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.success).toBe(true);
-			expect(parsed.phase).toBe(999999);
+			expect(parsed.success).toBe(false);
+			expect(parsed.message).toMatch(/Invalid phase.*<= 99/);
 		});
 
 		test('rejects zero phase', async () => {

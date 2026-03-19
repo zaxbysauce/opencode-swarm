@@ -116,6 +116,19 @@ export interface AgentSessionState {
     lastCompletedPhaseAgentsDispatched: Set<string>;
     /** Session-scoped Turbo Mode flag for controlling LLM inference speed */
     turboMode: boolean;
+    /** Sliding window of last 10 Task delegation hashes for loop detection */
+    loopDetectionWindow?: Array<{
+        hash: string;
+        timestamp: number;
+    }>;
+    /** Pending loop warning message to inject into next messagesTransform (cleared after injection) */
+    loopWarningPending?: {
+        agent: string;
+        message: string;
+        timestamp: number;
+    };
+    /** Flag to track if the 50% context pressure warning has been sent this session */
+    contextPressureWarningSent?: boolean;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
@@ -162,6 +175,8 @@ export declare const swarmState: {
     delegationChains: Map<string, DelegationEntry[]>;
     /** Number of events since last flush */
     pendingEvents: number;
+    /** Last known context budget percentage (0-100), updated by system-enhancer */
+    lastBudgetPct: number;
     /** Per-session guardrail state — keyed by sessionID */
     agentSessions: Map<string, AgentSessionState>;
 };

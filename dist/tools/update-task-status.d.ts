@@ -51,6 +51,14 @@ export interface ReviewerGateResult {
  */
 export declare function checkReviewerGate(taskId: string, workingDirectory?: string): ReviewerGateResult;
 /**
+ * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
+ * Keeps checkReviewerGate synchronous for backward compatibility.
+ * @param taskId - The task ID to check gate state for
+ * @param workingDirectory - Optional working directory for plan.json fallback
+ * @returns ReviewerGateResult with optional scope warning appended to reason
+ */
+export declare function checkReviewerGateWithScope(taskId: string, workingDirectory?: string): Promise<ReviewerGateResult>;
+/**
  * Recovery mechanism: reconcile task state with delegation history.
  * When reviewer/test_engineer delegations occurred but the state machine
  * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,

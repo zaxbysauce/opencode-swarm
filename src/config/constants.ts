@@ -238,3 +238,25 @@ export function isLowCapabilityModel(modelId: string): boolean {
 	const lower = modelId.toLowerCase();
 	return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }
+
+export const SLOP_DETECTOR_DEFAULTS = {
+	enabled: true,
+	classThreshold: 3,
+	commentStripThreshold: 5,
+	diffLineThreshold: 200,
+} as const;
+
+export const INCREMENTAL_VERIFY_DEFAULTS = {
+	enabled: true,
+	command: null,
+	timeoutMs: 30000,
+	triggerAgents: ['coder'],
+} as const;
+
+export const COMPACTION_DEFAULTS = {
+	enabled: true,
+	observationThreshold: 40,
+	reflectionThreshold: 60,
+	emergencyThreshold: 80,
+	preserveLastNTurns: 5,
+} as const;

@@ -284,10 +284,7 @@ export async function savePlan(directory: string, plan: Plan): Promise<void> {
 			if (completedTaskIds.size > 0) {
 				for (const phase of validated.phases) {
 					for (const task of phase.tasks) {
-						if (
-							completedTaskIds.has(task.id) &&
-							task.status !== 'completed'
-						) {
+						if (completedTaskIds.has(task.id) && task.status !== 'completed') {
 							task.status = 'completed';
 						}
 					}
@@ -389,7 +386,10 @@ export async function updateTaskStatus(
 	let taskFound = false;
 
 	const derivePhaseStatusFromTasks = (tasks: Task[]): Phase['status'] => {
-		if (tasks.length > 0 && tasks.every((task) => task.status === 'completed')) {
+		if (
+			tasks.length > 0 &&
+			tasks.every((task) => task.status === 'completed')
+		) {
 			return 'complete';
 		}
 

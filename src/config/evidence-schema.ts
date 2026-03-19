@@ -104,16 +104,18 @@ export type NoteEvidence = z.infer<typeof NoteEvidenceSchema>;
 export const RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
 	type: z.literal('retrospective'),
 	// Execution metrics
-	phase_number: z.number().int().min(0),
-	total_tool_calls: z.number().int().min(0),
+	phase_number: z.number().int().min(0).max(99),
+	total_tool_calls: z.number().int().min(0).max(9999),
 	// Revision cycles
-	coder_revisions: z.number().int().min(0),
-	reviewer_rejections: z.number().int().min(0),
-	test_failures: z.number().int().min(0),
-	security_findings: z.number().int().min(0),
-	integration_issues: z.number().int().min(0),
+	coder_revisions: z.number().int().min(0).max(999),
+	reviewer_rejections: z.number().int().min(0).max(999),
+	loop_detections: z.number().int().min(0).max(9999).optional(),
+	circuit_breaker_trips: z.number().int().min(0).max(9999).optional(),
+	test_failures: z.number().int().min(0).max(9999),
+	security_findings: z.number().int().min(0).max(999),
+	integration_issues: z.number().int().min(0).max(999),
 	// Task classification
-	task_count: z.number().int().min(1),
+	task_count: z.number().int().min(1).max(9999),
 	task_complexity: z.enum(['trivial', 'simple', 'moderate', 'complex']),
 	// Qualitative findings (structured)
 	top_rejection_reasons: z.array(z.string()).default([]),

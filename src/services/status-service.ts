@@ -5,7 +5,8 @@ import {
 } from '../hooks/extractors';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
-import { hasActiveTurboMode } from '../state';
+import { hasActiveTurboMode, swarmState } from '../state';
+import { DEFAULT_CONTEXT_BUDGET_CONFIG } from './context-budget-service';
 
 /**
  * Structured status data returned by the status service.
@@ -19,6 +20,12 @@ export interface StatusData {
 	agentCount: number;
 	isLegacy: boolean;
 	turboMode: boolean;
+	/** Last known context budget percentage (0-100), or null if not yet measured */
+	contextBudgetPct: number | null;
+	/** Number of context compaction events triggered this session */
+	compactionCount: number;
+	/** ISO timestamp of last compaction snapshot, or null if none */
+	lastSnapshotAt: string | null;
 }
 
 /**
@@ -55,6 +62,10 @@ export async function getStatusData(
 			agentCount,
 			isLegacy: false,
 			turboMode: hasActiveTurboMode(),
+			contextBudgetPct:
+				swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+			compactionCount: 0,
+			lastSnapshotAt: null,
 		};
 	}
 
@@ -69,6 +80,10 @@ export async function getStatusData(
 			agentCount: Object.keys(agents).length,
 			isLegacy: true,
 			turboMode: hasActiveTurboMode(),
+			contextBudgetPct:
+				swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+			compactionCount: 0,
+			lastSnapshotAt: null,
 		};
 	}
 
@@ -86,6 +101,10 @@ export async function getStatusData(
 		agentCount,
 		isLegacy: true,
 		turboMode: hasActiveTurboMode(),
+		contextBudgetPct:
+			swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+		compactionCount: 0,
+		lastSnapshotAt: null,
 	};
 }
 
@@ -104,6 +123,22 @@ export function formatStatusMarkdown(status: StatusData): string {
 
 	if (status.turboMode) {
 		lines.push('', `**TURBO MODE**: active`);
+	}
+
+	if (status.contextBudgetPct !== null && status.contextBudgetPct > 0) {
+		const pct = status.contextBudgetPct.toFixed(1);
+		const budgetTokens = DEFAULT_CONTEXT_BUDGET_CONFIG.budgetTokens;
+		const est = Math.round((status.contextBudgetPct / 100) * budgetTokens);
+		lines.push(
+			'',
+			`**Context**: ${pct}% used (est. ${est.toLocaleString()} / ${budgetTokens.toLocaleString()} tokens)`,
+		);
+		if (status.compactionCount > 0) {
+			lines.push(`**Compaction events**: ${status.compactionCount} triggered`);
+		}
+		if (status.lastSnapshotAt) {
+			lines.push(`**Last snapshot**: ${status.lastSnapshotAt}`);
+		}
 	}
 
 	return lines.join('\n');

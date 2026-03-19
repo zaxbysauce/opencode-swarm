@@ -8,9 +8,9 @@
 
 import type { PreflightTriggerManager } from '../background/trigger';
 import { CuratorConfigSchema } from '../config/schema';
-import type { CuratorConfig, CuratorInitResult } from './curator-types';
 import { loadPlan } from '../plan/manager';
 import { runCuratorInit as defaultRunCuratorInit } from './curator';
+import type { CuratorConfig, CuratorInitResult } from './curator-types';
 import { safeHook } from './utils';
 
 /** Injectable curator runner type — allows test injection without module mocking. */

@@ -579,6 +579,7 @@ describe('writeSnapshot', () => {
 			qaSkipCount: 0,
 			qaSkipTaskIds: [],
 			taskWorkflowStates: {},
+			turboMode: false,
 		});
 	});
 });

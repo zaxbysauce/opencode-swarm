@@ -128,7 +128,7 @@ describe('test-runner.ts - Framework Detection', () => {
 	});
 
 	test('detects no framework when no config exists', async () => {
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('none');
 	});
 
@@ -140,7 +140,7 @@ describe('test-runner.ts - Framework Detection', () => {
 				devDependencies: { vitest: '^1.0.0' },
 			}),
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('vitest');
 	});
 
@@ -152,7 +152,7 @@ describe('test-runner.ts - Framework Detection', () => {
 				devDependencies: { jest: '^29.0.0' },
 			}),
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('jest');
 	});
 
@@ -164,7 +164,7 @@ describe('test-runner.ts - Framework Detection', () => {
 				devDependencies: { mocha: '^10.0.0' },
 			}),
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('mocha');
 	});
 
@@ -176,7 +176,7 @@ describe('test-runner.ts - Framework Detection', () => {
 			}),
 		);
 		fs.writeFileSync('bun.lock', ''); // Create bun.lock file
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('bun');
 	});
 
@@ -191,7 +191,7 @@ name = "test"
 testpaths = ["tests"]
 `,
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('pytest');
 	});
 
@@ -203,13 +203,13 @@ testpaths = ["tests"]
 testpaths = tests
 `,
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('pytest');
 	});
 
 	test('detects pytest from requirements.txt', async () => {
 		fs.writeFileSync('requirements.txt', 'pytest>=7.0.0\n');
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('pytest');
 	});
 
@@ -225,19 +225,19 @@ version = "0.1.0"
 tokio = { version = "1.0", features = ["full"] }
 `,
 		);
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('cargo');
 	});
 
 	test('detects pester from pester.config.ps1', async () => {
 		fs.writeFileSync('pester.config.ps1', 'configuration\n');
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('pester');
 	});
 
 	test('detects pester from tests.ps1', async () => {
 		fs.writeFileSync('tests.ps1', 'Describe "Tests" { }\n');
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('pester');
 	});
 });
@@ -325,7 +325,7 @@ describe('test-runner.ts - Edge Cases', () => {
 
 	test('detectTestFramework correctly identifies vitest from package.json', async () => {
 		// Test framework detection without executing tests
-		const framework = await detectTestFramework();
+		const framework = await detectTestFramework(tempDir);
 		expect(framework).toBe('vitest');
 	});
 

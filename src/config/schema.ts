@@ -818,6 +818,39 @@ export const CuratorConfigSchema = z.object({
 
 export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;
 
+// Slop detector configuration (v6.29)
+export const SlopDetectorConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	classThreshold: z.number().int().min(1).default(3),
+	commentStripThreshold: z.number().int().min(1).default(5),
+	diffLineThreshold: z.number().int().min(10).default(200),
+});
+
+export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
+
+// Incremental verification configuration (v6.29)
+export const IncrementalVerifyConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	command: z.string().nullable().default(null),
+	timeoutMs: z.number().int().min(1000).max(300000).default(30000),
+	triggerAgents: z.array(z.string()).default(['coder']),
+});
+
+export type IncrementalVerifyConfig = z.infer<
+	typeof IncrementalVerifyConfigSchema
+>;
+
+// Compaction service configuration (v6.29)
+export const CompactionConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	observationThreshold: z.number().min(1).max(99).default(40),
+	reflectionThreshold: z.number().min(1).max(99).default(60),
+	emergencyThreshold: z.number().min(1).max(99).default(80),
+	preserveLastNTurns: z.number().int().min(1).default(5),
+});
+
+export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -913,6 +946,15 @@ export const PluginConfigSchema = z.object({
 			per_tool: z.record(z.string(), z.number()).optional(),
 		})
 		.optional(),
+
+	// Slop detector configuration (v6.29)
+	slop_detector: SlopDetectorConfigSchema.optional(),
+
+	// Incremental verification configuration (v6.29)
+	incremental_verify: IncrementalVerifyConfigSchema.optional(),
+
+	// Compaction service configuration (v6.29)
+	compaction_service: CompactionConfigSchema.optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
