@@ -6,6 +6,7 @@ import {
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
 import { hasActiveTurboMode, swarmState } from '../state';
+import { getCompactionMetrics } from './compaction-service';
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from './context-budget-service';
 
 /**
@@ -53,6 +54,7 @@ export async function getStatusData(
 		}
 
 		const agentCount = Object.keys(agents).length;
+		const metrics = getCompactionMetrics();
 
 		return {
 			hasPlan: true,
@@ -64,14 +66,15 @@ export async function getStatusData(
 			turboMode: hasActiveTurboMode(),
 			contextBudgetPct:
 				swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-			compactionCount: 0,
-			lastSnapshotAt: null,
+			compactionCount: metrics.compactionCount,
+			lastSnapshotAt: metrics.lastSnapshotAt,
 		};
 	}
 
 	// Legacy fallback (existing code)
 	const planContent = await readSwarmFileAsync(directory, 'plan.md');
 	if (!planContent) {
+		const metrics = getCompactionMetrics();
 		return {
 			hasPlan: false,
 			currentPhase: 'Unknown',
@@ -82,8 +85,8 @@ export async function getStatusData(
 			turboMode: hasActiveTurboMode(),
 			contextBudgetPct:
 				swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-			compactionCount: 0,
-			lastSnapshotAt: null,
+			compactionCount: metrics.compactionCount,
+			lastSnapshotAt: metrics.lastSnapshotAt,
 		};
 	}
 
@@ -92,6 +95,7 @@ export async function getStatusData(
 	const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
 	const totalTasks = completedTasks + incompleteTasks;
 	const agentCount = Object.keys(agents).length;
+	const metrics = getCompactionMetrics();
 
 	return {
 		hasPlan: true,
@@ -103,8 +107,8 @@ export async function getStatusData(
 		turboMode: hasActiveTurboMode(),
 		contextBudgetPct:
 			swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-		compactionCount: 0,
-		lastSnapshotAt: null,
+		compactionCount: metrics.compactionCount,
+		lastSnapshotAt: metrics.lastSnapshotAt,
 	};
 }
 

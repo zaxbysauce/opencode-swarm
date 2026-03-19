@@ -129,6 +129,8 @@ export interface AgentSessionState {
     };
     /** Flag to track if the 50% context pressure warning has been sent this session */
     contextPressureWarningSent?: boolean;
+    /** Queue of advisory messages (e.g., SLOP, context pressure) pending injection into next messagesTransform */
+    pendingAdvisoryMessages?: string[];
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.

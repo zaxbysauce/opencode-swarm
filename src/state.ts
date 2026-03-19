@@ -157,6 +157,8 @@ export interface AgentSessionState {
 	loopWarningPending?: { agent: string; message: string; timestamp: number };
 	/** Flag to track if the 50% context pressure warning has been sent this session */
 	contextPressureWarningSent?: boolean;
+	/** Queue of advisory messages (e.g., SLOP, context pressure) pending injection into next messagesTransform */
+	pendingAdvisoryMessages?: string[];
 }
 
 /**
@@ -295,6 +297,7 @@ export function startAgentSession(
 		// Turbo Mode (v6.26)
 		turboMode: false,
 		loopDetectionWindow: [],
+		pendingAdvisoryMessages: [],
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -453,6 +456,9 @@ export function ensureAgentSession(
 		}
 		if (session.loopDetectionWindow === undefined) {
 			session.loopDetectionWindow = [];
+		}
+		if (session.pendingAdvisoryMessages === undefined) {
+			session.pendingAdvisoryMessages = [];
 		}
 
 		session.lastToolCallTime = now;

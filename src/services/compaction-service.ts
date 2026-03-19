@@ -26,6 +26,7 @@ interface CompactionState {
 	observationCount: number;
 	reflectionCount: number;
 	emergencyCount: number;
+	lastSnapshotAt: string | null;
 }
 
 function makeInitialState(): CompactionState {
@@ -36,8 +37,11 @@ function makeInitialState(): CompactionState {
 		observationCount: 0,
 		reflectionCount: 0,
 		emergencyCount: 0,
+		lastSnapshotAt: null,
 	};
 }
+
+const state = makeInitialState();
 
 // ── Snapshot writer ────────────────────────────────────────────────────────────
 
@@ -109,8 +113,6 @@ export function createCompactionService(
 	directory: string,
 	injectMessage: (sessionId: string, message: string) => void,
 ): CompactionServiceHook {
-	const state = makeInitialState();
-
 	return {
 		toolAfter: async (_input, _output) => {
 			if (!config.enabled) return;
@@ -134,6 +136,7 @@ export function createCompactionService(
 						config.preserveLastNTurns,
 					);
 					appendSnapshot(directory, 'emergency', budgetPct, msg);
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 					return;
 				}
@@ -147,6 +150,7 @@ export function createCompactionService(
 					state.reflectionCount++;
 					const msg = buildReflectionMessage(budgetPct);
 					appendSnapshot(directory, 'reflection', budgetPct, msg);
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 					return;
 				}
@@ -160,6 +164,7 @@ export function createCompactionService(
 					state.observationCount++;
 					const msg = buildObservationMessage(budgetPct);
 					appendSnapshot(directory, 'observation', budgetPct, msg);
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 				}
 			} catch {
@@ -167,4 +172,25 @@ export function createCompactionService(
 			}
 		},
 	};
+}
+
+export function getCompactionMetrics(): {
+	compactionCount: number;
+	lastSnapshotAt: string | null;
+} {
+	return {
+		compactionCount:
+			state.observationCount + state.reflectionCount + state.emergencyCount,
+		lastSnapshotAt: state.lastSnapshotAt,
+	};
+}
+
+export function resetCompactionState(): void {
+	state.lastObservationAt = 0;
+	state.lastReflectionAt = 0;
+	state.lastEmergencyAt = 0;
+	state.observationCount = 0;
+	state.reflectionCount = 0;
+	state.emergencyCount = 0;
+	state.lastSnapshotAt = null;
 }
