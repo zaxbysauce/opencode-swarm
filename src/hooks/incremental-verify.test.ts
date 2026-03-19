@@ -432,4 +432,22 @@ describe('detectTypecheckCommand adversarial tests', () => {
 		expect(result!.command).toEqual(['npx', 'tsc', '--noEmit']);
 		expect(result!.language).toBe('typescript');
 	});
+
+	// 11. Go when package.json exists but has no TypeScript markers
+	test('detects Go when package.json exists but has no TypeScript markers', async () => {
+		await fs.promises.writeFile(
+			path.join(tmpDir, 'package.json'),
+			'{ "name": "tooling-repo", "scripts": { "lint": "eslint ." } }',
+			'utf8',
+		);
+		await fs.promises.writeFile(
+			path.join(tmpDir, 'go.mod'),
+			'module tooling-repo\n',
+			'utf8',
+		);
+		const result = detectTypecheckCommand(tmpDir);
+		expect(result).not.toBeNull();
+		expect(result!.language).toBe('go');
+		expect(result!.command).toEqual(['go', 'vet', './...']);
+	});
 });
