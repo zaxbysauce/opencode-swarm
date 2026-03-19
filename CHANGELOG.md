@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.0...v6.29.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* route advisory hook messages into LLM context via pendingAdvisoryMessages queue ([#214](https://github.com/zaxbysauce/opencode-swarm/issues/214)) ([48fcb0d](https://github.com/zaxbysauce/opencode-swarm/commit/48fcb0d75310e4978c632c2141161faac8b8541d))
+
 ## [6.29.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.28.1...v6.29.0) (2026-03-19)
 
 
