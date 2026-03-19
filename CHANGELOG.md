@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.28.1...v6.29.0) (2026-03-19)
+
+
+### Features
+
+* self-correcting workflow hooks, context compaction, and tech debt cleanup ([#212](https://github.com/zaxbysauce/opencode-swarm/issues/212)) ([8fd18c9](https://github.com/zaxbysauce/opencode-swarm/commit/8fd18c9f69d7d37016bab300814f825784db3f1a))
+
 ## [6.28.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.28.0...v6.28.1) (2026-03-18)
 
 
