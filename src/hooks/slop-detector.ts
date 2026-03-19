@@ -4,6 +4,8 @@
  * system message when findings are detected. Non-blocking, <500ms.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { SlopDetectorConfig } from '../config/schema';
 export type { SlopDetectorConfig };
 
@@ -37,7 +39,10 @@ function checkAbstractionBloat(
 	content: string,
 	threshold: number,
 ): SlopFinding | null {
-	const newClasses = countMatches(content, /^\+.*\bclass\s+\w+/gm);
+	const newClasses = countMatches(
+		content,
+		/^\+.*\b(?:class|struct|impl)\s+\w+/gm,
+	);
 	if (newClasses >= threshold) {
 		return {
 			type: 'abstraction_bloat',
@@ -54,8 +59,8 @@ function checkCommentStrip(
 	content: string,
 	threshold: number,
 ): SlopFinding | null {
-	const removedComments = countMatches(content, /^-\s*\/[/*]/gm);
-	const addedComments = countMatches(content, /^\+\s*\/[/*]/gm);
+	const removedComments = countMatches(content, /^-\s*(?:\/[/*]|#|--)/gm);
+	const addedComments = countMatches(content, /^\+\s*(?:\/[/*]|#|--)/gm);
 	if (removedComments >= threshold && addedComments === 0) {
 		return {
 			type: 'comment_strip',
@@ -88,16 +93,45 @@ function checkBoilerplateExplosion(
 }
 
 /**
+ * Recursively walk a directory and collect all files matching any of the given extensions.
+ * Excludes node_modules, .git, and symlinks pointing to directories (prevents infinite loops).
+ */
+function walkFiles(dir: string, exts: string[]): string[] {
+	const results: string[] = [];
+	try {
+		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+			if (entry.isSymbolicLink()) continue; // skip symlinks to avoid infinite loops
+			const full = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				if (entry.name === 'node_modules' || entry.name === '.git') continue;
+				results.push(...walkFiles(full, exts));
+			} else if (entry.isFile()) {
+				if (exts.some((ext) => entry.name.endsWith(ext))) {
+					results.push(full);
+				}
+			}
+		}
+	} catch {
+		/* skip permission errors */
+	}
+	return results;
+}
+
+/**
  * Heuristic 4: Dead exports — new export not found in any project import.
  * Quick grep-style check using a file read. Fast approximation only.
  */
-async function checkDeadExports(
+function checkDeadExports(
 	content: string,
 	projectDir: string,
 	startTime: number,
-): Promise<SlopFinding | null> {
+): SlopFinding | null {
+	// Dead-export heuristic only applies to JS/TS projects
+	const hasPackageJson = fs.existsSync(path.join(projectDir, 'package.json'));
+	if (!hasPackageJson) return null;
+
 	const exportMatches = content.matchAll(
-		/^(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm,
+		/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm,
 	);
 	const newExports: string[] = [];
 	for (const match of exportMatches) {
@@ -105,17 +139,18 @@ async function checkDeadExports(
 	}
 	if (newExports.length === 0) return null;
 
+	const files = walkFiles(projectDir, ['.ts', '.tsx', '.js', '.jsx']);
+
 	const deadExports: string[] = [];
 	for (const name of newExports) {
 		if (Date.now() - startTime > 480) break; // time budget
 		try {
 			const importPattern = new RegExp(`\\bimport\\b[^;]*\\b${name}\\b`, 'g');
-			const glob = new Bun.Glob(`src/**/*.ts`);
 			let found = false;
-			for await (const file of glob.scan(projectDir)) {
+			for (const file of files) {
 				if (found || Date.now() - startTime > 480) break; // time budget inside loop
 				try {
-					const text = await Bun.file(`${projectDir}/${file}`).text();
+					const text = fs.readFileSync(file, 'utf-8');
 					if (importPattern.test(text)) found = true;
 					importPattern.lastIndex = 0; // reset for reuse
 				} catch {
@@ -193,7 +228,7 @@ export function createSlopDetectorHook(
 
 			if (Date.now() - startTime < 400) {
 				try {
-					const dead = await checkDeadExports(content, projectDir, startTime);
+					const dead = checkDeadExports(content, projectDir, startTime);
 					if (dead) findings.push(dead);
 				} catch {
 					// dead export check is best-effort

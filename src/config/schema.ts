@@ -831,7 +831,10 @@ export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
 // Incremental verification configuration (v6.29)
 export const IncrementalVerifyConfigSchema = z.object({
 	enabled: z.boolean().default(true),
-	command: z.string().nullable().default(null),
+	command: z
+		.union([z.string(), z.array(z.string())])
+		.nullable()
+		.default(null),
 	timeoutMs: z.number().int().min(1000).max(300000).default(30000),
 	triggerAgents: z.array(z.string()).default(['coder']),
 });
