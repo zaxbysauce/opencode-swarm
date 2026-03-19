@@ -85,4 +85,21 @@ Detects low-quality code patterns (AI slop) in generated output.
 | `commentStripThreshold` | number | `5` | Comment-strip threshold (max consecutive comment lines) |
 | `diffLineThreshold` | number | `200` | Boilerplate-explosion threshold (max lines per diff) |
 
+### Curator
+
+Optional knowledge-base curator that validates agent output against project knowledge.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Master switch for Curator |
+| `init_enabled` | boolean | `true` | Run Curator at session start |
+| `phase_enabled` | boolean | `true` | Run Curator at phase boundaries |
+| `max_summary_tokens` | number | `2000` | Max tokens for Curator summary output |
+| `min_knowledge_confidence` | number | `0.7` | Minimum confidence threshold for knowledge entries |
+| `compliance_report` | boolean | `true` | Include compliance report in phase digest |
+| `suppress_warnings` | boolean | `true` | Suppress TUI warnings; emit events only |
+| `drift_inject_max_chars` | number | `500` | Max chars for drift report summary injected into architect context |
+
+Curator is optional and disabled by default. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` to track knowledge alignment and drift detection.
+
 For a full configuration reference, see the [README](../README.md#configuration-reference).
