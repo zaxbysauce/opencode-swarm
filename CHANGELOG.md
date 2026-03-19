@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.28.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.28.0...v6.28.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* prefer local node_modules/.bin over global npx for linter detection ([#209](https://github.com/zaxbysauce/opencode-swarm/issues/209)) ([9799dca](https://github.com/zaxbysauce/opencode-swarm/commit/9799dcae85ac0549b88efa7ab79fbf3300451b18))
+
 ## [6.28.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.27.1...v6.28.0) (2026-03-17)
 
 
