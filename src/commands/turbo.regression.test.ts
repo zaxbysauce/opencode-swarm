@@ -320,6 +320,9 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 				hasPlan: true,
 				isLegacy: false,
 				turboMode: true,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const output = formatStatusMarkdown(statusData);
@@ -339,6 +342,9 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 				hasPlan: true,
 				isLegacy: false,
 				turboMode: false,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const output = formatStatusMarkdown(statusData);

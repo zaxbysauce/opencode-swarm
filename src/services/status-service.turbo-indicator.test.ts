@@ -92,6 +92,9 @@ describe('StatusService - Turbo Mode Indicator', () => {
 				agentCount: 3,
 				isLegacy: false,
 				turboMode: true,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			expect(statusData.turboMode).toBe(true);
@@ -109,6 +112,9 @@ describe('StatusService - Turbo Mode Indicator', () => {
 				agentCount: 3,
 				isLegacy: false,
 				turboMode: true,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const markdown = formatStatusMarkdown(status);
@@ -126,6 +132,9 @@ describe('StatusService - Turbo Mode Indicator', () => {
 				agentCount: 3,
 				isLegacy: false,
 				turboMode: false,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const markdown = formatStatusMarkdown(status);
@@ -143,6 +152,9 @@ describe('StatusService - Turbo Mode Indicator', () => {
 				agentCount: 4,
 				isLegacy: false,
 				turboMode: false,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const markdown = formatStatusMarkdown(status);
@@ -161,11 +173,17 @@ describe('StatusService - Turbo Mode Indicator', () => {
 				agentCount: 2,
 				isLegacy: false,
 				turboMode: false,
+				contextBudgetPct: null,
+				compactionCount: 0,
+				lastSnapshotAt: null,
 			};
 
 			const statusOn: StatusData = {
 				...statusOff,
 				turboMode: true,
+				contextBudgetPct: statusOff.contextBudgetPct,
+				compactionCount: statusOff.compactionCount,
+				lastSnapshotAt: statusOff.lastSnapshotAt,
 			};
 
 			const markdownOff = formatStatusMarkdown(statusOff);

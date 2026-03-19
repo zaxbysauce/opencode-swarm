@@ -29,6 +29,8 @@ export interface WriteRetroArgs {
 	coder_revisions: number;
 	/** Number of reviewer rejections received */
 	reviewer_rejections: number;
+	loop_detections?: number;
+	circuit_breaker_trips?: number;
 	/** Number of test failures encountered */
 	test_failures: number;
 	/** Number of security findings */
@@ -102,6 +104,242 @@ export async function executeWriteRetro(
 		);
 	}
 
+	// Validate non-negative integer guards for required numeric fields
+	if (!Number.isInteger(args.total_tool_calls) || args.total_tool_calls < 0) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid total_tool_calls: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (!Number.isInteger(args.coder_revisions) || args.coder_revisions < 0) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid coder_revisions: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (
+		!Number.isInteger(args.reviewer_rejections) ||
+		args.reviewer_rejections < 0
+	) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid reviewer_rejections: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (!Number.isInteger(args.test_failures) || args.test_failures < 0) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid test_failures: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (!Number.isInteger(args.security_findings) || args.security_findings < 0) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid security_findings: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (
+		!Number.isInteger(args.integration_issues) ||
+		args.integration_issues < 0
+	) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid integration_issues: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	// Validate non-negative integer guards for optional numeric fields when provided
+	if (
+		args.loop_detections !== undefined &&
+		(!Number.isInteger(args.loop_detections) || args.loop_detections < 0)
+	) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid loop_detections: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (
+		args.circuit_breaker_trips !== undefined &&
+		(!Number.isInteger(args.circuit_breaker_trips) ||
+			args.circuit_breaker_trips < 0)
+	) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message:
+					'Invalid circuit_breaker_trips: must be a non-negative integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	// Validate max bounds for all numeric fields (reject over-limit values before saveEvidence)
+	if (args.phase > 99) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid phase: must be <= 99',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.task_count > 9999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid task_count: must be <= 9999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.total_tool_calls > 9999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid total_tool_calls: must be <= 9999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.coder_revisions > 999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid coder_revisions: must be <= 999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.reviewer_rejections > 999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid reviewer_rejections: must be <= 999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.loop_detections !== undefined && args.loop_detections > 9999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid loop_detections: must be <= 9999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (
+		args.circuit_breaker_trips !== undefined &&
+		args.circuit_breaker_trips > 9999
+	) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid circuit_breaker_trips: must be <= 9999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.test_failures > 9999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid test_failures: must be <= 9999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.security_findings > 999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid security_findings: must be <= 999',
+			},
+			null,
+			2,
+		);
+	}
+
+	if (args.integration_issues > 999) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid integration_issues: must be <= 999',
+			},
+			null,
+			2,
+		);
+	}
+
 	// Validate summary is non-empty string
 	const summary = args.summary;
 	if (typeof summary !== 'string' || summary.trim().length === 0) {
@@ -132,6 +370,8 @@ export async function executeWriteRetro(
 		total_tool_calls: args.total_tool_calls,
 		coder_revisions: args.coder_revisions,
 		reviewer_rejections: args.reviewer_rejections,
+		loop_detections: args.loop_detections,
+		circuit_breaker_trips: args.circuit_breaker_trips,
 		test_failures: args.test_failures,
 		security_findings: args.security_findings,
 		integration_issues: args.integration_issues,
@@ -185,6 +425,7 @@ export const write_retro: ToolDefinition = createSwarmTool({
 			.number()
 			.int()
 			.positive()
+			.max(99)
 			.describe('The phase number being completed (e.g., 1, 2, 3)'),
 		summary: tool.schema
 			.string()
@@ -193,6 +434,7 @@ export const write_retro: ToolDefinition = createSwarmTool({
 			.number()
 			.int()
 			.min(1)
+			.max(9999)
 			.describe('Count of tasks completed in this phase'),
 		task_complexity: tool.schema
 			.enum(['trivial', 'simple', 'moderate', 'complex'])
@@ -201,31 +443,51 @@ export const write_retro: ToolDefinition = createSwarmTool({
 			.number()
 			.int()
 			.min(0)
+			.max(9999)
 			.describe('Total number of tool calls in this phase'),
 		coder_revisions: tool.schema
 			.number()
 			.int()
 			.min(0)
+			.max(999)
 			.describe('Number of coder revisions made'),
 		reviewer_rejections: tool.schema
 			.number()
 			.int()
 			.min(0)
+			.max(999)
 			.describe('Number of reviewer rejections received'),
+		loop_detections: tool.schema
+			.number()
+			.int()
+			.min(0)
+			.max(9999)
+			.optional()
+			.describe('Number of loop detection events in this phase'),
+		circuit_breaker_trips: tool.schema
+			.number()
+			.int()
+			.min(0)
+			.max(9999)
+			.optional()
+			.describe('Number of circuit breaker trips in this phase'),
 		test_failures: tool.schema
 			.number()
 			.int()
 			.min(0)
+			.max(9999)
 			.describe('Number of test failures encountered'),
 		security_findings: tool.schema
 			.number()
 			.int()
 			.min(0)
+			.max(999)
 			.describe('Number of security findings'),
 		integration_issues: tool.schema
 			.number()
 			.int()
 			.min(0)
+			.max(999)
 			.describe('Number of integration issues'),
 		lessons_learned: tool.schema
 			.array(tool.schema.string())
@@ -260,6 +522,14 @@ export const write_retro: ToolDefinition = createSwarmTool({
 				total_tool_calls: Number(args.total_tool_calls),
 				coder_revisions: Number(args.coder_revisions),
 				reviewer_rejections: Number(args.reviewer_rejections),
+				loop_detections:
+					args.loop_detections != null
+						? Number(args.loop_detections)
+						: undefined,
+				circuit_breaker_trips:
+					args.circuit_breaker_trips != null
+						? Number(args.circuit_breaker_trips)
+						: undefined,
 				test_failures: Number(args.test_failures),
 				security_findings: Number(args.security_findings),
 				integration_issues: Number(args.integration_issues),

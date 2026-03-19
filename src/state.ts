@@ -149,6 +149,14 @@ export interface AgentSessionState {
 	// Turbo Mode (v6.26)
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
 	turboMode: boolean;
+
+	// Loop Detection (v6.29)
+	/** Sliding window of last 10 Task delegation hashes for loop detection */
+	loopDetectionWindow?: Array<{ hash: string; timestamp: number }>;
+	/** Pending loop warning message to inject into next messagesTransform (cleared after injection) */
+	loopWarningPending?: { agent: string; message: string; timestamp: number };
+	/** Flag to track if the 50% context pressure warning has been sent this session */
+	contextPressureWarningSent?: boolean;
 }
 
 /**
@@ -198,6 +206,9 @@ export const swarmState = {
 	/** Number of events since last flush */
 	pendingEvents: 0,
 
+	/** Last known context budget percentage (0-100), updated by system-enhancer */
+	lastBudgetPct: 0,
+
 	/** Per-session guardrail state — keyed by sessionID */
 	agentSessions: new Map<string, AgentSessionState>(),
 };
@@ -211,6 +222,7 @@ export function resetSwarmState(): void {
 	swarmState.activeAgent.clear();
 	swarmState.delegationChains.clear();
 	swarmState.pendingEvents = 0;
+	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
@@ -282,6 +294,7 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		loopDetectionWindow: [],
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -437,6 +450,9 @@ export function ensureAgentSession(
 		// Turbo Mode migration safety (v6.26)
 		if (session.turboMode === undefined) {
 			session.turboMode = false;
+		}
+		if (session.loopDetectionWindow === undefined) {
+			session.loopDetectionWindow = [];
 		}
 
 		session.lastToolCallTime = now;

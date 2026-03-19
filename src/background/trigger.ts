@@ -464,12 +464,13 @@ export class PreflightTriggerManager {
 			async (event) => {
 				if (this.preflightHandler) {
 					const request = event.payload as PreflightRequest;
+					let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 					try {
 						// Wrap handler execution with timeout guard
 						await Promise.race([
 							this.preflightHandler(request),
 							new Promise<never>((_, reject) => {
-								setTimeout(() => {
+								timeoutHandle = setTimeout(() => {
 									reject(
 										new Error(
 											`Preflight handler timed out after ${HANDLER_TIMEOUT_MS}ms`,
@@ -486,6 +487,8 @@ export class PreflightTriggerManager {
 							// Error message may contain sensitive info, don't log it
 							errorType: error instanceof Error ? error.name : 'unknown',
 						});
+					} finally {
+						clearTimeout(timeoutHandle);
 					}
 				}
 			},

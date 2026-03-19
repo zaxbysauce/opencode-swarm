@@ -13993,14 +13993,16 @@ var init_evidence_schema = __esm(() => {
   });
   RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("retrospective"),
-    phase_number: exports_external.number().int().min(0),
-    total_tool_calls: exports_external.number().int().min(0),
-    coder_revisions: exports_external.number().int().min(0),
-    reviewer_rejections: exports_external.number().int().min(0),
-    test_failures: exports_external.number().int().min(0),
-    security_findings: exports_external.number().int().min(0),
-    integration_issues: exports_external.number().int().min(0),
-    task_count: exports_external.number().int().min(1),
+    phase_number: exports_external.number().int().min(0).max(99),
+    total_tool_calls: exports_external.number().int().min(0).max(9999),
+    coder_revisions: exports_external.number().int().min(0).max(999),
+    reviewer_rejections: exports_external.number().int().min(0).max(999),
+    loop_detections: exports_external.number().int().min(0).max(9999).optional(),
+    circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional(),
+    test_failures: exports_external.number().int().min(0).max(9999),
+    security_findings: exports_external.number().int().min(0).max(999),
+    integration_issues: exports_external.number().int().min(0).max(999),
+    task_count: exports_external.number().int().min(1).max(9999),
     task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]),
     top_rejection_reasons: exports_external.array(exports_external.string()).default([]),
     lessons_learned: exports_external.array(exports_external.string()).max(5).default([]),
@@ -17191,6 +17193,25 @@ var CuratorConfigSchema = exports_external.object({
   suppress_warnings: exports_external.boolean().default(true),
   drift_inject_max_chars: exports_external.number().min(100).max(2000).default(500)
 });
+var SlopDetectorConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  classThreshold: exports_external.number().int().min(1).default(3),
+  commentStripThreshold: exports_external.number().int().min(1).default(5),
+  diffLineThreshold: exports_external.number().int().min(10).default(200)
+});
+var IncrementalVerifyConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  command: exports_external.string().nullable().default(null),
+  timeoutMs: exports_external.number().int().min(1000).max(300000).default(30000),
+  triggerAgents: exports_external.array(exports_external.string()).default(["coder"])
+});
+var CompactionConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  observationThreshold: exports_external.number().min(1).max(99).default(40),
+  reflectionThreshold: exports_external.number().min(1).max(99).default(60),
+  emergencyThreshold: exports_external.number().min(1).max(99).default(80),
+  preserveLastNTurns: exports_external.number().int().min(1).default(5)
+});
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -17224,7 +17245,10 @@ var PluginConfigSchema = exports_external.object({
     truncation_enabled: exports_external.boolean().default(true),
     max_lines: exports_external.number().min(10).max(500).default(150),
     per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional()
-  }).optional()
+  }).optional(),
+  slop_detector: SlopDetectorConfigSchema.optional(),
+  incremental_verify: IncrementalVerifyConfigSchema.optional(),
+  compaction_service: CompactionConfigSchema.optional()
 });
 
 // src/config/loader.ts
@@ -17410,6 +17434,7 @@ var swarmState = {
   activeAgent: new Map,
   delegationChains: new Map,
   pendingEvents: 0,
+  lastBudgetPct: 0,
   agentSessions: new Map
 };
 function getAgentSession(sessionId) {
@@ -32971,7 +32996,15 @@ function detectAdditionalLinter(cwd) {
     return "rubocop";
   return null;
 }
-async function detectAvailableLinter() {
+async function detectAvailableLinter(directory) {
+  const DETECT_TIMEOUT = 2000;
+  const projectDir = directory ?? process.cwd();
+  const isWindows = process.platform === "win32";
+  const biomeBin = isWindows ? path11.join(projectDir, "node_modules", ".bin", "biome.EXE") : path11.join(projectDir, "node_modules", ".bin", "biome");
+  const eslintBin = isWindows ? path11.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path11.join(projectDir, "node_modules", ".bin", "eslint");
+  return _detectAvailableLinter(projectDir, biomeBin, eslintBin);
+}
+async function _detectAvailableLinter(projectDir, biomeBin, eslintBin) {
   const DETECT_TIMEOUT = 2000;
   try {
     const biomeProc = Bun.spawn(["npx", "biome", "--version"], {
@@ -32983,7 +33016,7 @@ async function detectAvailableLinter() {
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
-    } else if (biomeProc.exitCode === 0) {
+    } else if (biomeProc.exitCode === 0 && fs3.existsSync(biomeBin)) {
       return "biome";
     }
   } catch {}
@@ -32997,7 +33030,7 @@ async function detectAvailableLinter() {
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
-    } else if (eslintProc.exitCode === 0) {
+    } else if (eslintProc.exitCode === 0 && fs3.existsSync(eslintBin)) {
       return "eslint";
     }
   } catch {}
@@ -33143,7 +33176,7 @@ var lint = createSwarmTool({
     }
     const { mode } = args;
     const cwd = directory;
-    const linter = await detectAvailableLinter();
+    const linter = await detectAvailableLinter(directory);
     if (linter) {
       const result = await runLint(linter, mode, directory);
       return JSON.stringify(result, null, 2);
@@ -33748,10 +33781,7 @@ var secretscan = tool({
       const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
       const excludeGlobs = [];
       const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
-      const allUserPatterns = [
-        ...exclude ?? [],
-        ...ignoreFilePatterns
-      ];
+      const allUserPatterns = [...exclude ?? [], ...ignoreFilePatterns];
       for (const exc of allUserPatterns) {
         if (exc.length === 0)
           continue;
@@ -33999,7 +34029,7 @@ function detectMinitest(cwd) {
   return fs5.existsSync(path13.join(cwd, "test")) && (fs5.existsSync(path13.join(cwd, "Gemfile")) || fs5.existsSync(path13.join(cwd, "Rakefile"))) && isCommandAvailable("ruby");
 }
 async function detectTestFramework(cwd) {
-  const baseDir = cwd || process.cwd();
+  const baseDir = cwd;
   try {
     const packageJsonPath = path13.join(baseDir, "package.json");
     if (fs5.existsSync(packageJsonPath)) {
@@ -35614,6 +35644,19 @@ function extractCurrentPhaseFromPlan2(plan) {
 // src/services/status-service.ts
 init_utils2();
 init_manager2();
+
+// src/services/context-budget-service.ts
+init_utils2();
+var DEFAULT_CONTEXT_BUDGET_CONFIG = {
+  enabled: true,
+  budgetTokens: 40000,
+  warningPct: 70,
+  criticalPct: 90,
+  warningMode: "once",
+  warningIntervalTurns: 20
+};
+
+// src/services/status-service.ts
 async function getStatusData(directory, agents) {
   const plan = await loadPlan(directory);
   if (plan && plan.migration_status !== "migration_failed") {
@@ -35635,7 +35678,10 @@ async function getStatusData(directory, agents) {
       totalTasks: totalTasks2,
       agentCount: agentCount2,
       isLegacy: false,
-      turboMode: hasActiveTurboMode()
+      turboMode: hasActiveTurboMode(),
+      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+      compactionCount: 0,
+      lastSnapshotAt: null
     };
   }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
@@ -35647,7 +35693,10 @@ async function getStatusData(directory, agents) {
       totalTasks: 0,
       agentCount: Object.keys(agents).length,
       isLegacy: true,
-      turboMode: hasActiveTurboMode()
+      turboMode: hasActiveTurboMode(),
+      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+      compactionCount: 0,
+      lastSnapshotAt: null
     };
   }
   const currentPhase = extractCurrentPhase(planContent) || "Unknown";
@@ -35662,7 +35711,10 @@ async function getStatusData(directory, agents) {
     totalTasks,
     agentCount,
     isLegacy: true,
-    turboMode: hasActiveTurboMode()
+    turboMode: hasActiveTurboMode(),
+    contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+    compactionCount: 0,
+    lastSnapshotAt: null
   };
 }
 function formatStatusMarkdown(status) {
@@ -35675,6 +35727,18 @@ function formatStatusMarkdown(status) {
   ];
   if (status.turboMode) {
     lines.push("", `**TURBO MODE**: active`);
+  }
+  if (status.contextBudgetPct !== null && status.contextBudgetPct > 0) {
+    const pct = status.contextBudgetPct.toFixed(1);
+    const budgetTokens = DEFAULT_CONTEXT_BUDGET_CONFIG.budgetTokens;
+    const est = Math.round(status.contextBudgetPct / 100 * budgetTokens);
+    lines.push("", `**Context**: ${pct}% used (est. ${est.toLocaleString()} / ${budgetTokens.toLocaleString()} tokens)`);
+    if (status.compactionCount > 0) {
+      lines.push(`**Compaction events**: ${status.compactionCount} triggered`);
+    }
+    if (status.lastSnapshotAt) {
+      lines.push(`**Last snapshot**: ${status.lastSnapshotAt}`);
+    }
   }
   return lines.join(`
 `);
@@ -35768,6 +35832,132 @@ async function executeWriteRetro(args, directory) {
       message: "Invalid task_count: must be a positive integer >= 1"
     }, null, 2);
   }
+  if (!Number.isInteger(args.total_tool_calls) || args.total_tool_calls < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args.coder_revisions) || args.coder_revisions < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args.reviewer_rejections) || args.reviewer_rejections < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args.test_failures) || args.test_failures < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args.security_findings) || args.security_findings < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args.integration_issues) || args.integration_issues < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args.loop_detections !== undefined && (!Number.isInteger(args.loop_detections) || args.loop_detections < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args.circuit_breaker_trips !== undefined && (!Number.isInteger(args.circuit_breaker_trips) || args.circuit_breaker_trips < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args.phase > 99) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be <= 99"
+    }, null, 2);
+  }
+  if (args.task_count > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be <= 9999"
+    }, null, 2);
+  }
+  if (args.total_tool_calls > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be <= 9999"
+    }, null, 2);
+  }
+  if (args.coder_revisions > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be <= 999"
+    }, null, 2);
+  }
+  if (args.reviewer_rejections > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be <= 999"
+    }, null, 2);
+  }
+  if (args.loop_detections !== undefined && args.loop_detections > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be <= 9999"
+    }, null, 2);
+  }
+  if (args.circuit_breaker_trips !== undefined && args.circuit_breaker_trips > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be <= 9999"
+    }, null, 2);
+  }
+  if (args.test_failures > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be <= 9999"
+    }, null, 2);
+  }
+  if (args.security_findings > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be <= 999"
+    }, null, 2);
+  }
+  if (args.integration_issues > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be <= 999"
+    }, null, 2);
+  }
   const summary = args.summary;
   if (typeof summary !== "string" || summary.trim().length === 0) {
     return JSON.stringify({
@@ -35789,6 +35979,8 @@ async function executeWriteRetro(args, directory) {
     total_tool_calls: args.total_tool_calls,
     coder_revisions: args.coder_revisions,
     reviewer_rejections: args.reviewer_rejections,
+    loop_detections: args.loop_detections,
+    circuit_breaker_trips: args.circuit_breaker_trips,
     test_failures: args.test_failures,
     security_findings: args.security_findings,
     integration_issues: args.integration_issues,
@@ -35818,16 +36010,18 @@ async function executeWriteRetro(args, directory) {
 var write_retro = createSwarmTool({
   description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
   args: {
-    phase: tool.schema.number().int().positive().describe("The phase number being completed (e.g., 1, 2, 3)"),
+    phase: tool.schema.number().int().positive().max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
     summary: tool.schema.string().describe("Human-readable summary of the phase"),
-    task_count: tool.schema.number().int().min(1).describe("Count of tasks completed in this phase"),
+    task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
     task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-    total_tool_calls: tool.schema.number().int().min(0).describe("Total number of tool calls in this phase"),
-    coder_revisions: tool.schema.number().int().min(0).describe("Number of coder revisions made"),
-    reviewer_rejections: tool.schema.number().int().min(0).describe("Number of reviewer rejections received"),
-    test_failures: tool.schema.number().int().min(0).describe("Number of test failures encountered"),
-    security_findings: tool.schema.number().int().min(0).describe("Number of security findings"),
-    integration_issues: tool.schema.number().int().min(0).describe("Number of integration issues"),
+    total_tool_calls: tool.schema.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+    coder_revisions: tool.schema.number().int().min(0).max(999).describe("Number of coder revisions made"),
+    reviewer_rejections: tool.schema.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+    loop_detections: tool.schema.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+    circuit_breaker_trips: tool.schema.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+    test_failures: tool.schema.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+    security_findings: tool.schema.number().int().min(0).max(999).describe("Number of security findings"),
+    integration_issues: tool.schema.number().int().min(0).max(999).describe("Number of integration issues"),
     lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
     top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
     task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
@@ -35844,6 +36038,8 @@ var write_retro = createSwarmTool({
         total_tool_calls: Number(args.total_tool_calls),
         coder_revisions: Number(args.coder_revisions),
         reviewer_rejections: Number(args.reviewer_rejections),
+        loop_detections: args.loop_detections != null ? Number(args.loop_detections) : undefined,
+        circuit_breaker_trips: args.circuit_breaker_trips != null ? Number(args.circuit_breaker_trips) : undefined,
         test_failures: Number(args.test_failures),
         security_findings: Number(args.security_findings),
         integration_issues: Number(args.integration_issues),

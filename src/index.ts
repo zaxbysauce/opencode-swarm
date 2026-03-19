@@ -37,9 +37,12 @@ import {
 import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
 import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
 import { createHivePromoterHook } from './hooks/hive-promoter.js';
+import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
+import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
+import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
 import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
@@ -176,6 +179,52 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
 	const coChangeSuggesterHook = createCoChangeSuggesterHook(ctx.directory);
 	const darkMatterDetectorHook = createDarkMatterDetectorHook(ctx.directory);
+	const slopDetectorHook =
+		config.slop_detector?.enabled !== false
+			? createSlopDetectorHook(
+					config.slop_detector ?? {
+						enabled: true,
+						classThreshold: 3,
+						commentStripThreshold: 5,
+						diffLineThreshold: 200,
+					},
+					ctx.directory,
+					(_sessionId, message) => {
+						console.warn(`[slop-detector] ${message}`);
+					},
+				)
+			: null;
+	const incrementalVerifyHook =
+		config.incremental_verify?.enabled !== false
+			? createIncrementalVerifyHook(
+					config.incremental_verify ?? {
+						enabled: true,
+						command: null,
+						timeoutMs: 30000,
+						triggerAgents: ['coder'],
+					},
+					ctx.directory,
+					(_sessionId, message) => {
+						console.warn(`[incremental-verify] ${message}`);
+					},
+				)
+			: null;
+	const compactionServiceHook =
+		config.compaction_service?.enabled !== false
+			? createCompactionService(
+					config.compaction_service ?? {
+						enabled: true,
+						observationThreshold: 40,
+						reflectionThreshold: 60,
+						emergencyThreshold: 80,
+						preserveLastNTurns: 5,
+					},
+					ctx.directory,
+					(_sessionId, message) => {
+						console.warn(`[compaction-service] ${message}`);
+					},
+				)
+			: null;
 	// v6.18 Session persistence — write state snapshot after each tool call
 	const snapshotWriterHook = createSnapshotWriterHook(ctx.directory);
 
@@ -574,6 +623,21 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 			// Guardrails runs first WITHOUT safeHook — throws must propagate to block tools
 			await guardrailsHooks.toolBefore(input, output);
+
+			// v6.29: One-time 50% context pressure warning
+			if (swarmState.lastBudgetPct >= 50) {
+				const pressureSession = ensureAgentSession(
+					input.sessionID,
+					swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME,
+				);
+				if (!pressureSession.contextPressureWarningSent) {
+					pressureSession.contextPressureWarningSent = true;
+					console.warn(
+						`[context-pressure] CONTEXT PRESSURE: ${swarmState.lastBudgetPct.toFixed(1)}% of context window estimated used. Prioritize completing the current task.`,
+					);
+				}
+			}
+
 			// Activity tracking runs second WITH safeHook — errors should not propagate
 			await safeHook(activityHooks.toolBefore)(input, output);
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
@@ -598,6 +662,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// v6.18 Session persistence — write snapshot after each tool call
 			await snapshotWriterHook(input, output);
 			await toolSummarizerHook?.(input, output);
+			if (slopDetectorHook) await slopDetectorHook.toolAfter(input, output);
+			if (incrementalVerifyHook)
+				await incrementalVerifyHook.toolAfter(input, output);
+			if (compactionServiceHook)
+				await compactionServiceHook.toolAfter(input, output);
 
 			// Tool output truncation (after summarizer to avoid double-processing)
 			const toolOutputConfig = config.tool_output;

@@ -177,15 +177,16 @@ describe('write_retro tool', () => {
 
   describe('custom task_id', () => {
     test('custom task_id overrides default', async () => {
-      const args = makeArgs({ task_id: 'custom-retro-4' });
+      // Use a valid custom retro ID (retro-N format is accepted by sanitizeTaskId)
+      const args = makeArgs({ task_id: 'retro-5' });
       const result = await executeWriteRetro(args, tempDir);
       const parsed = JSON.parse(result);
 
       expect(parsed.success).toBe(true);
-      expect(parsed.task_id).toBe('custom-retro-4');
+      expect(parsed.task_id).toBe('retro-5');
 
       // Verify file written to correct location
-      const filePath = path.join(tempDir, '.swarm', 'evidence', 'custom-retro-4', 'evidence.json');
+      const filePath = path.join(tempDir, '.swarm', 'evidence', 'retro-5', 'evidence.json');
       expect(fs.existsSync(filePath)).toBe(true);
     });
   });
@@ -368,21 +369,13 @@ describe('write_retro tool', () => {
       expect(entry.phase_number).toBe(1);
     });
 
-    test('writes retro for phase 100', async () => {
+    test('rejects phase over 99', async () => {
       const args = makeArgs({ phase: 100 });
       const result = await executeWriteRetro(args, tempDir);
       const parsed = JSON.parse(result);
 
-      expect(parsed.success).toBe(true);
-      expect(parsed.task_id).toBe('retro-100');
-      expect(parsed.phase).toBe(100);
-
-      const loaded = await loadEvidence(tempDir, 'retro-100');
-      expect(loaded.status).toBe('found');
-      if (loaded.status !== 'found') return;
-
-      const entry = loaded.bundle.entries[0] as RetrospectiveEvidence;
-      expect(entry.phase_number).toBe(100);
+      expect(parsed.success).toBe(false);
+      expect(parsed.message).toContain('Invalid phase');
     });
   });
 

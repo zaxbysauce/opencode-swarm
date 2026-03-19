@@ -642,7 +642,9 @@ ${handoffContent}`;
 
 							if (isArchitectForPreflight) {
 								if (config.pipeline?.parallel_precheck !== false) {
-									const preflightPrefix = extractAgentPrefix(activeAgent_preflight);
+									const preflightPrefix = extractAgentPrefix(
+										activeAgent_preflight,
+									);
 									tryInject(
 										`[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix}reviewer.`,
 									);
@@ -827,6 +829,7 @@ ${handoffContent}`;
 								assembledSystemPrompt,
 								contextBudgetConfig,
 							);
+							swarmState.lastBudgetPct = budgetReport.budgetPct;
 							const budgetWarning = await formatBudgetWarning(
 								budgetReport,
 								directory,
@@ -1161,7 +1164,9 @@ ${handoffContent}`;
 						stripKnownSwarmPrefix(activeAgent_preflight_b) === 'architect';
 
 					if (isArchitectForPreflight_b) {
-						const preflightPrefix_b = extractAgentPrefix(activeAgent_preflight_b);
+						const preflightPrefix_b = extractAgentPrefix(
+							activeAgent_preflight_b,
+						);
 						const hintText_b =
 							config.pipeline?.parallel_precheck !== false
 								? `[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling ${preflightPrefix_b}reviewer.`
@@ -1413,6 +1418,7 @@ ${handoffContent}`;
 							assembledSystemPrompt_b,
 							contextBudgetConfig_b,
 						);
+						swarmState.lastBudgetPct = budgetReport_b.budgetPct;
 						const budgetWarning_b = await formatBudgetWarning(
 							budgetReport_b,
 							directory,

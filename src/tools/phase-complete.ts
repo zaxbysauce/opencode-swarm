@@ -485,13 +485,13 @@ export async function executePhaseComplete(
 				dir,
 				knowledgeConfig,
 			);
-	} catch (error) {
-		// Log warning but don't block phase completion
-		safeWarn(
-			'[phase_complete] Failed to curate lessons from retrospective:',
-			error,
-		);
-	}
+		} catch (error) {
+			// Log warning but don't block phase completion
+			safeWarn(
+				'[phase_complete] Failed to curate lessons from retrospective:',
+				error,
+			);
+		}
 	}
 
 	// Curator pipeline: collect phase data and run drift check. Never blocks phase_complete.

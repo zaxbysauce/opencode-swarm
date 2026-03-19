@@ -179,6 +179,8 @@ export declare const RetrospectiveEvidenceSchema: z.ZodObject<{
     total_tool_calls: z.ZodNumber;
     coder_revisions: z.ZodNumber;
     reviewer_rejections: z.ZodNumber;
+    loop_detections: z.ZodOptional<z.ZodNumber>;
+    circuit_breaker_trips: z.ZodOptional<z.ZodNumber>;
     test_failures: z.ZodNumber;
     security_findings: z.ZodNumber;
     integration_issues: z.ZodNumber;
@@ -547,6 +549,8 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     total_tool_calls: z.ZodNumber;
     coder_revisions: z.ZodNumber;
     reviewer_rejections: z.ZodNumber;
+    loop_detections: z.ZodOptional<z.ZodNumber>;
+    circuit_breaker_trips: z.ZodOptional<z.ZodNumber>;
     test_failures: z.ZodNumber;
     security_findings: z.ZodNumber;
     integration_issues: z.ZodNumber;
@@ -906,6 +910,8 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
         total_tool_calls: z.ZodNumber;
         coder_revisions: z.ZodNumber;
         reviewer_rejections: z.ZodNumber;
+        loop_detections: z.ZodOptional<z.ZodNumber>;
+        circuit_breaker_trips: z.ZodOptional<z.ZodNumber>;
         test_failures: z.ZodNumber;
         security_findings: z.ZodNumber;
         integration_issues: z.ZodNumber;

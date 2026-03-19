@@ -23,7 +23,9 @@ export async function handleRollbackCommand(
 			return 'No checkpoints found. Use `/swarm checkpoint` to create checkpoints.';
 		}
 
-		let manifest: { checkpoints?: Array<{ phase: number; label?: string; timestamp: string }> };
+		let manifest: {
+			checkpoints?: Array<{ phase: number; label?: string; timestamp: string }>;
+		};
 		try {
 			manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 		} catch {
@@ -61,15 +63,15 @@ export async function handleRollbackCommand(
 		return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
 	}
 
-	let manifest: { checkpoints?: Array<{ phase: number; label?: string; timestamp: string }> };
+	let manifest: {
+		checkpoints?: Array<{ phase: number; label?: string; timestamp: string }>;
+	};
 	try {
 		manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 	} catch {
 		return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
 	}
-	const checkpoint = manifest.checkpoints?.find(
-		(c) => c.phase === targetPhase,
-	);
+	const checkpoint = manifest.checkpoints?.find((c) => c.phase === targetPhase);
 
 	if (!checkpoint) {
 		const available =

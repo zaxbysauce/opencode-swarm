@@ -348,7 +348,9 @@ function validateExcludePattern(exc: string): string | null {
  * Plain names are single path components with no glob characters.
  */
 function isGlobOrPathPattern(pattern: string): boolean {
-	return pattern.includes('/') || pattern.includes('\\') || /[*?[\]{}]/.test(pattern);
+	return (
+		pattern.includes('/') || pattern.includes('\\') || /[*?[\]{}]/.test(pattern)
+	);
 }
 
 /**
@@ -889,10 +891,7 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			// Load .secretscanignore patterns from scan root
 			const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
 
-			const allUserPatterns = [
-				...(exclude ?? []),
-				...ignoreFilePatterns,
-			];
+			const allUserPatterns = [...(exclude ?? []), ...ignoreFilePatterns];
 			for (const exc of allUserPatterns) {
 				if (exc.length === 0) continue;
 				if (isGlobOrPathPattern(exc)) {

@@ -425,6 +425,28 @@ export declare const CuratorConfigSchema: z.ZodObject<{
     drift_inject_max_chars: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;
+export declare const SlopDetectorConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    classThreshold: z.ZodDefault<z.ZodNumber>;
+    commentStripThreshold: z.ZodDefault<z.ZodNumber>;
+    diffLineThreshold: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
+export declare const IncrementalVerifyConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    command: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    timeoutMs: z.ZodDefault<z.ZodNumber>;
+    triggerAgents: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type IncrementalVerifyConfig = z.infer<typeof IncrementalVerifyConfigSchema>;
+export declare const CompactionConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    observationThreshold: z.ZodDefault<z.ZodNumber>;
+    reflectionThreshold: z.ZodDefault<z.ZodNumber>;
+    emergencyThreshold: z.ZodDefault<z.ZodNumber>;
+    preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -694,6 +716,25 @@ export declare const PluginConfigSchema: z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;
         max_lines: z.ZodDefault<z.ZodNumber>;
         per_tool: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+    }, z.core.$strip>>;
+    slop_detector: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        classThreshold: z.ZodDefault<z.ZodNumber>;
+        commentStripThreshold: z.ZodDefault<z.ZodNumber>;
+        diffLineThreshold: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    incremental_verify: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        command: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+        timeoutMs: z.ZodDefault<z.ZodNumber>;
+        triggerAgents: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>;
+    compaction_service: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        observationThreshold: z.ZodDefault<z.ZodNumber>;
+        reflectionThreshold: z.ZodDefault<z.ZodNumber>;
+        emergencyThreshold: z.ZodDefault<z.ZodNumber>;
+        preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

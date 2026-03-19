@@ -5,11 +5,11 @@ import * as path from 'node:path';
 import { recordGateEvidence } from '../gate-evidence';
 import {
 	advanceTaskState,
+	type DelegationEntry,
 	getTaskState,
 	resetSwarmState,
 	startAgentSession,
 	swarmState,
-	type DelegationEntry,
 } from '../state';
 import {
 	checkReviewerGate,
@@ -132,21 +132,35 @@ describe('checkReviewerGate', () => {
 			title: 'Test',
 			swarm: 'test-swarm',
 			current_phase: 1,
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'test task', depends: [], files_touched: [] }],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'test task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), planJson);
 
 		await recordGateEvidence(tmpDir, '1.1', 'reviewer', 'sess-1');
 		await recordGateEvidence(tmpDir, '1.1', 'test_engineer', 'sess-2');
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '1.1', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 	});
 
@@ -156,21 +170,35 @@ describe('checkReviewerGate', () => {
 			title: 'Test',
 			swarm: 'test-swarm',
 			current_phase: 1,
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{ id: '2.1', phase: 1, status: 'in_progress', size: 'small', description: 'code task', depends: [], files_touched: [] }],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '2.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'code task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), planJson);
 
 		await recordGateEvidence(tmpDir, '2.1', 'reviewer', 'sess-r');
 		await recordGateEvidence(tmpDir, '2.1', 'test_engineer', 'sess-te');
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '2.1', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '2.1',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 		expect(result.new_status).toBe('completed');
 	});
@@ -181,20 +209,34 @@ describe('checkReviewerGate', () => {
 			title: 'Test',
 			swarm: 'test-swarm',
 			current_phase: 1,
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{ id: '2.2', phase: 1, status: 'in_progress', size: 'small', description: 'docs task', depends: [], files_touched: [] }],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '2.2',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'docs task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), planJson);
 
 		await recordGateEvidence(tmpDir, '2.2', 'docs', 'sess-docs');
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '2.2', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '2.2',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 	});
 
@@ -225,7 +267,11 @@ describe('checkReviewerGate', () => {
 		// Create delegation chain with reviewer + test_engineer (no coder)
 		const chain: DelegationEntry[] = [
 			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
-			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+			{
+				from: 'architect',
+				to: 'mega_test_engineer',
+				timestamp: Date.now() + 1,
+			},
 		];
 		swarmState.delegationChains.set('session-1', chain);
 
@@ -244,7 +290,11 @@ describe('checkReviewerGate', () => {
 		// Create delegation chain with reviewer + test_engineer (no coder)
 		const chain: DelegationEntry[] = [
 			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
-			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+			{
+				from: 'architect',
+				to: 'mega_test_engineer',
+				timestamp: Date.now() + 1,
+			},
 		];
 		swarmState.delegationChains.set('session-1', chain);
 
@@ -298,7 +348,11 @@ describe('checkReviewerGate', () => {
 		// Create delegation chain: reviewer/test_engineer BEFORE coder
 		const chain: DelegationEntry[] = [
 			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() },
-			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() + 1 },
+			{
+				from: 'architect',
+				to: 'mega_test_engineer',
+				timestamp: Date.now() + 1,
+			},
 			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() + 2 },
 		];
 		swarmState.delegationChains.set('session-1', chain);

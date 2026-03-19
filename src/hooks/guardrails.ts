@@ -24,6 +24,7 @@ import {
 } from '../state';
 import { warn } from '../utils';
 import { extractCurrentPhaseFromPlan } from './extractors';
+import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
 
 /**
@@ -207,7 +208,10 @@ function isAgentDelegation(
 
 	const subagentType = argsObj.subagent_type;
 	if (typeof subagentType === 'string') {
-		return { isDelegation: true, targetAgent: stripKnownSwarmPrefix(subagentType) };
+		return {
+			isDelegation: true,
+			targetAgent: stripKnownSwarmPrefix(subagentType),
+		};
 	}
 
 	return { isDelegation: false, targetAgent: null };
@@ -355,6 +359,71 @@ export function createGuardrailsHooks(
 					const coderSession = swarmState.agentSessions.get(input.sessionID);
 					if (coderSession) {
 						coderSession.modifiedFilesThisCoderTask = [];
+					}
+				}
+			}
+
+			// v6.29: Loop detection and circuit breaker for Task tool delegations
+			if (input.tool === 'Task') {
+				const loopArgs = output.args as Record<string, unknown> | undefined;
+				const loopResult = detectLoop(input.sessionID, input.tool, loopArgs);
+
+				if (loopResult.count >= 5) {
+					// Circuit breaker: hard block at 5 consecutive identical delegations
+					throw new Error(
+						`CIRCUIT BREAKER: Delegation loop detected (${loopResult.count} identical patterns). Session paused. Ask the user for guidance.`,
+					);
+				} else if (loopResult.count === 3) {
+					// Soft warning at count 3 — set flag for messagesTransform to inject
+					const agentName =
+						typeof loopArgs?.subagent_type === 'string'
+							? loopArgs.subagent_type
+							: 'agent';
+					const loopSession = swarmState.agentSessions.get(input.sessionID);
+					if (loopSession) {
+						loopSession.loopWarningPending = {
+							agent: agentName,
+							message: `LOOP DETECTED: You have delegated to ${agentName} with the same pattern 3 times. Change your approach — try a different agent, different instructions, or escalate to the user.`,
+							timestamp: Date.now(),
+						};
+					}
+				}
+			}
+
+			// Block full test suite execution without a specific file argument
+			// Agents must run targeted test files, not the entire suite
+			if (input.tool === 'bash' || input.tool === 'shell') {
+				const bashArgs = output.args as Record<string, unknown> | undefined;
+				const cmd = (
+					typeof bashArgs?.command === 'string' ? bashArgs.command : ''
+				).trim();
+				const testRunnerPrefixPattern =
+					/^(bun\s+test|npm\s+test|npx\s+vitest|bunx\s+vitest)\b/;
+				if (testRunnerPrefixPattern.test(cmd)) {
+					// Split command into tokens and check if any non-flag argument exists
+					// Non-flag args are tokens that don't start with '-'
+					const tokens = cmd.split(/\s+/);
+					// Skip the runner tokens (e.g. 'bun', 'test' or 'npm', 'test')
+					const runnerTokenCount =
+						tokens[0] === 'npx' || tokens[0] === 'bunx' ? 3 : 2;
+					const remainingTokens = tokens.slice(runnerTokenCount);
+					const hasFileArg = remainingTokens.some(
+						(token) =>
+							token.length > 0 &&
+							!token.startsWith('-') &&
+							(token.includes('/') ||
+								token.includes('\\') ||
+								token.endsWith('.ts') ||
+								token.endsWith('.js') ||
+								token.endsWith('.tsx') ||
+								token.endsWith('.jsx') ||
+								token.endsWith('.mts') ||
+								token.endsWith('.mjs')),
+					);
+					if (!hasFileArg) {
+						throw new Error(
+							'BLOCKED: Full test suite execution is not allowed in-session. Run a specific test file instead: bun test path/to/file.test.ts',
+						);
 					}
 				}
 			}
@@ -964,6 +1033,26 @@ export function createGuardrailsHooks(
 				(msg) => msg.info?.role === 'system',
 			);
 
+			// v6.29: Loop detection warning injection
+			if (isArchitectSession && session?.loopWarningPending) {
+				const pending = session.loopWarningPending;
+				// Clear before injecting to avoid repeat
+				session.loopWarningPending = undefined;
+				// Inject into first system message (same pattern as self-coding warning)
+				const loopSystemMsg = systemMessages[0];
+				if (loopSystemMsg) {
+					const loopTextPart = (loopSystemMsg.parts ?? []).find(
+						(part): part is { type: string; text: string } =>
+							part.type === 'text' && typeof part.text === 'string',
+					);
+					if (loopTextPart && !loopTextPart.text.includes('LOOP DETECTED')) {
+						loopTextPart.text =
+							`[LOOP WARNING]\n${pending.message}\n[/LOOP WARNING]\n\n` +
+							loopTextPart.text;
+					}
+				}
+			}
+
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			// v6.22.8: Only re-inject when architectWriteCount has increased since last warning
 			// (prevents repeated acknowledgements in chat each turn)
@@ -1108,7 +1197,10 @@ export function createGuardrailsHooks(
 							(part): part is { type: string; text: string } =>
 								part.type === 'text' && typeof part.text === 'string',
 						);
-						if (sysTextPart && !sysTextPart.text.includes('PARTIAL GATE VIOLATION')) {
+						if (
+							sysTextPart &&
+							!sysTextPart.text.includes('PARTIAL GATE VIOLATION')
+						) {
 							const missing = [...missingGates];
 							if (missingQaDelegation) {
 								missing.push(
@@ -1156,7 +1248,10 @@ export function createGuardrailsHooks(
 						(part): part is { type: string; text: string } =>
 							part.type === 'text' && typeof part.text === 'string',
 					);
-					if (scopeTextPart && !scopeTextPart.text.includes('SCOPE VIOLATION')) {
+					if (
+						scopeTextPart &&
+						!scopeTextPart.text.includes('SCOPE VIOLATION')
+					) {
 						scopeTextPart.text =
 							`[MODEL_ONLY_GUIDANCE]\n` +
 							`⚠️ SCOPE VIOLATION: ${session.lastScopeViolation}\n` +
