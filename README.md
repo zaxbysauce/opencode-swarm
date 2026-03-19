@@ -49,10 +49,13 @@ All project state lives in `.swarm/`:
 
 ```text
 .swarm/
-├── plan.md
-├── context.md
-├── evidence/
-└── history/
+├── plan.md              # Project roadmap with phases and tasks
+├── plan.json            # Structured plan data
+├── context.md           # Technical decisions and SME guidance
+├── events.jsonl         # Event stream for diagnostics
+├── evidence/            # Review/test evidence bundles per task
+├── curator-summary.json # Curator system state (if enabled)
+└── drift-report-phase-N.json  # Plan-vs-reality drift reports
 ```
 
 That means Swarm is resumable by design. If you come back later and `.swarm/` already exists, the architect may go straight into **RESUME** or **EXECUTE** instead of replaying the full first-run discovery flow.
@@ -936,6 +939,33 @@ The following tools can be assigned to agents via overrides:
 
 ## Recent Changes
 
+### v6.29.3 — Curator Visibility + Documentation Refresh
+
+This release adds Curator status reporting to `/swarm diagnose` and refreshes documentation to reflect current behavior.
+
+- **Curator status in diagnose**: `/swarm diagnose` now reports whether Curator is enabled/disabled and validates the `curator-summary.json` artifact if present.
+- **README and config docs refreshed**: Updated `.swarm/` directory tree, Curator configuration options, and drift report artifacts to match current implementation.
+
+### v6.29.2 — Multi-Language Incremental Verify + Slop-Detector Hardening
+
+This release adds multi-language typecheck support and hardens detection of low-quality AI-generated code.
+
+- **Multi-language incremental_verify**: Post-coder typecheck now supports TypeScript/JavaScript, Go, Rust, and C#. Runs language-appropriate build/typecheck commands per task for faster feedback.
+- **Slop-detector hardening**: Enhanced detection of AI-generated placeholder code with multi-language heuristics (comments like `// TODO`, `// FIXME`, `// HACK`, language-specific patterns for Go/Rust/C#/Python). Advisory warnings injected into coder context when slop patterns detected.
+- **CODEBASE REALITY CHECK**: Architect dispatches Explorer before planning to verify current state of referenced items. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. Skipped for greenfield projects.
+- **Evidence schema fix**: Evidence bundles now correctly validate against schema; invalid entries are filtered.
+- **Curator/docs alignment**: Curator health check in `/swarm diagnose` reports curator.enabled status and validates curator-summary.json.
+
+### v6.29.1 — Advisory Hook Message Injection
+
+This release improves how advisory warnings are injected into agent context.
+
+- **Advisory hook message injection**: Enhanced message formatting for self-coding detection, partial gate tracking, batch detection, and scope violation warnings. Messages now include structured context for faster resolution.
+
+### v6.23 through v6.28 — Stability and Incremental Improvements
+
+Subsequent releases focused on stability hardening, incremental_verify scaffolding, and tooling improvements across the pipeline. Key areas: pre_check_batch parallelization, evidence bundle validation, and diagnostics tooling.
+
 ### v6.22 — Curator Background Analysis + Session State Persistence
 
 This release adds the optional Curator system for phase-level intelligence and fixes session snapshot persistence for task workflow states.
@@ -1117,6 +1147,8 @@ OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three
 ## Curator
 
 The Curator is an optional background analysis system that runs after each phase. It is **disabled by default** (`curator.enabled = false`) and never blocks execution — all Curator operations are wrapped in try/catch.
+
+To enable, set `"curator": { "enabled": true }` in your config. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` files.
 
 ### What the Curator Does
 

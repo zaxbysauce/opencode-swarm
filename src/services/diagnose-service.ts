@@ -678,6 +678,77 @@ async function checkSteeringDirectives(
 }
 
 /**
+ * Check F: Curator Health - verifies curator.enabled and curator-summary.json state
+ */
+async function checkCurator(directory: string): Promise<HealthCheck> {
+	try {
+		const config = loadPluginConfig(directory);
+
+		if (!config.curator?.enabled) {
+			return {
+				name: 'Curator',
+				status: '✅',
+				detail: 'Disabled (enable via curator.enabled)',
+			};
+		}
+
+		const summaryPath = path.join(directory, '.swarm/curator-summary.json');
+
+		if (!existsSync(summaryPath)) {
+			return {
+				name: 'Curator',
+				status: '✅',
+				detail: 'Enabled, no summary yet (waiting for first phase)',
+			};
+		}
+
+		try {
+			const content = readFileSync(summaryPath, 'utf-8');
+			const parsed = JSON.parse(content);
+
+			if (
+				typeof parsed.schema_version !== 'number' ||
+				parsed.schema_version !== 1
+			) {
+				return {
+					name: 'Curator',
+					status: '❌',
+					detail: `curator-summary.json has invalid schema_version (expected 1, got ${JSON.stringify(parsed.schema_version)})`,
+				};
+			}
+
+			const phaseInfo =
+				parsed.last_phase_covered !== undefined
+					? `phase ${parsed.last_phase_covered}`
+					: 'unknown phase';
+			const timeInfo = parsed.last_updated
+				? `, updated ${parsed.last_updated}`
+				: '';
+
+			return {
+				name: 'Curator',
+				status: '✅',
+				detail: `Summary present — covering ${phaseInfo}${timeInfo}`,
+			};
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Unknown error';
+			return {
+				name: 'Curator',
+				status: '❌',
+				detail: `curator-summary.json is corrupt or invalid: ${message}`,
+			};
+		}
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Unknown error';
+		return {
+			name: 'Curator',
+			status: '❌',
+			detail: `Could not check curator state: ${message}`,
+		};
+	}
+}
+
+/**
  * Get diagnose data from the swarm directory.
  * Returns structured health checks for GUI, background flows, or commands.
  */
@@ -826,6 +897,9 @@ export async function getDiagnoseData(
 
 	// Check: Steering Directives
 	checks.push(await checkSteeringDirectives(directory));
+
+	// Check: Curator
+	checks.push(await checkCurator(directory));
 
 	const passCount = checks.filter((c) => c.status === '✅').length;
 	const totalCount = checks.length;

@@ -560,8 +560,149 @@ describe('checkSteeringDirectives', () => {
   });
 });
 
-describe('Integration - all 5 new checks together', () => {
-  it('should include all 5 new health checks in the result', async () => {
+describe('checkCurator', () => {
+  it('should pass when curator is disabled', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: false } });
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('✅');
+    expect(check.detail).toContain('Disabled');
+    expect(check.detail).toContain('curator.enabled');
+  });
+
+  it('should pass when curator is enabled but no summary exists', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir');
+    });
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('✅');
+    expect(check.detail).toContain('no summary yet');
+    expect(check.detail).toContain('waiting for first phase');
+  });
+
+  it('should pass when curator is enabled with valid summary', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir') ||
+             path.endsWith('.swarm/curator-summary.json') ||
+             path.endsWith('.swarm\\curator-summary.json');
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      schema_version: 1,
+      last_phase_covered: 3,
+      last_updated: '2026-03-19T10:00:00Z',
+    }));
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('✅');
+    expect(check.detail).toContain('Summary present');
+    expect(check.detail).toContain('phase 3');
+  });
+
+  it('should pass when curator is enabled with valid summary but no phase info', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir') ||
+             path.endsWith('.swarm/curator-summary.json') ||
+             path.endsWith('.swarm\\curator-summary.json');
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      schema_version: 1,
+    }));
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('✅');
+    expect(check.detail).toContain('Summary present');
+    expect(check.detail).toContain('unknown phase');
+  });
+
+  it('should fail when curator is enabled but summary has corrupt JSON', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir') ||
+             path.endsWith('.swarm/curator-summary.json') ||
+             path.endsWith('.swarm\\curator-summary.json');
+    });
+    mockReadFileSync.mockReturnValue('{ invalid json content }');
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('❌');
+    expect(check.detail).toContain('corrupt');
+    expect(check.detail).toContain('invalid');
+  });
+
+  it('should fail when curator is enabled but summary has wrong schema_version', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir') ||
+             path.endsWith('.swarm/curator-summary.json') ||
+             path.endsWith('.swarm\\curator-summary.json');
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      schema_version: 2,
+      last_phase_covered: 1,
+    }));
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('❌');
+    expect(check.detail).toContain('invalid schema_version');
+    expect(check.detail).toContain('expected 1');
+  });
+
+  it('should fail when curator is enabled but schema_version is missing', async () => {
+    mockLoadPluginConfig.mockReturnValue({ curator: { enabled: true, init_enabled: true, phase_enabled: true } });
+    mockExistsSync.mockImplementation((path: any) => {
+      if (typeof path !== 'string') return false;
+      return path === '/test/dir' || path === '/test/dir/' ||
+             path.endsWith('/test/dir') || path.endsWith('\\test\\dir') ||
+             path.endsWith('.swarm/curator-summary.json') ||
+             path.endsWith('.swarm\\curator-summary.json');
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      last_phase_covered: 1,
+    }));
+
+    const result = await getDiagnoseData('/test/dir');
+    const check = findCheck(result.checks, 'Curator');
+
+    expect(check).toBeDefined();
+    expect(check.status).toBe('❌');
+    expect(check.detail).toContain('invalid schema_version');
+  });
+});
+
+describe('Integration - all 6 new checks together', () => {
+  it('should include all 6 new health checks in the result', async () => {
     mockExistsSync.mockImplementation((path: any) => {
       if (typeof path !== 'string') return false;
       return path === '/test/dir' || path === '/test/dir/' ||
@@ -570,12 +711,13 @@ describe('Integration - all 5 new checks together', () => {
 
     const result = await getDiagnoseData('/test/dir');
 
-    // Check that all 5 new checks are present
+    // Check that all 6 new checks are present
     expect(findCheck(result.checks, 'Config Parseability')).toBeDefined();
     expect(findCheck(result.checks, 'Grammar WASM Files')).toBeDefined();
     expect(findCheck(result.checks, 'Checkpoint Manifest')).toBeDefined();
     expect(findCheck(result.checks, 'Event Stream')).toBeDefined();
     expect(findCheck(result.checks, 'Steering Directives')).toBeDefined();
+    expect(findCheck(result.checks, 'Curator')).toBeDefined();
   });
 
   it('should report correct total count including new checks', async () => {
@@ -601,7 +743,7 @@ describe('Integration - all 5 new checks together', () => {
     // - Migration (0 or 1) - depends on plan
     // - Task DAG (0 or 1) - depends on plan
     // - Evidence (0 or 1) - depends on plan
-    // + 5 new checks = ~12-15 checks total
+    // + 6 new checks = ~12-15 checks total
     expect(result.totalCount).toBeGreaterThan(11);
   });
 });

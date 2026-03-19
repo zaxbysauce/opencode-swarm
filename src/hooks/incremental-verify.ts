@@ -32,7 +32,8 @@ export function resetAdvisoryDedup(): void {
  * or null overall if no supported language is detected.
  * Checks in order: TypeScript (package.json) → Go (go.mod) → Rust (Cargo.toml)
  * → Python (pyproject.toml/requirements.txt/setup.py) → C# (*.csproj/*.sln)
- * First match wins; package.json presence means Node/Bun project — no fallthrough.
+ * First match wins; package.json only short-circuits when TypeScript markers are present.
+ * Otherwise the function falls through to Go/Rust/Python/C# detection.
  */
 function detectTypecheckCommand(
 	projectDir: string,
@@ -61,15 +62,24 @@ function detectTypecheckCommand(
 				...(pkg.dependencies as Record<string, string> | undefined),
 				...(pkg.devDependencies as Record<string, string> | undefined),
 			};
+			// package.json exists but has no TS markers — do not return null here.
+			// A root package.json may be used for tooling (e.g. just a build runner)
+			// even in a Go/Rust/Python/C# repo, so we fall through to other language detection.
 			if (
 				!deps?.typescript &&
 				!fs.existsSync(path.join(projectDir, 'tsconfig.json'))
 			) {
-				return null; // package.json exists but no TS — not a TS project, no fallthrough
+				// Fall through to Go/Rust/Python/C# detection below
 			}
 
-			// Fallback: bare tsc --noEmit
-			return { command: ['npx', 'tsc', '--noEmit'], language: 'typescript' };
+			// Fallback: bare tsc --noEmit — only if TS markers are actually present
+			const hasTSMarkers =
+				deps?.typescript ||
+				fs.existsSync(path.join(projectDir, 'tsconfig.json'));
+			if (hasTSMarkers) {
+				return { command: ['npx', 'tsc', '--noEmit'], language: 'typescript' };
+			}
+			// No TS markers — fall through to Go/Rust/Python/C# detection below
 		} catch {
 			return null;
 		}
