@@ -1053,6 +1053,33 @@ export function createGuardrailsHooks(
 				}
 			}
 
+			// v6.29: Pending advisory messages injection (slop-detector, incremental-verify, compaction, context-pressure)
+			if (
+				isArchitectSession &&
+				(session?.pendingAdvisoryMessages?.length ?? 0) > 0
+			) {
+				const advisories = session!.pendingAdvisoryMessages!;
+				let targetMsg = systemMessages[0];
+				if (!targetMsg) {
+					const newMsg = {
+						info: { role: 'system' as const },
+						parts: [{ type: 'text' as const, text: '' }],
+					};
+					messages.unshift(newMsg);
+					targetMsg = newMsg;
+				}
+				const textPart = (targetMsg.parts ?? []).find(
+					(part): part is { type: string; text: string } =>
+						part.type === 'text' && typeof part.text === 'string',
+				);
+				if (textPart) {
+					const joined = advisories.join('\n---\n');
+					textPart.text =
+						`[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n` + textPart.text;
+				}
+				session!.pendingAdvisoryMessages = [];
+			}
+
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			// v6.22.8: Only re-inject when architectWriteCount has increased since last warning
 			// (prevents repeated acknowledgements in chat each turn)

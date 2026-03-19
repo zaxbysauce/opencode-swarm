@@ -35645,6 +35645,26 @@ function extractCurrentPhaseFromPlan2(plan) {
 init_utils2();
 init_manager2();
 
+// src/services/compaction-service.ts
+function makeInitialState() {
+  return {
+    lastObservationAt: 0,
+    lastReflectionAt: 0,
+    lastEmergencyAt: 0,
+    observationCount: 0,
+    reflectionCount: 0,
+    emergencyCount: 0,
+    lastSnapshotAt: null
+  };
+}
+var state = makeInitialState();
+function getCompactionMetrics() {
+  return {
+    compactionCount: state.observationCount + state.reflectionCount + state.emergencyCount,
+    lastSnapshotAt: state.lastSnapshotAt
+  };
+}
+
 // src/services/context-budget-service.ts
 init_utils2();
 var DEFAULT_CONTEXT_BUDGET_CONFIG = {
@@ -35671,6 +35691,7 @@ async function getStatusData(directory, agents) {
       }
     }
     const agentCount2 = Object.keys(agents).length;
+    const metrics2 = getCompactionMetrics();
     return {
       hasPlan: true,
       currentPhase: currentPhase2,
@@ -35680,12 +35701,13 @@ async function getStatusData(directory, agents) {
       isLegacy: false,
       turboMode: hasActiveTurboMode(),
       contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: 0,
-      lastSnapshotAt: null
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
     };
   }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
   if (!planContent) {
+    const metrics2 = getCompactionMetrics();
     return {
       hasPlan: false,
       currentPhase: "Unknown",
@@ -35695,8 +35717,8 @@ async function getStatusData(directory, agents) {
       isLegacy: true,
       turboMode: hasActiveTurboMode(),
       contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: 0,
-      lastSnapshotAt: null
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
     };
   }
   const currentPhase = extractCurrentPhase(planContent) || "Unknown";
@@ -35704,6 +35726,7 @@ async function getStatusData(directory, agents) {
   const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
   const totalTasks = completedTasks + incompleteTasks;
   const agentCount = Object.keys(agents).length;
+  const metrics = getCompactionMetrics();
   return {
     hasPlan: true,
     currentPhase,
@@ -35713,8 +35736,8 @@ async function getStatusData(directory, agents) {
     isLegacy: true,
     turboMode: hasActiveTurboMode(),
     contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-    compactionCount: 0,
-    lastSnapshotAt: null
+    compactionCount: metrics.compactionCount,
+    lastSnapshotAt: metrics.lastSnapshotAt
   };
 }
 function formatStatusMarkdown(status) {

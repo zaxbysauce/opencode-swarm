@@ -189,8 +189,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						diffLineThreshold: 200,
 					},
 					ctx.directory,
-					(_sessionId, message) => {
-						console.warn(`[slop-detector] ${message}`);
+					(sessionId, message) => {
+						const s = swarmState.agentSessions.get(sessionId);
+						if (s) {
+							s.pendingAdvisoryMessages ??= [];
+							s.pendingAdvisoryMessages.push(message);
+						}
 					},
 				)
 			: null;
@@ -204,8 +208,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						triggerAgents: ['coder'],
 					},
 					ctx.directory,
-					(_sessionId, message) => {
-						console.warn(`[incremental-verify] ${message}`);
+					(sessionId, message) => {
+						const s = swarmState.agentSessions.get(sessionId);
+						if (s) {
+							s.pendingAdvisoryMessages ??= [];
+							s.pendingAdvisoryMessages.push(message);
+						}
 					},
 				)
 			: null;
@@ -220,8 +228,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						preserveLastNTurns: 5,
 					},
 					ctx.directory,
-					(_sessionId, message) => {
-						console.warn(`[compaction-service] ${message}`);
+					(sessionId, message) => {
+						const s = swarmState.agentSessions.get(sessionId);
+						if (s) {
+							s.pendingAdvisoryMessages ??= [];
+							s.pendingAdvisoryMessages.push(message);
+						}
 					},
 				)
 			: null;
@@ -632,8 +644,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				);
 				if (!pressureSession.contextPressureWarningSent) {
 					pressureSession.contextPressureWarningSent = true;
-					console.warn(
-						`[context-pressure] CONTEXT PRESSURE: ${swarmState.lastBudgetPct.toFixed(1)}% of context window estimated used. Prioritize completing the current task.`,
+					pressureSession.pendingAdvisoryMessages ??= [];
+					pressureSession.pendingAdvisoryMessages.push(
+						`CONTEXT PRESSURE: ${swarmState.lastBudgetPct.toFixed(1)}% of context window used. Prioritize completing the current task before starting new work.`,
 					);
 				}
 			}

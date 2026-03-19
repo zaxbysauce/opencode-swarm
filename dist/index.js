@@ -35924,7 +35924,7 @@ __export(exports_gate_evidence, {
   DEFAULT_REQUIRED_GATES: () => DEFAULT_REQUIRED_GATES
 });
 import { mkdirSync as mkdirSync8, readFileSync as readFileSync13, renameSync as renameSync7, unlinkSync as unlinkSync4 } from "fs";
-import * as path28 from "path";
+import * as path29 from "path";
 function isValidTaskId2(taskId) {
   if (!taskId)
     return false;
@@ -35971,10 +35971,10 @@ function expandRequiredGates(existingGates, newAgentType) {
   return combined.sort();
 }
 function getEvidenceDir(directory) {
-  return path28.join(directory, ".swarm", "evidence");
+  return path29.join(directory, ".swarm", "evidence");
 }
 function getEvidencePath(directory, taskId) {
-  return path28.join(getEvidenceDir(directory), `${taskId}.json`);
+  return path29.join(getEvidenceDir(directory), `${taskId}.json`);
 }
 function readExisting(evidencePath) {
   try {
@@ -36088,10 +36088,10 @@ function createPreflightIntegration(config3) {
     });
     const report = await runPreflight(directory, request.currentPhase, preflightConfig);
     if (statusArtifact) {
-      const state = report.overall === "pass" ? "success" : "failure";
-      statusArtifact.recordOutcome(state, request.currentPhase, report.message);
+      const state2 = report.overall === "pass" ? "success" : "failure";
+      statusArtifact.recordOutcome(state2, request.currentPhase, report.message);
       console.log("[PreflightIntegration] Status artifact updated", {
-        state,
+        state: state2,
         phase: request.currentPhase,
         message: report.message
       });
@@ -39400,7 +39400,8 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
     scopeViolationDetected: false,
     modifiedFilesThisCoderTask: [],
     turboMode: false,
-    loopDetectionWindow: []
+    loopDetectionWindow: [],
+    pendingAdvisoryMessages: []
   };
   swarmState.agentSessions.set(sessionId, sessionState);
   swarmState.activeAgent.set(sessionId, agentName);
@@ -39504,6 +39505,9 @@ function ensureAgentSession(sessionId, agentName, directory) {
     }
     if (session.loopDetectionWindow === undefined) {
       session.loopDetectionWindow = [];
+    }
+    if (session.pendingAdvisoryMessages === undefined) {
+      session.pendingAdvisoryMessages = [];
     }
     session.lastToolCallTime = now;
     return session;
@@ -47590,6 +47594,97 @@ No plan content available. Start by creating a .swarm/plan.md file.
 init_utils2();
 init_manager2();
 
+// src/services/compaction-service.ts
+import * as fs15 from "fs";
+import * as path27 from "path";
+function makeInitialState() {
+  return {
+    lastObservationAt: 0,
+    lastReflectionAt: 0,
+    lastEmergencyAt: 0,
+    observationCount: 0,
+    reflectionCount: 0,
+    emergencyCount: 0,
+    lastSnapshotAt: null
+  };
+}
+var state = makeInitialState();
+function appendSnapshot(directory, tier, budgetPct, message) {
+  try {
+    const snapshotPath = path27.join(directory, ".swarm", "context-snapshot.md");
+    const timestamp = new Date().toISOString();
+    const entry = `
+## [${tier.toUpperCase()}] ${timestamp} \u2014 ${budgetPct.toFixed(1)}% used
+${message}
+`;
+    fs15.appendFileSync(snapshotPath, entry, "utf-8");
+  } catch {}
+}
+function buildObservationMessage(budgetPct) {
+  return `[CONTEXT COMPACTION \u2014 OBSERVATION TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating observation compaction.
+` + `INSTRUCTIONS: Summarise the key decisions made so far, files changed, errors resolved, ` + `and the current task state. Discard verbose tool outputs and raw file reads. ` + `Preserve: plan task ID, agent verdicts, file paths touched, unresolved blockers.
+` + `[/CONTEXT COMPACTION]`;
+}
+function buildReflectionMessage(budgetPct) {
+  return `[CONTEXT COMPACTION \u2014 REFLECTION TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating reflection compaction.
+` + `INSTRUCTIONS: Re-summarise into a tighter format. Discard completed task details ` + `and resolved errors. Retain ONLY: current phase tasks remaining, open blockers, ` + `last 3 reviewer/test verdicts, and active file scope.
+` + `[/CONTEXT COMPACTION]`;
+}
+function buildEmergencyMessage(budgetPct, preserveLastN) {
+  return `[CONTEXT COMPACTION \u2014 EMERGENCY TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. EMERGENCY compaction required.
+` + `INSTRUCTIONS: Retain ONLY the system prompt, the current task context, and the ` + `last ${preserveLastN} conversation turns. Discard everything else. ` + `If you cannot complete the current task in the remaining context, escalate to the user.
+` + `[/CONTEXT COMPACTION]`;
+}
+function createCompactionService(config3, directory, injectMessage) {
+  return {
+    toolAfter: async (_input, _output) => {
+      if (!config3.enabled)
+        return;
+      const budgetPct = swarmState.lastBudgetPct ?? 0;
+      if (budgetPct <= 0)
+        return;
+      const sessionId = _input.sessionID;
+      try {
+        if (budgetPct >= config3.emergencyThreshold && budgetPct > state.lastEmergencyAt + 5) {
+          state.lastEmergencyAt = budgetPct;
+          state.emergencyCount++;
+          const msg = buildEmergencyMessage(budgetPct, config3.preserveLastNTurns);
+          appendSnapshot(directory, "emergency", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+          return;
+        }
+        if (budgetPct >= config3.reflectionThreshold && budgetPct > state.lastReflectionAt + 5) {
+          state.lastReflectionAt = budgetPct;
+          state.reflectionCount++;
+          const msg = buildReflectionMessage(budgetPct);
+          appendSnapshot(directory, "reflection", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+          return;
+        }
+        if (budgetPct >= config3.observationThreshold && budgetPct > state.lastObservationAt + 5) {
+          state.lastObservationAt = budgetPct;
+          state.observationCount++;
+          const msg = buildObservationMessage(budgetPct);
+          appendSnapshot(directory, "observation", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+        }
+      } catch {}
+    }
+  };
+}
+function getCompactionMetrics() {
+  return {
+    compactionCount: state.observationCount + state.reflectionCount + state.emergencyCount,
+    lastSnapshotAt: state.lastSnapshotAt
+  };
+}
+
 // src/services/context-budget-service.ts
 init_utils2();
 function validateDirectory(directory) {
@@ -47632,9 +47727,9 @@ async function readBudgetState(directory) {
     return null;
   }
 }
-async function writeBudgetState(directory, state) {
+async function writeBudgetState(directory, state2) {
   const resolvedPath = validateSwarmPath(directory, "session/budget-state.json");
-  const content = JSON.stringify(state, null, 2);
+  const content = JSON.stringify(state2, null, 2);
   await Bun.write(resolvedPath, content);
 }
 async function countEvents(directory) {
@@ -47723,25 +47818,25 @@ async function formatBudgetWarning(report, directory, config3) {
     return formatWarningMessage(report);
   }
   const budgetState = await readBudgetState(directory);
-  const state = budgetState || {
+  const state2 = budgetState || {
     warningFiredAtTurn: null,
     criticalFiredAtTurn: null,
     lastInjectedAtTurn: null
   };
   const currentTurn = report.estimatedTurnCount;
   if (report.status === "warning") {
-    if (config3.warningMode === "once" && state.warningFiredAtTurn !== null) {
+    if (config3.warningMode === "once" && state2.warningFiredAtTurn !== null) {
       return null;
     }
-    if (config3.warningMode === "interval" && state.warningFiredAtTurn !== null && currentTurn - state.warningFiredAtTurn < config3.warningIntervalTurns) {
+    if (config3.warningMode === "interval" && state2.warningFiredAtTurn !== null && currentTurn - state2.warningFiredAtTurn < config3.warningIntervalTurns) {
       return null;
     }
-    state.warningFiredAtTurn = currentTurn;
-    state.lastInjectedAtTurn = currentTurn;
-    await writeBudgetState(directory, state);
+    state2.warningFiredAtTurn = currentTurn;
+    state2.lastInjectedAtTurn = currentTurn;
+    await writeBudgetState(directory, state2);
   } else if (report.status === "critical") {
-    state.criticalFiredAtTurn = currentTurn;
-    state.lastInjectedAtTurn = currentTurn;
+    state2.criticalFiredAtTurn = currentTurn;
+    state2.lastInjectedAtTurn = currentTurn;
   }
   return formatWarningMessage(report);
 }
@@ -47770,6 +47865,7 @@ async function getStatusData(directory, agents) {
       }
     }
     const agentCount2 = Object.keys(agents).length;
+    const metrics2 = getCompactionMetrics();
     return {
       hasPlan: true,
       currentPhase: currentPhase2,
@@ -47779,12 +47875,13 @@ async function getStatusData(directory, agents) {
       isLegacy: false,
       turboMode: hasActiveTurboMode(),
       contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: 0,
-      lastSnapshotAt: null
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
     };
   }
   const planContent = await readSwarmFileAsync(directory, "plan.md");
   if (!planContent) {
+    const metrics2 = getCompactionMetrics();
     return {
       hasPlan: false,
       currentPhase: "Unknown",
@@ -47794,8 +47891,8 @@ async function getStatusData(directory, agents) {
       isLegacy: true,
       turboMode: hasActiveTurboMode(),
       contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: 0,
-      lastSnapshotAt: null
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
     };
   }
   const currentPhase = extractCurrentPhase(planContent) || "Unknown";
@@ -47803,6 +47900,7 @@ async function getStatusData(directory, agents) {
   const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
   const totalTasks = completedTasks + incompleteTasks;
   const agentCount = Object.keys(agents).length;
+  const metrics = getCompactionMetrics();
   return {
     hasPlan: true,
     currentPhase,
@@ -47812,8 +47910,8 @@ async function getStatusData(directory, agents) {
     isLegacy: true,
     turboMode: hasActiveTurboMode(),
     contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-    compactionCount: 0,
-    lastSnapshotAt: null
+    compactionCount: metrics.compactionCount,
+    lastSnapshotAt: metrics.lastSnapshotAt
   };
 }
 function formatStatusMarkdown(status) {
@@ -48443,11 +48541,11 @@ async function doFlush(directory) {
     const activitySection = renderActivitySection();
     const updated = replaceOrAppendSection(existing, "## Agent Activity", activitySection);
     const flushedCount = swarmState.pendingEvents;
-    const path27 = `${directory}/.swarm/context.md`;
-    const tempPath = `${path27}.tmp`;
+    const path28 = `${directory}/.swarm/context.md`;
+    const tempPath = `${path28}.tmp`;
     try {
       await Bun.write(tempPath, updated);
-      renameSync6(tempPath, path27);
+      renameSync6(tempPath, path28);
     } catch (writeError) {
       try {
         unlinkSync3(tempPath);
@@ -49017,14 +49115,14 @@ function maskToolOutput(msg, _threshold) {
 }
 // src/hooks/delegation-gate.ts
 init_schema();
-import * as fs15 from "fs";
-import * as path29 from "path";
+import * as fs16 from "fs";
+import * as path30 from "path";
 
 // src/hooks/guardrails.ts
 init_constants();
 init_schema();
 init_manager2();
-import * as path27 from "path";
+import * as path28 from "path";
 init_utils();
 
 // src/hooks/loop-detector.ts
@@ -49117,10 +49215,10 @@ function isArchitect(sessionId) {
 function isOutsideSwarmDir(filePath, directory) {
   if (!filePath)
     return false;
-  const swarmDir = path27.resolve(directory, ".swarm");
-  const resolved = path27.resolve(directory, filePath);
-  const relative4 = path27.relative(swarmDir, resolved);
-  return relative4.startsWith("..") || path27.isAbsolute(relative4);
+  const swarmDir = path28.resolve(directory, ".swarm");
+  const resolved = path28.resolve(directory, filePath);
+  const relative4 = path28.relative(swarmDir, resolved);
+  return relative4.startsWith("..") || path28.isAbsolute(relative4);
 }
 function isSourceCodePath(filePath) {
   if (!filePath)
@@ -49187,13 +49285,13 @@ function getCurrentTaskId(sessionId) {
   return session?.currentTaskId ?? `${sessionId}:unknown`;
 }
 function isInDeclaredScope(filePath, scopeEntries) {
-  const resolvedFile = path27.resolve(filePath);
+  const resolvedFile = path28.resolve(filePath);
   return scopeEntries.some((scope) => {
-    const resolvedScope = path27.resolve(scope);
+    const resolvedScope = path28.resolve(scope);
     if (resolvedFile === resolvedScope)
       return true;
-    const rel = path27.relative(resolvedScope, resolvedFile);
-    return rel.length > 0 && !rel.startsWith("..") && !path27.isAbsolute(rel);
+    const rel = path28.relative(resolvedScope, resolvedFile);
+    return rel.length > 0 && !rel.startsWith("..") && !path28.isAbsolute(rel);
   });
 }
 function createGuardrailsHooks(directoryOrConfig, config3) {
@@ -49280,9 +49378,9 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
         const args2 = output.args;
         const targetPath = args2?.filePath ?? args2?.path ?? args2?.file ?? args2?.target;
         if (typeof targetPath === "string" && targetPath.length > 0) {
-          const resolvedTarget = path27.resolve(directory, targetPath).toLowerCase();
-          const planMdPath = path27.resolve(directory, ".swarm", "plan.md").toLowerCase();
-          const planJsonPath = path27.resolve(directory, ".swarm", "plan.json").toLowerCase();
+          const resolvedTarget = path28.resolve(directory, targetPath).toLowerCase();
+          const planMdPath = path28.resolve(directory, ".swarm", "plan.md").toLowerCase();
+          const planJsonPath = path28.resolve(directory, ".swarm", "plan.json").toLowerCase();
           if (resolvedTarget === planMdPath || resolvedTarget === planJsonPath) {
             throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
           }
@@ -49331,9 +49429,9 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
               }
             }
             for (const p of paths) {
-              const resolvedP = path27.resolve(directory, p);
-              const planMdPath = path27.resolve(directory, ".swarm", "plan.md").toLowerCase();
-              const planJsonPath = path27.resolve(directory, ".swarm", "plan.json").toLowerCase();
+              const resolvedP = path28.resolve(directory, p);
+              const planMdPath = path28.resolve(directory, ".swarm", "plan.md").toLowerCase();
+              const planJsonPath = path28.resolve(directory, ".swarm", "plan.json").toLowerCase();
               if (resolvedP.toLowerCase() === planMdPath || resolvedP.toLowerCase() === planJsonPath) {
                 throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
               }
@@ -49353,7 +49451,7 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
             }
           }
         }
-        if (typeof targetPath === "string" && targetPath.length > 0 && isOutsideSwarmDir(targetPath, directory) && isSourceCodePath(path27.relative(directory, path27.resolve(directory, targetPath)))) {
+        if (typeof targetPath === "string" && targetPath.length > 0 && isOutsideSwarmDir(targetPath, directory) && isSourceCodePath(path28.relative(directory, path28.resolve(directory, targetPath)))) {
           const session2 = swarmState.agentSessions.get(input.sessionID);
           if (session2) {
             session2.architectWriteCount++;
@@ -49635,6 +49733,30 @@ ${pending.message}
           }
         }
       }
+      if (isArchitectSession && (session?.pendingAdvisoryMessages?.length ?? 0) > 0) {
+        const advisories = session.pendingAdvisoryMessages;
+        let targetMsg = systemMessages[0];
+        if (!targetMsg) {
+          const newMsg = {
+            info: { role: "system" },
+            parts: [{ type: "text", text: "" }]
+          };
+          messages.unshift(newMsg);
+          targetMsg = newMsg;
+        }
+        const textPart2 = (targetMsg.parts ?? []).find((part) => part.type === "text" && typeof part.text === "string");
+        if (textPart2) {
+          const joined = advisories.join(`
+---
+`);
+          textPart2.text = `[ADVISORIES]
+${joined}
+[/ADVISORIES]
+
+` + textPart2.text;
+        }
+        session.pendingAdvisoryMessages = [];
+      }
       if (isArchitectSession && session && session.architectWriteCount > session.selfCodingWarnedAtCount) {
         let targetSystemMessage = systemMessages[0];
         if (!targetSystemMessage) {
@@ -49862,13 +49984,13 @@ function getEvidenceTaskId(session, directory) {
     if (typeof directory !== "string" || directory.length === 0) {
       return null;
     }
-    const resolvedDirectory = path29.resolve(directory);
-    const planPath = path29.join(resolvedDirectory, ".swarm", "plan.json");
-    const resolvedPlanPath = path29.resolve(planPath);
-    if (!resolvedPlanPath.startsWith(resolvedDirectory + path29.sep) && resolvedPlanPath !== resolvedDirectory) {
+    const resolvedDirectory = path30.resolve(directory);
+    const planPath = path30.join(resolvedDirectory, ".swarm", "plan.json");
+    const resolvedPlanPath = path30.resolve(planPath);
+    if (!resolvedPlanPath.startsWith(resolvedDirectory + path30.sep) && resolvedPlanPath !== resolvedDirectory) {
       return null;
     }
-    const planContent = fs15.readFileSync(resolvedPlanPath, "utf-8");
+    const planContent = fs16.readFileSync(resolvedPlanPath, "utf-8");
     const plan = JSON.parse(planContent);
     if (!plan || !Array.isArray(plan.phases)) {
       return null;
@@ -49926,23 +50048,23 @@ function createDelegationGateHook(config3, directory) {
         if (targetAgent === "test_engineer")
           hasTestEngineer = true;
         if (targetAgent === "reviewer" && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "coder_delegated" || state === "pre_check_passed") {
+          for (const [taskId, state2] of session.taskWorkflowStates) {
+            if (state2 === "coder_delegated" || state2 === "pre_check_passed") {
               try {
                 advanceTaskState(session, taskId, "reviewer_run");
               } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state2}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
             }
           }
         }
         if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "reviewer_run") {
+          for (const [taskId, state2] of session.taskWorkflowStates) {
+            if (state2 === "reviewer_run") {
               try {
                 advanceTaskState(session, taskId, "tests_run");
               } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state2}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
             }
           }
@@ -49958,12 +50080,12 @@ function createDelegationGateHook(config3, directory) {
               if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
                 otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
               }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "coder_delegated" || state === "pre_check_passed") {
+              for (const [taskId, state2] of otherSession.taskWorkflowStates) {
+                if (state2 === "coder_delegated" || state2 === "pre_check_passed") {
                   try {
                     advanceTaskState(otherSession, taskId, "reviewer_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state2}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -49973,12 +50095,12 @@ function createDelegationGateHook(config3, directory) {
               if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
                 otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
               }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "reviewer_run") {
+              for (const [taskId, state2] of otherSession.taskWorkflowStates) {
+                if (state2 === "reviewer_run") {
                   try {
                     advanceTaskState(otherSession, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state2}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -50042,23 +50164,23 @@ function createDelegationGateHook(config3, directory) {
             session.qaSkipTaskIds = [];
           }
           if (hasReviewer && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "coder_delegated" || state === "pre_check_passed") {
+            for (const [taskId, state2] of session.taskWorkflowStates) {
+              if (state2 === "coder_delegated" || state2 === "pre_check_passed") {
                 try {
                   advanceTaskState(session, taskId, "reviewer_run");
                 } catch (err2) {
-                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state2}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                 }
               }
             }
           }
           if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "reviewer_run") {
+            for (const [taskId, state2] of session.taskWorkflowStates) {
+              if (state2 === "reviewer_run") {
                 try {
                   advanceTaskState(session, taskId, "tests_run");
                 } catch (err2) {
-                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state2}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                 }
               }
             }
@@ -50073,12 +50195,12 @@ function createDelegationGateHook(config3, directory) {
               if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
                 otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
               }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "coder_delegated" || state === "pre_check_passed") {
+              for (const [taskId, state2] of otherSession.taskWorkflowStates) {
+                if (state2 === "coder_delegated" || state2 === "pre_check_passed") {
                   try {
                     advanceTaskState(otherSession, taskId, "reviewer_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state2}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -50094,12 +50216,12 @@ function createDelegationGateHook(config3, directory) {
               if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
                 otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
               }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "reviewer_run") {
+              for (const [taskId, state2] of otherSession.taskWorkflowStates) {
+                if (state2 === "reviewer_run") {
                   try {
                     advanceTaskState(otherSession, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state2}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -50345,7 +50467,7 @@ ${warningLines.join(`
 }
 // src/hooks/delegation-sanitizer.ts
 init_utils2();
-import * as fs16 from "fs";
+import * as fs17 from "fs";
 var SANITIZATION_PATTERNS = [
   /\b\d+(st|nd|rd|th)\s+(attempt|try|time)\b/gi,
   /\b(5th|fifth|final|last)\s+attempt\b/gi,
@@ -50416,7 +50538,7 @@ function createDelegationSanitizerHook(directory) {
               stripped_patterns: result.stripped,
               timestamp: new Date().toISOString()
             };
-            fs16.appendFileSync(eventsPath, `${JSON.stringify(event)}
+            fs17.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
           } catch {}
         }
@@ -50666,13 +50788,13 @@ init_schema();
 init_manager();
 init_detector();
 init_manager2();
-import * as fs18 from "fs";
+import * as fs19 from "fs";
 
 // src/services/decision-drift-analyzer.ts
 init_utils2();
 init_manager2();
-import * as fs17 from "fs";
-import * as path30 from "path";
+import * as fs18 from "fs";
+import * as path31 from "path";
 var DEFAULT_DRIFT_CONFIG = {
   staleThresholdPhases: 1,
   detectContradictions: true,
@@ -50826,11 +50948,11 @@ async function analyzeDecisionDrift(directory, config3 = {}) {
         currentPhase = legacyPhase;
       }
     }
-    const contextPath = path30.join(directory, ".swarm", "context.md");
+    const contextPath = path31.join(directory, ".swarm", "context.md");
     let contextContent = "";
     try {
-      if (fs17.existsSync(contextPath)) {
-        contextContent = fs17.readFileSync(contextPath, "utf-8");
+      if (fs18.existsSync(contextPath)) {
+        contextContent = fs18.readFileSync(contextPath, "utf-8");
       }
     } catch {
       return {
@@ -51324,11 +51446,11 @@ function createSystemEnhancerHook(config3, directory) {
               if (handoffContent) {
                 const handoffPath = validateSwarmPath(directory, "handoff.md");
                 const consumedPath = validateSwarmPath(directory, "handoff-consumed.md");
-                if (fs18.existsSync(consumedPath)) {
+                if (fs19.existsSync(consumedPath)) {
                   warn("Duplicate handoff detected: handoff-consumed.md already exists");
-                  fs18.unlinkSync(consumedPath);
+                  fs19.unlinkSync(consumedPath);
                 }
-                fs18.renameSync(handoffPath, consumedPath);
+                fs19.renameSync(handoffPath, consumedPath);
                 const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
 
@@ -51608,11 +51730,11 @@ ${budgetWarning}`);
             if (handoffContent) {
               const handoffPath = validateSwarmPath(directory, "handoff.md");
               const consumedPath = validateSwarmPath(directory, "handoff-consumed.md");
-              if (fs18.existsSync(consumedPath)) {
+              if (fs19.existsSync(consumedPath)) {
                 warn("Duplicate handoff detected: handoff-consumed.md already exists");
-                fs18.unlinkSync(consumedPath);
+                fs19.unlinkSync(consumedPath);
               }
-              fs18.renameSync(handoffPath, consumedPath);
+              fs19.renameSync(handoffPath, consumedPath);
               const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
 
@@ -52290,14 +52412,14 @@ function createDarkMatterDetectorHook(directory) {
 }
 
 // src/hooks/incremental-verify.ts
-import * as fs19 from "fs";
-import * as path31 from "path";
+import * as fs20 from "fs";
+import * as path32 from "path";
 function detectTypecheckCommand(projectDir) {
-  const pkgPath = path31.join(projectDir, "package.json");
-  if (!fs19.existsSync(pkgPath))
+  const pkgPath = path32.join(projectDir, "package.json");
+  if (!fs20.existsSync(pkgPath))
     return null;
   try {
-    const pkg = JSON.parse(fs19.readFileSync(pkgPath, "utf8"));
+    const pkg = JSON.parse(fs20.readFileSync(pkgPath, "utf8"));
     const scripts = pkg.scripts;
     if (scripts?.typecheck)
       return ["bun", "run", "typecheck"];
@@ -52307,7 +52429,7 @@ function detectTypecheckCommand(projectDir) {
       ...pkg.dependencies,
       ...pkg.devDependencies
     };
-    if (!deps?.typescript && !fs19.existsSync(path31.join(projectDir, "tsconfig.json"))) {
+    if (!deps?.typescript && !fs20.existsSync(path32.join(projectDir, "tsconfig.json"))) {
       return null;
     }
     return ["npx", "tsc", "--noEmit"];
@@ -52374,7 +52496,7 @@ ${errorSummary}`);
 // src/hooks/knowledge-reader.ts
 import { existsSync as existsSync19 } from "fs";
 import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
-import * as path32 from "path";
+import * as path33 from "path";
 var JACCARD_THRESHOLD = 0.6;
 var HIVE_TIER_BOOST = 0.05;
 var SAME_PROJECT_PENALTY = -0.05;
@@ -52422,7 +52544,7 @@ function inferCategoriesFromPhase(phaseDescription) {
   return ["process", "tooling"];
 }
 async function recordLessonsShown(directory, lessonIds, currentPhase) {
-  const shownFile = path32.join(directory, ".swarm", ".knowledge-shown.json");
+  const shownFile = path33.join(directory, ".swarm", ".knowledge-shown.json");
   try {
     let shownData = {};
     if (existsSync19(shownFile)) {
@@ -52430,7 +52552,7 @@ async function recordLessonsShown(directory, lessonIds, currentPhase) {
       shownData = JSON.parse(content);
     }
     shownData[currentPhase] = lessonIds;
-    await mkdir4(path32.dirname(shownFile), { recursive: true });
+    await mkdir4(path33.dirname(shownFile), { recursive: true });
     await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
     console.warn("[swarm] Knowledge: failed to record shown lessons");
@@ -52525,7 +52647,7 @@ async function readMergedKnowledge(directory, config3, context) {
   return topN;
 }
 async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
-  const shownFile = path32.join(directory, ".swarm", ".knowledge-shown.json");
+  const shownFile = path33.join(directory, ".swarm", ".knowledge-shown.json");
   try {
     if (!existsSync19(shownFile)) {
       return;
@@ -52997,12 +53119,12 @@ Use this data to avoid repeating known failure patterns.`;
 // src/hooks/curator-drift.ts
 init_event_bus();
 init_utils2();
-import * as fs20 from "fs";
-import * as path33 from "path";
+import * as fs21 from "fs";
+import * as path34 from "path";
 var DRIFT_REPORT_PREFIX = "drift-report-phase-";
 async function readPriorDriftReports(directory) {
-  const swarmDir = path33.join(directory, ".swarm");
-  const entries = await fs20.promises.readdir(swarmDir).catch(() => null);
+  const swarmDir = path34.join(directory, ".swarm");
+  const entries = await fs21.promises.readdir(swarmDir).catch(() => null);
   if (entries === null)
     return [];
   const reportFiles = entries.filter((name2) => name2.startsWith(DRIFT_REPORT_PREFIX) && name2.endsWith(".json")).sort();
@@ -53028,10 +53150,10 @@ async function readPriorDriftReports(directory) {
 async function writeDriftReport(directory, report) {
   const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
   const filePath = validateSwarmPath(directory, filename);
-  const swarmDir = path33.dirname(filePath);
-  await fs20.promises.mkdir(swarmDir, { recursive: true });
+  const swarmDir = path34.dirname(filePath);
+  await fs21.promises.mkdir(swarmDir, { recursive: true });
   try {
-    await fs20.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
+    await fs21.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
   } catch (err2) {
     throw new Error(`[curator-drift] Failed to write drift report to ${filePath}: ${String(err2)}`);
   }
@@ -53417,7 +53539,7 @@ Review before proceeding.`;
 
 // src/hooks/steering-consumed.ts
 init_utils2();
-import * as fs21 from "fs";
+import * as fs22 from "fs";
 function recordSteeringConsumed(directory, directiveId) {
   try {
     const eventsPath = validateSwarmPath(directory, "events.jsonl");
@@ -53426,7 +53548,7 @@ function recordSteeringConsumed(directory, directiveId) {
       directiveId,
       timestamp: new Date().toISOString()
     };
-    fs21.appendFileSync(eventsPath, `${JSON.stringify(event)}
+    fs22.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch {}
 }
@@ -53464,87 +53586,6 @@ function createSteeringConsumedHook(directory) {
     } catch {}
   };
   return safeHook(hook);
-}
-
-// src/services/compaction-service.ts
-import * as fs22 from "fs";
-import * as path34 from "path";
-function makeInitialState() {
-  return {
-    lastObservationAt: 0,
-    lastReflectionAt: 0,
-    lastEmergencyAt: 0,
-    observationCount: 0,
-    reflectionCount: 0,
-    emergencyCount: 0
-  };
-}
-function appendSnapshot(directory, tier, budgetPct, message) {
-  try {
-    const snapshotPath = path34.join(directory, ".swarm", "context-snapshot.md");
-    const timestamp = new Date().toISOString();
-    const entry = `
-## [${tier.toUpperCase()}] ${timestamp} \u2014 ${budgetPct.toFixed(1)}% used
-${message}
-`;
-    fs22.appendFileSync(snapshotPath, entry, "utf-8");
-  } catch {}
-}
-function buildObservationMessage(budgetPct) {
-  return `[CONTEXT COMPACTION \u2014 OBSERVATION TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating observation compaction.
-` + `INSTRUCTIONS: Summarise the key decisions made so far, files changed, errors resolved, ` + `and the current task state. Discard verbose tool outputs and raw file reads. ` + `Preserve: plan task ID, agent verdicts, file paths touched, unresolved blockers.
-` + `[/CONTEXT COMPACTION]`;
-}
-function buildReflectionMessage(budgetPct) {
-  return `[CONTEXT COMPACTION \u2014 REFLECTION TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating reflection compaction.
-` + `INSTRUCTIONS: Re-summarise into a tighter format. Discard completed task details ` + `and resolved errors. Retain ONLY: current phase tasks remaining, open blockers, ` + `last 3 reviewer/test verdicts, and active file scope.
-` + `[/CONTEXT COMPACTION]`;
-}
-function buildEmergencyMessage(budgetPct, preserveLastN) {
-  return `[CONTEXT COMPACTION \u2014 EMERGENCY TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. EMERGENCY compaction required.
-` + `INSTRUCTIONS: Retain ONLY the system prompt, the current task context, and the ` + `last ${preserveLastN} conversation turns. Discard everything else. ` + `If you cannot complete the current task in the remaining context, escalate to the user.
-` + `[/CONTEXT COMPACTION]`;
-}
-function createCompactionService(config3, directory, injectMessage) {
-  const state = makeInitialState();
-  return {
-    toolAfter: async (_input, _output) => {
-      if (!config3.enabled)
-        return;
-      const budgetPct = swarmState.lastBudgetPct ?? 0;
-      if (budgetPct <= 0)
-        return;
-      const sessionId = _input.sessionID;
-      try {
-        if (budgetPct >= config3.emergencyThreshold && budgetPct > state.lastEmergencyAt + 5) {
-          state.lastEmergencyAt = budgetPct;
-          state.emergencyCount++;
-          const msg = buildEmergencyMessage(budgetPct, config3.preserveLastNTurns);
-          appendSnapshot(directory, "emergency", budgetPct, msg);
-          injectMessage(sessionId, msg);
-          return;
-        }
-        if (budgetPct >= config3.reflectionThreshold && budgetPct > state.lastReflectionAt + 5) {
-          state.lastReflectionAt = budgetPct;
-          state.reflectionCount++;
-          const msg = buildReflectionMessage(budgetPct);
-          appendSnapshot(directory, "reflection", budgetPct, msg);
-          injectMessage(sessionId, msg);
-          return;
-        }
-        if (budgetPct >= config3.observationThreshold && budgetPct > state.lastObservationAt + 5) {
-          state.lastObservationAt = budgetPct;
-          state.observationCount++;
-          const msg = buildObservationMessage(budgetPct);
-          appendSnapshot(directory, "observation", budgetPct, msg);
-          injectMessage(sessionId, msg);
-        }
-      } catch {}
-    }
-  };
 }
 
 // src/index.ts
@@ -61210,8 +61251,8 @@ function parsePackageResolved(content) {
     const pins = resolved.pins || [];
     for (const pin of pins) {
       const identity = pin.identity || pin.package || "";
-      const state = pin.state || {};
-      const version3 = state.version || state.revision || "";
+      const state2 = pin.state || {};
+      const version3 = state2.version || state2.revision || "";
       let org = "";
       const location = pin.location || "";
       const orgMatch = location.match(/github\.com\/([^/]+)\//);
@@ -62701,8 +62742,8 @@ function checkReviewerGate(taskId, workingDirectory) {
         continue;
       }
       validSessionCount++;
-      const state = getTaskState(session, taskId);
-      if (state === "tests_run" || state === "complete") {
+      const state2 = getTaskState(session, taskId);
+      if (state2 === "tests_run" || state2 === "complete") {
         return { blocked: false, reason: "" };
       }
     }
@@ -62713,8 +62754,8 @@ function checkReviewerGate(taskId, workingDirectory) {
     for (const [sessionId, session] of swarmState.agentSessions) {
       if (!(session.taskWorkflowStates instanceof Map))
         continue;
-      const state = getTaskState(session, taskId);
-      stateEntries.push(`${sessionId}: ${state}`);
+      const state2 = getTaskState(session, taskId);
+      stateEntries.push(`${sessionId}: ${state2}`);
     }
     try {
       const resolvedDir2 = workingDirectory ?? process.cwd();
@@ -63067,16 +63108,24 @@ var OpenCodeSwarm = async (ctx) => {
     classThreshold: 3,
     commentStripThreshold: 5,
     diffLineThreshold: 200
-  }, ctx.directory, (_sessionId, message) => {
-    console.warn(`[slop-detector] ${message}`);
+  }, ctx.directory, (sessionId, message) => {
+    const s = swarmState.agentSessions.get(sessionId);
+    if (s) {
+      s.pendingAdvisoryMessages ??= [];
+      s.pendingAdvisoryMessages.push(message);
+    }
   }) : null;
   const incrementalVerifyHook = config3.incremental_verify?.enabled !== false ? createIncrementalVerifyHook(config3.incremental_verify ?? {
     enabled: true,
     command: null,
     timeoutMs: 30000,
     triggerAgents: ["coder"]
-  }, ctx.directory, (_sessionId, message) => {
-    console.warn(`[incremental-verify] ${message}`);
+  }, ctx.directory, (sessionId, message) => {
+    const s = swarmState.agentSessions.get(sessionId);
+    if (s) {
+      s.pendingAdvisoryMessages ??= [];
+      s.pendingAdvisoryMessages.push(message);
+    }
   }) : null;
   const compactionServiceHook = config3.compaction_service?.enabled !== false ? createCompactionService(config3.compaction_service ?? {
     enabled: true,
@@ -63084,8 +63133,12 @@ var OpenCodeSwarm = async (ctx) => {
     reflectionThreshold: 60,
     emergencyThreshold: 80,
     preserveLastNTurns: 5
-  }, ctx.directory, (_sessionId, message) => {
-    console.warn(`[compaction-service] ${message}`);
+  }, ctx.directory, (sessionId, message) => {
+    const s = swarmState.agentSessions.get(sessionId);
+    if (s) {
+      s.pendingAdvisoryMessages ??= [];
+      s.pendingAdvisoryMessages.push(message);
+    }
   }) : null;
   const snapshotWriterHook = createSnapshotWriterHook(ctx.directory);
   const automationConfig = AutomationConfigSchema.parse(config3.automation ?? {});
@@ -63363,7 +63416,8 @@ var OpenCodeSwarm = async (ctx) => {
         const pressureSession = ensureAgentSession(input.sessionID, swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME);
         if (!pressureSession.contextPressureWarningSent) {
           pressureSession.contextPressureWarningSent = true;
-          console.warn(`[context-pressure] CONTEXT PRESSURE: ${swarmState.lastBudgetPct.toFixed(1)}% of context window estimated used. Prioritize completing the current task.`);
+          pressureSession.pendingAdvisoryMessages ??= [];
+          pressureSession.pendingAdvisoryMessages.push(`CONTEXT PRESSURE: ${swarmState.lastBudgetPct.toFixed(1)}% of context window used. Prioritize completing the current task before starting new work.`);
         }
       }
       await safeHook(activityHooks.toolBefore)(input, output);

@@ -21,3 +21,8 @@ export interface CompactionServiceHook {
     }) => Promise<void>;
 }
 export declare function createCompactionService(config: CompactionConfig, directory: string, injectMessage: (sessionId: string, message: string) => void): CompactionServiceHook;
+export declare function getCompactionMetrics(): {
+    compactionCount: number;
+    lastSnapshotAt: string | null;
+};
+export declare function resetCompactionState(): void;

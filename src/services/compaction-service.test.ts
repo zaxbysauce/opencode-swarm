@@ -4,7 +4,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CompactionConfig } from '../config/schema';
 import { resetSwarmState, swarmState } from '../state';
-import { createCompactionService } from './compaction-service';
+import {
+	createCompactionService,
+	resetCompactionState,
+} from './compaction-service';
 
 const TEST_DIR = '/test/project';
 
@@ -22,6 +25,7 @@ describe('compaction-service', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
+		resetCompactionState();
 		injectCalls = [];
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'compaction-test-'));
 		// Create .swarm directory for snapshot writes
