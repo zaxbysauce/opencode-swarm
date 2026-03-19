@@ -341,10 +341,12 @@ The architect moves through these modes automatically:
 | `CLARIFY` | Swarm asks for missing information it cannot infer |
 | `DISCOVER` | Explorer scans the codebase |
 | `CONSULT` | SME agents provide domain guidance |
-| `PLAN` | Architect writes or updates the phased plan |
+| `PLAN` | Architect writes or updates the phased plan (includes CODEBASE REALITY CHECK on brownfield projects) |
 | `CRITIC-GATE` | Critic reviews the plan before execution |
 | `EXECUTE` | Tasks are implemented one at a time through the QA pipeline |
 | `PHASE-WRAP` | A phase closes out, docs are updated, and a retrospective is written |
+
+> **CODEBASE REALITY CHECK (v6.29.2):** Before any planning, the Architect dispatches Explorer to verify the current state of every referenced item. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. This prevents planning against stale assumptions. Skipped for greenfield projects with no existing codebase references.
 
 ### Important
 
@@ -607,6 +609,7 @@ To disable entirely, set `context_budget.enabled: false` in your swarm config.
 | sast_scan | Offline security analysis, 63+ rules, 9 languages |
 | sbom_generate | CycloneDX dependency tracking, 8 ecosystems |
 | build_check | Runs your project's native build/typecheck |
+| incremental_verify | Post-coder typecheck for TS/JS, Go, Rust, C# (v6.29.2) |
 | quality_budget | Enforces complexity, duplication, and test ratio limits |
 | pre_check_batch | Runs lint, secretscan, SAST, and quality budget in parallel (~15s vs ~60s sequential) |
 | phase_complete | Enforces phase completion, verifies required agents, requires a valid retrospective evidence bundle, logs events, and resets state |

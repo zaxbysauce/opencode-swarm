@@ -104,7 +104,7 @@ export type NoteEvidence = z.infer<typeof NoteEvidenceSchema>;
 export const RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
 	type: z.literal('retrospective'),
 	// Execution metrics
-	phase_number: z.number().int().min(0).max(99),
+	phase_number: z.number().int().min(1).max(99),
 	total_tool_calls: z.number().int().min(0).max(9999),
 	// Revision cycles
 	coder_revisions: z.number().int().min(0).max(999),

@@ -6,9 +6,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
 import type { IncrementalVerifyConfig } from '../config/schema';
+import { spawnAsync } from './spawn-helper';
 export type { IncrementalVerifyConfig };
+export { detectTypecheckCommand };
 
 export interface IncrementalVerifyHook {
 	toolAfter: (
@@ -17,44 +18,97 @@ export interface IncrementalVerifyHook {
 	) => Promise<void>;
 }
 
+// Module-level dedup — prevents the same SKIPPED advisory from being emitted multiple times per session
+const emittedSkipAdvisories = new Set<string>();
+
+/** For test isolation — call in beforeEach/afterEach */
+export function resetAdvisoryDedup(): void {
+	emittedSkipAdvisories.clear();
+}
+
 /**
- * Detect the typecheck command from package.json scripts.
- * Returns ['bun', 'run', 'typecheck'] if a typecheck script exists,
- * otherwise returns ['npx', 'tsc', '--noEmit'] as fallback,
- * or null if TypeScript is not present in the project.
+ * Detect the typecheck/build check command for the project.
+ * Returns { command, language } where command is null if no default checker exists,
+ * or null overall if no supported language is detected.
+ * Checks in order: TypeScript (package.json) → Go (go.mod) → Rust (Cargo.toml)
+ * → Python (pyproject.toml/requirements.txt/setup.py) → C# (*.csproj/*.sln)
+ * First match wins; package.json presence means Node/Bun project — no fallthrough.
  */
-function detectTypecheckCommand(projectDir: string): string[] | null {
+function detectTypecheckCommand(
+	projectDir: string,
+): { command: string[] | null; language: string } | null {
+	// 1. TypeScript / Node.js project
 	const pkgPath = path.join(projectDir, 'package.json');
-	if (!fs.existsSync(pkgPath)) return null;
+	if (fs.existsSync(pkgPath)) {
+		try {
+			const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as Record<
+				string,
+				unknown
+			>;
+			const scripts = pkg.scripts as Record<string, string> | undefined;
 
-	try {
-		const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as Record<
-			string,
-			unknown
-		>;
-		const scripts = pkg.scripts as Record<string, string> | undefined;
+			// Prefer explicit typecheck script
+			if (scripts?.typecheck)
+				return { command: ['bun', 'run', 'typecheck'], language: 'typescript' };
+			if (scripts?.['type-check'])
+				return {
+					command: ['bun', 'run', 'type-check'],
+					language: 'typescript',
+				};
 
-		// Prefer explicit typecheck script
-		if (scripts?.typecheck) return ['bun', 'run', 'typecheck'];
-		if (scripts?.['type-check']) return ['bun', 'run', 'type-check'];
+			// Check for TypeScript presence
+			const deps = {
+				...(pkg.dependencies as Record<string, string> | undefined),
+				...(pkg.devDependencies as Record<string, string> | undefined),
+			};
+			if (
+				!deps?.typescript &&
+				!fs.existsSync(path.join(projectDir, 'tsconfig.json'))
+			) {
+				return null; // package.json exists but no TS — not a TS project, no fallthrough
+			}
 
-		// Check for TypeScript presence
-		const deps = {
-			...(pkg.dependencies as Record<string, string> | undefined),
-			...(pkg.devDependencies as Record<string, string> | undefined),
-		};
-		if (
-			!deps?.typescript &&
-			!fs.existsSync(path.join(projectDir, 'tsconfig.json'))
-		) {
-			return null; // No TypeScript — skip entirely
+			// Fallback: bare tsc --noEmit
+			return { command: ['npx', 'tsc', '--noEmit'], language: 'typescript' };
+		} catch {
+			return null;
 		}
-
-		// Fallback: bare tsc --noEmit
-		return ['npx', 'tsc', '--noEmit'];
-	} catch {
-		return null;
 	}
+
+	// 2. Go project
+	if (fs.existsSync(path.join(projectDir, 'go.mod'))) {
+		return { command: ['go', 'vet', './...'], language: 'go' };
+	}
+
+	// 3. Rust project
+	if (fs.existsSync(path.join(projectDir, 'Cargo.toml'))) {
+		return { command: ['cargo', 'check'], language: 'rust' };
+	}
+
+	// 4. Python project
+	if (
+		fs.existsSync(path.join(projectDir, 'pyproject.toml')) ||
+		fs.existsSync(path.join(projectDir, 'requirements.txt')) ||
+		fs.existsSync(path.join(projectDir, 'setup.py'))
+	) {
+		return { command: null, language: 'python' };
+	}
+
+	// 5. C# project — check for .csproj or .sln in project root
+	try {
+		const entries = fs.readdirSync(projectDir);
+		if (entries.some((f) => f.endsWith('.csproj') || f.endsWith('.sln'))) {
+			return {
+				command: ['dotnet', 'build', '--no-restore'],
+				language: 'csharp',
+			};
+		}
+	} catch {
+		// readdirSync failure — skip C# detection
+	}
+
+	// No supported language detected
+	return null;
 }
 
 /**
@@ -65,33 +119,9 @@ async function runWithTimeout(
 	cwd: string,
 	timeoutMs: number,
 ): Promise<{ exitCode: number; stderr: string } | null> {
-	try {
-		const proc = Bun.spawn(command, {
-			cwd,
-			stdout: 'pipe',
-			stderr: 'pipe',
-		});
-
-		const timeoutHandle = setTimeout(() => {
-			try {
-				proc.kill();
-			} catch {
-				/* ignore */
-			}
-		}, timeoutMs);
-
-		try {
-			const [exitCode, stderr] = await Promise.all([
-				proc.exited,
-				new Response(proc.stderr).text(),
-			]);
-			return { exitCode, stderr };
-		} finally {
-			clearTimeout(timeoutHandle);
-		}
-	} catch {
-		return null;
-	}
+	const result = await spawnAsync(command, cwd, timeoutMs);
+	if (result === null) return null;
+	return { exitCode: result.exitCode, stderr: result.stderr };
 }
 
 export function createIncrementalVerifyHook(
@@ -121,16 +151,37 @@ export function createIncrementalVerifyHook(
 			}
 
 			// Determine typecheck command
-			const command =
-				config.command != null
-					? config.command.split(' ')
-					: detectTypecheckCommand(projectDir);
+			let commandToRun: string[] | null = null;
 
-			if (!command) return; // No TypeScript detected — skip
+			if (config.command != null) {
+				commandToRun = Array.isArray(config.command)
+					? config.command
+					: config.command.split(' ');
+			} else {
+				const detected = detectTypecheckCommand(projectDir);
+				if (detected === null) {
+					return; // No language detected — skip silently
+				}
+				if (detected.command === null) {
+					// Language detected but no default checker available
+					const dedupKey = `${input.sessionID}:${detected.language}`;
+					if (!emittedSkipAdvisories.has(dedupKey)) {
+						emittedSkipAdvisories.add(dedupKey);
+						injectMessage(
+							input.sessionID,
+							`POST-CODER CHECK SKIPPED: ${detected.language} project detected but no default checker available. Set incremental_verify.command in .swarm/config.json to enable.`,
+						);
+					}
+					return;
+				}
+				commandToRun = detected.command;
+			}
+
+			if (commandToRun === null) return; // Safety guard
 
 			// Run with timeout
 			const result = await runWithTimeout(
-				command,
+				commandToRun,
 				projectDir,
 				config.timeoutMs,
 			);

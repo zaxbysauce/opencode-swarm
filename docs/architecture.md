@@ -329,10 +329,12 @@ The Architect workflow uses explicit **MODE** labels internally to distinguish a
 | `MODE: CLARIFY` | Ask clarifying questions for ambiguous requirements |
 | `MODE: DISCOVER` | Explore codebase structure and patterns |
 | `MODE: CONSULT` | Consult SMEs for domain guidance |
-| `MODE: PLAN` | Create or update project plan |
+| `MODE: PLAN` | Create or update project plan (includes CODEBASE REALITY CHECK on brownfield) |
 | `MODE: CRITIC-GATE` | Plan review checkpoint before execution |
 | `MODE: EXECUTE` | Task implementation with QA gates |
 | `MODE: PHASE-WRAP` | Phase completion and retrospective |
+
+> **CODEBASE REALITY CHECK (v6.29.2):** Before any planning (MODE: PLAN), spec generation (MODE: SPECIFY), or plan import, the Architect dispatches Explorer in targeted scoped chunks to verify the current state of every referenced item. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. This prevents planning against stale assumptions (e.g., assuming a function exists when it was already fixed). Skipped for purely greenfield projects with no existing codebase references.
 
 **NAMESPACE RULE**: MODE labels refer to the architect's internal workflow phases. Project plan phases (in `.swarm/plan.md`) remain as "Phase N" to avoid confusion.
 
