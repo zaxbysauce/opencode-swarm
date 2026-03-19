@@ -32,7 +32,8 @@ export function resetAdvisoryDedup(): void {
  * or null overall if no supported language is detected.
  * Checks in order: TypeScript (package.json) → Go (go.mod) → Rust (Cargo.toml)
  * → Python (pyproject.toml/requirements.txt/setup.py) → C# (*.csproj/*.sln)
- * First match wins; package.json only short-circuits when TypeScript markers are present. Otherwise the function falls through to Go/Rust/Python/C# detection.
+ * First match wins; package.json only short-circuits when TypeScript markers are present.
+ * Otherwise the function falls through to Go/Rust/Python/C# detection.
  */
 function detectTypecheckCommand(
 	projectDir: string,

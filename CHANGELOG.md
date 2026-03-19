@@ -2,7 +2,6 @@
 
 ## [6.29.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.1...v6.29.2) (2026-03-19)
 
-
 ### Features
 
 * multi-language incremental-verify with Go/Rust/C#/Python detection, spawnAsync portability, slop-detector hardening, evidence phase_number fix ([#215](https://github.com/zaxbysauce/opencode-swarm/issues/215)) ([4f59ac4](https://github.com/zaxbysauce/opencode-swarm/commit/4f59ac4a1fc4ec5df7d81f15c0ba1c93d7c5b3f8))
@@ -10,6 +9,7 @@
 ### Bug Fixes
 
 * evidence-schema phase_number minimum from 0 to 1 — Phase 0 never valid ([4f59ac4](https://github.com/zaxbysauce/opencode-swarm/commit/4f59ac4a1fc4ec5df7d81f15c0ba1c93d7c5b3f8))
+* language-agnostic portability for incremental-verify and slop-detector hooks (v6.29.2) ([#216](https://github.com/zaxbysauce/opencode-swarm/issues/216)) ([d2e5335](https://github.com/zaxbysauce/opencode-swarm/commit/d2e5335fe211d19236dcc854d2ff13570c8ca567))
 
 ## [6.29.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.0...v6.29.1) (2026-03-19)
 
