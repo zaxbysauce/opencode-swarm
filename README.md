@@ -939,6 +939,13 @@ The following tools can be assigned to agents via overrides:
 
 ## Recent Changes
 
+### v6.29.3 — Curator Visibility + Documentation Refresh
+
+This release adds Curator status reporting to `/swarm diagnose` and refreshes documentation to reflect current behavior.
+
+- **Curator status in diagnose**: `/swarm diagnose` now reports whether Curator is enabled/disabled and validates the `curator-summary.json` artifact if present.
+- **README and config docs refreshed**: Updated `.swarm/` directory tree, Curator configuration options, and drift report artifacts to match current implementation.
+
 ### v6.29.2 — Multi-Language Incremental Verify + Slop-Detector Hardening
 
 This release adds multi-language typecheck support and hardens detection of low-quality AI-generated code.
