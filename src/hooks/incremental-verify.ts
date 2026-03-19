@@ -164,8 +164,9 @@ export function createIncrementalVerifyHook(
 				}
 				if (detected.command === null) {
 					// Language detected but no default checker available
-					if (!emittedSkipAdvisories.has(detected.language)) {
-						emittedSkipAdvisories.add(detected.language);
+					const dedupKey = `${input.sessionID}:${detected.language}`;
+					if (!emittedSkipAdvisories.has(dedupKey)) {
+						emittedSkipAdvisories.add(dedupKey);
 						injectMessage(
 							input.sessionID,
 							`POST-CODER CHECK SKIPPED: ${detected.language} project detected but no default checker available. Set incremental_verify.command in .swarm/config.json to enable.`,

@@ -96,15 +96,16 @@ function checkBoilerplateExplosion(
  * Recursively walk a directory and collect all files matching any of the given extensions.
  * Excludes node_modules, .git, and symlinks pointing to directories (prevents infinite loops).
  */
-function walkFiles(dir: string, exts: string[]): string[] {
+function walkFiles(dir: string, exts: string[], deadline?: number): string[] {
 	const results: string[] = [];
 	try {
 		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+			if (deadline !== undefined && Date.now() > deadline) break; // time budget
 			if (entry.isSymbolicLink()) continue; // skip symlinks to avoid infinite loops
 			const full = path.join(dir, entry.name);
 			if (entry.isDirectory()) {
 				if (entry.name === 'node_modules' || entry.name === '.git') continue;
-				results.push(...walkFiles(full, exts));
+				results.push(...walkFiles(full, exts, deadline));
 			} else if (entry.isFile()) {
 				if (exts.some((ext) => entry.name.endsWith(ext))) {
 					results.push(full);
@@ -139,7 +140,11 @@ function checkDeadExports(
 	}
 	if (newExports.length === 0) return null;
 
-	const files = walkFiles(projectDir, ['.ts', '.tsx', '.js', '.jsx']);
+	const files = walkFiles(
+		projectDir,
+		['.ts', '.tsx', '.js', '.jsx'],
+		startTime + 480,
+	);
 
 	const deadExports: string[] = [];
 	for (const name of newExports) {
