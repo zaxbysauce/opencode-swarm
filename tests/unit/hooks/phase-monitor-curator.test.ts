@@ -278,14 +278,7 @@ expect(mockRunCuratorInit).not.toHaveBeenCalled();
 });
 });
 
-/**
- * Task 5.3: Curator wiring fix - curator-briefing.md persistence
- *
- * Tests for phase-monitor.ts fix:
- * - createPhaseMonitorHook with curator enabled writes curator-briefing.md to .swarm/
- * - createPhaseMonitorHook with curator disabled does NOT write curator-briefing.md
- */
-describe('Task 5.3: curator-briefing.md persistence', () => {
+describe('curator startup initialization behavior', () => {
 let tempDir: string;
 
 beforeEach(() => {
@@ -298,8 +291,8 @@ afterEach(() => {
 fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('curator-briefing.md is written when curator enabled', () => {
-it('writes curator-briefing.md to .swarm/ when curator init returns briefing', async () => {
+describe('curator init with briefing stays read-only', () => {
+it('does NOT write curator-briefing.md to .swarm/ when curator init returns briefing', async () => {
 writeConfigFile(tempDir, { curator: { enabled: true } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
@@ -313,12 +306,9 @@ prior_phases_covered: 0,
 const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 await hook({}, {});
 
-// Verify the briefing file was written
+// Startup initialization should not write new files into .swarm/
 const briefingPath = path.join(tempDir, '.swarm', 'curator-briefing.md');
-expect(fs.existsSync(briefingPath)).toBe(true);
-
-const content = fs.readFileSync(briefingPath, 'utf-8');
-expect(content).toBe('Test briefing content from curator init');
+expect(fs.existsSync(briefingPath)).toBe(false);
 });
 
 it('does NOT write curator-briefing.md when curator init returns empty briefing', async () => {
@@ -339,48 +329,10 @@ await hook({}, {});
 const briefingPath = path.join(tempDir, '.swarm', 'curator-briefing.md');
 expect(fs.existsSync(briefingPath)).toBe(false);
 });
-
-it('does NOT write curator-briefing.md when curator init returns undefined briefing', async () => {
-writeConfigFile(tempDir, { curator: { enabled: true } });
-writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
-
-mockRunCuratorInit.mockResolvedValue({
-briefing: undefined as any, // Undefined briefing
-contradictions: [],
-knowledge_entries_reviewed: 0,
-prior_phases_covered: 0,
-});
-
-const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
-await hook({}, {});
-
-// Verify the briefing file was NOT written
-const briefingPath = path.join(tempDir, '.swarm', 'curator-briefing.md');
-expect(fs.existsSync(briefingPath)).toBe(false);
-});
-
-it('does NOT write curator-briefing.md when curator init does not return briefing property', async () => {
-writeConfigFile(tempDir, { curator: { enabled: true } });
-writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
-
-mockRunCuratorInit.mockResolvedValue({
-contradictions: [],
-knowledge_entries_reviewed: 0,
-prior_phases_covered: 0,
-// No briefing property at all
-} as any);
-
-const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
-await hook({}, {});
-
-// Verify the briefing file was NOT written
-const briefingPath = path.join(tempDir, '.swarm', 'curator-briefing.md');
-expect(fs.existsSync(briefingPath)).toBe(false);
-});
 });
 
 describe('curator-briefing.md is NOT written when curator disabled', () => {
-it('does NOT write curator-briefing.md when curator is disabled', async () => {
+it('when curator is explicitly disabled', async () => {
 writeConfigFile(tempDir, { curator: { enabled: false } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 

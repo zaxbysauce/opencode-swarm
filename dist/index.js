@@ -50781,7 +50781,6 @@ function consolidateSystemMessages(messages) {
 // src/hooks/phase-monitor.ts
 init_schema();
 init_manager2();
-import * as path31 from "path";
 init_utils2();
 function createPhaseMonitorHook(directory, preflightManager, curatorRunner = runCuratorInit) {
   let lastKnownPhase = null;
@@ -50797,13 +50796,7 @@ function createPhaseMonitorHook(directory, preflightManager, curatorRunner = run
         const { config: config3 } = loadPluginConfigWithMeta2(directory);
         const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
         if (curatorConfig.enabled && curatorConfig.init_enabled) {
-          const initResult = await curatorRunner(directory, curatorConfig);
-          if (initResult.briefing) {
-            const briefingPath = path31.join(directory, ".swarm", "curator-briefing.md");
-            const fs18 = await import("fs");
-            fs18.mkdirSync(path31.dirname(briefingPath), { recursive: true });
-            fs18.writeFileSync(briefingPath, initResult.briefing, "utf-8");
-          }
+          await curatorRunner(directory, curatorConfig);
         }
       } catch {}
       return;
@@ -53504,7 +53497,7 @@ function isOrchestratorAgent(agentName) {
 function injectKnowledgeMessage(output, text) {
   if (!output.messages)
     return;
-  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Knowledge") || p.text?.includes("<drift_report>") || p.text?.includes("<curator_briefing>")));
+  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Knowledge") || p.text?.includes("<drift_report>")));
   if (alreadyInjected)
     return;
   const systemIdx = output.messages.findIndex((m) => m.info?.role === "system");
@@ -53560,15 +53553,6 @@ function createKnowledgeInjectorHook(directory, config3) {
 
 ${cachedInjectionText}` : driftText;
         }
-      }
-    } catch {}
-    try {
-      const briefingContent = await readSwarmFileAsync(directory, "curator-briefing.md");
-      if (briefingContent) {
-        const truncatedBriefing = briefingContent.slice(0, 500);
-        cachedInjectionText = cachedInjectionText ? `<curator_briefing>${truncatedBriefing}</curator_briefing>
-
-${cachedInjectionText}` : `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
       }
     } catch {}
     if (entries.length === 0) {

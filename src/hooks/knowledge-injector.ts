@@ -18,7 +18,7 @@ import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
-import { readSwarmFileAsync, safeHook } from './utils.js';
+import { safeHook } from './utils.js';
 
 // ============================================================================
 // Internal Helpers (NOT exported)
@@ -74,13 +74,10 @@ function injectKnowledgeMessage(
 	if (!output.messages) return;
 
 	// Idempotency guard: skip if already injected in this transform
-	// All injection types include a unique marker: 📚 Knowledge, <drift_report>, <curator_briefing>
+	// All injection types include a unique marker: 📚 Knowledge, <drift_report>
 	const alreadyInjected = output.messages.some((m) =>
 		m.parts?.some(
-			(p) =>
-				p.text?.includes('📚 Knowledge') ||
-				p.text?.includes('<drift_report>') ||
-				p.text?.includes('<curator_briefing>'),
+			(p) => p.text?.includes('📚 Knowledge') || p.text?.includes('<drift_report>'),
 		),
 	);
 	if (alreadyInjected) return;
@@ -190,27 +187,10 @@ export function createKnowledgeInjectorHook(
 				// drift injection failures must never propagate
 			}
 
-			// Curator briefing injection: include session-start briefing from curator init
-			try {
-				const briefingContent = await readSwarmFileAsync(
-					directory,
-					'curator-briefing.md',
-				);
-				if (briefingContent) {
-					// Truncate to stay within token budget (same 500 char limit as drift)
-					const truncatedBriefing = briefingContent.slice(0, 500);
-					cachedInjectionText = cachedInjectionText
-						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${cachedInjectionText}`
-						: `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
-				}
-			} catch {
-				// curator briefing injection failures must never propagate
-			}
-
-			// If no knowledge entries AND no drift/briefing, nothing to inject
+			// If no knowledge entries AND no drift, nothing to inject
 			if (entries.length === 0) {
 				if (cachedInjectionText === null) return;
-				// Drift or briefing was set — inject it directly
+				// Drift was set — inject it directly
 				injectKnowledgeMessage(output, cachedInjectionText);
 				return;
 			}

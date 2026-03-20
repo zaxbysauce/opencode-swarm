@@ -6,7 +6,6 @@
  * Wrapped in safeHook — errors must never propagate.
  */
 
-import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../background/trigger';
 import { CuratorConfigSchema } from '../config/schema';
 import { loadPlan } from '../plan/manager';
@@ -51,17 +50,7 @@ export function createPhaseMonitorHook(
 				const { config } = loadPluginConfigWithMeta(directory);
 				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
-					const initResult = await curatorRunner(directory, curatorConfig);
-					if (initResult.briefing) {
-						const briefingPath = path.join(
-							directory,
-							'.swarm',
-							'curator-briefing.md',
-						);
-						const fs = await import('node:fs');
-						fs.mkdirSync(path.dirname(briefingPath), { recursive: true });
-						fs.writeFileSync(briefingPath, initResult.briefing, 'utf-8');
-					}
+					await curatorRunner(directory, curatorConfig);
 				}
 			} catch {
 				// curator init failures must never propagate

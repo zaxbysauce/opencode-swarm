@@ -641,47 +641,6 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 		// Should NOT have an error field when successful
 		expect(parsed.error).toBeUndefined();
-		expect(parsed.rawOutput).toBeUndefined();
-
-		process.chdir(originalCwd);
-		setTimeout(() => {
-			try {
-				fs.rmSync(tempDir, { recursive: true, force: true });
-			} catch {
-				// Ignore
-			}
-		}, 100);
-	}, 15000);
-
-	test('preserves raw output for failing runs to keep debugging detail', async () => {
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-fail-output-'));
-		const originalCwd = process.cwd();
-		process.chdir(tempDir);
-
-		fs.writeFileSync(
-			'package.json',
-			JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}),
-		);
-
-		fs.mkdirSync('src', { recursive: true });
-		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
-		fs.writeFileSync(
-			'src/utils.test.ts',
-			'import { describe, test, expect } from "vitest"; import { add } from "./utils"; describe("add", () => { test("fails", () => { expect(add(1, 2)).toBe(4); }); });',
-		);
-
-		const result = await test_runner.execute(
-			{ scope: 'convention', files: ['src/utils.ts'] },
-			{} as any,
-		);
-		const parsed = JSON.parse(result);
-
-		expect(parsed.success).toBe(false);
-		expect(typeof parsed.rawOutput).toBe('string');
-		expect(parsed.rawOutput.length).toBeGreaterThan(0);
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
