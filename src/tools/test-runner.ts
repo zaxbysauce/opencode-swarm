@@ -1127,7 +1127,6 @@ export async function runTests(
 				timeout_ms,
 				duration_ms,
 				totals,
-				rawOutput: output,
 			};
 
 			if (coveragePercent !== undefined) {

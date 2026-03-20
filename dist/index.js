@@ -35051,7 +35051,6 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
         timeout_ms,
         duration_ms,
         totals,
-        rawOutput: output
       };
       if (coveragePercent !== undefined) {
         result.coveragePercent = coveragePercent;
