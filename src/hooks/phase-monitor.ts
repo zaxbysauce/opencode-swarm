@@ -58,9 +58,9 @@ export function createPhaseMonitorHook(
 							'.swarm',
 							'curator-briefing.md',
 						);
-						const fs = await import('node:fs');
-						fs.mkdirSync(path.dirname(briefingPath), { recursive: true });
-						fs.writeFileSync(briefingPath, initResult.briefing, 'utf-8');
+						const { mkdir, writeFile } = await import('node:fs/promises');
+						await mkdir(path.dirname(briefingPath), { recursive: true });
+						await writeFile(briefingPath, initResult.briefing, 'utf-8');
 					}
 				}
 			} catch {
