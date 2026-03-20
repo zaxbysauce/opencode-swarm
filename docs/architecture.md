@@ -223,13 +223,20 @@ For each task in current phase:
     │       └── FAIL → Send failures to @coder, retry from 5a with RETRY protocol
     │       └── → REQUIRED: Print test results
     │
-    ├── 5l. @test_engineer adversarial testing pass
-    │       ├── Attack vectors, boundary violations, injection attempts
-    │       ├── PASS → Continue
-    │       └── FAIL → Send failures to @coder, retry from 5a with RETRY protocol
-    │       └── → REQUIRED: Print adversarial test results
-    │
-    ├── 5m. ⛔ HARD STOP: Pre-commit checklist (v6.11.0)
+├── 5l. @test_engineer adversarial testing pass
+│ ├── Attack vectors, boundary violations, injection attempts
+│ ├── PASS → Continue
+│ └── FAIL → Send failures to @coder, retry from 5a with RETRY protocol
+│ └── → REQUIRED: Print adversarial test results
+│
+├── 5m. architect regression sweep (scope:"graph")
+│ ├── Runs test_runner with scope:"graph" to find cross-task test regressions
+│ ├── If no related tests beyond task scope → SKIP. Print "regression-sweep: SKIPPED — no related tests beyond task scope"
+│ ├── If additional tests pass → PASS. Print "regression-sweep: PASS [N additional tests, M files]"
+│ ├── If additional tests FAIL → return to coder: "REGRESSION DETECTED: Your changes broke [N] tests in [test files]"
+│ └── → REQUIRED: Print regression-sweep result
+│
+├── 5n. ⛔ HARD STOP: Pre-commit checklist (v6.11.0)
     │       ├── [ ] All QA gates passed (lint:check, secretscan, sast_scan)
     │       ├── [ ] Reviewer approval documented
     │       ├── [ ] Tests pass with evidence
@@ -237,7 +244,7 @@ For each task in current phase:
     │       └── → REQUIRED: Print checklist completion
     │       **No override. A commit without completed QA gate is a workflow violation.**
     │
-    └── 5n. TASK COMPLETION CHECKLIST (v6.11.0)
+    └── 5o. TASK COMPLETION CHECKLIST (v6.11.0)
             ├── Evidence written to .swarm/evidence/{taskId}/
             ├── update_task_status called with status='completed' (advances state machine to 'complete')
             └── → REQUIRED: Print completion confirmation

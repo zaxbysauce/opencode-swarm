@@ -37,11 +37,12 @@ Swarm then:
 5. Sends that plan through a critic gate before coding starts.
 6. Executes one task at a time through the QA pipeline:
 
-   * coder writes code
-   * automated checks run
-   * reviewer checks correctness
-   * test engineer writes and runs tests
-   * failures loop back with structured feedback
+* coder writes code
+* automated checks run
+* reviewer checks correctness
+* test engineer writes and runs tests
+* architect runs regression sweep (scope:"graph" to find cross-task test regressions)
+* failures loop back with structured feedback
 
 7. After each phase, docs and retrospectives are updated.
 
@@ -49,13 +50,14 @@ All project state lives in `.swarm/`:
 
 ```text
 .swarm/
-├── plan.md              # Project roadmap with phases and tasks
-├── plan.json            # Structured plan data
-├── context.md           # Technical decisions and SME guidance
-├── events.jsonl         # Event stream for diagnostics
-├── evidence/            # Review/test evidence bundles per task
+├── plan.md # Project roadmap with phases and tasks
+├── plan.json # Structured plan data
+├── context.md # Technical decisions and SME guidance
+├── events.jsonl # Event stream for diagnostics
+├── evidence/ # Review/test evidence bundles per task
 ├── curator-summary.json # Curator system state (if enabled)
-└── drift-report-phase-N.json  # Plan-vs-reality drift reports
+├── curator-briefing.md # Curator init briefing (if enabled)
+└── drift-report-phase-N.json # Plan-vs-reality drift reports
 ```
 
 That means Swarm is resumable by design. If you come back later and `.swarm/` already exists, the architect may go straight into **RESUME** or **EXECUTE** instead of replaying the full first-run discovery flow.
@@ -328,8 +330,9 @@ MODE: EXECUTE (per task)
 ├── 5i. @reviewer (security pass, if security-sensitive files changed)
 ├── 5j. @test_engineer (verification tests + coverage ≥70%)
 ├── 5k. @test_engineer (adversarial tests)
-├── 5l. ⛔ Pre-commit checklist (all 4 items required, no override)
-└── 5m. Task marked complete, evidence written
+├── 5l. architect regression sweep (scope:"graph" to find cross-task test regressions)
+├── 5m. ⛔ Pre-commit checklist (all 4 items required, no override)
+└── 5n. Task marked complete, evidence written
 ```
 
 If any step fails, the coder gets structured feedback and retries. After 5 failures on the same task, it escalates to you.
@@ -1152,10 +1155,12 @@ To enable, set `"curator": { "enabled": true }` in your config. When enabled, it
 
 ### What the Curator Does
 
-- **Init** (`phase-monitor.ts`): On the first phase, initializes a curator summary file at `.swarm/curator-summary.json`.
+- **Init** (`phase-monitor.ts`): On the first phase, initializes a curator summary file at `.swarm/curator-summary.json` and persists the init briefing to `.swarm/curator-briefing.md`.
 - **Phase analysis** (`phase-complete.ts`): After each phase completes, collects phase events, checks compliance, and optionally invokes the curator explorer to summarize findings.
+- **Compliance surfacing** (`phase-complete.ts`): Compliance observations are surfaced in the return value's warnings array (unless `suppress_warnings` is true).
 - **Knowledge updates** (`phase-complete.ts`): Merges curator findings into the knowledge base up to the configured `max_summary_tokens` cap.
-- **Drift injection** (`knowledge-injector.ts`): Prepends the latest drift report summary to the architect's knowledge context at phase start, up to `drift_inject_max_chars` characters.
+- **Briefing injection** (`knowledge-injector.ts`): The curator-briefing.md content is injected into the architect's context at session start.
+- **Drift injection** (`knowledge-injector.ts`): Prepends the latest drift report summary to the architect's knowledge context at phase start, up to `drift_inject_max_chars` characters. Drift reports now inject even when no knowledge entries exist.
 
 ### Configuration
 
