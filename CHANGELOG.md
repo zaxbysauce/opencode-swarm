@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.3...v6.29.4) (2026-03-20)
+
+
+### Bug Fixes
+
+* regression sweep gate, test task dedup, gated full-suite, and curator wiring ([#220](https://github.com/zaxbysauce/opencode-swarm/issues/220)) ([6dc331d](https://github.com/zaxbysauce/opencode-swarm/commit/6dc331d63ad3dba7387510db5f6c89ec50f0fad5))
+
 ## [6.29.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.2...v6.29.3) (2026-03-19)
 
 
