@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.2...v6.29.3) (2026-03-19)
+
+
+### Bug Fixes
+
+* surface Curator status in diagnose and docs ([#218](https://github.com/zaxbysauce/opencode-swarm/issues/218)) ([7729ffe](https://github.com/zaxbysauce/opencode-swarm/commit/7729ffecf14637d8c3cf5a56f139208c630e620e))
+
 ## [6.29.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.1...v6.29.2) (2026-03-19)
 
 ### Features

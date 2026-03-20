@@ -50,14 +50,13 @@ All project state lives in `.swarm/`:
 
 ```text
 .swarm/
-├── plan.md # Project roadmap with phases and tasks
-├── plan.json # Structured plan data
-├── context.md # Technical decisions and SME guidance
-├── events.jsonl # Event stream for diagnostics
-├── evidence/ # Review/test evidence bundles per task
+├── plan.md              # Project roadmap with phases and tasks
+├── plan.json            # Structured plan data
+├── context.md           # Technical decisions and SME guidance
+├── events.jsonl         # Event stream for diagnostics
+├── evidence/            # Review/test evidence bundles per task
 ├── curator-summary.json # Curator system state (if enabled)
-├── curator-briefing.md # Curator init briefing (if enabled)
-└── drift-report-phase-N.json # Plan-vs-reality drift reports
+└── drift-report-phase-N.json  # Plan-vs-reality drift reports
 ```
 
 That means Swarm is resumable by design. If you come back later and `.swarm/` already exists, the architect may go straight into **RESUME** or **EXECUTE** instead of replaying the full first-run discovery flow.
