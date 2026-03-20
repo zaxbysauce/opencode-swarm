@@ -194,7 +194,7 @@ export declare function resetSwarmState(): void;
  * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
  * @param directory - Optional project directory for rehydrating workflow state from disk
  */
-export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number, directory?: string): void;
+export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number, _directory?: string): void;
 /**
  * End an agent session by removing it from the state.
  * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
@@ -216,10 +216,9 @@ export declare function getAgentSession(sessionId: string): AgentSessionState | 
  * Always updates lastToolCallTime.
  * @param sessionId - The session identifier
  * @param agentName - Optional agent name (if known)
- * @param directory - Optional project directory for rehydrating workflow state from disk
  * @returns The AgentSessionState
  */
-export declare function ensureAgentSession(sessionId: string, agentName?: string, directory?: string): AgentSessionState;
+export declare function ensureAgentSession(sessionId: string, agentName?: string, _directory?: string): AgentSessionState;
 /**
  * Update only the agent event timestamp (for stale detection).
  * Does NOT change agent name or reset guardrail state.
@@ -300,6 +299,25 @@ export declare function getTaskState(session: AgentSessionState, taskId: string)
  *
  * @param directory - Project root containing .swarm/ subdirectory
  * @param session - Target AgentSessionState to merge rehydrated state into
+ */
+/**
+ * Reads plan.json + evidence/*.json from the project directory and populates the
+ * module-level _rehydrationCache.  Called once at plugin init by loadSnapshot().
+ * Non-fatal: missing/malformed files leave an empty cache.
+ */
+export declare function buildRehydrationCache(directory: string): Promise<void>;
+/**
+ * Synchronously applies the cached plan+evidence data to a session.
+ * Merge rules:
+ *   - evidence-derived state: always applied (replaces snapshot state, even if lower)
+ *   - plan-only derived state: only applied if it advances past existing state
+ * No-op when the cache has not been built yet.
+ */
+export declare function applyRehydrationCache(session: AgentSessionState): void;
+/**
+ * Rehydrates session workflow state from durable swarm files.
+ * Builds (or refreshes) the rehydration cache from disk, then applies it
+ * to the target session.
  */
 export declare function rehydrateSessionFromDisk(directory: string, session: AgentSessionState): Promise<void>;
 /**

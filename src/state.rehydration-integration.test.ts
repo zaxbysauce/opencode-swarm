@@ -84,20 +84,18 @@ describe('startAgentSession with directory parameter', () => {
 		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 
-	it('2. with directory parameter - DOES call rehydrateSessionFromDisk', async () => {
+	it('2. with directory parameter - directory is accepted but rehydration now happens in loadSnapshot()', () => {
 		// Arrange: create plan.json so rehydration has data
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 
-		// Act: create session WITH directory
+		// Act: create session WITH directory (directory param is now a no-op here;
+		// rehydration happens eagerly in loadSnapshot() before the plugin starts)
 		startAgentSession(testSessionId, 'architect', 7200000, tmpDir);
 
-		// Give async rehydration time to complete
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		// Assert: rehydrateSessionFromDisk SHOULD have been called
-		// Check that workflow states were populated from the plan
+		// Assert: taskWorkflowStates should NOT be populated from fire-and-forget —
+		// rehydration is no longer triggered by startAgentSession
 		const session = swarmState.agentSessions.get(testSessionId);
-		expect(session?.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
+		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 
 	it('3. backward compatibility - creates session without errors when directory omitted', () => {
@@ -111,16 +109,16 @@ describe('startAgentSession with directory parameter', () => {
 		expect(session?.agentName).toBe('architect');
 	});
 
-	it('4. directory parameter is optional - rehydration is fire-and-forget (non-blocking)', async () => {
+	it('4. directory parameter is optional - startAgentSession always returns synchronously', () => {
 		// Arrange: create valid plan
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 
-		// Act: create session with directory - should return immediately (non-blocking)
+		// Act: create session with directory - should return immediately
 		const startTime = Date.now();
 		startAgentSession(testSessionId, 'architect', 7200000, tmpDir);
 		const endTime = Date.now();
 
-		// Assert: should return quickly (not waiting for rehydration)
+		// Assert: should return quickly (no async work triggered)
 		expect(endTime - startTime).toBeLessThan(100);
 	});
 });
@@ -135,19 +133,18 @@ describe('ensureAgentSession with directory parameter', () => {
 		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 
-	it('6. with directory parameter - DOES call rehydrateSessionFromDisk for new session', async () => {
+	it('6. with directory parameter - directory is accepted but rehydration now happens in loadSnapshot()', () => {
 		// Arrange: create plan.json so rehydration has data
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 
-		// Act: create session WITH directory
+		// Act: create session WITH directory (directory param is now a no-op here;
+		// rehydration happens eagerly in loadSnapshot() before the plugin starts)
 		ensureAgentSession(testSessionId, 'architect', tmpDir);
 
-		// Give async rehydration time to complete
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		// Assert: rehydrateSessionFromDisk SHOULD have been called
+		// Assert: taskWorkflowStates should NOT be populated from fire-and-forget —
+		// rehydration is no longer triggered by ensureAgentSession
 		const session = swarmState.agentSessions.get(testSessionId);
-		expect(session?.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
+		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 
 	it('7. existing session without directory - does NOT trigger rehydration', () => {
@@ -212,19 +209,16 @@ describe('rehydration integration behavior', () => {
 		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 
-	it('12. directory is passed to rehydrateSessionFromDisk correctly', async () => {
+	it('12. directory param is accepted without effect — rehydration is via loadSnapshot()', () => {
 		// Arrange: create plan with known task
 		writePlan([{ id: '1.1', status: 'completed' }]);
 
-		// Act: call with specific directory
+		// Act: call with specific directory (no-op for rehydration now)
 		startAgentSession(testSessionId, 'coder', 7200000, tmpDir);
 
-		// Give async rehydration time to complete
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		// Assert: the workflow state should reflect the plan status
-		// completed -> complete
+		// Assert: the workflow state should NOT be populated — rehydration only
+		// happens eagerly in loadSnapshot(), not here
 		const session = swarmState.agentSessions.get(testSessionId);
-		expect(session?.taskWorkflowStates?.get('1.1')).toBe('complete');
+		expect(session?.taskWorkflowStates?.size).toBe(0);
 	});
 });

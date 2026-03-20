@@ -39351,6 +39351,7 @@ init_plan_schema();
 init_schema();
 import * as fs3 from "fs/promises";
 import * as path2 from "path";
+var _rehydrationCache = null;
 var swarmState = {
   activeToolCalls: new Map,
   toolAggregates: new Map,
@@ -39360,7 +39361,7 @@ var swarmState = {
   lastBudgetPct: 0,
   agentSessions: new Map
 };
-function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, directory) {
+function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, _directory) {
   const now = Date.now();
   const staleIds = [];
   for (const [id, session] of swarmState.agentSessions) {
@@ -39408,14 +39409,12 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
   };
   swarmState.agentSessions.set(sessionId, sessionState);
   swarmState.activeAgent.set(sessionId, agentName);
-  if (directory) {
-    rehydrateSessionFromDisk(directory, sessionState).catch(() => {});
-  }
+  applyRehydrationCache(sessionState);
 }
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
 }
-function ensureAgentSession(sessionId, agentName, directory) {
+function ensureAgentSession(sessionId, agentName, _directory) {
   const now = Date.now();
   let session = swarmState.agentSessions.get(sessionId);
   if (session) {
@@ -39515,7 +39514,7 @@ function ensureAgentSession(sessionId, agentName, directory) {
     session.lastToolCallTime = now;
     return session;
   }
-  startAgentSession(sessionId, agentName ?? "unknown", 7200000, directory);
+  startAgentSession(sessionId, agentName ?? "unknown", 7200000);
   session = swarmState.agentSessions.get(sessionId);
   if (!session) {
     throw new Error(`Failed to create guardrail session for ${sessionId}`);
@@ -39700,43 +39699,47 @@ async function readEvidenceFromDisk(directory) {
   } catch {}
   return evidenceMap;
 }
-async function rehydrateSessionFromDisk(directory, session) {
-  if (!session.taskWorkflowStates) {
-    session.taskWorkflowStates = new Map;
-  }
-  const plan = await readPlanFromDisk(directory);
-  if (!plan) {
-    return;
-  }
+async function buildRehydrationCache(directory) {
   const planTaskStates = new Map;
-  for (const phase of plan.phases ?? []) {
-    for (const task of phase.tasks ?? []) {
-      const taskState = planStatusToWorkflowState(task.status);
-      planTaskStates.set(task.id, taskState);
+  const plan = await readPlanFromDisk(directory);
+  if (plan) {
+    for (const phase of plan.phases ?? []) {
+      for (const task of phase.tasks ?? []) {
+        planTaskStates.set(task.id, planStatusToWorkflowState(task.status));
+      }
     }
   }
   const evidenceMap = await readEvidenceFromDisk(directory);
+  _rehydrationCache = { planTaskStates, evidenceMap };
+}
+function applyRehydrationCache(session) {
+  if (!_rehydrationCache) {
+    return;
+  }
+  if (!session.taskWorkflowStates) {
+    session.taskWorkflowStates = new Map;
+  }
+  const { planTaskStates, evidenceMap } = _rehydrationCache;
+  const STATE_ORDER = [
+    "idle",
+    "coder_delegated",
+    "pre_check_passed",
+    "reviewer_run",
+    "tests_run",
+    "complete"
+  ];
   for (const [taskId, planState] of planTaskStates) {
     const existingState = session.taskWorkflowStates.get(taskId);
     const evidence = evidenceMap.get(taskId);
-    let derivedState;
     if (evidence) {
-      derivedState = evidenceToWorkflowState(evidence);
-    } else {
-      derivedState = planState;
-    }
-    const STATE_ORDER = [
-      "idle",
-      "coder_delegated",
-      "pre_check_passed",
-      "reviewer_run",
-      "tests_run",
-      "complete"
-    ];
-    const existingIndex = existingState ? STATE_ORDER.indexOf(existingState) : -1;
-    const derivedIndex = STATE_ORDER.indexOf(derivedState);
-    if (derivedIndex > existingIndex) {
+      const derivedState = evidenceToWorkflowState(evidence);
       session.taskWorkflowStates.set(taskId, derivedState);
+    } else {
+      const existingIndex = existingState ? STATE_ORDER.indexOf(existingState) : -1;
+      const derivedIndex = STATE_ORDER.indexOf(planState);
+      if (derivedIndex > existingIndex) {
+        session.taskWorkflowStates.set(taskId, planState);
+      }
     }
   }
 }
@@ -54003,9 +54006,13 @@ async function reconcileTaskStatesFromPlan(directory) {
 }
 async function loadSnapshot(directory) {
   try {
+    await buildRehydrationCache(directory);
     const snapshot = await readSnapshot(directory);
     if (snapshot !== null) {
       rehydrateState(snapshot);
+      for (const session of swarmState.agentSessions.values()) {
+        applyRehydrationCache(session);
+      }
       await reconcileTaskStatesFromPlan(directory);
     }
   } catch {}

@@ -21,6 +21,17 @@ import { stripKnownSwarmPrefix } from './config/schema';
 import type { TaskEvidence } from './gate-evidence';
 
 /**
+ * Cached plan + evidence data read once at plugin init by buildRehydrationCache().
+ * Applied synchronously to every new session via applyRehydrationCache() so that
+ * guardrails always see correct workflow state — even when no snapshot exists.
+ */
+interface RehydrationCache {
+	planTaskStates: Map<string, TaskWorkflowState>;
+	evidenceMap: Map<string, TaskEvidence>;
+}
+let _rehydrationCache: RehydrationCache | null = null;
+
+/**
  * Represents a single tool call entry for tracking purposes
  */
 export interface ToolCallEntry {
@@ -226,6 +237,7 @@ export function resetSwarmState(): void {
 	swarmState.pendingEvents = 0;
 	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
+	_rehydrationCache = null;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }
@@ -242,7 +254,9 @@ export function startAgentSession(
 	sessionId: string,
 	agentName: string,
 	staleDurationMs = 7200000,
-	directory?: string,
+	// directory is no longer used here — rehydration now happens eagerly in
+	// loadSnapshot() before the plugin accepts tool calls (Bug 1 fix).
+	_directory?: string,
 ): void {
 	const now = Date.now();
 
@@ -305,12 +319,9 @@ export function startAgentSession(
 	// without falling back to ORCHESTRATOR_NAME for legitimately-named sessions.
 	swarmState.activeAgent.set(sessionId, agentName);
 
-	// Rehydrate workflow state from disk if directory provided (non-fatal, fire-and-forget)
-	if (directory) {
-		rehydrateSessionFromDisk(directory, sessionState).catch(() => {
-			// Swallow rehydration errors - fallback to current pre-rehydration path
-		});
-	}
+	// Apply cached plan+evidence data so new sessions start with correct workflow
+	// state even when no snapshot existed at init time.
+	applyRehydrationCache(sessionState);
 }
 
 /**
@@ -342,13 +353,14 @@ export function getAgentSession(
  * Always updates lastToolCallTime.
  * @param sessionId - The session identifier
  * @param agentName - Optional agent name (if known)
- * @param directory - Optional project directory for rehydrating workflow state from disk
  * @returns The AgentSessionState
  */
 export function ensureAgentSession(
 	sessionId: string,
 	agentName?: string,
-	directory?: string,
+	// directory is no longer used here — rehydration now happens eagerly in
+	// loadSnapshot() before the plugin accepts tool calls (Bug 1 fix).
+	_directory?: string,
 ): AgentSessionState {
 	const now = Date.now();
 	let session = swarmState.agentSessions.get(sessionId);
@@ -466,7 +478,7 @@ export function ensureAgentSession(
 	}
 
 	// Create new session
-	startAgentSession(sessionId, agentName ?? 'unknown', 7200000, directory);
+	startAgentSession(sessionId, agentName ?? 'unknown', 7200000);
 	session = swarmState.agentSessions.get(sessionId);
 	if (!session) {
 		// This should never happen, but TypeScript needs it
@@ -853,70 +865,92 @@ async function readEvidenceFromDisk(
  * @param directory - Project root containing .swarm/ subdirectory
  * @param session - Target AgentSessionState to merge rehydrated state into
  */
-export async function rehydrateSessionFromDisk(
+/**
+ * Reads plan.json + evidence/*.json from the project directory and populates the
+ * module-level _rehydrationCache.  Called once at plugin init by loadSnapshot().
+ * Non-fatal: missing/malformed files leave an empty cache.
+ */
+export async function buildRehydrationCache(
 	directory: string,
-	session: AgentSessionState,
 ): Promise<void> {
-	// Ensure taskWorkflowStates exists
+	const planTaskStates = new Map<string, TaskWorkflowState>();
+
+	const plan = await readPlanFromDisk(directory);
+	if (plan) {
+		for (const phase of plan.phases ?? []) {
+			for (const task of phase.tasks ?? []) {
+				planTaskStates.set(task.id, planStatusToWorkflowState(task.status));
+			}
+		}
+	}
+
+	const evidenceMap = await readEvidenceFromDisk(directory);
+	_rehydrationCache = { planTaskStates, evidenceMap };
+}
+
+/**
+ * Synchronously applies the cached plan+evidence data to a session.
+ * Merge rules:
+ *   - evidence-derived state: always applied (replaces snapshot state, even if lower)
+ *   - plan-only derived state: only applied if it advances past existing state
+ * No-op when the cache has not been built yet.
+ */
+export function applyRehydrationCache(session: AgentSessionState): void {
+	if (!_rehydrationCache) {
+		return;
+	}
+
 	if (!session.taskWorkflowStates) {
 		session.taskWorkflowStates = new Map();
 	}
 
-	// Read plan.json (non-fatal)
-	const plan = await readPlanFromDisk(directory);
-	if (!plan) {
-		return;
-	}
+	const { planTaskStates, evidenceMap } = _rehydrationCache;
 
-	// Build task status map from plan
-	const planTaskStates = new Map<string, TaskWorkflowState>();
-	for (const phase of plan.phases ?? []) {
-		for (const task of phase.tasks ?? []) {
-			const taskState = planStatusToWorkflowState(task.status);
-			planTaskStates.set(task.id, taskState);
-		}
-	}
+	const STATE_ORDER: TaskWorkflowState[] = [
+		'idle',
+		'coder_delegated',
+		'pre_check_passed',
+		'reviewer_run',
+		'tests_run',
+		'complete',
+	];
 
-	// Read evidence files (non-fatal)
-	const evidenceMap = await readEvidenceFromDisk(directory);
-
-	// Merge: evidence > plan > existing memory (no downgrade)
 	for (const [taskId, planState] of planTaskStates) {
 		const existingState = session.taskWorkflowStates.get(taskId);
 		const evidence = evidenceMap.get(taskId);
 
-		let derivedState: TaskWorkflowState;
-
 		if (evidence) {
-			// Evidence provides strongest signal
-			derivedState = evidenceToWorkflowState(evidence);
-		} else {
-			// Fall back to plan state
-			derivedState = planState;
-		}
-
-		// Determine final state: use derived state ONLY if it's further ahead
-		// than existing in-memory state, or if no in-memory state exists
-		const STATE_ORDER: TaskWorkflowState[] = [
-			'idle',
-			'coder_delegated',
-			'pre_check_passed',
-			'reviewer_run',
-			'tests_run',
-			'complete',
-		];
-
-		const existingIndex = existingState
-			? STATE_ORDER.indexOf(existingState)
-			: -1;
-		const derivedIndex = STATE_ORDER.indexOf(derivedState);
-
-		// Only upgrade if derived state is further ahead than existing
-		if (derivedIndex > existingIndex) {
+			// Evidence provides the strongest signal and always wins.
+			// Apply unconditionally — evidence reflects actual gate completion on disk
+			// and must override any stale value recorded in the snapshot.
+			const derivedState = evidenceToWorkflowState(evidence);
 			session.taskWorkflowStates.set(taskId, derivedState);
+		} else {
+			// Plan-only: only advance past existing state, never downgrade.
+			// A snapshot state that is ahead of the plan is valid (e.g. gates passed
+			// after plan was last written), so keep it.
+			const existingIndex = existingState
+				? STATE_ORDER.indexOf(existingState)
+				: -1;
+			const derivedIndex = STATE_ORDER.indexOf(planState);
+			if (derivedIndex > existingIndex) {
+				session.taskWorkflowStates.set(taskId, planState);
+			}
 		}
-		// If existing state is further ahead, keep it (no downgrade)
 	}
+}
+
+/**
+ * Rehydrates session workflow state from durable swarm files.
+ * Builds (or refreshes) the rehydration cache from disk, then applies it
+ * to the target session.
+ */
+export async function rehydrateSessionFromDisk(
+	directory: string,
+	session: AgentSessionState,
+): Promise<void> {
+	await buildRehydrationCache(directory);
+	applyRehydrationCache(session);
 }
 
 /**

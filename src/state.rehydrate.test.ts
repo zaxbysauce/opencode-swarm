@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import type { AgentSessionState, TaskWorkflowState } from './state';
 import {
 	rehydrateSessionFromDisk,
+	resetSwarmState,
 	startAgentSession,
 	swarmState,
 } from './state';
@@ -13,6 +14,7 @@ let tmpDir: string;
 let testSessionId: string;
 
 beforeEach(() => {
+	resetSwarmState();
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'rehydrate-test-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
 	testSessionId = 'test-session-' + Date.now();
