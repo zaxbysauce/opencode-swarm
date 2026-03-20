@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.5...v6.29.6) (2026-03-20)
+
+
+### Bug Fixes
+
+* eliminate rehydration race and evidence/snapshot merge conflict ([#225](https://github.com/zaxbysauce/opencode-swarm/issues/225)) ([92a1cf4](https://github.com/zaxbysauce/opencode-swarm/commit/92a1cf40fcb3e59528271704f82b2d082b29e53b))
+
 ## [6.29.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.4...v6.29.5) (2026-03-20)
 
 
