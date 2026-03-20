@@ -112,6 +112,7 @@ export function deserializeAgentSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
+		pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
 	};
 }
 

@@ -46367,6 +46367,7 @@ function serializeAgentSession(s) {
     lastCompletedPhaseAgentsDispatched,
     qaSkipCount: s.qaSkipCount ?? 0,
     qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
     taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
     ...s.scopeViolationDetected !== undefined && {
       scopeViolationDetected: s.scopeViolationDetected
@@ -49853,7 +49854,7 @@ ${pending.message}
         }
       }
       if (isArchitectSession && (session?.pendingAdvisoryMessages?.length ?? 0) > 0) {
-        const advisories = session.pendingAdvisoryMessages;
+        const advisories = session.pendingAdvisoryMessages ?? [];
         let targetMsg = systemMessages[0];
         if (!targetMsg) {
           const newMsg = {
@@ -53908,7 +53909,8 @@ function deserializeAgentSession(s) {
     declaredCoderScope: null,
     lastScopeViolation: null,
     scopeViolationDetected: s.scopeViolationDetected,
-    modifiedFilesThisCoderTask: []
+    modifiedFilesThisCoderTask: [],
+    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? []
   };
 }
 async function readSnapshot(directory) {

@@ -30987,6 +30987,7 @@ function serializeAgentSession(s) {
     lastCompletedPhaseAgentsDispatched,
     qaSkipCount: s.qaSkipCount ?? 0,
     qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
     taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
     ...s.scopeViolationDetected !== undefined && {
       scopeViolationDetected: s.scopeViolationDetected
