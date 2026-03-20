@@ -74,8 +74,14 @@ function injectKnowledgeMessage(
 	if (!output.messages) return;
 
 	// Idempotency guard: skip if already injected in this transform
+	// All injection types include a unique marker: 📚 Knowledge, <drift_report>, <curator_briefing>
 	const alreadyInjected = output.messages.some((m) =>
-		m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+		m.parts?.some(
+			(p) =>
+				p.text?.includes('📚 Knowledge') ||
+				p.text?.includes('<drift_report>') ||
+				p.text?.includes('<curator_briefing>'),
+		),
 	);
 	if (alreadyInjected) return;
 

@@ -55,6 +55,9 @@ vi.mock('../../../src/config/schema.js', () => ({
 vi.mock('../../../src/services/run-memory.js', () => ({
   getRunMemorySummary: vi.fn(async () => null),
 }));
+vi.mock('../../../src/hooks/utils.js', () => ({
+  readSwarmFileAsync: vi.fn(async () => null),
+}));
 
 // Import mocked modules
 import { readMergedKnowledge } from '../../../src/hooks/knowledge-reader.js';
@@ -64,6 +67,7 @@ import { extractCurrentPhaseFromPlan } from '../../../src/hooks/extractors.js';
 import { stripKnownSwarmPrefix } from '../../../src/config/schema.js';
 import { getRunMemorySummary } from '../../../src/services/run-memory.js';
 import { readPriorDriftReports, buildDriftInjectionText } from '../../../src/hooks/curator-drift.js';
+import { readSwarmFileAsync } from '../../../src/hooks/utils.js';
 
 // ============================================================================
 // Helper Factories
@@ -1188,5 +1192,148 @@ describe('Task 5.3: Drift injection when cachedInjectionText is null (no knowled
 
     // Knowledge content should still be present
     expect(text).toContain('Knowledge lesson about testing');
+  });
+});
+
+// ============================================================================
+// Test Suite: Drift-only injection idempotency
+// ============================================================================
+
+/**
+ * Bug fix verification: drift-only injection is idempotent
+ *
+ * When there are no knowledge entries but a drift report exists,
+ * calling the hook twice should only inject drift ONCE.
+ *
+ * The idempotency guard in injectKnowledgeMessage checks for the
+ * <drift_report> marker and skips injection if already present.
+ */
+describe('Drift-only injection idempotency', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]); // No knowledge entries
+    (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
+    (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (readSwarmFileAsync as ReturnType<typeof vi.fn>).mockResolvedValue(null); // No briefing
+  });
+
+  it('Calling hook twice with drift-only injection results in only ONE drift message', async () => {
+    // Set up drift report mock to return a valid report
+    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        phase: 1,
+        alignment: 'MINOR_DRIFT',
+        drift_score: 0.3,
+        injection_summary: 'Phase 1: minor drift detected',
+        first_deviation: { phase: 1, task: 'task1', description: 'Missing test coverage' },
+        corrections: ['Add more tests'],
+      },
+    ]);
+    (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue(
+      '<drift_report>Phase 1: MINOR_DRIFT (0.30) — Missing test coverage. Add more tests.</drift_report>'
+    );
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init (no injection, sets lastSeenPhase)
+    await hook({}, output);
+
+    // Second call - should inject drift (entries is empty, but drift exists)
+    await hook({}, output);
+
+    // Count messages with drift content
+    const driftMessages = output.messages.filter((m) =>
+      m.parts?.some((p) => p.text?.includes('<drift_report>')),
+    );
+
+    // Should have exactly ONE drift message
+    expect(driftMessages.length).toBe(1);
+
+    // The drift content should be present
+    const driftMsg = driftMessages[0];
+    expect(driftMsg.parts[0].text).toContain('MINOR_DRIFT');
+    expect(driftMsg.parts[0].text).toContain('Missing test coverage');
+  });
+
+  it('Third call re-uses cached injection and idempotency guard prevents duplicate', async () => {
+    // Set up drift report mock to return a valid report
+    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        phase: 1,
+        alignment: 'MINOR_DRIFT',
+        drift_score: 0.3,
+        injection_summary: 'Phase 1: minor drift detected',
+        first_deviation: { phase: 1, task: 'task1', description: 'Missing test coverage' },
+        corrections: ['Add more tests'],
+      },
+    ]);
+    (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue(
+      '<drift_report>Phase 1: MINOR_DRIFT (0.30) — Missing test coverage. Add more tests.</drift_report>'
+    );
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - init
+    await hook({}, output);
+
+    // Second call - injects drift
+    await hook({}, output);
+
+    // Third call - re-uses cache, idempotency guard should prevent duplicate
+    await hook({}, output);
+
+    // Count messages with drift content
+    const driftMessages = output.messages.filter((m) =>
+      m.parts?.some((p) => p.text?.includes('<drift_report>')),
+    );
+
+    // Should still have exactly ONE drift message (not two)
+    expect(driftMessages.length).toBe(1);
+  });
+
+  it('calling hook twice with drift-only content injects only once', async () => {
+    // Codex Bug 2 fix verification: Drift-only injection is idempotent.
+    // The idempotency guard checks for <drift_report> in addition to 📚 Knowledge.
+    // On the third call, injectKnowledgeMessage checks for <drift_report> in existing messages,
+    // finds it, and skips injection.
+
+    // Set up drift report mock to return a valid report
+    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        phase: 1,
+        alignment: 'MINOR_DRIFT',
+        drift_score: 0.3,
+        first_deviation: { description: 'test drift' },
+        corrections: [],
+      },
+    ]);
+    (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue(
+      '<drift_report>Phase 1: MINOR_DRIFT (0.30) — test drift</drift_report>'
+    );
+
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = { messages: [{ info: { role: 'system', agent: 'architect' }, parts: [{ type: 'text', text: 'system prompt' }] }] };
+
+    // Call 1: INIT - lastSeenPhase null → sets phase, returns
+    await hook({}, output);
+
+    // Call 2: INJECT - drift sets cachedInjectionText, entries empty → inject drift
+    await hook({}, output);
+
+    // Call 3: RE-INJECT - cache hit → calls injectKnowledgeMessage again
+    // But idempotency guard finds <drift_report> already in messages, skips
+    await hook({}, output);
+
+    // Count messages containing <drift_report>
+    const driftMessageCount = output.messages.filter((m) =>
+      m.parts?.some((p) => p.text?.includes('<drift_report>')),
+    ).length;
+
+    // MUST be exactly 1 - the idempotency guard prevented duplicate drift injection
+    expect(driftMessageCount).toBe(1);
   });
 });

@@ -35272,7 +35272,7 @@ var init_test_runner = __esm(() => {
       let testFiles = [];
       let graphFallbackReason;
       let effectiveScope = scope;
-      if (scope === "convention") {
+      if (scope === "all") {} else if (scope === "convention") {
         const sourceFiles = args2.files.filter((f) => {
           const ext = path23.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
@@ -35312,7 +35312,7 @@ var init_test_runner = __esm(() => {
           testFiles = getTestFilesFromConvention(sourceFiles);
         }
       }
-      if (testFiles.length === 0) {
+      if (scope !== "all" && testFiles.length === 0) {
         const errorResult = {
           success: false,
           framework,
@@ -35322,7 +35322,7 @@ var init_test_runner = __esm(() => {
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      if (testFiles.length > MAX_SAFE_TEST_FILES) {
+      if (scope !== "all" && testFiles.length > MAX_SAFE_TEST_FILES) {
         const sampleFiles = testFiles.slice(0, 5);
         const errorResult = {
           success: false,
@@ -53505,7 +53505,7 @@ function isOrchestratorAgent(agentName) {
 function injectKnowledgeMessage(output, text) {
   if (!output.messages)
     return;
-  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Knowledge")));
+  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Knowledge") || p.text?.includes("<drift_report>") || p.text?.includes("<curator_briefing>")));
   if (alreadyInjected)
     return;
   const systemIdx = output.messages.findIndex((m) => m.info?.role === "system");

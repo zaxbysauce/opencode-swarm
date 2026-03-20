@@ -34854,7 +34854,7 @@ var test_runner = createSwarmTool({
     let testFiles = [];
     let graphFallbackReason;
     let effectiveScope = scope;
-    if (scope === "convention") {
+    if (scope === "all") {} else if (scope === "convention") {
       const sourceFiles = args.files.filter((f) => {
         const ext = path13.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
@@ -34894,7 +34894,7 @@ var test_runner = createSwarmTool({
         testFiles = getTestFilesFromConvention(sourceFiles);
       }
     }
-    if (testFiles.length === 0) {
+    if (scope !== "all" && testFiles.length === 0) {
       const errorResult = {
         success: false,
         framework,
@@ -34904,7 +34904,7 @@ var test_runner = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    if (testFiles.length > MAX_SAFE_TEST_FILES) {
+    if (scope !== "all" && testFiles.length > MAX_SAFE_TEST_FILES) {
       const sampleFiles = testFiles.slice(0, 5);
       const errorResult = {
         success: false,

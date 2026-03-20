@@ -1428,14 +1428,19 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(result, null, 2);
 		}
 
-		// Handle different scopes (only 'convention' or 'graph' possible - 'all' rejected above)
+		// Handle different scopes: 'convention' and 'graph' do file-based discovery; 'all' skips to runTests directly
 		let testFiles: string[] = [];
 		let graphFallbackReason: string | undefined;
-		let effectiveScope: 'convention' | 'graph' = scope as
+		let effectiveScope: 'all' | 'convention' | 'graph' = scope as
+			| 'all'
 			| 'convention'
 			| 'graph';
 
-		if (scope === 'convention') {
+		// scope "all" — skip file discovery, let the test framework run its full suite
+		if (scope === 'all') {
+			// effectiveScope is already 'all', testFiles stays empty
+			// Fall through to runTests which handles empty files for scope 'all'
+		} else if (scope === 'convention') {
 			// Map source files to test files by naming convention
 			// args.files is guaranteed non-empty by the guard above
 			const sourceFiles = args.files!.filter((f) => {
@@ -1494,7 +1499,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		// Guard: Reject when source files resolve to zero test files (prevents accidental full-suite run)
-		if (testFiles.length === 0) {
+		// Skip for scope 'all' — full-suite execution deliberately has no file filter
+		if (scope !== 'all' && testFiles.length === 0) {
 			const errorResult: TestErrorResult = {
 				success: false,
 				framework,
@@ -1507,7 +1513,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		// Guard 2: Reject execution when resolved test-file count exceeds safe maximum
-		if (testFiles.length > MAX_SAFE_TEST_FILES) {
+		// Skip for scope 'all' — full-suite has no resolved file list
+		if (scope !== 'all' && testFiles.length > MAX_SAFE_TEST_FILES) {
 			// List first few resolved filenames for debugging
 			const sampleFiles = testFiles.slice(0, 5);
 			const errorResult: TestErrorResult = {
