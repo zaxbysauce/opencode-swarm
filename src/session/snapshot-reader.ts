@@ -7,7 +7,13 @@ import path from 'node:path';
 
 import { validateSwarmPath } from '../hooks/utils';
 import type { AgentSessionState, TaskWorkflowState } from '../state';
-import { advanceTaskState, getTaskState, swarmState } from '../state';
+import {
+	advanceTaskState,
+	applyRehydrationCache,
+	buildRehydrationCache,
+	getTaskState,
+	swarmState,
+} from '../state';
 import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
 
 const VALID_TASK_WORKFLOW_STATES: TaskWorkflowState[] = [
@@ -272,9 +278,20 @@ export async function reconcileTaskStatesFromPlan(
  */
 export async function loadSnapshot(directory: string): Promise<void> {
 	try {
+		// Always build the rehydration cache from plan+evidence on disk.
+		// This is needed even when no snapshot exists: sessions created later by
+		// startAgentSession() will apply this cache synchronously, ensuring
+		// guardrails see correct workflow state without a race.
+		await buildRehydrationCache(directory);
+
 		const snapshot = await readSnapshot(directory);
 		if (snapshot !== null) {
 			rehydrateState(snapshot);
+			// Apply cached plan+evidence to every restored session before the
+			// plugin begins accepting tool calls.
+			for (const session of swarmState.agentSessions.values()) {
+				applyRehydrationCache(session);
+			}
 			await reconcileTaskStatesFromPlan(directory);
 		}
 	} catch {
