@@ -39,6 +39,7 @@ export interface TestRunnerArgs {
 	files?: string[];
 	coverage?: boolean;
 	timeout_ms?: number;
+	allow_full_suite?: boolean;
 }
 
 // ============ Response Types ============
@@ -1297,6 +1298,12 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			.number()
 			.optional()
 			.describe('Timeout in milliseconds (default 60000, max 300000)'),
+		allow_full_suite: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.',
+			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
 		// Normalize whitespace-only strings back to empty string (will use directory param)
@@ -1355,19 +1362,25 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 
 		const scope = args.scope || 'all';
 
-		// Guard 1: Reject scope === 'all' for interactive session safety
-		// Full-suite execution is prohibited in interactive sessions
+		// Guard 1: scope === 'all' requires explicit opt-in via allow_full_suite flag
+		// Rationale: Full-suite output is one of the largest SSE payloads the swarm produces.
+		// Opencode's SSE pipeline has known issues with large payloads causing session wedge,
+		// memory leaks, and OOM crashes (anomalyco/opencode #17977, #15645, #17908).
+		// This guard ensures full-suite runs are a deliberate architect decision, not accidental.
 		if (scope === 'all') {
-			const errorResult: TestErrorResult = {
-				success: false,
-				framework: 'none',
-				scope: 'all',
-				error:
-					'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
-				message:
-					'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.',
-			};
-			return JSON.stringify(errorResult, null, 2);
+			if (!args.allow_full_suite) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework: 'none',
+					scope: 'all',
+					error:
+						'Full-suite test execution (scope: "all") requires allow_full_suite: true',
+					message:
+						'Set allow_full_suite: true to confirm intentional full-suite execution. Use scope "convention" or "graph" for targeted tests. Full-suite output is large and may destabilize SSE streaming on some opencode versions.',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+			// Allow through — caller explicitly opted in
 		}
 
 		// Hard guard: convention and graph scopes require explicit files to prevent unsafe full-project discovery

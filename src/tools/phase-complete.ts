@@ -494,6 +494,8 @@ export async function executePhaseComplete(
 		}
 	}
 
+	let complianceWarnings: string[] = [];
+
 	// Curator pipeline: collect phase data and run drift check. Never blocks phase_complete.
 	try {
 		const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
@@ -511,6 +513,17 @@ export async function executePhaseComplete(
 				{} as KnowledgeConfig,
 			);
 			await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+			// Surface non-suppressed compliance observations in return value
+			// so the architect sees workflow deviations (missing reviewer, missing retro, etc.)
+			if (
+				curatorResult.compliance.length > 0 &&
+				!curatorConfig.suppress_warnings
+			) {
+				const complianceLines = curatorResult.compliance
+					.map((obs) => `[${obs.severity.toUpperCase()}] ${obs.description}`)
+					.slice(0, 5); // cap at 5 to limit token cost
+				complianceWarnings = complianceLines;
+			}
 		}
 	} catch (curatorError) {
 		safeWarn(
@@ -671,6 +684,10 @@ export async function executePhaseComplete(
 				`Warning: failed to update plan.json phase status: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
+	}
+
+	if (complianceWarnings.length > 0) {
+		warnings.push(`Curator compliance: ${complianceWarnings.join('; ')}`);
 	}
 
 	// Build final result

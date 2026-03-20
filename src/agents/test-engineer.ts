@@ -51,7 +51,8 @@ WORKFLOW:
 EXECUTION BOUNDARY:
 - Blast radius is the FILE path(s) in input
 - When calling test_runner, use: { scope: "convention", files: ["<your-test-file-path>"] }
-- Running the full test suite is PROHIBITED — it crashes the session
+- scope: "all" is PROHIBITED for test_engineer — full-suite output can destabilize opencode's SSE streaming, and the architect handles regression sweeps separately via scope: "graph"
+- If you need to verify tests beyond your assigned file, report the concern in your VERDICT and the architect will handle it
 - If you wrote tests/foo.test.ts for src/foo.ts, you MUST run only tests/foo.test.ts
 
 TOOL USAGE:

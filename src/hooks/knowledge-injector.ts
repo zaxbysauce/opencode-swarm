@@ -18,7 +18,7 @@ import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
-import { safeHook } from './utils.js';
+import { readSwarmFileAsync, safeHook } from './utils.js';
 
 // ============================================================================
 // Internal Helpers (NOT exported)
@@ -167,7 +167,47 @@ export function createKnowledgeInjectorHook(
 
 			// Retrieve merged knowledge (both tiers, deduped and ranked)
 			const entries = await readMergedKnowledge(directory, config, context);
-			if (entries.length === 0) return;
+
+			// Drift injection: prepend latest drift report summary
+			try {
+				const driftReports = await readPriorDriftReports(directory);
+				if (driftReports.length > 0) {
+					const latestReport = driftReports[driftReports.length - 1];
+					const driftText = buildDriftInjectionText(latestReport, 500);
+					if (driftText) {
+						cachedInjectionText = cachedInjectionText
+							? `${driftText}\n\n${cachedInjectionText}`
+							: driftText;
+					}
+				}
+			} catch {
+				// drift injection failures must never propagate
+			}
+
+			// Curator briefing injection: include session-start briefing from curator init
+			try {
+				const briefingContent = await readSwarmFileAsync(
+					directory,
+					'curator-briefing.md',
+				);
+				if (briefingContent) {
+					// Truncate to stay within token budget (same 500 char limit as drift)
+					const truncatedBriefing = briefingContent.slice(0, 500);
+					cachedInjectionText = cachedInjectionText
+						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${cachedInjectionText}`
+						: `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
+				}
+			} catch {
+				// curator briefing injection failures must never propagate
+			}
+
+			// If no knowledge entries AND no drift/briefing, nothing to inject
+			if (entries.length === 0) {
+				if (cachedInjectionText === null) return;
+				// Drift or briefing was set — inject it directly
+				injectKnowledgeMessage(output, cachedInjectionText);
+				return;
+			}
 
 			// Get run memory summary to prepend with highest priority
 			const runMemory = await getRunMemorySummary(directory);
@@ -206,12 +246,18 @@ export function createKnowledgeInjectorHook(
 				'These are lessons learned from this project and past projects. Consider them as context but use your judgment — they may not all apply.',
 			].join('\n');
 
+			// Build injection text: knowledge section is the core content
+			// If drift/briefing was already injected, append knowledge after it
+			let injectionText = cachedInjectionText
+				? `${cachedInjectionText}\n\n${knowledgeSection}`
+				: knowledgeSection;
+
 			// Prepend run memory summary if available (highest priority)
 			if (runMemory) {
-				cachedInjectionText = `${runMemory}\n\n${knowledgeSection}`;
-			} else {
-				cachedInjectionText = knowledgeSection;
+				injectionText = `${runMemory}\n\n${injectionText}`;
 			}
+
+			cachedInjectionText = injectionText;
 
 			// Append rejected-pattern warnings (last 3 most recent) to prevent re-learning loops
 			const rejected = await readRejectedLessons(directory);
@@ -224,20 +270,6 @@ export function createKnowledgeInjectorHook(
 				cachedInjectionText +=
 					'\n\n⚠️ Previously rejected patterns (do not re-learn):\n' +
 					rejectedLines.join('\n');
-			}
-
-			// Drift injection: prepend latest drift report summary
-			try {
-				const driftReports = await readPriorDriftReports(directory);
-				if (driftReports.length > 0 && cachedInjectionText !== null) {
-					const latestReport = driftReports[driftReports.length - 1];
-					const driftText = buildDriftInjectionText(latestReport, 500);
-					if (driftText) {
-						cachedInjectionText = `${driftText}\n\n${cachedInjectionText}`;
-					}
-				}
-			} catch {
-				// drift injection failures must never propagate
 			}
 
 			injectKnowledgeMessage(output, cachedInjectionText);

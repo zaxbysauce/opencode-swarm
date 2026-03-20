@@ -603,7 +603,7 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('all');
 		expect(parsed.error).toContain('Full-suite test execution');
-		expect(parsed.error).toContain('prohibited in interactive sessions');
+		expect(parsed.error).toContain('allow_full_suite');
 		expect(parsed.message).toContain('scope "convention" or "graph"');
 	});
 
@@ -736,4 +736,251 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 			}
 		}, 100);
 	}, 15000);
+});
+
+/**
+ * Task 5.2: scope:"all" gated access tests
+ *
+ * Verifies:
+ * - scope:"all" without allow_full_suite returns error
+ * - scope:"all" with allow_full_suite:true does NOT return error (guard passes through)
+ * - scope:"all" with allow_full_suite:false returns error
+ * - scope:"convention" and scope:"graph" are unaffected by allow_full_suite
+ */
+describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
+
+	describe('scope "all" guard behavior', () => {
+		test('scope:"all" without allow_full_suite returns error', async () => {
+			const result = await test_runner.execute(
+				{ scope: 'all' },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.scope).toBe('all');
+			expect(parsed.error).toContain('allow_full_suite');
+			expect(parsed.error).toContain('Full-suite test execution');
+		});
+
+		test('scope:"all" with allow_full_suite:true does NOT return the guard error', async () => {
+			// Note: We do NOT actually run scope:"all" with allow_full_suite:true here
+			// because that would execute the full test suite. Instead, we verify that
+			// the guard PASSES (no error about allow_full_suite is returned).
+			// The execute function should proceed past the guard check.
+
+			// Create a temp dir so framework detection can work
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allowall-'));
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for framework detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			const result = await test_runner.execute(
+				{ scope: 'all', allow_full_suite: true },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			// Should NOT have the allow_full_suite error
+			expect(parsed.error).not.toContain('allow_full_suite');
+			// The error (if any) should be about something else (like no tests found)
+			// not about the guard
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+
+		test('scope:"all" with allow_full_suite:false returns error', async () => {
+			const result = await test_runner.execute(
+				{ scope: 'all', allow_full_suite: false },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.scope).toBe('all');
+			expect(parsed.error).toContain('allow_full_suite');
+		});
+
+		test('scope:"all" with allow_full_suite:undefined returns error (same as missing)', async () => {
+			const result = await test_runner.execute(
+				{ scope: 'all', allow_full_suite: undefined },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.scope).toBe('all');
+			expect(parsed.error).toContain('allow_full_suite');
+		});
+	});
+
+	describe('scope "convention" and "graph" are unaffected by allow_full_suite', () => {
+		test('scope:"convention" without allow_full_suite works normally', async () => {
+			// Create a temp dir so framework detection can work
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-'));
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for framework detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and source file
+			fs.mkdirSync('src', { recursive: true });
+			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+			// convention scope with a file should work (but will fail on no test file - which is fine)
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			// Should NOT have allow_full_suite error - convention scope doesn't use that guard
+			expect(parsed.error).not.toContain('allow_full_suite');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+
+		test('scope:"graph" without allow_full_suite works normally', async () => {
+			// Create a temp dir so framework detection can work
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-'));
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for framework detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and source file
+			fs.mkdirSync('src', { recursive: true });
+			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+			// graph scope with a file should work (but will fail on no test file - which is fine)
+			const result = await test_runner.execute(
+				{ scope: 'graph', files: ['src/utils.ts'] },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			// Should NOT have allow_full_suite error - graph scope doesn't use that guard
+			expect(parsed.error).not.toContain('allow_full_suite');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+
+		test('scope:"convention" with allow_full_suite:true still works normally', async () => {
+			// Create a temp dir so framework detection can work
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-allow-'));
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for framework detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and source file
+			fs.mkdirSync('src', { recursive: true });
+			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+			// convention scope with allow_full_suite should still work (allow_full_suite is ignored for non-all scopes)
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'], allow_full_suite: true },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			// Should NOT have allow_full_suite error - allow_full_suite only applies to scope "all"
+			expect(parsed.error).not.toContain('allow_full_suite');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+
+		test('scope:"graph" with allow_full_suite:true still works normally', async () => {
+			// Create a temp dir so framework detection can work
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-allow-'));
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for framework detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and source file
+			fs.mkdirSync('src', { recursive: true });
+			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+
+			// graph scope with allow_full_suite should still work (allow_full_suite is ignored for non-all scopes)
+			const result = await test_runner.execute(
+				{ scope: 'graph', files: ['src/utils.ts'], allow_full_suite: true },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			// Should NOT have allow_full_suite error - allow_full_suite only applies to scope "all"
+			expect(parsed.error).not.toContain('allow_full_suite');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+	});
 });

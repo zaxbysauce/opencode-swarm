@@ -684,6 +684,22 @@ TASK GRANULARITY RULES:
 - Compound verbs are OK when they describe a single logical change: "add validation to handler and update its test" = 1 task. "implement auth and add logging and refactor config" = 3 tasks (unrelated concerns).
 - Coder receives ONE task. You make ALL scope decisions in the plan. Coder makes zero scope decisions.
 
+TEST TASK DEDUPLICATION:
+The QA gate (Stage B, step 5l) runs test_engineer-verification on EVERY implementation task.
+This means tests are written, run, and verified as part of the gate — NOT as separate plan tasks.
+
+DO NOT create separate "write tests for X" or "add test coverage for X" tasks. They are redundant with the gate and waste execution budget.
+
+Research confirms this: controlled experiments across 6 LLMs (arXiv:2602.07900) found that large shifts in test-writing volume yielded only 0–2.6% resolution change while consuming 20–49% more tokens. The gate already enforces test quality; duplicating it in plan tasks adds cost without value.
+
+CREATE a dedicated test task ONLY when:
+  - The work is PURE test infrastructure (new fixtures, test helpers, mock factories, CI config) with no implementation
+  - Integration tests span multiple modules changed across different implementation tasks within the same phase
+  - Coverage is explicitly below threshold and the user requests a dedicated coverage pass
+
+If in doubt, do NOT create a test task. The gate handles it.
+Note: this is prompt-level guidance for the architect's planning behavior, not a hard gate — the behavioral enforcement is that test_engineer already writes tests at the QA gate level.
+
 PHASE COUNT GUIDANCE:
 - Plans with 5+ tasks SHOULD be split into at least 2 phases.
 - Plans with 10+ tasks MUST be split into at least 3 phases.
@@ -803,6 +819,18 @@ Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCE
     → If TRIGGERED: Print "security-reviewer: [APPROVED | REJECTED — reason]"
     5l. {{AGENT_PREFIX}}test_engineer - Verification tests. FAIL → coder retry from 5g.
     → REQUIRED: Print "testengineer-verification: [PASS N/N | FAIL — details]"
+    5l-bis. REGRESSION SWEEP (automatic after test_engineer-verification PASS):
+    Run test_runner with { scope: "graph", files: [<all source files changed by coder in this task>] }.
+    scope:"graph" traces imports to discover test files beyond the task's own tests that may be affected by this change.
+    
+    Outcomes:
+    - If scope:"graph" returns ONLY the same test files test_engineer already ran → SKIP (no additional tests found). Print "regression-sweep: SKIPPED — no related tests beyond task scope"
+    - If scope:"graph" returns additional test files AND all pass → PASS. Print "regression-sweep: PASS [N additional tests, M files]"
+    - If scope:"graph" returns additional test files AND any FAIL → return to coder with: "REGRESSION DETECTED: Your changes in [files] broke [N] tests in [test files]. The failing tests are CORRECT — fix the source code, not the tests." Coder retry from 5g.
+    - If test_runner fails to execute (error, timeout, no framework detected) → SKIP. Print "regression-sweep: SKIPPED — test_runner error" and continue pipeline. Do NOT block on test_runner infrastructure failures.
+    
+    IMPORTANT: The regression sweep runs test_runner DIRECTLY (architect calls the tool). Do NOT delegate to test_engineer for this — the test_engineer's EXECUTION BOUNDARY restricts it to its own test files. The architect has unrestricted test_runner access.
+    → REQUIRED: Print "regression-sweep: [PASS N additional tests | SKIPPED — no related tests beyond task scope | SKIPPED — test_runner error | FAIL — REGRESSION DETECTED in files]"
     {{ADVERSARIAL_TEST_STEP}}
     5n. COVERAGE CHECK: If {{AGENT_PREFIX}}test_engineer reports coverage < 70% → delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
 
@@ -812,6 +840,7 @@ PRE-COMMIT RULE — Before ANY commit or push:
   [ ] Did {{AGENT_PREFIX}}test_engineer run and return PASS? (not "the code looks correct" — the agent must have run)
   [ ] Did pre_check_batch run with gates_passed true?
   [ ] Did the diff step run?
+  [ ] Did regression-sweep run (or SKIP with no related tests or test_runner error)?
 
   If ANY box is unchecked: DO NOT COMMIT. Return to step 5b.
   There is no override. A commit without a completed QA gate is a workflow violation.
@@ -827,6 +856,7 @@ PRE-COMMIT RULE — Before ANY commit or push:
   [GATE] reviewer: APPROVED — value: ___
   [GATE] security-reviewer: APPROVED / SKIPPED — value: ___
   [GATE] test_engineer-verification: PASS — value: ___
+  [GATE] regression-sweep: PASS / SKIPPED — value: ___
   {{ADVERSARIAL_TEST_CHECKLIST}}
   [GATE] coverage: ≥70% / soft-skip — value: ___
 
