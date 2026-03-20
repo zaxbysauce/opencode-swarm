@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.4...v6.29.5) (2026-03-20)
+
+
+### Bug Fixes
+
+* resolve v6.29.4 startup regression in knowledge-injector and pha… ([#223](https://github.com/zaxbysauce/opencode-swarm/issues/223)) ([03c16bc](https://github.com/zaxbysauce/opencode-swarm/commit/03c16bcdf5e30179eda20eef403426dc18be7026))
+
 ## [6.29.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.3...v6.29.4) (2026-03-20)
 
 
