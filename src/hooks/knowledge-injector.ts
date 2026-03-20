@@ -174,6 +174,12 @@ export function createKnowledgeInjectorHook(
 			// Retrieve merged knowledge (both tiers, deduped and ranked)
 			const entries = await readMergedKnowledge(directory, config, context);
 
+			// Build drift/briefing preamble into a LOCAL variable so cachedInjectionText
+			// is never mutated before we know whether entries exist. This prevents the
+			// phase-detection early-return (cachedInjectionText !== null) from firing
+			// on subsequent calls with only a partial drift-only cache.
+			let freshPreamble: string | null = null;
+
 			// Drift injection: prepend latest drift report summary
 			try {
 				const driftReports = await readPriorDriftReports(directory);
@@ -181,9 +187,7 @@ export function createKnowledgeInjectorHook(
 					const latestReport = driftReports[driftReports.length - 1];
 					const driftText = buildDriftInjectionText(latestReport, 500);
 					if (driftText) {
-						cachedInjectionText = cachedInjectionText
-							? `${driftText}\n\n${cachedInjectionText}`
-							: driftText;
+						freshPreamble = driftText;
 					}
 				}
 			} catch {
@@ -199,8 +203,8 @@ export function createKnowledgeInjectorHook(
 				if (briefingContent) {
 					// Truncate to stay within token budget (same 500 char limit as drift)
 					const truncatedBriefing = briefingContent.slice(0, 500);
-					cachedInjectionText = cachedInjectionText
-						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${cachedInjectionText}`
+					freshPreamble = freshPreamble
+						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${freshPreamble}`
 						: `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
 				}
 			} catch {
@@ -209,8 +213,9 @@ export function createKnowledgeInjectorHook(
 
 			// If no knowledge entries AND no drift/briefing, nothing to inject
 			if (entries.length === 0) {
-				if (cachedInjectionText === null) return;
-				// Drift or briefing was set — inject it directly
+				if (freshPreamble === null) return;
+				// Drift or briefing exists — cache and inject it directly
+				cachedInjectionText = freshPreamble;
 				injectKnowledgeMessage(output, cachedInjectionText);
 				return;
 			}
@@ -252,10 +257,9 @@ export function createKnowledgeInjectorHook(
 				'These are lessons learned from this project and past projects. Consider them as context but use your judgment — they may not all apply.',
 			].join('\n');
 
-			// Build injection text: knowledge section is the core content
-			// If drift/briefing was already injected, append knowledge after it
-			let injectionText = cachedInjectionText
-				? `${cachedInjectionText}\n\n${knowledgeSection}`
+			// Build complete injection text in one assignment: preamble (if any) + knowledge
+			let injectionText = freshPreamble
+				? `${freshPreamble}\n\n${knowledgeSection}`
 				: knowledgeSection;
 
 			// Prepend run memory summary if available (highest priority)

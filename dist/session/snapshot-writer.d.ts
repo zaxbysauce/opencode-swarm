@@ -37,6 +37,7 @@ export interface SerializedAgentSession {
     lastCompletedPhaseAgentsDispatched: string[];
     qaSkipCount: number;
     qaSkipTaskIds: string[];
+    pendingAdvisoryMessages: string[];
     taskWorkflowStates?: Record<string, string>;
     /** Flag for one-shot scope violation warning injection (omitted when undefined for additive-only schema) */
     scopeViolationDetected?: boolean;

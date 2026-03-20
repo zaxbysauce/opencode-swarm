@@ -1058,7 +1058,7 @@ export function createGuardrailsHooks(
 				isArchitectSession &&
 				(session?.pendingAdvisoryMessages?.length ?? 0) > 0
 			) {
-				const advisories = session!.pendingAdvisoryMessages!;
+				const advisories = session!.pendingAdvisoryMessages ?? [];
 				let targetMsg = systemMessages[0];
 				if (!targetMsg) {
 					const newMsg = {
