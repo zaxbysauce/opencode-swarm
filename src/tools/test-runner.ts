@@ -39,6 +39,7 @@ export interface TestRunnerArgs {
 	files?: string[];
 	coverage?: boolean;
 	timeout_ms?: number;
+	allow_full_suite?: boolean;
 }
 
 // ============ Response Types ============
@@ -1297,6 +1298,12 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			.number()
 			.optional()
 			.describe('Timeout in milliseconds (default 60000, max 300000)'),
+		allow_full_suite: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.',
+			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
 		// Normalize whitespace-only strings back to empty string (will use directory param)
@@ -1355,19 +1362,25 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 
 		const scope = args.scope || 'all';
 
-		// Guard 1: Reject scope === 'all' for interactive session safety
-		// Full-suite execution is prohibited in interactive sessions
+		// Guard 1: scope === 'all' requires explicit opt-in via allow_full_suite flag
+		// Rationale: Full-suite output is one of the largest SSE payloads the swarm produces.
+		// Opencode's SSE pipeline has known issues with large payloads causing session wedge,
+		// memory leaks, and OOM crashes (anomalyco/opencode #17977, #15645, #17908).
+		// This guard ensures full-suite runs are a deliberate architect decision, not accidental.
 		if (scope === 'all') {
-			const errorResult: TestErrorResult = {
-				success: false,
-				framework: 'none',
-				scope: 'all',
-				error:
-					'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
-				message:
-					'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.',
-			};
-			return JSON.stringify(errorResult, null, 2);
+			if (!args.allow_full_suite) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework: 'none',
+					scope: 'all',
+					error:
+						'Full-suite test execution (scope: "all") requires allow_full_suite: true',
+					message:
+						'Set allow_full_suite: true to confirm intentional full-suite execution. Use scope "convention" or "graph" for targeted tests. Full-suite output is large and may destabilize SSE streaming on some opencode versions.',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+			// Allow through — caller explicitly opted in
 		}
 
 		// Hard guard: convention and graph scopes require explicit files to prevent unsafe full-project discovery
@@ -1415,14 +1428,19 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(result, null, 2);
 		}
 
-		// Handle different scopes (only 'convention' or 'graph' possible - 'all' rejected above)
+		// Handle different scopes: 'convention' and 'graph' do file-based discovery; 'all' skips to runTests directly
 		let testFiles: string[] = [];
 		let graphFallbackReason: string | undefined;
-		let effectiveScope: 'convention' | 'graph' = scope as
+		let effectiveScope: 'all' | 'convention' | 'graph' = scope as
+			| 'all'
 			| 'convention'
 			| 'graph';
 
-		if (scope === 'convention') {
+		// scope "all" — skip file discovery, let the test framework run its full suite
+		if (scope === 'all') {
+			// effectiveScope is already 'all', testFiles stays empty
+			// Fall through to runTests which handles empty files for scope 'all'
+		} else if (scope === 'convention') {
 			// Map source files to test files by naming convention
 			// args.files is guaranteed non-empty by the guard above
 			const sourceFiles = args.files!.filter((f) => {
@@ -1481,7 +1499,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		// Guard: Reject when source files resolve to zero test files (prevents accidental full-suite run)
-		if (testFiles.length === 0) {
+		// Skip for scope 'all' — full-suite execution deliberately has no file filter
+		if (scope !== 'all' && testFiles.length === 0) {
 			const errorResult: TestErrorResult = {
 				success: false,
 				framework,
@@ -1494,7 +1513,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		// Guard 2: Reject execution when resolved test-file count exceeds safe maximum
-		if (testFiles.length > MAX_SAFE_TEST_FILES) {
+		// Skip for scope 'all' — full-suite has no resolved file list
+		if (scope !== 'all' && testFiles.length > MAX_SAFE_TEST_FILES) {
 			// List first few resolved filenames for debugging
 			const sampleFiles = testFiles.slice(0, 5);
 			const errorResult: TestErrorResult = {

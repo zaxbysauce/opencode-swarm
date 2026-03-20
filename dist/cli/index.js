@@ -13993,7 +13993,7 @@ var init_evidence_schema = __esm(() => {
   });
   RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("retrospective"),
-    phase_number: exports_external.number().int().min(0).max(99),
+    phase_number: exports_external.number().int().min(1).max(99),
     total_tool_calls: exports_external.number().int().min(0).max(9999),
     coder_revisions: exports_external.number().int().min(0).max(999),
     reviewer_rejections: exports_external.number().int().min(0).max(999),
@@ -17201,7 +17201,7 @@ var SlopDetectorConfigSchema = exports_external.object({
 });
 var IncrementalVerifyConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
-  command: exports_external.string().nullable().default(null),
+  command: exports_external.union([exports_external.string(), exports_external.array(exports_external.string())]).nullable().default(null),
   timeoutMs: exports_external.number().int().min(1000).max(300000).default(30000),
   triggerAgents: exports_external.array(exports_external.string()).default(["coder"])
 });
@@ -34757,7 +34757,8 @@ var test_runner = createSwarmTool({
     scope: tool.schema.enum(["all", "convention", "graph"]).optional().describe('Test scope: "all" runs full suite, "convention" maps source files to test files by naming, "graph" finds related tests via imports'),
     files: tool.schema.array(tool.schema.string()).optional().describe("Specific files to test (used with convention or graph scope)"),
     coverage: tool.schema.boolean().optional().describe("Enable coverage reporting if supported"),
-    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)")
+    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
+    allow_full_suite: tool.schema.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.')
   },
   async execute(args, directory) {
     const workingDir = directory.trim() || directory;
@@ -34809,14 +34810,16 @@ var test_runner = createSwarmTool({
     }
     const scope = args.scope || "all";
     if (scope === "all") {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: 'Full-suite test execution (scope: "all") is prohibited in interactive sessions',
-        message: 'Use scope "convention" or "graph" with explicit files to run targeted tests in interactive mode. Full-suite runs are restricted to prevent excessive resource consumption.'
-      };
-      return JSON.stringify(errorResult, null, 2);
+      if (!args.allow_full_suite) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: 'Full-suite test execution (scope: "all") requires allow_full_suite: true',
+          message: 'Set allow_full_suite: true to confirm intentional full-suite execution. Use scope "convention" or "graph" for targeted tests. Full-suite output is large and may destabilize SSE streaming on some opencode versions.'
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
     }
     if ((scope === "convention" || scope === "graph") && (!args.files || args.files.length === 0)) {
       const errorResult = {
@@ -34851,7 +34854,7 @@ var test_runner = createSwarmTool({
     let testFiles = [];
     let graphFallbackReason;
     let effectiveScope = scope;
-    if (scope === "convention") {
+    if (scope === "all") {} else if (scope === "convention") {
       const sourceFiles = args.files.filter((f) => {
         const ext = path13.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
@@ -34891,7 +34894,7 @@ var test_runner = createSwarmTool({
         testFiles = getTestFilesFromConvention(sourceFiles);
       }
     }
-    if (testFiles.length === 0) {
+    if (scope !== "all" && testFiles.length === 0) {
       const errorResult = {
         success: false,
         framework,
@@ -34901,7 +34904,7 @@ var test_runner = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    if (testFiles.length > MAX_SAFE_TEST_FILES) {
+    if (scope !== "all" && testFiles.length > MAX_SAFE_TEST_FILES) {
       const sampleFiles = testFiles.slice(0, 5);
       const errorResult = {
         success: false,

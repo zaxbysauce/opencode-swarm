@@ -434,7 +434,7 @@ export declare const SlopDetectorConfigSchema: z.ZodObject<{
 export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
 export declare const IncrementalVerifyConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
-    command: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    command: z.ZodDefault<z.ZodNullable<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
     timeoutMs: z.ZodDefault<z.ZodNumber>;
     triggerAgents: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
@@ -725,7 +725,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     }, z.core.$strip>>;
     incremental_verify: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
-        command: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+        command: z.ZodDefault<z.ZodNullable<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
         timeoutMs: z.ZodDefault<z.ZodNumber>;
         triggerAgents: z.ZodDefault<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;

@@ -157,3 +157,141 @@ describe('Task 6.3: Adversarial testing checklist behavior', () => {
 		});
 	});
 });
+
+/**
+ * Task 5.1: Regression sweep prompt content tests
+ *
+ * Verifies:
+ * - regression-sweep appears AFTER test_engineer-verification in prompt
+ * - regression-sweep appears in TASK COMPLETION GATE checklist
+ * - regression-sweep appears in PRE-COMMIT RULE
+ * - Step text includes scope:"graph" and files: parameters
+ * - Step text includes SKIPPED — test_runner error as a valid outcome
+ */
+describe('Task 5.1: Regression sweep prompt content', () => {
+
+	describe('regression-sweep step appears in prompt after test_engineer-verification', () => {
+		it('prompt contains regression-sweep step (5l-bis) after test_engineer-verification (5l)', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find positions of both steps in the prompt
+			const verificationPos = prompt.indexOf('test_engineer-verification');
+			const regressionPos = prompt.indexOf('regression-sweep');
+
+			expect(verificationPos).toBeGreaterThan(0);
+			expect(regressionPos).toBeGreaterThan(0);
+			expect(regressionPos).toBeGreaterThan(verificationPos);
+		});
+
+		it('regression-sweep step text includes scope:"graph"', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('scope: "graph"');
+		});
+
+		it('regression-sweep step text includes files: parameter', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Should mention files array in the context of regression sweep
+			expect(prompt).toContain('files:');
+		});
+
+		it('regression-sweep step text includes SKIPPED — test_runner error outcome', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('SKIPPED — test_runner error');
+		});
+	});
+
+	describe('regression-sweep appears in TASK COMPLETION GATE checklist', () => {
+		it('TASK COMPLETION GATE checklist includes regression-sweep', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find the TASK COMPLETION GATE section
+			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			expect(gateStart).toBeGreaterThan(0);
+
+			// Extract the gate section (next 500 chars should contain it)
+			const gateSection = prompt.slice(gateStart, gateStart + 800);
+			expect(gateSection).toContain('regression-sweep');
+		});
+
+		it('TASK COMPLETION GATE shows regression-sweep: PASS / SKIPPED format', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			const gateSection = prompt.slice(gateStart, gateStart + 800);
+
+			// Should show the format: [GATE] regression-sweep: PASS / SKIPPED — value: ___
+			expect(gateSection).toMatch(/regression-sweep:\s*PASS\s*\/\s*SKIPPED/);
+		});
+	});
+
+	describe('regression-sweep appears in PRE-COMMIT RULE', () => {
+		it('PRE-COMMIT RULE checklist includes regression-sweep', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find the PRE-COMMIT RULE section
+			const precommitStart = prompt.indexOf('PRE-COMMIT RULE');
+			expect(precommitStart).toBeGreaterThan(0);
+
+			// Extract the precommit section
+			const precommitSection = prompt.slice(precommitStart, precommitStart + 600);
+			expect(precommitSection).toContain('regression-sweep');
+		});
+
+		it('PRE-COMMIT RULE asks "Did regression-sweep run (or SKIP with no related tests or test_runner error)?"', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			const precommitStart = prompt.indexOf('PRE-COMMIT RULE');
+			const precommitSection = prompt.slice(precommitStart, precommitStart + 600);
+
+			// Should contain the full question about regression-sweep
+			expect(precommitSection).toContain('regression-sweep run');
+			expect(precommitSection).toContain('SKIP');
+			expect(precommitSection).toContain('test_runner error');
+		});
+	});
+
+	describe('Step 5l-bis text content verification', () => {
+		it('step 5l-bis is labeled as REGRESSION SWEEP', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('REGRESSION SWEEP');
+		});
+
+		it('step mentions running test_runner with scope:"graph" on changed files', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Should mention the graph scope for regression testing
+			expect(prompt).toContain('scope: "graph"');
+			// Should mention files changed by coder
+			expect(prompt).toContain('source files changed by coder');
+		});
+
+		it('step includes all four possible outcomes', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find the regression sweep step section
+			const sweepStart = prompt.indexOf('REGRESSION SWEEP');
+			const sweepSection = prompt.slice(sweepStart, sweepStart + 1200);
+
+			// All four outcomes should be mentioned
+			expect(sweepSection).toContain('SKIP (no additional tests found)');
+			expect(sweepSection).toContain('PASS');
+			expect(sweepSection).toContain('REGRESSION DETECTED');
+			expect(sweepSection).toContain('SKIPPED — test_runner error');
+		});
+	});
+});

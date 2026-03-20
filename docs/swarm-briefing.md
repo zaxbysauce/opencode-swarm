@@ -8,14 +8,14 @@ This document tells you — an AI model — everything you need to author a vali
 ## What Is the Swarm
 
 The Architect orchestrates a plan and delegates every coding task to the Coder.
-The Coder implements one atomic task at a time. After every task a 12-step QA
+The Coder implements one atomic task at a time. After every task a 14-step QA
 gate verifies quality, security, and correctness before progress continues.
 The task must also advance through a per-task state machine — `update_task_status`
 will reject `status='completed'` unless the state has reached `tests_run`.
 
 ---
 
-## Pipeline (12 Steps)
+## Pipeline (14 Steps)
 
 Each step must pass before the next begins:
 
@@ -30,7 +30,9 @@ Each step must pass before the next begins:
 9. `security-reviewer` — triggered when files match auth/crypto/config globs
 10. `test_engineer verification` — run test suite; report PASS/FAIL
 11. `test_engineer adversarial` — edge-case and attack-vector tests
-12. `coverage check` — fail if coverage drops below the project threshold
+12. `regression-sweep` — architect runs test_runner with scope:"graph" to find cross-task test regressions
+13. `coverage check` — fail if coverage drops below the project threshold
+14. `pre-commit checklist` — hard stop before marking task complete
 
 ---
 
@@ -57,6 +59,21 @@ Every task in `.swarm/plan.md` must include these fields:
 
 Litmus test: if you cannot write TASK + FILE + CONSTRAINT in three bullet
 points, the task is too large. Split it.
+
+---
+
+## Task Deduplication Guidance
+
+**DO NOT create separate "write tests for X" or "add test coverage for X" tasks.** The QA gate (Stage B, step 5l) runs test_engineer-verification on EVERY implementation task. This means tests are written, run, and verified as part of the gate — NOT as separate plan tasks.
+
+Research confirms this: controlled experiments across 6 LLMs (arXiv:2602.07900) found that large shifts in test-writing volume yielded only 0–2.6% resolution change while consuming 20–49% more tokens. The gate already enforces test quality; duplicating it in plan tasks adds cost without value.
+
+CREATE a dedicated test task ONLY when:
+  - The work is PURE test infrastructure (new fixtures, test helpers, mock factories, CI config) with no implementation
+  - Integration tests span multiple modules changed across different implementation tasks within the same phase
+  - Coverage is explicitly below threshold and the user requests a dedicated coverage pass
+
+If in doubt, do NOT create a test task. The gate handles it.
 
 ---
 

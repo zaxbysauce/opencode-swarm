@@ -11,6 +11,7 @@ export interface TestRunnerArgs {
     files?: string[];
     coverage?: boolean;
     timeout_ms?: number;
+    allow_full_suite?: boolean;
 }
 export interface TestTotals {
     passed: number;

@@ -294,12 +294,13 @@ The Curator integrates at three points in the swarm execution pipeline:
 
 #### 1. Phase Monitor Init (`src/hooks/phase-monitor.ts`)
 
-On the **first phase** of a project, the phase-monitor hook detects that `lastSeenPhase` is transitioning from `null` and calls `runCuratorInit`. This initializes `.swarm/curator-summary.json` with a baseline entry.
+On the **first phase** of a project, the phase-monitor hook detects that `lastSeenPhase` is transitioning from `null` and calls `runCuratorInit`. This initializes `.swarm/curator-summary.json` with a baseline entry and persists the init briefing to `.swarm/curator-briefing.md`.
 
 ```typescript
 // Fires once, on first-phase detection
 if (curatorConfig.enabled && curatorConfig.init_enabled) {
   await runCuratorInit(directory, curatorConfig);
+  // Briefing is persisted to .swarm/curator-briefing.md
 }
 ```
 
@@ -312,19 +313,26 @@ After each phase completes (and after the standard `curateAndStoreSwarm()` call)
 1. **`runCuratorPhase`** — Collects phase events from the event bus, runs compliance checks, and produces a `CuratorPhaseResult`.
 2. **`applyCuratorKnowledgeUpdates`** — Merges the phase result's knowledge recommendations into `.swarm/curator-summary.json`, capped at `max_summary_tokens`.
 3. **`runCriticDriftCheck`** — Compares planned vs. actual decisions, writes a drift report to `.swarm/drift-report-phase-N.json`.
+4. **Compliance surfacing** — If compliance observations exist and `suppress_warnings` is false, they are added to the return value's warnings array (max 5).
 
 The entire pipeline is wrapped in a single try/catch and gated on `curatorConfig.enabled && curatorConfig.phase_enabled`. If any step throws, `phase_complete` is never blocked.
 
-#### 3. Knowledge Injector Drift Injection (`src/hooks/knowledge-injector.ts`)
+#### 3. Knowledge Injector (`src/hooks/knowledge-injector.ts`)
 
-At the start of each phase, the knowledge-injector hook now **prepends** the latest drift report summary to the architect's knowledge context, ahead of the standard knowledge entries:
+At the start of each phase, the knowledge-injector hook injects both drift reports and curator briefing:
 
+**Drift injection:**
 1. Calls `readPriorDriftReports(directory)` to load all drift reports sorted ascending by phase.
 2. Takes the last entry (most recent phase).
 3. Calls `buildDriftInjectionText(report, drift_inject_max_chars)` to format it.
-4. Prepends the result to `cachedInjectionText` before the single `injectKnowledgeMessage` call.
+4. Prepends the result to `cachedInjectionText`.
 
-This ensures the architect always sees the latest plan-vs-reality drift before diving into new phase work.
+**Curator briefing injection:**
+1. Reads `.swarm/curator-briefing.md` via `readSwarmFileAsync`.
+2. Truncates to 500 characters.
+3. Prepends as `<curator_briefing>` tag to `cachedInjectionText`.
+
+**Important:** Both drift reports and curator briefing are injected even when no knowledge entries exist. The injection logic was restructured to run before the `entries.length === 0` check.
 
 ### Drift Report Format
 
