@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.29.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.6...v6.29.7) (2026-03-20)
+
+
+### Bug Fixes
+
+* remove redundant reconcileTaskStatesFromPlan causing startup throw-loop in v6.29.6 ([#227](https://github.com/zaxbysauce/opencode-swarm/issues/227)) ([f6ddf69](https://github.com/zaxbysauce/opencode-swarm/commit/f6ddf6906de614769956c6b87ed51f224dbefc1b))
+
 ## [6.29.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.5...v6.29.6) (2026-03-20)
 
 
