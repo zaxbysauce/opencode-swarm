@@ -1,0 +1,160 @@
+import { tool } from '@opencode-ai/plugin';
+import {
+	appendKnowledge,
+	resolveSwarmKnowledgePath,
+} from '../hooks/knowledge-store.js';
+import type {
+	KnowledgeCategory,
+	SwarmKnowledgeEntry,
+} from '../hooks/knowledge-types.js';
+import { createSwarmTool } from './create-tool.js';
+
+const VALID_CATEGORIES: KnowledgeCategory[] = [
+	'process',
+	'architecture',
+	'tooling',
+	'security',
+	'testing',
+	'debugging',
+	'performance',
+	'integration',
+	'other',
+];
+
+interface KnowledgeAddArgs {
+	lesson: unknown;
+	category: unknown;
+	tags?: unknown;
+	scope?: unknown;
+}
+
+export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
+	{
+		description:
+			'Store a new lesson in the knowledge base for future reference. The lesson will be available for retrieval via knowledge_recall.',
+		args: {
+			lesson: tool.schema
+				.string()
+				.min(15)
+				.max(280)
+				.describe('The lesson to store (15-280 characters)'),
+			category: tool.schema
+				.enum(VALID_CATEGORIES)
+				.describe('Knowledge category for the lesson'),
+			tags: tool.schema
+				.array(tool.schema.string())
+				.optional()
+				.describe('Optional tags for better searchability'),
+			scope: tool.schema
+				.string()
+				.optional()
+				.describe('Scope of the lesson (global or stack:<name>)'),
+		},
+		execute: async (args: unknown, directory: string): Promise<string> => {
+			// Safe args extraction
+			let lessonInput: unknown;
+			let categoryInput: unknown;
+			let tagsInput: unknown;
+			let scopeInput: unknown;
+
+			try {
+				if (args && typeof args === 'object') {
+					const obj = args as Record<string, unknown>;
+					lessonInput = obj.lesson;
+					categoryInput = obj.category;
+					tagsInput = obj.tags;
+					scopeInput = obj.scope;
+				}
+			} catch {
+				// Malicious getter threw
+			}
+
+			// Validate lesson
+			if (typeof lessonInput !== 'string') {
+				return JSON.stringify({
+					success: false,
+					error: 'lesson must be a string',
+				});
+			}
+			const lesson = lessonInput as string;
+			if (lesson.length < 15 || lesson.length > 280) {
+				return JSON.stringify({
+					success: false,
+					error: 'lesson must be between 15 and 280 characters',
+				});
+			}
+
+			// Validate category
+			if (typeof categoryInput !== 'string') {
+				return JSON.stringify({
+					success: false,
+					error: 'category must be a string',
+				});
+			}
+			const category = categoryInput as KnowledgeCategory;
+			if (!VALID_CATEGORIES.includes(category)) {
+				return JSON.stringify({
+					success: false,
+					error: `category must be one of: ${VALID_CATEGORIES.join(', ')}`,
+				});
+			}
+
+			// Parse tags (optional, default to empty array)
+			let tags: string[] = [];
+			if (tagsInput !== undefined) {
+				if (Array.isArray(tagsInput)) {
+					tags = tagsInput
+						.filter((t): t is string => typeof t === 'string')
+						.slice(0, 20); // cap at 20 tags
+				}
+			}
+
+			// Parse scope (optional, default to 'global')
+			const scope =
+				typeof scopeInput === 'string' && scopeInput.length > 0
+					? scopeInput
+					: 'global';
+
+			// Construct the entry
+			const entry: SwarmKnowledgeEntry = {
+				id: crypto.randomUUID(),
+				tier: 'swarm',
+				lesson,
+				category,
+				tags,
+				scope,
+				confidence: 0.5,
+				status: 'candidate',
+				confirmed_by: [],
+				project_name: '',
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: true,
+				hive_eligible: false,
+			};
+
+			// Append to knowledge store
+			try {
+				await appendKnowledge(resolveSwarmKnowledgePath(directory), entry);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Unknown error';
+				return JSON.stringify({
+					success: false,
+					error: message,
+				});
+			}
+
+			return JSON.stringify({
+				success: true,
+				id: entry.id,
+				category,
+			});
+		},
+	},
+);

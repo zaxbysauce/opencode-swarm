@@ -933,7 +933,7 @@ async function scanDirectoryForLines(
 				);
 			} else if (entry.isFile()) {
 				// Check if it matches include patterns
-				const relativePath = fullPath.replace(`${process.cwd()}/`, '');
+				const relativePath = fullPath.replace(`${dirPath}/`, '');
 
 				// Skip files that don't match extension
 				const ext = path.extname(entry.name).toLowerCase();

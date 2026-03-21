@@ -12,7 +12,7 @@ describe('handleTurboCommand - Empty SessionID Handling (Task 3.13)', () => {
 
 	beforeEach(() => {
 		// Create a test session
-		testSessionId = 'turbo-test-' + Date.now();
+		testSessionId = `turbo-test-${Date.now()}`;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

@@ -285,11 +285,14 @@ export function createGuardrailsHooks(
 		'enabled' in directoryOrConfig
 	) {
 		// Legacy call: createGuardrailsHooks(config)
+		console.warn(
+			'[guardrails] Legacy call without directory, falling back to process.cwd()',
+		);
 		directory = process.cwd();
 		guardrailsConfig = directoryOrConfig as GuardrailsConfig;
 	} else {
 		// New signature: createGuardrailsHooks(directory, config)
-		directory = (directoryOrConfig as string) ?? process.cwd();
+		directory = (directoryOrConfig as string) || process.cwd();
 		guardrailsConfig = config;
 	}
 
@@ -387,9 +390,36 @@ export function createGuardrailsHooks(
 							: 'agent';
 					const loopSession = swarmState.agentSessions.get(input.sessionID);
 					if (loopSession) {
+						// Build structured escalation with: loop pattern + alternative suggestion + accomplishment
+						const loopPattern = loopResult.pattern; // e.g. "Task:coder:path"
+						const modifiedFiles = loopSession.modifiedFilesThisCoderTask ?? [];
+						const accomplishmentSummary =
+							modifiedFiles.length > 0
+								? `Modified ${modifiedFiles.length} file(s): ${modifiedFiles.slice(0, 3).join(', ')}${modifiedFiles.length > 3 ? '...' : ''}`
+								: 'No files modified yet';
+
+						const alternativeSuggestions: Record<string, string> = {
+							coder:
+								'Try a different task spec, simplify the constraint, or escalate to user',
+							reviewer: 'Try a different review dimension or escalate to user',
+							test_engineer: 'Run a specific test file with targeted scope',
+							explorer:
+								'Narrow the search scope or check a specific file directly',
+						};
+						const cleanAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
+						const suggestion =
+							alternativeSuggestions[cleanAgent] ??
+							'Try a different agent, different instructions, or escalate to the user';
+
 						loopSession.loopWarningPending = {
 							agent: agentName,
-							message: `LOOP DETECTED: You have delegated to ${agentName} with the same pattern 3 times. Change your approach — try a different agent, different instructions, or escalate to the user.`,
+							message: [
+								`LOOP DETECTED: Pattern "${loopPattern}" repeated 3 times.`,
+								`Agent: ${agentName}`,
+								`Accomplished: ${accomplishmentSummary}`,
+								`Suggested action: ${suggestion}`,
+								`If still stuck after trying alternatives, escalate to the user.`,
+							].join('\n'),
 							timestamp: Date.now(),
 						};
 					}
@@ -1080,8 +1110,7 @@ export function createGuardrailsHooks(
 				);
 				if (textPart) {
 					const joined = advisories.join('\n---\n');
-					textPart.text =
-						`[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n` + textPart.text;
+					textPart.text = `[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n${textPart.text}`;
 				}
 				session!.pendingAdvisoryMessages = [];
 			} else if (

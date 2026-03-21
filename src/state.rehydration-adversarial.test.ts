@@ -10,7 +10,7 @@ let testSessionId: string;
 beforeEach(() => {
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'adversarial-rehydrate-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'adversarial-test-' + Date.now();
+	testSessionId = `adversarial-test-${Date.now()}`;
 });
 
 afterEach(() => {
@@ -514,7 +514,7 @@ describe('ADVERSARIAL: Backward compatibility', () => {
 		const session1 = swarmState.agentSessions.get(testSessionId);
 
 		// Test 2: directory omitted entirely
-		const session2Id = testSessionId + '-2';
+		const session2Id = `${testSessionId}-2`;
 		startAgentSession(session2Id, 'architect', 7200000);
 		const session2 = swarmState.agentSessions.get(session2Id);
 
@@ -576,7 +576,7 @@ describe('ADVERSARIAL: Crash attempts', () => {
 	});
 
 	it('26. extremely long directory path does not crash', () => {
-		const longPath = '/tmp/' + 'a'.repeat(10000);
+		const longPath = `/tmp/${'a'.repeat(10000)}`;
 		expect(() => {
 			startAgentSession(testSessionId, 'architect', 7200000, longPath);
 		}).not.toThrow();
@@ -587,7 +587,7 @@ describe('ADVERSARIAL: Crash attempts', () => {
 
 	it('27. plan.json with deeply nested structure does not crash', () => {
 		// Create a deeply nested JSON that might cause stack overflow in parsing
-		const deepJson = '{"a":' + '{"b":'.repeat(1000) + '1' + '}'.repeat(1000);
+		const deepJson = `{"a":${'{"b":'.repeat(1000)}1${'}'.repeat(1000)}`;
 		writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), deepJson);
 
 		expect(() => {
@@ -837,7 +837,7 @@ describe('ADVERSARIAL: Crash attempts', () => {
 		);
 		try {
 			// This may fail on Windows without admin, so we wrap in try/catch
-			require('fs').symlinkSync('/nonexistent/path', symlinkPath, 'file');
+			require('node:fs').symlinkSync('/nonexistent/path', symlinkPath, 'file');
 		} catch {
 			// Symlink creation failed - that's fine, skip this part of the test
 		}

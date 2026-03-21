@@ -17,7 +17,7 @@ let mockDirectory: string;
 beforeEach(() => {
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'bootstrap-test-'));
 	mockDirectory = tmpDir;
-	testSessionId = 'test-session-' + Date.now();
+	testSessionId = `test-session-${Date.now()}`;
 });
 
 afterEach(() => {
@@ -192,28 +192,28 @@ describe('Architect session bootstrap directory threading', () => {
 			// of passing ctx.directory to ensureAgentSession
 
 			// Path 1: Stale delegation
-			startAgentSession(testSessionId + '-path1', 'coder');
-			const session1 = swarmState.agentSessions.get(testSessionId + '-path1');
+			startAgentSession(`${testSessionId}-path1`, 'coder');
+			const session1 = swarmState.agentSessions.get(`${testSessionId}-path1`);
 			session1!.delegationActive = true;
 			session1!.lastAgentEventTime = Date.now() - 20000;
-			swarmState.activeAgent.set(testSessionId + '-path1', 'coder');
+			swarmState.activeAgent.set(`${testSessionId}-path1`, 'coder');
 
 			const result1 = ensureAgentSession(
-				testSessionId + '-path1',
+				`${testSessionId}-path1`,
 				ORCHESTRATOR_NAME,
 				mockDirectory, // ctx.directory passed here
 			);
 			expect(result1.agentName).toBe(ORCHESTRATOR_NAME);
 
 			// Path 2: Task handoff
-			startAgentSession(testSessionId + '-path2', 'coder');
-			const session2 = swarmState.agentSessions.get(testSessionId + '-path2');
+			startAgentSession(`${testSessionId}-path2`, 'coder');
+			const session2 = swarmState.agentSessions.get(`${testSessionId}-path2`);
 			session2!.delegationActive = true;
 			session2!.lastAgentEventTime = Date.now() - 20000;
-			swarmState.activeAgent.set(testSessionId + '-path2', 'coder');
+			swarmState.activeAgent.set(`${testSessionId}-path2`, 'coder');
 
 			const result2 = ensureAgentSession(
-				testSessionId + '-path2',
+				`${testSessionId}-path2`,
 				ORCHESTRATOR_NAME,
 				mockDirectory, // ctx.directory passed here too
 			);

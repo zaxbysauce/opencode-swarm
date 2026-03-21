@@ -21,7 +21,7 @@ let testSessionId: string;
 beforeEach(() => {
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'bootstrap-adv-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'bootstrap-adv-' + Date.now();
+	testSessionId = `bootstrap-adv-${Date.now()}`;
 	// Ensure clean state
 	swarmState.agentSessions.delete(testSessionId);
 	swarmState.activeAgent.delete(testSessionId);
@@ -58,7 +58,7 @@ describe('ADVERSARIAL: index.ts stale-delegation bootstrap path (lines 594-598)'
 		swarmState.activeAgent.set(testSessionId, 'coder');
 
 		// Simulate stale-delegation check (lines 582-592 in index.ts)
-		const activeAgent = swarmState.activeAgent.get(testSessionId);
+		const _activeAgent = swarmState.activeAgent.get(testSessionId);
 		const currentSession = swarmState.agentSessions.get(testSessionId);
 		const staleDelegation =
 			!currentSession!.delegationActive ||
@@ -107,7 +107,7 @@ describe('ADVERSARIAL: index.ts stale-delegation bootstrap path (lines 594-598)'
 		swarmState.activeAgent.set(testSessionId, 'coder');
 
 		// Simulate another tool call in progress
-		const otherCallId = 'other-call-' + Date.now();
+		const otherCallId = `other-call-${Date.now()}`;
 		swarmState.activeToolCalls.set(otherCallId, {
 			tool: 'read',
 			sessionID: testSessionId,
@@ -149,7 +149,7 @@ describe('ADVERSARIAL: index.ts stale-delegation bootstrap path (lines 594-598)'
 	});
 
 	it('5. stale delegation with extremely long directory (DoS attempt)', () => {
-		const longPath = '/tmp/' + 'x'.repeat(100000);
+		const longPath = `/tmp/${'x'.repeat(100000)}`;
 
 		startAgentSession(testSessionId, 'coder');
 		const session = swarmState.agentSessions.get(testSessionId);
@@ -512,8 +512,8 @@ describe('ADVERSARIAL: Real-world edge cases', () => {
 	});
 
 	it('20. directory with trailing slashes works', () => {
-		const dirWithTrailingSlash = tmpDir + '/';
-		const dirWithMultipleSlashes = tmpDir + '///';
+		const dirWithTrailingSlash = `${tmpDir}/`;
+		const dirWithMultipleSlashes = `${tmpDir}///`;
 
 		startAgentSession(testSessionId, 'coder');
 

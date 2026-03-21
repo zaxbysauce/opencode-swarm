@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_FILE_PATH_LENGTH = 500;
@@ -779,7 +780,7 @@ function findScannableFiles(
 }
 
 // ============ Tool Definition ============
-export const secretscan: ReturnType<typeof tool> = tool({
+export const secretscan: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.',
 	args: {
@@ -794,16 +795,18 @@ export const secretscan: ReturnType<typeof tool> = tool({
 			),
 	},
 	async execute(
-		args: { directory: string; exclude?: string[] },
-		_context: ToolContext,
+		args: unknown,
+		_directory: string,
+		_ctx?: ToolContext,
 	): Promise<string> {
+		const typedArgs = args as { directory: string; exclude?: string[] };
 		// Safe args extraction - guard against malformed args and malicious getters
 		let directory: string | undefined;
 		let exclude: string[] | undefined;
 		try {
-			if (args && typeof args === 'object') {
-				directory = args.directory;
-				exclude = args.exclude;
+			if (typedArgs && typeof typedArgs === 'object') {
+				directory = typedArgs.directory;
+				exclude = typedArgs.exclude;
 			}
 		} catch {
 			// Malicious getter threw - treat as malformed args

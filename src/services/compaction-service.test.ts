@@ -9,7 +9,7 @@ import {
 	resetCompactionState,
 } from './compaction-service';
 
-const TEST_DIR = '/test/project';
+const _TEST_DIR = '/test/project';
 
 const defaultConfig: CompactionConfig = {
 	enabled: true,

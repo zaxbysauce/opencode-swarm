@@ -17126,6 +17126,11 @@ var GuardrailsConfigSchema = exports_external.object({
   }).optional(),
   profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
 });
+var WatchdogConfigSchema = exports_external.object({
+  scope_guard: exports_external.boolean().default(true),
+  skip_in_turbo: exports_external.boolean().default(false),
+  delegation_ledger: exports_external.boolean().default(true)
+});
 var ToolFilterConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   overrides: exports_external.record(exports_external.string(), exports_external.array(exports_external.string())).default({})
@@ -17224,6 +17229,7 @@ var PluginConfigSchema = exports_external.object({
   gates: GateConfigSchema.optional(),
   context_budget: ContextBudgetConfigSchema.optional(),
   guardrails: GuardrailsConfigSchema.optional(),
+  watchdog: WatchdogConfigSchema.optional(),
   tool_filter: ToolFilterConfigSchema.optional(),
   plan_cursor: PlanCursorConfigSchema.optional(),
   evidence: EvidenceConfigSchema.optional(),
@@ -33000,7 +33006,7 @@ function detectAdditionalLinter(cwd) {
 }
 async function detectAvailableLinter(directory) {
   const DETECT_TIMEOUT = 2000;
-  const projectDir = directory ?? process.cwd();
+  const projectDir = directory || process.cwd();
   const isWindows = process.platform === "win32";
   const biomeBin = isWindows ? path11.join(projectDir, "node_modules", ".bin", "biome.EXE") : path11.join(projectDir, "node_modules", ".bin", "biome");
   const eslintBin = isWindows ? path11.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path11.join(projectDir, "node_modules", ".bin", "eslint");
@@ -33701,19 +33707,20 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
   }
   return files;
 }
-var secretscan = tool({
+var secretscan = createSwarmTool({
   description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
   args: {
     directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
     exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
   },
-  async execute(args, _context) {
+  async execute(args, _directory, _ctx) {
+    const typedArgs = args;
     let directory;
     let exclude;
     try {
-      if (args && typeof args === "object") {
-        directory = args.directory;
-        exclude = args.exclude;
+      if (typedArgs && typeof typedArgs === "object") {
+        directory = typedArgs.directory;
+        exclude = typedArgs.exclude;
       }
     } catch {}
     if (directory === undefined) {
@@ -34592,7 +34599,7 @@ function parseTestOutput(framework, output) {
   return { totals, coveragePercent };
 }
 async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
-  const command = buildTestCommand(framework, scope, files, coverage, cwd ?? process.cwd());
+  const command = buildTestCommand(framework, scope, files, coverage, cwd);
   if (!command) {
     return {
       success: false,
@@ -34617,7 +34624,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     const proc = Bun.spawn(command, {
       stdout: "pipe",
       stderr: "pipe",
-      cwd: cwd || process.cwd()
+      cwd
     });
     const exitPromise = proc.exited;
     const timeoutPromise = new Promise((resolve6) => setTimeout(() => {

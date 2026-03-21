@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 type SecretType = 'api_key' | 'aws_access_key' | 'aws_secret_key' | 'private_key' | 'password' | 'secret_token' | 'bearer_token' | 'basic_auth' | 'database_url' | 'jwt' | 'github_token' | 'slack_token' | 'stripe_key' | 'sendgrid_key' | 'twilio_key' | 'generic_token' | 'high_entropy';
 type Confidence = 'high' | 'medium' | 'low';
 type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -27,7 +27,7 @@ export interface SecretscanErrorResult {
     files_scanned: 0;
     skipped_files: 0;
 }
-export declare const secretscan: ReturnType<typeof tool>;
+export declare const secretscan: ReturnType<typeof createSwarmTool>;
 /**
  * Run secretscan programmatically
  */

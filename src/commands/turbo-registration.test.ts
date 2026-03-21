@@ -3,7 +3,7 @@
  * Verifies import, export, help text, and switch case routing for /swarm turbo
  */
 
-import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as commandsIndex from '../commands/index';
 import { handleTurboCommand } from '../commands/turbo';
 import { getAgentSession, swarmState } from '../state';
@@ -41,8 +41,8 @@ describe('Task 3.12: Turbo Command Registration', () => {
 		it('HELP_TEXT should contain turbo command documentation', () => {
 			// We need to verify the help text includes the turbo command
 			// Read the source file to check for the help text
-			const source = require('fs').readFileSync(
-				require('path').join(__dirname, '../commands/index.ts'),
+			const source = require('node:fs').readFileSync(
+				require('node:path').join(__dirname, '../commands/index.ts'),
 				'utf-8',
 			);
 
@@ -53,8 +53,8 @@ describe('Task 3.12: Turbo Command Registration', () => {
 		});
 
 		it('HELP_TEXT should document toggle behavior', () => {
-			const source = require('fs').readFileSync(
-				require('path').join(__dirname, '../commands/index.ts'),
+			const source = require('node:fs').readFileSync(
+				require('node:path').join(__dirname, '../commands/index.ts'),
 				'utf-8',
 			);
 
@@ -68,7 +68,7 @@ describe('Task 3.12: Turbo Command Registration', () => {
 
 		beforeEach(() => {
 			// Create a test session with turboMode = false
-			testSessionId = 'switch-test-' + Date.now();
+			testSessionId = `switch-test-${Date.now()}`;
 			swarmState.agentSessions.set(testSessionId, {
 				agentName: 'architect',
 				lastToolCallTime: Date.now(),
@@ -217,8 +217,8 @@ describe('Task 3.12: Turbo Command Registration', () => {
 		it('turbo should be recognized as a valid subcommand in switch', () => {
 			// This is implicitly tested by the switch case routing tests above
 			// If 'turbo' wasn't in the switch, it would fall through to default HELP_TEXT
-			const source = require('fs').readFileSync(
-				require('path').join(__dirname, '../commands/index.ts'),
+			const source = require('node:fs').readFileSync(
+				require('node:path').join(__dirname, '../commands/index.ts'),
 				'utf-8',
 			);
 

@@ -3,6 +3,7 @@ export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
+export { curator_analyze } from './curator-analyze';
 export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
 export { detect_domains } from './domain-detector';
@@ -10,7 +11,10 @@ export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
+export { knowledgeAdd } from './knowledge-add';
 export { knowledge_query } from './knowledge-query';
+export { knowledgeRecall } from './knowledge-recall';
+export { knowledgeRemove } from './knowledge-remove';
 export { lint } from './lint';
 // Phase completion tracking
 export { phase_complete } from './phase-complete';

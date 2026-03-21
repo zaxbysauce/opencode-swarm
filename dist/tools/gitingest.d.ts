@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 export interface GitingestArgs {
     url: string;
     maxFileSize?: number;
@@ -15,4 +15,4 @@ export declare function fetchGitingest(args: GitingestArgs): Promise<string>;
 /**
  * Gitingest tool for fetching GitHub repository contents
  */
-export declare const gitingest: ReturnType<typeof tool>;
+export declare const gitingest: ReturnType<typeof createSwarmTool>;

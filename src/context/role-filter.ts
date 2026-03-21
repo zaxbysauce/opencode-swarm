@@ -189,6 +189,11 @@ export function filterByRole(
 	}
 
 	// Default to cwd if no directory provided
+	if (!directory) {
+		console.warn(
+			'[role-filter] No directory provided, falling back to process.cwd()',
+		);
+	}
 	const projectDir = directory || process.cwd();
 
 	// Filter entries based on role and tags

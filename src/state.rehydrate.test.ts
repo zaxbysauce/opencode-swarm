@@ -17,7 +17,7 @@ beforeEach(() => {
 	resetSwarmState();
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'rehydrate-test-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'test-session-' + Date.now();
+	testSessionId = `test-session-${Date.now()}`;
 });
 
 afterEach(() => {
@@ -101,7 +101,7 @@ const STATE_ORDER: TaskWorkflowState[] = [
 	'complete',
 ];
 
-function getStateIndex(state: TaskWorkflowState): number {
+function _getStateIndex(state: TaskWorkflowState): number {
 	return STATE_ORDER.indexOf(state);
 }
 

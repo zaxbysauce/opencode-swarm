@@ -1030,16 +1030,10 @@ export async function runTests(
 	files: string[],
 	coverage: boolean,
 	timeout_ms: number,
-	cwd?: string,
+	cwd: string,
 ): Promise<TestResult> {
 	// Build the command
-	const command = buildTestCommand(
-		framework,
-		scope,
-		files,
-		coverage,
-		cwd ?? process.cwd(),
-	);
+	const command = buildTestCommand(framework, scope, files, coverage, cwd);
 
 	if (!command) {
 		return {
@@ -1069,7 +1063,7 @@ export async function runTests(
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: cwd || process.cwd(),
+			cwd: cwd,
 		});
 
 		// Race with timeout
@@ -1239,7 +1233,7 @@ const SKIP_DIRECTORIES = new Set([
 	'.tox',
 ]);
 
-function findSourceFiles(dir: string, files: string[] = []): string[] {
+function _findSourceFiles(dir: string, files: string[] = []): string[] {
 	let entries: string[];
 	try {
 		entries = fs.readdirSync(dir);
@@ -1263,7 +1257,7 @@ function findSourceFiles(dir: string, files: string[] = []): string[] {
 		}
 
 		if (stat.isDirectory()) {
-			findSourceFiles(fullPath, files);
+			_findSourceFiles(fullPath, files);
 		} else if (stat.isFile()) {
 			const ext = path.extname(fullPath).toLowerCase();
 			if (SOURCE_EXTENSIONS.has(ext)) {

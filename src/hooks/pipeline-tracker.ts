@@ -133,7 +133,7 @@ export function createPipelineTrackerHook(
 				// Load plan and extract current phase for compliance escalation
 				let phaseNumber: number | null = null;
 				try {
-					const plan = await loadPlan(directory ?? process.cwd());
+					const plan = await loadPlan(directory || process.cwd());
 					if (plan) {
 						const phaseString = extractCurrentPhaseFromPlan(plan);
 						phaseNumber = parsePhaseNumber(phaseString);
