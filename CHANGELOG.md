@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.31.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.0...v6.31.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* **dist:** rebuild stale v6.31.0 bundle missing self-review and knowledge tools ([#242](https://github.com/zaxbysauce/opencode-swarm/issues/242)) ([3a528c8](https://github.com/zaxbysauce/opencode-swarm/commit/3a528c815be2962d7da1975c442ee26aa2a127d1))
+
 ## [6.31.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.2...v6.31.0) (2026-03-21)
 
 
