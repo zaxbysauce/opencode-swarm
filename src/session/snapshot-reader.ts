@@ -158,7 +158,15 @@ export async function readSnapshot(
  * Clears existing maps first, then populates from snapshot.
  * Does NOT touch activeToolCalls or pendingEvents (remain at defaults).
  */
-export function rehydrateState(snapshot: SnapshotData): void {
+export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
+	// Await any in-flight rehydrations before clearing agentSessions.
+	// This prevents a race where startAgentSession fires rehydrateSessionFromDisk
+	// and rehydrateState clears the map before it completes.
+	// Errors are already swallowed inside each pending promise.
+	if (swarmState.pendingRehydrations.size > 0) {
+		await Promise.allSettled([...swarmState.pendingRehydrations]);
+	}
+
 	// Clear existing maps first to prevent data leakage
 	swarmState.toolAggregates.clear();
 	swarmState.activeAgent.clear();
@@ -214,7 +222,7 @@ export async function loadSnapshot(directory: string): Promise<void> {
 
 		const snapshot = await readSnapshot(directory);
 		if (snapshot !== null) {
-			rehydrateState(snapshot);
+			await rehydrateState(snapshot);
 			// Apply cached plan+evidence to every restored session before the
 			// plugin begins accepting tool calls.
 			for (const session of swarmState.agentSessions.values()) {

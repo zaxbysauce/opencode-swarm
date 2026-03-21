@@ -133,9 +133,12 @@ describe('Snapshot Integration', () => {
 				totalDuration: 500,
 			});
 
-			// Create empty .swarm directory but no state.json
+			// Create empty .swarm/session directory but no state.json
+			// Use sync fs calls (not Bun.write) to avoid unhandled rejection if
+			// the directory is deleted by afterEach before the async write completes.
 			const swarmDir = join(tempDir, '.swarm', 'session');
-			Bun.write(join(swarmDir, 'dummy.txt'), 'dummy');
+			mkdirSync(swarmDir, { recursive: true });
+			writeFileSync(join(swarmDir, 'dummy.txt'), 'dummy');
 
 			// Load snapshot should not throw
 			await loadSnapshot(tempDir);

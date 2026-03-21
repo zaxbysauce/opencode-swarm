@@ -224,6 +224,9 @@ export const swarmState = {
 
 	/** Per-session guardrail state — keyed by sessionID */
 	agentSessions: new Map<string, AgentSessionState>(),
+
+	/** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
+	pendingRehydrations: new Set<Promise<void>>(),
 };
 
 /**
@@ -237,6 +240,7 @@ export function resetSwarmState(): void {
 	swarmState.pendingEvents = 0;
 	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
+	swarmState.pendingRehydrations.clear();
 	_rehydrationCache = null;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
@@ -254,9 +258,7 @@ export function startAgentSession(
 	sessionId: string,
 	agentName: string,
 	staleDurationMs = 7200000,
-	// directory is no longer used here — rehydration now happens eagerly in
-	// loadSnapshot() before the plugin accepts tool calls (Bug 1 fix).
-	_directory?: string,
+	directory?: string,
 ): void {
 	const now = Date.now();
 
@@ -322,6 +324,22 @@ export function startAgentSession(
 	// Apply cached plan+evidence data so new sessions start with correct workflow
 	// state even when no snapshot existed at init time.
 	applyRehydrationCache(sessionState);
+
+	// Rehydrate workflow state from disk if directory provided (non-fatal).
+	// Register the promise in pendingRehydrations so rehydrateState can await it
+	// before clearing agentSessions, preventing a race that would silently discard
+	// in-flight workflow state.
+	if (directory) {
+		let rehydrationPromise: Promise<void>;
+		rehydrationPromise = rehydrateSessionFromDisk(directory, sessionState)
+			.catch(() => {
+				// Swallow rehydration errors - fallback to current pre-rehydration path
+			})
+			.finally(() => {
+				swarmState.pendingRehydrations.delete(rehydrationPromise);
+			});
+		swarmState.pendingRehydrations.add(rehydrationPromise);
+	}
 }
 
 /**
@@ -358,9 +376,7 @@ export function getAgentSession(
 export function ensureAgentSession(
 	sessionId: string,
 	agentName?: string,
-	// directory is no longer used here — rehydration now happens eagerly in
-	// loadSnapshot() before the plugin accepts tool calls (Bug 1 fix).
-	_directory?: string,
+	directory?: string,
 ): AgentSessionState {
 	const now = Date.now();
 	let session = swarmState.agentSessions.get(sessionId);
@@ -478,7 +494,7 @@ export function ensureAgentSession(
 	}
 
 	// Create new session
-	startAgentSession(sessionId, agentName ?? 'unknown', 7200000);
+	startAgentSession(sessionId, agentName ?? 'unknown', 7200000, directory);
 	session = swarmState.agentSessions.get(sessionId);
 	if (!session) {
 		// This should never happen, but TypeScript needs it
@@ -870,9 +886,7 @@ async function readEvidenceFromDisk(
  * module-level _rehydrationCache.  Called once at plugin init by loadSnapshot().
  * Non-fatal: missing/malformed files leave an empty cache.
  */
-export async function buildRehydrationCache(
-	directory: string,
-): Promise<void> {
+export async function buildRehydrationCache(directory: string): Promise<void> {
 	const planTaskStates = new Map<string, TaskWorkflowState>();
 
 	const plan = await readPlanFromDisk(directory);

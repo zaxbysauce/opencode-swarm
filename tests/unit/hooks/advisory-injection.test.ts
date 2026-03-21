@@ -131,12 +131,12 @@ describe('guardrails advisory injection', () => {
 
 		await hooks.messagesTransform({}, output as any);
 
-		// System message text should be unchanged
+		// System message text should be unchanged — advisories are not injected for non-architect
 		const textPart = output.messages[0].parts[0] as { type: string; text: string };
 		expect(textPart.text).toBe('You are a coder agent.');
 
-		// Queue should NOT be cleared since injection didn't happen
-		expect(session.pendingAdvisoryMessages).toHaveLength(1);
+		// Queue IS cleared even for non-architect sessions to prevent unbounded accumulation
+		expect(session.pendingAdvisoryMessages).toHaveLength(0);
 	});
 
 	// -------------------------------------------------------------------------

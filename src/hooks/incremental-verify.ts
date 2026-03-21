@@ -27,6 +27,19 @@ export function resetAdvisoryDedup(): void {
 }
 
 /**
+ * Detect the active package manager from lockfile presence.
+ * Priority: bun.lockb > pnpm-lock.yaml > yarn.lock > package-lock.json
+ * Fallback: 'bun' (preserves existing default when no lockfile found)
+ */
+function detectPackageManager(projectDir: string): string {
+	if (fs.existsSync(path.join(projectDir, 'bun.lockb'))) return 'bun';
+	if (fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'))) return 'pnpm';
+	if (fs.existsSync(path.join(projectDir, 'yarn.lock'))) return 'yarn';
+	if (fs.existsSync(path.join(projectDir, 'package-lock.json'))) return 'npm';
+	return 'bun'; // default fallback
+}
+
+/**
  * Detect the typecheck/build check command for the project.
  * Returns { command, language } where command is null if no default checker exists,
  * or null overall if no supported language is detected.
@@ -49,13 +62,14 @@ function detectTypecheckCommand(
 			const scripts = pkg.scripts as Record<string, string> | undefined;
 
 			// Prefer explicit typecheck script
-			if (scripts?.typecheck)
-				return { command: ['bun', 'run', 'typecheck'], language: 'typescript' };
-			if (scripts?.['type-check'])
-				return {
-					command: ['bun', 'run', 'type-check'],
-					language: 'typescript',
-				};
+			if (scripts?.typecheck) {
+				const pm = detectPackageManager(projectDir);
+				return { command: [pm, 'run', 'typecheck'], language: 'typescript' };
+			}
+			if (scripts?.['type-check']) {
+				const pm = detectPackageManager(projectDir);
+				return { command: [pm, 'run', 'type-check'], language: 'typescript' };
+			}
 
 			// Check for TypeScript presence
 			const deps = {
@@ -164,9 +178,27 @@ export function createIncrementalVerifyHook(
 			let commandToRun: string[] | null = null;
 
 			if (config.command != null) {
-				commandToRun = Array.isArray(config.command)
-					? config.command
-					: config.command.split(' ');
+				if (Array.isArray(config.command)) {
+					commandToRun = config.command;
+				} else {
+					const tokens = config.command.split(' ');
+					// Only warn when the string has BOTH spaces and path separators —
+					// a single-token path like "./scripts/check.sh" is a valid command.
+					const hasSpaces = tokens.length > 1;
+					const hasPathSeparator = tokens.some(
+						(t) => t.includes('/') || t.includes('\\'),
+					);
+					if (hasSpaces && hasPathSeparator) {
+						injectMessage(
+							input.sessionID,
+							'POST-CODER CHECK SKIPPED: incremental_verify.command is a string containing path separators. ' +
+								'Splitting on spaces produces a malformed command. ' +
+								'Use the array form instead: ["python", "-m", "mypy", "C:\\\\My Projects\\\\src"]',
+						);
+						return;
+					}
+					commandToRun = tokens;
+				}
 			} else {
 				const detected = detectTypecheckCommand(projectDir);
 				if (detected === null) {

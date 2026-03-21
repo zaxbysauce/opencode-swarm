@@ -41,6 +41,19 @@ function makeInitialState(): CompactionState {
 	};
 }
 
+// KNOWN LIMITATION: CompactionState is a single module-level instance shared across
+// ALL active sessions in the plugin process. This means concurrent sessions share
+// compaction hysteresis thresholds (lastObservationAt, lastReflectionAt, lastEmergencyAt).
+//
+// Incorrect suppression scenario: session A triggers observation at 42% budget.
+// Session B then crosses 45%, but the shared lastObservationAt (42%) + 5% hysteresis
+// means session B's observation is suppressed even though it hasn't run for session B.
+//
+// This is acceptable for the common case (single active architect session) but may cause
+// missed compaction advisories when two architect sessions run concurrently.
+//
+// TODO: key CompactionState by sessionId (Map<string, CompactionState>) to isolate
+// per-session hysteresis. Requires threading sessionId through checkCompaction and callers.
 const state = makeInitialState();
 
 // ── Snapshot writer ────────────────────────────────────────────────────────────

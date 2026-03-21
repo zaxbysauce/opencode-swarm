@@ -33,7 +33,8 @@ afterEach(() => {
 	} catch {
 		/* best effort */
 	}
-	swarmState.agentSessions.delete(testSessionId);
+	// Full reset prevents swarmState from leaking into concurrently-running test files.
+	resetSwarmState();
 });
 
 function getSession(): AgentSessionState {

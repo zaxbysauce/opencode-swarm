@@ -590,7 +590,7 @@ describe('rehydrateState', () => {
 		resetSwarmState();
 	});
 
-	it('correctly clears all 4 maps before repopulating', () => {
+	it('correctly clears all 4 maps before repopulating', async () => {
 		// Pre-populate state
 		swarmState.toolAggregates.set('bash', { tool: 'bash', count: 1, successCount: 1, failureCount: 0, totalDuration: 100 });
 		swarmState.activeAgent.set('session-1', 'architect');
@@ -629,7 +629,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.toolAggregates.size).toBe(0);
 		expect(swarmState.activeAgent.size).toBe(0);
@@ -637,7 +637,7 @@ describe('rehydrateState', () => {
 		expect(swarmState.agentSessions.size).toBe(0);
 	});
 
-	it('populates toolAggregates from snapshot', () => {
+	it('populates toolAggregates from snapshot', async () => {
 		const snapshot: SnapshotData = {
 			version: 1,
 			writtenAt: Date.now(),
@@ -650,7 +650,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.toolAggregates.size).toBe(2);
 		expect(swarmState.toolAggregates.get('bash')).toEqual({
@@ -669,7 +669,7 @@ describe('rehydrateState', () => {
 		});
 	});
 
-	it('populates activeAgent from snapshot', () => {
+	it('populates activeAgent from snapshot', async () => {
 		const snapshot: SnapshotData = {
 			version: 1,
 			writtenAt: Date.now(),
@@ -683,7 +683,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.activeAgent.size).toBe(3);
 		expect(swarmState.activeAgent.get('session-1')).toBe('architect');
@@ -691,7 +691,7 @@ describe('rehydrateState', () => {
 		expect(swarmState.activeAgent.get('session-3')).toBe('reviewer');
 	});
 
-	it('populates delegationChains from snapshot', () => {
+	it('populates delegationChains from snapshot', async () => {
 		const snapshot: SnapshotData = {
 			version: 1,
 			writtenAt: Date.now(),
@@ -709,7 +709,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.delegationChains.size).toBe(2);
 		expect(swarmState.delegationChains.get('session-1')).toEqual([
@@ -721,7 +721,7 @@ describe('rehydrateState', () => {
 		]);
 	});
 
-	it('populates agentSessions using deserializeAgentSession', () => {
+	it('populates agentSessions using deserializeAgentSession', async () => {
 		const serializedSession: SerializedAgentSession = {
 			agentName: 'architect',
 			lastToolCallTime: 123456,
@@ -759,7 +759,7 @@ describe('rehydrateState', () => {
 			},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.agentSessions.size).toBe(2);
 
@@ -778,7 +778,7 @@ describe('rehydrateState', () => {
 		expect(session2?.agentName).toBe('architect');
 	});
 
-	it('does NOT touch activeToolCalls or pendingEvents', () => {
+	it('does NOT touch activeToolCalls or pendingEvents', async () => {
 		// Pre-populate activeToolCalls and pendingEvents
 		swarmState.activeToolCalls.set('call-1', {
 			tool: 'bash',
@@ -797,7 +797,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		// activeToolCalls and pendingEvents should remain unchanged
 		expect(swarmState.activeToolCalls.size).toBe(1);
@@ -810,7 +810,7 @@ describe('rehydrateState', () => {
 		expect(swarmState.pendingEvents).toBe(42);
 	});
 
-	it('empty snapshot objects produce empty Maps', () => {
+	it('empty snapshot objects produce empty Maps', async () => {
 		const snapshot: SnapshotData = {
 			version: 1,
 			writtenAt: Date.now(),
@@ -820,7 +820,7 @@ describe('rehydrateState', () => {
 			agentSessions: {},
 		};
 
-		rehydrateState(snapshot);
+		await rehydrateState(snapshot);
 
 		expect(swarmState.toolAggregates.size).toBe(0);
 		expect(swarmState.activeAgent.size).toBe(0);
