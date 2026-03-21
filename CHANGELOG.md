@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.30.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.0...v6.30.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* cap spawnAsync output, lockfile PM detection, Windows .cmd spawn, curator config, advisory queue drain, and rehydration race guard ([#231](https://github.com/zaxbysauce/opencode-swarm/issues/231)) ([bdb0f16](https://github.com/zaxbysauce/opencode-swarm/commit/bdb0f16eae94dd03fccac8a8de9720d98ba9eca4))
+
 ## [6.30.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.29.7...v6.30.0) (2026-03-20)
 
 
