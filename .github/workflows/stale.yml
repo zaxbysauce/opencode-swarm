@@ -1,0 +1,24 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Mondays 9am UTC
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10
+        with:
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-message: 'Inactive for 30 days — will close in 7 days unless updated.'
+          stale-pr-message: 'Inactive for 30 days — will close in 7 days unless updated.'
+          close-issue-message: 'Closed due to inactivity.'
+          close-pr-message: 'Closed due to inactivity.'
+          exempt-issue-labels: 'pinned,security'
+          exempt-pr-labels: 'pinned,security'
