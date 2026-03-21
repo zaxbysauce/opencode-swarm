@@ -83,6 +83,11 @@ export function createCompactionCustomizerHook(
 					}
 				}
 
+				// Add knowledge tools reminder to survive context resets
+				output.context.push(
+					'[KNOWLEDGE TOOLS] You have persistent knowledge tools: knowledge_recall (search for relevant past decisions), knowledge_add (store a new lesson), knowledge_remove (delete outdated entries). Use knowledge_recall when past context would help.',
+				);
+
 				// Note: Do not modify output.prompt - let OpenCode use its default compaction prompt
 			},
 		),
