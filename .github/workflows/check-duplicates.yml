@@ -1,0 +1,36 @@
+name: Check Duplicates
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-duplicates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+            const current = context.payload.pull_request;
+            const currentTitle = current.title.toLowerCase().trim();
+            const duplicates = pulls.data.filter(pr =>
+              pr.number !== current.number &&
+              pr.title.toLowerCase().trim() === currentTitle
+            );
+            if (duplicates.length > 0) {
+              const nums = duplicates.map(p => `#${p.number}`).join(', ');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: current.number,
+                body: `⚠️ This PR may be a duplicate of: ${nums}. Please review before proceeding.`
+              });
+            }
