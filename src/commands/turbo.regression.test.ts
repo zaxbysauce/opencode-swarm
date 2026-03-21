@@ -10,9 +10,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { createArchitectAgent } from '../agents/architect';
 import {
 	formatStatusMarkdown,
@@ -29,7 +29,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 
 	beforeEach(() => {
 		// Create a test session
-		testSessionId = 'turbo-regression-' + Date.now();
+		testSessionId = `turbo-regression-${Date.now()}`;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

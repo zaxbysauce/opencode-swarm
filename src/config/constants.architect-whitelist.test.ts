@@ -109,7 +109,7 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 		});
 
 		it('each role should have at least one tool', () => {
-			Object.entries(AGENT_TOOL_MAP).forEach(([role, tools]) => {
+			Object.entries(AGENT_TOOL_MAP).forEach(([_role, tools]) => {
 				expect(tools.length).toBeGreaterThan(0);
 			});
 		});

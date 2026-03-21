@@ -119,8 +119,7 @@ export const knowledgeRecall: ReturnType<typeof createSwarmTool> =
 
 			// Step 5-6: Score each entry
 			const scoredEntries: ScoredEntry[] = entries.map((entry) => {
-				const entryText =
-					entry.lesson + ' ' + entry.tags.join(' ') + ' ' + entry.category;
+				const entryText = `${entry.lesson} ${entry.tags.join(' ')} ${entry.category}`;
 				const entryBigrams = wordBigrams(entryText);
 
 				const textScore = jaccardBigram(queryBigrams, entryBigrams);

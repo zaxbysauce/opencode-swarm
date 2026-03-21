@@ -43,7 +43,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 
 	beforeEach(() => {
 		// Create a test session with turboMode: false by default
-		testSessionId = 'status-test-' + Date.now();
+		testSessionId = `status-test-${Date.now()}`;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

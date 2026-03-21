@@ -1233,7 +1233,7 @@ const SKIP_DIRECTORIES = new Set([
 	'.tox',
 ]);
 
-function findSourceFiles(dir: string, files: string[] = []): string[] {
+function _findSourceFiles(dir: string, files: string[] = []): string[] {
 	let entries: string[];
 	try {
 		entries = fs.readdirSync(dir);
@@ -1257,7 +1257,7 @@ function findSourceFiles(dir: string, files: string[] = []): string[] {
 		}
 
 		if (stat.isDirectory()) {
-			findSourceFiles(fullPath, files);
+			_findSourceFiles(fullPath, files);
 		} else if (stat.isFile()) {
 			const ext = path.extname(fullPath).toLowerCase();
 			if (SOURCE_EXTENSIONS.has(ext)) {

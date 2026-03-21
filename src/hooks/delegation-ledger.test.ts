@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { ensureAgentSession, resetSwarmState, swarmState } from '../state';
+import { ensureAgentSession, resetSwarmState } from '../state';
 import { createDelegationLedgerHook } from './delegation-ledger';
 
 const CODER_SESSION_ID = 'test-session-coder';

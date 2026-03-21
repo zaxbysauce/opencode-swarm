@@ -20,7 +20,7 @@ const ARCH_SID = 'watchdog-test-arch';
 describe('Watchdog Integration Tests', () => {
 	// Advisory collector for mock
 	const advisories: string[] = [];
-	const mockInjectAdvisory = (sessionId: string, msg: string) => {
+	const mockInjectAdvisory = (_sessionId: string, msg: string) => {
 		advisories.push(msg);
 	};
 

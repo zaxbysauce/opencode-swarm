@@ -348,7 +348,7 @@ export async function detectAvailableLinter(
 	directory?: string,
 ): Promise<SupportedLinter | null> {
 	// Timeout for linter detection (in ms)
-	const DETECT_TIMEOUT = 2000;
+	const _DETECT_TIMEOUT = 2000;
 
 	const projectDir = directory || process.cwd();
 	const isWindows = process.platform === 'win32';
@@ -364,7 +364,7 @@ export async function detectAvailableLinter(
 
 /** Internal implementation — accepts pre-computed binary paths for testability. */
 export async function _detectAvailableLinter(
-	projectDir: string,
+	_projectDir: string,
 	biomeBin: string,
 	eslintBin: string,
 ): Promise<SupportedLinter | null> {

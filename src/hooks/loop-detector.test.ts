@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { ensureAgentSession, resetSwarmState, swarmState } from '../state';
-import { detectLoop, type LoopDetectResult } from './loop-detector';
+import { detectLoop } from './loop-detector';
 
 const SESSION_ID = 'test-session-loop-detector';
 

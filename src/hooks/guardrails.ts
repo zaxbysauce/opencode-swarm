@@ -1104,8 +1104,7 @@ export function createGuardrailsHooks(
 				);
 				if (textPart) {
 					const joined = advisories.join('\n---\n');
-					textPart.text =
-						`[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n` + textPart.text;
+					textPart.text = `[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n${textPart.text}`;
 				}
 				session!.pendingAdvisoryMessages = [];
 			} else if (

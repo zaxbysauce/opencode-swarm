@@ -11,7 +11,7 @@
  * 4. Command injection via path.join with malicious fallbackDir
  */
 
-import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -88,7 +88,7 @@ describe('ADVERSARIAL: fallbackDir null byte injection', () => {
 	it('should reject fallbackDir with null byte (path.join exploit)', async () => {
 		// Null byte can cause path.join to truncate
 		// Attack: path.join(tmpDir, '..', '..', 'etc') becomes /etc
-		const nullBytePath = tmpDir + '\x00/../../etc';
+		const nullBytePath = `${tmpDir}\x00/../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -104,7 +104,7 @@ describe('ADVERSARIAL: fallbackDir null byte injection', () => {
 
 	it('should reject fallbackDir with URL-encoded null byte %00', async () => {
 		// Some sanitization might decode URL encoding
-		const urlEncodedNull = tmpDir + '%00/../../etc';
+		const urlEncodedNull = `${tmpDir}%00/../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -185,7 +185,7 @@ describe('ADVERSARIAL: fallbackDir path traversal', () => {
 
 	it('should reject fallbackDir with Windows-style traversal ..\\..\\..\\etc', async () => {
 		// Windows path traversal
-		const windowsTraversal = tmpDir + '..\\..\\..\\..\\Windows\\System32';
+		const windowsTraversal = `${tmpDir}..\\..\\..\\..\\Windows\\System32`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -304,7 +304,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 
 		// While path.join itself doesn't execute, the constructed path could
 		// be used unsafely elsewhere or with child_process
-		const injectionPath = tmpDir + '&& cat /etc/passwd';
+		const injectionPath = `${tmpDir}&& cat /etc/passwd`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -322,7 +322,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 
 	it('should NOT allow pipe characters in fallbackDir', async () => {
 		// Pipe character could be used in command construction
-		const pipePath = tmpDir + '|malicious command';
+		const pipePath = `${tmpDir}|malicious command`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -338,7 +338,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 
 	it('should NOT allow semicolon command chaining in fallbackDir', async () => {
 		// Semicolon: path;a&&b
-		const semicolonPath = tmpDir + '; rm -rf /';
+		const semicolonPath = `${tmpDir}; rm -rf /`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -353,7 +353,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 
 	it('should NOT allow dollar sign command substitution in fallbackDir', async () => {
 		// $() command substitution
-		const dollarPath = tmpDir + '$(whoami)';
+		const dollarPath = `${tmpDir}$(whoami)`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -368,7 +368,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 
 	it('should NOT allow backtick command substitution in fallbackDir', async () => {
 		// Backtick command substitution: `command`
-		const backtickPath = tmpDir + '`id`';
+		const backtickPath = `${tmpDir}\`id\``;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -389,7 +389,7 @@ describe('ADVERSARIAL: fallbackDir path.join command injection', () => {
 describe('ADVERSARIAL: fallbackDir unicode/special character attacks', () => {
 	it('should reject fallbackDir with null unicode (U+0000)', async () => {
 		// Direct null character
-		const nullUnicode = tmpDir + '\u0000/../../etc';
+		const nullUnicode = `${tmpDir}\u0000/../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -404,7 +404,7 @@ describe('ADVERSARIAL: fallbackDir unicode/special character attacks', () => {
 
 	it('should reject fallbackDir with RTL override characters', async () => {
 		// RTL override can change path display/interpretation
-		const rtlPath = tmpDir + '\u202e../../etc';
+		const rtlPath = `${tmpDir}\u202e../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -422,7 +422,7 @@ describe('ADVERSARIAL: fallbackDir unicode/special character attacks', () => {
 	it('should reject fallbackDir with widechar null byte (UTF-16)', async () => {
 		// UTF-16 null byte: U+0000 vs UTF-8 \x00
 		// Some path parsing might miss widechar nulls
-		const widecharNull = tmpDir + '\x00\x00/../../etc';
+		const widecharNull = `${tmpDir}\x00\x00/../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -438,7 +438,7 @@ describe('ADVERSARIAL: fallbackDir unicode/special character attacks', () => {
 	it('should reject fallbackDir with combining characters (Zalgo)', async () => {
 		// Combining characters that modify adjacent characters
 		// U+0300-U+036F combining diacritical marks
-		const zalgoPath = tmpDir + '\u0300\u0301../../etc';
+		const zalgoPath = `${tmpDir}\u0300\u0301../../etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -559,7 +559,7 @@ describe('ADVERSARIAL: fallbackDir information disclosure', () => {
 describe('ADVERSARIAL: fallbackDir length boundary attacks', () => {
 	it('should reject extremely long fallbackDir paths', async () => {
 		// Extremely long path (over 4096 chars on many filesystems)
-		const longPath = tmpDir + '/'.repeat(5000) + 'etc';
+		const longPath = `${tmpDir + '/'.repeat(5000)}etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -575,7 +575,7 @@ describe('ADVERSARIAL: fallbackDir length boundary attacks', () => {
 
 	it('should reject deeply nested traversal (100+ levels)', async () => {
 		// 100 levels of ../
-		const deepTraversal = tmpDir + '/../'.repeat(100) + 'etc';
+		const deepTraversal = `${tmpDir + '/../'.repeat(100)}etc`;
 
 		const result = await executeUpdateTaskStatus(
 			{
@@ -595,7 +595,7 @@ describe('ADVERSARIAL: fallbackDir length boundary attacks', () => {
 
 describe('ADVERSARIAL: working_directory vs fallbackDir guard comparison', () => {
 	it('working_directory SHOULD catch null byte but fallbackDir does NOT', async () => {
-		const nullBytePath = tmpDir + '\x00/../../etc';
+		const nullBytePath = `${tmpDir}\x00/../../etc`;
 
 		// Test with working_directory (has guard)
 		const workingDirResult = await executeUpdateTaskStatus({

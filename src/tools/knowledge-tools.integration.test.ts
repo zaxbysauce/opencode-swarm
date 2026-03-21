@@ -123,7 +123,7 @@ describe('Knowledge tools integration', () => {
 		const queryBigrams = wordBigrams(query);
 
 		const scores = entries.map((e) => {
-			const text = e.lesson + ' ' + e.tags.join(' ') + ' ' + e.category;
+			const text = `${e.lesson} ${e.tags.join(' ')} ${e.category}`;
 			return {
 				id: e.id,
 				score: jaccardBigram(queryBigrams, wordBigrams(text)),

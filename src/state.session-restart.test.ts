@@ -24,7 +24,7 @@ beforeEach(() => {
 	resetSwarmState();
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'adversarial-session-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'adversarial-test-' + Date.now();
+	testSessionId = `adversarial-test-${Date.now()}`;
 });
 
 afterEach(() => {
@@ -138,7 +138,7 @@ describe('ADVERSARIAL: Session restart rehydration security tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
 			// Create symlink pointing outside (if permissions allow)
-			const linkPath = path.join(tmpDir, '.swarm', 'evidence', 'linked');
+			const _linkPath = path.join(tmpDir, '.swarm', 'evidence', 'linked');
 			try {
 				// Attempt to create symlink - may fail on Windows without admin
 				mkdirSync(path.join(tmpDir, 'target'), { recursive: true });
@@ -494,10 +494,10 @@ describe('ADVERSARIAL: Session restart rehydration security tests', () => {
 			// So files with path traversal characters should be skipped
 
 			// Create the evidence directory path that would be used
-			const evidenceDir = path.join(tmpDir, '.swarm', 'evidence');
+			const _evidenceDir = path.join(tmpDir, '.swarm', 'evidence');
 
 			// This file has path traversal chars - should be rejected by validation
-			const maliciousFilename = '../../../etc/passwd.json';
+			const _maliciousFilename = '../../../etc/passwd.json';
 
 			// Writing to this path will create files outside intended directory
 			// But the key test is: does rehydrateSessionFromDisk safely handle this?
@@ -1065,7 +1065,7 @@ describe('ADVERSARIAL: Session restart rehydration security tests', () => {
 				swarm: 'test',
 				phases: [],
 			};
-			const jsonWithBOM = '\ufeff' + JSON.stringify(plan);
+			const jsonWithBOM = `\ufeff${JSON.stringify(plan)}`;
 			writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), jsonWithBOM);
 
 			startAgentSession(testSessionId, 'architect');

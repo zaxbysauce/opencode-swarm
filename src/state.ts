@@ -11,12 +11,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { ORCHESTRATOR_NAME } from './config/constants';
-import {
-	type Plan,
-	PlanSchema,
-	type Task,
-	type TaskStatus,
-} from './config/plan-schema';
+import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
 import type { TaskEvidence } from './gate-evidence';
 
@@ -757,8 +752,6 @@ function planStatusToWorkflowState(status: TaskStatus): TaskWorkflowState {
 			return 'coder_delegated';
 		case 'completed':
 			return 'complete';
-		case 'pending':
-		case 'blocked':
 		default:
 			return 'idle';
 	}
@@ -785,10 +778,10 @@ function evidenceToWorkflowState(evidence: TaskEvidence): TaskWorkflowState {
 	}
 
 	// Check the highest gate passed
-	if (gates['test_engineer'] != null) {
+	if (gates.test_engineer != null) {
 		return 'tests_run';
 	}
-	if (gates['reviewer'] != null) {
+	if (gates.reviewer != null) {
 		return 'reviewer_run';
 	}
 	if (Object.keys(gates).length > 0) {

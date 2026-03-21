@@ -12,7 +12,7 @@ describe('handleTurboCommand', () => {
 
 	beforeEach(() => {
 		// Create a test session
-		testSessionId = 'turbo-test-' + Date.now();
+		testSessionId = `turbo-test-${Date.now()}`;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

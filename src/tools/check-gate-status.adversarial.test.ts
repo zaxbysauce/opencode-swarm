@@ -224,7 +224,7 @@ describe('check_gate_status ADVERSARIAL', () => {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	it('rejects extremely long task_id (DoS attempt)', async () => {
-		const longId = '1.' + 'a'.repeat(10000);
+		const longId = `1.${'a'.repeat(10000)}`;
 		const result = await executeTool({ task_id: longId }, tmpDir);
 		const parsed = JSON.parse(result);
 
@@ -455,7 +455,7 @@ describe('check_gate_status ADVERSARIAL', () => {
 
 	it('handles task_id at maximum safe integer', async () => {
 		const result = await executeTool(
-			{ task_id: String(Number.MAX_SAFE_INTEGER) + '.1' },
+			{ task_id: `${String(Number.MAX_SAFE_INTEGER)}.1` },
 			tmpDir,
 		);
 		const parsed = JSON.parse(result);
@@ -525,7 +525,7 @@ describe('check_gate_status ADVERSARIAL', () => {
 		writeFileSync(evidencePath, JSON.stringify(evidence));
 
 		// Get original content
-		const originalStat = Bun.file(evidencePath).stat();
+		const _originalStat = Bun.file(evidencePath).stat();
 
 		// Execute tool multiple times
 		await executeTool({ task_id: '1.1' }, tmpDir);
@@ -620,7 +620,7 @@ function readdirSyncRecursive(dir: string): string[] {
 	const results: string[] = [];
 	if (!existsSync(dir)) return results;
 
-	const entries = require('fs').readdirSync(dir, { withFileTypes: true });
+	const entries = require('node:fs').readdirSync(dir, { withFileTypes: true });
 	for (const entry of entries) {
 		const fullPath = path.join(dir, entry.name);
 		if (entry.isDirectory()) {

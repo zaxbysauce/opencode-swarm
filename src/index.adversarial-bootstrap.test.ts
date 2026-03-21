@@ -18,7 +18,7 @@ let testSessionId: string;
 beforeEach(() => {
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'adversarial-bootstrap-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'adversarial-bootstrap-' + Date.now();
+	testSessionId = `adversarial-bootstrap-${Date.now()}`;
 });
 
 afterEach(() => {
@@ -154,7 +154,7 @@ describe('ADVERSARIAL: Stale-delegation bootstrap with directory', () => {
 	});
 
 	it('7. stale delegation with extremely long directory path does not crash', () => {
-		const longDir = '/tmp/' + 'a'.repeat(10000);
+		const longDir = `/tmp/${'a'.repeat(10000)}`;
 
 		startAgentSession(testSessionId, 'coder');
 		const session = swarmState.agentSessions.get(testSessionId);
@@ -409,7 +409,7 @@ describe('ADVERSARIAL: Breaking deterministic takeover attempts', () => {
 		// Note: activeAgent was changed, but ensureAgentSession set delegationActive=false
 
 		// Next tool call should detect stale (since delegationActive=false but activeAgent != architect)
-		const staleCheck =
+		const _staleCheck =
 			!session!.delegationActive && session!.agentName === ORCHESTRATOR_NAME;
 		// Actually, let's check what happens on next tool call
 		expect(session?.delegationActive).toBe(false);

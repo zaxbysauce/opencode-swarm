@@ -13,7 +13,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import * as path from 'node:path';
 import { ensureAgentSession, resetSwarmState, swarmState } from '../state';
 import { createScopeGuardHook, isFileInScope } from './scope-guard';
 

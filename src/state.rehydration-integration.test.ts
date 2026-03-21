@@ -15,9 +15,9 @@ let tmpDir: string;
 let testSessionId: string;
 
 // Track calls to rehydrateSessionFromDisk
-let rehydrateCalls: Array<{ directory: string; session: AgentSessionState }> =
+let _rehydrateCalls: Array<{ directory: string; session: AgentSessionState }> =
 	[];
-let originalRehydrate: typeof rehydrateSessionFromDisk;
+let _originalRehydrate: typeof rehydrateSessionFromDisk;
 
 beforeEach(() => {
 	// Clear all shared swarmState to prevent cross-test-file contamination.
@@ -25,11 +25,11 @@ beforeEach(() => {
 	resetSwarmState();
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'rehydrate-integration-test-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
-	testSessionId = 'test-session-' + Date.now();
+	testSessionId = `test-session-${Date.now()}`;
 
 	// Capture rehydrate calls by wrapping the function
-	rehydrateCalls = [];
-	originalRehydrate = rehydrateSessionFromDisk;
+	_rehydrateCalls = [];
+	_originalRehydrate = rehydrateSessionFromDisk;
 });
 
 afterEach(() => {
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 // Helper to create a session and get the actual session from the map
-function createTestSession(): AgentSessionState {
+function _createTestSession(): AgentSessionState {
 	startAgentSession(testSessionId, 'architect');
 	const session = swarmState.agentSessions.get(testSessionId);
 	if (!session) {

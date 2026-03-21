@@ -193,7 +193,7 @@ describe('ADVERSARIAL: Architect Task Permission Edge Cases', () => {
 			);
 			expect(hasTaskPermission(config, 'architect')).toBe(true);
 			// But any prefixed names shouldn't appear
-			expect(config['local_architect']).toBeUndefined();
+			expect(config.local_architect).toBeUndefined();
 		});
 	});
 
@@ -239,7 +239,7 @@ describe('ADVERSARIAL: Architect Task Permission Edge Cases', () => {
 		it('should set permission to { task: "allow" } for architect agents', () => {
 			const config = getAgentConfigs(undefined);
 			// Use type assertion to bypass SDK type checking
-			expect(config['architect']?.permission as { task: string }).toEqual({
+			expect(config.architect?.permission as { task: string }).toEqual({
 				task: 'allow',
 			});
 		});
@@ -247,14 +247,14 @@ describe('ADVERSARIAL: Architect Task Permission Edge Cases', () => {
 		it('should set permission to undefined for non-architect agents', () => {
 			const config = getAgentConfigs(undefined);
 			// Non-architects should not have permission property set
-			expect(config['coder']?.permission).toBeUndefined();
+			expect(config.coder?.permission).toBeUndefined();
 		});
 
 		it('should set mode to "primary" for architect, "subagent" for others', () => {
 			const config = getAgentConfigs(undefined);
-			expect(config['architect']?.mode).toBe('primary');
-			expect(config['coder']?.mode).toBe('subagent');
-			expect(config['reviewer']?.mode).toBe('subagent');
+			expect(config.architect?.mode).toBe('primary');
+			expect(config.coder?.mode).toBe('subagent');
+			expect(config.reviewer?.mode).toBe('subagent');
 		});
 	});
 });
