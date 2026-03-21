@@ -354,8 +354,14 @@ export function createGuardrailsHooks(
 				const coderDelegArgs = output.args as
 					| Record<string, unknown>
 					| undefined;
+				const rawSubagentType = coderDelegArgs?.subagent_type;
 				const coderDeleg = isAgentDelegation(input.tool, coderDelegArgs);
-				if (coderDeleg.isDelegation && coderDeleg.targetAgent === 'coder') {
+				if (
+					coderDeleg.isDelegation &&
+					coderDeleg.targetAgent === 'coder' &&
+					typeof rawSubagentType === 'string' &&
+					(rawSubagentType === 'coder' || rawSubagentType.endsWith('_coder'))
+				) {
 					const coderSession = swarmState.agentSessions.get(input.sessionID);
 					if (coderSession) {
 						coderSession.modifiedFilesThisCoderTask = [];

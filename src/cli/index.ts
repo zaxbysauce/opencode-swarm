@@ -3,19 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import {
-	handleAgentsCommand,
-	handleArchiveCommand,
-	handleHandoffCommand,
-	handleHistoryCommand,
-	handleKnowledgeMigrateCommand,
-	handleKnowledgeQuarantineCommand,
-	handleKnowledgeRestoreCommand,
-	handlePlanCommand,
-	handleStatusCommand,
-	handleSyncPlanCommand,
-	handleTurboCommand,
-} from '../commands/index.js';
+import { resolveCommand, VALID_COMMANDS } from '../commands/registry.js';
 
 const CONFIG_DIR = path.join(
 	process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
@@ -247,6 +235,9 @@ async function uninstall(): Promise<number> {
 }
 
 function printHelp(): void {
+	const commandList = VALID_COMMANDS.filter((cmd) => !cmd.includes(' '))
+		.map((cmd) => `  ${cmd}`)
+		.join('\n');
 	console.log(`
 opencode-swarm - Architect-centric agentic swarm plugin for OpenCode
 
@@ -260,6 +251,9 @@ Commands:
 Options:
   --clean     Also remove config files and custom prompts (with uninstall)
   -h, --help  Show this help message
+
+Run subcommands:
+${commandList}
 
 Configuration:
   Edit ~/.config/opencode/opencode-swarm.json to customize:
@@ -282,6 +276,8 @@ Examples:
   bunx opencode-swarm run sync-plan
   bunx opencode-swarm run knowledge migrate
   bunx opencode-swarm run dark-matter
+  bunx opencode-swarm run diagnose
+  bunx opencode-swarm run evidence summary
 `);
 }
 
@@ -320,6 +316,7 @@ main().catch((err) => {
 /**
  * Dispatch function for routing argv tokens to plugin command handlers.
  * Used by the "run" subcommand entry point.
+ * Delegates to the unified COMMAND_REGISTRY via resolveCommand().
  */
 export async function run(args: string[]): Promise<number> {
 	const cwd = process.cwd();
@@ -327,82 +324,27 @@ export async function run(args: string[]): Promise<number> {
 	// Handle empty args
 	if (!args || args.length === 0) {
 		console.error(
-			'Usage: bunx opencode-swarm run <command> [args]\nRun "bunx opencode-swarm --help" for a list of commands.',
+			`Usage: bunx opencode-swarm run <command> [args]\nValid commands: ${VALID_COMMANDS.join(', ')}`,
 		);
 		return 1;
 	}
 
-	const subcommand = args[0];
+	const resolved = resolveCommand(args);
 
-	// Dispatch table
-	switch (subcommand) {
-		case 'status': {
-			const result = await handleStatusCommand(cwd, {});
-			console.log(result);
-			return 0;
-		}
-		case 'plan': {
-			const result = await handlePlanCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'agents': {
-			const result = handleAgentsCommand({}, undefined);
-			console.log(result);
-			return 0;
-		}
-		case 'archive': {
-			const result = await handleArchiveCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'history': {
-			const result = await handleHistoryCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'sync-plan': {
-			const result = await handleSyncPlanCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'handoff': {
-			const result = await handleHandoffCommand(cwd, args.slice(1));
-			console.log(result);
-			return 0;
-		}
-		case 'turbo': {
-			const result = await handleTurboCommand(cwd, args.slice(1), '');
-			console.log(result);
-			return 0;
-		}
-		case 'knowledge': {
-			const knowledgeSubcmd = args[1];
-			if (knowledgeSubcmd === 'migrate') {
-				const result = await handleKnowledgeMigrateCommand(cwd, args.slice(2));
-				console.log(result);
-			} else if (knowledgeSubcmd === 'quarantine') {
-				const result = await handleKnowledgeQuarantineCommand(
-					cwd,
-					args.slice(2),
-				);
-				console.log(result);
-			} else if (knowledgeSubcmd === 'restore') {
-				const result = await handleKnowledgeRestoreCommand(cwd, args.slice(2));
-				console.log(result);
-			} else {
-				console.error(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				);
-				return 1;
-			}
-			return 0;
-		}
-		default: {
-			console.error(
-				`Unknown command: ${args[0]}\nRun "bunx opencode-swarm run" with no args for help.`,
-			);
-			return 1;
-		}
+	if (!resolved) {
+		console.error(
+			`Unknown command: ${args[0]}\nValid commands: ${VALID_COMMANDS.join(', ')}`,
+		);
+		return 1;
 	}
+
+	const result = await resolved.entry.handler({
+		directory: cwd,
+		args: resolved.remainingArgs,
+		sessionID: '',
+		agents: {},
+	});
+
+	console.log(result);
+	return 0;
 }

@@ -16,52 +16,72 @@ const mockHandleAgentsCommand = vi.fn();
 const mockHandleAnalyzeCommand = vi.fn();
 const mockHandleArchiveCommand = vi.fn();
 const mockHandleBenchmarkCommand = vi.fn();
+const mockHandleCheckpointCommand = vi.fn();
 const mockHandleClarifyCommand = vi.fn();
 const mockHandleConfigCommand = vi.fn();
+const mockHandleCurateCommand = vi.fn();
 const mockHandleDarkMatterCommand = vi.fn();
 const mockHandleDiagnoseCommand = vi.fn();
 const mockHandleDoctorCommand = vi.fn();
 const mockHandleEvidenceCommand = vi.fn();
 const mockHandleEvidenceSummaryCommand = vi.fn();
 const mockHandleExportCommand = vi.fn();
+const mockHandleHandoffCommand = vi.fn();
 const mockHandleHistoryCommand = vi.fn();
+const mockHandleKnowledgeListCommand = vi.fn();
 const mockHandleKnowledgeMigrateCommand = vi.fn();
 const mockHandleKnowledgeQuarantineCommand = vi.fn();
 const mockHandleKnowledgeRestoreCommand = vi.fn();
 const mockHandlePlanCommand = vi.fn();
 const mockHandlePreflightCommand = vi.fn();
+const mockHandlePromoteCommand = vi.fn();
 const mockHandleResetCommand = vi.fn();
 const mockHandleRetrieveCommand = vi.fn();
+const mockHandleRollbackCommand = vi.fn();
+const mockHandleSimulateCommand = vi.fn();
 const mockHandleSpecifyCommand = vi.fn();
 const mockHandleStatusCommand = vi.fn();
 const mockHandleSyncPlanCommand = vi.fn();
+const mockHandleTurboCommand = vi.fn();
+const mockHandleWriteRetroCommand = vi.fn();
 
-// Mock all command handlers from commands/index.js
-vi.mock('../../../src/commands/index.js', () => ({
-	handleAgentsCommand: mockHandleAgentsCommand,
-	handleAnalyzeCommand: mockHandleAnalyzeCommand,
-	handleArchiveCommand: mockHandleArchiveCommand,
-	handleBenchmarkCommand: mockHandleBenchmarkCommand,
-	handleClarifyCommand: mockHandleClarifyCommand,
-	handleConfigCommand: mockHandleConfigCommand,
-	handleDarkMatterCommand: mockHandleDarkMatterCommand,
-	handleDiagnoseCommand: mockHandleDiagnoseCommand,
-	handleDoctorCommand: mockHandleDoctorCommand,
+// Mock individual command files so registry.ts picks up the mocked handlers
+vi.mock('../../../src/commands/agents.js', () => ({ handleAgentsCommand: mockHandleAgentsCommand }));
+vi.mock('../../../src/commands/analyze.js', () => ({ handleAnalyzeCommand: mockHandleAnalyzeCommand }));
+vi.mock('../../../src/commands/archive.js', () => ({ handleArchiveCommand: mockHandleArchiveCommand }));
+vi.mock('../../../src/commands/benchmark.js', () => ({ handleBenchmarkCommand: mockHandleBenchmarkCommand }));
+vi.mock('../../../src/commands/checkpoint.js', () => ({ handleCheckpointCommand: mockHandleCheckpointCommand }));
+vi.mock('../../../src/commands/clarify.js', () => ({ handleClarifyCommand: mockHandleClarifyCommand }));
+vi.mock('../../../src/commands/config.js', () => ({ handleConfigCommand: mockHandleConfigCommand }));
+vi.mock('../../../src/commands/curate.js', () => ({ handleCurateCommand: mockHandleCurateCommand }));
+vi.mock('../../../src/commands/dark-matter.js', () => ({ handleDarkMatterCommand: mockHandleDarkMatterCommand }));
+vi.mock('../../../src/commands/diagnose.js', () => ({ handleDiagnoseCommand: mockHandleDiagnoseCommand }));
+vi.mock('../../../src/commands/doctor.js', () => ({ handleDoctorCommand: mockHandleDoctorCommand }));
+vi.mock('../../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: mockHandleEvidenceCommand,
 	handleEvidenceSummaryCommand: mockHandleEvidenceSummaryCommand,
-	handleExportCommand: mockHandleExportCommand,
-	handleHistoryCommand: mockHandleHistoryCommand,
+}));
+vi.mock('../../../src/commands/export.js', () => ({ handleExportCommand: mockHandleExportCommand }));
+vi.mock('../../../src/commands/handoff.js', () => ({ handleHandoffCommand: mockHandleHandoffCommand }));
+vi.mock('../../../src/commands/history.js', () => ({ handleHistoryCommand: mockHandleHistoryCommand }));
+vi.mock('../../../src/commands/knowledge.js', () => ({
+	handleKnowledgeListCommand: mockHandleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand: mockHandleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand: mockHandleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand: mockHandleKnowledgeRestoreCommand,
-	handlePlanCommand: mockHandlePlanCommand,
-	handlePreflightCommand: mockHandlePreflightCommand,
-	handleResetCommand: mockHandleResetCommand,
-	handleRetrieveCommand: mockHandleRetrieveCommand,
-	handleSpecifyCommand: mockHandleSpecifyCommand,
-	handleStatusCommand: mockHandleStatusCommand,
-	handleSyncPlanCommand: mockHandleSyncPlanCommand,
 }));
+vi.mock('../../../src/commands/plan.js', () => ({ handlePlanCommand: mockHandlePlanCommand }));
+vi.mock('../../../src/commands/preflight.js', () => ({ handlePreflightCommand: mockHandlePreflightCommand }));
+vi.mock('../../../src/commands/promote.js', () => ({ handlePromoteCommand: mockHandlePromoteCommand }));
+vi.mock('../../../src/commands/reset.js', () => ({ handleResetCommand: mockHandleResetCommand }));
+vi.mock('../../../src/commands/retrieve.js', () => ({ handleRetrieveCommand: mockHandleRetrieveCommand }));
+vi.mock('../../../src/commands/rollback.js', () => ({ handleRollbackCommand: mockHandleRollbackCommand }));
+vi.mock('../../../src/commands/simulate.js', () => ({ handleSimulateCommand: mockHandleSimulateCommand }));
+vi.mock('../../../src/commands/specify.js', () => ({ handleSpecifyCommand: mockHandleSpecifyCommand }));
+vi.mock('../../../src/commands/status.js', () => ({ handleStatusCommand: mockHandleStatusCommand }));
+vi.mock('../../../src/commands/sync-plan.js', () => ({ handleSyncPlanCommand: mockHandleSyncPlanCommand }));
+vi.mock('../../../src/commands/turbo.js', () => ({ handleTurboCommand: mockHandleTurboCommand }));
+vi.mock('../../../src/commands/write_retro.js', () => ({ handleWriteRetroCommand: mockHandleWriteRetroCommand }));
 
 // Import AFTER mocking is set up - use require for synchronous loading
 // @ts-ignore - Bun supports require for .js extensions
@@ -94,6 +114,7 @@ describe('run() function - Adversarial Tests', () => {
 		mockHandleAnalyzeCommand.mockResolvedValue('analyze result');
 		mockHandleSpecifyCommand.mockResolvedValue('specify result');
 		mockHandleDarkMatterCommand.mockResolvedValue('dark-matter result');
+		mockHandleKnowledgeListCommand.mockResolvedValue('knowledge list result');
 		mockHandleKnowledgeMigrateCommand.mockResolvedValue('knowledge migrate result');
 		mockHandleKnowledgeQuarantineCommand.mockResolvedValue('knowledge quarantine result');
 		mockHandleKnowledgeRestoreCommand.mockResolvedValue('knowledge restore result');
@@ -130,14 +151,13 @@ describe('run() function - Adversarial Tests', () => {
 		expect(mockConsoleLog).toHaveBeenCalledWith(undefined);
 	});
 
-	// Attack vector 4: 'knowledge' with empty second arg (args[1] is undefined) → falls to unknown knowledge error, returns 1
-	it('4. Should return 1 for "knowledge" with no subcommand (args[1] is undefined)', async () => {
+	// Attack vector 4: 'knowledge' with no subcommand → falls through to handleKnowledgeListCommand, returns 0
+	it('4. Should return 0 for "knowledge" with no subcommand (calls handleKnowledgeListCommand)', async () => {
 		const result = await run(['knowledge']);
 
-		expect(result).toBe(1);
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-		);
+		expect(result).toBe(0);
+		expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, []);
+		expect(mockConsoleLog).toHaveBeenCalledWith('knowledge list result');
 	});
 
 	// Attack vector 5: Args array with only whitespace string: `[' ']` → hits unknown command default, returns 1
@@ -146,18 +166,16 @@ describe('run() function - Adversarial Tests', () => {
 
 		expect(result).toBe(1);
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Unknown command:  \nRun "bunx opencode-swarm run" with no args for help.',
+			expect.stringContaining('Unknown command:  '),
 		);
 	});
 
-	// Attack vector 6: Args with exactly 2 elements for knowledge: `['knowledge']` (no subcmd) → error, returns 1
-	it('6. Should return 1 for "knowledge" with only 1 element (no subcmd)', async () => {
+	// Attack vector 6: 'knowledge' with only 1 element → falls through to handleKnowledgeListCommand, returns 0
+	it('6. Should return 0 for "knowledge" with only 1 element (calls handleKnowledgeListCommand)', async () => {
 		const result = await run(['knowledge']);
 
-		expect(result).toBe(1);
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-		);
+		expect(result).toBe(0);
+		expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, []);
 	});
 
 	// Attack vector 7: 'config' with args[1] being 'Doctor' (wrong case) → handleConfigCommand (NOT handleDoctorCommand)
@@ -178,15 +196,13 @@ describe('run() function - Adversarial Tests', () => {
 		expect(mockHandleEvidenceCommand).toHaveBeenCalledWith(cwd, ['Summary']);
 	});
 
-	// Attack vector 9: 'knowledge' with args[1] being 'Migrate' (wrong case) → unknown subcmd error, returns 1
-	it('9. Should return 1 for "knowledge Migrate" (wrong case)', async () => {
+	// Attack vector 9: 'knowledge' with args[1] being 'Migrate' (wrong case) → handleKnowledgeListCommand (falls through), returns 0
+	it('9. Should return 0 for "knowledge Migrate" (wrong case, calls handleKnowledgeListCommand)', async () => {
 		const result = await run(['knowledge', 'Migrate']);
 
-		expect(result).toBe(1);
+		expect(result).toBe(0);
 		expect(mockHandleKnowledgeMigrateCommand).not.toHaveBeenCalled();
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-		);
+		expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['Migrate']);
 	});
 
 	// Attack vector 10: null in args array: `[null]` → TypeScript allows this at runtime; should hit unknown command default, returns 1
@@ -196,7 +212,7 @@ describe('run() function - Adversarial Tests', () => {
 
 		expect(result).toBe(1);
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Unknown command: null\nRun "bunx opencode-swarm run" with no args for help.',
+			expect.stringContaining('Unknown command: null'),
 		);
 	});
 
@@ -208,7 +224,7 @@ describe('run() function - Adversarial Tests', () => {
 
 		expect(result).toBe(1);
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Usage: bunx opencode-swarm run <command> [args]\nRun "bunx opencode-swarm --help" for a list of commands.',
+			expect.stringContaining('Usage: bunx opencode-swarm run <command>'),
 		);
 	});
 
@@ -290,7 +306,7 @@ describe('run() function - Adversarial Tests', () => {
 
 		expect(result).toBe(1);
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			'Unknown command: unknown\nRun "bunx opencode-swarm run" with no args for help.',
+			expect.stringContaining('Unknown command: unknown'),
 		);
 	});
 });
