@@ -181,23 +181,15 @@ export function createIncrementalVerifyHook(
 				if (Array.isArray(config.command)) {
 					commandToRun = config.command;
 				} else {
-					const tokens = config.command.split(' ');
-					// Only warn when the string has BOTH spaces and path separators —
-					// a single-token path like "./scripts/check.sh" is a valid command.
-					const hasSpaces = tokens.length > 1;
-					const hasPathSeparator = tokens.some(
-						(t) => t.includes('/') || t.includes('\\'),
-					);
-					if (hasSpaces && hasPathSeparator) {
-						injectMessage(
-							input.sessionID,
-							'POST-CODER CHECK SKIPPED: incremental_verify.command is a string containing path separators. ' +
-								'Splitting on spaces produces a malformed command. ' +
-								'Use the array form instead: ["python", "-m", "mypy", "C:\\\\My Projects\\\\src"]',
-						);
-						return;
-					}
-					commandToRun = tokens;
+					// Split on spaces. If the user's command has a path with spaces
+					// (e.g. "python -m mypy C:\My Projects\src"), the split will produce
+					// a malformed array — but detecting this reliably after splitting is
+					// impossible without false-positiving on valid args like "src/" or
+					// "--project ./tsconfig.json". The hook is advisory-only: a malformed
+					// command simply causes spawnAsync to return null (silent skip), which
+					// is the same as no command being detected. Use the array form to pass
+					// paths with spaces: ["python", "-m", "mypy", "C:\\My Projects\\src"].
+					commandToRun = config.command.split(' ');
 				}
 			} else {
 				const detected = detectTypecheckCommand(projectDir);

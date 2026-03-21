@@ -52713,14 +52713,7 @@ function createIncrementalVerifyHook(config3, projectDir, injectMessage) {
         if (Array.isArray(config3.command)) {
           commandToRun = config3.command;
         } else {
-          const tokens = config3.command.split(" ");
-          const hasSpaces = tokens.length > 1;
-          const hasPathSeparator = tokens.some((t) => t.includes("/") || t.includes("\\"));
-          if (hasSpaces && hasPathSeparator) {
-            injectMessage(input.sessionID, "POST-CODER CHECK SKIPPED: incremental_verify.command is a string containing path separators. " + "Splitting on spaces produces a malformed command. " + 'Use the array form instead: ["python", "-m", "mypy", "C:\\\\My Projects\\\\src"]');
-            return;
-          }
-          commandToRun = tokens;
+          commandToRun = config3.command.split(" ");
         }
       } else {
         const detected = detectTypecheckCommand(projectDir);
