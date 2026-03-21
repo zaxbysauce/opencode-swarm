@@ -288,7 +288,7 @@ describe('adversarial-detector hook', () => {
 				DEFAULT_MODELS.reviewer,
 			);
 			expect(resolveAgentModel('architect', config)).toBe(
-				DEFAULT_MODELS.architect,
+				DEFAULT_MODELS.default,
 			);
 		});
 

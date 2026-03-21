@@ -651,7 +651,7 @@ export function createDelegationGateHook(
 					}
 
 					// Fallback Pass 1: advance states via delegationChains
-					if (hasReviewer && session.taskWorkflowStates) {
+					if (lastCoderIndex !== -1 && hasReviewer && session.taskWorkflowStates) {
 						for (const [taskId, state] of session.taskWorkflowStates) {
 							if (state === 'coder_delegated' || state === 'pre_check_passed') {
 								try {
@@ -666,7 +666,7 @@ export function createDelegationGateHook(
 					}
 
 					// Fallback Pass 2: advance states via delegationChains
-					if (hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
 						for (const [taskId, state] of session.taskWorkflowStates) {
 							if (state === 'reviewer_run') {
 								try {
@@ -681,7 +681,7 @@ export function createDelegationGateHook(
 					}
 
 					// Fallback: Also advance states in OTHER sessions via delegationChains
-					if (hasReviewer) {
+					if (lastCoderIndex !== -1 && hasReviewer) {
 						for (const [, otherSession] of swarmState.agentSessions) {
 							if (otherSession === session) continue;
 							if (!otherSession.taskWorkflowStates) continue;
@@ -714,7 +714,7 @@ export function createDelegationGateHook(
 						}
 					}
 
-					if (hasReviewer && hasTestEngineer) {
+					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
 						for (const [, otherSession] of swarmState.agentSessions) {
 							if (otherSession === session) continue;
 							if (!otherSession.taskWorkflowStates) continue;

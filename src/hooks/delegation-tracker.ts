@@ -86,8 +86,8 @@ export function createDelegationTrackerHook(
 			beginInvocation(input.sessionID, agentName);
 		}
 
-		const delegationTrackerEnabled = config.hooks?.delegation_tracker === true;
-		const delegationGateEnabled = config.hooks?.delegation_gate !== false;
+		const delegationTrackerEnabled = config?.hooks?.delegation_tracker === true;
+		const delegationGateEnabled = config?.hooks?.delegation_gate !== false;
 
 		// If delegation tracking is enabled and agent has changed, log the delegation
 		if (

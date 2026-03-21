@@ -5,7 +5,7 @@
  * to ensure proper cleanup of .tmp files and error handling.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { mkdtemp, writeFile, mkdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -124,7 +124,7 @@ describe('Agent Activity — Atomic Write Pattern', () => {
 				await writeFile(contextPath, '# Initial\n');
 
 				// Mock Bun.write to fail
-				const writeSpy = vi.spyOn(Bun, 'write').mockRejectedValueOnce(
+				const writeSpy = spyOn(Bun, 'write').mockRejectedValueOnce(
 					new Error('Write failed: EIO'),
 				);
 
@@ -150,24 +150,17 @@ describe('Agent Activity — Atomic Write Pattern', () => {
 				const contextPath = join(tempDir, '.swarm', 'context.md');
 				const tempPath = `${contextPath}.tmp`;
 
-				// Mock Bun.write to fail
-				const testError = new Error('Disk full');
-				const writeSpy = vi.spyOn(Bun, 'write').mockRejectedValueOnce(testError);
-
-				// Create initial context.md
+				// Create initial context.md before setting up mocks
 				await writeFile(contextPath, '# Initial\n');
 
-				// Mock console.warn to capture warning messages
-				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				// Mock Bun.write to fail
+				const testError = new Error('Disk full');
+				const writeSpy = spyOn(Bun, 'write').mockRejectedValueOnce(testError);
 
-				// Flush should complete (error caught in outer catch)
+				// Flush should complete without throwing (outer catch in doFlush handles the error)
+				// Note: warn() from utils is DEBUG-gated (OPENCODE_SWARM_DEBUG=1), so
+				// console.warn is not called in test environments. Verify side effects instead.
 				await _flushForTesting(tempDir);
-
-				// Verify warn was called with the error message (outer catch handling)
-				expect(warnSpy).toHaveBeenCalledWith(
-					expect.stringContaining('Agent activity flush failed:'),
-					testError,
-				);
 
 				// Verify temp file was cleaned up
 				const tempExists = await stat(tempPath)
@@ -180,7 +173,6 @@ describe('Agent Activity — Atomic Write Pattern', () => {
 				expect(originalContent).toBe('# Initial\n');
 
 				writeSpy.mockRestore();
-				warnSpy.mockRestore();
 			});
 
 			it('should preserve pendingEvents when write fails (will retry)', async () => {
@@ -191,12 +183,12 @@ describe('Agent Activity — Atomic Write Pattern', () => {
 				swarmState.pendingEvents = 5;
 
 				// Mock Bun.write to fail
-				const writeSpy = vi.spyOn(Bun, 'write').mockRejectedValueOnce(
+				const writeSpy = spyOn(Bun, 'write').mockRejectedValueOnce(
 					new Error('Write failed'),
 				);
 
 				// Mock console.warn to suppress output
-				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
 
 				// Flush
 				await _flushForTesting(tempDir);

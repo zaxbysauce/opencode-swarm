@@ -222,8 +222,9 @@ describe('adversarial-detector - Adversarial Security Testing', () => {
 	describe('detectAdversarialPair - Case Sensitivity Edge Cases', () => {
 		it('ATTACK 11: Mixed case agent names should normalize correctly', () => {
 			// Both resolve to the same base agent after prefix stripping and lowercasing
+			// architect key is intentionally absent from DEFAULT_MODELS so it falls back to default
 			const result = detectAdversarialPair('ARCHITECT', 'architect', mockConfig);
-			expect(result).toBe(DEFAULT_MODELS.architect.toLowerCase());
+			expect(result).toBe(DEFAULT_MODELS.default.toLowerCase());
 		});
 
 		it('ATTACK 11b: Case variations should not cause false positives', () => {
