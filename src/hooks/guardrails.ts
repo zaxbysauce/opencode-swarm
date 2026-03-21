@@ -1078,6 +1078,14 @@ export function createGuardrailsHooks(
 						`[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n` + textPart.text;
 				}
 				session!.pendingAdvisoryMessages = [];
+			} else if (
+				!isArchitectSession &&
+				session &&
+				(session.pendingAdvisoryMessages?.length ?? 0) > 0
+			) {
+				// Non-architect sessions never inject advisories, but must still drain
+				// the queue to prevent unbounded accumulation in long-lived coder sessions.
+				session.pendingAdvisoryMessages = [];
 			}
 
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)

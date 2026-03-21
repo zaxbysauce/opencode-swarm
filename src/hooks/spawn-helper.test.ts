@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, describe, expect, it } from 'bun:test';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { spawnAsync } from './spawn-helper';
 
 describe('spawn-helper', () => {
@@ -150,6 +149,99 @@ describe('spawn-helper', () => {
 			const fakeCwd = '/nonexistent/path/that/cannot/exist/xyz123';
 			const result = await spawnAsync(['echo', 'hello'], fakeCwd, 5000);
 			expect(result).toBeNull();
+		});
+
+		// ============================================================
+		// WIN32 .CMD EXTENSION TESTS
+		// ============================================================
+
+		describe('.cmd extension on win32', () => {
+			const testCwd = tmpdir();
+			const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(
+				process,
+				'platform',
+			);
+
+			afterEach(() => {
+				// Restore original platform after each test to avoid test pollution
+				if (originalPlatformDescriptor) {
+					Object.defineProperty(
+						process,
+						'platform',
+						originalPlatformDescriptor,
+					);
+				}
+			});
+
+			// Test 1: npm on win32 → resolves non-null (npm.cmd exists in PATH on this Windows env)
+			it('npm on win32 resolves non-null', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'win32',
+					configurable: true,
+				});
+				const result = await spawnAsync(['npm', '--version'], testCwd, 5000);
+				expect(result).not.toBeNull();
+				expect(result!.exitCode).toBe(0);
+			});
+
+			// Test 2: npx on win32 → resolves non-null
+			it('npx on win32 resolves non-null', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'win32',
+					configurable: true,
+				});
+				const result = await spawnAsync(['npx', '--version'], testCwd, 5000);
+				expect(result).not.toBeNull();
+				expect(result!.exitCode).toBe(0);
+			});
+
+			// Test 3: pnpm on win32 → resolves non-null or null (may not be installed)
+			it('pnpm on win32 does not crash from transformation', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'win32',
+					configurable: true,
+				});
+				const result = await spawnAsync(['pnpm', '--version'], testCwd, 5000);
+				expect(result === null || result!.exitCode === 0).toBe(true);
+			});
+
+			// Test 4: bun on win32 → spawned as 'bun' not 'bun.cmd'
+			// Bun is not in WIN32_CMD_BINARIES so it stays as 'bun', which resolves fine
+			it('bun on win32 resolves without .cmd extension', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'win32',
+					configurable: true,
+				});
+				const result = await spawnAsync(['bun', '--version'], testCwd, 5000);
+				expect(result).not.toBeNull();
+				expect(result!.exitCode).toBe(0);
+			});
+
+			// Test 5: npm on linux → resolves without .cmd issue
+			// On this MSYS2/Windows env npm is a .cmd, so bare 'npm' may fail (resolve null)
+			it('npm on linux does not crash', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'linux',
+					configurable: true,
+				});
+				const result = await spawnAsync(['npm', '--version'], testCwd, 5000);
+				expect(result === null || result!.exitCode === 0).toBe(true);
+			});
+
+			// Test 6: Already-extended command npm.cmd not double-extended
+			it('npm.cmd on win32 is not double-extended', async () => {
+				Object.defineProperty(process, 'platform', {
+					value: 'win32',
+					configurable: true,
+				});
+				const result = await spawnAsync(
+					['npm.cmd', '--version'],
+					testCwd,
+					5000,
+				);
+				expect(result).not.toBeNull();
+				expect(result!.exitCode).toBe(0);
+			});
 		});
 	});
 });

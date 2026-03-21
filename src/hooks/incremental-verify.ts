@@ -27,6 +27,19 @@ export function resetAdvisoryDedup(): void {
 }
 
 /**
+ * Detect the active package manager from lockfile presence.
+ * Priority: bun.lockb > pnpm-lock.yaml > yarn.lock > package-lock.json
+ * Fallback: 'bun' (preserves existing default when no lockfile found)
+ */
+function detectPackageManager(projectDir: string): string {
+	if (fs.existsSync(path.join(projectDir, 'bun.lockb'))) return 'bun';
+	if (fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'))) return 'pnpm';
+	if (fs.existsSync(path.join(projectDir, 'yarn.lock'))) return 'yarn';
+	if (fs.existsSync(path.join(projectDir, 'package-lock.json'))) return 'npm';
+	return 'bun'; // default fallback
+}
+
+/**
  * Detect the typecheck/build check command for the project.
  * Returns { command, language } where command is null if no default checker exists,
  * or null overall if no supported language is detected.
@@ -49,13 +62,14 @@ function detectTypecheckCommand(
 			const scripts = pkg.scripts as Record<string, string> | undefined;
 
 			// Prefer explicit typecheck script
-			if (scripts?.typecheck)
-				return { command: ['bun', 'run', 'typecheck'], language: 'typescript' };
-			if (scripts?.['type-check'])
-				return {
-					command: ['bun', 'run', 'type-check'],
-					language: 'typescript',
-				};
+			if (scripts?.typecheck) {
+				const pm = detectPackageManager(projectDir);
+				return { command: [pm, 'run', 'typecheck'], language: 'typescript' };
+			}
+			if (scripts?.['type-check']) {
+				const pm = detectPackageManager(projectDir);
+				return { command: [pm, 'run', 'type-check'], language: 'typescript' };
+			}
 
 			// Check for TypeScript presence
 			const deps = {
@@ -164,9 +178,19 @@ export function createIncrementalVerifyHook(
 			let commandToRun: string[] | null = null;
 
 			if (config.command != null) {
-				commandToRun = Array.isArray(config.command)
-					? config.command
-					: config.command.split(' ');
+				if (Array.isArray(config.command)) {
+					commandToRun = config.command;
+				} else {
+					// Split on spaces. If the user's command has a path with spaces
+					// (e.g. "python -m mypy C:\My Projects\src"), the split will produce
+					// a malformed array — but detecting this reliably after splitting is
+					// impossible without false-positiving on valid args like "src/" or
+					// "--project ./tsconfig.json". The hook is advisory-only: a malformed
+					// command simply causes spawnAsync to return null (silent skip), which
+					// is the same as no command being detected. Use the array form to pass
+					// paths with spaces: ["python", "-m", "mypy", "C:\\My Projects\\src"].
+					commandToRun = config.command.split(' ');
+				}
 			} else {
 				const detected = detectTypecheckCommand(projectDir);
 				if (detected === null) {

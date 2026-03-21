@@ -20,7 +20,7 @@ export declare function readSnapshot(directory: string): Promise<SnapshotData | 
  * Clears existing maps first, then populates from snapshot.
  * Does NOT touch activeToolCalls or pendingEvents (remain at defaults).
  */
-export declare function rehydrateState(snapshot: SnapshotData): void;
+export declare function rehydrateState(snapshot: SnapshotData): Promise<void>;
 /**
  * Load snapshot from disk and rehydrate swarmState.
  * Called on plugin init to restore state from previous session.

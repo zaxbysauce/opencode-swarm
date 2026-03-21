@@ -198,7 +198,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			};
 
 			// The null guard on line 124 should prevent errors
-			rehydrateState(snapshot);
+			await rehydrateState(snapshot);
 			expect(swarmState.toolAggregates.size).toBe(0);
 		});
 
@@ -215,7 +215,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			};
 
 			// This SHOULD throw - deserializeAgentSession doesn't handle null
-			expect(() => rehydrateState(snapshot)).toThrow();
+			await expect(rehydrateState(snapshot)).rejects.toThrow();
 		});
 
 		it('should filter out NaN keys in reviewerCallCount', async () => {
@@ -430,7 +430,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 	// ============================================================================
 
 	describe('rehydrateState edge cases', () => {
-		it('should handle huge delegationChains (10,000 entries per session) without hanging', () => {
+		it('should handle huge delegationChains (10,000 entries per session) without hanging', async () => {
 			const hugeChains: Record<string, any> = {};
 			for (let i = 0; i < 100; i++) {
 				hugeChains[`session${i}`] = Array.from({ length: 10000 }, (_, j) => ({
@@ -449,11 +449,11 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 				agentSessions: {},
 			};
 
-			expect(() => rehydrateState(snapshot)).not.toThrow();
+			await expect(rehydrateState(snapshot)).resolves.toBeUndefined();
 			expect(swarmState.delegationChains.size).toBe(100);
 		});
 
-		it('should handle multiple rapid calls to rehydrateState with last-call data', () => {
+		it('should handle multiple rapid calls to rehydrateState with last-call data', async () => {
 			const snapshot1: SnapshotData = {
 				version: 1,
 				writtenAt: Date.now(),
@@ -472,8 +472,8 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 				agentSessions: {},
 			};
 
-			rehydrateState(snapshot1);
-			rehydrateState(snapshot2);
+			await rehydrateState(snapshot1);
+			await rehydrateState(snapshot2);
 
 			// Should have data from last call
 			expect(swarmState.toolAggregates.size).toBe(1);
@@ -482,7 +482,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			expect(swarmState.activeAgent.get('session2')).toBe('agent2');
 		});
 
-		it('should handle rehydrating over already-populated state (clears first)', () => {
+		it('should handle rehydrating over already-populated state (clears first)', async () => {
 			// Populate state first
 			swarmState.toolAggregates.set('tool1', {
 				tool: 'tool1',
@@ -502,7 +502,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 				agentSessions: {},
 			};
 
-			rehydrateState(snapshot);
+			await rehydrateState(snapshot);
 
 			// Should have cleared old data and populated new data
 			expect(swarmState.toolAggregates.size).toBe(1);

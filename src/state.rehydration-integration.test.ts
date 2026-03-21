@@ -6,6 +6,7 @@ import type { AgentSessionState } from './state';
 import {
 	ensureAgentSession,
 	rehydrateSessionFromDisk,
+	resetSwarmState,
 	startAgentSession,
 	swarmState,
 } from './state';
@@ -19,6 +20,9 @@ let rehydrateCalls: Array<{ directory: string; session: AgentSessionState }> =
 let originalRehydrate: typeof rehydrateSessionFromDisk;
 
 beforeEach(() => {
+	// Clear all shared swarmState to prevent cross-test-file contamination.
+	// swarmState is a module-level singleton shared across all test files in the process.
+	resetSwarmState();
 	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'rehydrate-integration-test-'));
 	mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
 	testSessionId = 'test-session-' + Date.now();

@@ -443,6 +443,32 @@ export async function executePhaseComplete(
 		);
 	}
 
+	// Knowledge config with sensible defaults — hoisted so it is available to both
+	// the retro curation path below and the curator pipeline at line ~513.
+	const knowledgeConfig: KnowledgeConfig = {
+		enabled: true,
+		swarm_max_entries: 100,
+		hive_max_entries: 200,
+		auto_promote_days: 90,
+		max_inject_count: 5,
+		dedup_threshold: 0.6,
+		scope_filter: ['global'],
+		hive_enabled: true,
+		rejected_max_entries: 20,
+		validation_enabled: true,
+		evergreen_confidence: 0.9,
+		evergreen_utility: 0.8,
+		low_utility_threshold: 0.3,
+		min_retrievals_for_utility: 3,
+		schema_version: 1,
+		same_project_weight: 1.0,
+		cross_project_weight: 0.5,
+		min_encounter_score: 0.1,
+		initial_encounter_score: 1.0,
+		encounter_increment: 0.1,
+		max_encounter_score: 10.0,
+	};
+
 	// Extract and store lessons from retrospective to knowledge.jsonl
 	if (
 		retroFound &&
@@ -452,31 +478,6 @@ export async function executePhaseComplete(
 		try {
 			// Infer project name from directory
 			const projectName = path.basename(dir);
-
-			// Build knowledge config with sensible defaults
-			const knowledgeConfig: KnowledgeConfig = {
-				enabled: true,
-				swarm_max_entries: 100,
-				hive_max_entries: 200,
-				auto_promote_days: 90,
-				max_inject_count: 5,
-				dedup_threshold: 0.6,
-				scope_filter: ['global'],
-				hive_enabled: true,
-				rejected_max_entries: 20,
-				validation_enabled: true,
-				evergreen_confidence: 0.9,
-				evergreen_utility: 0.8,
-				low_utility_threshold: 0.3,
-				min_retrievals_for_utility: 3,
-				schema_version: 1,
-				same_project_weight: 1.0,
-				cross_project_weight: 0.5,
-				min_encounter_score: 0.1,
-				initial_encounter_score: 1.0,
-				encounter_increment: 0.1,
-				max_encounter_score: 10.0,
-			};
 
 			await curateAndStoreSwarm(
 				retroEntry.lessons_learned,
@@ -510,7 +511,7 @@ export async function executePhaseComplete(
 			await applyCuratorKnowledgeUpdates(
 				dir,
 				curatorResult.knowledge_recommendations,
-				{} as KnowledgeConfig,
+				knowledgeConfig,
 			);
 			await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
 			// Surface non-suppressed compliance observations in return value

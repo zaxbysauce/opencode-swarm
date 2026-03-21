@@ -181,6 +181,8 @@ export declare const swarmState: {
     lastBudgetPct: number;
     /** Per-session guardrail state — keyed by sessionID */
     agentSessions: Map<string, AgentSessionState>;
+    /** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
+    pendingRehydrations: Set<Promise<void>>;
 };
 /**
  * Reset all state to initial values - useful for testing
@@ -194,7 +196,7 @@ export declare function resetSwarmState(): void;
  * @param staleDurationMs - Age threshold for stale session eviction (default: 120 min)
  * @param directory - Optional project directory for rehydrating workflow state from disk
  */
-export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number, _directory?: string): void;
+export declare function startAgentSession(sessionId: string, agentName: string, staleDurationMs?: number, directory?: string): void;
 /**
  * End an agent session by removing it from the state.
  * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
@@ -218,7 +220,7 @@ export declare function getAgentSession(sessionId: string): AgentSessionState | 
  * @param agentName - Optional agent name (if known)
  * @returns The AgentSessionState
  */
-export declare function ensureAgentSession(sessionId: string, agentName?: string, _directory?: string): AgentSessionState;
+export declare function ensureAgentSession(sessionId: string, agentName?: string, directory?: string): AgentSessionState;
 /**
  * Update only the agent event timestamp (for stale detection).
  * Does NOT change agent name or reset guardrail state.
