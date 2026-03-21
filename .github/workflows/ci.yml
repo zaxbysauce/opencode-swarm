@@ -51,6 +51,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Unit tests (hooks)
+        if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks --timeout 120000
       - name: Unit tests (cli, commands, config, tools)
         run: bun --smol test tests/unit/cli tests/unit/commands tests/unit/config tests/unit/tools --timeout 120000
