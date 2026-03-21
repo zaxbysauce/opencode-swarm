@@ -598,6 +598,18 @@ export const GuardrailsConfigSchema = z.object({
 
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
 
+// ─── Watchdog configuration ───────────────────────────────────────────────
+export const WatchdogConfigSchema = z.object({
+	/** Enable scope-guard hook. Blocks non-architect agents writing outside declared scope. Default: true */
+	scope_guard: z.boolean().default(true),
+	/** Allow scope-guard to be skipped in turbo mode. Default: false (NOT skippable) */
+	skip_in_turbo: z.boolean().default(false),
+	/** Enable delegation-ledger hook. Injects DELEGATION SUMMARY on architect resume. Default: true */
+	delegation_ledger: z.boolean().default(true),
+});
+
+export type WatchdogConfig = z.infer<typeof WatchdogConfigSchema>;
+
 /**
  * Resolves guardrails configuration for a specific agent.
  *
@@ -888,6 +900,9 @@ export const PluginConfigSchema = z.object({
 
 	// Guardrails configuration
 	guardrails: GuardrailsConfigSchema.optional(),
+
+	// Watchdog configuration (scope-guard + delegation-ledger)
+	watchdog: WatchdogConfigSchema.optional(),
 
 	// Tool filter configuration - controls which tools each agent is allowed to use
 	tool_filter: ToolFilterConfigSchema.optional(),

@@ -17,6 +17,7 @@ import {
 	KnowledgeConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
+	WatchdogConfigSchema,
 } from './config/schema';
 import {
 	composeHandlers,
@@ -36,10 +37,12 @@ import {
 } from './hooks';
 import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
 import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
+import { createDelegationLedgerHook } from './hooks/delegation-ledger.js';
 import { createHivePromoterHook } from './hooks/hive-promoter.js';
 import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
+import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { createCompactionService } from './services/compaction-service';
@@ -155,6 +158,32 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		ctx.directory,
 		guardrailsConfig,
 	);
+
+	// Watchdog: scope-guard + delegation-ledger
+	const watchdogConfig = WatchdogConfigSchema.parse(config.watchdog ?? {});
+	const advisoryInjector = (sessionId: string, message: string) => {
+		const s = swarmState.agentSessions.get(sessionId);
+		if (s) {
+			s.pendingAdvisoryMessages ??= [];
+			s.pendingAdvisoryMessages.push(message);
+		}
+	};
+
+	const scopeGuardHook = createScopeGuardHook(
+		{
+			enabled: watchdogConfig.scope_guard,
+			skip_in_turbo: watchdogConfig.skip_in_turbo,
+		},
+		ctx.directory,
+		advisoryInjector,
+	);
+
+	const delegationLedgerHook = createDelegationLedgerHook(
+		{ enabled: watchdogConfig.delegation_ledger },
+		ctx.directory,
+		advisoryInjector,
+	);
+
 	const summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});
 	const toolSummarizerHook = createToolSummarizerHook(
 		summaryConfig,
@@ -558,6 +587,23 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Inject phase reminders before API calls
 		'experimental.chat.messages.transform': composeHandlers(
 			...[
+				// Delegation ledger: inject summary when architect session resumes
+				(input: unknown, _output: unknown): Promise<void> => {
+					const p = input as { sessionID?: string };
+					if (p.sessionID) {
+						const archAgent = swarmState.activeAgent.get(p.sessionID);
+						const archSession = swarmState.agentSessions.get(p.sessionID);
+						const agentName = archAgent ?? archSession?.agentName ?? '';
+						if (stripKnownSwarmPrefix(agentName) === ORCHESTRATOR_NAME) {
+							try {
+								delegationLedgerHook.onArchitectResume(p.sessionID);
+							} catch {
+								/* non-blocking */
+							}
+						}
+					}
+					return Promise.resolve();
+				},
 				pipelineHook['experimental.chat.messages.transform'],
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
@@ -638,6 +684,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Guardrails runs first WITHOUT safeHook — throws must propagate to block tools
 			await guardrailsHooks.toolBefore(input, output);
 
+			// Watchdog: scope-guard runs after guardrails WITHOUT safeHook — throws must propagate to block tools
+			await scopeGuardHook.toolBefore(input, output);
+
 			// v6.29: One-time 50% context pressure warning
 			if (swarmState.lastBudgetPct >= 50) {
 				const pressureSession = ensureAgentSession(
@@ -664,6 +713,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
+			// Watchdog: delegation-ledger records delegation events
+			await safeHook(delegationLedgerHook.toolAfter)(input, output);
 			await safeHook(delegationGateHooks.toolAfter)(input, output);
 			// v6.17 Knowledge hooks — after guardrails, before summarizer
 			if (knowledgeCuratorHook)

@@ -17126,6 +17126,11 @@ var GuardrailsConfigSchema = exports_external.object({
   }).optional(),
   profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
 });
+var WatchdogConfigSchema = exports_external.object({
+  scope_guard: exports_external.boolean().default(true),
+  skip_in_turbo: exports_external.boolean().default(false),
+  delegation_ledger: exports_external.boolean().default(true)
+});
 var ToolFilterConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   overrides: exports_external.record(exports_external.string(), exports_external.array(exports_external.string())).default({})
@@ -17224,6 +17229,7 @@ var PluginConfigSchema = exports_external.object({
   gates: GateConfigSchema.optional(),
   context_budget: ContextBudgetConfigSchema.optional(),
   guardrails: GuardrailsConfigSchema.optional(),
+  watchdog: WatchdogConfigSchema.optional(),
   tool_filter: ToolFilterConfigSchema.optional(),
   plan_cursor: PlanCursorConfigSchema.optional(),
   evidence: EvidenceConfigSchema.optional(),
