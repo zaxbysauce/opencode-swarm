@@ -123,7 +123,7 @@ bunx biome ci .
 bun test tests/unit --timeout 120000
 
 # Tier 3 — integration
-bun test tests/integration test --timeout 120000
+bun test tests/integration ./test --timeout 120000
 
 # Tier 4 — security
 bun test tests/security --timeout 120000
