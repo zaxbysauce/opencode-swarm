@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.30.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.1...v6.30.2) (2026-03-21)
+
+
+### Bug Fixes
+
+* **cli:** replace diverged dispatch switches with unified command registry ([#237](https://github.com/zaxbysauce/opencode-swarm/issues/237)) ([9773939](https://github.com/zaxbysauce/opencode-swarm/commit/97739390110a321818d2872e319a86554cf0969c))
+
 ## [6.30.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.0...v6.30.1) (2026-03-21)
 
 
