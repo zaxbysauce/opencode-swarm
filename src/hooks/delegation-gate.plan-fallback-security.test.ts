@@ -892,7 +892,6 @@ describe('ADVERSARIAL: getEvidenceTaskId plan.json fallback security', () => {
 
 			// Try to make it unreadable - skip on Windows if not possible
 			try {
-				// biome-ignore lint/style/noNonNullAssertion: test code
 				require('node:fs').chmodSync(planPath, 0o000);
 			} catch {
 				// Cannot change permissions - skip test
@@ -924,7 +923,6 @@ describe('ADVERSARIAL: getEvidenceTaskId plan.json fallback security', () => {
 			} finally {
 				// Restore permissions for cleanup
 				try {
-					// biome-ignore lint/style/noNonNullAssertion: test code
 					require('node:fs').chmodSync(planPath, 0o644);
 				} catch {
 					/* ignore */

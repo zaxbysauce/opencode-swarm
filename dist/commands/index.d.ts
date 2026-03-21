@@ -1,8 +1,9 @@
-import type { AgentDefinition } from '../agents';
+import type { AgentDefinition } from '../agents/index.js';
 export { handleAgentsCommand } from './agents';
 export { handleAnalyzeCommand } from './analyze';
 export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
+export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
 export { handleConfigCommand } from './config';
 export { handleCurateCommand } from './curate';
@@ -17,6 +18,8 @@ export { handleKnowledgeListCommand, handleKnowledgeMigrateCommand, handleKnowle
 export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handlePromoteCommand } from './promote';
+export type { CommandContext, CommandEntry, RegisteredCommand, } from './registry.js';
+export { COMMAND_REGISTRY, resolveCommand, VALID_COMMANDS, } from './registry.js';
 export { handleResetCommand } from './reset';
 export { handleRetrieveCommand } from './retrieve';
 export { handleRollbackCommand } from './rollback';

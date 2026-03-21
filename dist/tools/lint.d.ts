@@ -46,7 +46,7 @@ export declare function getBiomeBinPath(directory: string): string;
 export declare function getEslintBinPath(directory: string): string;
 export declare function detectAvailableLinter(directory?: string): Promise<SupportedLinter | null>;
 /** Internal implementation — accepts pre-computed binary paths for testability. */
-export declare function _detectAvailableLinter(projectDir: string, biomeBin: string, eslintBin: string): Promise<SupportedLinter | null>;
+export declare function _detectAvailableLinter(_projectDir: string, biomeBin: string, eslintBin: string): Promise<SupportedLinter | null>;
 export declare function runLint(linter: SupportedLinter, mode: 'fix' | 'check', directory: string): Promise<LintResult>;
 /**
  * Run an additional (non-JS/TS) linter.

@@ -651,7 +651,11 @@ export function createDelegationGateHook(
 					}
 
 					// Fallback Pass 1: advance states via delegationChains
-					if (lastCoderIndex !== -1 && hasReviewer && session.taskWorkflowStates) {
+					if (
+						lastCoderIndex !== -1 &&
+						hasReviewer &&
+						session.taskWorkflowStates
+					) {
 						for (const [taskId, state] of session.taskWorkflowStates) {
 							if (state === 'coder_delegated' || state === 'pre_check_passed') {
 								try {
@@ -666,7 +670,12 @@ export function createDelegationGateHook(
 					}
 
 					// Fallback Pass 2: advance states via delegationChains
-					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+					if (
+						lastCoderIndex !== -1 &&
+						hasReviewer &&
+						hasTestEngineer &&
+						session.taskWorkflowStates
+					) {
 						for (const [taskId, state] of session.taskWorkflowStates) {
 							if (state === 'reviewer_run') {
 								try {
