@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.31.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.2...v6.31.0) (2026-03-21)
+
+
+### Features
+
+* process.cwd cleanup, curator wiring, watchdog pattern, self-review, and knowledge tools ([#239](https://github.com/zaxbysauce/opencode-swarm/issues/239)) ([573e2a0](https://github.com/zaxbysauce/opencode-swarm/commit/573e2a09c85ee97df52649e057686f49bf43db50))
+
 ## [6.30.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.30.1...v6.30.2) (2026-03-21)
 
 
