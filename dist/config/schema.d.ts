@@ -330,6 +330,11 @@ export declare const WatchdogConfigSchema: z.ZodObject<{
     delegation_ledger: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type WatchdogConfig = z.infer<typeof WatchdogConfigSchema>;
+export declare const SelfReviewConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    skip_in_turbo: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strip>;
+export type SelfReviewConfig = z.infer<typeof SelfReviewConfigSchema>;
 /**
  * Resolves guardrails configuration for a specific agent.
  *
@@ -436,6 +441,7 @@ export declare const SlopDetectorConfigSchema: z.ZodObject<{
     classThreshold: z.ZodDefault<z.ZodNumber>;
     commentStripThreshold: z.ZodDefault<z.ZodNumber>;
     diffLineThreshold: z.ZodDefault<z.ZodNumber>;
+    importHygieneThreshold: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
 export declare const IncrementalVerifyConfigSchema: z.ZodObject<{
@@ -591,6 +597,10 @@ export declare const PluginConfigSchema: z.ZodObject<{
         skip_in_turbo: z.ZodDefault<z.ZodBoolean>;
         delegation_ledger: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
+    self_review: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        skip_in_turbo: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
     tool_filter: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         overrides: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>>;
@@ -733,6 +743,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         classThreshold: z.ZodDefault<z.ZodNumber>;
         commentStripThreshold: z.ZodDefault<z.ZodNumber>;
         diffLineThreshold: z.ZodDefault<z.ZodNumber>;
+        importHygieneThreshold: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     incremental_verify: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

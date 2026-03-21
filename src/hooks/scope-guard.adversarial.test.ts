@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import type { AgentSessionState } from '../state';
 import { swarmState } from '../state';
 import { createScopeGuardHook } from './scope-guard';
 
@@ -11,7 +12,7 @@ beforeEach(() => {
 		currentTaskId: '1.1',
 		pendingAdvisoryMessages: [],
 		modifiedFilesThisCoderTask: [],
-	} as any);
+	} as unknown as AgentSessionState);
 	swarmState.activeAgent.set(SID, 'mega_coder');
 });
 
