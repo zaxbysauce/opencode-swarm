@@ -33397,7 +33397,7 @@ function detectAdditionalLinter(cwd) {
 }
 async function detectAvailableLinter(directory) {
   const DETECT_TIMEOUT = 2000;
-  const projectDir = directory ?? process.cwd();
+  const projectDir = directory || process.cwd();
   const isWindows = process.platform === "win32";
   const biomeBin = isWindows ? path21.join(projectDir, "node_modules", ".bin", "biome.EXE") : path21.join(projectDir, "node_modules", ".bin", "biome");
   const eslintBin = isWindows ? path21.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path21.join(projectDir, "node_modules", ".bin", "eslint");
@@ -33944,6 +33944,7 @@ async function runSecretscan(directory) {
 var MAX_FILE_PATH_LENGTH = 500, MAX_FILE_SIZE_BYTES, MAX_FILES_SCANNED = 1000, MAX_FINDINGS = 100, MAX_OUTPUT_BYTES2 = 512000, MAX_LINE_LENGTH = 1e4, MAX_CONTENT_BYTES, BINARY_SIGNATURES, BINARY_PREFIX_BYTES = 4, BINARY_NULL_CHECK_BYTES = 8192, BINARY_NULL_THRESHOLD = 0.1, DEFAULT_EXCLUDE_DIRS, DEFAULT_EXCLUDE_EXTENSIONS, SECRET_PATTERNS, O_NOFOLLOW, secretscan;
 var init_secretscan = __esm(() => {
   init_dist();
+  init_create_tool();
   MAX_FILE_SIZE_BYTES = 512 * 1024;
   MAX_CONTENT_BYTES = 50 * 1024;
   BINARY_SIGNATURES = [
@@ -34116,19 +34117,20 @@ var init_secretscan = __esm(() => {
     }
   ];
   O_NOFOLLOW = process.platform !== "win32" ? fs10.constants.O_NOFOLLOW : undefined;
-  secretscan = tool({
+  secretscan = createSwarmTool({
     description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
     args: {
       directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
       exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
     },
-    async execute(args2, _context) {
+    async execute(args2, _directory, _ctx) {
+      const typedArgs = args2;
       let directory;
       let exclude;
       try {
-        if (args2 && typeof args2 === "object") {
-          directory = args2.directory;
-          exclude = args2.exclude;
+        if (typedArgs && typeof typedArgs === "object") {
+          directory = typedArgs.directory;
+          exclude = typedArgs.exclude;
         }
       } catch {}
       if (directory === undefined) {
@@ -34983,7 +34985,7 @@ function parseTestOutput(framework, output) {
   return { totals, coveragePercent };
 }
 async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
-  const command = buildTestCommand(framework, scope, files, coverage, cwd ?? process.cwd());
+  const command = buildTestCommand(framework, scope, files, coverage, cwd);
   if (!command) {
     return {
       success: false,
@@ -35008,7 +35010,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     const proc = Bun.spawn(command, {
       stdout: "pipe",
       stderr: "pipe",
-      cwd: cwd || process.cwd()
+      cwd
     });
     const exitPromise = proc.exited;
     const timeoutPromise = new Promise((resolve8) => setTimeout(() => {
@@ -35540,7 +35542,7 @@ async function runLintCheck(dir, linter, timeoutMs) {
 async function runTestsCheck(_dir, scope, timeoutMs) {
   const startTime = Date.now();
   try {
-    const result = await runTests("none", scope, [], false, timeoutMs);
+    const result = await runTests("none", scope, [], false, timeoutMs, _dir);
     if (!result.success) {
       return {
         type: "tests",
@@ -42747,7 +42749,10 @@ class PlanSyncWorker {
   lastStat = null;
   disposed = false;
   constructor(options = {}) {
-    this.directory = options.directory ?? process.cwd();
+    if (!options.directory) {
+      console.warn("[plan-sync-worker] No directory provided, falling back to process.cwd()");
+    }
+    this.directory = options.directory || process.cwd();
     this.debounceMs = options.debounceMs ?? 300;
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
     this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
@@ -49433,10 +49438,11 @@ function createGuardrailsHooks(directoryOrConfig, config3) {
   let directory;
   let guardrailsConfig;
   if (directoryOrConfig && typeof directoryOrConfig === "object" && "enabled" in directoryOrConfig) {
+    console.warn("[guardrails] Legacy call without directory, falling back to process.cwd()");
     directory = process.cwd();
     guardrailsConfig = directoryOrConfig;
   } else {
-    directory = directoryOrConfig ?? process.cwd();
+    directory = directoryOrConfig || process.cwd();
     guardrailsConfig = config3;
   }
   if (guardrailsConfig?.enabled === false) {
@@ -50908,7 +50914,7 @@ function createPipelineTrackerHook(config3, directory) {
         return;
       let phaseNumber = null;
       try {
-        const plan = await loadPlan(directory ?? process.cwd());
+        const plan = await loadPlan(directory || process.cwd());
         if (plan) {
           const phaseString = extractCurrentPhaseFromPlan2(plan);
           phaseNumber = parsePhaseNumber(phaseString);
@@ -55036,7 +55042,10 @@ async function executeDeclareScope(args2, fallbackDir) {
       };
     }
   }
-  const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+  if (!fallbackDir) {
+    console.warn("[declare-scope] fallbackDir is undefined, falling back to process.cwd()");
+  }
+  const directory = normalizedDir || fallbackDir || process.cwd();
   const planPath = path40.resolve(directory, ".swarm", "plan.json");
   if (!fs27.existsSync(planPath)) {
     return {
@@ -55100,6 +55109,7 @@ var declare_scope = createSwarmTool({
 });
 // src/tools/diff.ts
 init_dist();
+init_create_tool();
 import { execFileSync } from "child_process";
 var MAX_DIFF_LINES = 500;
 var DIFF_TIMEOUT_MS = 30000;
@@ -55146,15 +55156,16 @@ function validatePaths(paths) {
   }
   return null;
 }
-var diff = tool({
+var diff = createSwarmTool({
   description: "Analyze git diff for changed files, exports, interfaces, and function signatures. Returns structured output with contract change detection.",
   args: {
     base: tool.schema.string().optional().describe('Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.'),
     paths: tool.schema.array(tool.schema.string()).optional().describe("Optional file paths to restrict diff scope.")
   },
-  async execute(args2, context) {
+  async execute(args2, directory, ctx) {
+    const typedArgs = args2;
     try {
-      if (!context.directory || typeof context.directory !== "string" || context.directory.trim() === "") {
+      if (!directory || typeof directory !== "string" || directory.trim() === "") {
         const errorResult = {
           error: "project directory is required but was not provided",
           files: [],
@@ -55163,7 +55174,7 @@ var diff = tool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const base = args2.base ?? "HEAD";
+      const base = typedArgs.base ?? "HEAD";
       const baseValidationError = validateBase(base);
       if (baseValidationError) {
         const errorResult = {
@@ -55174,7 +55185,7 @@ var diff = tool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const pathsValidationError = validatePaths(args2.paths);
+      const pathsValidationError = validatePaths(typedArgs.paths);
       if (pathsValidationError) {
         const errorResult = {
           error: `invalid paths: ${pathsValidationError}`,
@@ -55194,21 +55205,21 @@ var diff = tool({
       }
       const numstatArgs = [...gitArgs, "--numstat"];
       const fullDiffArgs = [...gitArgs, "-U3"];
-      if (args2.paths?.length) {
-        numstatArgs.push("--", ...args2.paths);
-        fullDiffArgs.push("--", ...args2.paths);
+      if (typedArgs.paths?.length) {
+        numstatArgs.push("--", ...typedArgs.paths);
+        fullDiffArgs.push("--", ...typedArgs.paths);
       }
       const numstatOutput = execFileSync("git", numstatArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
-        cwd: context.directory
+        cwd: directory
       });
       const fullDiffOutput = execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
-        cwd: context.directory
+        cwd: directory
       });
       const files = [];
       const numstatLines = numstatOutput.split(`
@@ -55800,6 +55811,7 @@ Errors:
 });
 // src/tools/gitingest.ts
 init_dist();
+init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
@@ -55873,7 +55885,7 @@ ${data.content}`;
   }
   throw new Error("gitingest request failed after retries");
 }
-var gitingest = tool({
+var gitingest = createSwarmTool({
   description: "Fetch a GitHub repository's full content via gitingest.com. Returns summary, directory tree, and file contents optimized for LLM analysis. Use when you need to understand an external repository's structure or code.",
   args: {
     url: tool.schema.string().describe("GitHub repository URL (e.g., https://github.com/owner/repo)"),
@@ -55881,12 +55893,14 @@ var gitingest = tool({
     pattern: tool.schema.string().optional().describe("Glob pattern to filter files (e.g., '*.ts' or 'src/**/*.py')"),
     patternType: tool.schema.enum(["include", "exclude"]).optional().describe("Whether pattern includes or excludes matching files (default: exclude)")
   },
-  async execute(args2, _context) {
-    return fetchGitingest(args2);
+  async execute(args2, _directory, _ctx) {
+    const typedArgs = args2;
+    return fetchGitingest(typedArgs);
   }
 });
 // src/tools/imports.ts
 init_dist();
+init_create_tool();
 import * as fs30 from "fs";
 import * as path43 from "path";
 var MAX_FILE_PATH_LENGTH2 = 500;
@@ -56092,19 +56106,20 @@ function findSourceFiles(dir, files = [], stats = { skippedDirs: [], skippedFile
   }
   return files;
 }
-var imports = tool({
+var imports = createSwarmTool({
   description: "Find all consumers that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Useful for understanding dependency relationships.",
   args: {
     file: tool.schema.string().describe('Source file path to find importers for (e.g., "./src/utils.ts")'),
     symbol: tool.schema.string().optional().describe('Optional specific symbol to filter imports (e.g., "MyClass")')
   },
-  async execute(args2, _context) {
+  async execute(args2, _directory, _ctx) {
+    const typedArgs = args2;
     let file3;
     let symbol3;
     try {
-      if (args2 && typeof args2 === "object") {
-        file3 = args2.file;
-        symbol3 = args2.symbol;
+      if (typedArgs && typeof typedArgs === "object") {
+        file3 = typedArgs.file;
+        symbol3 = typedArgs.symbol;
       }
     } catch {}
     if (file3 === undefined) {
@@ -56541,7 +56556,7 @@ function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSess
 function isValidRetroEntry(entry, phase) {
   return entry.type === "retrospective" && "phase_number" in entry && entry.phase_number === phase && "verdict" in entry && entry.verdict === "pass";
 }
-async function executePhaseComplete(args2, workingDirectory) {
+async function executePhaseComplete(args2, workingDirectory, directory) {
   const phase = Number(args2.phase);
   const summary = args2.summary;
   const sessionID = args2.sessionID;
@@ -56569,7 +56584,7 @@ async function executePhaseComplete(args2, workingDirectory) {
   const phaseReferenceTimestamp = session.lastPhaseCompleteTimestamp ?? 0;
   const crossSessionResult = collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, sessionID);
   const agentsDispatched = Array.from(crossSessionResult.agents).sort();
-  const dir = workingDirectory ?? process.cwd();
+  const dir = workingDirectory || directory || process.cwd();
   const { config: config3 } = loadPluginConfigWithMeta(dir);
   let phaseCompleteConfig;
   try {
@@ -56842,7 +56857,7 @@ var phase_complete = createSwarmTool({
         warnings: ["Failed to parse arguments"]
       }, null, 2);
     }
-    return executePhaseComplete(phaseCompleteArgs, directory);
+    return executePhaseComplete(phaseCompleteArgs, undefined, directory);
   }
 });
 // src/tools/pkg-audit.ts
@@ -58585,7 +58600,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
         }
         await scanDirectoryForLines(fullPath, includeGlobs, excludeGlobs, isTestScan, callback);
       } else if (entry.isFile()) {
-        const relativePath = fullPath.replace(`${process.cwd()}/`, "");
+        const relativePath = fullPath.replace(`${dirPath}/`, "");
         const ext = path46.extname(entry.name).toLowerCase();
         const validExts = [
           ".ts",
@@ -60371,8 +60386,8 @@ async function runQualityBudgetWrapped(changedFiles, directory, _config) {
     };
   }
 }
-async function runPreCheckBatch(input, workspaceDir) {
-  const effectiveWorkspaceDir = workspaceDir || input.directory || process.cwd();
+async function runPreCheckBatch(input, workspaceDir, contextDir) {
+  const effectiveWorkspaceDir = workspaceDir || input.directory || contextDir;
   const { files, directory, sast_threshold = "medium", config: config3 } = input;
   const dirError = validateDirectory3(directory, effectiveWorkspaceDir);
   if (dirError) {
@@ -60583,7 +60598,7 @@ var pre_check_batch = createSwarmTool({
         directory: resolvedDirectory,
         sast_threshold: typedArgs.sast_threshold,
         config: typedArgs.config
-      }, workspaceAnchor);
+      }, workspaceAnchor, directory);
       return JSON.stringify(result, null, 2);
     } catch (error93) {
       const errorMessage = error93 instanceof Error ? error93.message : "Unknown error";
@@ -60601,21 +60616,22 @@ var pre_check_batch = createSwarmTool({
 });
 // src/tools/retrieve-summary.ts
 init_dist();
+init_create_tool();
 var RETRIEVE_MAX_BYTES = 10 * 1024 * 1024;
-var retrieve_summary = tool({
+var retrieve_summary = createSwarmTool({
   description: "Retrieve the full content of a stored tool output summary by its ID (e.g. S1, S2). Use this when a prior tool output was summarized and you need the full content.",
   args: {
     id: tool.schema.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits."),
     offset: tool.schema.number().min(0).default(0).describe("Line offset to start from (default: 0)."),
     limit: tool.schema.number().min(1).max(500).default(100).describe("Number of lines to return (default: 100, max: 500).")
   },
-  async execute(args2, context) {
-    const directory = context.directory;
-    const offset = args2.offset ?? 0;
-    const limit = Math.min(args2.limit ?? 100, 500);
+  async execute(args2, directory, ctx) {
+    const typedArgs = args2;
+    const offset = typedArgs.offset ?? 0;
+    const limit = Math.min(typedArgs.limit ?? 100, 500);
     let sanitizedId;
     try {
-      sanitizedId = sanitizeSummaryId(args2.id);
+      sanitizedId = sanitizeSummaryId(typedArgs.id);
     } catch {
       return "Error: invalid summary ID format. Expected format: S followed by digits (e.g. S1, S2, S99).";
     }
@@ -63245,7 +63261,10 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
       };
     }
   } else {
-    directory = fallbackDir ?? process.cwd();
+    if (!fallbackDir) {
+      console.warn("[update-task-status] fallbackDir is undefined, falling back to process.cwd()");
+    }
+    directory = fallbackDir || process.cwd();
   }
   if (args2.status === "completed") {
     recoverTaskStateFromDelegations(args2.task_id);

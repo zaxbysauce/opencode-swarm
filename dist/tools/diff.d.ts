@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 export interface DiffResult {
     files: Array<{
         path: string;
@@ -15,4 +15,4 @@ export interface DiffErrorResult {
     contractChanges: [];
     hasContractChanges: false;
 }
-export declare const diff: ReturnType<typeof tool>;
+export declare const diff: ReturnType<typeof createSwarmTool>;

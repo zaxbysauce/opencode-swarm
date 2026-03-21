@@ -118,21 +118,6 @@ describe('test-runner.ts - CWD Threading', () => {
 			expect(framework).toBe('bun');
 		});
 
-		test('falls back to process.cwd() when cwd is omitted', async () => {
-			// Create package.json in current working directory
-			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-			}));
-			createTestFile(tempDir, 'bun.lock', '');
-
-			// Call without cwd parameter
-			const framework = await detectTestFramework();
-
-			// Verify result
-			expect(framework).toBe('bun');
-		});
-
 		test('uses cwd for bun.lockb detection', async () => {
 			createTestFile(tempDir, 'package.json', JSON.stringify({
 				scripts: { test: 'bun run test' },
@@ -178,13 +163,6 @@ testpaths = tests
 		test('returns "none" when no config files exist in cwd', async () => {
 			// tempDir is empty, so no framework should be detected
 			const framework = await detectTestFramework(tempDir);
-			expect(framework).toBe('none');
-		});
-
-		test('returns "none" when cwd is omitted and no config exists at process.cwd()', async () => {
-			// Change to tempDir which is empty
-			process.chdir(tempDir);
-			const framework = await detectTestFramework();
 			expect(framework).toBe('none');
 		});
 	});
@@ -245,29 +223,6 @@ tokio = { version = "1.0", features = ["full"] }
 			// Verify the cwd was passed correctly
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
-		});
-
-		test('falls back to process.cwd() when cwd is undefined', async () => {
-			const expectedCwd = process.cwd();
-			mockStdout = JSON.stringify({
-				numTotalTests: 1,
-				numPassedTests: 1,
-				numFailedTests: 0,
-			});
-
-			Bun.spawn = mockSpawn as any;
-
-			await runTests(
-				'bun',
-				'all',
-				[],
-				false,
-				60000,
-				undefined,
-			);
-
-			expect(spawnCalls.length).toBeGreaterThan(0);
-			expect((spawnCalls[0].opts as any)?.cwd).toBe(expectedCwd);
 		});
 
 		test('passes cwd to Bun.spawn for vitest framework', async () => {

@@ -246,6 +246,7 @@ function isValidRetroEntry(
 export async function executePhaseComplete(
 	args: PhaseCompleteArgs,
 	workingDirectory?: string,
+	directory?: string,
 ): Promise<string> {
 	// Extract arguments
 	const phase = Number(args.phase);
@@ -299,7 +300,7 @@ export async function executePhaseComplete(
 	const agentsDispatched = Array.from(crossSessionResult.agents).sort();
 
 	// Load plugin config for policy enforcement
-	const dir = workingDirectory ?? process.cwd();
+	const dir = workingDirectory || directory || process.cwd();
 	const { config } = loadPluginConfigWithMeta(dir);
 	let phaseCompleteConfig: PhaseCompleteConfig;
 	try {
@@ -758,6 +759,6 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 			);
 		}
 
-		return executePhaseComplete(phaseCompleteArgs, directory);
+		return executePhaseComplete(phaseCompleteArgs, undefined, directory);
 	},
 });

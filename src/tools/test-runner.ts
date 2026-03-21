@@ -1030,16 +1030,10 @@ export async function runTests(
 	files: string[],
 	coverage: boolean,
 	timeout_ms: number,
-	cwd?: string,
+	cwd: string,
 ): Promise<TestResult> {
 	// Build the command
-	const command = buildTestCommand(
-		framework,
-		scope,
-		files,
-		coverage,
-		cwd ?? process.cwd(),
-	);
+	const command = buildTestCommand(framework, scope, files, coverage, cwd);
 
 	if (!command) {
 		return {
@@ -1069,7 +1063,7 @@ export async function runTests(
 		const proc = Bun.spawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
-			cwd: cwd || process.cwd(),
+			cwd: cwd,
 		});
 
 		// Race with timeout

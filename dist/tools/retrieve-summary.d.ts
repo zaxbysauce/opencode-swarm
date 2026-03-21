@@ -1,2 +1,2 @@
-import { tool } from '@opencode-ai/plugin';
-export declare const retrieve_summary: ReturnType<typeof tool>;
+import { createSwarmTool } from './create-tool';
+export declare const retrieve_summary: ReturnType<typeof createSwarmTool>;

@@ -1,4 +1,5 @@
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 interface GitingestResponse {
 	summary: string;
@@ -121,7 +122,7 @@ export async function fetchGitingest(args: GitingestArgs): Promise<string> {
 /**
  * Gitingest tool for fetching GitHub repository contents
  */
-export const gitingest: ReturnType<typeof tool> = tool({
+export const gitingest: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		"Fetch a GitHub repository's full content via gitingest.com. Returns summary, directory tree, and file contents optimized for LLM analysis. Use when you need to understand an external repository's structure or code.",
 	args: {
@@ -143,7 +144,8 @@ export const gitingest: ReturnType<typeof tool> = tool({
 				'Whether pattern includes or excludes matching files (default: exclude)',
 			),
 	},
-	async execute(args: GitingestArgs, _context: ToolContext) {
-		return fetchGitingest(args);
+	async execute(args: unknown, _directory: string, _ctx?: ToolContext) {
+		const typedArgs = args as GitingestArgs;
+		return fetchGitingest(typedArgs);
 	},
 });

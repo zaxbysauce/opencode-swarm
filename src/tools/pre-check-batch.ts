@@ -686,10 +686,12 @@ async function runQualityBudgetWrapped(
 export async function runPreCheckBatch(
 	input: PreCheckBatchInput,
 	workspaceDir?: string,
+	contextDir?: string,
 ): Promise<PreCheckBatchResult> {
-	// Use provided workspaceDir or fall back to directory, then process.cwd()
-	const effectiveWorkspaceDir =
-		workspaceDir || input.directory || process.cwd();
+	// Use provided workspaceDir or fall back to input directory, then plugin context directory
+	const effectiveWorkspaceDir = (workspaceDir ||
+		input.directory ||
+		contextDir) as string;
 	const { files, directory, sast_threshold = 'medium', config } = input;
 
 	// Validate directory
@@ -1001,6 +1003,7 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 					config: typedArgs.config,
 				},
 				workspaceAnchor,
+				directory,
 			);
 
 			return JSON.stringify(result, null, 2);

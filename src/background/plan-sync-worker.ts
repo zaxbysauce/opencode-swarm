@@ -59,7 +59,12 @@ export class PlanSyncWorker {
 	private disposed = false;
 
 	constructor(options: PlanSyncWorkerOptions = {}) {
-		this.directory = options.directory ?? process.cwd();
+		if (!options.directory) {
+			console.warn(
+				'[plan-sync-worker] No directory provided, falling back to process.cwd()',
+			);
+		}
+		this.directory = options.directory || process.cwd();
 		this.debounceMs = options.debounceMs ?? 300;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
 		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;

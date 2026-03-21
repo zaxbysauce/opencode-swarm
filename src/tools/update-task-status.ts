@@ -591,7 +591,13 @@ export async function executeUpdateTaskStatus(
 		}
 	} else {
 		// No working_directory provided, use fallback or process.cwd()
-		directory = fallbackDir ?? process.cwd();
+		if (!fallbackDir) {
+			// fallbackDir should always be provided by createSwarmTool; this guard prevents silent failures
+			console.warn(
+				'[update-task-status] fallbackDir is undefined, falling back to process.cwd()',
+			);
+		}
+		directory = fallbackDir || process.cwd();
 	}
 
 	// State machine check: task must have reached tests_run or complete state

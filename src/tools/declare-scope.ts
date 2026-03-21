@@ -199,7 +199,12 @@ export async function executeDeclareScope(
 	}
 
 	// Step 4: Resolve target directory
-	const directory = normalizedDir ?? fallbackDir ?? process.cwd();
+	if (!fallbackDir) {
+		console.warn(
+			'[declare-scope] fallbackDir is undefined, falling back to process.cwd()',
+		);
+	}
+	const directory = normalizedDir || fallbackDir || process.cwd();
 
 	// Step 5: Check that taskId exists in plan.json
 	const planPath = path.resolve(directory, '.swarm', 'plan.json');

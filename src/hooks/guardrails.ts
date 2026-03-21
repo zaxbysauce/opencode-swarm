@@ -285,11 +285,14 @@ export function createGuardrailsHooks(
 		'enabled' in directoryOrConfig
 	) {
 		// Legacy call: createGuardrailsHooks(config)
+		console.warn(
+			'[guardrails] Legacy call without directory, falling back to process.cwd()',
+		);
 		directory = process.cwd();
 		guardrailsConfig = directoryOrConfig as GuardrailsConfig;
 	} else {
 		// New signature: createGuardrailsHooks(directory, config)
-		directory = (directoryOrConfig as string) ?? process.cwd();
+		directory = (directoryOrConfig as string) || process.cwd();
 		guardrailsConfig = config;
 	}
 

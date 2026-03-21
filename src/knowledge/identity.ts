@@ -67,11 +67,12 @@ function _deriveProjectHash(directory: string): string {
 /**
  * Get the swarm version from package.json
  */
-async function getSwarmVersion(): Promise<string> {
+async function getSwarmVersion(directory?: string): Promise<string> {
+	const baseDir = directory || process.cwd();
 	try {
 		// Find package.json in the opencode-swarm package
 		const packageJsonPath = path.join(
-			process.cwd(),
+			baseDir,
 			'node_modules',
 			'opencode-swarm',
 			'package.json',
@@ -85,7 +86,7 @@ async function getSwarmVersion(): Promise<string> {
 		}
 
 		// Fall back to local package.json
-		const localPackageJsonPath = path.join(process.cwd(), 'package.json');
+		const localPackageJsonPath = path.join(baseDir, 'package.json');
 		if (existsSync(localPackageJsonPath)) {
 			const content = await readFile(localPackageJsonPath, 'utf-8');
 			const pkg = JSON.parse(content);
@@ -165,7 +166,7 @@ export async function writeProjectIdentity(
 	const createdAt = new Date().toISOString();
 
 	// Get swarm version
-	const swarmVersion = await getSwarmVersion();
+	const swarmVersion = await getSwarmVersion(directory);
 
 	const identity: ProjectIdentity = {
 		projectHash,

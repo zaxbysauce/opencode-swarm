@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
 const MAX_FILE_PATH_LENGTH = 500;
@@ -391,7 +392,7 @@ function findSourceFiles(
 /**
  * Main imports tool implementation
  */
-export const imports: ReturnType<typeof tool> = tool({
+export const imports: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Find all consumers that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Useful for understanding dependency relationships.',
 	args: {
@@ -406,16 +407,18 @@ export const imports: ReturnType<typeof tool> = tool({
 			.describe('Optional specific symbol to filter imports (e.g., "MyClass")'),
 	},
 	async execute(
-		args: { file: string; symbol?: string },
-		_context: ToolContext,
+		args: unknown,
+		_directory: string,
+		_ctx?: ToolContext,
 	): Promise<string> {
+		const typedArgs = args as { file: string; symbol?: string };
 		// Safe args extraction - guard against malformed args and malicious getters
 		let file: string | undefined;
 		let symbol: string | undefined;
 		try {
-			if (args && typeof args === 'object') {
-				file = args.file;
-				symbol = args.symbol;
+			if (typedArgs && typeof typedArgs === 'object') {
+				file = typedArgs.file;
+				symbol = typedArgs.symbol;
 			}
 		} catch {
 			// Malicious getter threw - treat as malformed args

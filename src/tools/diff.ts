@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 
 const MAX_DIFF_LINES = 500;
 const DIFF_TIMEOUT_MS = 30_000;
@@ -65,7 +66,7 @@ export interface DiffErrorResult {
 	hasContractChanges: false;
 }
 
-export const diff: ReturnType<typeof tool> = tool({
+export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Analyze git diff for changed files, exports, interfaces, and function signatures. Returns structured output with contract change detection.',
 	args: {
@@ -81,14 +82,16 @@ export const diff: ReturnType<typeof tool> = tool({
 			.describe('Optional file paths to restrict diff scope.'),
 	},
 	async execute(
-		args: { base?: string; paths?: string[] },
-		context: ToolContext,
+		args: unknown,
+		directory: string,
+		_ctx?: ToolContext,
 	): Promise<string> {
+		const typedArgs = args as { base?: string; paths?: string[] };
 		try {
 			if (
-				!context.directory ||
-				typeof context.directory !== 'string' ||
-				context.directory.trim() === ''
+				!directory ||
+				typeof directory !== 'string' ||
+				directory.trim() === ''
 			) {
 				const errorResult: DiffErrorResult = {
 					error: 'project directory is required but was not provided',
@@ -98,7 +101,7 @@ export const diff: ReturnType<typeof tool> = tool({
 				};
 				return JSON.stringify(errorResult, null, 2);
 			}
-			const base = args.base ?? 'HEAD';
+			const base = typedArgs.base ?? 'HEAD';
 
 			const baseValidationError = validateBase(base);
 			if (baseValidationError) {
@@ -111,7 +114,7 @@ export const diff: ReturnType<typeof tool> = tool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			const pathsValidationError = validatePaths(args.paths);
+			const pathsValidationError = validatePaths(typedArgs.paths);
 			if (pathsValidationError) {
 				const errorResult: DiffErrorResult = {
 					error: `invalid paths: ${pathsValidationError}`,
@@ -134,23 +137,23 @@ export const diff: ReturnType<typeof tool> = tool({
 			const numstatArgs = [...gitArgs, '--numstat'];
 			const fullDiffArgs = [...gitArgs, '-U3'];
 
-			if (args.paths?.length) {
-				numstatArgs.push('--', ...args.paths);
-				fullDiffArgs.push('--', ...args.paths);
+			if (typedArgs.paths?.length) {
+				numstatArgs.push('--', ...typedArgs.paths);
+				fullDiffArgs.push('--', ...typedArgs.paths);
 			}
 
 			const numstatOutput = execFileSync('git', numstatArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
-				cwd: context.directory,
+				cwd: directory,
 			});
 
 			const fullDiffOutput = execFileSync('git', fullDiffArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
-				cwd: context.directory,
+				cwd: directory,
 			});
 
 			const files: Array<{

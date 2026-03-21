@@ -350,7 +350,7 @@ export async function detectAvailableLinter(
 	// Timeout for linter detection (in ms)
 	const DETECT_TIMEOUT = 2000;
 
-	const projectDir = directory ?? process.cwd();
+	const projectDir = directory || process.cwd();
 	const isWindows = process.platform === 'win32';
 	const biomeBin = isWindows
 		? path.join(projectDir, 'node_modules', '.bin', 'biome.EXE')

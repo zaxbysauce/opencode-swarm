@@ -1,5 +1,5 @@
-import { tool } from '@opencode-ai/plugin';
+import { createSwarmTool } from './create-tool';
 /**
  * Main imports tool implementation
  */
-export declare const imports: ReturnType<typeof tool>;
+export declare const imports: ReturnType<typeof createSwarmTool>;

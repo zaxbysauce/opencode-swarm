@@ -18,7 +18,7 @@ export interface PhaseCompleteArgs {
  * Execute the phase_complete tool
  * Gathers data, enforces policy, writes event, resets state
  */
-export declare function executePhaseComplete(args: PhaseCompleteArgs, workingDirectory?: string): Promise<string>;
+export declare function executePhaseComplete(args: PhaseCompleteArgs, workingDirectory?: string, directory?: string): Promise<string>;
 /**
  * Tool definition for phase_complete
  */
