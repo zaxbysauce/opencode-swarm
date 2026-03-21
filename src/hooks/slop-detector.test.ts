@@ -22,6 +22,7 @@ describe('slop-detector', () => {
 		classThreshold: 3,
 		commentStripThreshold: 5,
 		diffLineThreshold: 200,
+		importHygieneThreshold: 2,
 	};
 
 	beforeEach(() => {
