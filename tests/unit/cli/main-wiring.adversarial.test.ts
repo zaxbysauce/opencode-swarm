@@ -32,36 +32,56 @@ const mockHandleClarifyCommand = vi.fn();
 const mockHandleAnalyzeCommand = vi.fn();
 const mockHandleSpecifyCommand = vi.fn();
 const mockHandleDarkMatterCommand = vi.fn();
+const mockHandleKnowledgeListCommand = vi.fn();
 const mockHandleKnowledgeMigrateCommand = vi.fn();
 const mockHandleKnowledgeQuarantineCommand = vi.fn();
 const mockHandleKnowledgeRestoreCommand = vi.fn();
+const mockHandleRollbackCommand = vi.fn();
+const mockHandlePromoteCommand = vi.fn();
+const mockHandleHandoffCommand = vi.fn();
+const mockHandleTurboCommand = vi.fn();
+const mockHandleSimulateCommand = vi.fn();
+const mockHandleCurateCommand = vi.fn();
+const mockHandleWriteRetroCommand = vi.fn();
+const mockHandleCheckpointCommand = vi.fn();
 
-// Mock all command handlers from commands/index.js
-vi.mock('../../../src/commands/index.js', () => ({
-	handleStatusCommand: mockHandleStatusCommand,
-	handlePlanCommand: mockHandlePlanCommand,
-	handleAgentsCommand: mockHandleAgentsCommand,
-	handleArchiveCommand: mockHandleArchiveCommand,
-	handleHistoryCommand: mockHandleHistoryCommand,
-	handleConfigCommand: mockHandleConfigCommand,
-	handleDoctorCommand: mockHandleDoctorCommand,
+// Mock individual command files so registry.ts picks up the mocked handlers
+vi.mock('../../../src/commands/status.js', () => ({ handleStatusCommand: mockHandleStatusCommand }));
+vi.mock('../../../src/commands/plan.js', () => ({ handlePlanCommand: mockHandlePlanCommand }));
+vi.mock('../../../src/commands/agents.js', () => ({ handleAgentsCommand: mockHandleAgentsCommand }));
+vi.mock('../../../src/commands/archive.js', () => ({ handleArchiveCommand: mockHandleArchiveCommand }));
+vi.mock('../../../src/commands/history.js', () => ({ handleHistoryCommand: mockHandleHistoryCommand }));
+vi.mock('../../../src/commands/config.js', () => ({ handleConfigCommand: mockHandleConfigCommand }));
+vi.mock('../../../src/commands/doctor.js', () => ({ handleDoctorCommand: mockHandleDoctorCommand }));
+vi.mock('../../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: mockHandleEvidenceCommand,
 	handleEvidenceSummaryCommand: mockHandleEvidenceSummaryCommand,
-	handleDiagnoseCommand: mockHandleDiagnoseCommand,
-	handlePreflightCommand: mockHandlePreflightCommand,
-	handleSyncPlanCommand: mockHandleSyncPlanCommand,
-	handleBenchmarkCommand: mockHandleBenchmarkCommand,
-	handleExportCommand: mockHandleExportCommand,
-	handleResetCommand: mockHandleResetCommand,
-	handleRetrieveCommand: mockHandleRetrieveCommand,
-	handleClarifyCommand: mockHandleClarifyCommand,
-	handleAnalyzeCommand: mockHandleAnalyzeCommand,
-	handleSpecifyCommand: mockHandleSpecifyCommand,
-	handleDarkMatterCommand: mockHandleDarkMatterCommand,
+}));
+vi.mock('../../../src/commands/diagnose.js', () => ({ handleDiagnoseCommand: mockHandleDiagnoseCommand }));
+vi.mock('../../../src/commands/preflight.js', () => ({ handlePreflightCommand: mockHandlePreflightCommand }));
+vi.mock('../../../src/commands/sync-plan.js', () => ({ handleSyncPlanCommand: mockHandleSyncPlanCommand }));
+vi.mock('../../../src/commands/benchmark.js', () => ({ handleBenchmarkCommand: mockHandleBenchmarkCommand }));
+vi.mock('../../../src/commands/export.js', () => ({ handleExportCommand: mockHandleExportCommand }));
+vi.mock('../../../src/commands/reset.js', () => ({ handleResetCommand: mockHandleResetCommand }));
+vi.mock('../../../src/commands/retrieve.js', () => ({ handleRetrieveCommand: mockHandleRetrieveCommand }));
+vi.mock('../../../src/commands/clarify.js', () => ({ handleClarifyCommand: mockHandleClarifyCommand }));
+vi.mock('../../../src/commands/analyze.js', () => ({ handleAnalyzeCommand: mockHandleAnalyzeCommand }));
+vi.mock('../../../src/commands/specify.js', () => ({ handleSpecifyCommand: mockHandleSpecifyCommand }));
+vi.mock('../../../src/commands/dark-matter.js', () => ({ handleDarkMatterCommand: mockHandleDarkMatterCommand }));
+vi.mock('../../../src/commands/knowledge.js', () => ({
+	handleKnowledgeListCommand: mockHandleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand: mockHandleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand: mockHandleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand: mockHandleKnowledgeRestoreCommand,
 }));
+vi.mock('../../../src/commands/rollback.js', () => ({ handleRollbackCommand: mockHandleRollbackCommand }));
+vi.mock('../../../src/commands/promote.js', () => ({ handlePromoteCommand: mockHandlePromoteCommand }));
+vi.mock('../../../src/commands/handoff.js', () => ({ handleHandoffCommand: mockHandleHandoffCommand }));
+vi.mock('../../../src/commands/turbo.js', () => ({ handleTurboCommand: mockHandleTurboCommand }));
+vi.mock('../../../src/commands/simulate.js', () => ({ handleSimulateCommand: mockHandleSimulateCommand }));
+vi.mock('../../../src/commands/curate.js', () => ({ handleCurateCommand: mockHandleCurateCommand }));
+vi.mock('../../../src/commands/write_retro.js', () => ({ handleWriteRetroCommand: mockHandleWriteRetroCommand }));
+vi.mock('../../../src/commands/checkpoint.js', () => ({ handleCheckpointCommand: mockHandleCheckpointCommand }));
 
 // Import AFTER mocking
 import { run } from '../../../src/cli/index.js';

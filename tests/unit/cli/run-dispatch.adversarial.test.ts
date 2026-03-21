@@ -32,36 +32,56 @@ const mockHandleClarifyCommand = vi.fn();
 const mockHandleAnalyzeCommand = vi.fn();
 const mockHandleSpecifyCommand = vi.fn();
 const mockHandleDarkMatterCommand = vi.fn();
+const mockHandleKnowledgeListCommand = vi.fn();
 const mockHandleKnowledgeMigrateCommand = vi.fn();
 const mockHandleKnowledgeQuarantineCommand = vi.fn();
 const mockHandleKnowledgeRestoreCommand = vi.fn();
+const mockHandleRollbackCommand = vi.fn();
+const mockHandlePromoteCommand = vi.fn();
+const mockHandleHandoffCommand = vi.fn();
+const mockHandleTurboCommand = vi.fn();
+const mockHandleSimulateCommand = vi.fn();
+const mockHandleCurateCommand = vi.fn();
+const mockHandleWriteRetroCommand = vi.fn();
+const mockHandleCheckpointCommand = vi.fn();
 
-// Mock all command handlers from commands/index.js
-vi.mock('../../../src/commands/index.js', () => ({
-	handleStatusCommand: mockHandleStatusCommand,
-	handlePlanCommand: mockHandlePlanCommand,
-	handleAgentsCommand: mockHandleAgentsCommand,
-	handleArchiveCommand: mockHandleArchiveCommand,
-	handleHistoryCommand: mockHandleHistoryCommand,
-	handleConfigCommand: mockHandleConfigCommand,
-	handleDoctorCommand: mockHandleDoctorCommand,
+// Mock individual command files so registry.ts picks up the mocked handlers
+vi.mock('../../../src/commands/status.js', () => ({ handleStatusCommand: mockHandleStatusCommand }));
+vi.mock('../../../src/commands/plan.js', () => ({ handlePlanCommand: mockHandlePlanCommand }));
+vi.mock('../../../src/commands/agents.js', () => ({ handleAgentsCommand: mockHandleAgentsCommand }));
+vi.mock('../../../src/commands/archive.js', () => ({ handleArchiveCommand: mockHandleArchiveCommand }));
+vi.mock('../../../src/commands/history.js', () => ({ handleHistoryCommand: mockHandleHistoryCommand }));
+vi.mock('../../../src/commands/config.js', () => ({ handleConfigCommand: mockHandleConfigCommand }));
+vi.mock('../../../src/commands/doctor.js', () => ({ handleDoctorCommand: mockHandleDoctorCommand }));
+vi.mock('../../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: mockHandleEvidenceCommand,
 	handleEvidenceSummaryCommand: mockHandleEvidenceSummaryCommand,
-	handleDiagnoseCommand: mockHandleDiagnoseCommand,
-	handlePreflightCommand: mockHandlePreflightCommand,
-	handleSyncPlanCommand: mockHandleSyncPlanCommand,
-	handleBenchmarkCommand: mockHandleBenchmarkCommand,
-	handleExportCommand: mockHandleExportCommand,
-	handleResetCommand: mockHandleResetCommand,
-	handleRetrieveCommand: mockHandleRetrieveCommand,
-	handleClarifyCommand: mockHandleClarifyCommand,
-	handleAnalyzeCommand: mockHandleAnalyzeCommand,
-	handleSpecifyCommand: mockHandleSpecifyCommand,
-	handleDarkMatterCommand: mockHandleDarkMatterCommand,
+}));
+vi.mock('../../../src/commands/diagnose.js', () => ({ handleDiagnoseCommand: mockHandleDiagnoseCommand }));
+vi.mock('../../../src/commands/preflight.js', () => ({ handlePreflightCommand: mockHandlePreflightCommand }));
+vi.mock('../../../src/commands/sync-plan.js', () => ({ handleSyncPlanCommand: mockHandleSyncPlanCommand }));
+vi.mock('../../../src/commands/benchmark.js', () => ({ handleBenchmarkCommand: mockHandleBenchmarkCommand }));
+vi.mock('../../../src/commands/export.js', () => ({ handleExportCommand: mockHandleExportCommand }));
+vi.mock('../../../src/commands/reset.js', () => ({ handleResetCommand: mockHandleResetCommand }));
+vi.mock('../../../src/commands/retrieve.js', () => ({ handleRetrieveCommand: mockHandleRetrieveCommand }));
+vi.mock('../../../src/commands/clarify.js', () => ({ handleClarifyCommand: mockHandleClarifyCommand }));
+vi.mock('../../../src/commands/analyze.js', () => ({ handleAnalyzeCommand: mockHandleAnalyzeCommand }));
+vi.mock('../../../src/commands/specify.js', () => ({ handleSpecifyCommand: mockHandleSpecifyCommand }));
+vi.mock('../../../src/commands/dark-matter.js', () => ({ handleDarkMatterCommand: mockHandleDarkMatterCommand }));
+vi.mock('../../../src/commands/knowledge.js', () => ({
+	handleKnowledgeListCommand: mockHandleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand: mockHandleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand: mockHandleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand: mockHandleKnowledgeRestoreCommand,
 }));
+vi.mock('../../../src/commands/rollback.js', () => ({ handleRollbackCommand: mockHandleRollbackCommand }));
+vi.mock('../../../src/commands/promote.js', () => ({ handlePromoteCommand: mockHandlePromoteCommand }));
+vi.mock('../../../src/commands/handoff.js', () => ({ handleHandoffCommand: mockHandleHandoffCommand }));
+vi.mock('../../../src/commands/turbo.js', () => ({ handleTurboCommand: mockHandleTurboCommand }));
+vi.mock('../../../src/commands/simulate.js', () => ({ handleSimulateCommand: mockHandleSimulateCommand }));
+vi.mock('../../../src/commands/curate.js', () => ({ handleCurateCommand: mockHandleCurateCommand }));
+vi.mock('../../../src/commands/write_retro.js', () => ({ handleWriteRetroCommand: mockHandleWriteRetroCommand }));
+vi.mock('../../../src/commands/checkpoint.js', () => ({ handleCheckpointCommand: mockHandleCheckpointCommand }));
 
 // Import AFTER mocking is set up - use require for synchronous loading
 // @ts-ignore - Bun supports require for .js extensions
@@ -94,9 +114,13 @@ describe('run() dispatch function - ADVERSARIAL SECURITY & BOUNDARY TESTS', () =
 		mockHandleAnalyzeCommand.mockResolvedValue('analyze output');
 		mockHandleSpecifyCommand.mockResolvedValue('specify output');
 		mockHandleDarkMatterCommand.mockResolvedValue('dark-matter output');
+		mockHandleKnowledgeListCommand.mockResolvedValue('knowledge list output');
 		mockHandleKnowledgeMigrateCommand.mockResolvedValue('knowledge migrate output');
 		mockHandleKnowledgeQuarantineCommand.mockResolvedValue('knowledge quarantine output');
 		mockHandleKnowledgeRestoreCommand.mockResolvedValue('knowledge restore output');
+		mockHandleHandoffCommand.mockResolvedValue('handoff output');
+		mockHandleTurboCommand.mockResolvedValue('turbo output');
+		mockHandleCheckpointCommand.mockResolvedValue('checkpoint output');
 	});
 
 	describe('1. Null/undefined input attacks', () => {
@@ -168,64 +192,44 @@ describe('run() dispatch function - ADVERSARIAL SECURITY & BOUNDARY TESTS', () =
 	});
 
 	describe('4. Knowledge sub-subcommand boundary violations', () => {
-		it('should handle knowledge with no sub-subcommand', async () => {
+		it('should handle knowledge with no sub-subcommand (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge']);
 
-			// Should return usage error when knowledge has no sub-subcommand
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// Registry falls through to knowledge list entry
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, []);
 		});
 
-		it('should handle knowledge with empty sub-subcommand', async () => {
+		it('should handle knowledge with empty sub-subcommand (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge', '']);
 
-			// Should return usage error for empty sub-subcommand
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// Compound key 'knowledge ' not in registry → falls to 'knowledge'
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['']);
 		});
 
-		it('should handle knowledge with unknown sub-subcommand', async () => {
+		it('should handle knowledge with unknown sub-subcommand (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge', 'unknown-sub']);
 
-			// Should return usage error for unknown sub-subcommand
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// Compound key 'knowledge unknown-sub' not in registry → falls to 'knowledge'
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['unknown-sub']);
 		});
 
-		it('should handle knowledge with whitespace sub-subcommand', async () => {
+		it('should handle knowledge with whitespace sub-subcommand (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge', '   ']);
 
-			// Should return usage error for whitespace sub-subcommand
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// Falls through to knowledge list
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['   ']);
 		});
 
-		it('should handle knowledge with case-sensitive mismatch', async () => {
+		it('should handle knowledge with case-sensitive mismatch (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge', 'MIGRATE']);
 
-			// Should return usage error for case mismatch (if validation is strict)
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// 'knowledge MIGRATE' not in registry → falls to 'knowledge'
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['MIGRATE']);
 		});
 	});
 
@@ -399,16 +403,12 @@ describe('run() dispatch function - ADVERSARIAL SECURITY & BOUNDARY TESTS', () =
 	});
 
 	describe('10. Malformed multi-word command attacks', () => {
-		it('should handle knowledge with null byte in sub-subcommand', async () => {
+		it('should handle knowledge with null byte in sub-subcommand (calls handleKnowledgeListCommand)', async () => {
 			const result = await run(['knowledge', '\x00']);
 
-			// Should handle null byte in sub-subcommand gracefully
-			expect(result).toBe(1);
-			expect(mockConsoleError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Usage: bunx opencode-swarm run knowledge <migrate|quarantine|restore>',
-				),
-			);
+			// 'knowledge \x00' not in registry → falls to 'knowledge'
+			expect(result).toBe(0);
+			expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['\x00']);
 		});
 
 		it('should handle config doctor with very long subcommand', async () => {
