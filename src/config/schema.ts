@@ -610,6 +610,15 @@ export const WatchdogConfigSchema = z.object({
 
 export type WatchdogConfig = z.infer<typeof WatchdogConfigSchema>;
 
+// ─── Self-review configuration ────────────────────────────────────────────
+export const SelfReviewConfigSchema = z.object({
+	/** Enable self-review advisory after task marked in_progress. Default: true */
+	enabled: z.boolean().default(true),
+	/** Skip self-review advisory in turbo mode. Default: true */
+	skip_in_turbo: z.boolean().default(true),
+});
+export type SelfReviewConfig = z.infer<typeof SelfReviewConfigSchema>;
+
 /**
  * Resolves guardrails configuration for a specific agent.
  *
@@ -836,6 +845,7 @@ export const SlopDetectorConfigSchema = z.object({
 	classThreshold: z.number().int().min(1).default(3),
 	commentStripThreshold: z.number().int().min(1).default(5),
 	diffLineThreshold: z.number().int().min(10).default(200),
+	importHygieneThreshold: z.number().int().min(1).default(2),
 });
 
 export type SlopDetectorConfig = z.infer<typeof SlopDetectorConfigSchema>;
@@ -903,6 +913,9 @@ export const PluginConfigSchema = z.object({
 
 	// Watchdog configuration (scope-guard + delegation-ledger)
 	watchdog: WatchdogConfigSchema.optional(),
+
+	// Self-review configuration (advisory after coder delegation)
+	self_review: SelfReviewConfigSchema.optional(),
 
 	// Tool filter configuration - controls which tools each agent is allowed to use
 	tool_filter: ToolFilterConfigSchema.optional(),

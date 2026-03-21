@@ -15,6 +15,7 @@ import {
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
 	KnowledgeConfigSchema,
+	SelfReviewConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
 	WatchdogConfigSchema,
@@ -43,6 +44,7 @@ import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
+import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { createCompactionService } from './services/compaction-service';
@@ -184,6 +186,18 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		advisoryInjector,
 	);
 
+	// Self-review advisory hook
+	const selfReviewConfig = SelfReviewConfigSchema.parse(
+		config.self_review ?? {},
+	);
+	const selfReviewHook = createSelfReviewHook(
+		{
+			enabled: selfReviewConfig.enabled,
+			skip_in_turbo: selfReviewConfig.skip_in_turbo,
+		},
+		advisoryInjector,
+	);
+
 	const summaryConfig = SummaryConfigSchema.parse(config.summaries ?? {});
 	const toolSummarizerHook = createToolSummarizerHook(
 		summaryConfig,
@@ -217,6 +231,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						classThreshold: 3,
 						commentStripThreshold: 5,
 						diffLineThreshold: 200,
+						importHygieneThreshold: 2,
 					},
 					ctx.directory,
 					(sessionId, message) => {
@@ -715,6 +730,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			await guardrailsHooks.toolAfter(input, output);
 			// Watchdog: delegation-ledger records delegation events
 			await safeHook(delegationLedgerHook.toolAfter)(input, output);
+			// Self-review advisory hook
+			await safeHook(selfReviewHook.toolAfter)(input, output);
 			await safeHook(delegationGateHooks.toolAfter)(input, output);
 			// v6.17 Knowledge hooks — after guardrails, before summarizer
 			if (knowledgeCuratorHook)

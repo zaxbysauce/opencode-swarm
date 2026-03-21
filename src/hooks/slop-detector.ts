@@ -21,7 +21,8 @@ interface SlopFinding {
 		| 'abstraction_bloat'
 		| 'dead_export'
 		| 'comment_strip'
-		| 'boilerplate_explosion';
+		| 'boilerplate_explosion'
+		| 'stale_import';
 	detail: string;
 }
 
@@ -175,6 +176,81 @@ function checkDeadExports(
 	};
 }
 
+/**
+ * Heuristic 5: Stale imports — import identifiers not used in the file body.
+ * Lightweight check using regex on the content only (no file-system search).
+ */
+function checkStaleImports(
+	content: string,
+	threshold: number,
+): SlopFinding | null {
+	const lines = content.split('\n');
+	const importLines: number[] = [];
+	const importIdentifiers: string[] = [];
+
+	const namedImportRe = /^(?:\+)?import\s*\{([^}]+)\}\s*from\s*['"][^'"]+['"]/;
+	const defaultImportRe = /^(?:\+)?import\s+(\w+)\s+from\s*['"][^'"]+['"]/;
+	const nsImportRe = /^(?:\+)?import\s+\*\s+as\s+(\w+)\s+from\s*['"][^'"]+['"]/;
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i].replace(/^[+-]/, '');
+		const trimmed = line.trim();
+
+		if (trimmed.startsWith('export {') || trimmed.startsWith('export type {'))
+			continue;
+
+		const named = namedImportRe.exec(trimmed);
+		if (named) {
+			importLines.push(i);
+			for (const part of named[1].split(',')) {
+				const cleaned = part
+					.trim()
+					.replace(/^type\s+/, '')
+					.split(/\s+as\s+/)
+					.pop()
+					?.trim();
+				if (cleaned && /^\w+$/.test(cleaned) && cleaned.length >= 2) {
+					importIdentifiers.push(cleaned);
+				}
+			}
+			continue;
+		}
+
+		const ns = nsImportRe.exec(trimmed);
+		if (ns?.[1]) {
+			importLines.push(i);
+			importIdentifiers.push(ns[1]);
+			continue;
+		}
+
+		const def = defaultImportRe.exec(trimmed);
+		if (def?.[1] && def[1] !== 'type') {
+			importLines.push(i);
+			importIdentifiers.push(def[1]);
+		}
+	}
+
+	if (importIdentifiers.length === 0) return null;
+
+	const bodyLines = lines.filter((_, i) => !importLines.includes(i));
+	const body = bodyLines.join('\n');
+
+	const staleImports: string[] = [];
+	for (const id of importIdentifiers) {
+		const usageRe = new RegExp(`\\b${id}\\b`);
+		if (!usageRe.test(body)) {
+			staleImports.push(id);
+		}
+	}
+
+	if (staleImports.length < threshold) return null;
+
+	return {
+		type: 'stale_import',
+		detail: `${staleImports.length} unused import identifier(s): ${staleImports.slice(0, 3).join(', ')}${staleImports.length > 3 ? '...' : ''}. Remove stale imports.`,
+	};
+}
+
 export interface SlopDetectorHook {
 	toolAfter: (
 		input: { tool: string; sessionID: string },
@@ -238,6 +314,17 @@ export function createSlopDetectorHook(
 				} catch {
 					// dead export check is best-effort
 				}
+			}
+
+			// heuristic 5: stale imports
+			try {
+				const stale = checkStaleImports(
+					content,
+					config.importHygieneThreshold ?? 2,
+				);
+				if (stale) findings.push(stale);
+			} catch {
+				// stale import check is best-effort
 			}
 
 			if (findings.length === 0) return;
