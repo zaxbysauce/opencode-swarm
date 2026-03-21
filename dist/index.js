@@ -53419,7 +53419,7 @@ async function writeDriftReport(directory, report) {
   }
   return filePath;
 }
-async function runCriticDriftCheck(directory, phase, curatorResult, config3) {
+async function runCriticDriftCheck(directory, phase, curatorResult, config3, injectAdvisory) {
   try {
     const planMd = await readSwarmFileAsync(directory, "plan.md");
     const specMd = await readSwarmFileAsync(directory, "spec.md");
@@ -53479,6 +53479,12 @@ async function runCriticDriftCheck(directory, phase, curatorResult, config3) {
       drift_score: driftScore,
       report_path: reportPath
     });
+    if (injectAdvisory && alignment !== "ALIGNED" && driftScore > 0) {
+      try {
+        const advisoryText = `CURATOR DRIFT DETECTED (phase ${phase}, score ${driftScore.toFixed(2)}): ${injectionSummary.slice(0, 300)}. Review .swarm/${DRIFT_REPORT_PREFIX}${phase}.json and address spec alignment before proceeding.`;
+        injectAdvisory(advisoryText);
+      } catch {}
+    }
     const injectionText = injectionSummary;
     return {
       phase,
@@ -54926,6 +54932,67 @@ var complexity_hotspots = createSwarmTool({
     }
   }
 });
+// src/tools/curator-analyze.ts
+init_dist();
+init_config();
+init_schema();
+init_create_tool();
+var curator_analyze = createSwarmTool({
+  description: "Run curator phase analysis and optionally apply knowledge recommendations. " + "Call this after reviewing a phase to apply knowledge updates. " + "If recommendations is provided, applies them via applyCuratorKnowledgeUpdates.",
+  args: {
+    phase: tool.schema.number().int().min(1).describe("Phase number to analyze"),
+    recommendations: tool.schema.array(tool.schema.object({
+      action: tool.schema.enum([
+        "promote",
+        "archive",
+        "flag_contradiction"
+      ]),
+      entry_id: tool.schema.string().optional(),
+      lesson: tool.schema.string(),
+      reason: tool.schema.string()
+    })).optional().describe("Knowledge recommendations to apply. If omitted, only collects digest data.")
+  },
+  execute: async (args2, directory) => {
+    const typedArgs = args2;
+    try {
+      if (!Number.isInteger(typedArgs.phase) || typedArgs.phase < 1) {
+        return JSON.stringify({ error: "phase must be a positive integer >= 1" }, null, 2);
+      }
+      if (typedArgs.recommendations) {
+        const validActions = ["promote", "archive", "flag_contradiction"];
+        for (const rec of typedArgs.recommendations) {
+          if (!validActions.includes(rec.action)) {
+            return JSON.stringify({
+              error: `Invalid recommendation action: ${rec.action}`
+            }, null, 2);
+          }
+        }
+      }
+      const { config: config3 } = loadPluginConfigWithMeta(directory);
+      const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
+      const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
+      const curatorResult = await runCuratorPhase(directory, typedArgs.phase, [], curatorConfig, {});
+      let applied = 0;
+      let skipped = 0;
+      if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
+        const result = await applyCuratorKnowledgeUpdates(directory, typedArgs.recommendations, knowledgeConfig);
+        applied = result.applied;
+        skipped = result.skipped;
+      }
+      return JSON.stringify({
+        phase_digest: curatorResult.digest,
+        compliance_count: curatorResult.compliance.length,
+        applied,
+        skipped
+      }, null, 2);
+    } catch (error93) {
+      return JSON.stringify({
+        error: String(error93),
+        phase: typedArgs.phase
+      }, null, 2);
+    }
+  }
+});
 // src/tools/declare-scope.ts
 init_tool();
 import * as fs27 from "fs";
@@ -55162,7 +55229,7 @@ var diff = createSwarmTool({
     base: tool.schema.string().optional().describe('Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.'),
     paths: tool.schema.array(tool.schema.string()).optional().describe("Optional file paths to restrict diff scope.")
   },
-  async execute(args2, directory, ctx) {
+  async execute(args2, directory, _ctx) {
     const typedArgs = args2;
     try {
       if (!directory || typeof directory !== "string" || directory.trim() === "") {
@@ -56729,7 +56796,17 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     if (curatorConfig.enabled && curatorConfig.phase_enabled) {
       const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {});
       await applyCuratorKnowledgeUpdates(dir, curatorResult.knowledge_recommendations, knowledgeConfig);
-      await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+      const driftResult = await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+      const callerSessionState = swarmState.agentSessions.get(sessionID);
+      if (callerSessionState) {
+        callerSessionState.pendingAdvisoryMessages ??= [];
+        const digestSummary = curatorResult.digest?.summary ? curatorResult.digest.summary.slice(0, 200) : "Phase analysis complete";
+        const complianceNote = curatorResult.compliance.length > 0 ? ` (${curatorResult.compliance.length} compliance observation(s))` : "";
+        callerSessionState.pendingAdvisoryMessages.push(`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Call curator_analyze with recommendations to apply knowledge updates from this phase.`);
+        if (driftResult.report.drift_score > 0) {
+          callerSessionState.pendingAdvisoryMessages.push(`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${driftResult.injection_text.slice(0, 300)}. Review ${driftResult.report_path} and address spec alignment before proceeding.`);
+        }
+      }
       if (curatorResult.compliance.length > 0 && !curatorConfig.suppress_warnings) {
         const complianceLines = curatorResult.compliance.map((obs) => `[${obs.severity.toUpperCase()}] ${obs.description}`).slice(0, 5);
         complianceWarnings = complianceLines;
@@ -60625,7 +60702,7 @@ var retrieve_summary = createSwarmTool({
     offset: tool.schema.number().min(0).default(0).describe("Line offset to start from (default: 0)."),
     limit: tool.schema.number().min(1).max(500).default(100).describe("Number of lines to return (default: 100, max: 500).")
   },
-  async execute(args2, directory, ctx) {
+  async execute(args2, directory, _ctx) {
     const typedArgs = args2;
     const offset = typedArgs.offset ?? 0;
     const limit = Math.min(typedArgs.limit ?? 100, 500);
@@ -63535,6 +63612,7 @@ var OpenCodeSwarm = async (ctx) => {
       check_gate_status,
       checkpoint,
       complexity_hotspots,
+      curator_analyze,
       detect_domains,
       evidence_check,
       extract_code_blocks,

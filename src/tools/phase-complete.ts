@@ -514,7 +514,35 @@ export async function executePhaseComplete(
 				curatorResult.knowledge_recommendations,
 				knowledgeConfig,
 			);
-			await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+			const driftResult = await runCriticDriftCheck(
+				dir,
+				phase,
+				curatorResult,
+				curatorConfig,
+			);
+			// Advisory injection: push actionable curator message to architect session
+			const callerSessionState = swarmState.agentSessions.get(sessionID);
+			if (callerSessionState) {
+				callerSessionState.pendingAdvisoryMessages ??= [];
+
+				const digestSummary = curatorResult.digest?.summary
+					? curatorResult.digest.summary.slice(0, 200)
+					: 'Phase analysis complete';
+				const complianceNote =
+					curatorResult.compliance.length > 0
+						? ` (${curatorResult.compliance.length} compliance observation(s))`
+						: '';
+
+				callerSessionState.pendingAdvisoryMessages.push(
+					`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Call curator_analyze with recommendations to apply knowledge updates from this phase.`,
+				);
+
+				if (driftResult.report.drift_score > 0) {
+					callerSessionState.pendingAdvisoryMessages.push(
+						`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${driftResult.injection_text.slice(0, 300)}. Review ${driftResult.report_path} and address spec alignment before proceeding.`,
+					);
+				}
+			}
 			// Surface non-suppressed compliance observations in return value
 			// so the architect sees workflow deviations (missing reviewer, missing retro, etc.)
 			if (
