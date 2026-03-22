@@ -53,6 +53,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Unit tests (hooks)
         if: runner.os != 'Windows'
+        shell: bash
         run: |
           python - <<'PY'
           import glob
@@ -79,6 +80,7 @@ jobs:
       - name: Unit tests (cli)
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (commands, config)
+        shell: bash
         run: |
           python - <<'PY'
           import glob
