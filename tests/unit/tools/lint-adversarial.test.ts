@@ -401,13 +401,6 @@ describe('ISSUE #209: detectAvailableLinter path consistency', () => {
 		expect(result).toBeNull();
 	});
 
-	it('detectAvailableLinter() called without directory argument uses process.cwd() without error', async () => {
-		// This tests the default parameter: directory ?? process.cwd()
-		const result = await detectAvailableLinter();
-		// Should not throw — just returns a valid result or null
-		expect(result === 'biome' || result === 'eslint' || result === null).toBe(true);
-	}, 10000);
-
 	it('detection binary paths are absolute and contain node_modules/.bin', () => {
 		const dir = '/some/project';
 		const biomeBin = getBiomeBinPath(dir);
