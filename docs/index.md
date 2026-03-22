@@ -30,6 +30,15 @@ This index covers all documentation available for OpenCode Swarm.
 
 | Release | Highlights |
 |---------|-----------|
+| [v6.31.0](releases/v6.31.0.md) | process.cwd() cleanup, curator pipeline wiring, watchdog enforcement, knowledge memory tools |
+| [v6.30.1](releases/v6.30.1.md) | Bug fixes: package manager detection, spawnAsync OOM cap, Windows .cmd resolution |
+| [v6.29.4](releases/v6.29.4.md) | Cross-task regression sweep, curator data pipeline visibility, opt-in full-suite testing |
+| [v6.29.3](releases/v6.29.3.md) | Curator status in `/swarm diagnose`, documentation refresh |
+| [v6.29.2](releases/v6.29.2.md) | Multi-language incremental verify, slop-detector hardening, codebase reality check |
+| [v6.29.1](releases/v6.29.1.md) | Advisory hook message injection improvements |
+| [v6.27.0](releases/v6.27.0.md) | TypeScript compilation fixes from v6.26.0 |
+| [v6.26.1](releases/v6.26.1.md) | Gate recovery fix for pure-verification tasks |
+| [v6.26.0](releases/v6.26.0.md) | Session durability, evidence task resolution, Turbo Mode |
 | [v6.22.0](releases/v6.22.0.md) | Curator background analysis system, Issue #81 session state persistence fix |
 | [v6.19.1](releases/v6.19.1.md) | Patch release |
 | [v6.19.0](releases/v6.19.0.md) | Critic sounding board, adversarial hardening, escalation discipline, intent reconstruction |

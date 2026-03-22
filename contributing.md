@@ -1,5 +1,4 @@
-````markdown
-# CONTRIBUTING.md
+# Contributing to OpenCode Swarm
 
 > **This file is the authoritative reference for any automated agent (LLM, Copilot, CI bot) or human contributor submitting a PR to this repository. Read it fully before making any commit.**
 
@@ -200,8 +199,3 @@ gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 - [ ] If adding a workflow, all `uses:` references are SHA-pinned
 - [ ] All CI checks pass locally before opening the PR
 - [ ] If user-facing change: consider adding `docs/releases/v{NEXT_VERSION}.md`
-````
-
-***
-
-**Recommended placement:** `CONTRIBUTING.md` at the repo root — GitHub surfaces it automatically in the PR creation UI and it's the conventional location that tools like Copilot, Claude Code, and the GitHub CLI look for first.

@@ -102,4 +102,4 @@ Optional knowledge-base curator that validates agent output against project know
 
 Curator is optional and disabled by default. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` to track knowledge alignment and drift detection.
 
-For a full configuration reference, see the [README](../README.md#configuration-reference).
+For a full configuration reference, see the [Full Configuration Reference](../README.md) section in the README (expand the "Full Configuration Reference" details block).
