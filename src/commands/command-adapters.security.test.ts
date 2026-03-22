@@ -502,8 +502,12 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 			});
 
 			it('handleEvidenceCommand should handle long task IDs', async () => {
-				const result = await handleEvidenceCommand(tempDir, [longString]);
-				expect(typeof result).toBe('string');
+				try {
+					const result = await handleEvidenceCommand(tempDir, [longString]);
+					expect(typeof result).toBe('string');
+				} catch (e: any) {
+					expect(e.message).toContain('Invalid task ID');
+				}
 			});
 
 			it('handleDoctorCommand should handle long args', async () => {
@@ -520,9 +524,8 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 			});
 
 			it('sanitizeTaskId should handle long strings appropriately', () => {
-				// Should either accept (if valid pattern) or reject
-				expect(() => sanitizeTaskId('a'.repeat(1000))).not.toThrow(); // Valid
-				expect(() => sanitizeTaskId('!'.repeat(1000))).toThrow(); // Invalid
+				expect(() => sanitizeTaskId('a'.repeat(1000))).toThrow(); // Invalid - not a valid task ID pattern
+				expect(() => sanitizeTaskId('1.1')).not.toThrow(); // Valid numeric task ID
 			});
 		});
 
@@ -669,9 +672,9 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 			});
 
 			it('should accept valid ASCII task IDs', () => {
-				expect(() => sanitizeTaskId('task-1')).not.toThrow();
-				expect(() => sanitizeTaskId('my_task')).not.toThrow();
-				expect(() => sanitizeTaskId('Task123')).not.toThrow();
+				expect(() => sanitizeTaskId('1.1')).not.toThrow();
+				expect(() => sanitizeTaskId('retro-1')).not.toThrow();
+				expect(() => sanitizeTaskId('sast_scan')).not.toThrow();
 				expect(() => sanitizeTaskId('1.0.0')).not.toThrow();
 			});
 		});
@@ -869,11 +872,11 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 
 		describe('Task ID validation', () => {
 			it('should accept valid task IDs', () => {
-				expect(() => sanitizeTaskId('task-1')).not.toThrow();
-				expect(() => sanitizeTaskId('my_task')).not.toThrow();
-				expect(() => sanitizeTaskId('Task123')).not.toThrow();
+				expect(() => sanitizeTaskId('1.1')).not.toThrow();
+				expect(() => sanitizeTaskId('retro-1')).not.toThrow();
+				expect(() => sanitizeTaskId('sast_scan')).not.toThrow();
 				expect(() => sanitizeTaskId('1.0.0')).not.toThrow();
-				expect(() => sanitizeTaskId('a')).not.toThrow();
+				expect(() => sanitizeTaskId('quality_budget')).not.toThrow();
 			});
 
 			it('should reject invalid task IDs', () => {
