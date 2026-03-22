@@ -181,17 +181,19 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			await hooks.toolBefore(input, output);
 		});
 
-		it(...(process.platform === 'win32' ? ['..\\.swarm\\plan.md Windows backslash → NOT blocked (outside project)', async () => {
-			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
-			startAgentSession('test-session', ORCHESTRATOR_NAME);
+		if (process.platform === 'win32') {
+			it('..\\.swarm\\plan.md Windows backslash → NOT blocked (outside project)', async () => {
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(config);
+				startAgentSession('test-session', ORCHESTRATOR_NAME);
 
-			const input = makeInput('test-session', 'write', 'call-1');
-			const output = makeOutput({ filePath: '..\\.swarm\\plan.md' });
+				const input = makeInput('test-session', 'write', 'call-1');
+				const output = makeOutput({ filePath: '..\\.swarm\\plan.md' });
 
-			// This resolves to parent directory, which is outside project - not blocked
-			await hooks.toolBefore(input, output);
-		}] : []));
+				// This resolves to parent directory, which is outside project - not blocked
+				await hooks.toolBefore(input, output);
+			});
+		}
 	});
 
 	describe('attack vector 6: apply_patch with plan.md in diff content', () => {
