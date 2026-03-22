@@ -120,16 +120,13 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		expect(sourceContent).not.toContain('const files_b = fs.readdirSync');
 	});
 
-	// Test 6: loadEvidence correctly returns not_found for missing task IDs
-	it('Test 6: loadEvidence correctly returns not_found for missing task IDs', async () => {
+	// Test 6: loadEvidence rejects invalid missing task IDs
+	it('Test 6: loadEvidence rejects invalid missing task IDs', async () => {
 		// Create a valid retro bundle
 		await createRetroBundle(1, 'pass', ['lesson A']);
 
-		// Try to load a non-existent task ID
-		const result = await loadEvidence(tempDir, 'nonexistent-task');
-
-		// Should return not_found status
-		expect(result.status).toBe('not_found');
+		// Try to load an invalid task ID - should throw
+		await expect(loadEvidence(tempDir, 'nonexistent-task')).rejects.toThrow('Invalid task ID');
 	});
 
 	// Test 7: A retro bundle with no entries returns found status from loadEvidence
@@ -159,27 +156,25 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		expect(result.bundle.entries).toEqual([]);
 	});
 
-	// Test 8: listEvidenceTaskIds with mixed directory contents returns all IDs
-	it('Test 8: listEvidenceTaskIds with mixed directory contents (retro-1, retro-2, some non-retro IDs) returns all IDs', async () => {
+	// Test 8: listEvidenceTaskIds filters out invalid IDs, returning only valid ones
+	it('Test 8: listEvidenceTaskIds filters out invalid IDs, returning only valid ones', async () => {
 		// Create retro-1 and retro-2 bundles
 		await createRetroBundle(1, 'pass', ['lesson A']);
 		await createRetroBundle(2, 'fail', ['lesson B']);
 
-		// Create some non-retro directories
+		// Create some invalid non-retro directories (task-1, task-2 are not valid task IDs)
 		await createEvidenceDirectory('task-1');
 		await createEvidenceDirectory('task-2');
 
 		// Get all task IDs
 		const taskIds = await listEvidenceTaskIds(tempDir);
 
-		// Should contain all IDs including retro-1, retro-2, task-1, task-2
+		// Should contain only valid IDs (retro-1, retro-2) - invalid ones are filtered out
 		expect(taskIds).toContain('retro-1');
 		expect(taskIds).toContain('retro-2');
-		expect(taskIds).toContain('task-1');
-		expect(taskIds).toContain('task-2');
-
-		// Should have exactly 4 IDs
-		expect(taskIds).toHaveLength(4);
+		expect(taskIds).not.toContain('task-1');
+		expect(taskIds).not.toContain('task-2');
+		expect(taskIds).toHaveLength(2);
 	});
 
 	// Test 9: A retro bundle with verdict='pass' but empty lessons_learned still produces a valid structure

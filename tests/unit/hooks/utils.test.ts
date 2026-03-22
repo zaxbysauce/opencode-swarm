@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
 import { safeHook, composeHandlers, readSwarmFileAsync, estimateTokens, validateSwarmPath } from '../../../src/hooks/utils';
+import * as utilsModule from '../../../src/utils';
 import { mkdtemp, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, normalize } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const __srcUtilsUrl = pathToFileURL(resolve(process.cwd(), 'src/hooks/utils')).href;
 
 describe('Hook Utilities', () => {
 	describe('safeHook', () => {
@@ -76,15 +80,10 @@ describe('Hook Utilities', () => {
 		});
 
 		it('logs a warning when wrapped function throws', async () => {
-			let warned = false;
 			let warnArgs: any[] = [];
-
-			// Mock console.warn
-			const originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				warned = true;
+			const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation((...args: any[]) => {
 				warnArgs = args;
-			};
+			});
 
 			try {
 				const mockFn = async () => {
@@ -94,24 +93,19 @@ describe('Hook Utilities', () => {
 				const wrapped = safeHook(mockFn);
 				await wrapped('input', 'output');
 
-				expect(warned).toBe(true);
+				expect(warnSpy).toHaveBeenCalled();
 				expect(warnArgs[0]).toContain("Hook function 'unknown' failed:");
 				expect(warnArgs[1]).toBeInstanceOf(Error);
 			} finally {
-				console.warn = originalWarn;
+				warnSpy.mockRestore();
 			}
 		});
 
 		it('handles named functions correctly in warning', async () => {
-			let warned = false;
 			let warnArgs: any[] = [];
-
-			// Mock console.warn
-			const originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				warned = true;
+			const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation((...args: any[]) => {
 				warnArgs = args;
-			};
+			});
 
 			try {
 				async function namedFunction(input: string, output: string) {
@@ -121,11 +115,11 @@ describe('Hook Utilities', () => {
 				const wrapped = safeHook(namedFunction);
 				await wrapped('input', 'output');
 
-				expect(warned).toBe(true);
+				expect(warnSpy).toHaveBeenCalled();
 				expect(warnArgs[0]).toContain("Hook function 'namedFunction' failed:");
 				expect(warnArgs[1]).toBeInstanceOf(Error);
 			} finally {
-				console.warn = originalWarn;
+				warnSpy.mockRestore();
 			}
 		});
 	});
@@ -399,7 +393,8 @@ describe('Hook Utilities', () => {
 
 			// Test with a path that needs normalization but doesn't contain traversal
 			const result = validateSwarmPath(tempDir, 'subdir/./test.txt');
-			expect(result).toBe(testFile);
+			const expectedPath = normalize(resolve(tempDir, '.swarm', 'subdir/./test.txt'));
+			expect(result).toBe(expectedPath);
 		});
 	});
 

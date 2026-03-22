@@ -463,9 +463,10 @@ describe('Drift injection: no drift when no knowledge entries', () => {
     (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
       { phase: 1, alignment: 'ALIGNED', drift_score: 0.05, injection_summary: 'test' },
     ]);
+    (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue('<drift_report>test</drift_report>');
   });
 
-  it('Test 6: no drift prepend when there are no knowledge entries (hook returns early)', async () => {
+  it('Test 6: drift preamble injected even when there are no knowledge entries', async () => {
     // Keep readMergedKnowledge returning empty - this causes early return before drift code
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
@@ -482,14 +483,13 @@ describe('Drift injection: no drift when no knowledge entries', () => {
     // Second call with different phase, but no knowledge entries
     await hook({}, output);
 
-    // readPriorDriftReports should NOT be called because the hook returns early when entries is empty
-    expect(readPriorDriftReports).not.toHaveBeenCalled();
-
-    // No knowledge message should be injected
-    const hasKnowledgeInjection = output.messages.some((m) =>
-      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    expect(readPriorDriftReports).toHaveBeenCalledWith('/proj');
+    const knowledgeMsg = output.messages.find((m) =>
+      m.parts?.some((p) => p.text?.includes('<drift_report>')),
     );
-    expect(hasKnowledgeInjection).toBe(false);
+    expect(knowledgeMsg).toBeDefined();
+    const text = knowledgeMsg!.parts[0].text ?? '';
+    expect(text).toContain('<drift_report>');
   });
 });
 

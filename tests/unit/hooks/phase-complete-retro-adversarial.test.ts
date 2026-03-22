@@ -90,7 +90,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			expect(parsed.message).toBe('Invalid phase number');
 		});
 
-		test('phase = Infinity should be blocked at retro gate', async () => {
+		test('phase = Infinity propagates invalid retro task ID from sanitizeTaskId', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -106,16 +106,12 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({
-				phase: Infinity,
-				sessionID: 'sess1',
-			});
-			const parsed = JSON.parse(result);
-
-			// Infinity is not < 1, so argument validation passes
-			// But retro gate should block since retro-Infinity won't exist
-			expect(parsed.success).toBe(false);
-			expect(parsed.status === 'blocked' || parsed.message === 'Invalid phase number').toBe(true);
+			await expect(
+				phase_complete.execute({
+					phase: Infinity,
+					sessionID: 'sess1',
+				}),
+			).rejects.toThrow('Invalid task ID');
 		});
 
 		test('phase = -1 should be rejected at argument validation', async () => {
@@ -170,7 +166,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			expect(parsed.message).toBe('Invalid phase number');
 		});
 
-		test('phase = 1.5 (float) should pass argument validation but retro gate blocks', async () => {
+		test('phase = 1.5 propagates invalid retro task ID from sanitizeTaskId', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -186,17 +182,12 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({
-				phase: 1.5,
-				sessionID: 'sess1',
-			});
-			const parsed = JSON.parse(result);
-
-			// 1.5 is not < 1, so argument validation passes
-			// But retro gate should block since retro-1.5 won't exist
-			expect(parsed.success).toBe(false);
-			expect(parsed.status).toBe('blocked');
-			expect(parsed.reason).toBe('RETROSPECTIVE_MISSING');
+			await expect(
+				phase_complete.execute({
+					phase: 1.5,
+					sessionID: 'sess1',
+				}),
+			).rejects.toThrow('Invalid task ID');
 		});
 
 		test('phase = 9999999 (very large number) should be blocked by retro gate', async () => {

@@ -53,11 +53,55 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Unit tests (hooks)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks --timeout 120000
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+          import subprocess
+          import sys
+
+          root = os.getcwd()
+          files = sorted(set(
+              glob.glob(os.path.join(root, 'tests/unit/hooks/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/hooks/*.adversarial.test.ts'))
+          ))
+
+          for file_path in files:
+              rel = os.path.relpath(file_path, root)
+              print(f'==> {rel}')
+              result = subprocess.run(
+                  ['bun', '--smol', 'test', rel, '--timeout', '30000'],
+                  cwd=root,
+              )
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY
       - name: Unit tests (cli)
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (commands, config)
-        run: bun --smol test tests/unit/commands tests/unit/config --timeout 120000
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+          import subprocess
+          import sys
+
+          root = os.getcwd()
+          files = sorted(set(
+              glob.glob(os.path.join(root, 'tests/unit/commands/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/config/*.test.ts'))
+          ))
+
+          for file_path in files:
+              rel = os.path.relpath(file_path, root)
+              print(f'==> {rel}')
+              result = subprocess.run(
+                  ['bun', '--smol', 'test', rel, '--timeout', '30000'],
+                  cwd=root,
+              )
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY
       - name: Unit tests (tools)
         run: bun --smol test tests/unit/tools --timeout 120000
       - name: Unit tests (services, build, quality, sast, sbom, scripts)

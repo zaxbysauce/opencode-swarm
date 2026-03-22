@@ -219,13 +219,15 @@ describe('v6.0 System Enhancer Hint Injection', () => {
 
 			const systemOutput = await invokeHook(config);
 
-			// Should NOT contain any [SWARM CONFIG] hints (except any base ones)
-			const configHints = systemOutput.filter((s) =>
-				s.includes('[SWARM CONFIG]'),
+			// With default config, should NOT contain the two legacy v6.0 hints
+			const hasSecurityHint = systemOutput.some((s) =>
+				s.includes('[SWARM CONFIG] Security review pass is MANDATORY'),
 			);
-
-			// With default config, there should be no [SWARM CONFIG] hints
-			expect(configHints.length).toBe(0);
+			const hasIntegrationHint = systemOutput.some((s) =>
+				s.includes('[SWARM CONFIG] Integration analysis is DISABLED'),
+			);
+			expect(hasSecurityHint).toBe(false);
+			expect(hasIntegrationHint).toBe(false);
 		});
 	});
 

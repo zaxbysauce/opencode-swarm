@@ -409,7 +409,7 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			await hooks.toolBefore(input, output);
 		});
 
-		it('.swarm/plan.json (not plan.md) → should NOT throw', async () => {
+		it('.swarm/plan.json (not plan.md) → should throw', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
@@ -417,8 +417,10 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			const input = makeInput('test-session', 'write', 'call-1');
 			const output = makeOutput({ filePath: '.swarm/plan.json' });
 
-			// Only .swarm/plan.md is blocked, not plan.json
-			await hooks.toolBefore(input, output);
+			// Both .swarm/plan.md and .swarm/plan.json are blocked
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('.swarm/plan.md~ (vim backup) → should NOT throw', async () => {

@@ -76,7 +76,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 	});
 
 	describe('VULNERABILITY 1: Missing knowledge_recommendations array', () => {
-		it('SILENT FAILURE: should silently skip writing when knowledge_recommendations is undefined (safeHook suppresses errors)', async () => {
+		it('should treat undefined knowledge_recommendations as empty array and write summary', async () => {
 			// Curator summary exists but is missing the knowledge_recommendations property
 			mockReadCuratorSummary.mockResolvedValue({
 				schema_version: 1,
@@ -91,15 +91,17 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			const hook = createHivePromoterHook('/test-project', mockConfig);
 
-			// Hook runs without throwing due to safeHook - this is the vulnerability!
+			// Hook runs without throwing due to safeHook
 			await hook({}, {});
 
-			// The hook silently fails - write is NOT called because spreading undefined crashes
-			// (but safeHook catches the error and suppresses it)
-			expect(mockWriteCuratorSummary).not.toHaveBeenCalled();
+			// Write is called with treated empty array
+			expect(mockWriteCuratorSummary).toHaveBeenCalled();
+			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+			expect(Array.isArray(writtenSummary.knowledge_recommendations)).toBe(true);
+			expect(writtenSummary.knowledge_recommendations).toHaveLength(1);
 		});
 
-		it('SILENT FAILURE: should silently skip when knowledge_recommendations is null', async () => {
+		it('should treat null knowledge_recommendations as empty array and write summary', async () => {
 			mockReadCuratorSummary.mockResolvedValue({
 				schema_version: 1,
 				session_id: 'test-session',
@@ -115,11 +117,14 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			await hook({}, {});
 
-			// Silent failure - write is skipped due to error being suppressed
-			expect(mockWriteCuratorSummary).not.toHaveBeenCalled();
+			// Write is called with treated empty array
+			expect(mockWriteCuratorSummary).toHaveBeenCalled();
+			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
+			expect(Array.isArray(writtenSummary.knowledge_recommendations)).toBe(true);
+			expect(writtenSummary.knowledge_recommendations).toHaveLength(1);
 		});
 
-		it('CORRUPTION: should write corrupted data when knowledge_recommendations is a string instead of array', async () => {
+		it('should treat string knowledge_recommendations as empty array and append one recommendation', async () => {
 			mockReadCuratorSummary.mockResolvedValue({
 				schema_version: 1,
 				session_id: 'test-session',
@@ -135,15 +140,14 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			await hook({}, {});
 
-			// The bug: string gets spread into array characters!
+			// Write is called with treated empty array
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
 			
-			// knowledge_recommendations will contain string characters as array elements
-			// e.g., ['c', 'o', 'r', 'r', 'u', 'p', 't', 'e', 'd', ' ', 'd', 'a', 't', 'a', {...recommendation}]
+			// String is treated as empty array, one recommendation appended
 			const recs = writtenSummary.knowledge_recommendations;
 			expect(Array.isArray(recs)).toBe(true);
-			expect(recs.length).toBeGreaterThan(10); // 14 chars + recommendation object
+			expect(recs).toHaveLength(1);
 		});
 	});
 
