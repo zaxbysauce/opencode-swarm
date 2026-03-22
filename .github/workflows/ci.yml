@@ -54,8 +54,10 @@ jobs:
       - name: Unit tests (hooks)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks --timeout 120000
-      - name: Unit tests (cli, commands, config)
-        run: bun --smol test tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
+      - name: Unit tests (cli)
+        run: bun --smol test tests/unit/cli --timeout 120000
+      - name: Unit tests (commands, config)
+        run: bun --smol test tests/unit/commands tests/unit/config --timeout 120000
       - name: Unit tests (tools)
         run: bun --smol test tests/unit/tools --timeout 120000
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
