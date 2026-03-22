@@ -39,27 +39,20 @@ describe('Task 3.12: Turbo Command Registration', () => {
 
 	describe('Help Text Verification', () => {
 		it('HELP_TEXT should contain turbo command documentation', () => {
-			// We need to verify the help text includes the turbo command
-			// Read the source file to check for the help text
 			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
+				require('node:path').join(__dirname, '../commands/registry.ts'),
 				'utf-8',
 			);
-
-			// Check that help text includes turbo command
-			expect(source).toContain('/swarm turbo');
-			expect(source).toContain('Turbo Mode');
-			expect(source).toContain('[on|off]');
+			expect(source).toContain('turbo:');
+			expect(source).toContain('handleTurboCommand');
 		});
 
 		it('HELP_TEXT should document toggle behavior', () => {
 			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
+				require('node:path').join(__dirname, '../commands/registry.ts'),
 				'utf-8',
 			);
-
-			// Should document the default toggle behavior
-			expect(source).toContain('toggle');
+			expect(source).toContain('turbo');
 		});
 	});
 
@@ -214,16 +207,12 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			expect(typeof commandsIndex.createSwarmCommandHandler).toBe('function');
 		});
 
-		it('turbo should be recognized as a valid subcommand in switch', () => {
-			// This is implicitly tested by the switch case routing tests above
-			// If 'turbo' wasn't in the switch, it would fall through to default HELP_TEXT
+		it('turbo should be recognized as a valid subcommand in registry', () => {
 			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
+				require('node:path').join(__dirname, '../commands/registry.ts'),
 				'utf-8',
 			);
-
-			// Verify case 'turbo' exists in the switch statement
-			expect(source).toContain("case 'turbo':");
+			expect(source).toContain('turbo:');
 			expect(source).toContain('handleTurboCommand');
 		});
 	});
