@@ -15772,32 +15772,34 @@ async function loadPlan(directory) {
   }
   return null;
 }
-async function savePlan(directory, plan) {
+async function savePlan(directory, plan, options) {
   if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
     throw new Error(`Invalid directory: directory must be a non-empty string`);
   }
   const validated = PlanSchema.parse(plan);
-  try {
-    const currentPlan = await loadPlanJsonOnly(directory);
-    if (currentPlan) {
-      const completedTaskIds = new Set;
-      for (const phase of currentPlan.phases) {
-        for (const task of phase.tasks) {
-          if (task.status === "completed")
-            completedTaskIds.add(task.id);
-        }
-      }
-      if (completedTaskIds.size > 0) {
-        for (const phase of validated.phases) {
+  if (options?.preserveCompletedStatuses !== false) {
+    try {
+      const currentPlan = await loadPlanJsonOnly(directory);
+      if (currentPlan) {
+        const completedTaskIds = new Set;
+        for (const phase of currentPlan.phases) {
           for (const task of phase.tasks) {
-            if (completedTaskIds.has(task.id) && task.status !== "completed") {
-              task.status = "completed";
+            if (task.status === "completed")
+              completedTaskIds.add(task.id);
+          }
+        }
+        if (completedTaskIds.size > 0) {
+          for (const phase of validated.phases) {
+            for (const task of phase.tasks) {
+              if (completedTaskIds.has(task.id) && task.status !== "completed") {
+                task.status = "completed";
+              }
             }
           }
         }
       }
-    }
-  } catch {}
+    } catch {}
+  }
   for (const phase of validated.phases) {
     const tasks = phase.tasks;
     if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
@@ -15883,7 +15885,7 @@ async function updateTaskStatus(directory, taskId, status) {
     throw new Error(`Task not found: ${taskId}`);
   }
   const updatedPlan = { ...plan, phases: updatedPhases };
-  await savePlan(directory, updatedPlan);
+  await savePlan(directory, updatedPlan, { preserveCompletedStatuses: false });
   return updatedPlan;
 }
 function derivePlanMarkdown(plan) {
