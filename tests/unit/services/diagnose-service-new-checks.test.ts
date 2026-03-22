@@ -1,4 +1,5 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
+import { mock } from 'bun:test';
 import { getDiagnoseData } from '../../../src/services/diagnose-service.js';
 import { readFileSync } from 'node:fs';
 
@@ -71,6 +72,11 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.OPENCODE_SWARM_ID;
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+  mock.restore();
 });
 
 describe('checkConfigParseability', () => {

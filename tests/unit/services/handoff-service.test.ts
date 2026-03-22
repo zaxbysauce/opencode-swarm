@@ -1,4 +1,5 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { mock } from 'bun:test';
 import { getHandoffData, formatHandoffMarkdown, type HandoffData, type PendingQA, type DelegationState } from '../../../src/services/handoff-service.js';
 
 // Mock all the imported modules
@@ -93,6 +94,11 @@ beforeEach(() => {
   // Default: all files return null (missing)
   mockReadSwarmFileAsync.mockResolvedValue(null);
   mockLoadPlanJsonOnly.mockResolvedValue(null);
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+  mock.restore();
 });
 
 describe('getHandoffData', () => {
