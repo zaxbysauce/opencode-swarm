@@ -21,13 +21,6 @@ const VALID_CATEGORIES: KnowledgeCategory[] = [
 	'other',
 ];
 
-interface KnowledgeAddArgs {
-	lesson: unknown;
-	category: unknown;
-	tags?: unknown;
-	scope?: unknown;
-}
-
 export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
 	{
 		description:

@@ -7,10 +7,6 @@ import {
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { createSwarmTool } from './create-tool.js';
 
-interface KnowledgeRemoveArgs {
-	id: unknown;
-}
-
 export const knowledgeRemove: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
 		description:
