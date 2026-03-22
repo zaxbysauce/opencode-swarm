@@ -3,13 +3,19 @@
  * Covers tier filtering, status/category/score filters, formatted output, and architect-only access assumptions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import { writeFileSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { knowledge_query } from '../../../src/tools/knowledge-query';
 import type { SwarmKnowledgeEntry } from '../../../src/hooks/knowledge-types';
+
+// Mock the knowledge-store module to redirect hive path to temp directory
+vi.mock('../../../src/hooks/knowledge-store.js', () => ({
+	resolveHiveKnowledgePath: vi.fn(() => path.join(process.cwd(), '.swarm', 'hive-knowledge.jsonl')),
+	resolveSwarmKnowledgePath: (dir: string) => path.join(dir, '.swarm', 'knowledge.jsonl'),
+}));
 
 describe('knowledge-query tool verification tests', () => {
 	let tmpDir: string;
