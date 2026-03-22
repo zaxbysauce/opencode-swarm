@@ -140,8 +140,10 @@ function parseJsonSpec(content: string): SpecPath[] {
 	let spec: { paths?: Record<string, unknown> };
 	try {
 		spec = JSON.parse(content);
-	} catch {
-		return [];
+	} catch (err) {
+		throw new Error(
+			`Failed to parse JSON spec: ${err instanceof Error ? err.message : 'invalid JSON'}`,
+		);
 	}
 	const paths: SpecPath[] = [];
 
@@ -297,13 +299,13 @@ function extractRoutesFromFile(filePath: string): CodeRoute[] {
 	// Track line numbers for Express/Fastify
 	for (let lineNum = 0; lineNum < lines.length; lineNum++) {
 		const line = lines[lineNum];
-		let match = expressRegex.exec(line);
 
-		// Reset regex lastIndex for each line
+		// Reset regex lastIndex for each line to start fresh
 		expressRegex.lastIndex = 0;
 		flaskRegex.lastIndex = 0;
 
 		// Check Express/Fastify patterns
+		let match = expressRegex.exec(line);
 		while (match !== null) {
 			const method = match[1].toLowerCase();
 			const routePath = match[2];

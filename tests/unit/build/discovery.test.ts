@@ -211,8 +211,11 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			// Should find npm if available
-			expect(result.skipped.some(s => s.ecosystem === 'node')).toBe(true);
+			// Profile-based detection uses 'typescript' ecosystem; fallback uses 'node'
+			expect(
+				result.commands.some(c => c.ecosystem === 'node' || c.ecosystem === 'typescript') ||
+				result.skipped.some(s => s.ecosystem === 'node' || s.ecosystem === 'typescript')
+			).toBe(true);
 		});
 
 		test('finds repo-defined build script', async () => {
@@ -294,7 +297,11 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'java-maven') || result.skipped.some(s => s.ecosystem === 'java-maven')).toBe(true);
+			// Profile-based detection returns ecosystem 'java'; fallback uses 'java-maven'
+			expect(
+				result.commands.some(c => c.ecosystem === 'java-maven' || c.ecosystem === 'java') ||
+				result.skipped.some(s => s.ecosystem === 'java-maven' || s.ecosystem === 'java')
+			).toBe(true);
 		});
 
 		test('detects build.gradle for Gradle', async () => {
@@ -304,7 +311,11 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'java-gradle') || result.skipped.some(s => s.ecosystem === 'java-gradle')).toBe(true);
+			// Profile-based detection returns ecosystem 'java'; fallback uses 'java-gradle'
+			expect(
+				result.commands.some(c => c.ecosystem === 'java-gradle' || c.ecosystem === 'java') ||
+				result.skipped.some(s => s.ecosystem === 'java-gradle' || s.ecosystem === 'java')
+			).toBe(true);
 		});
 	});
 

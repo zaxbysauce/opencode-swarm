@@ -1340,7 +1340,7 @@ describe('secretscan tool', () => {
 
 			it('should not expose internal paths in error messages', async () => {
 				const result = await secretscan.execute(
-					{ directory: '/nonexistent/path/that/does/not/exist' },
+					{ directory: '/etc/passwd' },
 					{} as any
 				);
 				const parsed = parseResult(result);
@@ -1348,7 +1348,7 @@ describe('secretscan tool', () => {
 				expect(parsed.error).toBeDefined();
 				// Should not leak resolved absolute paths
 				expect(parsed.error).not.toMatch(/[A-Z]:\\/i); // No Windows paths
-				expect(parsed.scan_dir).toBe('/nonexistent/path/that/does/not/exist');
+				expect(parsed.scan_dir).toBe('/etc/passwd');
 			});
 
 			it('should sanitize error messages from exceptions', async () => {
