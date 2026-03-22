@@ -545,6 +545,11 @@ export async function placeholderScan(
 			? filePath
 			: path.join(directory, filePath);
 
+		// Security: reject path traversal attempts
+		if (filePath.includes('../') || filePath.includes('..\\')) {
+			continue;
+		}
+
 		// Skip if file doesn't exist
 		if (!fs.existsSync(fullPath)) {
 			continue;
