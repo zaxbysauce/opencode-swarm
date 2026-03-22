@@ -1,5 +1,4 @@
-import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
-import { mock } from 'bun:test';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDiagnoseData } from '../../../src/services/diagnose-service.js';
 import type { Plan } from '../../../src/config/plan-schema.js';
 
@@ -84,11 +83,6 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.OPENCODE_SWARM_ID;
-});
-
-afterAll(() => {
-  vi.restoreAllMocks();
-  mock.restore();
 });
 
 describe('checkSwarmIdentity', () => {

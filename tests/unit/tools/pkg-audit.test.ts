@@ -1021,15 +1021,14 @@ Project has the following vulnerable packages
 
 	// ============ bundle-audit (Ruby) Tests ============
 	describe('bundle-audit audit', () => {
-		it('should return clean with note when bundle-audit execution fails', async () => {
+		it('should return clean with note when neither bundle-audit nor bundle on PATH', async () => {
 			mockSpawnError = new Error("'bundle-audit' is not recognized");
 
 			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
-			// Either "not installed" (if neither binary found) or error message (if bundle found but bundle-audit fails)
-			expect(parsed.note).toBeDefined();
+			expect(parsed.note).toContain('not installed');
 		});
 
 		it('should return clean with no findings when exit code 0', async () => {

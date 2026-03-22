@@ -13,7 +13,10 @@ import { validateSwarmPath } from '../hooks/utils';
  * Read a swarm file using node:fs/promises directly.
  * Avoids dependency on readSwarmFileAsync which may be mocked in test environments.
  */
-async function readRunMemoryFile(directory: string, filename: string): Promise<string | null> {
+async function readRunMemoryFile(
+	directory: string,
+	filename: string,
+): Promise<string | null> {
 	try {
 		const resolvedPath = validateSwarmPath(directory, filename);
 		return await fs.readFile(resolvedPath, 'utf-8');

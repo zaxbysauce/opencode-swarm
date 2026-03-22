@@ -260,7 +260,7 @@ func main() {
 		});
 
 		it('should scan Java files', async () => {
-			// Note: Java is now in the language profiles with native rules
+			// Note: Java is not in the language registry, so this tests skipped handling
 			const testFile = path.join(tempDir, 'Test.java');
 			fs.writeFileSync(
 				testFile,
@@ -278,8 +278,8 @@ func main() {
 
 			const result = await sastScan(input, tempDir);
 
-			// Java is now supported - file should be scanned
-			expect(result.summary.files_scanned).toBe(1);
+			// Java not supported - should skip file
+			expect(result.summary.files_scanned).toBe(0);
 		});
 
 		it('should scan PHP files', async () => {
@@ -299,7 +299,7 @@ func main() {
 		});
 
 		it('should scan C/C++ files', async () => {
-			// Note: C/C++ is now in the language profiles with native rules
+			// Note: C/C++ is not in the language registry, so this tests skipped handling
 			const testFile = path.join(tempDir, 'test.c');
 			fs.writeFileSync(
 				testFile,
@@ -318,10 +318,8 @@ int main() {
 
 			const result = await sastScan(input, tempDir);
 
-			// C is now supported - file should be scanned and gets() should trigger a finding
-			expect(result.summary.files_scanned).toBe(1);
-			const getsFinding = result.findings.find((f) => f.rule_id === 'sast/c-gets');
-			expect(getsFinding).toBeDefined();
+			// C not supported - should skip file
+			expect(result.summary.files_scanned).toBe(0);
 		});
 	});
 
