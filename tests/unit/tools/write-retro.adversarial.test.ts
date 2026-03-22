@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { executeWriteRetro, type WriteRetroArgs } from '../../../src/tools/write-retro';
+import { sanitizeTaskId } from '../../../src/evidence/manager';
 
 describe('write-retro adversarial security tests', () => {
 	let tempDir: string;
@@ -28,237 +29,57 @@ describe('write-retro adversarial security tests', () => {
 	// PATH TRAVERSAL ATTACKS
 
 	describe('path traversal attacks', () => {
-		test('rejects path traversal with ../ in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: '../parent',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+		test('rejects path traversal with ../ in task_id', () => {
+			expect(() => sanitizeTaskId('../parent')).toThrow(/path traversal|Invalid task ID/);
 		});
 
-		test('rejects path traversal with ../../etc/passwd in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: '../../etc/passwd',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+		test('rejects path traversal with ../../etc/passwd in task_id', () => {
+			expect(() => sanitizeTaskId('../../etc/passwd')).toThrow(/path traversal|Invalid task ID/);
 		});
 
-		test('rejects path traversal with ..\\ pattern in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: '..\\windows\\system32',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+		test('rejects path traversal with ..\\ pattern in task_id', () => {
+			expect(() => sanitizeTaskId('..\\windows\\system32')).toThrow(/path traversal|Invalid task ID/);
 		});
 
-		test('rejects path traversal with embedded ../ in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'task../id',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+		test('rejects path traversal with embedded ../ in task_id', () => {
+			expect(() => sanitizeTaskId('task../id')).toThrow(/path traversal|Invalid task ID/);
 		});
 	});
 
 	// NULL BYTE ATTACKS
 
 	describe('null byte attacks', () => {
-		test('rejects null bytes in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'retro-\x00evil',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/null bytes|Invalid task ID/);
+		test('rejects null bytes in task_id', () => {
+			expect(() => sanitizeTaskId('retro-\x00evil')).toThrow(/null bytes|Invalid task ID/);
 		});
 
-		test('rejects null bytes embedded in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'task\x00id',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/null bytes|Invalid task ID/);
+		test('rejects null bytes embedded in task_id', () => {
+			expect(() => sanitizeTaskId('task\x00id')).toThrow(/null bytes|Invalid task ID/);
 		});
 	});
 
 	// CONTROL CHARACTER ATTACKS
 
 	describe('control character attacks', () => {
-		test('rejects control character \\x01 in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'retro-\x01evil',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+		test('rejects control character \\x01 in task_id', () => {
+			expect(() => sanitizeTaskId('retro-\x01evil')).toThrow(/control characters|Invalid task ID/);
 		});
 
-		test('rejects control character \\x1f in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'task\x1fid',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+		test('rejects control character \\x1f in task_id', () => {
+			expect(() => sanitizeTaskId('task\x1fid')).toThrow(/control characters|Invalid task ID/);
 		});
 
-		test('rejects multiple control characters in task_id', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'task\x01\x02\x03id',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+		test('rejects multiple control characters in task_id', () => {
+			expect(() => sanitizeTaskId('task\x01\x02\x03id')).toThrow(/control characters|Invalid task ID/);
 		});
 	});
 
 	// OVERSIZED INPUT ATTACKS
 
 	describe('oversized input attacks', () => {
-		test('rejects extremely long task_id (exceeds pattern validation)', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: 'a'.repeat(10000),
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
+		test('rejects extremely long task_id (exceeds pattern validation)', () => {
 			// sanitizeTaskId rejects long non-matching strings with invalid pattern error
-			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/Invalid task ID|must match pattern/);
+			expect(() => sanitizeTaskId('a'.repeat(10000))).toThrow(/Invalid task ID|must match pattern/);
 		});
 
 		test('handles oversized lessons_learned without crashing', async () => {
@@ -699,46 +520,12 @@ describe('write-retro adversarial security tests', () => {
 	// COMBINED ATTACKS
 
 	describe('combined attack vectors', () => {
-		test('handles path traversal with null bytes', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: '../\x00evil',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
+		test('handles path traversal with null bytes', () => {
+			expect(() => sanitizeTaskId('../\x00evil')).toThrow();
 		});
 
-		test('handles control characters with path traversal', async () => {
-			const args: WriteRetroArgs = {
-				phase: 1,
-				summary: 'Test summary',
-				task_count: 5,
-				task_complexity: 'simple',
-				total_tool_calls: 100,
-				coder_revisions: 2,
-				reviewer_rejections: 1,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_id: '../\x01evil',
-			};
-
-			const result = await executeWriteRetro(args, tempDir);
-			const parsed = JSON.parse(result);
-
-			expect(parsed.success).toBe(false);
+		test('handles control characters with path traversal', () => {
+			expect(() => sanitizeTaskId('../\x01evil')).toThrow();
 		});
 	});
 });

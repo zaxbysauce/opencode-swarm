@@ -438,10 +438,11 @@ describe('todo_extract tool', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(3);
-			// All same priority, should be sorted by filename
-			expect(parsed.entries[0].file).toContain('afile');
-			expect(parsed.entries[1].file).toContain('mfile');
-			expect(parsed.entries[2].file).toContain('zfile');
+			// All same priority, should be sorted by filename (case-insensitive)
+			// Extract filenames from paths for comparison
+			const filenames = parsed.entries.map((e: any) => e.file.split(/[/\\]/).pop());
+			const sortedFilenames = [...filenames].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+			expect(filenames).toEqual(sortedFilenames);
 		});
 
 		it('returns proper JSON structure', async () => {
