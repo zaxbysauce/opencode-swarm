@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Compaction enrichment: injects `[CONTEXT OPTIMIZATION]` hint and `[STORED OUTPUTS]` count when `.swarm/summaries/` contains stored tool outputs
+- **Prompt hardening**: Added slop anti-pattern detection to coder SELF-AUDIT checklist
+- **Prompt hardening**: Expanded reviewer TIER 3 QUALITY section with slop pattern guidance
+- **Prompt hardening**: Added `GATES` field to reviewer INPUT FORMAT to skip redundant automated checks
+- **Prompt hardening**: Added `todo_scan` field to `check_gate_status` tool output
+- **Prompt hardening**: Added TODO SCAN advisory step to architect's QA pipeline
+- **Configuration**: Added `todo_gate` configuration section (`todo_gate.enabled`, `todo_gate.max_high_priority`, `todo_gate.block_on_threshold`) to control TODO gate behavior
+
+### Changed
+
+- Reviewer workflow: When `GATES` field provides passing results for automated gates (lint, SAST, placeholder-scan, secretscan), Tier 2 checks that those gates already cover are skipped, allowing reviewer to focus on uncovered areas
+
 ## [6.31.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.0...v6.31.1) (2026-03-21)
 
 

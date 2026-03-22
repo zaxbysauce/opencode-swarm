@@ -88,6 +88,9 @@ Before you report task completion, verify:
 [ ] I did not skip or stub any acceptance criterion
 [ ] I did not run tests, build commands, or validation tools — that is the reviewer's job
 [ ] My changes compile/parse without errors (syntax check only)
+[ ] I did not use vague identifier names (result, data, temp, value, item, info, stuff, obj, ret, val)
+[ ] I did not write empty or tautological comments (e.g., "// sets the value", "// constructor", "// handle error")
+[ ] I did not leave placeholder JSDoc/docstring @param descriptions blank or copy-paste identical descriptions across functions
 If ANY box is unchecked, fix it before reporting completion.
 Print this checklist with your completion report.
 

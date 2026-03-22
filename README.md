@@ -754,7 +754,7 @@ The `plan_cursor` config compresses the plan that is injected into the LLM conte
 
 Disabling (`"enabled": false`) falls back to the pre‑v6.13 behavior of injecting the entire plan text.
 
-## Tool Output Truncation (v6.13)
+## Tool Output Truncation (v6.13+)
 
 Control the size of tool outputs that are sent back to the LLM.
 
@@ -763,6 +763,7 @@ Control the size of tool outputs that are sent back to the LLM.
   "tool_output": {
     "truncation_enabled": true,
     "max_lines": 150,
+    "truncation_tools": ["diff", "symbols", "bash", "test_runner"],
     "per_tool": {
       "diff": 200,
       "symbols": 100
@@ -771,15 +772,17 @@ Control the size of tool outputs that are sent back to the LLM.
 }
 ```
 
-- **truncation_enabled** – Global switch (default true).
-- **max_lines** – Default line limit for any tool output.
-- **per_tool** – Overrides `max_lines` for specific tools. The `diff` and `symbols` tools are truncated by default because their outputs can be very large.
+- **truncation_enabled** – Global switch (default `true`).
+- **max_lines** – Default line limit for any tool output (default `150`).
+- **truncation_tools** – Which tools to truncate. Defaults to: `diff`, `symbols`, `bash`, `shell`, `test_runner`, `lint`, `pre_check_batch`, `complexity_hotspots`, `pkg_audit`, `sbom_generate`, `schema_drift`. Omit this field to use defaults; set to an empty array `[]` to disable truncation for all tools.
+- **per_tool** – Overrides `max_lines` for specific tools.
 
-When truncation is active, a footer is appended:
+When truncation is active, the output preserves the head and last 10 lines (tail context), with an omission marker in between:
 
 ```
----
-[output truncated to {maxLines} lines – use `tool_output.per_tool.<tool>` to adjust]
+[... 50 lines omitted ...]
+Tool: diff
+Use /swarm retrieve <id> to get the full content
 ```
 
 ## Summarization Settings
