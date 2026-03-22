@@ -729,7 +729,7 @@ Read-only tool to query the gate status of a specific task. Reads `.swarm/eviden
 **Usage**: Any phase to check task completion status without mutating evidence
 
 **Input**: `task_id` (task identifier in N.M, N.M.P, retro-N format, or internal tool ID like "sast_scan", "quality_budget", etc.)  
-**Output**: JSON with `taskId`, `status` (all_passed|incomplete|no_evidence), `required_gates`, `passed_gates`, `missing_gates`, `gates` map, and `message`
+**Output**: JSON with `taskId`, `status` (all_passed|incomplete|no_evidence), `required_gates`, `passed_gates`, `missing_gates`, `gates` map, `message`, and `todo_scan` (advisory TODO count if available)
 
 **Safety**: Validates task ID format against three accepted patterns (canonical N.M or N.M.P numeric format, retrospective format retro-N, or internal tool IDs like sast_scan/quality_budget/syntax_check/placeholder_scan/sbom_generate/build), enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
 
@@ -800,7 +800,10 @@ Registered on `experimental.chat.messages.transform` (composed with pipeline-tra
 Registered on `experimental.session.compacting`:
 - Reads `.swarm/plan.md`: extracts current phase + incomplete tasks
 - Reads `.swarm/context.md`: extracts decisions + patterns
-- Injects as compaction context strings (max 500 chars each)
+- Injects these as compaction context strings (max 500 chars each)
+- When `.swarm/summaries/` exists and contains files:
+  - Injects `[CONTEXT OPTIMIZATION]` hint: instructs LLM to replace large tool output blocks (bash, test_runner, lint, diff) with retrieve references, preserving tool name, exit status, and errors
+  - Injects `[STORED OUTPUTS]` count showing how many tool outputs are stored
 - Guides OpenCode's built-in compaction to preserve swarm-relevant context
 
 ### System Prompt Enhancement

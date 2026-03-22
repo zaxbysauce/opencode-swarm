@@ -188,13 +188,12 @@ export function filterByRole(
 		return [];
 	}
 
-	// Default to cwd if no directory provided
 	if (!directory) {
-		console.warn(
-			'[role-filter] No directory provided, falling back to process.cwd()',
+		throw new Error(
+			'[role-filter] No directory provided — ctx.directory is required',
 		);
 	}
-	const projectDir = directory || process.cwd();
+	const projectDir = directory;
 
 	// Filter entries based on role and tags
 	const filtered: ContextEntry[] = [];

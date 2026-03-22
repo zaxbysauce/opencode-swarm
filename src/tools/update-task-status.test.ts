@@ -99,7 +99,7 @@ describe('executeUpdateTaskStatus fallbackDir guard', () => {
 			const fallbackWarns = warns.filter((w) => w.includes('fallbackDir'));
 			expect(fallbackWarns.length).toBeGreaterThanOrEqual(1);
 			expect(fallbackWarns[0]).toBe(
-				'[update-task-status] fallbackDir is undefined, falling back to process.cwd()',
+				'[update-task-status] fallbackDir is undefined',
 			);
 		} finally {
 			console.warn = originalWarn;

@@ -140,7 +140,7 @@ export function checkReviewerGate(
 		// === Turbo Mode bypass check ===
 		// If Turbo Mode is active AND task does not touch Tier 3 patterns, bypass Stage B
 		if (hasActiveTurboMode()) {
-			const resolvedDir = workingDirectory ?? process.cwd();
+			const resolvedDir = workingDirectory!;
 			try {
 				const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
 				const planRaw = fs.readFileSync(planPath, 'utf-8');
@@ -175,7 +175,7 @@ export function checkReviewerGate(
 		}
 
 		// === evidence-first check (durable, survives restarts) ===
-		const resolvedDir = workingDirectory ?? process.cwd();
+		const resolvedDir = workingDirectory!;
 		try {
 			const evidencePath = path.join(
 				resolvedDir,
@@ -260,8 +260,7 @@ export function checkReviewerGate(
 		// Check plan.json as fallback — covers session restarts where task was
 		// completed in a prior session and plan.json is the source of truth.
 		try {
-			// Use provided workingDirectory if available, otherwise fall back to process.cwd()
-			const resolvedDir = workingDirectory ?? process.cwd();
+			const resolvedDir = workingDirectory!;
 			const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
 			const planRaw = fs.readFileSync(planPath, 'utf-8');
 			const plan = JSON.parse(planRaw) as {
@@ -354,10 +353,9 @@ export async function checkReviewerGateWithScope(
 	workingDirectory?: string,
 ): Promise<ReviewerGateResult> {
 	const result = checkReviewerGate(taskId, workingDirectory);
-	const scopeWarning = await validateDiffScope(
-		taskId,
-		workingDirectory ?? process.cwd(),
-	).catch(() => null);
+	const scopeWarning = await validateDiffScope(taskId, workingDirectory!).catch(
+		() => null,
+	);
 	if (!scopeWarning) return result;
 	return {
 		...result,
@@ -590,14 +588,12 @@ export async function executeUpdateTaskStatus(
 			};
 		}
 	} else {
-		// No working_directory provided, use fallback or process.cwd()
+		// No working_directory provided, use fallbackDir from createSwarmTool
 		if (!fallbackDir) {
 			// fallbackDir should always be provided by createSwarmTool; this guard prevents silent failures
-			console.warn(
-				'[update-task-status] fallbackDir is undefined, falling back to process.cwd()',
-			);
+			console.warn('[update-task-status] fallbackDir is undefined');
 		}
-		directory = fallbackDir || process.cwd();
+		directory = fallbackDir as string;
 	}
 
 	// State machine check: task must have reached tests_run or complete state
