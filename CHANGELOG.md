@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.31.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.2...v6.31.3) (2026-03-22)
+
+
+### Bug Fixes
+
+* **plan:** allow update_task_status to override completed statuses ([#246](https://github.com/zaxbysauce/opencode-swarm/issues/246)) ([81dc5d2](https://github.com/zaxbysauce/opencode-swarm/commit/81dc5d22f935fdf6942ea1026e18702426671f52))
+
 ## [6.31.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.1...v6.31.2) (2026-03-22)
 
 
