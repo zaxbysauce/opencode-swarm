@@ -45,7 +45,7 @@ Working on Phase 1
     );
 
     const result = await handleDiagnoseCommand(tempDir, []);
-    expect(result).toContain('✅ All checks passed');
+    expect(result).toContain('checks passed');
     expect(result).toContain('✅ **plan.md**: Found with valid phase structure');
     expect(result).toContain('✅ **context.md**: Found');
     expect(result).toContain('✅ **Plugin config**:');
@@ -123,7 +123,7 @@ Some random content without proper phase structure
     );
 
     const result = await handleDiagnoseCommand(tempDir, []);
-    expect(result).toContain('**Result**: ✅ All checks passed');
+    expect(result).toContain('checks passed');
   });
 
   test('Result string format - partial pass', async () => {

@@ -53,12 +53,12 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		oldDate.setDate(oldDate.getDate() - 100); // 100 days ago (older than 90 day retention)
 		const oldIsoDate = oldDate.toISOString();
 
-		mockListEvidenceTaskIds.mockResolvedValue(['task-old']);
+		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 		mockLoadEvidence.mockResolvedValue({
 			status: 'found',
 			bundle: {
 				schema_version: '1.0.0',
-				task_id: 'task-old',
+				task_id: '1.1',
 				entries: [],
 				created_at: oldIsoDate,
 				updated_at: oldIsoDate,
@@ -70,13 +70,13 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 
 		// Assert
 		expect(result).toContain('Would archive');
-		expect(result).toContain('task-old');
-		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-old');
+		expect(result).toContain('1.1');
+		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.1');
 	});
 
 	it('should NOT include task in "would archive" when loadEvidence returns status: "not_found"', async () => {
 		// Arrange
-		mockListEvidenceTaskIds.mockResolvedValue(['task-not-found']);
+		mockListEvidenceTaskIds.mockResolvedValue(['1.2']);
 		mockLoadEvidence.mockResolvedValue({
 			status: 'not_found',
 		});
@@ -85,15 +85,15 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		const result = await handleArchiveCommand('/test/dir', ['--dry-run']);
 
 		// Assert
-		expect(result).not.toContain('task-not-found');
-		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-not-found');
+		expect(result).not.toContain('1.2');
+		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.2');
 		// Verify no bundles would be archived
 		expect(result).toContain('No evidence bundles older than 90 days found');
 	});
 
 	it('should NOT include task in "would archive" when loadEvidence returns status: "invalid_schema"', async () => {
 		// Arrange
-		mockListEvidenceTaskIds.mockResolvedValue(['task-invalid']);
+		mockListEvidenceTaskIds.mockResolvedValue(['1.3']);
 		mockLoadEvidence.mockResolvedValue({
 			status: 'invalid_schema',
 			errors: ['schema_version: Required', 'updated_at: Invalid date format'],
@@ -103,8 +103,8 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		const result = await handleArchiveCommand('/test/dir', ['--dry-run']);
 
 		// Assert
-		expect(result).not.toContain('task-invalid');
-		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-invalid');
+		expect(result).not.toContain('1.3');
+		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.3');
 		// Verify no bundles would be archived
 		expect(result).toContain('No evidence bundles older than 90 days found');
 	});
@@ -116,27 +116,27 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		const oldIsoDate = oldDate.toISOString();
 
 		mockListEvidenceTaskIds.mockResolvedValue([
-			'task-old',
-			'task-not-found',
-			'task-invalid',
+			'1.1',
+			'1.2',
+			'1.3',
 		]);
 
 		// Return different results based on taskId
 		mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-			if (taskId === 'task-old') {
+			if (taskId === '1.1') {
 				return Promise.resolve({
 					status: 'found',
 					bundle: {
 						schema_version: '1.0.0',
-						task_id: 'task-old',
+						task_id: '1.1',
 						entries: [],
 						created_at: oldIsoDate,
 						updated_at: oldIsoDate,
 					},
 				});
-			} else if (taskId === 'task-not-found') {
+			} else if (taskId === '1.2') {
 				return Promise.resolve({ status: 'not_found' });
-			} else if (taskId === 'task-invalid') {
+			} else if (taskId === '1.3') {
 				return Promise.resolve({
 					status: 'invalid_schema',
 					errors: ['schema_version: Required'],
@@ -148,10 +148,10 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		// Act
 		const result = await handleArchiveCommand('/test/dir', ['--dry-run']);
 
-		// Assert - only task-old should appear in would archive
-		expect(result).toContain('task-old');
-		expect(result).not.toContain('task-not-found');
-		expect(result).not.toContain('task-invalid');
+		// Assert - only 1.1 should appear in would archive
+		expect(result).toContain('1.1');
+		expect(result).not.toContain('1.2');
+		expect(result).not.toContain('1.3');
 		expect(result).toContain('Age-based (1)');
 	});
 });

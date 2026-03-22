@@ -138,8 +138,8 @@ describe('handleBenchmarkCommand', () => {
 	it('ci-gate passes when thresholds met', async () => {
 		// Create passing evidence - 8 approved, 2 rejected = 80% >= 70%
 		for (let i = 0; i < 8; i++) {
-			await saveEvidence(testDir, `pass-${i}`, {
-				task_id: `pass-${i}`,
+			await saveEvidence(testDir, `2.${i + 1}`, {
+				task_id: `2.${i + 1}`,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -150,8 +150,8 @@ describe('handleBenchmarkCommand', () => {
 			});
 		}
 		for (let i = 0; i < 2; i++) {
-			await saveEvidence(testDir, `fail-${i}`, {
-				task_id: `fail-${i}`,
+			await saveEvidence(testDir, `3.${i + 1}`, {
+				task_id: `3.${i + 1}`,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -162,8 +162,8 @@ describe('handleBenchmarkCommand', () => {
 			});
 		}
 		// Test evidence: 90 passed, 10 failed = 90% >= 80%
-		await saveEvidence(testDir, 'test-1', {
-			task_id: 'test-1',
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
 			type: 'test',
 			timestamp: new Date().toISOString(),
 			agent: 'test_engineer',
@@ -190,8 +190,8 @@ describe('handleBenchmarkCommand', () => {
 
 	it('ci-gate fails when review pass rate below threshold', async () => {
 		// 1 approved, 9 rejected = 10% < 70%
-		await saveEvidence(testDir, 'good-1', {
-			task_id: 'good-1',
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
 			type: 'review',
 			timestamp: new Date().toISOString(),
 			agent: 'reviewer',
@@ -201,8 +201,8 @@ describe('handleBenchmarkCommand', () => {
 			issues: [],
 		});
 		for (let i = 0; i < 9; i++) {
-			await saveEvidence(testDir, `bad-${i}`, {
-				task_id: `bad-${i}`,
+			await saveEvidence(testDir, `4.${i + 1}`, {
+				task_id: `4.${i + 1}`,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -213,8 +213,8 @@ describe('handleBenchmarkCommand', () => {
 			});
 		}
 		// Add passing test evidence to isolate the failure to review rate
-		await saveEvidence(testDir, 'test-pass', {
-			task_id: 'test-pass',
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
 			type: 'test',
 			timestamp: new Date().toISOString(),
 			agent: 'test_engineer',
@@ -241,8 +241,8 @@ describe('handleBenchmarkCommand', () => {
 		});
 		// Need passing evidence to not fail on review/test thresholds
 		for (let i = 0; i < 8; i++) {
-			await saveEvidence(testDir, `r-${i}`, {
-				task_id: `r-${i}`,
+			await saveEvidence(testDir, `5.${i + 1}`, {
+				task_id: `5.${i + 1}`,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -252,8 +252,8 @@ describe('handleBenchmarkCommand', () => {
 				issues: [],
 			});
 		}
-		await saveEvidence(testDir, 'test-ok', {
-			task_id: 'test-ok',
+		await saveEvidence(testDir, '1.1', {
+			task_id: '1.1',
 			type: 'test',
 			timestamp: new Date().toISOString(),
 			agent: 'test_engineer',

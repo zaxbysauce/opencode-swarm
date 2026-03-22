@@ -18150,6 +18150,21 @@ var CompactionConfigSchema = exports_external.object({
   emergencyThreshold: exports_external.number().min(1).max(99).default(80),
   preserveLastNTurns: exports_external.number().int().min(1).default(5)
 });
+var ToolOutputRoleProfileSchema = exports_external.object({
+  max_tokens: exports_external.number().min(500).max(20000).optional(),
+  keep_sections: exports_external.array(exports_external.string()).optional()
+});
+var ToolOutputRoleProfilesSchema = exports_external.object({
+  architect: ToolOutputRoleProfileSchema.optional(),
+  coder: ToolOutputRoleProfileSchema.optional(),
+  reviewer: ToolOutputRoleProfileSchema.optional(),
+  test_engineer: ToolOutputRoleProfileSchema.optional(),
+  explorer: ToolOutputRoleProfileSchema.optional(),
+  sme: ToolOutputRoleProfileSchema.optional(),
+  critic: ToolOutputRoleProfileSchema.optional(),
+  docs: ToolOutputRoleProfileSchema.optional(),
+  designer: ToolOutputRoleProfileSchema.optional()
+}).optional();
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -18184,7 +18199,8 @@ var PluginConfigSchema = exports_external.object({
   tool_output: exports_external.object({
     truncation_enabled: exports_external.boolean().default(true),
     max_lines: exports_external.number().min(10).max(500).default(150),
-    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional()
+    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional(),
+    role_profiles: ToolOutputRoleProfilesSchema
   }).optional(),
   slop_detector: SlopDetectorConfigSchema.optional(),
   incremental_verify: IncrementalVerifyConfigSchema.optional(),

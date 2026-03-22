@@ -26,6 +26,12 @@ describe('KnowledgeConfigSchema', () => {
 				low_utility_threshold: 0.3,
 				min_retrievals_for_utility: 3,
 				schema_version: 1,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
+				same_project_weight: 1.0,
 			});
 		});
 
@@ -60,6 +66,12 @@ describe('KnowledgeConfigSchema', () => {
 				low_utility_threshold: 0.25,
 				min_retrievals_for_utility: 5,
 				schema_version: 2,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
+				same_project_weight: 1.0,
 			};
 
 			const result = KnowledgeConfigSchema.parse(fullConfig);
@@ -144,23 +156,27 @@ describe('KnowledgeConfigSchema', () => {
 
 		it('should accept full knowledge config', () => {
 			const fullConfig = {
-				knowledge: {
-					enabled: false,
-					swarm_max_entries: 500,
-					hive_max_entries: 1000,
-					auto_promote_days: 30,
-					max_inject_count: 10,
-					dedup_threshold: 0.8,
-					scope_filter: ['global', 'project'],
-					hive_enabled: false,
-					rejected_max_entries: 50,
-					validation_enabled: false,
-					evergreen_confidence: 0.95,
-					evergreen_utility: 0.85,
-					low_utility_threshold: 0.25,
-					min_retrievals_for_utility: 5,
-					schema_version: 2,
-				},
+				enabled: false,
+				swarm_max_entries: 500,
+				hive_max_entries: 1000,
+				auto_promote_days: 30,
+				max_inject_count: 10,
+				dedup_threshold: 0.8,
+				scope_filter: ['global', 'project'],
+				hive_enabled: false,
+				rejected_max_entries: 50,
+				validation_enabled: false,
+				evergreen_confidence: 0.95,
+				evergreen_utility: 0.85,
+				low_utility_threshold: 0.25,
+				min_retrievals_for_utility: 5,
+				schema_version: 2,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
+				same_project_weight: 1.0,
 			};
 
 			const result = PluginConfigSchema.parse(fullConfig);
@@ -187,6 +203,12 @@ describe('KnowledgeConfigSchema', () => {
 				low_utility_threshold: 0.3,
 				min_retrievals_for_utility: 3,
 				schema_version: 1,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
+				same_project_weight: 1.0,
 			};
 
 			// Type check - this should compile

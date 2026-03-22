@@ -128,6 +128,7 @@ describe('PluginConfigSchema', () => {
         max_iterations: 5,
         qa_retry_limit: 3,
         inject_phase_reminders: true,
+        adversarial_testing: { enabled: true, scope: 'all' },
       });
     }
   });
@@ -155,6 +156,7 @@ describe('PluginConfigSchema', () => {
       max_iterations: 8,
       qa_retry_limit: 5,
       inject_phase_reminders: false,
+      adversarial_testing: { enabled: true, scope: 'all' },
     };
     const result = PluginConfigSchema.safeParse(config);
     expect(result.success).toBe(true);

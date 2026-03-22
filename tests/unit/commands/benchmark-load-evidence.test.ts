@@ -41,150 +41,150 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should aggregate review evidence when loadEvidence returns status: "found"', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [
-						{
-							type: 'review',
-							timestamp: mockDate,
-							agent: 'reviewer',
-							verdict: 'approved',
-							summary: 'LGTM',
-							risk: 'low',
-							issues: [],
-						},
-					],
-					created_at: mockDate,
-					updated_at: mockDate,
-				},
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('Quality Signals');
-			expect(result).toContain('Review pass rate: 100%');
-			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-1');
+		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
+		mockLoadEvidence.mockResolvedValue({
+			status: 'found',
+			bundle: {
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'review',
+						timestamp: mockDate,
+						agent: 'reviewer',
+						verdict: 'approved',
+						summary: 'LGTM',
+						risk: 'low',
+						issues: [],
+					},
+				],
+				created_at: mockDate,
+				updated_at: mockDate,
+			},
 		});
+
+		// Act
+		const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
+
+		// Assert
+		expect(result).toContain('Quality Signals');
+		expect(result).toContain('Review pass rate: 100%');
+		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.1');
+	});
 
 		it('should aggregate test evidence when loadEvidence returns status: "found"', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [
-						{
-							type: 'test',
-							timestamp: mockDate,
-							agent: 'test_engineer',
-							verdict: 'pass',
-							summary: 'Tests passed',
-							tests_passed: 80,
-							tests_failed: 20,
-							failures: [],
-						},
-					],
-					created_at: mockDate,
-					updated_at: mockDate,
-				},
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('Quality Signals');
-			expect(result).toContain('Test pass rate: 80%');
-			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-1');
+		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
+		mockLoadEvidence.mockResolvedValue({
+			status: 'found',
+			bundle: {
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'test',
+						timestamp: mockDate,
+						agent: 'test_engineer',
+						verdict: 'pass',
+						summary: 'Tests passed',
+						tests_passed: 80,
+						tests_failed: 20,
+						failures: [],
+					},
+				],
+				created_at: mockDate,
+				updated_at: mockDate,
+			},
 		});
+
+		// Act
+		const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
+
+		// Assert
+		expect(result).toContain('Quality Signals');
+		expect(result).toContain('Test pass rate: 80%');
+		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.1');
+	});
 
 		it('should aggregate quality_budget evidence when loadEvidence returns status: "found"', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [
-						{
-							type: 'quality_budget',
-							timestamp: mockDate,
-							agent: 'quality_budget',
-							verdict: 'pass',
-							summary: 'Quality budget passed',
-							metrics: {
-								complexity_delta: 3,
-								public_api_delta: 5,
-								duplication_ratio: 0.02,
-								test_to_code_ratio: 0.4,
-							},
-							thresholds: {
-								max_complexity_delta: 5,
-								max_public_api_delta: 10,
-								max_duplication_ratio: 0.05,
-								min_test_to_code_ratio: 0.3,
-							},
-							violations: [],
-							files_analyzed: ['src/test.ts'],
+		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
+		mockLoadEvidence.mockResolvedValue({
+			status: 'found',
+			bundle: {
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'quality_budget',
+						timestamp: mockDate,
+						agent: 'quality_budget',
+						verdict: 'pass',
+						summary: 'Quality budget passed',
+						metrics: {
+							complexity_delta: 3,
+							public_api_delta: 5,
+							duplication_ratio: 0.02,
+							test_to_code_ratio: 0.4,
 						},
-					],
-					created_at: mockDate,
-					updated_at: mockDate,
-				},
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('Quality Metrics');
-			expect(result).toContain('Complexity Delta: 3');
-			expect(result).toContain('Public API Delta: 5');
-			expect(result).toContain('Duplication Ratio: 2%');
-			expect(result).toContain('Test-to-Code Ratio: 40%');
+						thresholds: {
+							max_complexity_delta: 5,
+							max_public_api_delta: 10,
+							max_duplication_ratio: 0.05,
+							min_test_to_code_ratio: 0.3,
+						},
+						violations: [],
+						files_analyzed: ['src/test.ts'],
+					},
+				],
+				created_at: mockDate,
+				updated_at: mockDate,
+			},
 		});
+
+		// Act
+		const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
+
+		// Assert
+		expect(result).toContain('Quality Metrics');
+		expect(result).toContain('Complexity Delta: 3');
+		expect(result).toContain('Public API Delta: 5');
+		expect(result).toContain('Duplication Ratio: 2%');
+		expect(result).toContain('Test-to-Code Ratio: 40%');
+	});
 
 		it('should aggregate diff evidence when loadEvidence returns status: "found"', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [
-						{
-							type: 'diff',
-							timestamp: mockDate,
-							agent: 'coder',
-							additions: 100,
-							deletions: 50,
-						},
-					],
-					created_at: mockDate,
-					updated_at: mockDate,
-				},
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('Quality Signals');
-			expect(result).toContain('Code churn: +100 / -50 lines');
+		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
+		mockLoadEvidence.mockResolvedValue({
+			status: 'found',
+			bundle: {
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'diff',
+						timestamp: mockDate,
+						agent: 'coder',
+						additions: 100,
+						deletions: 50,
+					},
+				],
+				created_at: mockDate,
+				updated_at: mockDate,
+			},
 		});
+
+		// Act
+		const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
+
+		// Assert
+		expect(result).toContain('Quality Signals');
+		expect(result).toContain('Code churn: +100 / -50 lines');
+	});
 	});
 
 	describe('Edge case: status "not_found"', () => {
@@ -205,14 +205,14 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should aggregate only found evidence when some tasks return not_found', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-found', 'task-missing']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1', 'task-missing']);
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-found') {
+				if (taskId === '1.1') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-found',
+							task_id: '1.1',
 							entries: [
 								{
 									type: 'review',
@@ -237,14 +237,14 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Act
 			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
 
-			// Assert - only task-found's evidence should be counted
+			// Assert - only 1.1's evidence should be counted
 			expect(result).toContain('Review pass rate: 100%');
 			expect(result).toContain('(1)');
 		});
 
 		it('should show "No evidence data found" when all tasks return not_found', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1', 'task-2']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1', '1.2']);
 			mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 			// Act
@@ -253,8 +253,8 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Assert
 			expect(result).toContain('No evidence data found');
 			// Verify loadEvidence was called for each task
-			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-1');
-			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', 'task-2');
+			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.1');
+			expect(mockLoadEvidence).toHaveBeenCalledWith('/test/dir', '1.2');
 		});
 	});
 
@@ -280,16 +280,16 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
 			mockListEvidenceTaskIds.mockResolvedValue([
-				'task-valid',
+				'1.1',
 				'task-invalid',
 			]);
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-valid') {
+				if (taskId === '1.1') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-valid',
+							task_id: '1.1',
 							entries: [
 								{
 									type: 'review',
@@ -317,7 +317,7 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Act
 			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
 
-			// Assert - only task-valid's evidence should be counted
+			// Assert - only 1.1's evidence should be counted
 			expect(result).toContain('Review pass rate: 100%');
 			expect(result).toContain('(1)');
 		});
@@ -328,19 +328,19 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
 			mockListEvidenceTaskIds.mockResolvedValue([
-				'task-1-found',
+				'1.1',
 				'task-2-not-found',
 				'task-3-invalid',
-				'task-4-found',
+				'1.4',
 			]);
 
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-1-found') {
+				if (taskId === '1.1') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-1-found',
+							task_id: '1.1',
 							entries: [
 								{
 									type: 'review',
@@ -363,12 +363,12 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 						status: 'invalid_schema',
 						errors: ['schema_version: Required'],
 					});
-				} else if (taskId === 'task-4-found') {
+				} else if (taskId === '1.4') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-4-found',
+							task_id: '1.4',
 							entries: [
 								{
 									type: 'review',
@@ -391,7 +391,7 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 			// Act
 			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
 
-			// Assert - only task-1-found and task-4-found should be counted
+			// Assert - only 1.1 and 1.4 should be counted
 			expect(result).toContain('Review pass rate: 100%');
 			expect(result).toContain('(2)');
 		});
@@ -399,15 +399,15 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should aggregate quality metrics from multiple found tasks', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1', 'task-2']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1', '1.2']);
 
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-1') {
+				if (taskId === '1.1') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-1',
+							task_id: '1.1',
 							entries: [
 								{
 									type: 'quality_budget',
@@ -435,12 +435,12 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 							updated_at: mockDate,
 						},
 					});
-				} else if (taskId === 'task-2') {
+				} else if (taskId === '1.2') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-2',
+							task_id: '1.2',
 							entries: [
 								{
 									type: 'quality_budget',
@@ -485,14 +485,14 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should skip invalid evidence types within found bundles', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 
 			// First entry: valid type, second entry: invalid type
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: [
 						{
 							type: 'review',
@@ -530,16 +530,16 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should pass CI gate with found quality_budget evidence', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 
 			// Create passing review and test evidence
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-1') {
+				if (taskId === '1.1') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-1',
+							task_id: '1.1',
 							entries: [
 								{
 									type: 'review',
