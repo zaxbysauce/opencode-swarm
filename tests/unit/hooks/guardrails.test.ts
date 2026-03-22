@@ -1517,8 +1517,10 @@ describe('guardrails circuit breaker', () => {
 				it('defense: verify condition is `if (delegationActive)` not `if (!delegationActive)`', async () => {
 					// DEFENSE TEST: Read the actual code to verify the condition is correct
 					const fs = await import('node:fs');
-					const guardrailsPath = 'C:\\opencode\\opencode-swarm\\src\\hooks\\guardrails.ts';
-					const guardrailsCode = fs.readFileSync(guardrailsPath, 'utf-8');
+					const guardrailsCode = fs.readFileSync(
+						new URL('../../../src/hooks/guardrails.ts', import.meta.url),
+						'utf-8',
+					);
 
 					// Find the delegationActive guard (around line 214)
 					const delegationActiveGuardRegex = /if\s*\(\s*currentSession\?\.delegationActive\s*\)/;
