@@ -42,3 +42,4 @@ output_*.js
 
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/
+.claude/worktrees/
