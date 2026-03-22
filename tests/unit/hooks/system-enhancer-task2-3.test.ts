@@ -378,7 +378,7 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create retro exactly at 30 days boundary (should be excluded since ageMs > cutoff)
-			const boundaryDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+			const boundaryDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000 - 1000).toISOString();
 			await createRetroBundle(8, 'pass', ['Boundary lesson'], [], 'Phase 8 completed.', boundaryDate);
 
 			// Invoke the hook
