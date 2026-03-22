@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 
 describe('HELP_TEXT content', () => {
 	it('should contain knowledge migrate entry in VALID_COMMANDS', () => {

@@ -91,7 +91,8 @@ jobs:
           root = os.getcwd()
           files = sorted(set(
               glob.glob(os.path.join(root, 'tests/unit/commands/*.test.ts')) +
-              glob.glob(os.path.join(root, 'tests/unit/config/*.test.ts'))
+              glob.glob(os.path.join(root, 'tests/unit/config/*.test.ts')) +
+              glob.glob(os.path.join(root, 'src/commands/*.test.ts'))
           ))
 
           for file_path in files:
