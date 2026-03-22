@@ -255,7 +255,11 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
  * Validate against PlanSchema (throw on invalid), write to .swarm/plan.json via atomic temp+rename pattern,
  * then derive and write .swarm/plan.md
  */
-export async function savePlan(directory: string, plan: Plan): Promise<void> {
+export async function savePlan(
+	directory: string,
+	plan: Plan,
+	options?: { preserveCompletedStatuses?: boolean },
+): Promise<void> {
 	// Fail-fast: reject blank or whitespace-only directory inputs before any I/O
 	if (
 		directory === null ||
@@ -272,28 +276,33 @@ export async function savePlan(directory: string, plan: Plan): Promise<void> {
 	// Protect completed tasks from regression (root cause #4):
 	// If any task was 'completed' in the current plan.json, preserve that status
 	// even if the incoming plan has it as 'pending'/'in_progress'/'blocked'.
-	try {
-		const currentPlan = await loadPlanJsonOnly(directory);
-		if (currentPlan) {
-			const completedTaskIds = new Set<string>();
-			for (const phase of currentPlan.phases) {
-				for (const task of phase.tasks) {
-					if (task.status === 'completed') completedTaskIds.add(task.id);
-				}
-			}
-			if (completedTaskIds.size > 0) {
-				for (const phase of validated.phases) {
+	if (options?.preserveCompletedStatuses !== false) {
+		try {
+			const currentPlan = await loadPlanJsonOnly(directory);
+			if (currentPlan) {
+				const completedTaskIds = new Set<string>();
+				for (const phase of currentPlan.phases) {
 					for (const task of phase.tasks) {
-						if (completedTaskIds.has(task.id) && task.status !== 'completed') {
-							task.status = 'completed';
+						if (task.status === 'completed') completedTaskIds.add(task.id);
+					}
+				}
+				if (completedTaskIds.size > 0) {
+					for (const phase of validated.phases) {
+						for (const task of phase.tasks) {
+							if (
+								completedTaskIds.has(task.id) &&
+								task.status !== 'completed'
+							) {
+								task.status = 'completed';
+							}
 						}
 					}
 				}
 			}
+		} catch {
+			/* first write or corrupted plan — proceed without regression protection */
 		}
-	} catch {
-		/* first write or corrupted plan — proceed without regression protection */
-	}
+	} // end preserveCompletedStatuses guard
 
 	// Derive phase status from task statuses on every save (fixes remaining Issue #145):
 	// Ensures phase status is always consistent even when architect calls save_plan directly.
@@ -424,7 +433,7 @@ export async function updateTaskStatus(
 	}
 
 	const updatedPlan: Plan = { ...plan, phases: updatedPhases };
-	await savePlan(directory, updatedPlan);
+	await savePlan(directory, updatedPlan, { preserveCompletedStatuses: false });
 	return updatedPlan;
 }
 
