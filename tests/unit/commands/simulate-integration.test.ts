@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import type { AgentDefinition } from '../../../src/agents';
 import { createSwarmCommandHandler } from '../../../src/commands/index';
 import * as simulateModule from '../../../src/commands/simulate';
@@ -14,18 +14,26 @@ describe('/swarm simulate command registration integration', () => {
 	};
 
 	let handler: ReturnType<typeof createSwarmCommandHandler>;
+	let activeSpies: Array<{ mockRestore(): void }> = [];
 
 	beforeEach(() => {
 		handler = createSwarmCommandHandler(testDir, testAgents);
-		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		for (const spy of activeSpies) {
+			spy.mockRestore();
+		}
+		activeSpies = [];
 	});
 
 	describe('Command dispatcher routing', () => {
 		it('should dispatch "simulate" to handleSimulateCommand', async () => {
-			const handleSimulateSpy = vi.spyOn(
+			const handleSimulateSpy = spyOn(
 				simulateModule,
 				'handleSimulateCommand',
 			).mockResolvedValue('Test simulation result');
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
@@ -41,10 +49,11 @@ describe('/swarm simulate command registration integration', () => {
 		});
 
 		it('should dispatch "simulate" with arguments to handleSimulateCommand', async () => {
-			const handleSimulateSpy = vi.spyOn(
+			const handleSimulateSpy = spyOn(
 				simulateModule,
 				'handleSimulateCommand',
 			).mockResolvedValue('Simulated with args');
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
@@ -65,10 +74,11 @@ describe('/swarm simulate command registration integration', () => {
 		});
 
 		it('should dispatch "simulate" with multiple arguments', async () => {
-			const handleSimulateSpy = vi.spyOn(
+			const handleSimulateSpy = spyOn(
 				simulateModule,
 				'handleSimulateCommand',
 			).mockResolvedValue('Simulated with multiple args');
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
@@ -91,9 +101,10 @@ describe('/swarm simulate command registration integration', () => {
 
 		it('should return text output from handleSimulateCommand', async () => {
 			const mockResult = '3 hidden coupling pairs detected';
-			vi.spyOn(simulateModule, 'handleSimulateCommand').mockResolvedValue(
+			const handleSimulateSpy = spyOn(simulateModule, 'handleSimulateCommand').mockResolvedValue(
 				mockResult,
 			);
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
@@ -147,10 +158,11 @@ describe('/swarm simulate command registration integration', () => {
 
 	describe('Edge cases', () => {
 		it('should handle simulate with trailing spaces', async () => {
-			const handleSimulateSpy = vi.spyOn(
+			const handleSimulateSpy = spyOn(
 				simulateModule,
 				'handleSimulateCommand',
 			).mockResolvedValue('Test');
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
@@ -163,10 +175,11 @@ describe('/swarm simulate command registration integration', () => {
 		});
 
 		it('should handle simulate with extra whitespace between args', async () => {
-			const handleSimulateSpy = vi.spyOn(
+			const handleSimulateSpy = spyOn(
 				simulateModule,
 				'handleSimulateCommand',
 			).mockResolvedValue('Test');
+			activeSpies.push(handleSimulateSpy);
 
 			const output = { parts: [] as unknown[] };
 			await handler(
