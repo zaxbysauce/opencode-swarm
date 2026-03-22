@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.31.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.1...v6.31.2) (2026-03-22)
+
+
+### Bug Fixes
+
+* **ci:** resolve OOM hang and remove unused knowledge tool interfaces ([#244](https://github.com/zaxbysauce/opencode-swarm/issues/244)) ([f170325](https://github.com/zaxbysauce/opencode-swarm/commit/f170325fc3d98b412815d4a91d83bf3718d12df5))
+
 ## [6.31.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.0...v6.31.1) (2026-03-21)
 
 
