@@ -868,24 +868,26 @@ describe('update-task-status adversarial tests', () => {
 				expect(result.blocked).toBe(true);
 			});
 
-			it('numeric taskId 0 blocked due to idle state, not format validation', () => {
+			it('numeric taskId 0 is blocked (isValidTaskId rejects non-string → idle state)', () => {
 				const session = createWorkflowTestSession();
 				swarmState.agentSessions.set('numeric-0-session', session);
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(0, tempDir);
-				// Not blocked due to format - current behavior allows through
-				expect(result.blocked).toBe(false);
+				// Blocked: isValidTaskId(0) returns false (not a string), getTaskState returns 'idle'
+				// idle state does not satisfy tests_run/complete requirement
+				expect(result.blocked).toBe(true);
 			});
 
-			it('numeric taskId 123 blocked due to idle state, not format validation', () => {
+			it('numeric taskId 123 is blocked (isValidTaskId rejects non-string → idle state)', () => {
 				const session = createWorkflowTestSession();
 				swarmState.agentSessions.set('numeric-123-session', session);
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(123, tempDir);
-				// Not blocked due to format - current behavior allows through
-				expect(result.blocked).toBe(false);
+				// Blocked: isValidTaskId(123) returns false (not a string), getTaskState returns 'idle'
+				// idle state does not satisfy tests_run/complete requirement
+				expect(result.blocked).toBe(true);
 			});
 		});
 
@@ -1235,29 +1237,32 @@ describe('update-task-status adversarial tests', () => {
 		// Attack Vector 4: Type coercion
 		// Can numeric taskId match string key? (Map uses identity: 0 !== '0')
 		describe('Attack vector 4: Type coercion', () => {
-			it('allows numeric taskId 0 when Map has string key "0" (JS coercion)', () => {
+			it('blocks numeric taskId 0 even when Map has string key "0" (isValidTaskId rejects non-strings)', () => {
 				const session = createWorkflowTestSession();
 				session.taskWorkflowStates.set('0', 'tests_run' as any);
 				swarmState.agentSessions.set('type-mismatch-session', session);
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(0, tempDir);
-				// JavaScript coerces number 0 to string '0' - Map lookup succeeds
-				expect(result.blocked).toBe(false);
+				// isValidTaskId(0) returns false (not a string), so getTaskState returns 'idle'
+				// Map.get is never called with the numeric key — JS Maps do NOT coerce types
+				// idle state → blocked
+				expect(result.blocked).toBe(true);
 			});
 
-			it('allows numeric taskId 123 when Map has string key "123" (JS coercion)', () => {
+			it('blocks numeric taskId 123 even when Map has string key "123" (isValidTaskId rejects non-strings)', () => {
 				const session = createWorkflowTestSession();
 				session.taskWorkflowStates.set('123', 'tests_run' as any);
 				swarmState.agentSessions.set('num-mismatch-session', session);
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(123, tempDir);
-				// JavaScript coerces number 123 to string '123' - Map lookup succeeds
-				expect(result.blocked).toBe(false);
+				// isValidTaskId(123) returns false (not a string), so getTaskState returns 'idle'
+				// idle state → blocked
+				expect(result.blocked).toBe(true);
 			});
 
-			it('ALLOWS numeric taskId when Map has numeric key (edge case)', () => {
+			it('blocks numeric taskId even when Map has matching numeric key (isValidTaskId rejects non-strings)', () => {
 				const session = createWorkflowTestSession();
 				// Some code might set numeric keys
 				session.taskWorkflowStates.set(1.1, 'tests_run' as any);
@@ -1265,9 +1270,9 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(1.1, tempDir);
-				// This might pass if the key is actually set as number
-				// Map(1.1, 'tests_run') vs get(1.1) - identity match
-				expect(result.blocked).toBe(false);
+				// isValidTaskId(1.1) returns false (not a string), so getTaskState returns 'idle'
+				// idle state → blocked
+				expect(result.blocked).toBe(true);
 			});
 		});
 

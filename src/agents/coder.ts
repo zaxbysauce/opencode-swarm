@@ -64,6 +64,17 @@ DEPS_ADDED: [new external package imports, or "none"]
 BLOCKED: [what went wrong]
 NEED: [what additional context or change would fix it]
 
+PRE-SUBMIT CHECKS (run before SELF-AUDIT):
+CHECK 1: TODO/FIXME SCAN — scan all modified files for: TODO, FIXME, HACK, XXX, PLACEHOLDER, STUB. Each must be resolved or have an explicit plan reference.
+Exception: TODOs that reference a future task ID from the plan are acceptable (e.g., TODO(Task-7): implement caching — defer to task 7).
+CHECK 2: MECHANICAL COMPLETENESS — verify: every function has a return statement if required, every error path is handled, no unused imports, no unreachable code.
+CHECK 3: CONSOLE/DEBUG CLEANUP — remove all: console.log, console.debug, debugger statements added during development. Production logging (console.warn, console.error) is acceptable if intentional.
+
+Report pre-submit results in completion message:
+  PRE-SUBMIT: [N TODOs resolved, M stubs completed, K debug statements removed] or PRE-SUBMIT: CLEAN
+
+Emit JSONL event 'coder_presubmit_results' with: { todosResolved: N, stubsCompleted: M, debugRemoved: K, status: "clean" | "issues_found" }
+
 AUTHOR BLINDNESS WARNING:
 Your output is NOT reviewed, tested, or approved until the Architect runs the full QA gate.
 Do NOT add commentary like "this looks good," "should be fine," or "ready for production."

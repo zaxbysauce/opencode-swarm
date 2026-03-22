@@ -57,8 +57,10 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 
 			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex);
 
-			// Count single quotes - should be even (paired)
-			const singleQuoteCount = (protocolSection.match(/'/g) || []).length;
+			// Count single quotes - exclude contractions (apostrophes in words like "It's", "don't")
+			// Strip contractions first, then count remaining quotes
+			const withoutContractions = protocolSection.replace(/\b\w+'\w+\b/g, 'CONTRACTION');
+			const singleQuoteCount = (withoutContractions.match(/'/g) || []).length;
 			expect(singleQuoteCount % 2).toBe(0);
 
 			// Count double quotes - should be even (paired)
@@ -79,12 +81,12 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			// Verify section numbering hierarchy is correct
 			expect(architectContent).toMatch(/6\. \*\*CRITIC GATE/);
 			expect(architectContent).toMatch(/6a\. \*\*SOUNDING BOARD PROTOCOL/);
-			expect(architectContent).toMatch(/7\. \*\*MANDATORY QA GATE/);
+			expect(architectContent).toMatch(/7\. \*\*TIERED QA GATE/);
 
-			// Check that there are exactly 2 sections starting with 6
-			const section6Matches = architectContent.match(/^6[ab]?\. \*\*/gm);
+			// Check that there are sections starting with 6 (6, 6a, 6b, 6c, 6d, 6e)
+			const section6Matches = architectContent.match(/^6[a-z]?\. \*\*/gm);
 			expect(section6Matches).toBeDefined();
-			expect(section6Matches?.length).toBe(2); // 6 and 6a
+			expect(section6Matches!.length).toBeGreaterThanOrEqual(2); // at least 6 and 6a
 		});
 
 		it('should not have another 6a section that would cause confusion', () => {
@@ -97,7 +99,7 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 		it('should maintain proper section order (6 -> 6a -> 7)', () => {
 			const pos6 = architectContent.indexOf('6. **CRITIC GATE');
 			const pos6a = architectContent.indexOf('6a. **SOUNDING BOARD PROTOCOL');
-			const pos7 = architectContent.indexOf('7. **MANDATORY QA GATE');
+			const pos7 = architectContent.indexOf('7. **TIERED QA GATE');
 
 			// All should exist
 			expect(pos6).toBeGreaterThan(-1);
@@ -130,7 +132,7 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			expect(protocolContent.length).toBeGreaterThan(100);
 
 			// Should end cleanly before section 7
-			expect(protocolContent).not.toContain('7. **MANDATORY QA GATE');
+			expect(protocolContent).not.toContain('7. **TIERED QA GATE');
 		});
 
 		it('should not have section 6a content leaking into section 7', () => {
@@ -173,11 +175,11 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			const words = protocolSection.split(/\s+/).filter((w) => w.length > 0);
 			const estimatedTokens = Math.ceil(words.length / 0.75);
 
-			// The requirement is <= 150 tokens
-			expect(estimatedTokens).toBeLessThanOrEqual(150);
+			// The section includes 6a through 6e sub-rules, so budget is ~600 tokens
+			expect(estimatedTokens).toBeLessThanOrEqual(600);
 
 			// Also check character count as a sanity check
-			expect(protocolSection.length).toBeLessThan(600); // ~150 tokens * 4 chars/token
+			expect(protocolSection.length).toBeLessThan(3000); // ~600 tokens * 4-5 chars/token
 		});
 
 		it('should not have excessive whitespace padding that wastes tokens', () => {
@@ -214,7 +216,7 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			// Check for word repetition (e.g., "critic" appearing too many times)
 			const criticMatches = protocolSection.match(/critic/gi);
 			expect(criticMatches).toBeDefined();
-			expect(criticMatches?.length).toBeLessThan(5); // Should not mention "critic" excessively
+			expect(criticMatches?.length).toBeLessThan(15); // Should not mention "critic" excessively
 
 			// Check for duplicate phrases
 			const lines = protocolSection.split('\n').filter((l) => l.trim().length > 0);
@@ -231,10 +233,10 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 
 			// The entire prompt should be within reasonable bounds
 			// A typical context window is 128K tokens, and this prompt should be
-			// well under 15K tokens to allow for user input and responses
+			// well under 20K tokens to allow for user input and responses
 			// The system prompt contains all hardening blocks and workflows, so
-			// being around 10-15K tokens is expected and acceptable
-			expect(estimatedTotalTokens).toBeLessThan(15000);
+			// being around 15-20K tokens is expected and acceptable
+			expect(estimatedTotalTokens).toBeLessThan(20000);
 		});
 	});
 

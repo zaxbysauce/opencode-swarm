@@ -695,7 +695,18 @@ describe('savePlan', () => {
 		// Verify round-trip through schema
 		const { PlanSchema } = await import('../../../src/config/plan-schema');
 		const validated = PlanSchema.parse(parsed);
-		expect(validated).toEqual(testPlan);
+
+		// savePlan derives phase status from task statuses:
+		// With all tasks in 'pending' state, phase status is normalized to 'pending'
+		// regardless of the original phase.status input. This is by design.
+		const expectedPlan = {
+			...testPlan,
+			phases: testPlan.phases.map((phase) => ({
+				...phase,
+				status: 'pending', // derived from task statuses (all tasks are 'pending')
+			})),
+		};
+		expect(validated).toEqual(expectedPlan);
 	});
 
 	test('plan.md contains derived markdown (check for phase header, task lines)', async () => {

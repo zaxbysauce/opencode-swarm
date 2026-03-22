@@ -146,6 +146,8 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 			`Invalid languageId: must be a string of at most 100 characters`,
 		);
 	}
+	// Sanitize adversarial input by stripping control characters, path separators,
+	// reserved chars, and Unicode ranges — then normalize to lowercase.
 	const normalizedId = sanitizeLanguageId(languageId).toLowerCase();
 	if (normalizedId.length === 0) {
 		throw new Error(`Invalid languageId: empty after sanitization`);
@@ -206,6 +208,8 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 	if (typeof languageId !== 'string' || languageId.length > 100) {
 		return false;
 	}
+	// Sanitize adversarial input by stripping control characters, path separators,
+	// reserved chars, and Unicode ranges — then normalize to lowercase.
 	const normalizedId = sanitizeLanguageId(languageId).toLowerCase();
 	if (normalizedId.length === 0) {
 		return false;

@@ -154,7 +154,7 @@ describe('critic.ts DRIFT-CHECK ADVERSARIAL', () => {
 			expect(driftCheckSection).toMatch(/INPUT:/);
 
 			// OUTPUT format should be clearly delineated
-			expect(driftCheckSection).toMatch(/OUTPUT FORMAT:/);
+			expect(driftCheckSection).toMatch(/OUTPUT FORMAT/);
 			expect(driftCheckSection).toMatch(/DRIFT-CHECK RESULT:/);
 
 			// No injection between INPUT and OUTPUT sections
@@ -250,9 +250,9 @@ describe('critic.ts DRIFT-CHECK ADVERSARIAL', () => {
 			expect(analyzeSection).toMatch(/VERDICT: CLEAN \| GAPS FOUND \| DRIFT DETECTED/);
 			expect(analyzeSection).toMatch(/COVERAGE TABLE:/);
 
-			// DRIFT-CHECK should not use ANALYZE output format
+			// DRIFT-CHECK should not use ANALYZE-specific output format (COVERAGE TABLE is ANALYZE-specific)
 			expect(driftCheckSection).not.toMatch(/COVERAGE TABLE:/);
-			expect(driftCheckSection).not.toMatch(/GOLD-PLATING:/);
+			// Note: GOLD-PLATING appears in DRIFT-CHECK scoring section (legitimate)
 
 			// ANALYZE should not use DRIFT-CHECK output format
 			expect(analyzeSection).not.toMatch(/DRIFT-CHECK RESULT:/);
@@ -322,7 +322,7 @@ describe('critic.ts DRIFT-CHECK ADVERSARIAL', () => {
 			const driftCheckSection = extractSection(criticPrompt, 'DRIFT-CHECK');
 
 			// Should have explicit handling for missing spec
-			expect(driftCheckSection).toMatch(/If no spec\.md, stop immediately/);
+			expect(driftCheckSection).toMatch(/spec\.md is missing.*stop immediately|If no spec\.md.*stop/);
 
 			// Should not attempt analysis with incomplete input
 			expect(driftCheckSection).not.toMatch(/attempt.*incomplete/);

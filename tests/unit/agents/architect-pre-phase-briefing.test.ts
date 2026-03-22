@@ -28,7 +28,8 @@ describe('PRE-PHASE BRIEFING Verification (Task 2.5)', () => {
 
 	test('3. "PRE-PHASE BRIEFING" appears BEFORE "MODE: PLAN" (positional check)', () => {
 		const prePhaseBriefingIndex = prompt!.indexOf('MODE: PRE-PHASE BRIEFING');
-		const planIndex = prompt!.indexOf('MODE: PLAN');
+		// Use ### MODE: PLAN to find the actual section header, not inline references
+		const planIndex = prompt!.indexOf('### MODE: PLAN');
 
 		expect(prePhaseBriefingIndex).not.toBe(-1);
 		expect(planIndex).not.toBe(-1);
@@ -98,12 +99,13 @@ describe('PRE-PHASE BRIEFING Verification (Task 2.5)', () => {
 	test('12. "HARD REQUIREMENT" phrase present in PRE-PHASE BRIEFING section', () => {
 		// Find the PRE-PHASE BRIEFING section
 		const prePhaseBriefingStart = prompt!.indexOf('MODE: PRE-PHASE BRIEFING');
-		const planStart = prompt!.indexOf('MODE: PLAN');
+		// Use ### MODE: PLAN to find the actual section header, not inline references
+		const planStart = prompt!.indexOf('### MODE: PLAN');
 
 		expect(prePhaseBriefingStart).not.toBe(-1);
 		expect(planStart).not.toBe(-1);
 
-		// Extract the PRE-PHASE BRIEFING section
+		// Extract the PRE-PHASE BRIEFING section (from its start to the next section)
 		const prePhaseBriefingSection = prompt!.slice(prePhaseBriefingStart, planStart);
 
 		// Verify it contains "HARD REQUIREMENT"

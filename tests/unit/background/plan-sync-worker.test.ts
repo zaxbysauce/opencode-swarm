@@ -223,12 +223,13 @@ describe('PlanSyncWorker', () => {
 	describe('polling fallback', () => {
 		test('should detect file changes via polling', async () => {
 			await setupTempDir(true, false);
-			
+
 			const syncCompleteCalls: Array<{ success: boolean; error?: Error }> = [];
 			worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
 				pollIntervalMs: 20,
+				syncTimeoutMs: 200,
 				onSyncComplete: (success, error) => {
 					syncCompleteCalls.push({ success, error });
 				},
@@ -261,11 +262,12 @@ describe('PlanSyncWorker', () => {
 
 		test('should reset stat when file is deleted', async () => {
 			await setupTempDir(true, true);
-			
+
 			worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
 				pollIntervalMs: 20,
+				syncTimeoutMs: 200,
 			});
 
 			worker.start();
@@ -787,6 +789,7 @@ describe('PlanSyncWorker', () => {
 			worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 50,
+				syncTimeoutMs: 500,
 			});
 
 			worker.start();
@@ -1278,6 +1281,7 @@ describe('PlanSyncWorker', () => {
 			worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
+				syncTimeoutMs: 500,
 			});
 
 			worker.start();

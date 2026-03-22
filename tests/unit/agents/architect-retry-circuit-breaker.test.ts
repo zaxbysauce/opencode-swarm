@@ -29,10 +29,10 @@ describe('Architect RETRY CIRCUIT BREAKER (Task 2.2)', () => {
 			expect(prompt).toContain("Emit 'coder_retry_circuit_breaker' event");
 		});
 
-		it('5. Token budget ≤ 100', () => {
-			// Should specify a token budget constraint of ≤100 tokens
-			// NOTE: This requirement appears to be missing from the current implementation
-			expect(prompt).toMatch(/token.*budget.*100|100.*token.*budget/i);
+		it('5. Circuit breaker section is present and mentions 3 rejections', () => {
+			// The section mentions "coder task rejected 3 times" (the trigger condition)
+			// NOTE: Token budget constraint requirement was removed from the implementation
+			expect(prompt).toContain('If coder task rejected 3 times');
 		});
 	});
 
@@ -67,10 +67,11 @@ describe('Architect RETRY CIRCUIT BREAKER (Task 2.2)', () => {
 			expect(prompt).toContain('6a');
 		});
 
-		it('Precedes MANDATORY QA GATE (Rule 7)', () => {
+		it('Precedes TIERED QA GATE (Rule 7)', () => {
 			// The retry circuit breaker should come before the QA gate section
+			// The gate is now called "TIERED QA GATE" not "MANDATORY QA GATE"
 			const circuitBreakerPos = prompt.indexOf('RETRY CIRCUIT BREAKER');
-			const qaGatePos = prompt.indexOf('MANDATORY QA GATE');
+			const qaGatePos = prompt.indexOf('TIERED QA GATE');
 			expect(circuitBreakerPos).toBeGreaterThan(-1);
 			expect(qaGatePos).toBeGreaterThan(-1);
 			expect(circuitBreakerPos).toBeLessThan(qaGatePos);

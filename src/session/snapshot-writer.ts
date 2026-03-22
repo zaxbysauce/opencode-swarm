@@ -173,11 +173,54 @@ export function serializeAgentSession(
  * Write a snapshot of swarmState to .swarm/session/state.json atomically.
  * Silently swallows errors (non-fatal — never crash the plugin).
  */
+/** Known system directories that should never be written to */
+const BLOCKED_SYSTEM_PATHS_POSIX = [
+	'/bin',
+	'/boot',
+	'/dev',
+	'/etc',
+	'/lib',
+	'/lib64',
+	'/proc',
+	'/run',
+	'/sbin',
+	'/sys',
+	'/usr',
+	'/var',
+];
+
+/**
+ * Returns true if the directory is a known system path that should never be written to.
+ */
+function isSystemPath(directory: string): boolean {
+	if (!directory) return false;
+	const normalized = path.normalize(path.resolve(directory));
+	if (process.platform !== 'win32') {
+		for (const blocked of BLOCKED_SYSTEM_PATHS_POSIX) {
+			if (normalized === blocked || normalized.startsWith(blocked + path.sep)) {
+				return true;
+			}
+		}
+	} else {
+		// On Windows, block System32 and similar
+		const lower = normalized.toLowerCase();
+		if (lower.startsWith('c:\\windows') || lower.startsWith('c:\\program files')) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export async function writeSnapshot(
 	directory: string,
 	state: typeof swarmState,
 ): Promise<void> {
 	try {
+		// Reject system paths to prevent accidental writes to protected directories
+		if (isSystemPath(directory)) {
+			return;
+		}
+
 		// Build SnapshotData object from state
 		const snapshot: SnapshotData = {
 			version: 1,

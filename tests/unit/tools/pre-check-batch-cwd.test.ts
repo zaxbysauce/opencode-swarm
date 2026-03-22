@@ -43,6 +43,13 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 		tempDir = createTempDir();
 		process.chdir(tempDir);
 
+		// Symlink node_modules so linters (biome/eslint) are available
+		try {
+			fs.symlinkSync(path.join(originalCwd, 'node_modules'), path.join(tempDir, 'node_modules'), 'junction');
+		} catch {
+			// Symlink might already exist or fail on some platforms
+		}
+
 		// Initialize git repo for sast-scan
 		fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
 		fs.writeFileSync(path.join(tempDir, '.git', 'config'), '[core]\n\trepositoryformatversion = 0\n');
@@ -55,11 +62,11 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 
 	/**
 	 * EC-001: Test that execute() handles various directory scenarios correctly.
-	 * 
-	 * Note: The createSwarmTool wrapper provides a fallback directory from 
+	 *
+	 * Note: The createSwarmTool wrapper provides a fallback directory from
 	 * ctx?.directory ?? process.cwd() when the context doesn't have a directory.
 	 * The guard in execute() is a failsafe that would trigger in edge cases.
-	 * 
+	 *
 	 * The key tests here verify the expected behavior through the tool interface.
 	 */
 
@@ -74,7 +81,8 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 
 		// Should not have the directory error - should proceed to run tools
 		expect(result.lint.error).not.toBe('project directory is required but was not provided');
-		// The tools should have run (even if they have issues)
+		// The tools should have run (even if they have issues - e.g., linter found issues)
+		// ran=true means the tool attempted to execute (not blocked by directory validation)
 		expect(result.lint.ran).toBe(true);
 	});
 

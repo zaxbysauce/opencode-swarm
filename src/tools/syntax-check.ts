@@ -126,8 +126,9 @@ export async function syntaxCheck(
 			const ext = path.extname(file.path).toLowerCase();
 			const langDef = getLanguageForExtension(ext);
 			const fileProfile = getProfileForFile(file.path);
-			// Prefer registry-based language id (more precise per extension)
-			const langId = langDef?.id || fileProfile?.id;
+			// Prefer profile-driven language id (more precise for multi-grammar languages)
+			// Fall back to registry-based id for files without a profile
+			const langId = fileProfile?.id || langDef?.id;
 			return langId ? lowerLangs.includes(langId.toLowerCase()) : false;
 		});
 	}
@@ -201,12 +202,12 @@ export async function syntaxCheck(
 				continue;
 			}
 
-			// Resolve language ID: use registry for precise per-extension detection
-			// (e.g., .js = 'javascript' not 'typescript' even when TS grammar handles both),
-			// fall back to profile id, then 'unknown'
+			// Resolve language ID: prefer profile-driven id (more precise for multi-grammar languages,
+			// e.g., profile.id='typescript' is preferred over langDef.id='ts'),
+			// fall back to registry-based id, then 'unknown'
 			const ext = path.extname(filePath).toLowerCase();
 			const langDef = getLanguageForExtension(ext);
-			result.language = langDef?.id || profile?.id || 'unknown';
+			result.language = profile?.id || langDef?.id || 'unknown';
 
 			// Parse and extract errors
 			const errors = extractSyntaxErrors(parser, content);

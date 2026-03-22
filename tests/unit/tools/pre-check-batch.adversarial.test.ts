@@ -257,19 +257,19 @@ describe('ADVERSARIAL: fail-closed no-files behavior', () => {
 	 *
 	 * RESOLUTION: Add trim() check: `if (!inputPath || inputPath.trim().length === 0)`
 	 */
-	it('ACCEPTS (with fail-closed): whitespace-only paths - weak validation but gates still fail', async () => {
+	it('REJECTS (fail-closed): whitespace-only paths - validation rejects before running tools', async () => {
 		const result = await runPreCheckBatch({
 			directory: MOCK_DIR,
 			files: ['   ', '\t', '\n  '],
 		});
 
 		// GOOD: Gates fail (fail-closed behavior working)
-		// Paths accepted by validation but tools fail on non-existent files
+		// Whitespace paths are now rejected by path.resolve + validatePath (resolve to paths outside workspace)
 		expect(result.gates_passed).toBe(false);
 
-		// Weakness: Tools ran on invalid paths (wasted resources)
-		// This should fail validation earlier, not at tool runtime
-		expect(result.lint.ran).toBe(true);
+		// Improved: Tools do NOT run on invalid paths (no wasted resources)
+		// Whitespace paths resolve to paths like '/mock/dir/   ' which fail workspace validation
+		expect(result.lint.ran).toBe(false);
 	});
 
 	/**

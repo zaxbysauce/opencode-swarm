@@ -34,7 +34,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// Both options must be present together in the same context.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3200, prompt.length)
 		);
 
 		// Both options must be present
@@ -55,7 +55,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The phrase "do NOT modify any planning behavior" must be present.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3200, prompt.length)
 		);
 
 		expect(specGateSection).toContain('do NOT modify any planning behavior');
@@ -68,7 +68,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// No language should require creating a new spec if spec.md already exists.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3200, prompt.length)
 		);
 
 		// These phrases would force re-spec and must NOT appear
@@ -94,7 +94,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The FR-### pattern must be explicitly mentioned for regex matching.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3200, prompt.length)
 		);
 
 		// Must contain FR-### pattern explicitly

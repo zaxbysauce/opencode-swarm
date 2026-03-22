@@ -83,27 +83,19 @@ describe('runtime.ts - LANGUAGE_WASM_MAP Adversarial Tests', () => {
 		});
 
 		it('SECURITY ISSUE: language ID with tab character "java\\tscript" accidentally loads javascript.wasm', async () => {
-			// CRITICAL: URL normalization with tab (\t) character causes path traversal
-			// "java\tscript" is normalized to "javascript" by the URL API
-			// This allows loading unintended grammar files
-			// This test documents the vulnerability; the fix should reject control characters
+			// Fixed: control characters are now rejected upfront
 			const available = await isGrammarAvailable('java\tscript');
-			expect(available).toBe(true); // Vulnerable: incorrectly reports availability
+			expect(available).toBe(false); // Fixed: control chars rejected
 
-			const parser = await loadGrammar('java\tscript');
-			expect(parser).toBeDefined(); // Vulnerable: loads wrong grammar (javascript.wasm)
+			await expect(loadGrammar('java\tscript')).rejects.toThrow();
 		});
 
 		it('SECURITY ISSUE: language ID with newline "java\\nscript" accidentally loads javascript.wasm', async () => {
-			// CRITICAL: URL normalization with newline (\n) character causes path traversal
-			// "java\nscript" is normalized to "javascript" by the URL API
-			// This allows loading unintended grammar files
-			// This test documents the vulnerability; the fix should reject control characters
+			// Fixed: control characters are now rejected upfront
 			const available = await isGrammarAvailable('java\nscript');
-			expect(available).toBe(true); // Vulnerable: incorrectly reports availability
+			expect(available).toBe(false); // Fixed: control chars rejected
 
-			const parser = await loadGrammar('java\nscript');
-			expect(parser).toBeDefined(); // Vulnerable: loads wrong grammar (javascript.wasm)
+			await expect(loadGrammar('java\nscript')).rejects.toThrow();
 		});
 	});
 

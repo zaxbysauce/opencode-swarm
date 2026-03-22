@@ -566,7 +566,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 
 		it('SMALL task definition exists', () => {
 			expect(prompt).toContain('SMALL task');
-			expect(prompt).toContain('1 file');
+			expect(prompt).toContain('1-2 files');
 		});
 
 		it('MEDIUM task definition exists', () => {
@@ -583,7 +583,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 
 		it('Litmus test for task size exists', () => {
 			expect(prompt).toContain('Litmus test');
-			expect(prompt).toContain('3 bullet points');
+			expect(prompt).toContain('ONE clear purpose');
 		});
 	});
 });
@@ -601,8 +601,8 @@ describe('Critic Prompt - Task Atomicity (Phase 4)', () => {
 		expect(prompt).toContain('REVIEW CHECKLIST');
 	});
 
-	it('checks for multi-file tasks (2+ files)', () => {
-		expect(prompt).toContain('2+ files');
+	it('checks for multi-file tasks (6+ files)', () => {
+		expect(prompt).toContain('6+ files');
 	});
 
 	it('checks for compound verbs in task descriptions', () => {
@@ -614,9 +614,8 @@ describe('Critic Prompt - Task Atomicity (Phase 4)', () => {
 		expect(prompt).toContain('MAJOR');
 	});
 
-	it('suggests splitting into sequential single-file tasks', () => {
-		expect(prompt).toContain('Split into sequential');
-		expect(prompt).toContain('single-file');
+	it('suggests splitting into logical units by concern', () => {
+		expect(prompt).toContain('Split into logical units');
 	});
 
 	it('mentions coder context blow risk', () => {
@@ -748,7 +747,8 @@ describe('Architect Prompt Hardening v6.11 - Consolidated', () => {
 		});
 
 		it('LARGE task is planning error', () => {
-			expect(prompt).toContain('LARGE task in the plan is a planning error');
+			expect(prompt).toContain('LARGE task');
+			expect(prompt).toContain('SPLIT');
 		});
 
 		it('Coder makes zero scope decisions', () => {

@@ -737,21 +737,22 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 	describe('Resource cleanup verification', () => {
 		test('dispose cleans up all timers', async () => {
 			const { PlanSyncWorker } = await import('../../../src/background/plan-sync-worker');
-			
+
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
 				pollIntervalMs: 20,
+				syncTimeoutMs: 200,
 			});
-			
+
 			worker.start();
-			
+
 			// Let it run briefly
 			await new Promise(resolve => setTimeout(resolve, 50));
-			
+
 			// Dispose should clean up poll timer
 			worker.dispose();
-			
+
 			expect(worker.getStatus()).toBe('stopped');
 		});
 

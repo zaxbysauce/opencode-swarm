@@ -2,17 +2,16 @@
  * Tests for error classes and safeHook integration
  */
 
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect, vi } from 'bun:test';
 import { SwarmError, ConfigError, HookError, ToolError, CLIError } from '../../../src/utils/errors';
 import { safeHook } from '../../../src/hooks/utils';
+import * as utilsModule from '../../../src/utils';
 
 describe('Error Classes and safeHook Integration', () => {
-	let originalWarn: typeof console.warn;
-
 	describe('Group 1: Error class structure', () => {
 		test('SwarmError has code, message, guidance fields', () => {
 			const error = new SwarmError('test message', 'TEST_CODE', 'test guidance');
-			
+
 			expect(error.message).toBe('test message');
 			expect(error.code).toBe('TEST_CODE');
 			expect(error.guidance).toBe('test guidance');
@@ -22,7 +21,7 @@ describe('Error Classes and safeHook Integration', () => {
 
 		test('ConfigError has correct name and code', () => {
 			const error = new ConfigError('config failed', 'fix your config');
-			
+
 			expect(error.name).toBe('ConfigError');
 			expect(error.code).toBe('CONFIG_ERROR');
 			expect(error.guidance).toBe('fix your config');
@@ -33,7 +32,7 @@ describe('Error Classes and safeHook Integration', () => {
 
 		test('HookError has correct name and code', () => {
 			const error = new HookError('hook failed', 'check hook function');
-			
+
 			expect(error.name).toBe('HookError');
 			expect(error.code).toBe('HOOK_ERROR');
 			expect(error.guidance).toBe('check hook function');
@@ -44,7 +43,7 @@ describe('Error Classes and safeHook Integration', () => {
 
 		test('ToolError has correct name and code', () => {
 			const error = new ToolError('tool failed', 'verify tool configuration');
-			
+
 			expect(error.name).toBe('ToolError');
 			expect(error.code).toBe('TOOL_ERROR');
 			expect(error.guidance).toBe('verify tool configuration');
@@ -55,7 +54,7 @@ describe('Error Classes and safeHook Integration', () => {
 
 		test('CLIError has correct name and code', () => {
 			const error = new CLIError('cli failed', 'check command syntax');
-			
+
 			expect(error.name).toBe('CLIError');
 			expect(error.code).toBe('CLI_ERROR');
 			expect(error.guidance).toBe('check command syntax');
@@ -79,15 +78,10 @@ describe('Error Classes and safeHook Integration', () => {
 
 	describe('Group 2: safeHook SwarmError integration', () => {
 		test('safeHook logs guidance for SwarmError instances', async () => {
-			let warned = false;
 			let warnArgs: any[] = [];
-
-			// Mock console.warn
-			originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				warned = true;
+			const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation((...args: any[]) => {
 				warnArgs = args;
-			};
+			});
 
 			try {
 				const testHook = async (input: unknown, output: unknown) => {
@@ -97,25 +91,20 @@ describe('Error Classes and safeHook Integration', () => {
 				const wrappedHook = safeHook(testHook);
 				await wrappedHook('test-input', 'test-output');
 
-				expect(warned).toBe(true);
+				expect(warnSpy).toHaveBeenCalled();
 				expect(warnArgs[0]).toContain('bad hook');
 				expect(warnArgs[0]).toContain('check your config');
 				expect(warnArgs[0]).toContain('→');
 			} finally {
-				console.warn = originalWarn;
+				warnSpy.mockRestore();
 			}
 		});
 
 		test('safeHook unchanged behavior for regular Error', async () => {
-			let warned = false;
 			let warnArgs: any[] = [];
-
-			// Mock console.warn
-			originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				warned = true;
+			const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation((...args: any[]) => {
 				warnArgs = args;
-			};
+			});
 
 			try {
 				const testHook = async (input: unknown, output: unknown) => {
@@ -125,24 +114,16 @@ describe('Error Classes and safeHook Integration', () => {
 				const wrappedHook = safeHook(testHook);
 				await wrappedHook('test-input', 'test-output');
 
-				expect(warned).toBe(true);
+				expect(warnSpy).toHaveBeenCalled();
 				expect(warnArgs[0]).toContain('failed:');
 				expect(warnArgs[0]).not.toContain('→');
 			} finally {
-				console.warn = originalWarn;
+				warnSpy.mockRestore();
 			}
 		});
 
 		test('safeHook does not crash on SwarmError', async () => {
-			let warned = false;
-			let warnArgs: any[] = [];
-
-			// Mock console.warn
-			originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				warned = true;
-				warnArgs = args;
-			};
+			const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
 
 			try {
 				const testHook = async (input: unknown, output: unknown) => {
@@ -150,14 +131,14 @@ describe('Error Classes and safeHook Integration', () => {
 				};
 
 				const wrappedHook = safeHook(testHook);
-				
+
 				// Should not throw, should resolve normally
 				await expect(wrappedHook('test-input', 'test-output')).resolves.toBeUndefined();
-				
+
 				// Verify warn was called
-				expect(warned).toBe(true);
+				expect(warnSpy).toHaveBeenCalled();
 			} finally {
-				console.warn = originalWarn;
+				warnSpy.mockRestore();
 			}
 		});
 	});

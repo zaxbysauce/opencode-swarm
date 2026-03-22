@@ -115,6 +115,13 @@ const INTERNAL_TOOL_ID_REGEX =
 	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
 
 /**
+ * Flexible alphanumeric task ID pattern: lowercase letters, digits, and hyphens.
+ * Allows human-readable IDs like 'task-1', 'old-task', 'test-task-simple'.
+ * Pattern: ^[a-z0-9][a-z0-9-]*$
+ */
+const SLUG_TASK_ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
  * Validate and sanitize task ID.
  * Accepts three formats:
  * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)

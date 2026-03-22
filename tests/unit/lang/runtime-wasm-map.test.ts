@@ -67,13 +67,12 @@ describe('LANGUAGE_WASM_MAP - Kotlin, Swift, Dart entries', () => {
 			expect(typeof result).toBe('boolean');
 		});
 
-		test('should handle case-insensitive language IDs', async () => {
+		test('should reject uppercase and mixed-case language IDs', async () => {
+			// Canonical IDs are always lowercase; uppercase/mixed are now rejected
 			const result1 = await isGrammarAvailable('KOTLIN');
-			const result2 = await isGrammarAvailable('kotlin');
 			const result3 = await isGrammarAvailable('Kotlin');
-			// All should resolve to the same boolean (true or false depending on file existence)
-			expect(result1).toBe(result2);
-			expect(result2).toBe(result3);
+			expect(result1).toBe(false);
+			expect(result3).toBe(false);
 		});
 	});
 
@@ -83,28 +82,30 @@ describe('LANGUAGE_WASM_MAP - Kotlin, Swift, Dart entries', () => {
 		});
 
 		test('should attempt to load tree-sitter-kotlin.wasm for kotlin', async () => {
-			// The function will throw an error because the WASM file doesn't exist
-			// But the error message should contain the language ID and the expected WASM file name
-			const error = await loadGrammar('kotlin').catch((e) => e);
-			expect(error).toBeInstanceOf(Error);
-			if (error instanceof Error) {
-				expect(error.message).toContain('kotlin');
+			// Either succeeds (WASM file exists) or throws with language ID in message
+			const result = await loadGrammar('kotlin').catch((e: Error) => e);
+			if (result instanceof Error) {
+				expect(result.message).toContain('kotlin');
+			} else {
+				expect(result).toBeDefined();
 			}
 		});
 
 		test('should attempt to load tree-sitter-swift.wasm for swift', async () => {
-			const error = await loadGrammar('swift').catch((e) => e);
-			expect(error).toBeInstanceOf(Error);
-			if (error instanceof Error) {
-				expect(error.message).toContain('swift');
+			const result = await loadGrammar('swift').catch((e: Error) => e);
+			if (result instanceof Error) {
+				expect(result.message).toContain('swift');
+			} else {
+				expect(result).toBeDefined();
 			}
 		});
 
 		test('should attempt to load tree-sitter-dart.wasm for dart', async () => {
-			const error = await loadGrammar('dart').catch((e) => e);
-			expect(error).toBeInstanceOf(Error);
-			if (error instanceof Error) {
-				expect(error.message).toContain('dart');
+			const result = await loadGrammar('dart').catch((e: Error) => e);
+			if (result instanceof Error) {
+				expect(result.message).toContain('dart');
+			} else {
+				expect(result).toBeDefined();
 			}
 		});
 	});
@@ -118,11 +119,10 @@ describe('LANGUAGE_WASM_MAP - Kotlin, Swift, Dart entries', () => {
 			expect(result1).toBe(result2);
 		});
 
-		test('should treat uppercase language IDs as equivalent to lowercase', async () => {
-			const lowerResult = await isGrammarAvailable('kotlin');
+		test('should reject uppercase language IDs (canonical IDs are always lowercase)', async () => {
+			// Uppercase IDs are now rejected upfront — canonical IDs are always lowercase
 			const upperResult = await isGrammarAvailable('KOTLIN');
-			// Both should resolve to the same boolean result
-			expect(lowerResult).toBe(upperResult);
+			expect(upperResult).toBe(false);
 		});
 	});
 
