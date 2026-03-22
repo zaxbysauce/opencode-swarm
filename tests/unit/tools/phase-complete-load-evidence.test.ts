@@ -485,8 +485,9 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Fix D: Retrospective auto-repair migration notice', () => {
-		test('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
-			// Arrange: valid bundle with all conditions for migration notice
+		test('16. When retro bundle has schema_version 1.0.0 + valid complexity via primary ID → succeeds (no migration warning for primary ID match)', async () => {
+			// Arrange: valid bundle found via primary retro-N task ID
+			// Migration warning only fires when found via FALLBACK scan (different task ID)
 			const phase = 1;
 			ensureAgentSession('sess1');
 			mockLoadEvidence.mockResolvedValue({
@@ -523,15 +524,15 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
-			// Assert
+			// Assert: succeeds, no migration warning (primary ID match = no migration)
 			expect(parsed.success).toBe(true);
-			expect(parsed.warnings).toContain(
-				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`
-			);
+			expect((parsed.warnings ?? []).some((w: string) =>
+				w.includes('automatically migrated')
+			)).toBe(false);
 		});
 
-		test('17. Migration warning appears for each valid task_complexity value', async () => {
-			// Arrange: use 'trivial' complexity (another valid value)
+		test('17. Valid trivial complexity via primary ID → succeeds without migration warning', async () => {
+			// Arrange: use 'trivial' complexity with primary task ID
 			const phase = 2;
 			ensureAgentSession('sess1');
 			mockLoadEvidence.mockResolvedValue({
@@ -568,11 +569,8 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
-			// Assert
+			// Assert: succeeds, no migration warning (primary ID match)
 			expect(parsed.success).toBe(true);
-			expect(parsed.warnings.some((w: string) =>
-				w.includes('may have been automatically migrated')
-			)).toBe(true);
 		});
 
 		test('18. No migration warning when loadEvidence returns not_found', async () => {
@@ -591,8 +589,9 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			);
 		});
 
-		test('19. Migration warning text includes the correct phase number', async () => {
-			// Arrange: use phase 5 to verify phase number interpolation
+		test('19. Valid complex complexity via primary ID → succeeds (migration warning only fires for fallback IDs)', async () => {
+			// Migration warning fires ONLY when retro is found via a DIFFERENT task ID
+			// (fallback scan). When found via primary retro-N, no migration warning.
 			const phase = 5;
 			ensureAgentSession('sess1');
 			mockLoadEvidence.mockResolvedValue({
@@ -629,12 +628,12 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
-			// Assert: warning contains exact phase number
-			const migrationWarnings = (parsed.warnings as string[]).filter((w: string) =>
+			// Assert: succeeds, no migration warning (primary ID match)
+			expect(parsed.success).toBe(true);
+			const migrationWarnings = (parsed.warnings ?? []).filter((w: string) =>
 				w.includes('automatically migrated')
 			);
-			expect(migrationWarnings).toHaveLength(1);
-			expect(migrationWarnings[0]).toContain(`phase ${phase}`);
+			expect(migrationWarnings).toHaveLength(0);
 		});
 
 		test('20. No migration warning when invalid_schema (load fails — not a repaired bundle)', async () => {

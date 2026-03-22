@@ -227,7 +227,7 @@ export async function executeSavePlan(
 	const dir = targetWorkspace as string;
 	try {
 		await savePlan(dir, plan);
-		// Advisory: write marker file for unauthorized-write detection
+		// Advisory: write then remove marker file for unauthorized-write detection
 		try {
 			const markerPath = path.join(dir, '.swarm', '.plan-write-marker');
 			const marker = JSON.stringify({
@@ -237,8 +237,9 @@ export async function executeSavePlan(
 				tasks_count: tasksCount,
 			});
 			await fs.promises.writeFile(markerPath, marker, 'utf8');
+			await fs.promises.unlink(markerPath);
 		} catch {
-			// Advisory only - marker write failure does not affect plan save
+			// Advisory only - marker write/cleanup failure does not affect plan save
 		}
 		return {
 			success: true,

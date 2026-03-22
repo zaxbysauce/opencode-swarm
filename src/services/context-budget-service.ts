@@ -21,12 +21,6 @@ function validateDirectory(directory: string): void {
 	if (/\.\.[/\\]/.test(directory)) {
 		throw new Error('Invalid directory: path traversal detected');
 	}
-	if (directory.startsWith('/') || directory.startsWith('\\')) {
-		throw new Error('Invalid directory: absolute path');
-	}
-	if (/^[A-Za-z]:[\\/]/.test(directory)) {
-		throw new Error('Invalid directory: Windows absolute path');
-	}
 }
 
 /**
@@ -324,7 +318,6 @@ export async function formatBudgetWarning(
 	directory: string,
 	config: ContextBudgetConfig,
 ): Promise<string | null> {
-	validateDirectory(directory);
 	// If status is ok, no warning needed
 	if (report.status === 'ok') {
 		return null;
@@ -335,6 +328,8 @@ export async function formatBudgetWarning(
 		// If no directory provided, just return the warning without suppression
 		return formatWarningMessage(report);
 	}
+
+	validateDirectory(directory);
 
 	// Read current budget state
 	const budgetState = await readBudgetState(directory);

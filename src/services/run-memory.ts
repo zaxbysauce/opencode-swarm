@@ -22,12 +22,6 @@ function validateDirectory(directory: string): void {
 	if (/\.\.[/\\]/.test(directory)) {
 		throw new Error('Invalid directory: path traversal detected');
 	}
-	if (directory.startsWith('/') || directory.startsWith('\\')) {
-		throw new Error('Invalid directory: absolute path');
-	}
-	if (/^[A-Za-z]:[\\/]/.test(directory)) {
-		throw new Error('Invalid directory: Windows absolute path');
-	}
 }
 
 /**

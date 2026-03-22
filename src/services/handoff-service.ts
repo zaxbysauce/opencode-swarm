@@ -479,13 +479,13 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 	// Current state (data already sanitized by getHandoffData)
 	lines.push('### Current State');
 	if (data.currentPhase) {
-		lines.push(`- **Phase**: ${data.currentPhase}`);
+		lines.push(`- **Phase**: ${escapeHtml(data.currentPhase)}`);
 	}
 	if (data.currentTask) {
-		lines.push(`- **Task**: ${data.currentTask}`);
+		lines.push(`- **Task**: ${escapeHtml(data.currentTask)}`);
 	}
 	if (data.activeAgent) {
-		lines.push(`- **Active Agent**: ${data.activeAgent}`);
+		lines.push(`- **Active Agent**: ${escapeHtml(data.activeAgent)}`);
 	}
 	lines.push('');
 
@@ -526,7 +526,7 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 	if (data.recentDecisions.length > 0) {
 		lines.push('### Recent Decisions');
 		for (const decision of data.recentDecisions.slice(0, 5)) {
-			lines.push(`- ${decision}`);
+			lines.push(`- ${sanitizeString(decision, MAX_DECISION_LENGTH)}`);
 		}
 		lines.push('');
 	}

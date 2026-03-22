@@ -140,7 +140,7 @@ describe('getHandoffData', () => {
         lastFailure: 'test-tool',
       });
       expect(result.delegationState).toBeDefined();
-      expect(result.delegationState?.activeChains).toContain('AgentA->AgentB');
+      expect(result.delegationState?.activeChains).toContain('AgentA-&gt;AgentB');
       expect(result.delegationState?.delegationDepth).toBe(1);
       expect(result.recentDecisions.length).toBeGreaterThan(0);
     });
@@ -346,8 +346,8 @@ describe('formatHandoffMarkdown', () => {
   });
 
   it('should truncate long decisions', () => {
-    // Arrange - long decision text
-    const longDecision = 'A'.repeat(200);
+    // Arrange - long decision text (must exceed MAX_DECISION_LENGTH = 500)
+    const longDecision = 'A'.repeat(600);
     const data: HandoffData = {
       generated: '2024-01-01T00:00:00.000Z',
       currentPhase: null,

@@ -25,7 +25,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 	// Default plan template with required schema fields
 	const defaultPlanBase = {
-		schema_version: '1.0' as const,
+		schema_version: '1.0.0' as const,
 		swarm: 'test-swarm',
 		title: 'Test',
 	};
@@ -194,7 +194,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await writeEvidence('1.1', {
 			taskId: '1.1',
-			required_gates: ['reviewer', 'test_engineer'],
+			required_gates: ['reviewer', 'test_engineer', 'final_check'],
 			gates: {
 				reviewer: {
 					sessionId: 'sess-1',
@@ -211,7 +211,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await rehydrateSessionFromDisk(testDir, session);
 
-		// Evidence with test_engineer passed should result in tests_run state
+		// Evidence with test_engineer passed but not all required gates (final_check missing) → tests_run
 		expect(session.taskWorkflowStates?.get('1.1')).toBe('tests_run');
 	});
 
@@ -367,12 +367,13 @@ describe('rehydrateSessionFromDisk', () => {
 			],
 		});
 
-		// Write evidence file with path traversal attempt
-		const evidencePath = path.join(testDir, '.swarm', 'evidence', '../plan.json');
+		// Write evidence file with invalid taskId format (non-numeric filename, fails regex check)
+		// Note: we don't use '../plan.json' as that would overwrite the plan file
+		const evidencePath = path.join(testDir, '.swarm', 'evidence', 'abc-invalid.json');
 		await fs.writeFile(
 			evidencePath,
 			JSON.stringify({
-				taskId: '../plan.json',
+				taskId: 'abc-invalid',
 				required_gates: ['reviewer'],
 				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
 			}),
@@ -531,7 +532,7 @@ describe('rehydrateSessionFromDisk', () => {
 		expect(session.taskWorkflowStates?.get('1.1')).toBe('reviewer_run');
 	});
 
-	// State mutation: Evidence should not downgrade in-memory complete state
+	// State mutation: Evidence always wins — even when it results in a lower state
 	it('should not downgrade in-memory complete state even with plan evidence', async () => {
 		// Pre-set complete state in memory
 		session.taskWorkflowStates?.set('1.1', 'complete');
@@ -550,7 +551,7 @@ describe('rehydrateSessionFromDisk', () => {
 			],
 		});
 
-		// Evidence shows only coder gate (weaker than complete)
+		// Evidence shows only coder gate (weaker than complete) — evidence always wins
 		await writeEvidence('1.1', {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
@@ -565,8 +566,8 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await rehydrateSessionFromDisk(testDir, session);
 
-		// In-memory complete state should NOT be downgraded
-		expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
+		// Evidence always wins: coder gate → coder_delegated, overriding in-memory complete
+		expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 	});
 
 	// Multiple tasks: Should handle multiple tasks from different phases
@@ -621,10 +622,10 @@ describe('rehydrateSessionFromDisk', () => {
 			],
 		});
 
-		// Evidence shows test_engineer passed (tests_run)
+		// Evidence shows reviewer + test_engineer passed but not all required gates (final_check missing)
 		await writeEvidence('1.1', {
 			taskId: '1.1',
-			required_gates: ['reviewer', 'test_engineer'],
+			required_gates: ['reviewer', 'test_engineer', 'final_check'],
 			gates: {
 				reviewer: {
 					sessionId: 'sess-1',
@@ -641,7 +642,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await rehydrateSessionFromDisk(testDir, session);
 
-		// Evidence should win - tests_run is strongest
+		// Evidence wins - tests_run (test_engineer passed, not all required gates)
 		expect(session.taskWorkflowStates?.get('1.1')).toBe('tests_run');
 	});
 

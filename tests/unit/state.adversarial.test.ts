@@ -16,32 +16,33 @@ describe('state machine adversarial tests', () => {
 
 	describe('advanceTaskState with invalid taskId', () => {
 		it('should handle null taskId (Map uses null as key, not coerced to string)', () => {
-			// null is used as Map key directly, not coerced to string "null"
+			// null taskId is silently ignored (isValidTaskId guard returns early)
 			expect(() => {
 				advanceTaskState(session, null as any, 'coder_delegated');
 			}).not.toThrow();
-			
-			// Verify it was set with null key
-			expect(session.taskWorkflowStates.get(null as any)).toBe('coder_delegated');
+
+			// Null key is NOT set in the map — the call is a no-op
+			expect(session.taskWorkflowStates.get(null as any)).toBeUndefined();
 		});
 
 		it('should handle undefined taskId (Map uses undefined as key)', () => {
-			// undefined is used as Map key directly, not coerced to string "undefined"
+			// undefined taskId is silently ignored (isValidTaskId guard returns early)
 			expect(() => {
 				advanceTaskState(session, undefined as any, 'coder_delegated');
 			}).not.toThrow();
-			
-			// Verify it was set with undefined key
-			expect(session.taskWorkflowStates.get(undefined as any)).toBe('coder_delegated');
+
+			// Undefined key is NOT set in the map — the call is a no-op
+			expect(session.taskWorkflowStates.get(undefined as any)).toBeUndefined();
 		});
 
 		it('should handle empty string taskId (valid Map key)', () => {
-			// Empty string is a valid Map key - this is expected behavior
+			// Empty string taskId is silently ignored (isValidTaskId guard returns early)
 			expect(() => {
 				advanceTaskState(session, '', 'coder_delegated');
 			}).not.toThrow();
-			
-			expect(session.taskWorkflowStates.get('')).toBe('coder_delegated');
+
+			// Empty string key is NOT set in the map — the call is a no-op
+			expect(session.taskWorkflowStates.get('')).toBeUndefined();
 		});
 
 		it('should handle very long taskId (10,000 chars) without crashing', () => {
@@ -208,8 +209,9 @@ describe('state machine adversarial tests', () => {
 		});
 
 		it('should handle empty string taskId', () => {
+			// Empty string is guarded — advanceTaskState is a no-op, getTaskState returns 'idle'
 			advanceTaskState(session, '', 'coder_delegated');
-			expect(getTaskState(session, '')).toBe('coder_delegated');
+			expect(getTaskState(session, '')).toBe('idle');
 		});
 
 		it('should return idle for non-existent taskId', () => {

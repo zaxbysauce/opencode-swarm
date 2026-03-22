@@ -53,6 +53,8 @@ export interface PreflightReport {
 export interface PreflightConfig {
 	/** Timeout per check in ms (default 60s, min 5s, max 300s) */
 	checkTimeoutMs?: number;
+	/** Skip lint check (default false) */
+	skipLint?: boolean;
 	/** Skip tests check (default false) */
 	skipTests?: boolean;
 	/** Skip secrets check (default false) */
@@ -75,6 +77,7 @@ const MAX_CHECK_TIMEOUT_MS = 300_000;
 /** Default configuration */
 const DEFAULT_CONFIG: Required<PreflightConfig> = {
 	checkTimeoutMs: 60000,
+	skipLint: false,
 	skipTests: false,
 	skipSecrets: false,
 	skipEvidence: false,
@@ -671,6 +674,7 @@ export async function runPreflight(
 	// Merge with defaults
 	const cfg: Required<PreflightConfig> = {
 		checkTimeoutMs: validatedTimeout,
+		skipLint: config?.skipLint ?? DEFAULT_CONFIG.skipLint,
 		skipTests: config?.skipTests ?? DEFAULT_CONFIG.skipTests,
 		skipSecrets: config?.skipSecrets ?? DEFAULT_CONFIG.skipSecrets,
 		skipEvidence: config?.skipEvidence ?? DEFAULT_CONFIG.skipEvidence,
@@ -696,15 +700,23 @@ export async function runPreflight(
 
 	const checks: PreflightCheckResult[] = [];
 
-	// Run lint check
-	log('[Preflight] Running lint check...');
-	const lintResult = await runLintCheck(
-		validatedDir,
-		cfg.linter,
-		cfg.checkTimeoutMs,
-	);
-	checks.push(lintResult);
-	log(`[Preflight] Lint check: ${lintResult.status} ${lintResult.message}`);
+	// Run lint check (unless skipped)
+	if (!cfg.skipLint) {
+		log('[Preflight] Running lint check...');
+		const lintResult = await runLintCheck(
+			validatedDir,
+			cfg.linter,
+			cfg.checkTimeoutMs,
+		);
+		checks.push(lintResult);
+		log(`[Preflight] Lint check: ${lintResult.status} ${lintResult.message}`);
+	} else {
+		checks.push({
+			type: 'lint',
+			status: 'skip',
+			message: 'Lint check skipped by configuration',
+		});
+	}
 
 	// Run tests check (unless skipped)
 	if (!cfg.skipTests) {

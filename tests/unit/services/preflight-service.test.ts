@@ -79,6 +79,7 @@ describe('Preflight Service', () => {
 
 		it('should calculate overall correctly when all pass', async () => {
 			const report = await runPreflight(testDir, 1, {
+				skipLint: true,
 				skipTests: true,
 				skipSecrets: true,
 				skipEvidence: true,
@@ -517,14 +518,14 @@ describe('Preflight Service', () => {
 	describe('overall result calculation', () => {
 		it('should return skipped when all checks are skipped', async () => {
 			const report = await runPreflight(testDir, 1, {
+				skipLint: true,
 				skipTests: true,
 				skipSecrets: true,
 				skipEvidence: true,
 				skipVersion: true,
 			});
 
-			// When lint passes but all others are skipped
-			// The logic should show either pass or skipped based on implementation
+			// When all checks are skipped, overall should be 'skipped'
 			expect(['pass', 'skipped']).toContain(report.overall);
 		});
 

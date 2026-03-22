@@ -160,11 +160,11 @@ async function executeCommand(command: BuildCommand): Promise<BuildRun> {
 		timeout: DEFAULT_TIMEOUT_MS,
 	});
 
-	const duration_ms = Date.now() - startTime;
-
-	// Convert output to string
+	// Convert output to string (awaiting ensures process has completed)
 	const stdout = await new Response(result.stdout).text();
 	const stderr = await new Response(result.stderr).text();
+
+	const duration_ms = Date.now() - startTime;
 
 	return {
 		kind,

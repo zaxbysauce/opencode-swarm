@@ -194,7 +194,7 @@ describe('buildEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue([]);
-		mockLoadEvidence.mockResolvedValue(null);
+		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -218,21 +218,21 @@ describe('buildEvidenceSummary', () => {
 
 		// Task 1.1 has both review and test
 		mockLoadEvidence
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.1',
 				entries: createMockEvidence('1.1', ['review', 'test']),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			})
+			}})
 			// Task 1.2 only has review
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.2',
 				entries: createMockEvidence('1.2', ['review']),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			});
+			}});
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -261,7 +261,7 @@ describe('buildEvidenceSummary', () => {
 
 		// Task 1.1 has both evidence types (complete)
 		mockLoadEvidence
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.1',
 				entries: [
@@ -284,9 +284,9 @@ describe('buildEvidenceSummary', () => {
 				],
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			})
+			}})
 			// Task 1.2 has both evidence types (complete)
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.2',
 				entries: [
@@ -309,9 +309,9 @@ describe('buildEvidenceSummary', () => {
 				],
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			})
+			}})
 			// Task 1.3 has no evidence but has blocked_reason
-			.mockResolvedValueOnce(null);
+			.mockResolvedValueOnce({ status: 'not_found' });
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -347,12 +347,12 @@ describe('buildEvidenceSummary', () => {
 			{ id: '1.3', phase: 1, status: 'pending', size: 'small', description: 't3', depends: [], files_touched: [] },
 			{ id: '2.1', phase: 2, status: 'pending', size: 'small', description: 't4', depends: [], files_touched: [] },
 		];
-		
+
 		// Update plan with correct tasks
 		plan.phases[0].tasks = mockTasks.filter(t => t.phase === 1);
 		plan.phases[1].tasks = mockTasks.filter(t => t.phase === 2);
 
-		mockLoadEvidence.mockResolvedValue(null);
+		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 		const result = await buildEvidenceSummary(tempDir);
 
@@ -365,7 +365,7 @@ describe('buildEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue([]);
-		mockLoadEvidence.mockResolvedValue(null);
+		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -381,13 +381,13 @@ describe('TaskEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
-		mockLoadEvidence.mockResolvedValue({
+		mockLoadEvidence.mockResolvedValue({ status: 'found', bundle: {
 			schema_version: '1.0.0',
 			task_id: '1.1',
 			entries: createMockEvidence('1.1', ['review', 'test', 'approval']),
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-		});
+		}});
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -408,13 +408,13 @@ describe('TaskEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.2']);
-		mockLoadEvidence.mockResolvedValue({
+		mockLoadEvidence.mockResolvedValue({ status: 'found', bundle: {
 			schema_version: '1.0.0',
 			task_id: '1.2',
 			entries: createMockEvidence('1.2', ['note', 'diff']),
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-		});
+		}});
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -440,20 +440,20 @@ describe('Blocker detection', () => {
 
 		// Both tasks missing test evidence
 		mockLoadEvidence
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.1',
 				entries: createMockEvidence('1.1', ['review']),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			})
-			.mockResolvedValueOnce({
+			}})
+			.mockResolvedValueOnce({ status: 'found', bundle: {
 				schema_version: '1.0.0',
 				task_id: '1.2',
 				entries: createMockEvidence('1.2', ['review']),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-			});
+			}});
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -474,13 +474,13 @@ describe('Blocker detection', () => {
 		
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
-		mockLoadEvidence.mockResolvedValue({
+		mockLoadEvidence.mockResolvedValue({ status: 'found', bundle: {
 			schema_version: '1.0.0',
 			task_id: '1.1',
 			entries: createMockEvidence('1.1', ['note']), // Missing review + test
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-		});
+		}});
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -501,10 +501,10 @@ describe('Blocker detection', () => {
 		});
 		// Phase 1 is complete but has blockers
 		plan.phases[0].status = 'complete';
-		
+
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.3']); // Blocked task in phase 1
-		mockLoadEvidence.mockResolvedValue(null);
+		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 		const result = await buildEvidenceSummary(tempDir);
 

@@ -435,8 +435,8 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			await rehydrateSessionFromDisk(tmpDir, session);
 
-			// Memory should win - NOT downgraded to coder_delegated
-			expect(session.taskWorkflowStates?.get('1.1')).toBe('reviewer_run');
+			// Evidence always wins — coder gate → coder_delegated, even if it downgrades reviewer_run
+			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
 		it('should not downgrade when evidence taskId does not match plan taskId', async () => {

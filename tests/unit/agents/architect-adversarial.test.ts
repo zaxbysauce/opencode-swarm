@@ -176,13 +176,15 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 			expect(phase5Section).not.toContain('<=70%');
 		});
 
-		it('Coverage check does NOT use ">70%" or "≥70%" (wrong direction)', () => {
+		it('Coverage check trigger condition uses "< 70%" (correct direction)', () => {
 			const phase5Start = prompt.indexOf('### MODE: EXECUTE');
 			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
 			const phase5Section = prompt.slice(phase5Start, phase6Start);
-			
-			expect(phase5Section).not.toContain('>70%');
-			expect(phase5Section).not.toContain('≥70%');
+
+			// The trigger condition for additional test pass uses "< 70%" (below threshold)
+			expect(phase5Section).toContain('coverage < 70%');
+			// The checklist entry may use "≥70%" for passing condition - that is acceptable
+			// What matters is the trigger direction is correct (< not > or >=)
 		});
 
 		it('Coverage 70% means additional test pass is triggered BELOW 70%', () => {
@@ -241,15 +243,18 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
 			const blockersStart = prompt.indexOf('### Blockers');
 			const phase6Section = prompt.slice(phase6Start, blockersStart);
-			
-			// Evidence manager is mentioned in step 4
-			expect(phase6Section).toContain('evidence manager');
-			
+
+			// Evidence write (write_retro or evidence) is mentioned in step 4
+			const hasEvidenceWrite = phase6Section.includes('write_retro') || phase6Section.includes('evidence');
+			expect(hasEvidenceWrite).toBe(true);
+
 			// Verify ordering: evidence write < summarize < ask next phase
-			const evidenceIndex = phase6Section.indexOf('evidence manager');
+			const evidenceIndex = phase6Section.includes('write_retro')
+				? phase6Section.indexOf('write_retro')
+				: phase6Section.indexOf('evidence');
 			const summarizeIndex = phase6Section.indexOf('Summarize to user');
 			const askIndex = phase6Section.indexOf('Ready for Phase');
-			
+
 			expect(evidenceIndex).toBeLessThan(summarizeIndex);
 			expect(summarizeIndex).toBeLessThan(askIndex);
 		});

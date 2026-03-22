@@ -194,10 +194,11 @@ describe('Security: Prototype Pollution & Malformed JSON', () => {
   it('should handle circular references in JSON', () => {
     const circular: any = { name: 'test' };
     circular.self = circular;
-    
-    // JSON.stringify handles circular refs
-    const result = JSON.stringify(circular);
-    expect(result).toContain('"name":"test"');
+
+    // JSON.stringify throws on circular references - verify this behavior
+    expect(() => JSON.stringify(circular)).toThrow();
+    // Verify the non-circular parts of the object are still accessible
+    expect(circular.name).toBe('test');
   });
 
   it('should handle truncated/malformed JSON gracefully', async () => {
@@ -333,9 +334,9 @@ describe('Security: Long String Attacks', () => {
 
     const result = await getHandoffData('/test');
     expect(result).toBeDefined();
-    // Should truncate long decisions
+    // Should truncate long decisions (MAX_DECISION_LENGTH = 500)
     if (result.recentDecisions.length > 0) {
-      expect(result.recentDecisions[0].length).toBeLessThanOrEqual(150);
+      expect(result.recentDecisions[0].length).toBeLessThanOrEqual(500);
     }
   });
 

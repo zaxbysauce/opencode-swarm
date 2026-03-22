@@ -385,7 +385,7 @@ describe('ATTACK: Blocker Spoofing', () => {
 
 			mockLoadPlanJsonOnly.mockResolvedValue(plan);
 			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue(null);
+			mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 			const result = await buildEvidenceSummary(tempDir);
 			
@@ -930,8 +930,8 @@ describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 
 describe('DEFENSE: Security Controls Validation', () => {
 	it('validates task IDs strictly', () => {
-		// Valid IDs should pass
-		const validIds = ['1.1', '2.3', 'task-1', 'TASK_2', 'a1.b2.c3'];
+		// Valid IDs should pass (numeric format, retro IDs, internal tool IDs)
+		const validIds = ['1.1', '2.3', '1.2.3', 'retro-1', 'sast_scan', 'build'];
 		for (const id of validIds) {
 			expect(() => sanitizeTaskId(id)).not.toThrow();
 		}
@@ -945,6 +945,9 @@ describe('DEFENSE: Security Controls Validation', () => {
 			'task/../../../etc',
 			'.',
 			'..',
+			'task-1', // Not a valid numeric task ID format
+			'TASK_2', // Not a valid format
+			'a1.b2.c3', // Not purely numeric
 		];
 		for (const id of invalidIds) {
 			expect(() => sanitizeTaskId(id)).toThrow();
