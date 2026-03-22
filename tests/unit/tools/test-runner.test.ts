@@ -813,19 +813,29 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// in the temp dir, but that proves the code passed through to framework detection
 			// rather than being rejected early by the zero-test-files guard.
 
-			const result = await test_runner.execute(
-				{ scope: 'all', allow_full_suite: true, files: [] },
-				{} as any,
-			);
-			const parsed = JSON.parse(result);
+			// Create a temp dir with NO framework so detection returns "none"
+			const tempDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allfiles-'));
+			const originalCwd2 = process.cwd();
+			process.chdir(tempDir2);
 
-			// Should NOT have the zero-test-files guard error
-			expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
-			// Should NOT have the allow_full_suite error
-			expect(parsed.error).not.toContain('allow_full_suite');
-			// Will have "No test framework detected" since there's no framework in temp dir
-			// This proves the code passed through the scope dispatch and reached framework detection
-			expect(parsed.error).toContain('No test framework detected');
+			try {
+				const result = await test_runner.execute(
+					{ scope: 'all', allow_full_suite: true, files: [] },
+					{} as any,
+				);
+				const parsed = JSON.parse(result);
+
+				// Should NOT have the zero-test-files guard error
+				expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
+				// Should NOT have the allow_full_suite error
+				expect(parsed.error).not.toContain('allow_full_suite');
+				// Will have "No test framework detected" since there's no framework in temp dir
+				// This proves the code passed through the scope dispatch and reached framework detection
+				expect(parsed.error).toContain('No test framework detected');
+			} finally {
+				process.chdir(originalCwd2);
+				try { fs.rmSync(tempDir2, { recursive: true, force: true }); } catch { /* ignore */ }
+			}
 		});
 
 		test('scope:"all" with allow_full_suite:true passes through zero-test-files guard', async () => {
@@ -836,18 +846,28 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// The execute call should either succeed (if a framework is detected) or fail with
 			// "No test framework detected" — but it must NOT fail with "zero test files" error.
 
-			const result = await test_runner.execute(
-				{ scope: 'all', allow_full_suite: true },
-				{} as any,
-			);
-			const parsed = JSON.parse(result);
+			// Create a temp dir with NO framework so detection returns "none"
+			const tempDir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allnofiles-'));
+			const originalCwd3 = process.cwd();
+			process.chdir(tempDir3);
 
-			// Should NOT have the zero-test-files guard error
-			expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
-			// Should NOT have the allow_full_suite error
-			expect(parsed.error).not.toContain('allow_full_suite');
-			// Result should be "No test framework detected" (proving it passed through to framework detection)
-			expect(parsed.error).toContain('No test framework detected');
+			try {
+				const result = await test_runner.execute(
+					{ scope: 'all', allow_full_suite: true },
+					{} as any,
+				);
+				const parsed = JSON.parse(result);
+
+				// Should NOT have the zero-test-files guard error
+				expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
+				// Should NOT have the allow_full_suite error
+				expect(parsed.error).not.toContain('allow_full_suite');
+				// Result should be "No test framework detected" (proving it passed through to framework detection)
+				expect(parsed.error).toContain('No test framework detected');
+			} finally {
+				process.chdir(originalCwd3);
+				try { fs.rmSync(tempDir3, { recursive: true, force: true }); } catch { /* ignore */ }
+			}
 		});
 
 		test('scope:"all" with allow_full_suite:false returns error', async () => {

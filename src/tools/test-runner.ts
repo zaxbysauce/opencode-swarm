@@ -297,6 +297,10 @@ function detectMinitest(cwd: string): boolean {
 }
 
 export async function detectTestFramework(cwd: string): Promise<TestFramework> {
+	// Guard against null/undefined/empty cwd
+	if (!cwd || typeof cwd !== 'string' || !cwd.trim()) {
+		return 'none';
+	}
 	const baseDir = cwd;
 	// Check for package.json to detect JS/TS frameworks
 	try {

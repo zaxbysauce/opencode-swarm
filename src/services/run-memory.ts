@@ -7,7 +7,20 @@
 
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
-import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
+import { validateSwarmPath } from '../hooks/utils';
+
+/**
+ * Read a swarm file using node:fs/promises directly.
+ * Avoids dependency on readSwarmFileAsync which may be mocked in test environments.
+ */
+async function readRunMemoryFile(directory: string, filename: string): Promise<string | null> {
+	try {
+		const resolvedPath = validateSwarmPath(directory, filename);
+		return await fs.readFile(resolvedPath, 'utf-8');
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Validate directory parameter to prevent path traversal attacks
@@ -107,7 +120,7 @@ export async function getTaskHistory(
 	taskId: string,
 ): Promise<RunMemoryEntry[]> {
 	validateDirectory(directory);
-	const content = await readSwarmFileAsync(directory, RUN_MEMORY_FILENAME);
+	const content = await readRunMemoryFile(directory, RUN_MEMORY_FILENAME);
 	if (!content) {
 		return [];
 	}
@@ -140,7 +153,7 @@ export async function getFailures(
 	directory: string,
 ): Promise<RunMemoryEntry[]> {
 	validateDirectory(directory);
-	const content = await readSwarmFileAsync(directory, RUN_MEMORY_FILENAME);
+	const content = await readRunMemoryFile(directory, RUN_MEMORY_FILENAME);
 	if (!content) {
 		return [];
 	}
@@ -233,7 +246,7 @@ export async function getRunMemorySummary(
 	directory: string,
 ): Promise<string | null> {
 	validateDirectory(directory);
-	const content = await readSwarmFileAsync(directory, RUN_MEMORY_FILENAME);
+	const content = await readRunMemoryFile(directory, RUN_MEMORY_FILENAME);
 	if (!content) {
 		return null;
 	}
