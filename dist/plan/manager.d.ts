@@ -23,7 +23,9 @@ export declare function loadPlan(directory: string): Promise<Plan | null>;
  * Validate against PlanSchema (throw on invalid), write to .swarm/plan.json via atomic temp+rename pattern,
  * then derive and write .swarm/plan.md
  */
-export declare function savePlan(directory: string, plan: Plan): Promise<void>;
+export declare function savePlan(directory: string, plan: Plan, options?: {
+    preserveCompletedStatuses?: boolean;
+}): Promise<void>;
 /**
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.
