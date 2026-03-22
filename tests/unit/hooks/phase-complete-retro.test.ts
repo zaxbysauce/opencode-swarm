@@ -227,8 +227,8 @@ describe('phase_complete retrospective gate', () => {
 		});
 	});
 
-	describe('Test 5: fallback scan finds retro in non-standard task_id', () => {
-		test('allows phase_complete when retro found in non-standard task_id via fallback scan', async () => {
+	describe('Test 5: fallback scan finds retro in alternate valid retro task_id', () => {
+		test('allows phase_complete when retro found in alternate valid retro task_id via fallback scan', async () => {
 			// Create config with empty required_agents
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
@@ -245,10 +245,10 @@ describe('phase_complete retrospective gate', () => {
 
 			ensureAgentSession('sess1');
 
-			// Write retro bundle at non-standard location with phase_number=1
-			writeRetroBundle('retro-phase1', 1, 'pass');
+			// Write retro bundle at alternate location with phase_number=1
+			writeRetroBundle('retro-99', 1, 'pass');
 
-			// Direct lookup for retro-1 will fail, but fallback scan should find retro-phase1
+			// Direct lookup for retro-1 will fail, but fallback scan should find retro-99
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID: 'sess1',

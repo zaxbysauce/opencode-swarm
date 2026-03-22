@@ -89,14 +89,15 @@ fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
 describe('Verification Tests', () => {
-it('1. Curator init skipped by default (enabled: false)', async () => {
-writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
+  it('1. Curator init skipped when explicitly disabled', async () => {
+  writeConfigFile(tempDir, { curator: { enabled: false } });
+  writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
-await hook({}, {});
+  const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
+  await hook({}, {});
 
-// runCuratorInit should NOT be called because enabled defaults to false
-expect(mockRunCuratorInit).not.toHaveBeenCalled();
+  // runCuratorInit should NOT be called because enabled is explicitly false
+  expect(mockRunCuratorInit).not.toHaveBeenCalled();
 });
 
 it('2. Curator init called on first invocation when enabled', async () => {
@@ -262,18 +263,15 @@ const result = await hook({}, {});
 expect(result).toBeUndefined();
 });
 
-it('10. Missing config directory - hook handles gracefully (curator disabled)', async () => {
-// No config file written, tempDir has no .opencode → defaults to disabled
-writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
+  it('10. Missing config directory - hook handles gracefully', async () => {
+  // No config file written, tempDir has no .opencode
+  writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
+  const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-// Should NOT throw - curator disabled by default
-const result = await hook({}, {});
-expect(result).toBeUndefined();
-
-// runCuratorInit should NOT be called due to curator being disabled
-expect(mockRunCuratorInit).not.toHaveBeenCalled();
+  // Should NOT throw - hook handles gracefully
+  const result = await hook({}, {});
+  expect(result).toBeUndefined();
 });
 });
 });

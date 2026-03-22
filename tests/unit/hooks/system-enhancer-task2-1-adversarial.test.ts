@@ -162,12 +162,11 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		writeEvidenceFile('retro-1', createBundle('retro-1'));
 		writeEvidenceFile('retro-2', createBundle('retro-2'));
 
-		// Create junk subdirectory (like sbom/) - note: sbom IS a valid task ID, so it will be included
-		// This is actually correct behavior - listEvidenceTaskIds doesn't validate that evidence.json exists
-		const junkDir = path.join(tempDir, evidenceDir, 'sbom');
-		fs.mkdirSync(junkDir, { recursive: true });
+		// Create sbom directory - sbom is now an INVALID task ID and should be filtered out
+		const sbomDir = path.join(tempDir, evidenceDir, 'sbom');
+		fs.mkdirSync(sbomDir, { recursive: true });
 		fs.writeFileSync(
-			path.join(junkDir, 'some-file.txt'),
+			path.join(sbomDir, 'some-file.txt'),
 			'junk content',
 		);
 
@@ -179,9 +178,9 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		expect(result).toContain('retro-1');
 		expect(result).toContain('retro-2');
-		expect(result).toContain('sbom'); // sbom is a valid task ID (matches TASK_ID_REGEX)
-		expect(result).not.toContain('test@dir'); // Invalid task ID characters
-		expect(result).toHaveLength(3);
+		expect(result).not.toContain('sbom');
+		expect(result).not.toContain('test@dir');
+		expect(result).toHaveLength(2);
 	});
 
 	/**
@@ -224,11 +223,11 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	});
 
 	/**
-	 * Test 8: A retro bundle with phase_number: 0 (invalid edge) loads without crashing
+	 * Test 8: retro bundle with phase_number: 0 returns invalid_schema
 	 */
-	it('retro bundle with phase_number: 0 (invalid edge) loads without crashing', async () => {
+	it('retro bundle with phase_number: 0 returns invalid_schema', async () => {
 		const taskId = 'retro-8';
-		const retroEntry = createRetroEntry(0, 'pass'); // phase 0 is technically valid in schema (min(0))
+		const retroEntry = createRetroEntry(0, 'pass');
 		// @ts-expect-error - setting phase_number to 0 for edge case testing
 		retroEntry.phase_number = 0;
 		const bundle = createBundle(taskId, [retroEntry]);
@@ -236,12 +235,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		const result = await loadEvidence(tempDir, taskId);
 
-		// The bundle should load successfully
-		expect(result.status).toBe('found');
-		const retro = result.bundle.entries.find((e) => e.type === 'retrospective');
-		expect(retro).toBeDefined();
-		// @ts-expect-error - we know this is a retro entry
-		expect(retro.phase_number).toBe(0);
+		expect(result.status).toBe('invalid_schema');
 	});
 
 	/**
@@ -422,10 +416,10 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	});
 
 	/**
-	 * Additional Test 17: Task ID with valid special characters (dots, hyphens, underscores)
+	 * Additional Test 17: listEvidenceTaskIds returns canonical numeric and retro task IDs
 	 */
-	it('listEvidenceTaskIds returns task IDs with dots, hyphens, and underscores', async () => {
-		const validIds = ['task-1', 'task_2', 'task.3', 'task-4_5.6'];
+	it('listEvidenceTaskIds returns canonical numeric and retro task IDs', async () => {
+		const validIds = ['1.1', '2.3', '4.5.6', 'retro-4'];
 
 		for (const id of validIds) {
 			writeEvidenceFile(id, createBundle(id));

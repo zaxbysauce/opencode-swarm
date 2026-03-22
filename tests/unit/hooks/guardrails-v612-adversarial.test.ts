@@ -743,7 +743,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			const session = swarmState.agentSessions.get('gate-test-1');
-			const taskId = 'gate-test-1:current';
+			const taskId = 'gate-test-1:unknown';
 			expect(session?.gateLog.has(taskId)).toBe(true);
 			// Note: Original tool name is stored, not normalized
 			expect(session?.gateLog.get(taskId)?.has('opencode:lint')).toBe(true);
@@ -765,7 +765,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			const session = swarmState.agentSessions.get('gate-test-2');
-			const taskId = 'gate-test-2:current';
+			const taskId = 'gate-test-2:unknown';
 			expect(session?.gateLog.has(taskId)).toBe(true);
 			// Note: Original tool name is stored, not normalized
 			expect(session?.gateLog.get(taskId)?.has('opencode.lint')).toBe(true);
@@ -787,7 +787,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			const session = swarmState.agentSessions.get('gate-test-3');
-			const taskId = 'gate-test-3:current';
+			const taskId = 'gate-test-3:unknown';
 			// Should NOT have gate log entry for non-gate tool
 			expect(session?.gateLog.has(taskId)).toBe(false);
 		});
@@ -815,13 +815,13 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 
 			// Verify session 1 only has lint
 			const session1 = swarmState.agentSessions.get('session-1');
-			expect(session1?.gateLog.get('session-1:current')?.has('lint')).toBe(true);
-			expect(session1?.gateLog.get('session-1:current')?.has('diff')).toBe(false);
+			expect(session1?.gateLog.get('session-1:unknown')?.has('lint')).toBe(true);
+			expect(session1?.gateLog.get('session-1:unknown')?.has('diff')).toBe(false);
 
 			// Verify session 2 only has diff
 			const session2 = swarmState.agentSessions.get('session-2');
-			expect(session2?.gateLog.get('session-2:current')?.has('diff')).toBe(true);
-			expect(session2?.gateLog.get('session-2:current')?.has('lint')).toBe(false);
+			expect(session2?.gateLog.get('session-2:unknown')?.has('diff')).toBe(true);
+			expect(session2?.gateLog.get('session-2:unknown')?.has('lint')).toBe(false);
 		});
 
 		it('ATTACK: gate failure state cleared after successful gate', async () => {
@@ -888,7 +888,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			expect(session?.lastGateFailure?.tool).toBe('lint');
 		});
 
-		it('ATTACK: partialGateWarningIssued prevents repeated warnings', async () => {
+		it('ATTACK: partialGateWarningsIssuedForTask prevents repeated warnings', async () => {
 			const guardrailsConfig = GuardrailsConfigSchema.parse({
 				enabled: true,
 				max_tool_calls: 100,
@@ -904,15 +904,21 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			const session = swarmState.agentSessions.get('warning-once');
-			session!.partialGateWarningIssued = true;
+			// Mark this task as already warned (partialGateWarningsIssuedForTask is the actual flag)
+			session!.partialGateWarningsIssuedForTask.add('warning-once:unknown');
 			// Add reviewer delegations to prevent catastrophic warning from project plan.json
 			session!.reviewerCallCount.set(1, 1);
 			session!.reviewerCallCount.set(2, 1);
 			session!.reviewerCallCount.set(3, 1);
 			session!.reviewerCallCount.set(4, 1);
 
-			// Transform messages - should NOT add warning because flag is already set
+			// Transform messages - warning is injected into SYSTEM message, not assistant
+			// System message must come FIRST for injection; assistant message follows
 			const messages = [
+				{
+					info: { role: 'system', sessionID: 'warning-once' },
+					parts: [{ type: 'text', text: 'System content' }],
+				},
 				{
 					info: { role: 'assistant', sessionID: 'warning-once' },
 					parts: [{ type: 'text', text: 'Done!' }],
@@ -920,8 +926,10 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			];
 			await hooks.messagesTransform({}, { messages });
 
-			// Text should NOT contain warning (flag was already set)
-			expect(messages[0].parts[0].text).toBe('Done!');
+			// Assistant text should NOT contain warning (already warned)
+			expect(messages[1].parts[0].text).toBe('Done!');
+			// System message should NOT contain PARTIAL GATE VIOLATION (already warned for this task)
+			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
 		});
 
 		it('ATTACK: all required gates must pass to avoid partial gate warning', async () => {
@@ -950,8 +958,12 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			session!.reviewerCallCount.set(4, 1);
 			session!.reviewerCallCount.set(5, 1);
 
-			// Transform messages - should NOT add warning because all gates passed
+			// Transform messages - warning is injected into SYSTEM message, not assistant
 			const messages = [
+				{
+					info: { role: 'system', sessionID: 'all-gates' },
+					parts: [{ type: 'text', text: 'System content' }],
+				},
 				{
 					info: { role: 'assistant', sessionID: 'all-gates' },
 					parts: [{ type: 'text', text: 'Done!' }],
@@ -959,8 +971,10 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			];
 			await hooks.messagesTransform({}, { messages });
 
-			// Text should NOT contain warning
+			// System message should NOT contain warning (all gates passed)
 			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
+			// Assistant message unchanged
+			expect(messages[1].parts[0].text).toBe('Done!');
 		});
 
 		it('ATTACK: missing even ONE required gate triggers partial gate warning', async () => {
@@ -989,8 +1003,12 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			session!.reviewerCallCount.set(4, 1);
 			session!.reviewerCallCount.set(5, 1);
 
-			// Transform messages - SHOULD add warning
+			// Transform messages - warning is injected into SYSTEM message, not assistant
 			const messages = [
+				{
+					info: { role: 'system', sessionID: 'missing-one-gate' },
+					parts: [{ type: 'text', text: 'System content' }],
+				},
 				{
 					info: { role: 'assistant', sessionID: 'missing-one-gate' },
 					parts: [{ type: 'text', text: 'Done!' }],
@@ -998,9 +1016,11 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			];
 			await hooks.messagesTransform({}, { messages });
 
-			// Text SHOULD contain warning with missing gate
+			// System message SHOULD contain warning with missing gate (prepended to existing text)
 			expect(messages[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
 			expect(messages[0].parts[0].text).toContain('pre_check_batch');
+			// Assistant message unchanged
+			expect(messages[1].parts[0].text).toBe('Done!');
 		});
 
 		it('ATTACK: missing reviewer delegation triggers partial gate warning', async () => {
@@ -1023,8 +1043,12 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 
 			// NO reviewer delegation added
 
-			// Transform messages - SHOULD add warning about missing reviewer
+			// Transform messages - warning is injected into SYSTEM message, not assistant
 			const messages = [
+				{
+					info: { role: 'system', sessionID: 'no-reviewer' },
+					parts: [{ type: 'text', text: 'System content' }],
+				},
 				{
 					info: { role: 'assistant', sessionID: 'no-reviewer' },
 					parts: [{ type: 'text', text: 'Done!' }],
@@ -1032,9 +1056,11 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			];
 			await hooks.messagesTransform({}, { messages });
 
-			// Text SHOULD contain warning about missing reviewer
+			// System message SHOULD contain warning about missing reviewer
 			expect(messages[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
 			expect(messages[0].parts[0].text).toContain('reviewer/test_engineer');
+			// Assistant message unchanged
+			expect(messages[1].parts[0].text).toBe('Done!');
 		});
 
 		it('ATTACK: output with "gates_passed: false" counts as failure', async () => {
@@ -1089,7 +1115,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			const session = swarmState.agentSessions.get('optional-gates');
-			const taskId = 'optional-gates:current';
+			const taskId = 'optional-gates:unknown';
 			expect(session?.gateLog.has(taskId)).toBe(true);
 			expect(session?.gateLog.get(taskId)?.has('secretscan')).toBe(true);
 		});
@@ -1122,11 +1148,13 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 
 			startAgentSession('write-swarm-test', ORCHESTRATOR_NAME);
 
-			// Architect writes to file inside .swarm
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'write-swarm-test', callID: 'c1' },
-				{ args: { filePath: '.swarm/plan.md' } },
-			);
+			// Architect writes to file inside .swarm - should throw
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'write-swarm-test', callID: 'c1' },
+					{ args: { filePath: '.swarm/plan.md' } },
+				),
+			).rejects.toThrow('PLAN STATE VIOLATION');
 
 			const session = swarmState.agentSessions.get('write-swarm-test');
 			expect(session?.architectWriteCount).toBe(0);

@@ -252,11 +252,12 @@ This phase is currently active.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Current phase: Phase 1: Hooks Pipeline Enhancement [IN PROGRESS]',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM CONTEXT] Phase: Phase 1: Hooks Pipeline Enhancement [IN PROGRESS]');
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(true);
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NEVER run the full test suite'))).toBe(true);
+			expect(output.system.some((s: string) => s.includes('Parallel pre-check enabled'))).toBe(true);
 		});
 
 		it('handler appends only hint when plan.md is missing', async () => {
@@ -279,10 +280,11 @@ This phase is currently active.
 			await transformHook(input, output);
 
 			// Only hint appended since plan.md doesn't exist
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NEVER run the full test suite'))).toBe(true);
+			expect(output.system.some((s: string) => s.startsWith('[SWARM CONTEXT] Phase:'))).toBe(false);
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(false);
 		});
 
 		it('handler appends only hint when no plan exists', async () => {
@@ -306,10 +308,11 @@ This phase is currently active.
 			await transformHook(input, output);
 
 			// Only hint appended since no plan exists
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NEVER run the full test suite'))).toBe(true);
+			expect(output.system.some((s: string) => s.startsWith('[SWARM CONTEXT] Phase:'))).toBe(false);
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(false);
 		});
 
 		it('handler appends context with header fallback when no IN PROGRESS phase', async () => {
@@ -342,14 +345,15 @@ This plan has header phase info but no IN PROGRESS phase.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Current phase: Phase 2 [PENDING]',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system.some((s: string) => s.startsWith('[SWARM CONTEXT] Phase:'))).toBe(false);
+			expect(output.system).toContain('[SWARM PLAN CURSOR]\n[/SWARM PLAN CURSOR]');
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NEVER run the full test suite'))).toBe(true);
+			expect(output.system.some((s: string) => s.includes('Parallel pre-check enabled'))).toBe(true);
 		});
 
-		it('the appended string starts with [SWARM CONTEXT] Current phase:', async () => {
+		it('the appended string starts with [SWARM CONTEXT] Phase:', async () => {
 			// Create .swarm directory and plan.md file
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
@@ -382,10 +386,10 @@ Testing is underway.
 			await transformHook(input, output);
 
 			const addedContext = output.system[0];
-			expect(addedContext).toStartWith('[SWARM CONTEXT] Current phase:');
+			expect(addedContext).toStartWith('[SWARM CONTEXT] Phase:');
 		});
 
-		it('handler injects current task when plan.md has incomplete tasks in IN PROGRESS phase', async () => {
+		it('handler injects phase and plan cursor when plan.md has incomplete tasks in IN PROGRESS phase', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
 			const planFile = join(swarmDir, 'plan.md');
@@ -417,15 +421,14 @@ Testing is underway.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM CONTEXT] Phase: Phase 1: Setup [IN PROGRESS]');
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(true);
+			expect(output.system.some((s: string) => s.includes('[SWARM CONTEXT] Current task:'))).toBe(false);
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
 		});
 
-		it('handler injects key decisions when context.md has decisions', async () => {
+		it('handler does not inject decisions when only context.md exists without plan context', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
 			const contextFile = join(swarmDir, 'context.md');
@@ -461,11 +464,10 @@ Testing is underway.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Key decisions: - **Decision A**: Use TypeScript for new code\n- **Decision B**: Prefer composition over inheritance',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system.some((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'))).toBe(false);
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NEVER run the full test suite'))).toBe(true);
 		});
 
 		it('handler injects all three context strings when both files have data', async () => {
@@ -513,13 +515,11 @@ Testing is underway.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
-				'[SWARM CONTEXT] Key decisions: - **Decision A**: Use TypeScript for new code\n- **Decision B**: Prefer composition over inheritance',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM CONTEXT] Phase: Phase 1: Setup [IN PROGRESS]');
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(true);
+			expect(output.system.some((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'))).toBe(true);
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
 		});
 
 		it('handler does not inject decisions when context.md is missing', async () => {
@@ -554,12 +554,10 @@ Testing is underway.
 
 			await transformHook(input, output);
 
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM CONTEXT] Current phase: Phase 1: Setup [IN PROGRESS]',
-				'[SWARM CONTEXT] Current task: - [ ] 1.2: Add config [SMALL]',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM CONTEXT] Phase: Phase 1: Setup [IN PROGRESS]');
+			expect(output.system.some((s: string) => s.startsWith('[SWARM PLAN CURSOR]'))).toBe(true);
+			expect(output.system.some((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'))).toBe(false);
 		});
 
 		describe('Cross-agent context injection', () => {
@@ -1121,10 +1119,9 @@ ${longActivity}
 			// Should not crash — hint still appended even when context.md fails
 			await transformHook(input, output);
 			
-			expect(output.system).toEqual([
-				'Initial system prompt',
-				'[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.',
-			]);
+			expect(output.system[0]).toBe('Initial system prompt');
+			expect(output.system).toContain('[SWARM HINT] Large tool outputs may be auto-summarized. Use /swarm retrieve <id> to get the full content if needed.');
+			expect(output.system.some((s: string) => s.includes('You must NOT run build, test, lint, or type-check commands'))).toBe(true);
 		});
 
 		describe('Injection budget (tryInject)', () => {
@@ -1215,13 +1212,13 @@ ${longActivity}
 
 				// Phase ~60 chars ≈ 20 tokens, task ~45 chars ≈ 15 tokens (total 35 tokens) - both fit
 				// Decisions ~80+ chars ≈ 27+ tokens would push over 50 token limit - should be dropped
-				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current phase:'));
-				const taskLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current task:'));
+				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Phase:'));
+				const planCursor = output.system.find((s: string) => s.startsWith('[SWARM PLAN CURSOR]'));
 				const decisionsLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'));
 				const agentContextLine = output.system.find((s: string) => s.includes('[SWARM AGENT CONTEXT]'));
 
 				expect(phaseLine).toBeDefined();
-				expect(taskLine).toBeDefined();
+				expect(planCursor).toBeDefined();
 				expect(decisionsLine).toBeUndefined();
 				expect(agentContextLine).toBeUndefined();
 			});
@@ -1267,12 +1264,12 @@ ${longActivity}
 				const output = { system: ['Initial system prompt'] };
 				await transformHook(input, output);
 
-				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current phase:'));
-				const taskLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current task:'));
+				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Phase:'));
+				const planCursor = output.system.find((s: string) => s.startsWith('[SWARM PLAN CURSOR]'));
 				const decisionsLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'));
 
 				expect(phaseLine).toBeDefined();
-				expect(taskLine).toBeDefined();
+				expect(planCursor).toBeDefined();
 				expect(decisionsLine).toBeUndefined();
 			});
 
@@ -1326,13 +1323,13 @@ ${longActivity}
 				const output = { system: ['Initial system prompt'] };
 				await transformHook(input, output);
 
-				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current phase:'));
-				const taskLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current task:'));
+				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Phase:'));
+				const planCursor = output.system.find((s: string) => s.startsWith('[SWARM PLAN CURSOR]'));
 				const decisionsLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'));
 				const agentContextLine = output.system.find((s: string) => s.includes('[SWARM AGENT CONTEXT]'));
 
 				expect(phaseLine).toBeDefined();
-				expect(taskLine).toBeDefined();
+				expect(planCursor).toBeDefined();
 				expect(decisionsLine).toBeDefined();
 				expect(agentContextLine).toBeDefined();
 			});
@@ -1383,14 +1380,14 @@ ${longActivity}
 				const output = { system: ['Initial system prompt'] };
 				await transformHook(input, output);
 
-				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current phase:'));
-				const taskLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current task:'));
+				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Phase:'));
+				const planCursor = output.system.find((s: string) => s.startsWith('[SWARM PLAN CURSOR]'));
 				const decisionsLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'));
 
 				// Phase (~20 tokens) fits, task (~12 tokens) = 32 total
 				// Decisions would push to ~54 tokens (over 50 limit) - should be dropped
 				expect(phaseLine).toBeDefined();
-				// Task may or may not be injected depending on exact extraction
+				expect(planCursor).toBeDefined();
 				// Just verify phase is present and decisions is not
 				expect(decisionsLine).toBeUndefined();
 			});
@@ -1460,11 +1457,13 @@ Some content without phase markers.
 				// Phase header fallback will inject Phase 1 [PENDING] (~20 chars ≈ 7 tokens)
 				// No task since no IN PROGRESS phase
 				// Decisions should be injected (~35 chars ≈ 12 tokens, total ~19 tokens fits in 60)
-				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current phase:'));
+				const phaseLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Phase:'));
+				const planCursor = output.system.find((s: string) => s.startsWith('[SWARM PLAN CURSOR]'));
 				const taskLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Current task:'));
 				const decisionsLine = output.system.find((s: string) => s.includes('[SWARM CONTEXT] Key decisions:'));
 
-				expect(phaseLine).toBeDefined();
+				expect(phaseLine).toBeUndefined();
+				expect(planCursor).toBeDefined();
 				expect(taskLine).toBeUndefined();
 				expect(decisionsLine).toBeDefined();
 			});

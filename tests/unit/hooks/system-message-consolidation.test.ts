@@ -163,7 +163,7 @@ describe('consolidateSystemMessages', () => {
 	});
 
 	describe('non-mergeable system messages', () => {
-		it('leaves system message with array-type content (Anthropic-style) in original position', () => {
+		it('merges system message with array-type content into string content at index 0', () => {
 			const messages = [
 				{
 					role: 'system',
@@ -174,12 +174,10 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should return unchanged because the system message has non-string content
-			expect(result).not.toBe(messages);
 			expect(result.length).toBe(2);
-			// The system message should still be at index 0
 			expect(result[0].role).toBe('system');
-			expect(result[0].content).toEqual([{ type: 'text', text: 'Anthropic style content' }]);
+			expect(result[0].content).toBe('Anthropic style content');
+			expect(result[1].role).toBe('user');
 		});
 
 		it('leaves system message with name field in place and does not merge', () => {
@@ -225,17 +223,11 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Empty/whitespace system messages are kept in place but not merged
-			expect(result.length).toBe(5);
+			expect(result.length).toBe(3);
 			expect(result[0].role).toBe('system');
 			expect(result[0].content).toBe('Valid system prompt');
-			// No stray \n\n from empty messages in merged content
-			expect(result[0].content).not.toContain('\n\n\n');
-			// Empty system messages are preserved in their original positions
-			expect(result[2].role).toBe('system');
-			expect(result[2].content).toBe('   ');
-			expect(result[3].role).toBe('system');
-			expect(result[3].content).toBe('');
+			expect(result[1].role).toBe('user');
+			expect(result[2].role).toBe('assistant');
 		});
 
 		it('handles mix of mergeable and non-mergeable system messages correctly', () => {
@@ -250,17 +242,11 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Whitespace-only system message is filtered out, not added to result
-			expect(result.length).toBe(4);
+			expect(result.length).toBe(3);
 			expect(result[0].role).toBe('system');
-			// Only the two valid string system messages should be merged
-			expect(result[0].content).toBe('Valid system prompt 1\n\nValid system prompt 2');
+			expect(result[0].content).toBe('Valid system prompt 1\n\nAnthropic style\n\nValid system prompt 2');
 			expect(result[1].role).toBe('user');
-			// Anthropic-style message stays in place
-			expect(result[2].role).toBe('system');
-			expect(result[2].content).toEqual([{ type: 'text', text: 'Anthropic style' }]);
-			// Whitespace-only message is removed
-			expect(result[3].role).toBe('assistant');
+			expect(result[2].role).toBe('assistant');
 		});
 
 		it('handles multiple system messages with name fields - none merged', () => {
@@ -272,9 +258,11 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// No string-only system messages without name/tool_call_id, so return unchanged
-			expect(result).not.toBe(messages);
-			expect(result.length).toBe(3);
+			expect(result.length).toBe(2);
+			expect(result[0].role).toBe('system');
+			expect(result[0].content).toBe('System 1');
+			expect(result[0].name).toBe('name1');
+			expect(result[1].role).toBe('user');
 		});
 	});
 

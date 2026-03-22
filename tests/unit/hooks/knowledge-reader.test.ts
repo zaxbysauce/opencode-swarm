@@ -350,8 +350,16 @@ describe('readMergedKnowledge — ranking', () => {
 		const result = await readMergedKnowledge('/proj', config); // No context
 
 		expect(result.length).toBe(2);
-		// All entries should have relevanceScore > 0 (base 0.5 + global boost 0.1)
-		expect(result.every((e) => e.relevanceScore > 0)).toBe(true);
+		expect(
+			result.every(
+				(e) =>
+					typeof e.relevanceScore === 'object' &&
+					e.relevanceScore !== null &&
+					e.relevanceScore.category >= 0 &&
+					e.relevanceScore.confidence >= 0 &&
+					e.relevanceScore.keywords >= 0,
+			),
+		).toBe(true);
 	});
 
 	it('Test 9: same-project hive entry penalized in ranking', async () => {

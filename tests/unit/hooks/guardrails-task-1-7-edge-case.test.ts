@@ -260,9 +260,10 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			await hooks.messagesTransform({}, messages2 as any);
 			const secondCallText = messages2.messages[0].parts[0].text;
 			
-			// Should still only have one warning (not duplicated)
+			// Second call gets no new self-coding warning because the warning is
+			// suppressed until write count increases past selfCodingWarnedAtCount
 			const secondCount = (secondCallText.match(/SELF-CODING DETECTED/g) || []).length;
-			expect(secondCount).toBe(1);
+			expect(secondCount).toBe(0);
 		});
 	});
 
@@ -342,8 +343,13 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 
 			await hooks.messagesTransform({}, messages as any);
 
-			// Should NOT create system message (no trigger)
-			expect(messages.messages.length).toBe(1);
+			// Should NOT inject self-coding warning (write count is 0, not > 0)
+			const combinedText = messages.messages
+				.flatMap((m: any) => m.parts ?? [])
+				.filter((p: any) => p.type === 'text' && typeof p.text === 'string')
+				.map((p: any) => p.text)
+				.join('\n');
+			expect(combinedText).not.toContain('SELF-CODING DETECTED');
 		});
 
 		it('should only trigger self-fix warning when selfFixAttempted is true', async () => {
@@ -367,8 +373,13 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 
 			await hooks.messagesTransform({}, messages as any);
 
-			// Should NOT create system message (no trigger)
-			expect(messages.messages.length).toBe(1);
+			// Should NOT inject self-fix warning (selfFixAttempted is false)
+			const combinedText = messages.messages
+				.flatMap((m: any) => m.parts ?? [])
+				.filter((p: any) => p.type === 'text' && typeof p.text === 'string')
+				.map((p: any) => p.text)
+				.join('\n');
+			expect(combinedText).not.toContain('SELF-FIX DETECTED');
 		});
 	});
 });
