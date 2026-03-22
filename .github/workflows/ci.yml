@@ -37,6 +37,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
@@ -53,8 +54,10 @@ jobs:
       - name: Unit tests (hooks)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks --timeout 120000
-      - name: Unit tests (cli, commands, config, tools)
-        run: bun --smol test tests/unit/cli tests/unit/commands tests/unit/config tests/unit/tools --timeout 120000
+      - name: Unit tests (cli, commands, config)
+        run: bun --smol test tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
+      - name: Unit tests (tools)
+        run: bun --smol test tests/unit/tools --timeout 120000
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
         run: bun --smol test tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts --timeout 120000
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
@@ -63,6 +66,7 @@ jobs:
   integration:
     needs: unit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
@@ -105,6 +109,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
