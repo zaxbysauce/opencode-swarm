@@ -109,17 +109,17 @@ describe('/swarm simulate command registration integration', () => {
 	});
 
 	describe('HELP_TEXT content', () => {
-		it('should contain simulate entry in HELP_TEXT', () => {
+		it('should have simulate in registry', () => {
 			const source = readFileSync(
-				new URL('../../../src/commands/index.ts', import.meta.url),
+				new URL('../../../src/commands/registry.ts', import.meta.url),
 				'utf-8',
 			);
-			expect(source).toContain('/swarm simulate');
+			expect(source).toContain('simulate:');
 		});
 
 		it('should include simulate description with optional target flag', () => {
 			const source = readFileSync(
-				new URL('../../../src/commands/index.ts', import.meta.url),
+				new URL('../../../src/commands/registry.ts', import.meta.url),
 				'utf-8',
 			);
 			expect(source).toContain('--target <glob>');
@@ -136,23 +136,12 @@ describe('/swarm simulate command registration integration', () => {
 			expect(source).toContain("export { handleSimulateCommand } from './simulate'");
 		});
 
-		it('should import handleSimulateCommand from simulate module', () => {
+		it('should have simulate in COMMAND_REGISTRY', () => {
 			const source = readFileSync(
-				new URL('../../../src/commands/index.ts', import.meta.url),
+				new URL('../../../src/commands/registry.ts', import.meta.url),
 				'utf-8',
 			);
-			expect(source).toContain(
-				"import { handleSimulateCommand } from './simulate'",
-			);
-		});
-
-		it('should include simulate case in switch statement', () => {
-			const source = readFileSync(
-				new URL('../../../src/commands/index.ts', import.meta.url),
-				'utf-8',
-			);
-			expect(source).toContain("case 'simulate':");
-			expect(source).toContain('handleSimulateCommand(directory, args)');
+			expect(source).toContain('simulate:');
 		});
 	});
 

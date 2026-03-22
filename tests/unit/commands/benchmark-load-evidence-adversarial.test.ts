@@ -40,7 +40,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 	describe('Attack vector: loadEvidence throws instead of returning discriminated union', () => {
 		it('should handle synchronous throws from loadEvidence gracefully', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockImplementation(() => {
 				throw new Error('loadEvidence internal failure');
 			});
@@ -53,7 +53,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle asynchronous rejections from loadEvidence gracefully', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockRejectedValue(
 				new Error('Async loadEvidence failure'),
 			);
@@ -67,16 +67,16 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 		it('should handle partial failures when some loadEvidence calls throw', async () => {
 			// Arrange
 			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1', 'task-2', 'task-3']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1', '1.2', '1.3']);
 			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-1') {
+				if (taskId === '1.1') {
 					throw new Error('Task 1 failed catastrophically');
-				} else if (taskId === 'task-2') {
+				} else if (taskId === '1.2') {
 					return Promise.resolve({
 						status: 'found',
 						bundle: {
 							schema_version: '1.0.0',
-							task_id: 'task-2',
+							task_id: '1.2',
 							entries: [
 								{
 									type: 'review',
@@ -93,12 +93,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 						},
 					});
 				}
-				// task-3
+				// 1.3
 				return Promise.resolve({
 					status: 'found',
 					bundle: {
 						schema_version: '1.0.0',
-						task_id: 'task-3',
+						task_id: '1.3',
 						entries: [
 							{
 								type: 'review',
@@ -126,12 +126,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 	describe('Attack vector: bundle.entries is null/undefined/not an array', () => {
 		it('should handle bundle.entries being null', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: null,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -146,12 +146,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries being undefined', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					// entries is missing (undefined)
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -166,12 +166,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries being a non-array object', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: { type: 'not-an-array', value: 42 } as unknown as unknown[],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -186,12 +186,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries being a string (security issue: iterates chars)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: 'not-an-array' as unknown as unknown[],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -209,12 +209,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries being a number (security issue: no iteration)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: 42 as unknown as unknown[],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -229,12 +229,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries being an empty array (valid but edge case)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: [],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -250,12 +250,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries array containing null elements', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: [null, null] as unknown[],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -270,12 +270,12 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle bundle.entries array containing undefined elements', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: [undefined, undefined] as unknown[],
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -292,7 +292,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 	describe('Attack vector: status is unexpected string (not found|not_found|invalid_schema)', () => {
 		it('should handle status being an empty string', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: '',
 			} as any);
@@ -307,7 +307,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being a random malicious string', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: '../../../etc/passwd',
 			} as any);
@@ -321,7 +321,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being "FOUND" (case sensitivity attack)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'FOUND',
 			} as any);
@@ -335,7 +335,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being "Found" (mixed case attack)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'Found',
 			} as any);
@@ -349,7 +349,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being a long string (DoS attempt)', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			const longString = 'a'.repeat(10000);
 			mockLoadEvidence.mockResolvedValue({
 				status: longString,
@@ -364,7 +364,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being SQL injection attempt', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: "found'; DROP TABLE tasks; --",
 			} as any);
@@ -378,7 +378,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle status being JavaScript code injection attempt', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'found; process.exit(1)',
 			} as any);
@@ -607,7 +607,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 	describe('Attack vector: mixed adversarial conditions', () => {
 		it('should handle large array with null entries', async () => {
 			// Arrange
-			const taskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
+			const taskIds = Array.from({ length: 100 }, (_, i) => `1.${i + 1}`);
 			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
 
 			const mockDate = new Date().toISOString();
@@ -615,7 +615,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'task-1',
+					task_id: '1.1',
 					entries: [null, null, null] as unknown[],
 					created_at: mockDate,
 					updated_at: mockDate,
@@ -630,7 +630,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle path traversal with large array', async () => {
 			// Arrange
-			const taskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
+			const taskIds = Array.from({ length: 100 }, (_, i) => `1.${i + 1}`);
 			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'not_found',
@@ -648,7 +648,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 			// All calls should have the malicious path
 			expect(mockLoadEvidence).toHaveBeenLastCalledWith(
 				'../../../etc/passwd',
-				'task-99',
+				'1.100',
 			);
 		});
 	});
@@ -656,7 +656,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 	describe('Attack vector: CI Gate with adversarial inputs', () => {
 		it('should handle CI gate when loadEvidence throws', async () => {
 			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
+			mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
 			mockLoadEvidence.mockRejectedValue(
 				new Error('loadEvidence failed'),
 			);
@@ -669,7 +669,7 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle CI gate with large task array', async () => {
 			// Arrange
-			const taskIds = Array.from({ length: 1000 }, (_, i) => `task-${i}`);
+			const taskIds = Array.from({ length: 1000 }, (_, i) => `1.${i + 1}`);
 			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
 			mockLoadEvidence.mockResolvedValue({
 				status: 'not_found',

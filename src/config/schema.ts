@@ -876,6 +876,31 @@ export const CompactionConfigSchema = z.object({
 
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 
+// Tool output role profile (per-agent truncation settings)
+export interface ToolOutputRoleProfile {
+	max_tokens?: number;
+	keep_sections?: string[];
+}
+
+const ToolOutputRoleProfileSchema = z.object({
+	max_tokens: z.number().min(500).max(20000).optional(),
+	keep_sections: z.array(z.string()).optional(),
+});
+
+const ToolOutputRoleProfilesSchema = z
+	.object({
+		architect: ToolOutputRoleProfileSchema.optional(),
+		coder: ToolOutputRoleProfileSchema.optional(),
+		reviewer: ToolOutputRoleProfileSchema.optional(),
+		test_engineer: ToolOutputRoleProfileSchema.optional(),
+		explorer: ToolOutputRoleProfileSchema.optional(),
+		sme: ToolOutputRoleProfileSchema.optional(),
+		critic: ToolOutputRoleProfileSchema.optional(),
+		docs: ToolOutputRoleProfileSchema.optional(),
+		designer: ToolOutputRoleProfileSchema.optional(),
+	})
+	.optional();
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -975,6 +1000,7 @@ export const PluginConfigSchema = z.object({
 			truncation_enabled: z.boolean().default(true),
 			max_lines: z.number().min(10).max(500).default(150),
 			per_tool: z.record(z.string(), z.number()).optional(),
+			role_profiles: ToolOutputRoleProfilesSchema,
 		})
 		.optional(),
 

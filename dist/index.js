@@ -14419,7 +14419,7 @@ function resolveGuardrailsConfig(config2, agentName) {
   };
   return resolved;
 }
-var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, PluginConfigSchema;
+var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, ToolOutputRoleProfileSchema, ToolOutputRoleProfilesSchema, PluginConfigSchema;
 var init_schema = __esm(() => {
   init_zod();
   init_constants();
@@ -14885,6 +14885,21 @@ var init_schema = __esm(() => {
     emergencyThreshold: exports_external.number().min(1).max(99).default(80),
     preserveLastNTurns: exports_external.number().int().min(1).default(5)
   });
+  ToolOutputRoleProfileSchema = exports_external.object({
+    max_tokens: exports_external.number().min(500).max(20000).optional(),
+    keep_sections: exports_external.array(exports_external.string()).optional()
+  });
+  ToolOutputRoleProfilesSchema = exports_external.object({
+    architect: ToolOutputRoleProfileSchema.optional(),
+    coder: ToolOutputRoleProfileSchema.optional(),
+    reviewer: ToolOutputRoleProfileSchema.optional(),
+    test_engineer: ToolOutputRoleProfileSchema.optional(),
+    explorer: ToolOutputRoleProfileSchema.optional(),
+    sme: ToolOutputRoleProfileSchema.optional(),
+    critic: ToolOutputRoleProfileSchema.optional(),
+    docs: ToolOutputRoleProfileSchema.optional(),
+    designer: ToolOutputRoleProfileSchema.optional()
+  }).optional();
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -14919,7 +14934,8 @@ var init_schema = __esm(() => {
     tool_output: exports_external.object({
       truncation_enabled: exports_external.boolean().default(true),
       max_lines: exports_external.number().min(10).max(500).default(150),
-      per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional()
+      per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional(),
+      role_profiles: ToolOutputRoleProfilesSchema
     }).optional(),
     slop_detector: SlopDetectorConfigSchema.optional(),
     incremental_verify: IncrementalVerifyConfigSchema.optional(),

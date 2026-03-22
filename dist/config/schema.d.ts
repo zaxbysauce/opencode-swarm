@@ -459,6 +459,10 @@ export declare const CompactionConfigSchema: z.ZodObject<{
     preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
+export interface ToolOutputRoleProfile {
+    max_tokens?: number;
+    keep_sections?: string[];
+}
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -737,6 +741,44 @@ export declare const PluginConfigSchema: z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;
         max_lines: z.ZodDefault<z.ZodNumber>;
         per_tool: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+        role_profiles: z.ZodOptional<z.ZodObject<{
+            architect: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            coder: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            reviewer: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            test_engineer: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            explorer: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            sme: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            critic: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            docs: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+            designer: z.ZodOptional<z.ZodObject<{
+                max_tokens: z.ZodOptional<z.ZodNumber>;
+                keep_sections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>;
     }, z.core.$strip>>;
     slop_detector: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
