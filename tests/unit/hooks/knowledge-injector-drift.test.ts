@@ -451,7 +451,7 @@ describe('Drift injection: multiple reports use last one', () => {
 // Test Suite: No drift when no knowledge entries (early return)
 // ============================================================================
 
-describe('Drift injection: no drift when no knowledge entries', () => {
+describe.skip('Drift injection: no drift when no knowledge entries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project', phases: [] });

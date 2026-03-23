@@ -54,9 +54,21 @@ jobs:
       - name: Unit tests (hooks - guardrails)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/guardrails*.test.ts --timeout 120000
-      - name: Unit tests (hooks - knowledge, curator, hive)
+      - name: Unit tests (hooks - knowledge types/validator/store)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge*.test.ts tests/unit/hooks/curator*.test.ts tests/unit/hooks/hive*.test.ts --timeout 120000
+        run: bun --smol test tests/unit/hooks/knowledge-types*.test.ts tests/unit/hooks/knowledge-validator*.test.ts tests/unit/hooks/knowledge-registration*.test.ts tests/unit/hooks/knowledge-store*.test.ts tests/unit/hooks/knowledge-quarantine*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge reader/migrator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge injector)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
+      - name: Unit tests (hooks - curator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts tests/unit/hooks/curator*.test.ts --timeout 120000
+      - name: Unit tests (hooks - hive)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/hive*.test.ts --timeout 120000
       - name: Unit tests (hooks - system-enhancer)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/system-enhancer*.test.ts --timeout 120000

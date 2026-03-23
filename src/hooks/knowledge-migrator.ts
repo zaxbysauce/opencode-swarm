@@ -29,7 +29,25 @@ export interface MigrationResult {
 	entriesMigrated: number;
 	entriesDropped: number;
 	entriesTotal: number;
-	skippedReason?: 'sentinel-exists' | 'no-context-file' | 'empty-context';
+	skippedReason?:
+		| 'sentinel-exists'
+		| 'no-context-file'
+		| 'empty-context'
+		| 'external-sentinel-exists';
+}
+
+// Stub for external migration (not yet implemented)
+export async function migrateKnowledgeToExternal(
+	_directory: string,
+	_config: KnowledgeConfig,
+): Promise<MigrationResult> {
+	return {
+		migrated: false,
+		entriesMigrated: 0,
+		entriesDropped: 0,
+		entriesTotal: 0,
+		skippedReason: 'no-context-file',
+	};
 }
 
 // ============================================================================
