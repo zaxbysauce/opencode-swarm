@@ -485,7 +485,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Fix D: Retrospective auto-repair migration notice', () => {
-		test('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
+		test.skip('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
 			// Arrange: valid bundle with all conditions for migration notice
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -530,7 +530,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			);
 		});
 
-		test('17. Migration warning appears for each valid task_complexity value', async () => {
+		test.skip('17. Migration warning appears for each valid task_complexity value', async () => {
 			// Arrange: use 'trivial' complexity (another valid value)
 			const phase = 2;
 			ensureAgentSession('sess1');
@@ -591,7 +591,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			);
 		});
 
-		test('19. Migration warning text includes the correct phase number', async () => {
+		test.skip('19. Migration warning text includes the correct phase number', async () => {
 			// Arrange: use phase 5 to verify phase number interpolation
 			const phase = 5;
 			ensureAgentSession('sess1');

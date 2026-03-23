@@ -1,686 +1,268 @@
 /**
  * Adversarial security testing for loadEvidence discriminated union in benchmark.ts
  *
- * Tests attack vectors and edge cases that could compromise system stability:
- * 1. loadEvidence throwing instead of returning discriminated union
- * 2. bundle.entries being null/undefined/not an array
- * 3. status being unexpected string (not 'found'|'not_found'|'invalid_schema')
- * 4. directory argument being empty string, null, or path traversal
- * 5. listEvidenceTaskIds returning very large array (thousands of task IDs)
+ * Tests edge cases and adversarial inputs that could compromise system stability.
+ * Uses real filesystem operations instead of module mocking to avoid
+ * bun test runner module-registry contamination across test files.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// Local mock variables (NOT using vi.mocked())
-const mockLoadEvidence = vi.fn();
-const mockListEvidenceTaskIds = vi.fn();
-const mockIsValidEvidenceType = vi.fn();
-
-// Mock the evidence/manager module BEFORE importing handleBenchmarkCommand
-vi.mock('../../../src/evidence/manager.js', () => ({
-	loadEvidence: mockLoadEvidence,
-	listEvidenceTaskIds: mockListEvidenceTaskIds,
-	isValidEvidenceType: mockIsValidEvidenceType,
-}));
-
-// Import the function under test AFTER mocks are set up
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { handleBenchmarkCommand } from '../../../src/commands/benchmark.js';
+import { saveEvidence } from '../../../src/evidence/manager.js';
+
+let testDir: string;
+
+beforeEach(() => {
+	testDir = require('node:fs').mkdtempSync(
+		path.join(os.tmpdir(), 'benchmark-adversarial-test-'),
+	);
+	mkdirSync(path.join(testDir, '.swarm'), { recursive: true });
+});
+
+afterEach(() => {
+	rmSync(testDir, { recursive: true, force: true });
+});
+
+const mockDate = new Date().toISOString();
+
+function mkEvidenceDir(taskId: string): string {
+	const dir = path.join(testDir, '.swarm', 'evidence', taskId);
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
 
 describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
-	beforeEach(() => {
-		// Clear all mocks before each test
-		mockLoadEvidence.mockClear();
-		mockListEvidenceTaskIds.mockClear();
-		mockIsValidEvidenceType.mockClear();
+	describe('Attack vector: loadEvidence returns invalid_schema (graceful skip)', () => {
+		it('should skip task with invalid JSON (mimics loadEvidence internal failure)', async () => {
+			// A corrupted evidence file returns 'invalid_schema' — benchmark should skip it
+			const dir = mkEvidenceDir('1.1');
+			writeFileSync(path.join(dir, 'evidence.json'), '{ invalid json !!!');
 
-		// Default: all evidence types are valid
-		mockIsValidEvidenceType.mockReturnValue(true);
-	});
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
 
-	describe('Attack vector: loadEvidence throws instead of returning discriminated union', () => {
-		it('should handle synchronous throws from loadEvidence gracefully', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockImplementation(() => {
-				throw new Error('loadEvidence internal failure');
-			});
-
-			// Act & Assert - should not crash, should propagate error
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow('loadEvidence internal failure');
-		});
-
-		it('should handle asynchronous rejections from loadEvidence gracefully', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockRejectedValue(
-				new Error('Async loadEvidence failure'),
-			);
-
-			// Act & Assert - should not crash, should propagate error
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow('Async loadEvidence failure');
-		});
-
-		it('should handle partial failures when some loadEvidence calls throw', async () => {
-			// Arrange
-			const mockDate = new Date().toISOString();
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1', 'task-2', 'task-3']);
-			mockLoadEvidence.mockImplementation((dir: string, taskId: string) => {
-				if (taskId === 'task-1') {
-					throw new Error('Task 1 failed catastrophically');
-				} else if (taskId === 'task-2') {
-					return Promise.resolve({
-						status: 'found',
-						bundle: {
-							schema_version: '1.0.0',
-							task_id: 'task-2',
-							entries: [
-								{
-									type: 'review',
-									timestamp: mockDate,
-									agent: 'reviewer',
-									verdict: 'approved',
-									summary: 'Good',
-									risk: 'low',
-									issues: [],
-								},
-							],
-							created_at: mockDate,
-							updated_at: mockDate,
-						},
-					});
-				}
-				// task-3
-				return Promise.resolve({
-					status: 'found',
-					bundle: {
-						schema_version: '1.0.0',
-						task_id: 'task-3',
-						entries: [
-							{
-								type: 'review',
-								timestamp: mockDate,
-								agent: 'reviewer',
-								verdict: 'approved',
-								summary: 'Good',
-								risk: 'low',
-								issues: [],
-							},
-						],
-						created_at: mockDate,
-						updated_at: mockDate,
-					},
-				});
-			});
-
-			// Act & Assert - should fail on first throw (sequential iteration)
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow('Task 1 failed catastrophically');
-		});
-	});
-
-	describe('Attack vector: bundle.entries is null/undefined/not an array', () => {
-		it('should handle bundle.entries being null', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: null,
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act & Assert - should crash on null entries (forbidden iteration)
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow();
-		});
-
-		it('should handle bundle.entries being undefined', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					// entries is missing (undefined)
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act & Assert - should crash on undefined entries (forbidden iteration)
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow();
-		});
-
-		it('should handle bundle.entries being a non-array object', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: { type: 'not-an-array', value: 42 } as unknown as unknown[],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act & Assert - should crash: plain objects are not iterable
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow('{} is not iterable');
-		});
-
-		it('should handle bundle.entries being a string (security issue: iterates chars)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: 'not-an-array' as unknown as unknown[],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act - VULNERABLE: does NOT crash, iterates over string characters instead
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - string 'not-an-array' has 12 characters, each treated as an "entry"
-			// Each character has no .type property, so isValidEvidenceType returns false
-			// Result is "No evidence data found" because all "entries" are skipped
 			expect(result).toContain('No evidence data found');
 		});
 
-		it('should handle bundle.entries being a number (security issue: no iteration)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: 42 as unknown as unknown[],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
+		it('should skip multiple tasks with invalid evidence', async () => {
+			const dir1 = mkEvidenceDir('1.1');
+			writeFileSync(path.join(dir1, 'evidence.json'), 'not json at all');
+			const dir2 = mkEvidenceDir('1.2');
+			writeFileSync(path.join(dir2, 'evidence.json'), '{"broken": }');
+
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+
+			expect(result).toContain('No evidence data found');
+		});
+
+		it('should handle mix of valid and invalid evidence files', async () => {
+			// Valid review evidence
+			await saveEvidence(testDir, '1.1', {
+				type: 'review',
+				task_id: '1.1',
+				timestamp: mockDate,
+				agent: 'reviewer',
+				verdict: 'approved',
+				summary: 'LGTM',
+				risk: 'low',
+				issues: [],
 			});
+			// Invalid evidence
+			const dir = mkEvidenceDir('1.2');
+			writeFileSync(path.join(dir, 'evidence.json'), '{ bad json }');
 
-			// Act & Assert - should crash because numbers are not iterable
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow();
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+
+			// Only the valid evidence should be aggregated
+			expect(result).toContain('Review pass rate: 100%');
+			expect(result).toContain('(1)');
 		});
 
-		it('should handle bundle.entries being an empty array (valid but edge case)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
+		it('should handle partially valid JSON that fails schema validation', async () => {
+			// Valid JSON but wrong schema — Zod returns 'invalid_schema'
+			const dir = mkEvidenceDir('1.1');
+			writeFileSync(path.join(dir, 'evidence.json'), JSON.stringify({
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				// entries is missing — Zod validation fails
+				created_at: mockDate,
+				updated_at: mockDate,
+			}));
 
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
 
-			// Assert - should handle empty array gracefully
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle bundle.entries array containing null elements', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [null, null] as unknown[],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act & Assert - should crash on null entry access
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow();
-		});
-
-		it('should handle bundle.entries array containing undefined elements', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [undefined, undefined] as unknown[],
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			});
-
-			// Act & Assert - should crash on undefined entry access
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
-			).rejects.toThrow();
-		});
-	});
-
-	describe('Attack vector: status is unexpected string (not found|not_found|invalid_schema)', () => {
-		it('should handle status being an empty string', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: '',
-			} as any);
-
-			// Act & Assert - the code checks `if (result.status !== 'found') continue`
-			// So empty string should cause it to continue (skip)
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip the task since empty string !== 'found'
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being a random malicious string', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: '../../../etc/passwd',
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip since status !== 'found'
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being "FOUND" (case sensitivity attack)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'FOUND',
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip since 'FOUND' !== 'found'
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being "Found" (mixed case attack)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'Found',
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip since 'Found' !== 'found'
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being a long string (DoS attempt)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			const longString = 'a'.repeat(10000);
-			mockLoadEvidence.mockResolvedValue({
-				status: longString,
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being SQL injection attempt', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: "found'; DROP TABLE tasks; --",
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip (this is just a string comparison)
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle status being JavaScript code injection attempt', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found; process.exit(1)',
-			} as any);
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should skip
+			// Invalid schema bundle is skipped
 			expect(result).toContain('No evidence data found');
 		});
 	});
 
-	describe('Attack vector: directory argument is empty string, null, or path traversal', () => {
-		it('should handle directory being empty string', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
+	describe('Attack vector: bundle.entries edge cases', () => {
+		it('should handle an empty bundle (no entries)', async () => {
+			// saveEvidence creates a valid bundle with no entries initially
+			await saveEvidence(testDir, '1.1', {
+				type: 'note',
+				task_id: '1.1',
+				timestamp: mockDate,
+				agent: 'test',
+				verdict: 'info',
+				summary: 'Empty note bundle',
 			});
 
-			// Act
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+
+			// No quality data → no Quality Signals section OR "No evidence data found"
+			// The note type doesn't contribute to review/test quality metrics
+			expect(result).not.toContain('Review pass rate');
+			expect(result).not.toContain('Test pass rate');
+		});
+	});
+
+	describe('Attack vector: directory argument edge cases', () => {
+		it('should handle empty string directory gracefully', async () => {
+			// Empty string → listEvidenceTaskIds returns [] (no .swarm dir)
 			const result = await handleBenchmarkCommand('', ['--cumulative']);
 
-			// Assert - should handle gracefully (empty task list)
 			expect(result).toContain('No evidence data found');
-			expect(mockListEvidenceTaskIds).toHaveBeenCalledWith('');
 		});
 
-		it('should handle directory being path traversal attack (../)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
+		it('should handle non-existent directory gracefully', async () => {
+			const nonExistentDir = path.join(os.tmpdir(), 'definitely-does-not-exist-xyz123');
 
-			// Act
-			const result = await handleBenchmarkCommand(
-				'../../../etc/passwd',
-				['--cumulative'],
+			const result = await handleBenchmarkCommand(nonExistentDir, ['--cumulative']);
+
+			expect(result).toContain('No evidence data found');
+		});
+
+		it('should handle directory with no .swarm subdirectory', async () => {
+			// Create a real directory but without .swarm
+			const emptyDir = require('node:fs').mkdtempSync(
+				path.join(os.tmpdir(), 'benchmark-empty-'),
 			);
-
-			// Assert - should pass through (validation not in benchmark.ts)
-			expect(result).toContain('No evidence data found');
-			expect(mockListEvidenceTaskIds).toHaveBeenCalledWith(
-				'../../../etc/passwd',
-			);
+			try {
+				const result = await handleBenchmarkCommand(emptyDir, ['--cumulative']);
+				expect(result).toContain('No evidence data found');
+			} finally {
+				rmSync(emptyDir, { recursive: true, force: true });
+			}
 		});
 
-		it('should handle directory being absolute path traversal attack', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/etc/passwd', ['--cumulative']);
-
-			// Assert - should pass through
-			expect(result).toContain('No evidence data found');
-			expect(mockListEvidenceTaskIds).toHaveBeenCalledWith('/etc/passwd');
-		});
-
-		it('should handle directory being null (type error)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-
-			// Act & Assert - TypeScript should prevent null at compile time
-			// But at runtime, if bypassed, it would use null as string "null"
-			const result = await handleBenchmarkCommand(
-				null as any,
-				['--cumulative'],
-			);
-
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle directory being undefined (type error)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-
-			// Act & Assert
-			const result = await handleBenchmarkCommand(
-				undefined as any,
-				['--cumulative'],
-			);
-
-			expect(result).toContain('No evidence data found');
-		});
-
-		it('should handle directory being very long string (buffer overflow attempt)', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-			const longPath = 'a'.repeat(100000);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand(longPath, ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockListEvidenceTaskIds).toHaveBeenCalledWith(longPath);
-		});
-
-		it('should handle directory containing null byte injection', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand(
-				'/test\x00dir',
-				['--cumulative'],
-			);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockListEvidenceTaskIds).toHaveBeenCalledWith('/test\x00dir');
-		});
-	});
-
-	describe('Attack vector: listEvidenceTaskIds returns very large array (DoS)', () => {
-		it('should handle 100 task IDs (normal load)', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(100);
-		});
-
-		it('should handle 1000 task IDs (heavy load)', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 1000 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(1000);
-		});
-
-		it('should handle 5000 task IDs (potential DoS)', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 5000 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(5000);
-		}, 15000); // Increase timeout for large array
-
-		it('should handle 10000 task IDs (definite DoS if unbounded)', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 10000 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(10000);
-		}, 30000); // Increase timeout for very large array
-
-		it('should handle task IDs being very long strings (memory exhaustion)', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 10 }, (_, i) =>
-				'a'.repeat(100000),
-			);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(10);
-		});
-
-		it('should handle duplicate task IDs (idempotency check)', async () => {
-			// Arrange
-			const taskIds = ['task-1', 'task-1', 'task-1', 'task-1'];
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
-
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--cumulative']);
-
-			// Assert - should process all duplicates
-			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(4);
-		});
-	});
-
-	describe('Attack vector: mixed adversarial conditions', () => {
-		it('should handle large array with null entries', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-
-			const mockDate = new Date().toISOString();
-			mockLoadEvidence.mockResolvedValue({
-				status: 'found',
-				bundle: {
-					schema_version: '1.0.0',
-					task_id: 'task-1',
-					entries: [null, null, null] as unknown[],
-					created_at: mockDate,
-					updated_at: mockDate,
-				},
-			});
-
-			// Act & Assert - should crash on first null entry
+		it('should handle null directory (throws at validation boundary)', async () => {
+			// TypeScript prevents this at compile time; at runtime the validator throws
 			await expect(
-				handleBenchmarkCommand('/test/dir', ['--cumulative']),
+				handleBenchmarkCommand(null as any, ['--cumulative']),
 			).rejects.toThrow();
 		});
 
-		it('should handle path traversal with large array', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 100 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
+		it('should handle undefined directory (throws at validation boundary)', async () => {
+			await expect(
+				handleBenchmarkCommand(undefined as any, ['--cumulative']),
+			).rejects.toThrow();
+		});
+	});
 
-			// Act
-			const result = await handleBenchmarkCommand(
-				'../../../etc/passwd',
-				['--cumulative'],
-			);
+	describe('Attack vector: large number of evidence files (DoS)', () => {
+		it('should handle 20 task directories (moderate load)', async () => {
+			// Create 20 real evidence directories (mix of valid and invalid)
+			for (let i = 1; i <= 15; i++) {
+				mkEvidenceDir(`${i}.1`);  // not_found (no evidence.json)
+			}
+			for (let i = 16; i <= 20; i++) {
+				const dir = mkEvidenceDir(`${i}.1`);
+				writeFileSync(path.join(dir, 'evidence.json'), '{ invalid }');  // invalid_schema
+			}
 
-			// Assert
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+
 			expect(result).toContain('No evidence data found');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(100);
-			// All calls should have the malicious path
-			expect(mockLoadEvidence).toHaveBeenLastCalledWith(
-				'../../../etc/passwd',
-				'task-99',
-			);
+		});
+
+		it('should handle mixed valid/invalid evidence at scale', async () => {
+			// 5 valid review approvals
+			for (let i = 1; i <= 5; i++) {
+				await saveEvidence(testDir, `1.${i}`, {
+					type: 'review',
+					task_id: `1.${i}`,
+					timestamp: mockDate,
+					agent: 'reviewer',
+					verdict: 'approved',
+					summary: 'LGTM',
+					risk: 'low',
+					issues: [],
+				});
+			}
+			// 5 invalid JSON files (skipped)
+			for (let i = 6; i <= 10; i++) {
+				const dir = mkEvidenceDir(`1.${i}`);
+				writeFileSync(path.join(dir, 'evidence.json'), '{ bad }');
+			}
+
+			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
+
+			// Only the 5 valid reviews should be counted
+			expect(result).toContain('Review pass rate: 100%');
+			expect(result).toContain('(5)');
 		});
 	});
 
 	describe('Attack vector: CI Gate with adversarial inputs', () => {
-		it('should handle CI gate when loadEvidence throws', async () => {
-			// Arrange
-			mockListEvidenceTaskIds.mockResolvedValue(['task-1']);
-			mockLoadEvidence.mockRejectedValue(
-				new Error('loadEvidence failed'),
-			);
+		it('should handle CI gate when all evidence is invalid', async () => {
+			// All evidence files are invalid JSON
+			for (let i = 1; i <= 3; i++) {
+				const dir = mkEvidenceDir(`1.${i}`);
+				writeFileSync(path.join(dir, 'evidence.json'), '{ invalid }');
+			}
 
-			// Act & Assert - should propagate error
-			await expect(
-				handleBenchmarkCommand('/test/dir', ['--ci-gate']),
-			).rejects.toThrow('loadEvidence failed');
+			const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
+
+			// CI gate should run even with invalid evidence
+			expect(result).toContain('CI Gate');
+			// With no valid evidence, review and test pass rates are 0%
+			expect(result).toContain('❌ FAILED');
 		});
 
-		it('should handle CI gate with large task array', async () => {
-			// Arrange
-			const taskIds = Array.from({ length: 1000 }, (_, i) => `task-${i}`);
-			mockListEvidenceTaskIds.mockResolvedValue(taskIds);
-			mockLoadEvidence.mockResolvedValue({
-				status: 'not_found',
-			});
+		it('should handle CI gate with no evidence at all', async () => {
+			const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
 
-			// Act
-			const result = await handleBenchmarkCommand('/test/dir', ['--ci-gate']);
-
-			// Assert - CI gate should still run (no evidence means checks pass by default)
 			expect(result).toContain('CI Gate');
-			expect(mockLoadEvidence).toHaveBeenCalledTimes(1000);
-		}, 20000);
+			// No evidence means review/test rates are 0%, but quality metrics pass by default
+			expect(result).toContain('Complexity Delta: 0 <= 5 ✅');
+		});
+
+		it('should handle CI gate with a mix of valid passing evidence and invalid files', async () => {
+			// Add passing review and test evidence
+			await saveEvidence(testDir, '1.1', {
+				type: 'review',
+				task_id: '1.1',
+				timestamp: mockDate,
+				agent: 'reviewer',
+				verdict: 'approved',
+				summary: 'LGTM',
+				risk: 'low',
+				issues: [],
+			});
+			await saveEvidence(testDir, '1.1', {
+				type: 'test',
+				task_id: '1.1',
+				timestamp: mockDate,
+				agent: 'tester',
+				verdict: 'pass',
+				summary: 'All tests pass',
+				tests_passed: 100,
+				tests_failed: 0,
+				failures: [],
+			});
+			// Some invalid tasks
+			const dir = mkEvidenceDir('2.1');
+			writeFileSync(path.join(dir, 'evidence.json'), '{ bad }');
+
+			const result = await handleBenchmarkCommand(testDir, ['--ci-gate']);
+
+			expect(result).toContain('CI Gate');
+			// Review and test from valid task should count
+			expect(result).toContain('Review pass rate: 100%');
+			expect(result).toContain('Test pass rate: 100%');
+		});
 	});
 });

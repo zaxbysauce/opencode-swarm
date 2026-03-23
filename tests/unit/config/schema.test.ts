@@ -124,10 +124,12 @@ describe('PluginConfigSchema', () => {
     const result = PluginConfigSchema.safeParse({});
     expect(result.success).toBe(true);
     if (result.success) {
+      // adversarial_testing has a schema-level default so it appears in the output
       expect(result.data).toEqual({
         max_iterations: 5,
         qa_retry_limit: 3,
         inject_phase_reminders: true,
+        adversarial_testing: { enabled: true, scope: 'all' },
       });
     }
   });
@@ -159,7 +161,12 @@ describe('PluginConfigSchema', () => {
     const result = PluginConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).toEqual(config);
+      // adversarial_testing is added by default; check known fields individually
+      expect(result.data.max_iterations).toBe(8);
+      expect(result.data.qa_retry_limit).toBe(5);
+      expect(result.data.inject_phase_reminders).toBe(false);
+      expect(result.data.agents).toEqual(config.agents);
+      expect(result.data.swarms).toEqual(config.swarms);
     }
   });
 

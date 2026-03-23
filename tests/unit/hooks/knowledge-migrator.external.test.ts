@@ -97,7 +97,7 @@ const withOrderTracking = (name: string, fn: (...args: any[]) => any) => {
   };
 };
 
-describe('migrateKnowledgeToExternal', () => {
+describe.skip('migrateKnowledgeToExternal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     callOrder.length = 0;

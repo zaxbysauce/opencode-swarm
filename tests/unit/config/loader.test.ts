@@ -181,13 +181,15 @@ describe('config/loader', () => {
 
 		it('returns defaults when no config files exist', () => {
 			const result = loadPluginConfig(tempDir);
-			
-			// Should return defaults when no user config and no project config exist
-		expect(result).toEqual({
-			max_iterations: 5,
-			qa_retry_limit: 3,
-			inject_phase_reminders: true,
-		});
+
+			// Should return defaults when no user config and no project config exist.
+			// adversarial_testing has a schema-level default and is always present.
+			expect(result).toEqual({
+				max_iterations: 5,
+				qa_retry_limit: 3,
+				inject_phase_reminders: true,
+				adversarial_testing: { enabled: true, scope: 'all' },
+			});
 		});
 
 		it('loads user config', () => {

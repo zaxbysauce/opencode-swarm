@@ -8,7 +8,7 @@
  * - Verify enabled-mode zero coverage returns FAIL (not PASS)
  */
 
-import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import { sastScan } from '../../../src/tools/sast-scan';
 
@@ -32,6 +32,10 @@ describe('SAST Scan - Adversarial Tests (R2)', () => {
 		spyOn(fs, 'openSync').mockReturnValue(0);
 		spyOn(fs, 'readSync').mockReturnValue(12);
 		spyOn(fs, 'closeSync').mockReturnValue(undefined);
+	});
+
+	afterEach(() => {
+		mock.restore();
 	});
 
 	/**
