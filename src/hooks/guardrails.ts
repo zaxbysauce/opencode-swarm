@@ -15,6 +15,7 @@ import {
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
+import { classifyFile, type FileZone } from '../context/zone-classifier';
 import { loadPlan } from '../plan/manager';
 import {
 	advanceTaskState,
@@ -1549,20 +1550,24 @@ type AgentRule = {
 	blockedExact?: string[];
 	blockedPrefix?: string[];
 	allowedPrefix?: string[];
+	blockedZones?: FileZone[];
 };
 
 const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
+		blockedZones: ['generated'],
 	},
 	coder: {
 		blockedPrefix: ['.swarm/'],
 		allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/'],
+		blockedZones: ['generated', 'config'],
 	},
 	reviewer: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedPrefix: ['src/'],
 		allowedPrefix: ['.swarm/evidence/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
 	},
 	explorer: {
 		readOnly: true,
@@ -1574,15 +1579,19 @@ const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		blockedExact: ['.swarm/plan.md'],
 		blockedPrefix: ['src/'],
 		allowedPrefix: ['tests/', '.swarm/evidence/'],
+		blockedZones: ['generated'],
 	},
 	docs: {
 		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
 	},
 	designer: {
 		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
 	},
 	critic: {
 		allowedPrefix: ['.swarm/evidence/'],
+		blockedZones: ['generated'],
 	},
 };
 
@@ -1593,7 +1602,7 @@ export function checkFileAuthority(
 	agentName: string,
 	filePath: string,
 	_cwd: string,
-): { allowed: true } | { allowed: false; reason: string } {
+): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
 	const normalizedPath = filePath.replace(/\\/g, '/');
 
@@ -1636,6 +1645,18 @@ export function checkFileAuthority(
 			return {
 				allowed: false,
 				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+			};
+		}
+	}
+
+	// Zone-based blocking: check after path rules pass
+	if (rules.blockedZones && rules.blockedZones.length > 0) {
+		const { zone } = classifyFile(normalizedPath);
+		if (rules.blockedZones.includes(zone)) {
+			return {
+				allowed: false,
+				reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
+				zone,
 			};
 		}
 	}
