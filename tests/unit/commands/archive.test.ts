@@ -26,7 +26,7 @@ describe('handleArchiveCommand', () => {
 
 	test('--dry-run with old bundles → shows preview with task IDs', async () => {
 		// Create old bundle
-		const taskId = 'old-task';
+		const taskId = '1.1';
 		await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, 'Old note'));
 		await makeBundleOld(tempDir, taskId, 100);
 
@@ -37,12 +37,12 @@ describe('handleArchiveCommand', () => {
 		expect(result).toContain('## Archive Preview (dry run)');
 		expect(result).toContain('**Would archive**: 1 bundle(s)');
 		expect(result).toContain('**Age-based (1)**:');
-		expect(result).toContain('- old-task');
+		expect(result).toContain('- 1.1');
 	});
 
 	test('--dry-run with no old bundles → "No evidence bundles older than X days"', async () => {
 		// Create recent bundle
-		const taskId = 'new-task';
+		const taskId = '1.2';
 		await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, 'New note'));
 
 		// Run dry-run
@@ -56,7 +56,7 @@ describe('handleArchiveCommand', () => {
 
 	test('Archive with old bundles → returns markdown with archived count', async () => {
 		// Create old bundle
-		const taskId = 'old-task';
+		const taskId = '1.1';
 		await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, 'Old note'));
 		await makeBundleOld(tempDir, taskId, 100);
 
@@ -66,12 +66,12 @@ describe('handleArchiveCommand', () => {
 		// Should contain archived info
 		expect(result).toContain('## Evidence Archived');
 		expect(result).toContain('**Archived**: 1 bundle(s)');
-		expect(result).toContain('- old-task');
+		expect(result).toContain('- 1.1');
 	});
 
 	test('Archive with only new bundles → "No evidence bundles older than X days"', async () => {
 		// Create recent bundle
-		const taskId = 'new-task';
+		const taskId = '1.2';
 		await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, 'New note'));
 
 		// Run archive (not dry-run)
@@ -94,7 +94,7 @@ describe('handleArchiveCommand', () => {
 		// Create 15 bundles
 		const taskIds = [];
 		for (let i = 1; i <= 15; i++) {
-			const taskId = `task-${i}`;
+			const taskId = `${i}.1`;
 			taskIds.push(taskId);
 			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
 		}
@@ -114,11 +114,11 @@ describe('handleArchiveCommand', () => {
 		expect(result).toContain('**Max bundles limit (5)**:');
 
 		// Should list the 5 oldest that would be archived
-		expect(result).toContain('- task-1');
-		expect(result).toContain('- task-2');
-		expect(result).toContain('- task-3');
-		expect(result).toContain('- task-4');
-		expect(result).toContain('- task-5');
+		expect(result).toContain('- 1.1');
+		expect(result).toContain('- 2.1');
+		expect(result).toContain('- 3.1');
+		expect(result).toContain('- 4.1');
+		expect(result).toContain('- 5.1');
 	});
 
 	test('Archive with both old bundles and max_bundles exceeded', async () => {
@@ -134,49 +134,49 @@ describe('handleArchiveCommand', () => {
 		// Create 15 bundles with varying ages
 		const taskIds = [];
 		for (let i = 1; i <= 15; i++) {
-			const taskId = `task-${i}`;
+			const taskId = `${i}.1`;
 			taskIds.push(taskId);
 			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
 		}
 
 		// Make some old, some new
-		// task-1 to task-8: 100+ days (deleted by age)
-		// task-9: 70 days (deleted by age)
-		// task-10 to task-15: recent (kept by age)
-		await makeBundleOld(tempDir, 'task-1', 120);
-		await makeBundleOld(tempDir, 'task-2', 115);
-		await makeBundleOld(tempDir, 'task-3', 110);
-		await makeBundleOld(tempDir, 'task-4', 105);
-		await makeBundleOld(tempDir, 'task-5', 100);
-		await makeBundleOld(tempDir, 'task-6', 95);
-		await makeBundleOld(tempDir, 'task-7', 90);
-		await makeBundleOld(tempDir, 'task-8', 85);
-		await makeBundleOld(tempDir, 'task-9', 70);
-		await makeBundleOld(tempDir, 'task-10', 40);
-		await makeBundleOld(tempDir, 'task-11', 30);
-		await makeBundleOld(tempDir, 'task-12', 25);
-		await makeBundleOld(tempDir, 'task-13', 20);
-		await makeBundleOld(tempDir, 'task-14', 15);
-		await makeBundleOld(tempDir, 'task-15', 10);
+		// 1.1 to 8.1: 100+ days (deleted by age)
+		// 9.1: 70 days (deleted by age)
+		// 10.1 to 15.1: recent (kept by age)
+		await makeBundleOld(tempDir, '1.1', 120);
+		await makeBundleOld(tempDir, '2.1', 115);
+		await makeBundleOld(tempDir, '3.1', 110);
+		await makeBundleOld(tempDir, '4.1', 105);
+		await makeBundleOld(tempDir, '5.1', 100);
+		await makeBundleOld(tempDir, '6.1', 95);
+		await makeBundleOld(tempDir, '7.1', 90);
+		await makeBundleOld(tempDir, '8.1', 85);
+		await makeBundleOld(tempDir, '9.1', 70);
+		await makeBundleOld(tempDir, '10.1', 40);
+		await makeBundleOld(tempDir, '11.1', 30);
+		await makeBundleOld(tempDir, '12.1', 25);
+		await makeBundleOld(tempDir, '13.1', 20);
+		await makeBundleOld(tempDir, '14.1', 15);
+		await makeBundleOld(tempDir, '15.1', 10);
 
 		// Run archive (not dry-run)
-		// Age filter deletes task-1 to task-9 (9 bundles)
-		// Remaining 6 bundles (task-10 to task-15), max_bundles=10, so none more deleted
+		// Age filter deletes 1.1 to 9.1 (9 bundles)
+		// Remaining 6 bundles (10.1 to 15.1), max_bundles=10, so none more deleted
 		const result = await handleArchiveCommand(tempDir, []);
 
 		// Should show archived count and list
 		expect(result).toContain('## Evidence Archived');
 		expect(result).toContain('**Archived**: 9 bundle(s)');
-		expect(result).toContain('- task-1');
-		expect(result).toContain('- task-2');
-		expect(result).toContain('- task-3');
-		expect(result).toContain('- task-4');
-		expect(result).toContain('- task-5');
-		expect(result).toContain('- task-6');
-		expect(result).toContain('- task-7');
-		expect(result).toContain('- task-8');
-		expect(result).toContain('- task-9');
-		expect(result).not.toContain('- task-10');
+		expect(result).toContain('- 1.1');
+		expect(result).toContain('- 2.1');
+		expect(result).toContain('- 3.1');
+		expect(result).toContain('- 4.1');
+		expect(result).toContain('- 5.1');
+		expect(result).toContain('- 6.1');
+		expect(result).toContain('- 7.1');
+		expect(result).toContain('- 8.1');
+		expect(result).toContain('- 9.1');
+		expect(result).not.toContain('- 10.1');
 	});
 });
 

@@ -1,5 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { safeHook, composeHandlers, readSwarmFileAsync, estimateTokens, validateSwarmPath } from '../../../src/hooks/utils';
+
+// Mock logger module at file scope so warn() bypasses DEBUG gate
+mock.module('../../../src/utils/logger', () => ({
+	warn: (...args: any[]) => console.warn(...args),
+	log: (...args: any[]) => console.log(...args),
+	error: (...args: any[]) => console.error(...args),
+}));
 import { mkdtemp, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
