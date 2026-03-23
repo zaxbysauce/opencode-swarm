@@ -51,9 +51,24 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Unit tests (hooks)
+      - name: Unit tests (hooks - guardrails)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks --timeout 120000
+        run: bun --smol test tests/unit/hooks/guardrails*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge, curator, hive)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge*.test.ts tests/unit/hooks/curator*.test.ts tests/unit/hooks/hive*.test.ts --timeout 120000
+      - name: Unit tests (hooks - system-enhancer)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/system-enhancer*.test.ts --timeout 120000
+      - name: Unit tests (hooks - delegation)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/delegation*.test.ts --timeout 120000
+      - name: Unit tests (hooks - adversarial-detector)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/adversarial-detect*.test.ts --timeout 120000
+      - name: Unit tests (hooks - remaining)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts --timeout 120000
       - name: Unit tests (cli, commands, config)
         run: bun --smol test tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
       - name: Unit tests (tools)
