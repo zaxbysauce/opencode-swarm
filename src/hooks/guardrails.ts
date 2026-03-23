@@ -613,7 +613,10 @@ export function createGuardrailsHooks(
 					targetPath.length > 0 &&
 					isOutsideSwarmDir(targetPath, effectiveDirectory) &&
 					isSourceCodePath(
-						path.relative(effectiveDirectory, path.resolve(effectiveDirectory, targetPath)),
+						path.relative(
+							effectiveDirectory,
+							path.resolve(effectiveDirectory, targetPath),
+						),
 					)
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);

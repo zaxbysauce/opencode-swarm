@@ -430,6 +430,7 @@ describe('ADVERSARIAL: Breaking deterministic takeover attempts', () => {
 						{
 							id: '1.1',
 							phase: 1,
+							// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test string
 							description: 'Task${process.env.SECRET}',
 							status: 'pending',
 							size: 'small',
