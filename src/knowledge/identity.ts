@@ -68,7 +68,12 @@ function _deriveProjectHash(directory: string): string {
  * Get the swarm version from package.json
  */
 async function getSwarmVersion(directory?: string): Promise<string> {
-	const baseDir = directory || process.cwd();
+	if (!directory) {
+		throw new Error(
+			'[identity] No directory provided — ctx.directory is required',
+		);
+	}
+	const baseDir = directory;
 	try {
 		// Find package.json in the opencode-swarm package
 		const packageJsonPath = path.join(

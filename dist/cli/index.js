@@ -17838,7 +17838,10 @@ var PhaseCompleteConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   required_agents: exports_external.array(exports_external.enum(["coder", "reviewer", "test_engineer"])).default(["coder", "reviewer", "test_engineer"]),
   require_docs: exports_external.boolean().default(true),
-  policy: exports_external.enum(["enforce", "warn"]).default("enforce")
+  policy: exports_external.enum(["enforce", "warn"]).default("enforce"),
+  regression_sweep: exports_external.object({
+    enforce: exports_external.boolean().default(false)
+  }).optional()
 });
 var SummaryConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
@@ -18184,9 +18187,15 @@ var PluginConfigSchema = exports_external.object({
   tool_output: exports_external.object({
     truncation_enabled: exports_external.boolean().default(true),
     max_lines: exports_external.number().min(10).max(500).default(150),
-    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional()
+    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional(),
+    truncation_tools: exports_external.array(exports_external.string()).optional().describe("Tools to apply output truncation to. Defaults to diff, symbols, bash, shell, test_runner, lint, pre_check_batch, complexity_hotspots, pkg_audit, sbom_generate, schema_drift.")
   }).optional(),
   slop_detector: SlopDetectorConfigSchema.optional(),
+  todo_gate: exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    max_high_priority: exports_external.number().int().min(-1).default(0).describe("Max new high-priority TODOs (FIXME/HACK/XXX) before warning. 0 = warn on any. Set to -1 to disable."),
+    block_on_threshold: exports_external.boolean().default(false).describe("If true, block phase completion when threshold exceeded. Default: advisory only.")
+  }).optional(),
   incremental_verify: IncrementalVerifyConfigSchema.optional(),
   compaction_service: CompactionConfigSchema.optional()
 });
@@ -35998,7 +36007,7 @@ function detectAdditionalLinter(cwd) {
 }
 async function detectAvailableLinter(directory) {
   const _DETECT_TIMEOUT = 2000;
-  const projectDir = directory || process.cwd();
+  const projectDir = directory;
   const isWindows = process.platform === "win32";
   const biomeBin = isWindows ? path17.join(projectDir, "node_modules", ".bin", "biome.EXE") : path17.join(projectDir, "node_modules", ".bin", "biome");
   const eslintBin = isWindows ? path17.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path17.join(projectDir, "node_modules", ".bin", "eslint");

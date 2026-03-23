@@ -160,7 +160,7 @@ describe('lint tool', () => {
 			mockStdout = 'biome version 1.0.0';
 			mockExitCode = 0;
 			
-			const linter = await detectAvailableLinter();
+			const linter = await detectAvailableLinter('/tmp');
 			expect(linter).toBe('biome');
 		});
 		
@@ -203,7 +203,7 @@ describe('lint tool', () => {
 				} as unknown as ReturnType<typeof Bun.spawn>;
 			};
 			
-			const linter = await detectAvailableLinter();
+			const linter = await detectAvailableLinter('/tmp');
 			expect(linter).toBe('eslint');
 			expect(callCount).toBe(2);
 		});
@@ -212,7 +212,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockExitCode = 1;
 			
-			const linter = await detectAvailableLinter();
+			const linter = await detectAvailableLinter('/tmp');
 			expect(linter).toBeNull();
 		});
 		
@@ -220,7 +220,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('spawn failed');
 			
-			const linter = await detectAvailableLinter();
+			const linter = await detectAvailableLinter('/tmp');
 			expect(linter).toBeNull();
 		});
 	});
@@ -233,7 +233,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.success).toBe(true);
 			expect(result.exitCode).toBe(0);
@@ -247,7 +247,7 @@ describe('lint tool', () => {
 			mockStderr = 'error: Some files have lint issues';
 			mockExitCode = 1;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			// Note: even with non-zero exit, success is true because the command ran
 			expect(result.success).toBe(true);
@@ -261,7 +261,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check') as { message?: string };
+			const result = await runLint('biome', 'check', '/tmp') as { message?: string };
 			
 			expect(result.message).toContain('completed successfully');
 		});
@@ -272,7 +272,7 @@ describe('lint tool', () => {
 			mockStderr = 'issues found';
 			mockExitCode = 1;
 			
-			const result = await runLint('biome', 'check') as { message?: string };
+			const result = await runLint('biome', 'check', '/tmp') as { message?: string };
 			
 			expect(result.message).toContain('found issues');
 		});
@@ -283,7 +283,7 @@ describe('lint tool', () => {
 			mockStderr = 'some fixes applied';
 			mockExitCode = 1;
 			
-			const result = await runLint('biome', 'fix') as { message?: string };
+			const result = await runLint('biome', 'fix', '/tmp') as { message?: string };
 			
 			expect(result.message).toContain('fix completed');
 			expect(result.message).toContain('exit code 1');
@@ -298,7 +298,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.output).toContain('Checking src/file.ts');
 		});
@@ -309,7 +309,7 @@ describe('lint tool', () => {
 			mockStderr = 'Warning: deprecated API';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.output).toContain('Checking...');
 			expect(result.output).toContain('Warning: deprecated API');
@@ -321,7 +321,7 @@ describe('lint tool', () => {
 			mockStderr = 'Error: syntax error';
 			mockExitCode = 1;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.output).toBe('Error: syntax error');
 		});
@@ -333,7 +333,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			// Output should be truncated to approximately MAX_OUTPUT_BYTES + truncation message
 			// The exact length is MAX_OUTPUT_BYTES + '\n... (output truncated)' = ~22 chars
@@ -348,7 +348,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.output).toBe('x'.repeat(1000));
 			expect(result.output).not.toContain('truncated');
@@ -361,7 +361,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('Command not found');
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.success).toBe(false);
 			expect(result.error).toContain('Execution failed');
@@ -372,7 +372,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = 'string error' as unknown as Error;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			expect(result.success).toBe(false);
 			expect(result.error).toContain('Execution failed');
@@ -384,9 +384,9 @@ describe('lint tool', () => {
 			mockSpawnError = new Error('Any error');
 			
 			// Should not throw
-			await expect(runLint('biome', 'check')).resolves.toBeDefined();
+			await expect(runLint('biome', 'check', '/tmp')).resolves.toBeDefined();
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			expect(result).toHaveProperty('success');
 			expect(result).toHaveProperty('mode');
 		});
@@ -402,7 +402,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			// Normal case should succeed
 			expect(result.success).toBe(true);
@@ -417,7 +417,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', '/tmp');
 			
 			// Verify structure
 			expect(result).toHaveProperty('success', true);
@@ -433,7 +433,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('test error');
 			
-			const result = await runLint('eslint', 'fix');
+			const result = await runLint('eslint', 'fix', '/tmp');
 			
 			// Verify structure
 			expect(result).toHaveProperty('success', false);
@@ -449,7 +449,7 @@ describe('lint tool', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('eslint', 'check');
+			const result = await runLint('eslint', 'check', '/tmp');
 			
 			expect(result.success).toBe(true);
 			expect(result.linter).toBe('eslint');

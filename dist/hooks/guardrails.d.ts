@@ -28,11 +28,12 @@ export declare function setStoredInputArgs(callID: string, args: unknown): void;
 export declare function deleteStoredInputArgs(callID: string): void;
 /**
  * Creates guardrails hooks for circuit breaker protection
- * @param directoryOrConfig Working directory (from plugin init context) OR legacy config object for backward compatibility
- * @param config Guardrails configuration (optional if first arg is config)
+ * @param directory Working directory from plugin init context (required)
+ * @param directoryOrConfig Guardrails configuration object (when passed as second arg, replaces legacy config param)
+ * @param config Guardrails configuration (optional)
  * @returns Tool before/after hooks and messages transform hook
  */
-export declare function createGuardrailsHooks(directoryOrConfig?: string | GuardrailsConfig, config?: GuardrailsConfig): {
+export declare function createGuardrailsHooks(directory: string, directoryOrConfig?: string | GuardrailsConfig, config?: GuardrailsConfig): {
     toolBefore: (input: {
         tool: string;
         sessionID: string;

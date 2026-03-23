@@ -283,6 +283,11 @@ export const PhaseCompleteConfigSchema = z.object({
 		.default(['coder', 'reviewer', 'test_engineer']),
 	require_docs: z.boolean().default(true),
 	policy: z.enum(['enforce', 'warn']).default('enforce'),
+	regression_sweep: z
+		.object({
+			enforce: z.boolean().default(false),
+		})
+		.optional(),
 });
 
 export type PhaseCompleteConfig = z.infer<typeof PhaseCompleteConfigSchema>;
@@ -975,11 +980,38 @@ export const PluginConfigSchema = z.object({
 			truncation_enabled: z.boolean().default(true),
 			max_lines: z.number().min(10).max(500).default(150),
 			per_tool: z.record(z.string(), z.number()).optional(),
+			truncation_tools: z
+				.array(z.string())
+				.optional()
+				.describe(
+					'Tools to apply output truncation to. Defaults to diff, symbols, bash, shell, test_runner, lint, pre_check_batch, complexity_hotspots, pkg_audit, sbom_generate, schema_drift.',
+				),
 		})
 		.optional(),
 
 	// Slop detector configuration (v6.29)
 	slop_detector: SlopDetectorConfigSchema.optional(),
+
+	// TODO gate configuration (v6.32)
+	todo_gate: z
+		.object({
+			enabled: z.boolean().default(true),
+			max_high_priority: z
+				.number()
+				.int()
+				.min(-1)
+				.default(0)
+				.describe(
+					'Max new high-priority TODOs (FIXME/HACK/XXX) before warning. 0 = warn on any. Set to -1 to disable.',
+				),
+			block_on_threshold: z
+				.boolean()
+				.default(false)
+				.describe(
+					'If true, block phase completion when threshold exceeded. Default: advisory only.',
+				),
+		})
+		.optional(),
 
 	// Incremental verification configuration (v6.29)
 	incremental_verify: IncrementalVerifyConfigSchema.optional(),
