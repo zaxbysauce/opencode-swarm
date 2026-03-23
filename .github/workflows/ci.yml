@@ -63,9 +63,12 @@ jobs:
       - name: Unit tests (hooks - knowledge injector)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge-curator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts --timeout 120000
       - name: Unit tests (hooks - curator)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts tests/unit/hooks/curator*.test.ts --timeout 120000
+        run: bun --smol test tests/unit/hooks/curator*.test.ts --timeout 120000
       - name: Unit tests (hooks - hive)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/hive*.test.ts --timeout 120000
