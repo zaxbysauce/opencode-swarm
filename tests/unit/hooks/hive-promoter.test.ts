@@ -1049,13 +1049,13 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 });
 
 describe('File Cleanup - Schema Mismatch Fix Verification', () => {
-	it('src/knowledge/hive-promoter.ts does not exist', async () => {
+	it('src/hooks/hive-promoter.ts is the primary implementation', async () => {
 		const fs = await import('node:fs');
 		const path = await import('node:path');
-		const brokenFilePath = path.join(process.cwd(), 'src', 'knowledge', 'hive-promoter.ts');
+		const primaryFilePath = path.join(process.cwd(), 'src', 'hooks', 'hive-promoter.ts');
 
-		// The broken file should NOT exist
-		expect(fs.existsSync(brokenFilePath)).toBe(false);
+		// The primary implementation should exist
+		expect(fs.existsSync(primaryFilePath)).toBe(true);
 	});
 
 	it('src/hooks/hive-promoter.ts exports both functions', async () => {

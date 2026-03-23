@@ -20,6 +20,14 @@ function getLockFilePath(directory: string, filePath: string): string {
 	if (filePath.includes('..')) {
 		throw new Error('Invalid file path: path traversal not allowed');
 	}
+	// Reject absolute paths
+	if (path.isAbsolute(filePath)) {
+		throw new Error('Invalid file path: absolute paths not allowed');
+	}
+	// Reject paths starting with / or with drive letters (Windows)
+	if (/^[a-zA-Z]:/.test(filePath)) {
+		throw new Error('Invalid file path: absolute paths not allowed');
+	}
 
 	// Hash the file path to create a safe lock filename
 	const hash = Buffer.from(filePath).toString('base64').replace(/[/+=]/g, '_');

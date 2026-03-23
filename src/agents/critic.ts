@@ -174,7 +174,7 @@ DRIFT-CHECK RULES:
 - Advisory only — does NOT block phase transitions
 - READ-ONLY: no file modifications
 - OUTPUT FORMAT: use the template above exactly
-- If spec.md is missing, report missing and stop immediately
+- If no spec.md, stop immediately: spec.md is missing — report missing and stop
 
 ---
 

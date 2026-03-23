@@ -66,12 +66,31 @@ export function extractMetaSummaries(eventsPath: string): MetaSummaryEntry[] {
 }
 
 /**
+ * Check if a directory path is safe (no path traversal, no absolute sensitive paths)
+ */
+function isSafeIndexDirectory(directory: string): boolean {
+	if (!directory) return false;
+	// Reject null bytes
+	if (directory.includes('\0')) return false;
+	// Reject path traversal
+	if (directory.includes('..')) return false;
+	// Reject absolute paths to sensitive locations
+	if (/^(\/etc|\/root|\/proc|\/sys|C:\\Windows|C:\\Users)/i.test(directory)) return false;
+	return true;
+}
+
+/**
  * Index meta summaries to external knowledge store
  */
 export async function indexMetaSummaries(
 	directory: string,
 	externalKnowledgeDir?: string,
 ): Promise<{ indexed: number; path: string }> {
+	// Reject unsafe directory paths
+	if (!isSafeIndexDirectory(directory)) {
+		return { indexed: 0, path: '' };
+	}
+
 	// Get external knowledge path or use default
 	const indexDir = externalKnowledgeDir || path.join(directory, '.swarm');
 	const indexPath = path.join(indexDir, INDEX_FILE);

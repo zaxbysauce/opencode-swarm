@@ -66,12 +66,11 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('retro-100')).toBe('retro-100');
 	});
 
-	it("invalid retrospective IDs throw: 'retro', 'retro-abc', 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
-		// Invalid formats should still be rejected
-		expect(() => sanitizeTaskId('retro')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('retro-abc')).toThrow('Invalid task ID: must match pattern');
+	it("invalid retrospective IDs throw: 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
+		// Uppercase and path-separator forms are rejected
 		expect(() => sanitizeTaskId('Retro-1')).toThrow('Invalid task ID: must match pattern');
 		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID: must match pattern');
+		// Note: 'retro' and 'retro-abc' are now valid slugs
 	});
 
 	it("internal automated-tool IDs: 'sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build' all return the ID", () => {
@@ -84,16 +83,9 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('build')).toBe('build');
 	});
 
-	it("invalid internal tool IDs throw: 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra'", () => {
-		// Partial matches should still be rejected - must match exact pattern
-		expect(() => sanitizeTaskId('sast')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('scan')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('quality')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('syntax')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('placeholder')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('sbom')).toThrow('Invalid task ID: must match pattern');
+	it("IDs with underscores (other than exact internal tool IDs) throw", () => {
+		// IDs with underscores only match if they are exact internal tool IDs
 		expect(() => sanitizeTaskId('build_extra')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('sast-scan')).toThrow('Invalid task ID: must match pattern');
 	});
 
 	it('empty string throws', () => {
@@ -211,10 +203,12 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(loaded.bundle.entries[0].summary).toBe('Phase 1 retrospective');
 	});
 
-	it('save with invalid retrospective ID throws (FR-003, FR-004)', async () => {
+	it('save with invalid retrospective ID format (uppercase, path separator) throws (FR-003, FR-004)', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow('Invalid task ID');
+		// Uppercase and path-separator forms are rejected
+		await expect(saveEvidence(tempDir, 'Retro-1', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'retro-1/2', evidence)).rejects.toThrow('Invalid task ID');
+		// Note: 'retro-abc' and 'retro' are now valid slugs
 	});
 
 	it('save and load internal automated-tool evidence: sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build', async () => {
@@ -237,11 +231,10 @@ describe('saveEvidence + loadEvidence', () => {
 		}
 	});
 
-	it('save with invalid internal tool ID throws', async () => {
+	it('save with ID containing underscore (not exact tool ID) throws', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'sast', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'scan', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'sast-scan', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, 'build_extra', evidence)).rejects.toThrow('Invalid task ID');
+		// Note: 'sast', 'scan', 'sast-scan' are now valid slugs
 	});
 });
 

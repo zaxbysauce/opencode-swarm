@@ -945,9 +945,9 @@ describe('DEFENSE: Security Controls Validation', () => {
 			'task/../../../etc',
 			'.',
 			'..',
-			'task-1', // Not a valid numeric task ID format
+			// 'task-1' is now valid (slug format via SLUG_TASK_ID_REGEX)
 			'TASK_2', // Not a valid format
-			'a1.b2.c3', // Not purely numeric
+			// 'a1.b2.c3' is now valid (slug format via SLUG_TASK_ID_REGEX)
 		];
 		for (const id of invalidIds) {
 			expect(() => sanitizeTaskId(id)).toThrow();

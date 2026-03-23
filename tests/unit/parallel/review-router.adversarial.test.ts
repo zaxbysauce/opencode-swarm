@@ -56,7 +56,11 @@ describe('Security: Review-Router - ReDoS in Regex', () => {
 		fs.mkdirSync(testDir, { recursive: true });
 
 		for (const file of maliciousFiles) {
-			fs.writeFileSync(path.join(testDir, file), 'function test() {}', 'utf-8');
+			try {
+				fs.writeFileSync(path.join(testDir, file), 'function test() {}', 'utf-8');
+			} catch {
+				// Ignore OS-level errors (e.g., ENAMETOOLONG) - file simply won't exist
+			}
 		}
 
 		const startTime = Date.now();

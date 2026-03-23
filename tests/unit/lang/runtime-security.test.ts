@@ -46,14 +46,14 @@ describe('runtime.ts - Security Verification Tests', () => {
 
 	describe('2. Tab in language ID (kotlin\\tscript)', () => {
 		it('should throw when loading with tab in language ID', async () => {
-			// 'kotlin\tscript' -> sanitized to 'kotlinscript' -> not in map -> file not found
+			// 'kotlin\tscript' -> rejected as unsafe (contains control character)
 			let threw = false;
 			try {
 				await loadGrammar('kotlin\tscript');
 			} catch (e) {
 				threw = true;
 				expect((e as Error).message).toMatch(
-					/Grammar file not found|Failed to load grammar/,
+					/contains unsafe characters/,
 				);
 			}
 			expect(threw).toBe(true);
@@ -215,7 +215,7 @@ describe('runtime.ts - Security Verification Tests', () => {
 				await loadGrammar('\t\n\r');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/contains unsafe characters/);
 			}
 			expect(threw).toBe(true);
 		});
@@ -236,42 +236,57 @@ describe('runtime.ts - Security Verification Tests', () => {
 	});
 
 	describe('7. Cache uses sanitized key', () => {
-		it('should cache with sanitized key - tab and newline variations', async () => {
-			// First, load javascript normally
+		it('should cache valid language IDs after loading', async () => {
+			// Load javascript and verify it's cached with the correct key
 			const parser1 = await loadGrammar('javascript');
 			expect(parser1).toBeDefined();
 			expect(parserCache.size).toBe(1);
 			expect(parserCache.has('javascript')).toBe(true);
 
-			// Try to load with tab - should use same cache entry
-			const parser2 = await loadGrammar('java\tscript');
-			expect(parser2).toBeDefined();
-			expect(parserCache.size).toBe(1); // Still only 1 entry
+			// Load again — should return the cached instance
+			const parser2 = await loadGrammar('javascript');
 			expect(parser2).toBe(parser1); // Same parser instance
-
-			// Try to load with newline - should use same cache entry
-			const parser3 = await loadGrammar('java\nscript');
-			expect(parser3).toBeDefined();
 			expect(parserCache.size).toBe(1); // Still only 1 entry
-			expect(parser3).toBe(parser1); // Same parser instance
-
-			// Verify no cache pollution - no entries for 'java\tscript' or 'java\nscript'
-			expect(parserCache.has('java\tscript')).toBe(false);
-			expect(parserCache.has('java\nscript')).toBe(false);
 		});
 
-		it('should cache with sanitized key - multiple path chars', async () => {
-			// Load a valid language
+		it('should reject language IDs with control characters before caching', async () => {
+			// Load javascript first so cache is non-empty
+			await loadGrammar('javascript');
+			expect(parserCache.size).toBe(1);
+
+			// Tab character is rejected before reaching the cache
+			let threw = false;
+			try {
+				await loadGrammar('java\tscript');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/contains unsafe characters/);
+			}
+			expect(threw).toBe(true);
+			expect(parserCache.size).toBe(1); // Cache unchanged
+
+			// Verify no cache pollution
+			expect(parserCache.has('java\tscript')).toBe(false);
+			expect(parserCache.has('javascript')).toBe(true); // Original still cached
+		});
+
+		it('should reject language IDs with path characters before caching', async () => {
+			// Load kotlin first
 			const parser1 = await loadGrammar('kotlin');
 			expect(parser1).toBeDefined();
 			expect(parserCache.size).toBe(1);
 			expect(parserCache.has('kotlin')).toBe(true);
 
-			// Try with path chars - should use same cache entry
-			const parser2 = await loadGrammar('kot/lin');
-			expect(parser2).toBeDefined();
-			expect(parserCache.size).toBe(1);
-			expect(parser2).toBe(parser1);
+			// Slash character is rejected before reaching the cache
+			let threw = false;
+			try {
+				await loadGrammar('kot/lin');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/contains unsafe characters/);
+			}
+			expect(threw).toBe(true);
+			expect(parserCache.size).toBe(1); // Cache unchanged
 
 			// Verify no cache pollution
 			expect(parserCache.has('kot/lin')).toBe(false);
@@ -351,21 +366,29 @@ describe('runtime.ts - Security Verification Tests', () => {
 		});
 	});
 
-	describe('9. Case insensitivity after sanitization', () => {
-		it('should treat "JavaScript" and "javascript" as same (case insensitive)', async () => {
+	describe('9. Uppercase language IDs are rejected', () => {
+		it('should reject "JavaScript" (uppercase is invalid — canonical IDs are lowercase)', async () => {
 			clearParserCache();
-			const parser1 = await loadGrammar('JavaScript');
-			const parser2 = await loadGrammar('javascript');
-			expect(parser1).toBe(parser2);
-			expect(parserCache.size).toBe(1);
+			let threw = false;
+			try {
+				await loadGrammar('JavaScript');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/contains unsafe characters/);
+			}
+			expect(threw).toBe(true);
 		});
 
-		it('should treat "PYTHON" and "python" as same (case insensitive)', async () => {
+		it('should reject "PYTHON" (uppercase is invalid — canonical IDs are lowercase)', async () => {
 			clearParserCache();
-			const parser1 = await loadGrammar('PYTHON');
-			const parser2 = await loadGrammar('python');
-			expect(parser1).toBe(parser2);
-			expect(parserCache.size).toBe(1);
+			let threw = false;
+			try {
+				await loadGrammar('PYTHON');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/contains unsafe characters/);
+			}
+			expect(threw).toBe(true);
 		});
 	});
 

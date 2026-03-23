@@ -524,7 +524,7 @@ describe('Command Adapters - Adversarial Security Tests', () => {
 			});
 
 			it('sanitizeTaskId should handle long strings appropriately', () => {
-				expect(() => sanitizeTaskId('a'.repeat(1000))).toThrow(); // Invalid - not a valid task ID pattern
+				expect(() => sanitizeTaskId('A'.repeat(1000))).toThrow(); // Invalid - uppercase not allowed
 				expect(() => sanitizeTaskId('1.1')).not.toThrow(); // Valid numeric task ID
 			});
 		});

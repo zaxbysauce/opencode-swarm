@@ -113,11 +113,11 @@ describe('loadEvidence flat retrospective detection', () => {
 			// integration_issues, task_count, task_complexity
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'bad-incomplete');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', '10.1');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
 
-		const result = await loadEvidence(tempDir, 'bad-incomplete');
+		const result = await loadEvidence(tempDir, '10.1');
 
 		// Should return 'invalid_schema' for incomplete flat retrospective
 		expect(result.status).toBe('invalid_schema');
@@ -135,11 +135,11 @@ describe('loadEvidence flat retrospective detection', () => {
 			summary: 'Incomplete note - missing required fields',
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'bad-1');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', '10.2');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(malformed));
 
-		const result = await loadEvidence(tempDir, 'bad-1');
+		const result = await loadEvidence(tempDir, '10.2');
 
 		// Should return 'invalid_schema' for non-retrospective malformed files
 		expect(result.status).toBe('invalid_schema');
@@ -151,11 +151,11 @@ describe('loadEvidence flat retrospective detection', () => {
 	 * Test 5: Invalid JSON should still return invalid_schema
 	 */
 	it('invalid JSON should still return invalid_schema', async () => {
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'bad-2');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', '10.3');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), 'not valid json {');
 
-		const result = await loadEvidence(tempDir, 'bad-2');
+		const result = await loadEvidence(tempDir, '10.3');
 
 		expect(result.status).toBe('invalid_schema');
 		if (result.status !== 'invalid_schema') return;
@@ -169,13 +169,13 @@ describe('loadEvidence flat retrospective detection', () => {
 		// Proper EvidenceBundle format
 		const validBundle = {
 			schema_version: '1.0.0',
-			task_id: 'good-1',
+			task_id: '10.4',
 			created_at: '2024-01-01T00:00:00.000Z',
 			updated_at: '2024-01-01T00:00:00.000Z',
 			entries: [
 				{
 					type: 'note',
-					task_id: 'good-1',
+					task_id: '10.4',
 					timestamp: '2024-01-01T00:00:00.000Z',
 					agent: 'test-agent',
 					verdict: 'info',
@@ -184,15 +184,15 @@ describe('loadEvidence flat retrospective detection', () => {
 			],
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'good-1');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', '10.4');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(validBundle));
 
-		const result = await loadEvidence(tempDir, 'good-1');
+		const result = await loadEvidence(tempDir, '10.4');
 
 		expect(result.status).toBe('found');
 		if (result.status !== 'found') return;
-		expect(result.bundle.task_id).toBe('good-1');
+		expect(result.bundle.task_id).toBe('10.4');
 		expect(result.bundle.entries).toHaveLength(1);
 	});
 });

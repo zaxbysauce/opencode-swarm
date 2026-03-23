@@ -54,9 +54,9 @@ describe('loadEvidence discriminated union behavior', () => {
 
 		const validEvidence = {
 			schema_version: '1.0.0',
-			task_id: 'test-task-1',
+			task_id: '5.1',
 			entries: [{
-				task_id: 'test-task-1',
+				task_id: '5.1',
 				type: 'note',
 				timestamp: '2026-01-01T00:00:00.000Z',
 				agent: 'architect',
@@ -67,15 +67,15 @@ describe('loadEvidence discriminated union behavior', () => {
 			updated_at: '2026-01-01T00:00:00.000Z',
 		};
 
-		createEvidenceFile(tempDir, 'test-task-1', JSON.stringify(validEvidence));
+		createEvidenceFile(tempDir, '5.1', JSON.stringify(validEvidence));
 
-		const result = await loadEvidence(tempDir, 'test-task-1');
+		const result = await loadEvidence(tempDir, '5.1');
 
 		expect(result.status).toBe('found');
 		if (result.status === 'found') {
 			expect(result.bundle).toBeDefined();
 			expect(result.bundle.schema_version).toBe('1.0.0');
-			expect(result.bundle.task_id).toBe('test-task-1');
+			expect(result.bundle.task_id).toBe('5.1');
 			expect(result.bundle.entries).toHaveLength(1);
 			expect(result.bundle.entries[0].type).toBe('note');
 			expect(result.bundle.entries[0].summary).toBe('test note');
@@ -91,9 +91,9 @@ describe('loadEvidence discriminated union behavior', () => {
 			bad: 'data',
 		};
 
-		createEvidenceFile(tempDir, 'test-task-2', JSON.stringify(invalidEvidence));
+		createEvidenceFile(tempDir, '5.2', JSON.stringify(invalidEvidence));
 
-		const result = await loadEvidence(tempDir, 'test-task-2');
+		const result = await loadEvidence(tempDir, '5.2');
 
 		expect(result.status).toBe('invalid_schema');
 		if (result.status === 'invalid_schema') {
@@ -110,9 +110,9 @@ describe('loadEvidence discriminated union behavior', () => {
 
 		const validEvidence = {
 			schema_version: '1.0.0',
-			task_id: 'task-1.2.3-beta',
+			task_id: '1.2.3',
 			entries: [{
-				task_id: 'task-1.2.3-beta',
+				task_id: '1.2.3',
 				type: 'note',
 				timestamp: '2026-01-01T00:00:00.000Z',
 				agent: 'architect',
@@ -123,13 +123,13 @@ describe('loadEvidence discriminated union behavior', () => {
 			updated_at: '2026-01-01T00:00:00.000Z',
 		};
 
-		createEvidenceFile(tempDir, 'task-1.2.3-beta', JSON.stringify(validEvidence));
+		createEvidenceFile(tempDir, '1.2.3', JSON.stringify(validEvidence));
 
-		const result = await loadEvidence(tempDir, 'task-1.2.3-beta');
+		const result = await loadEvidence(tempDir, '1.2.3');
 
 		expect(result.status).toBe('found');
 		if (result.status === 'found') {
-			expect(result.bundle.task_id).toBe('task-1.2.3-beta');
+			expect(result.bundle.task_id).toBe('1.2.3');
 		}
 	});
 
@@ -142,9 +142,9 @@ describe('loadEvidence discriminated union behavior', () => {
 			// Missing task_id, entries, created_at, updated_at
 		};
 
-		createEvidenceFile(tempDir, 'test-task-3', JSON.stringify(invalidEvidence));
+		createEvidenceFile(tempDir, '5.3', JSON.stringify(invalidEvidence));
 
-		const result = await loadEvidence(tempDir, 'test-task-3');
+		const result = await loadEvidence(tempDir, '5.3');
 
 		expect(result.status).toBe('invalid_schema');
 		if (result.status === 'invalid_schema') {

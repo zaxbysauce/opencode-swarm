@@ -30,6 +30,7 @@ describe('checkpoint retention policy', () => {
 		execSync('git init', { encoding: 'utf-8' });
 		execSync('git config user.email "test@test.com"', { encoding: 'utf-8' });
 		execSync('git config user.name "Test"', { encoding: 'utf-8' });
+		execSync('git config commit.gpgsign false', { encoding: 'utf-8' });
 		// Create initial commit
 		fs.writeFileSync(path.join(tempDir, 'initial.txt'), 'initial');
 		execSync('git add .', { encoding: 'utf-8' });

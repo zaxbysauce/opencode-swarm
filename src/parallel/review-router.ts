@@ -15,12 +15,30 @@ export interface ComplexityMetrics {
 }
 
 /**
+ * Check if a directory path is safe (no path traversal, no absolute paths to sensitive locations)
+ */
+function isSafeDirectory(directory: string): boolean {
+	// Reject if it contains path traversal
+	if (directory.includes('..')) return false;
+	// Reject absolute paths to sensitive locations
+	if (/^(\/etc|\/root|\/proc|\/sys|C:\\Windows|C:\\Users)/i.test(directory)) return false;
+	// Reject null bytes
+	if (directory.includes('\0')) return false;
+	return true;
+}
+
+/**
  * Compute complexity metrics for a set of files
  */
 export async function computeComplexity(
 	directory: string,
 	changedFiles: string[],
 ): Promise<ComplexityMetrics> {
+	// Reject unsafe directory paths
+	if (!isSafeDirectory(directory)) {
+		return { fileCount: 0, functionCount: 0, astChangeCount: 0, maxFileComplexity: 0 };
+	}
+
 	let functionCount = 0;
 	let astChangeCount = 0;
 	let maxFileComplexity = 0;
@@ -28,6 +46,12 @@ export async function computeComplexity(
 	for (const file of changedFiles) {
 		// Skip non-source files
 		if (!/\.(ts|js|tsx|jsx|py|go|rs)$/.test(file)) {
+			continue;
+		}
+
+		// Skip files with names that are too long (OS limit ~255 chars for filename)
+		const fileName = file.split(/[/\\]/).pop() || '';
+		if (fileName.length > 255) {
 			continue;
 		}
 

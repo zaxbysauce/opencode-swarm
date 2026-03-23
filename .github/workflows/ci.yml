@@ -93,7 +93,9 @@ jobs:
               glob.glob(os.path.join(root, 'tests/unit/commands/*.test.ts')) +
               glob.glob(os.path.join(root, 'tests/unit/config/*.test.ts')) +
               glob.glob(os.path.join(root, 'src/commands/*.test.ts')) +
-              glob.glob(os.path.join(root, 'tests/unit/git/*.test.ts'))
+              glob.glob(os.path.join(root, 'tests/unit/git/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/cli-dispatch.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/index-commands.test.ts'))
           ))
 
           for file_path in files:
@@ -107,11 +109,76 @@ jobs:
                   sys.exit(result.returncode)
           PY
       - name: Unit tests (tools)
-        run: bun --smol test tests/unit/tools --timeout 120000
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+          import subprocess
+          import sys
+
+          root = os.getcwd()
+          # Run tools per-file to avoid vi.mock leakage between test files
+          tool_files = sorted(glob.glob(os.path.join(root, 'tests/unit/tools/*.test.ts')))
+          for file_path in tool_files:
+              rel = os.path.relpath(file_path, root)
+              print(f'==> {rel}')
+              result = subprocess.run(
+                  ['bun', '--smol', 'test', rel, '--timeout', '30000'],
+                  cwd=root,
+              )
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
-        run: bun --smol test tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts --timeout 120000
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob
+          import os
+          import subprocess
+          import sys
+
+          root = os.getcwd()
+          # Run services per-file to avoid vi.mock leakage between test files
+          service_files = sorted(glob.glob(os.path.join(root, 'tests/unit/services/*.test.ts')))
+          for file_path in service_files:
+              rel = os.path.relpath(file_path, root)
+              print(f'==> {rel}')
+              result = subprocess.run(
+                  ['bun', '--smol', 'test', rel, '--timeout', '30000'],
+                  cwd=root,
+              )
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY
+          python - <<'PY2'
+          import glob
+          import os
+          import subprocess
+          import sys
+
+          root = os.getcwd()
+          # Run build/quality/sast/sbom/scripts per-file to avoid vi.mock leakage
+          other_files = sorted(set(
+              glob.glob(os.path.join(root, 'tests/unit/build/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/quality/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/sast/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/sbom/*.test.ts')) +
+              glob.glob(os.path.join(root, 'tests/unit/scripts/*.test.ts'))
+          ))
+          for file_path in other_files:
+              rel = os.path.relpath(file_path, root)
+              print(f'==> {rel}')
+              result = subprocess.run(
+                  ['bun', '--smol', 'test', rel, '--timeout', '30000'],
+                  cwd=root,
+              )
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY2
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
-        run: bun --smol test tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/diff tests/unit/evidence tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils tests/unit/cli-dispatch.test.ts tests/unit/index-commands.test.ts tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts --timeout 120000
+        run: bun --smol test tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/diff tests/unit/evidence tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts --timeout 120000
 
   integration:
     needs: unit

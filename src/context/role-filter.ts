@@ -116,6 +116,18 @@ function shouldNeverFilter(entry: ContextEntry): boolean {
 		if (envelope) {
 			return true;
 		}
+		// Also detect partial delegation envelopes (user entries with key-value pairs
+		// that look like delegation tasks, even if not fully parsed)
+		const content = entry.content || '';
+		const looksLikeDelegation =
+			/taskId\s*:/i.test(content) ||
+			/targetAgent\s*:/i.test(content) ||
+			/commandType\s*:/i.test(content) ||
+			/task_id\s*:/i.test(content) ||
+			/target_agent\s*:/i.test(content);
+		if (looksLikeDelegation) {
+			return true;
+		}
 	}
 
 	// Assistant entries with plan or knowledge content are never filtered

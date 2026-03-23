@@ -125,8 +125,8 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		// Create a valid retro bundle
 		await createRetroBundle(1, 'pass', ['lesson A']);
 
-		// Try to load an invalid task ID - should throw
-		await expect(loadEvidence(tempDir, 'nonexistent-task')).rejects.toThrow('Invalid task ID');
+		// Try to load an invalid task ID (uppercase = invalid) - should throw
+		await expect(loadEvidence(tempDir, 'INVALID-TASK')).rejects.toThrow('Invalid task ID');
 	});
 
 	// Test 7: A retro bundle with no entries returns found status from loadEvidence
@@ -162,9 +162,9 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		await createRetroBundle(1, 'pass', ['lesson A']);
 		await createRetroBundle(2, 'fail', ['lesson B']);
 
-		// Create some invalid non-retro directories (task-1, task-2 are not valid task IDs)
-		await createEvidenceDirectory('task-1');
-		await createEvidenceDirectory('task-2');
+		// Create some invalid directories (uppercase names are not valid task IDs)
+		await createEvidenceDirectory('TASK_ONE');
+		await createEvidenceDirectory('TASK_TWO');
 
 		// Get all task IDs
 		const taskIds = await listEvidenceTaskIds(tempDir);
@@ -172,8 +172,8 @@ describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 		// Should contain only valid IDs (retro-1, retro-2) - invalid ones are filtered out
 		expect(taskIds).toContain('retro-1');
 		expect(taskIds).toContain('retro-2');
-		expect(taskIds).not.toContain('task-1');
-		expect(taskIds).not.toContain('task-2');
+		expect(taskIds).not.toContain('TASK_ONE');
+		expect(taskIds).not.toContain('TASK_TWO');
 		expect(taskIds).toHaveLength(2);
 	});
 

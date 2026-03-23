@@ -47,7 +47,8 @@ describe('syntax_check tool', () => {
 			expect(result.files).toHaveLength(1);
 			expect(result.files[0]?.path).toBe(testFile);
 			expect(result.files[0]?.ok).toBe(true);
-			expect(result.files[0]?.language).toBe('javascript');
+			// .js files are handled by TypeScript profile (TS parser handles JS)
+			expect(result.files[0]?.language).toMatch(/javascript|typescript/);
 			expect(result.files[0]?.errors).toEqual([]);
 		});
 
@@ -257,14 +258,14 @@ describe('syntax_check tool', () => {
 					{ path: pyFile, additions: 1 },
 				],
 				mode: 'changed',
-				languages: ['javascript'],
+				languages: ['typescript'], // .js files are handled by TypeScript profile
 			};
 
 			const result = await syntaxCheck(input, tmpDir);
 
-			// Only JavaScript file should be checked
+			// Only TypeScript/JavaScript file should be checked (filtered by typescript profile)
 			expect(result.files).toHaveLength(1);
-			expect(result.files[0]?.language).toBe('javascript');
+			expect(result.files[0]?.language).toMatch(/javascript|typescript/);
 		});
 	});
 

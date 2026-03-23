@@ -23,7 +23,7 @@ describe('Legacy task_complexity remapping', () => {
 	it('remaps legacy "low" to "simple"', async () => {
 		const flatRetro = {
 			type: 'retrospective',
-			task_id: 'legacy-low',
+			task_id: 'retro-1',
 			timestamp: '2024-01-01T00:00:00.000Z',
 			agent: 'test-agent',
 			verdict: 'info',
@@ -41,11 +41,11 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-low');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-1');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
 
-		const result = await loadEvidence(tempDir, 'legacy-low');
+		const result = await loadEvidence(tempDir, 'retro-1');
 
 		expect(result.status).toBe('found');
 		if (result.status !== 'found') return;
@@ -67,7 +67,7 @@ describe('Legacy task_complexity remapping', () => {
 	it('remaps legacy "medium" to "moderate"', async () => {
 		const flatRetro = {
 			type: 'retrospective',
-			task_id: 'legacy-medium',
+			task_id: 'retro-2',
 			timestamp: '2024-01-01T00:00:00.000Z',
 			agent: 'test-agent',
 			verdict: 'info',
@@ -85,11 +85,11 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-medium');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-2');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
 
-		const result = await loadEvidence(tempDir, 'legacy-medium');
+		const result = await loadEvidence(tempDir, 'retro-2');
 
 		expect(result.status).toBe('found');
 		if (result.status !== 'found') return;
@@ -111,7 +111,7 @@ describe('Legacy task_complexity remapping', () => {
 	it('remaps legacy "high" to "complex"', async () => {
 		const flatRetro = {
 			type: 'retrospective',
-			task_id: 'legacy-high',
+			task_id: 'retro-3',
 			timestamp: '2024-01-01T00:00:00.000Z',
 			agent: 'test-agent',
 			verdict: 'info',
@@ -129,11 +129,11 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-high');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-3');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
 
-		const result = await loadEvidence(tempDir, 'legacy-high');
+		const result = await loadEvidence(tempDir, 'retro-3');
 
 		expect(result.status).toBe('found');
 		if (result.status !== 'found') return;
@@ -155,7 +155,7 @@ describe('Legacy task_complexity remapping', () => {
 	it('preserves non-legacy task_complexity values', async () => {
 		const flatRetro = {
 			type: 'retrospective',
-			task_id: 'non-legacy',
+			task_id: 'retro-4',
 			timestamp: '2024-01-01T00:00:00.000Z',
 			agent: 'test-agent',
 			verdict: 'info',
@@ -173,11 +173,11 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'non-legacy');
+		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-4');
 		mkdirSync(evidenceDir, { recursive: true });
 		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
 
-		const result = await loadEvidence(tempDir, 'non-legacy');
+		const result = await loadEvidence(tempDir, 'retro-4');
 
 		expect(result.status).toBe('found');
 		if (result.status !== 'found') return;
@@ -194,7 +194,7 @@ describe('Legacy task_complexity remapping', () => {
 	it('persists repaired flat retrospective to disk with remapped values', async () => {
 		const flatRetro = {
 			type: 'retrospective',
-			task_id: 'persist-test',
+			task_id: '7.1',
 			timestamp: '2024-01-01T00:00:00.000Z',
 			agent: 'test-agent',
 			verdict: 'info',
@@ -212,12 +212,12 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', 'persist-test', 'evidence.json');
-		mkdirSync(join(tempDir, '.swarm', 'evidence', 'persist-test'), { recursive: true });
+		const evidencePath = join(tempDir, '.swarm', 'evidence', '7.1', 'evidence.json');
+		mkdirSync(join(tempDir, '.swarm', 'evidence', '7.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		// First load - triggers repair
-		const result = await loadEvidence(tempDir, 'persist-test');
+		const result = await loadEvidence(tempDir, '7.1');
 		expect(result.status).toBe('found');
 
 		// Read the file directly from disk
@@ -242,9 +242,9 @@ describe('Legacy task_complexity remapping', () => {
 	 */
 	it('handles all three legacy complexity values in sequence', async () => {
 		const legacyValues = [
-			{ task_id: 'test-low', task_complexity: 'low', expected: 'simple' },
-			{ task_id: 'test-medium', task_complexity: 'medium', expected: 'moderate' },
-			{ task_id: 'test-high', task_complexity: 'high', expected: 'complex' },
+			{ task_id: '1.1', task_complexity: 'low', expected: 'simple' },
+			{ task_id: '1.2', task_complexity: 'medium', expected: 'moderate' },
+			{ task_id: '1.3', task_complexity: 'high', expected: 'complex' },
 		];
 
 		for (const { task_id, task_complexity, expected } of legacyValues) {

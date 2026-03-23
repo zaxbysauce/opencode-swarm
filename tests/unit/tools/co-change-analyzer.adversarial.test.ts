@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import {
 	parseGitLog,
 	buildCoChangeMatrix,
@@ -22,6 +22,10 @@ vi.mock('node:fs/promises', () => ({
 const mockExecFile = vi.fn();
 // Try both 'node:child_process' and 'child_process' since module resolution can differ
 vi.mock('child_process', () => ({ execFile: mockExecFile }), { virtual: true });
+
+afterAll(() => {
+	vi.restoreAllMocks();
+});
 
 describe('Co-Change Analyzer - ADVERSARIAL TESTS', () => {
 	beforeEach(() => {

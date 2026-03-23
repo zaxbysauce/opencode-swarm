@@ -64,7 +64,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		 */
 
 		test('current task_complexity "simple" is NOT remapped', async () => {
-			const taskId = 'test-task-simple';
+			const taskId = '6.1';
 			const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 			// Save evidence
@@ -80,7 +80,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		});
 
 		test('current task_complexity "moderate" is NOT remapped', async () => {
-			const taskId = 'test-task-moderate';
+			const taskId = '6.2';
 			const evidence = createRetrospectiveEvidence(taskId, 'moderate');
 
 			await saveEvidence(tempDir, taskId, evidence);
@@ -94,7 +94,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		});
 
 		test('current task_complexity "complex" is NOT remapped', async () => {
-			const taskId = 'test-task-complex';
+			const taskId = '6.3';
 			const evidence = createRetrospectiveEvidence(taskId, 'complex');
 
 			await saveEvidence(tempDir, taskId, evidence);
@@ -108,7 +108,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		});
 
 		test('current task_complexity "trivial" is NOT remapped', async () => {
-			const taskId = 'test-task-trivial';
+			const taskId = '6.4';
 			const evidence = createRetrospectiveEvidence(taskId, 'trivial');
 
 			await saveEvidence(tempDir, taskId, evidence);
@@ -126,7 +126,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		 * which has a known bug - testing separately
 		 */
 		test('legacy task_complexity "low" triggers wrapFlatRetrospective path', async () => {
-			const taskId = 'test-task-low-flat';
+			const taskId = '6.5';
 			
 			// Create a flat retrospective with legacy value
 			const flatRetro = {
@@ -165,7 +165,7 @@ describe('file persistence failure handling - adversarial tests', () => {
 	});
 
 	test('saveEvidence returns the bundle successfully', async () => {
-		const taskId = 'persist-test';
+		const taskId = '7.1';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// Save should return the bundle
@@ -177,7 +177,7 @@ describe('file persistence failure handling - adversarial tests', () => {
 	});
 
 	test('atomic write pattern - no temp files remain after success', async () => {
-		const taskId = 'atomic-test';
+		const taskId = '7.2';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// Check before write
@@ -196,7 +196,7 @@ describe('file persistence failure handling - adversarial tests', () => {
 
 	test('loadEvidence returns bundle when flat retrospective wrapping fails gracefully', async () => {
 		// Create an invalid flat retrospective that will fail validation
-		const taskId = 'invalid-flat';
+		const taskId = '7.3';
 		
 		const flatRetro = {
 			type: 'retrospective',
@@ -213,7 +213,7 @@ describe('file persistence failure handling - adversarial tests', () => {
 	});
 
 	test('saveEvidence creates valid JSON that can be loaded', async () => {
-		const taskId = 'valid-json-test';
+		const taskId = '7.4';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// First, save should succeed
@@ -246,7 +246,7 @@ describe('concurrent write safety - adversarial tests', () => {
 	});
 
 	test('atomic write uses unique temp file per process', async () => {
-		const taskId = 'atomic-write-test';
+		const taskId = '7.5';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// Save evidence - this uses atomic write
@@ -263,7 +263,7 @@ describe('concurrent write safety - adversarial tests', () => {
 	});
 
 	test('saveEvidence handles rapid sequential writes', async () => {
-		const taskId = 'sequential-writes-test';
+		const taskId = '7.6';
 		
 		// Write 5 times sequentially
 		for (let i = 0; i < 5; i++) {
@@ -284,7 +284,7 @@ describe('concurrent write safety - adversarial tests', () => {
 	});
 
 	test('loadEvidence handles reads during write', async () => {
-		const taskId = 'concurrent-read-test';
+		const taskId = '7.7';
 		
 		const initialEvidence = createRetrospectiveEvidence(taskId, 'simple');
 
@@ -308,7 +308,7 @@ describe('concurrent write safety - adversarial tests', () => {
 	});
 
 	test('temp file naming includes PID', async () => {
-		const taskId = 'temp-naming-test';
+		const taskId = '7.8';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// Do a save and check temp files are cleaned
@@ -324,7 +324,7 @@ describe('concurrent write safety - adversarial tests', () => {
 
 	test('multiple tasks can be written without interference', async () => {
 		// Create multiple tasks
-		const tasks = ['task-a', 'task-b', 'task-c'];
+		const tasks = ['8.1', '8.2', '8.3'];
 		
 		// Write to all tasks
 		for (const taskId of tasks) {
@@ -356,7 +356,7 @@ describe('edge cases for task_complexity handling', () => {
 	});
 
 	test('invalid task_complexity fails validation when loaded', async () => {
-		const taskId = 'invalid-complexity';
+		const taskId = '9.1';
 		
 		// Create evidence with invalid complexity (cast as any to bypass TS)
 		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
@@ -370,7 +370,7 @@ describe('edge cases for task_complexity handling', () => {
 	});
 
 	test('empty task_complexity is handled', async () => {
-		const taskId = 'empty-complexity';
+		const taskId = '9.2';
 		
 		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
 		(evidence as any).task_complexity = '';
@@ -383,7 +383,7 @@ describe('edge cases for task_complexity handling', () => {
 	});
 
 	test('case-sensitive task_complexity values', async () => {
-		const taskId = 'case-test';
+		const taskId = '9.3';
 		
 		// Test that case matters - "Simple" is different from "simple"
 		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
@@ -397,7 +397,7 @@ describe('edge cases for task_complexity handling', () => {
 	});
 
 	test('saveEvidence creates directory structure if not exists', async () => {
-		const taskId = 'new-dir-test';
+		const taskId = '9.4';
 		const evidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		// The directory doesn't exist yet

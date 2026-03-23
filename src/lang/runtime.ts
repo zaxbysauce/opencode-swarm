@@ -114,6 +114,40 @@ function getWasmFileName(languageId: string): string {
 }
 
 /**
+ * Detect unsafe characters in a language ID.
+ * Returns a reason string if unsafe, or null if safe.
+ * Language IDs must consist only of lowercase letters, digits, and hyphens: [a-z0-9-]
+ * All other characters (control chars, uppercase, special chars, non-ASCII) are unsafe.
+ */
+function detectUnsafeLanguageId(languageId: string): string | null {
+	for (let i = 0; i < languageId.length; i++) {
+		const code = languageId.charCodeAt(i);
+		const char = languageId[i];
+		// Control characters (ASCII 0-31) and DEL (127)
+		if (code <= 31 || code === 127) {
+			return `control character U+${code.toString(16).padStart(4, '0').toUpperCase()}`;
+		}
+		// Non-ASCII characters
+		if (code > 127) {
+			return `non-ASCII character U+${code.toString(16).padStart(4, '0').toUpperCase()}`;
+		}
+		// Uppercase letters
+		if (char >= 'A' && char <= 'Z') {
+			return `uppercase letter '${char}'`;
+		}
+		// Allow lowercase letters, digits, hyphens, and underscores
+		// Underscores are allowed so that identifiers like __proto__ pass through
+		// to the "grammar file not found" error rather than "unsafe characters"
+		if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char === '-' || char === '_') {
+			continue;
+		}
+		// Everything else is unsafe
+		return `unsafe character '${char}' (U+${code.toString(16).padStart(4, '0').toUpperCase()})`;
+	}
+	return null;
+}
+
+/**
  * Get the path to the grammars directory
  * Works in both development and production (bundled) environments
  */
@@ -145,6 +179,11 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 		throw new Error(
 			`Invalid languageId: must be a string of at most 100 characters`,
 		);
+	}
+	// Reject unsafe characters upfront: control chars, null bytes, DEL, slashes, uppercase, pipe
+	const unsafeReason = detectUnsafeLanguageId(languageId);
+	if (unsafeReason) {
+		throw new Error(`Invalid languageId: contains unsafe characters (${unsafeReason})`);
 	}
 	// Sanitize adversarial input by stripping control characters, path separators,
 	// reserved chars, and Unicode ranges — then normalize to lowercase.
@@ -206,6 +245,10 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
  */
 export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 	if (typeof languageId !== 'string' || languageId.length > 100) {
+		return false;
+	}
+	// Reject unsafe characters upfront: control chars, null bytes, DEL, slashes, uppercase, pipe
+	if (detectUnsafeLanguageId(languageId)) {
 		return false;
 	}
 	// Sanitize adversarial input by stripping control characters, path separators,

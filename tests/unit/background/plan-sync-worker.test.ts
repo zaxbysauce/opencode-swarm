@@ -99,7 +99,7 @@ describe('PlanSyncWorker', () => {
 	describe('lifecycle: start and stop', () => {
 		test('should transition from stopped to running on start', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			expect(worker.getStatus()).toBe('stopped');
 			expect(worker.isRunning()).toBe(false);
@@ -112,7 +112,7 @@ describe('PlanSyncWorker', () => {
 
 		test('should transition from running to stopped on stop', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			expect(worker.getStatus()).toBe('running');
@@ -125,7 +125,7 @@ describe('PlanSyncWorker', () => {
 
 		test('should be idempotent - multiple starts have no effect', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			worker.start();
@@ -136,7 +136,7 @@ describe('PlanSyncWorker', () => {
 
 		test('should be idempotent - multiple stops have no effect', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			worker.stop();
@@ -148,7 +148,7 @@ describe('PlanSyncWorker', () => {
 
 		test('should allow restart after stop', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			expect(worker.getStatus()).toBe('running');
@@ -164,7 +164,7 @@ describe('PlanSyncWorker', () => {
 	describe('dispose', () => {
 		test('should prevent further starts after dispose', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			worker.dispose();
@@ -177,7 +177,7 @@ describe('PlanSyncWorker', () => {
 
 		test('should clean up resources on dispose', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.start();
 			worker.dispose();
@@ -187,7 +187,7 @@ describe('PlanSyncWorker', () => {
 
 		test('dispose should be idempotent', async () => {
 			await setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir });
+			worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 200 });
 
 			worker.dispose();
 			worker.dispose();
@@ -275,8 +275,8 @@ describe('PlanSyncWorker', () => {
 			// Wait for initial setup
 			await new Promise(resolve => setTimeout(resolve, 30));
 
-			// Delete plan.json
-			await Bun.file(planJsonPath).unlink();
+			// Delete plan.json (use sync to avoid libuv/inotify interaction bugs in Bun)
+			fs.unlinkSync(planJsonPath);
 
 			// Should not throw - just reset stat tracking
 			await new Promise(resolve => setTimeout(resolve, 50));
@@ -795,12 +795,12 @@ describe('PlanSyncWorker', () => {
 			worker.start();
 			await new Promise(resolve => setTimeout(resolve, 30));
 
-			// Rapid create/delete cycles
+			// Rapid create/delete cycles (use sync unlink to avoid libuv/inotify interaction bugs in Bun)
 			for (let i = 0; i < 10; i++) {
 				await Bun.write(planJsonPath, JSON.stringify({ iteration: i }));
 				if (i % 2 === 0) {
 					try {
-						await Bun.file(planJsonPath).unlink();
+						fs.unlinkSync(planJsonPath);
 					} catch {
 						// Ignore
 					}
@@ -1294,7 +1294,8 @@ describe('PlanSyncWorker', () => {
 				data: 'x'.repeat(10 * 1024 * 1024), // 10MB
 			};
 
-			await Bun.write(planJsonPath, JSON.stringify(largeData));
+			// Use sync write to avoid libuv/inotify interaction bugs in Bun with large files
+			fs.writeFileSync(planJsonPath, JSON.stringify(largeData));
 
 			// Give more time for large file handling
 			await new Promise(resolve => setTimeout(resolve, 200));

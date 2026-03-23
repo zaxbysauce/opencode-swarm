@@ -10,7 +10,7 @@ describe('LoadEvidenceResult export', () => {
 	});
 
 	it('should return not_found status for non-existent task', async () => {
-		const result = await loadEvidence('.', 'nonexistent-9999');
+		const result = await loadEvidence('.', '999.999');
 		expect(result.status).toBe('not_found');
 	});
 });

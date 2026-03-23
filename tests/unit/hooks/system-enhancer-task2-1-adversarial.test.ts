@@ -162,11 +162,11 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		writeEvidenceFile('retro-1', createBundle('retro-1'));
 		writeEvidenceFile('retro-2', createBundle('retro-2'));
 
-		// Create sbom directory - sbom is now an INVALID task ID and should be filtered out
-		const sbomDir = path.join(tempDir, evidenceDir, 'sbom');
-		fs.mkdirSync(sbomDir, { recursive: true });
+		// Create INVALID_DIR directory - uppercase names are invalid task IDs and should be filtered out
+		const invalidDir1 = path.join(tempDir, evidenceDir, 'INVALID_DIR');
+		fs.mkdirSync(invalidDir1, { recursive: true });
 		fs.writeFileSync(
-			path.join(sbomDir, 'some-file.txt'),
+			path.join(invalidDir1, 'some-file.txt'),
 			'junk content',
 		);
 
@@ -178,7 +178,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		expect(result).toContain('retro-1');
 		expect(result).toContain('retro-2');
-		expect(result).not.toContain('sbom');
+		expect(result).not.toContain('INVALID_DIR');
 		expect(result).not.toContain('test@dir');
 		expect(result).toHaveLength(2);
 	});

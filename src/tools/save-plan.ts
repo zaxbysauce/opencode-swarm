@@ -5,6 +5,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
 import { savePlan } from '../plan/manager';
@@ -50,6 +51,52 @@ export interface SavePlanResult {
  * @param args - The save plan arguments to validate
  * @returns Array of issue strings describing found placeholders
  */
+/**
+ * Create an auto-checkpoint after a successful plan save (Task 5.4).
+ * Logs the current git HEAD SHA to .swarm/checkpoints.json with a plan-save label.
+ * Advisory only - failures are silently ignored.
+ */
+function createAutoCheckpoint(directory: string): void {
+	const CHECKPOINT_LOG_PATH = path.join(directory, '.swarm', 'checkpoints.json');
+	const label = `plan-save-${Date.now()}`;
+	// Create an empty git commit for the checkpoint
+	const commitResult = spawnSync('git', ['commit', '--allow-empty', '-m', `checkpoint: ${label}`], {
+		encoding: 'utf-8',
+		cwd: directory,
+		stdio: ['pipe', 'pipe', 'pipe'],
+	});
+	if (commitResult.status !== 0) return;
+	// Get the new git HEAD SHA
+	const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+		encoding: 'utf-8',
+		cwd: directory,
+		stdio: ['pipe', 'pipe', 'pipe'],
+	});
+	if (result.status !== 0) return;
+	const sha = result.stdout.trim();
+	if (!sha) return;
+	// Read existing checkpoint log or create new one
+	let log: { version: number; checkpoints: Array<{ label: string; sha: string; timestamp: string }> };
+	try {
+		if (fs.existsSync(CHECKPOINT_LOG_PATH)) {
+			const content = fs.readFileSync(CHECKPOINT_LOG_PATH, 'utf-8');
+			const parsed = JSON.parse(content) as typeof log;
+			log = Array.isArray(parsed.checkpoints) ? parsed : { version: 1, checkpoints: [] };
+		} else {
+			log = { version: 1, checkpoints: [] };
+		}
+	} catch {
+		log = { version: 1, checkpoints: [] };
+	}
+	log.checkpoints.push({ label, sha, timestamp: new Date().toISOString() });
+	// Write atomically
+	const dir = path.dirname(CHECKPOINT_LOG_PATH);
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	const tempPath = `${CHECKPOINT_LOG_PATH}.tmp`;
+	fs.writeFileSync(tempPath, JSON.stringify(log, null, 2), 'utf-8');
+	fs.renameSync(tempPath, CHECKPOINT_LOG_PATH);
+}
+
 export function detectPlaceholderContent(args: SavePlanArgs): string[] {
 	const issues: string[] = [];
 	// Pattern matches strings like [task], [Project], [description], [N]
@@ -240,6 +287,12 @@ export async function executeSavePlan(
 			await fs.promises.unlink(markerPath);
 		} catch {
 			// Advisory only - marker write/cleanup failure does not affect plan save
+		}
+		// Advisory: auto-checkpoint after successful plan save (Task 5.4)
+		try {
+			createAutoCheckpoint(dir);
+		} catch {
+			// Advisory only - checkpoint failure does not affect plan save
 		}
 		return {
 			success: true,

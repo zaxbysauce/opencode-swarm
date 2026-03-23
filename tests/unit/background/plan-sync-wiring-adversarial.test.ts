@@ -887,7 +887,7 @@ describe('ADVERSARIAL: Plugin Wiring Security Gates', () => {
 			// }
 			
 			// This test verifies the pattern is present in the code
-			const indexContent = await Bun.file('./src/index.ts').text();
+			const indexContent = fs.readFileSync('./src/index.ts', 'utf8');
 			
 			expect(indexContent).toContain('try {');
 			expect(indexContent).toContain("new PlanSyncWorker({");

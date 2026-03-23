@@ -166,7 +166,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			expect(parsed.message).toBe('Invalid phase number');
 		});
 
-		test('phase = 1.5 propagates invalid retro task ID from sanitizeTaskId', async () => {
+		test('phase = 1.5 generates retro-1.5 task ID (now accepted as slug)', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -182,12 +182,12 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 
 			ensureAgentSession('sess1');
 
-			await expect(
-				phase_complete.execute({
-					phase: 1.5,
-					sessionID: 'sess1',
-				}),
-			).rejects.toThrow('Invalid task ID');
+			// retro-1.5 is now a valid slug ID; execute() resolves (no throw)
+			const result = await phase_complete.execute({
+				phase: 1.5,
+				sessionID: 'sess1',
+			});
+			expect(result).toBeTruthy();
 		});
 
 		test('phase = 9999999 (very large number) should be blocked by retro gate', async () => {

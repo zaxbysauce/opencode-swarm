@@ -67,7 +67,7 @@ export class PlanSyncWorker {
 		this.directory = options.directory || process.cwd();
 		this.debounceMs = options.debounceMs ?? 300;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
-		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
+		this.syncTimeoutMs = options.syncTimeoutMs ?? 10000;
 		this.onSyncComplete = options.onSyncComplete;
 	}
 

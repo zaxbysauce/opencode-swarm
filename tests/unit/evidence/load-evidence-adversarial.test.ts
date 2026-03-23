@@ -66,7 +66,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Scenario 4: Zero-byte evidence.json (empty file) → should return `invalid_schema`
 	it('should return invalid_schema for empty evidence.json file', async () => {
-		const taskId = 'test-task-1';
+		const taskId = '1.1';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 
@@ -85,7 +85,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Scenario 5: Evidence.json containing a JSON array instead of object → should return `invalid_schema`
 	it('should return invalid_schema when evidence.json is a JSON array', async () => {
-		const taskId = 'test-task-2';
+		const taskId = '1.2';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 
@@ -108,7 +108,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Scenario 6: Evidence.json with all required fields except `schema_version` → should return `invalid_schema` with errors naming `schema_version`
 	it('should return invalid_schema when schema_version is missing', async () => {
-		const taskId = 'test-task-3';
+		const taskId = '1.3';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 
@@ -138,7 +138,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Scenario 7: Evidence.json with `task_complexity: "medium"` (invalid enum value) → should return `invalid_schema`
 	it('should return invalid_schema when task_complexity has invalid enum value in retrospective entry', async () => {
-		const taskId = 'test-task-4';
+		const taskId = '1.4';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 
@@ -187,7 +187,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Scenario 8: Very large `errors` array (50+ field failures) → should return `invalid_schema`, no crash, errors is array of strings
 	it('should return invalid_schema with large errors array for severely malformed evidence', async () => {
-		const taskId = 'test-task-5';
+		const taskId = '1.5';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 
@@ -231,7 +231,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 	// Additional: Invalid JSON syntax → should return invalid_schema
 	it('should return invalid_schema for malformed JSON syntax', async () => {
-		const taskId = 'test-task-6';
+		const taskId = '1.6';
 		const evidenceDir = path.join(swarmDir, 'evidence', taskId);
 		mkdirSync(evidenceDir, { recursive: true });
 

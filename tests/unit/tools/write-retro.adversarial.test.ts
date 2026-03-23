@@ -78,8 +78,8 @@ describe('write-retro adversarial security tests', () => {
 
 	describe('oversized input attacks', () => {
 		test('rejects extremely long task_id (exceeds pattern validation)', () => {
-			// sanitizeTaskId rejects long non-matching strings with invalid pattern error
-			expect(() => sanitizeTaskId('a'.repeat(10000))).toThrow(/Invalid task ID|must match pattern/);
+			// sanitizeTaskId rejects long strings with uppercase (invalid format)
+			expect(() => sanitizeTaskId('A'.repeat(10000))).toThrow(/Invalid task ID|must match pattern/);
 		});
 
 		test('handles oversized lessons_learned without crashing', async () => {

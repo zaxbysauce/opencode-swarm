@@ -115,11 +115,11 @@ const INTERNAL_TOOL_ID_REGEX =
 	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
 
 /**
- * Flexible alphanumeric task ID pattern: lowercase letters, digits, and hyphens.
- * Allows human-readable IDs like 'task-1', 'old-task', 'test-task-simple'.
- * Pattern: ^[a-z0-9][a-z0-9-]*$
+ * Flexible slug task ID pattern: lowercase letters, digits, hyphens, and dots.
+ * Allows human-readable IDs like 'task-1', 'test-task-simple', 'task-1.2.3-beta'.
+ * Pattern: ^[a-z0-9][a-z0-9.-]*$
  */
-const SLUG_TASK_ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
+const SLUG_TASK_ID_REGEX = /^[a-z0-9][a-z0-9.-]*$/;
 
 /**
  * Validate and sanitize task ID.
@@ -169,6 +169,11 @@ export function sanitizeTaskId(taskId: string): string {
 
 	// Also accept internal automated-tool IDs like sast_scan, quality_budget, etc.
 	if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
+		return taskId;
+	}
+
+	// Also accept slug-format IDs like task-1, test-task-simple, task-1.2.3-beta
+	if (SLUG_TASK_ID_REGEX.test(taskId)) {
 		return taskId;
 	}
 
