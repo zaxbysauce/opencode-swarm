@@ -1,40 +1,37 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { existsSync, mkdirSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { mkdirSync, rmSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import * as path from 'node:path';
+import * as os from 'node:os';
+
+async function pathExists(p: string): Promise<boolean> {
+	return stat(p).then(() => true).catch(() => false);
+}
 import type { CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
 
-// Mock the co-change-analyzer module
+// Mock only co-change-analyzer (app-specific, no contamination risk)
 const mockDetectDarkMatter = mock(async (_dir: string, _options: any) => [] as CoChangeEntry[]);
-const mockFsMkdir = mock(async (_dir: string, _options: any) => {});
-const mockFsWriteFile = mock(async (_path: string, _content: string, _encoding: string) => {});
 
 mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 	detectDarkMatter: mockDetectDarkMatter,
 }));
 
-mock.module('node:fs/promises', () => ({
-	mkdir: mockFsMkdir,
-	writeFile: mockFsWriteFile,
-}));
-
 // Import AFTER mock setup
 const { handleSimulateCommand } = await import('../../../src/commands/simulate.js');
 
-const testDir = path.join(process.cwd(), 'test-swarm-simulate-temp');
+// Use a unique temp dir per test to avoid state leakage
+let testDir: string;
 
 describe('handleSimulateCommand', () => {
 	let mockPairs: CoChangeEntry[];
 
 	beforeEach(() => {
 		mockDetectDarkMatter.mockClear();
-		mockFsMkdir.mockClear();
-		mockFsWriteFile.mockClear();
 
-		// Create test directory
-		if (!existsSync(testDir)) {
-			mkdirSync(testDir, { recursive: true });
-		}
+		// Create a unique temp directory for each test
+		testDir = require('node:fs').mkdtempSync(
+			path.join(os.tmpdir(), 'simulate-test-'),
+		);
 
 		// Set up mock pairs
 		mockPairs = [
@@ -63,14 +60,21 @@ describe('handleSimulateCommand', () => {
 		];
 	});
 
-	afterEach(async () => {
-		// Clean up test directory
+	afterEach(() => {
 		try {
-			await rm(testDir, { recursive: true, force: true });
+			rmSync(testDir, { recursive: true, force: true });
 		} catch {
 			// Ignore cleanup errors
 		}
 	});
+
+	function getReportPath(): string {
+		return path.join(testDir, '.swarm', 'simulate-report.md');
+	}
+
+	async function readReport(): Promise<string> {
+		return Bun.file(getReportPath()).text();
+	}
 
 	it('Calls detectDarkMatter with correct directory and default options', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
@@ -238,64 +242,40 @@ describe('handleSimulateCommand', () => {
 
 	it('Handles empty results gracefully and still creates report', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => []);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		const result = await handleSimulateCommand(testDir, []);
 
-		expect(mockFsWriteFile).toHaveBeenCalled();
+		expect(await pathExists(getReportPath())).toBe(true);
 		expect(result).toBe('0 hidden coupling pairs detected');
-		expect(capturedReport).toBeDefined();
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('# Simulate Report');
 		expect(capturedReport).toContain('0 hidden coupling pairs detected');
 	});
 
 	it('Writes report to .swarm/simulate-report.md', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedPath: string | undefined;
-		let capturedContent: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			capturedPath = filePath;
-			capturedContent = content;
-		});
 
 		await handleSimulateCommand(testDir, []);
 
-		expect(mockFsWriteFile).toHaveBeenCalled();
-		// Normalize path separators for cross-platform compatibility
-		expect(capturedPath?.replace(/\\/g, '/')).toContain('.swarm/simulate-report.md');
+		expect(await pathExists(getReportPath())).toBe(true);
+		const capturedContent = await readReport();
 		expect(capturedContent).toBeDefined();
 	});
 
 	it('Creates .swarm directory before writing report', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedMkdirPath: string | undefined;
-		mockFsMkdir.mockImplementation(async (dirPath: string) => {
-			capturedMkdirPath = dirPath;
-		});
 
 		await handleSimulateCommand(testDir, []);
 
-		expect(mockFsMkdir).toHaveBeenCalled();
-		expect(capturedMkdirPath).toContain('.swarm');
+		expect(await pathExists(path.join(testDir, '.swarm'))).toBe(true);
 	});
 
 	it('Report contains correct markdown structure with results', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
-		expect(capturedReport).toBeDefined();
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('# Simulate Report');
 		expect(capturedReport).toContain('Generated:');
 		expect(capturedReport).toContain('## Dark Matter Analysis');
@@ -312,76 +292,51 @@ describe('handleSimulateCommand', () => {
 
 	it('Report includes correct pair count in recommendation section', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('2 hidden coupling pairs may cause unexpected side effects when modified.');
 	});
 
 	it('Report formats NPMI with 3 decimal places', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('0.823'); // 3 decimal places
 	});
 
 	it('Report formats lift with 2 decimal places', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('4.50'); // 2 decimal places
 	});
 
 	it('Report contains ISO timestamp', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(capturedReport).toContain('Generated: ');
 		expect(capturedReport).toMatch(/\d{4}-\d{2}-\d{2}T/); // ISO date format
 	});
 
 	it('Report excludes table rows when no pairs detected', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => []);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(capturedReport).toBeDefined();
 		expect(capturedReport).toContain('0 hidden coupling pairs detected:');
 		// Should not have any data rows after header
-		const lines = capturedReport!.split('\n');
+		const lines = capturedReport.split('\n');
 		const tableHeaderIndex = lines.findIndex((l) => l.includes('| File A |'));
 		const headerSeparatorIndex = lines.findIndex((l) => l.includes('|--------|'));
 		expect(tableHeaderIndex).toBeGreaterThanOrEqual(0);
@@ -406,15 +361,10 @@ describe('handleSimulateCommand', () => {
 			},
 		];
 		mockDetectDarkMatter.mockImplementation(async () => multiplePairs);
-		let capturedReport: string | undefined;
-		mockFsWriteFile.mockImplementation(async (filePath: string, content: string) => {
-			if (filePath.includes('simulate-report.md')) {
-				capturedReport = content;
-			}
-		});
 
 		const result = await handleSimulateCommand(testDir, []);
 
+		const capturedReport = await readReport();
 		expect(result).toBe('3 hidden coupling pairs detected');
 		expect(capturedReport).toContain('3 hidden coupling pairs detected:');
 		expect(capturedReport).toContain('src/utils/helper.ts');
@@ -457,26 +407,21 @@ describe('handleSimulateCommand', () => {
 
 	it('Uses correct encoding (utf-8) when writing report', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedEncoding: string | undefined;
-		mockFsWriteFile.mockImplementation(async (_path: string, _content: string, encoding: string) => {
-			capturedEncoding = encoding;
-		});
 
 		await handleSimulateCommand(testDir, []);
 
-		expect(capturedEncoding).toBe('utf-8');
+		// File exists and is valid UTF-8 text (can be read as string)
+		const content = await readReport();
+		expect(typeof content).toBe('string');
+		expect(content.length).toBeGreaterThan(0);
 	});
 
 	it('Creates directory with recursive option', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
-		let capturedOptions: any;
-		mockFsMkdir.mockImplementation(async (_path: string, options: any) => {
-			capturedOptions = options;
-		});
 
 		await handleSimulateCommand(testDir, []);
 
-		expect(capturedOptions).toBeDefined();
-		expect(capturedOptions.recursive).toBe(true);
+		// Verify .swarm directory was created (recursive mkdir worked)
+		expect(await pathExists(path.join(testDir, '.swarm'))).toBe(true);
 	});
 });

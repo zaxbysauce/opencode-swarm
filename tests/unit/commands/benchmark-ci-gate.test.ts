@@ -25,9 +25,11 @@ describe('CI Gate Quality Checks', () => {
 	// Setup helper to create passing evidence
 	async function createPassingEvidence() {
 		// Create passing review evidence: 8 approved, 2 rejected = 80% >= 70%
+		// Task IDs must match ^\d+\.\d+(\.\d+)*$
 		for (let i = 0; i < 8; i++) {
-			await saveEvidence(testDir, `pass-${i}`, {
-				task_id: `pass-${i}`,
+			const taskId = `1.${i + 1}`;
+			await saveEvidence(testDir, taskId, {
+				task_id: taskId,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -38,8 +40,9 @@ describe('CI Gate Quality Checks', () => {
 			});
 		}
 		for (let i = 0; i < 2; i++) {
-			await saveEvidence(testDir, `fail-${i}`, {
-				task_id: `fail-${i}`,
+			const taskId = `2.${i + 1}`;
+			await saveEvidence(testDir, taskId, {
+				task_id: taskId,
 				type: 'review',
 				timestamp: new Date().toISOString(),
 				agent: 'reviewer',
@@ -50,8 +53,8 @@ describe('CI Gate Quality Checks', () => {
 			});
 		}
 		// Test evidence: 90 passed, 10 failed = 90% >= 80%
-		await saveEvidence(testDir, 'test-1', {
-			task_id: 'test-1',
+		await saveEvidence(testDir, '3.1', {
+			task_id: '3.1',
 			type: 'test',
 			timestamp: new Date().toISOString(),
 			agent: 'test_engineer',
@@ -75,8 +78,8 @@ describe('CI Gate Quality Checks', () => {
 		it('passes when complexity delta within threshold', async () => {
 			await createPassingEvidence();
 			// Add quality_budget evidence with low complexity delta
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -105,8 +108,8 @@ describe('CI Gate Quality Checks', () => {
 		it('fails when complexity delta exceeds threshold', async () => {
 			await createPassingEvidence();
 			// Add quality_budget evidence with high complexity delta
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -144,8 +147,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('Quality check: Public API Delta', () => {
 		it('passes when public API delta within threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -173,8 +176,8 @@ describe('CI Gate Quality Checks', () => {
 
 		it('fails when public API delta exceeds threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -212,8 +215,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('Quality check: Duplication Ratio', () => {
 		it('passes when duplication ratio within threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -241,8 +244,8 @@ describe('CI Gate Quality Checks', () => {
 
 		it('fails when duplication ratio exceeds threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -280,8 +283,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('Quality check: Test-to-Code Ratio', () => {
 		it('passes when test-to-code ratio meets threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -309,8 +312,8 @@ describe('CI Gate Quality Checks', () => {
 
 		it('fails when test-to-code ratio below threshold', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -348,8 +351,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('All quality checks passing', () => {
 		it('ci-gate passes when all quality checks pass', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -384,8 +387,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('Quality Metrics section in output', () => {
 		it('displays Quality Metrics section when evidence exists', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -426,8 +429,8 @@ describe('CI Gate Quality Checks', () => {
 	describe('JSON output with quality metrics', () => {
 		it('includes quality_metrics in JSON output', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -471,8 +474,8 @@ describe('CI Gate Quality Checks', () => {
 
 		it('JSON remains parseable with quality metrics', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -505,8 +508,8 @@ describe('CI Gate Quality Checks', () => {
 
 		it('includes all 8 checks in ci_gate when quality evidence exists', async () => {
 			await createPassingEvidence();
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -548,8 +551,8 @@ describe('CI Gate Quality Checks', () => {
 		it('averages metrics from multiple quality_budget evidence entries', async () => {
 			await createPassingEvidence();
 			// First evidence: complexity 2
-			await saveEvidence(testDir, 'quality-1', {
-				task_id: 'quality-1',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',
@@ -571,8 +574,8 @@ describe('CI Gate Quality Checks', () => {
 				files_analyzed: ['src/test.ts'],
 			});
 			// Second evidence: complexity 6
-			await saveEvidence(testDir, 'quality-2', {
-				task_id: 'quality-2',
+			await saveEvidence(testDir, 'quality_budget', {
+				task_id: 'quality_budget',
 				type: 'quality_budget',
 				timestamp: new Date().toISOString(),
 				agent: 'quality_budget',

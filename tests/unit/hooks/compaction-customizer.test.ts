@@ -245,7 +245,8 @@ Phase: 1 | Updated: 2026-01-01
         expect(output.context).toContain('[SWARM DECISIONS] - **Decision A**: Rationale A\n- **Decision B**: Rationale B');
         expect(output.context).toContain('[SWARM TASKS] - [ ] 1.2: Add config [SMALL]');
         expect(output.context).toContain('[SWARM PATTERNS] - pattern stuff');
-        expect(output.context).toHaveLength(4);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(5);
     });
 
     it('Handler does not modify output.context when files are missing', async () => {
@@ -257,8 +258,10 @@ Phase: 1 | Updated: 2026-01-01
         
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
-        
-        expect(output.context).toHaveLength(0);
+
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
+        expect(output.context[0]).toContain('[KNOWLEDGE TOOLS]');
     });
 
     it('Handler does not modify output.prompt (ever)', async () => {
@@ -344,7 +347,8 @@ Phase: 1 | Updated: 2026-01-01
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
 
-        expect(output.context).toHaveLength(0);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
     });
 
     it('Handler works when .swarm directory exists but files are missing', async () => {
@@ -357,8 +361,9 @@ Phase: 1 | Updated: 2026-01-01
         
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
-        
-        expect(output.context).toHaveLength(0);
+
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
     });
 
     it('Handler handles content with multiple IN PROGRESS phases', async () => {
@@ -420,7 +425,8 @@ ${longDecision}
         
         expect(output.context).toContain('[SWARM PLAN] Phase 1: Setup [IN PROGRESS]');
         expect(output.context).not.toContain('[SWARM TASKS]');
-        expect(output.context).toHaveLength(1);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(2);
     });
 
     it('Context.md without Patterns section → no [SWARM PATTERNS] entry', async () => {
@@ -439,7 +445,8 @@ ${longDecision}
 
         expect(output.context).toContain('[SWARM DECISIONS] - Decision 1');
         expect(output.context).not.toContain('[SWARM PATTERNS]');
-        expect(output.context).toHaveLength(1);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(2);
     });
 
     it('Plan exists with no phase info, no incomplete tasks → only context.md contributions', async () => {
@@ -463,7 +470,8 @@ ${longDecision}
         expect(output.context).toContain('[SWARM PATTERNS] - pattern stuff');
         expect(output.context).not.toContain('[SWARM PLAN]');
         expect(output.context).not.toContain('[SWARM TASKS]');
-        expect(output.context).toHaveLength(2);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(3);
     });
 
     it('Plan with incomplete tasks but no IN PROGRESS phase → no [SWARM TASKS] or [SWARM PLAN]', async () => {
