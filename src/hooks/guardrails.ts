@@ -298,6 +298,10 @@ export function createGuardrailsHooks(
 		guardrailsConfig = config;
 	}
 
+	// Normalize directory: legacy calls pass the config object as the first arg, so fall back to cwd
+	const effectiveDirectory =
+		typeof directory === 'string' ? directory : process.cwd();
+
 	// If guardrails are disabled, return no-op handlers
 	if (guardrailsConfig?.enabled === false) {
 		return {
@@ -476,13 +480,13 @@ export function createGuardrailsHooks(
 				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
 					const resolvedTarget = path
-						.resolve(directory, targetPath)
+						.resolve(effectiveDirectory, targetPath)
 						.toLowerCase();
 					const planMdPath = path
-						.resolve(directory, '.swarm', 'plan.md')
+						.resolve(effectiveDirectory, '.swarm', 'plan.md')
 						.toLowerCase();
 					const planJsonPath = path
-						.resolve(directory, '.swarm', 'plan.json')
+						.resolve(effectiveDirectory, '.swarm', 'plan.json')
 						.toLowerCase();
 					if (
 						resolvedTarget === planMdPath ||
@@ -565,12 +569,12 @@ export function createGuardrailsHooks(
 						}
 
 						for (const p of paths) {
-							const resolvedP = path.resolve(directory, p);
+							const resolvedP = path.resolve(effectiveDirectory, p);
 							const planMdPath = path
-								.resolve(directory, '.swarm', 'plan.md')
+								.resolve(effectiveDirectory, '.swarm', 'plan.md')
 								.toLowerCase();
 							const planJsonPath = path
-								.resolve(directory, '.swarm', 'plan.json')
+								.resolve(effectiveDirectory, '.swarm', 'plan.json')
 								.toLowerCase();
 							if (
 								resolvedP.toLowerCase() === planMdPath ||
@@ -585,7 +589,7 @@ export function createGuardrailsHooks(
 								);
 							}
 							if (
-								isOutsideSwarmDir(p, directory) &&
+								isOutsideSwarmDir(p, effectiveDirectory) &&
 								(isSourceCodePath(p) || hasTraversalSegments(p))
 							) {
 								const session = swarmState.agentSessions.get(input.sessionID);
@@ -607,9 +611,9 @@ export function createGuardrailsHooks(
 				if (
 					typeof targetPath === 'string' &&
 					targetPath.length > 0 &&
-					isOutsideSwarmDir(targetPath, directory) &&
+					isOutsideSwarmDir(targetPath, effectiveDirectory) &&
 					isSourceCodePath(
-						path.relative(directory, path.resolve(directory, targetPath)),
+						path.relative(effectiveDirectory, path.resolve(effectiveDirectory, targetPath)),
 					)
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
@@ -949,7 +953,7 @@ export function createGuardrailsHooks(
 					// v6.12: Get current phase from plan
 					let currentPhase = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(directory);
+						const plan = await loadPlan(effectiveDirectory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhase = extractPhaseNumber(phaseString);
@@ -1238,7 +1242,7 @@ export function createGuardrailsHooks(
 					// v6.12: Check for CURRENT phase, not just any phase
 					let currentPhaseForCheck = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(directory);
+						const plan = await loadPlan(effectiveDirectory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhaseForCheck = extractPhaseNumber(phaseString);
@@ -1345,7 +1349,7 @@ export function createGuardrailsHooks(
 				requireReviewerAndTestEngineer
 			) {
 				try {
-					const plan = await loadPlan(directory);
+					const plan = await loadPlan(effectiveDirectory);
 					if (plan?.phases) {
 						for (const phase of plan.phases) {
 							if (phase.status === 'complete') {
