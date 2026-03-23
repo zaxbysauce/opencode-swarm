@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.32.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.0...v6.32.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **test:** update stale assertions and broken mocks across hooks, commands, and config tests ([#260](https://github.com/zaxbysauce/opencode-swarm/issues/260)) ([5e4bfa0](https://github.com/zaxbysauce/opencode-swarm/commit/5e4bfa0a37dd2315e668bb021913b09a87474c05))
+
 ## [6.32.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.4...v6.32.0) (2026-03-23)
 
 
