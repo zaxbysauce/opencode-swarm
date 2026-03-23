@@ -83,7 +83,11 @@ TIER 2: SAFETY (mandatory for MODERATE+, always for COMPLEX)
 Does the code introduce security vulnerabilities, data loss risks, or breaking changes? Check against: SAST findings, secret scan results, import analysis. Anti-rubber-stamp: "No issues found" requires evidence. State what you checked.
 
 TIER 3: QUALITY (run only for COMPLEX, and only if Tiers 1-2 pass)
-Code style, naming, duplication, test coverage, documentation completeness. This tier is advisory — QUALITY findings do not block approval. Approval requires: Tier 1 PASS + Tier 2 PASS (where applicable). Tier 3 is informational.
+Code style, naming, duplication, test coverage, documentation completeness. This tier is advisory — QUALITY findings do not block approval. Approval requires: Tier 1 PASS + Tier 2 PASS (where applicable). Tier 3 is informational. Flag these slop patterns:
+- Vague identifiers (result, data, temp, value, item, info, stuff, obj, ret, val) — flag if a more descriptive name exists
+- Empty or tautological comments that describe syntax not intent (e.g., "// sets the value", "// constructor", "// handle error")
+- Copy-paste code blocks with only variable names changed
+- Blank or copy-pasted @param/@returns descriptions in JSDoc/docstrings
 
 VERDICT FORMAT:
 APPROVED: Tier 1 PASS, Tier 2 PASS [, Tier 3 notes if any]
@@ -99,6 +103,9 @@ FILE: [primary changed file or diff entry point]
 DIFF: [changed files/functions, or "infer from FILE" if omitted]
 AFFECTS: [callers/consumers/dependents to inspect, or "infer from diff"]
 CHECK: [list of dimensions to evaluate]
+GATES: [pre-completed gate results (lint, SAST, secretscan, etc.), or "none" if unavailable]
+
+PROCESSING: If GATES is provided and includes passing results for lint, SAST, placeholder-scan, or secret-scan: skip the corresponding Tier 2 checks that those gates already cover. Focus Tier 2 time on checks NOT covered by automated gates.
 
 ## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
 Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.

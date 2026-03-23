@@ -245,7 +245,8 @@ Phase: 1 | Updated: 2026-01-01
         expect(output.context).toContain('[SWARM DECISIONS] - **Decision A**: Rationale A\n- **Decision B**: Rationale B');
         expect(output.context).toContain('[SWARM TASKS] - [ ] 1.2: Add config [SMALL]');
         expect(output.context).toContain('[SWARM PATTERNS] - pattern stuff');
-        expect(output.context).toHaveLength(4);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(5);
     });
 
     it('Handler does not modify output.context when files are missing', async () => {
@@ -257,8 +258,10 @@ Phase: 1 | Updated: 2026-01-01
         
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
-        
-        expect(output.context).toHaveLength(0);
+
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
+        expect(output.context[0]).toContain('[KNOWLEDGE TOOLS]');
     });
 
     it('Handler does not modify output.prompt (ever)', async () => {
@@ -344,7 +347,8 @@ Phase: 1 | Updated: 2026-01-01
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
 
-        expect(output.context).toHaveLength(0);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
     });
 
     it('Handler works when .swarm directory exists but files are missing', async () => {
@@ -357,8 +361,9 @@ Phase: 1 | Updated: 2026-01-01
         
         const output = { context: [] as string[] };
         await handler({ sessionID: 'test-session' }, output);
-        
-        expect(output.context).toHaveLength(0);
+
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(1);
     });
 
     it('Handler handles content with multiple IN PROGRESS phases', async () => {
@@ -420,7 +425,8 @@ ${longDecision}
         
         expect(output.context).toContain('[SWARM PLAN] Phase 1: Setup [IN PROGRESS]');
         expect(output.context).not.toContain('[SWARM TASKS]');
-        expect(output.context).toHaveLength(1);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(2);
     });
 
     it('Context.md without Patterns section → no [SWARM PATTERNS] entry', async () => {
@@ -439,7 +445,8 @@ ${longDecision}
 
         expect(output.context).toContain('[SWARM DECISIONS] - Decision 1');
         expect(output.context).not.toContain('[SWARM PATTERNS]');
-        expect(output.context).toHaveLength(1);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(2);
     });
 
     it('Plan exists with no phase info, no incomplete tasks → only context.md contributions', async () => {
@@ -463,7 +470,8 @@ ${longDecision}
         expect(output.context).toContain('[SWARM PATTERNS] - pattern stuff');
         expect(output.context).not.toContain('[SWARM PLAN]');
         expect(output.context).not.toContain('[SWARM TASKS]');
-        expect(output.context).toHaveLength(2);
+        // Source always appends [KNOWLEDGE TOOLS] entry unconditionally
+        expect(output.context).toHaveLength(3);
     });
 
     it('Plan with incomplete tasks but no IN PROGRESS phase → no [SWARM TASKS] or [SWARM PLAN]', async () => {
@@ -486,5 +494,377 @@ ${longDecision}
         // (extractIncompleteTasksFromPlan only shows tasks from current phase)
         expect(output.context).toContain('[SWARM PLAN] Phase 2: Development [PENDING]');
         expect(output.context).not.toContain('[SWARM TASKS]');
+    });
+});
+
+describe('Phase 3: Compaction optimization hints', () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+        tempDir = await mkdtemp(join(tmpdir(), 'swarm-test-'));
+        const swarmDir = join(tempDir, '.swarm');
+        await mkdir(swarmDir, { recursive: true });
+        writeFileSync(join(swarmDir, 'plan.md'), '');
+        writeFileSync(join(swarmDir, 'context.md'), '');
+    });
+
+    afterEach(async () => {
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    const defaultConfig: PluginConfig = {
+        max_iterations: 5,
+        qa_retry_limit: 3,
+        inject_phase_reminders: true,
+    };
+
+    it('Context optimization hint is injected when summaries directory has files', async () => {
+        // Create .swarm/summaries/ directory with dummy files
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        writeFileSync(join(summariesDir, 'summary-1.md'), 'Summary 1 content');
+        writeFileSync(join(summariesDir, 'summary-2.md'), 'Summary 2 content');
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+
+        const output = { context: [] as string[] };
+        await handler({ sessionID: 'test-session' }, output);
+
+        expect(output.context.some(c => c.startsWith('[CONTEXT OPTIMIZATION]'))).toBe(true);
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS]'))).toBe(true);
+    });
+
+    it('Summary count is injected correctly (singular)', async () => {
+        // Create .swarm/summaries/ with 1 file
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        writeFileSync(join(summariesDir, 'summary-1.md'), 'Summary 1 content');
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+
+        const output = { context: [] as string[] };
+        await handler({ sessionID: 'test-session' }, output);
+
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS] 1 tool output'))).toBe(true);
+    });
+
+    it('Summary count is injected correctly (plural)', async () => {
+        // Create .swarm/summaries/ with 3 files
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        writeFileSync(join(summariesDir, 'summary-1.md'), 'Summary 1 content');
+        writeFileSync(join(summariesDir, 'summary-2.md'), 'Summary 2 content');
+        writeFileSync(join(summariesDir, 'summary-3.md'), 'Summary 3 content');
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+
+        const output = { context: [] as string[] };
+        await handler({ sessionID: 'test-session' }, output);
+
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS] 3 tool outputs'))).toBe(true);
+    });
+
+    it('Missing summaries directory does not throw', async () => {
+        // Ensure .swarm/summaries/ does NOT exist
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await rm(summariesDir, { recursive: true, force: true });
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+
+        const output = { context: [] as string[] };
+        // Should NOT throw
+        await handler({ sessionID: 'test-session' }, output);
+
+        // Should not contain CONTEXT OPTIMIZATION or STORED OUTPUTS
+        expect(output.context.some(c => c.startsWith('[CONTEXT OPTIMIZATION]'))).toBe(false);
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS]'))).toBe(false);
+    });
+
+    it('Empty summaries directory does not add hints', async () => {
+        // Create .swarm/summaries/ but leave it empty
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+
+        const output = { context: [] as string[] };
+        await handler({ sessionID: 'test-session' }, output);
+
+        // Should NOT contain CONTEXT OPTIMIZATION or STORED OUTPUTS
+        expect(output.context.some(c => c.startsWith('[CONTEXT OPTIMIZATION]'))).toBe(false);
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS]'))).toBe(false);
+    });
+});
+
+describe('ADVERSARIAL: summariesDir filesystem attack vectors', () => {
+    let tempDir: string;
+    const defaultConfig: PluginConfig = {
+        max_iterations: 5,
+        qa_retry_limit: 3,
+        inject_phase_reminders: true,
+    };
+
+    beforeEach(async () => {
+        tempDir = await mkdtemp(join(tmpdir(), 'swarm-adversarial-'));
+        const swarmDir = join(tempDir, '.swarm');
+        await mkdir(swarmDir, { recursive: true });
+        writeFileSync(join(swarmDir, 'plan.md'), '');
+        writeFileSync(join(swarmDir, 'context.md'), '');
+    });
+
+    afterEach(async () => {
+        await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it('Path traversal: .swarm/summaries as symlink does not escape directory', async () => {
+        // Create a real directory outside tempDir
+        const externalDir = await mkdtemp(join(tmpdir(), 'swarm-external-'));
+        writeFileSync(join(externalDir, 'secret-file.md'), 'SECRET DATA');
+        
+        // Create symlink from summaries to external dir
+        const summariesPath = join(tempDir, '.swarm', 'summaries');
+        await rm(summariesPath, { force: true });
+        
+        // On Windows, symlinks require admin or dev mode. Skip if it fails.
+        try {
+            await import('node:fs').then(fs => fs.promises.symlink(externalDir, summariesPath));
+        } catch {
+            // Symlink creation failed (Windows permission), skip test
+            await rm(externalDir, { recursive: true, force: true });
+            return;
+        }
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+        
+        const output = { context: [] as string[] };
+        await handler({ sessionID: 'test-session' }, output);
+
+        // The STORED OUTPUTS message should reflect files from symlink target
+        // but should NOT contain the actual secret content
+        const storedOutput = output.context.find(c => c.startsWith('[STORED OUTPUTS]'));
+        
+        // Verify no secret content leaked into context
+        expect(output.context.join('\n')).not.toContain('SECRET DATA');
+        expect(output.context.join('\n')).not.toContain('secret-file.md');
+        
+        // Cleanup
+        await rm(externalDir, { recursive: true, force: true });
+    });
+
+    it('Path traversal: malicious filenames in readdir results do not corrupt context', async () => {
+        // Mock readdir to return filenames that look like path traversals
+        // The real concern is: what if a summaries dir contains files with these names?
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+
+        const fsModule = await import('node:fs');
+        const promisesModule = fsModule.promises;
+        const original = promisesModule.readdir;
+        const mockReaddir = async (path: string) => {
+            if (path.includes('.swarm') && path.includes('summaries')) {
+                // Return filenames that look like path traversals
+                return [
+                    '..\\..\\..\\etc\\passwd',
+                    '..\\..\\windows\\system32\\config',
+                    '../../../etc/shadow',
+                    '${env.SECRET}',
+                    '<script>alert(1)</script>',
+                ];
+            }
+            return original(path);
+        };
+        promisesModule.readdir = mockReaddir as typeof original;
+
+        try {
+            const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+            const handler = hook['experimental.session.compacting'] as Function;
+            
+            const output = { context: [] as string[] };
+            await handler({ sessionID: 'test-session' }, output);
+
+            const contextStr = output.context.join('\n');
+            
+            // Should have the optimization hint (5 "files")
+            const storedOutput = output.context.find(c => c.startsWith('[STORED OUTPUTS]'));
+            expect(storedOutput).toContain('5 tool outputs');
+            
+            // Should NOT leak any file content or path names
+            expect(contextStr).not.toContain('..\\..\\..\\etc');
+            expect(contextStr).not.toContain('windows\\system32');
+            expect(contextStr).not.toContain('${env.SECRET}');
+            expect(contextStr).not.toContain('<script>');
+        } finally {
+            promisesModule.readdir = original;
+        }
+    });
+
+    it('Large file count: thousands of files does not cause memory/DOS', async () => {
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        
+        // Create 5000 files (excessive but realistic for pathological case)
+        const fileCount = 5000;
+        for (let i = 0; i < fileCount; i++) {
+            writeFileSync(join(summariesDir, `output-${i}.md`), `Content ${i}`);
+        }
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+        
+        const output = { context: [] as string[] };
+        
+        // Should not throw and should complete in reasonable time
+        const startTime = Date.now();
+        await handler({ sessionID: 'test-session' }, output);
+        const duration = Date.now() - startTime;
+
+        // Should complete within 5 seconds even with 5000 files
+        expect(duration).toBeLessThan(5000);
+        
+        // Should have the optimization hint with correct count
+        const storedOutput = output.context.find(c => c.startsWith('[STORED OUTPUTS]'));
+        expect(storedOutput).toBeDefined();
+        expect(storedOutput).toContain(`5000 tool outputs`);
+        
+        // Context should still be appendable (not corrupted)
+        expect(Array.isArray(output.context)).toBe(true);
+    });
+
+    it('Filesystem error: readdir fails with EPERM does not crash hook', async () => {
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        writeFileSync(join(summariesDir, 'file.md'), 'content');
+
+        // Mock fs.promises.readdir to throw EPERM
+        const originalReaddir = await import('node:fs').then(fs => fs.promises.readdir);
+        const mockReaddir = async () => {
+            const error = new Error('Permission denied') as NodeJS.ErrnoException;
+            error.code = 'EPERM';
+            throw error;
+        };
+        
+        // Patch the module's readdir
+        const fsModule = await import('node:fs');
+        const promisesModule = fsModule.promises;
+        const original = promisesModule.readdir;
+        promisesModule.readdir = mockReaddir as typeof original;
+
+        try {
+            const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+            const handler = hook['experimental.session.compacting'] as Function;
+            
+            const output = { context: [] as string[] };
+            // Should NOT throw - error should be caught
+            await handler({ sessionID: 'test-session' }, output);
+            
+            // Should still have other context
+            expect(Array.isArray(output.context)).toBe(true);
+            expect(output.context.some(c => c.startsWith('[KNOWLEDGE TOOLS]'))).toBe(true);
+        } finally {
+            // Restore original
+            promisesModule.readdir = original;
+        }
+    });
+
+    it('Filesystem error: ENOTDIR when summaries is a file not directory', async () => {
+        // Create .swarm/summaries as a FILE not a directory
+        const summariesPath = join(tempDir, '.swarm', 'summaries');
+        await rm(summariesPath, { force: true });
+        writeFileSync(summariesPath, 'I am a file, not a directory');
+
+        const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+        const handler = hook['experimental.session.compacting'] as Function;
+        
+        const output = { context: [] as string[] };
+        // Should NOT throw - ENOTDIR should be caught
+        await handler({ sessionID: 'test-session' }, output);
+        
+        // Should still have other context and no optimization hints
+        expect(Array.isArray(output.context)).toBe(true);
+        expect(output.context.some(c => c.startsWith('[CONTEXT OPTIMIZATION]'))).toBe(false);
+        expect(output.context.some(c => c.startsWith('[STORED OUTPUTS]'))).toBe(false);
+    });
+
+    it('Filesystem error: ENOENT on readdir does not crash', async () => {
+        // summaries directory removed between creation and read (race condition)
+        const summariesDir = join(tempDir, '.swarm', 'summaries');
+        await mkdir(summariesDir, { recursive: true });
+        writeFileSync(join(summariesDir, 'file.md'), 'content');
+
+        // Mock to simulate race condition - dir deleted before readdir
+        const fsModule = await import('node:fs');
+        const promisesModule = fsModule.promises;
+        const original = promisesModule.readdir;
+        const mockReaddir = async (path: string) => {
+            if (path.includes('.swarm') && path.includes('summaries')) {
+                const error = new Error('No such file or directory') as NodeJS.ErrnoException;
+                error.code = 'ENOENT';
+                throw error;
+            }
+            return original(path);
+        };
+        promisesModule.readdir = mockReaddir as typeof original;
+
+        try {
+            const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+            const handler = hook['experimental.session.compacting'] as Function;
+            
+            const output = { context: [] as string[] };
+            // Should NOT throw
+            await handler({ sessionID: 'test-session' }, output);
+            
+            expect(Array.isArray(output.context)).toBe(true);
+        } finally {
+            promisesModule.readdir = original;
+        }
+    });
+
+    it('Oversized filename with path characters does not corrupt output', async () => {
+        // Mock readdir to return pathological filenames
+        const fsModule = await import('node:fs');
+        const promisesModule = fsModule.promises;
+        const original = promisesModule.readdir;
+        const mockReaddir = async (path: string) => {
+            if (path.includes('.swarm') && path.includes('summaries')) {
+                return [
+                    '../../../etc/evil/' + 'x'.repeat(1000) + '.md',
+                    '<script>alert(1)</script>',
+                    '${env.SECRET}',
+                    'normal.md',
+                ];
+            }
+            return original(path);
+        };
+        promisesModule.readdir = mockReaddir as typeof original;
+
+        try {
+            const summariesDir = join(tempDir, '.swarm', 'summaries');
+            await mkdir(summariesDir, { recursive: true });
+
+            const hook = createCompactionCustomizerHook(defaultConfig, tempDir);
+            const handler = hook['experimental.session.compacting'] as Function;
+            
+            const output = { context: [] as string[] };
+            await handler({ sessionID: 'test-session' }, output);
+
+            const contextStr = output.context.join('\n');
+            
+            // Should have count (4 files)
+            const storedOutput = output.context.find(c => c.startsWith('[STORED OUTPUTS]'));
+            expect(storedOutput).toContain('4 tool outputs');
+            
+            // Should NOT leak any file names (the count is all that matters)
+            expect(contextStr).not.toContain('${env.SECRET}');
+            expect(contextStr).not.toContain('<script>');
+            expect(contextStr).not.toContain('../../../etc/evil');
+        } finally {
+            promisesModule.readdir = original;
+        }
     });
 });

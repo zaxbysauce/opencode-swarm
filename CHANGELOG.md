@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.32.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.0...v6.32.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **test:** update stale assertions and broken mocks across hooks, commands, and config tests ([#260](https://github.com/zaxbysauce/opencode-swarm/issues/260)) ([5e4bfa0](https://github.com/zaxbysauce/opencode-swarm/commit/5e4bfa0a37dd2315e668bb021913b09a87474c05))
+
+## [6.32.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.4...v6.32.0) (2026-03-23)
+
+
+### Features
+
+* add truncation expansion, compaction hints, prompt hardening, and regression sweep ([#251](https://github.com/zaxbysauce/opencode-swarm/issues/251)) ([2f7e689](https://github.com/zaxbysauce/opencode-swarm/commit/2f7e68933b9574bd1f444fa7bf9a965c6ad0fff7))
+
+## [6.31.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.3...v6.31.4) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ci:** isolate cli tests from commands and remove hanging circular-mock test ([#254](https://github.com/zaxbysauce/opencode-swarm/issues/254)) ([c5c471f](https://github.com/zaxbysauce/opencode-swarm/commit/c5c471f7dc4cb099df52287f1f98e6980908ddb0))
+
 ## [6.31.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.2...v6.31.3) (2026-03-22)
 
 

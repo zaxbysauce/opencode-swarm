@@ -209,6 +209,9 @@ export declare const PhaseCompleteConfigSchema: z.ZodObject<{
         enforce: "enforce";
         warn: "warn";
     }>>;
+    regression_sweep: z.ZodOptional<z.ZodObject<{
+        enforce: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type PhaseCompleteConfig = z.infer<typeof PhaseCompleteConfigSchema>;
 export declare const SummaryConfigSchema: z.ZodObject<{
@@ -489,6 +492,9 @@ export declare const PluginConfigSchema: z.ZodObject<{
             enforce: "enforce";
             warn: "warn";
         }>>;
+        regression_sweep: z.ZodOptional<z.ZodObject<{
+            enforce: z.ZodDefault<z.ZodBoolean>;
+        }, z.core.$strip>>;
     }, z.core.$strip>>;
     qa_retry_limit: z.ZodDefault<z.ZodNumber>;
     inject_phase_reminders: z.ZodDefault<z.ZodBoolean>;
@@ -737,6 +743,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;
         max_lines: z.ZodDefault<z.ZodNumber>;
         per_tool: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+        truncation_tools: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     slop_detector: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
@@ -744,6 +751,11 @@ export declare const PluginConfigSchema: z.ZodObject<{
         commentStripThreshold: z.ZodDefault<z.ZodNumber>;
         diffLineThreshold: z.ZodDefault<z.ZodNumber>;
         importHygieneThreshold: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    todo_gate: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        max_high_priority: z.ZodDefault<z.ZodNumber>;
+        block_on_threshold: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
     incremental_verify: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

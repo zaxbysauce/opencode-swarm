@@ -26,6 +26,13 @@ describe('KnowledgeConfigSchema', () => {
 				low_utility_threshold: 0.3,
 				min_retrievals_for_utility: 3,
 				schema_version: 1,
+				// v6.17+ encounter scoring fields
+				same_project_weight: 1.0,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
 			});
 		});
 
@@ -60,6 +67,13 @@ describe('KnowledgeConfigSchema', () => {
 				low_utility_threshold: 0.25,
 				min_retrievals_for_utility: 5,
 				schema_version: 2,
+				// v6.17+ encounter scoring fields
+				same_project_weight: 1.0,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
 			};
 
 			const result = KnowledgeConfigSchema.parse(fullConfig);
@@ -160,6 +174,13 @@ describe('KnowledgeConfigSchema', () => {
 					low_utility_threshold: 0.25,
 					min_retrievals_for_utility: 5,
 					schema_version: 2,
+					// v6.17+ encounter scoring fields
+					same_project_weight: 1.0,
+					cross_project_weight: 0.5,
+					min_encounter_score: 0.1,
+					initial_encounter_score: 1.0,
+					encounter_increment: 0.1,
+					max_encounter_score: 10.0,
 				},
 			};
 

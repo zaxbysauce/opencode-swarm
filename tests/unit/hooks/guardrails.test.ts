@@ -4,6 +4,8 @@ import { resetSwarmState, swarmState, startAgentSession, getAgentSession, ensure
 import type { GuardrailsConfig } from '../../../src/config/schema';
 import * as utilsModule from '../../../src/utils';
 
+	const TEST_DIR = '/tmp';
+
 	function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
 		return {
 			enabled: true,
@@ -38,7 +40,7 @@ describe('guardrails circuit breaker', () => {
 	describe('disabled guardrails', () => {
 		it('toolBefore does not throw when disabled', async () => {
 			const config = defaultConfig({ enabled: false });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			const input = makeInput();
 			const output = makeOutput();
@@ -48,7 +50,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('messagesTransform does not inject when disabled', async () => {
 			const config = defaultConfig({ enabled: false });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			const messages = [{
 				info: { role: 'assistant', sessionID: 'test-session' },
@@ -63,7 +65,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - tool call counting', () => {
 		it('increments tool call count', async () => {
 			const config = defaultConfig({ max_tool_calls: 100 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			for (let i = 0; i < 5; i++) {
@@ -80,7 +82,7 @@ describe('guardrails circuit breaker', () => {
 				warning_threshold: 0.5,
 				profiles: { explorer: { max_tool_calls: 10, warning_threshold: 0.5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'explorer');
 
 			// Use different args to avoid repetition detection
@@ -100,7 +102,7 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 5,
 				profiles: { coder: { max_tool_calls: 5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First 4 should not throw (0-4 increments, but limit is 5)
@@ -118,7 +120,7 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 3,
 				profiles: { coder: { max_tool_calls: 3 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First 2 should not throw
@@ -142,7 +144,7 @@ describe('guardrails circuit breaker', () => {
 				max_duration_minutes: 30,
 				profiles: { coder: { max_duration_minutes: 30 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window via fallback beginInvocation
@@ -162,7 +164,7 @@ describe('guardrails circuit breaker', () => {
 				warning_threshold: 0.5,
 				profiles: { coder: { max_duration_minutes: 30, warning_threshold: 0.5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -182,7 +184,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - repetition detection', () => {
 		it('detects repeated identical tool calls', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			// Must set up a non-architect session so guardrails apply
 			startAgentSession('test-session', 'coder');
 			const args = { filePath: '/test.ts' };
@@ -199,7 +201,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not flag different tools', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const args = { filePath: '/test.ts' };
 
 			// Call with different tools but same args
@@ -213,7 +215,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not flag different args', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Call with same tool but different args
 			await hooks.toolBefore(makeInput('test-session'), makeOutput({ filePath: '/test1.ts' }));
@@ -230,7 +232,7 @@ describe('guardrails circuit breaker', () => {
 				warning_threshold: 0.5,
 				profiles: { coder: { max_repetitions: 10, warning_threshold: 0.5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 			const args = { filePath: '/test.ts' };
 
@@ -250,7 +252,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - consecutive errors', () => {
 		it('throws at consecutive error limit', async () => {
 			const config = defaultConfig({ max_consecutive_errors: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -266,7 +268,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not throw when errors under limit', async () => {
 			const config = defaultConfig({ max_consecutive_errors: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -283,7 +285,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - auto session creation', () => {
 		it('auto-creates session if none exists', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Session should not exist initially
 			expect(getAgentSession('new-session')).toBeUndefined();
@@ -307,7 +309,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolAfter - error tracking', () => {
 		it('increments consecutive errors on null output', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -321,7 +323,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('increments consecutive errors on undefined output', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -335,7 +337,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('resets consecutive errors on success', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -354,7 +356,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('returns early with no session', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Should not throw even with no session
 			const output = { title: 'Result', output: 'success', metadata: {} };
@@ -365,7 +367,7 @@ describe('guardrails circuit breaker', () => {
 	describe('messagesTransform', () => {
 		it('injects warning when warningIssued', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -387,7 +389,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('injects hard stop when hardLimitHit', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -409,7 +411,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('hard limit message takes precedence over warning', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// Create window via beginInvocation
@@ -433,14 +435,14 @@ describe('guardrails circuit breaker', () => {
 
 		it('does nothing with no messages', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			await hooks.messagesTransform({}, { messages: [] });
 		});
 
 		it('does nothing with no active sessions', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			const messages = [{
 				info: { role: 'assistant', sessionID: 'test-session' },
@@ -457,7 +459,7 @@ describe('guardrails circuit breaker', () => {
 		// Fix 2: Session isolation tests - warnings from one session should not leak to another
 		it('session A warning does NOT leak into session B', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Session A: coder hits warning
 			startAgentSession('session-a', 'coder');
@@ -482,7 +484,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('session A hard limit does NOT inject into session B', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Session A: coder hits hard limit
 			startAgentSession('session-a', 'coder');
@@ -504,7 +506,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('messages with no sessionID are not injected', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Create a session with a warning
 			startAgentSession('session-a', 'coder');
@@ -526,7 +528,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('warning injection works for correct session', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up two sessions
 			startAgentSession('session-a', 'coder');
@@ -599,7 +601,7 @@ describe('guardrails circuit breaker', () => {
 	describe('circular buffer', () => {
 		it('limits recentToolCalls to 20 entries', async () => {
 			const config = defaultConfig({ max_tool_calls: 1000 }); // High limit to avoid throwing
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// Make 25 tool calls
@@ -620,7 +622,7 @@ describe('guardrails circuit breaker', () => {
 				coder: { max_tool_calls: 20 },
 			},
 		});
-		const hooks = createGuardrailsHooks(config);
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 		// Create session with 'coder' agent - user profile override gives limit of 20
 		startAgentSession('coder-session', 'coder');
@@ -665,7 +667,7 @@ describe('guardrails circuit breaker', () => {
 					explorer: { max_tool_calls: 10 }, // Explorer gets custom limit
 				},
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Create session with 'explorer' agent (has built-in profile + user override)
 			startAgentSession('explorer-session', 'explorer');
@@ -695,7 +697,7 @@ describe('guardrails circuit breaker', () => {
 				explorer: { max_tool_calls: 50 },
 			},
 		});
-		const hooks = createGuardrailsHooks(config);
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 		// Create a session with a custom agent name (not a built-in profile)
 		// Unknown agents now get base config limits (not architect defaults)
@@ -726,7 +728,7 @@ describe('guardrails circuit breaker', () => {
 					coder: { warning_threshold: 0.8 }, // Coder: warn at 80 calls (built-in is 400*0.85=340)
 				},
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Coder session - should NOT warn at 50 calls (built-in threshold is 0.85, user override is 0.8)
 			startAgentSession('coder-session', 'coder');
@@ -759,7 +761,7 @@ describe('guardrails circuit breaker', () => {
 					tester: { max_consecutive_errors: 2 }, // Tester fails faster
 				},
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Create tester session with 2 consecutive errors
 			startAgentSession('tester-session', 'tester');
@@ -804,7 +806,7 @@ describe('guardrails circuit breaker', () => {
 			const args = { filePath: '/test.ts' };
 
 			// Coder session - should throw at 3rd call (repetitionCount >= 3)
-			let hooks = createGuardrailsHooks(config);
+			let hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('coder-session', 'coder');
 			// First 2 calls should be fine
 			await hooks.toolBefore(
@@ -826,7 +828,7 @@ describe('guardrails circuit breaker', () => {
 
 			// Reset state and create new hooks for sme session (uses base limit)
 			resetSwarmState();
-			hooks = createGuardrailsHooks(config);
+			hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// sme session can have more repetitions (uses base limit of 10, since no user profile)
 			startAgentSession('sme-session', 'sme');
@@ -850,7 +852,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - unlimited duration (0)', () => {
 		it('does not throw when max_duration_minutes is 0 even after long time', async () => {
 			const config = defaultConfig({ max_duration_minutes: 0 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// First call creates the window
@@ -868,7 +870,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not issue duration warning when max_duration_minutes is 0', async () => {
 			const config = defaultConfig({ max_duration_minutes: 0, warning_threshold: 0.5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// First call creates the window
@@ -888,7 +890,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('architect profile has unlimited duration by default', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('arch-session', 'architect');
@@ -910,7 +912,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - agent switching regression', () => {
 		it('switches guardrail profile when active agent changes in same session', async () => {
 			const config = defaultConfig({ max_duration_minutes: 30 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Step 1: Start as critic with tight duration limit
 			swarmState.activeAgent.set('shared-session', 'critic');
@@ -952,7 +954,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - unlimited tool calls (0)', () => {
 		it('does not throw when max_tool_calls is 0 even after many calls', async () => {
 			const config = defaultConfig({ max_tool_calls: 0 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// Make 1000 tool calls
@@ -977,7 +979,7 @@ describe('guardrails circuit breaker', () => {
 				idle_timeout_minutes: 1000, // High to avoid idle warning
 				max_repetitions: 1000, // High to avoid repetition warning
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// Make one call to create the window
@@ -997,7 +999,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('architect profile has unlimited tool calls by default', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('arch-session', 'architect');
@@ -1019,7 +1021,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolBefore - idle timeout', () => {
 		it('throws when idle timeout exceeded', async () => {
 			const config = defaultConfig({ idle_timeout_minutes: 30 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// First call creates the window
@@ -1035,7 +1037,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not throw when idle timeout not exceeded', async () => {
 			const config = defaultConfig({ idle_timeout_minutes: 30 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// lastSuccessTimeMs is set to now by startAgentSession, so should be fine
@@ -1044,7 +1046,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('idle timeout resets on successful tool call', async () => {
 			const config = defaultConfig({ idle_timeout_minutes: 30 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
 			// First call creates the window
@@ -1069,7 +1071,7 @@ describe('guardrails circuit breaker', () => {
 	describe('toolAfter - lastSuccessTimeMs tracking', () => {
 		it('updates lastSuccessTimeMs on success', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -1087,7 +1089,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not update lastSuccessTimeMs on null output', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -1105,7 +1107,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does not update lastSuccessTimeMs on undefined output', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
 
 			// First call creates the window
@@ -1125,7 +1127,7 @@ describe('guardrails circuit breaker', () => {
 	describe('architect exemption', () => {
 		it('architect bypasses tool call limit', async () => {
 			const config = defaultConfig({ max_tool_calls: 10 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to architect
 			swarmState.activeAgent.set('architect-session', 'architect');
@@ -1147,7 +1149,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('architect bypasses duration limit', async () => {
 			const config = defaultConfig({ max_duration_minutes: 30 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to architect and start session
 			swarmState.activeAgent.set('architect-session', 'architect');
@@ -1167,7 +1169,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('prefixed architect bypasses guardrails', async () => {
 			const config = defaultConfig({ max_tool_calls: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to prefixed architect (e.g., mega_architect)
 			swarmState.activeAgent.set('mega-session', 'mega_architect');
@@ -1189,7 +1191,7 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 5,
 				profiles: { coder: { max_tool_calls: 5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to coder (not exempt)
 			swarmState.activeAgent.set('coder-session', 'coder');
@@ -1208,7 +1210,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('undefined activeAgent (no mapping) is treated as architect (fully exempt)', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Do NOT set activeAgent mapping — guardrails falls back to ORCHESTRATOR_NAME
 			// so the session is seeded as 'architect' and is fully exempt from all limits.
@@ -1234,7 +1236,7 @@ describe('guardrails circuit breaker', () => {
 				it('attack: attempt to set delegationActive=true on architect session to prevent detection', async () => {
 					// ATTACK: Try to make architect appear as "delegated" to skip self-coding detection
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Set up architect session
 					swarmState.activeAgent.set('attack-session', 'architect');
@@ -1276,7 +1278,7 @@ describe('guardrails circuit breaker', () => {
 					// DEFENSE TEST: Verify that delegationActive cannot be used to bypass self-coding
 					// detection because the architect exemption check happens AFTER delegationActive check
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Create a session that LOOKS like architect but is actually a subagent
 					swarmState.activeAgent.set('defense-session', 'coder'); // Not architect
@@ -1304,7 +1306,7 @@ describe('guardrails circuit breaker', () => {
 				it('attack: coder with delegationActive=false tries to pass as architect', async () => {
 					// ATTACK: Try to make a delegated coder appear as architect by setting delegationActive=false
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Set up coder session (subagent)
 					swarmState.activeAgent.set('escalation-session', 'coder');
@@ -1338,7 +1340,7 @@ describe('guardrails circuit breaker', () => {
 					// Test 1: Coder with delegationActive=true should still not trigger self-coding detection
 					// because isArchitect() returns false (coder is not architect)
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('test1', 'coder');
 					startAgentSession('test1', 'coder');
@@ -1359,7 +1361,7 @@ describe('guardrails circuit breaker', () => {
 
 					// Test 2: Architect with delegationActive=false should be exempt from guardrails
 					resetSwarmState();
-					const hooks2 = createGuardrailsHooks(config);
+					const hooks2 = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('test2', 'architect');
 					startAgentSession('test2', 'architect');
@@ -1386,7 +1388,7 @@ describe('guardrails circuit breaker', () => {
 					// ATTACK: Try to create a race condition where delegationActive changes
 					// while toolBefore is executing
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Set up architect session
 					swarmState.activeAgent.set('race-session', 'architect');
@@ -1427,7 +1429,7 @@ describe('guardrails circuit breaker', () => {
 				it('defense: verify JavaScript event loop prevents race conditions', async () => {
 					// DEFENSE TEST: Verify that delegationActive cannot be corrupted by concurrent access
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('async-session', 'architect');
 					startAgentSession('async-session', 'architect');
@@ -1458,7 +1460,7 @@ describe('guardrails circuit breaker', () => {
 					// ATTACK: Create a session manually without calling delegation-tracker.ts
 					// Try to leave delegationActive undefined to bypass detection
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Use startAgentSession directly (without delegation-tracker.ts)
 					// The state module initializes delegationActive to false for safety
@@ -1491,7 +1493,7 @@ describe('guardrails circuit breaker', () => {
 				it('defense: verify false delegationActive is treated as no delegation', async () => {
 					// DEFENSE TEST: Verify that false delegationActive runs detection
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Create session with delegationActive=false (default)
 					swarmState.activeAgent.set('false-session', 'architect');
@@ -1535,7 +1537,7 @@ describe('guardrails circuit breaker', () => {
 				it('defense: verify delegationActive=true skips detection, false/undefined runs it', async () => {
 					// DEFENSE TEST: Verify the guard behavior matches the code
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					// Test 1: delegationActive=true should skip detection
 					swarmState.activeAgent.set('skip-session', 'architect');
@@ -1580,7 +1582,7 @@ describe('guardrails circuit breaker', () => {
 				it('verify guard behavior when delegationActive is set to null', async () => {
 					// TEST: Verify null is treated as false (no delegation)
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('null-session', 'architect');
 					startAgentSession('null-session', 'architect');
@@ -1607,7 +1609,7 @@ describe('guardrails circuit breaker', () => {
 				it('verify guard behavior when delegationActive is set to non-boolean string', async () => {
 					// TEST: Verify truthy string is treated as true
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('nonbool-session', 'architect');
 					startAgentSession('nonbool-session', 'architect');
@@ -1635,7 +1637,7 @@ describe('guardrails circuit breaker', () => {
 				it('verify guard behavior when delegationActive is set to 0 (falsy number)', async () => {
 					// TEST: Verify 0 is treated as false (no delegation)
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('zero-session', 'architect');
 					startAgentSession('zero-session', 'architect');
@@ -1662,7 +1664,7 @@ describe('guardrails circuit breaker', () => {
 				it('verify guard behavior when delegationActive is set to 1 (truthy number)', async () => {
 					// TEST: Verify 1 is treated as true
 					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(config);
+					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 					swarmState.activeAgent.set('one-session', 'architect');
 					startAgentSession('one-session', 'architect');
@@ -1692,7 +1694,7 @@ describe('guardrails circuit breaker', () => {
 		it('exempts when activeAgent is subagent but session.agentName resolved to architect', async () => {
 			// This tests the SECOND exemption check in guardrails.ts after session resolution
 			const config = defaultConfig({ max_tool_calls: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to a subagent (simulating stale state)
 			swarmState.activeAgent.set('stale-session', 'mega_coder');
@@ -1715,7 +1717,7 @@ describe('guardrails circuit breaker', () => {
 		it('exempts when activeAgent is prefixed architect (mega_architect)', async () => {
 			// This tests the FIRST exemption check with stripKnownSwarmPrefix
 			const config = defaultConfig({ max_tool_calls: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to prefixed architect
 			swarmState.activeAgent.set('mega-arch-session', 'mega_architect');
@@ -1735,7 +1737,7 @@ describe('guardrails circuit breaker', () => {
 		it('exempts when activeAgent is bare "architect"', async () => {
 			// This tests the FIRST exemption check with exact architect match
 			const config = defaultConfig({ max_tool_calls: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to bare architect
 			swarmState.activeAgent.set('arch-bare-session', 'architect');
@@ -1758,7 +1760,7 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 5,
 				profiles: { coder: { max_tool_calls: 5 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to subagent with prefixed name
 			swarmState.activeAgent.set('fresh-subagent', 'mega_coder');
@@ -1791,7 +1793,7 @@ describe('guardrails circuit breaker', () => {
 				max_tool_calls: 3,
 				profiles: { coder: { max_tool_calls: 3 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set activeAgent to prefixed coder
 			swarmState.activeAgent.set('prefixed-coder', 'mega_coder');
@@ -1813,7 +1815,7 @@ describe('guardrails circuit breaker', () => {
 		it('session agentName change to architect exempts from guardrails', async () => {
 			// This simulates the scenario where ensureAgentSession updates agentName to architect
 			const config = defaultConfig({ max_tool_calls: 5 });
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Start with subagent in activeAgent map
 			swarmState.activeAgent.set('switched-session', 'mega_coder');
@@ -1840,7 +1842,7 @@ describe('guardrails circuit breaker', () => {
 				max_duration_minutes: 30,
 				profiles: { coder: { max_duration_minutes: 30 } },
 			});
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Step 1: Start as subagent (coder) - simulates a subagent running for >30 minutes
 			swarmState.activeAgent.set('delegation-ended-session', 'coder');
@@ -1890,7 +1892,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('sets selfFixAttempted flag when architect uses write tool after gate failure', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('selffix-session', 'architect');
@@ -1918,7 +1920,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('injects SELF-FIX warning in messagesTransform when selfFixAttempted is true', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('selffix-warn-session', 'architect');
@@ -1951,7 +1953,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does NOT inject warning without write attempt (flag not set)', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('no-write-session', 'architect');
@@ -1990,7 +1992,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('clears selfFixAttempted flag after warning injection', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('clear-flag-session', 'architect');
@@ -2021,7 +2023,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does NOT inject warning for old gate failures (> 2 minutes)', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('old-failure-session', 'architect');
@@ -2060,7 +2062,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does NOT set selfFixAttempted for .swarm/ files', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('swarm-file-session', 'architect');
@@ -2088,7 +2090,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does NOT set selfFixAttempted without gate failure', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('no-failure-session', 'architect');
@@ -2109,7 +2111,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('does NOT inject duplicate SELF-FIX warnings', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Set up architect session
 			swarmState.activeAgent.set('dup-warn-session', 'architect');
@@ -2158,7 +2160,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('Test 1: Coder with delegationActive=true + edit tool → NO false positive', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Mock: agentSessions.get() returns { delegationActive: true }
 			swarmState.activeAgent.set('test-session', 'coder');
@@ -2180,7 +2182,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('Test 2: Coder with delegationActive=true + write tool → NO false positive', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Mock: agentSessions.get() returns { delegationActive: true }
 			swarmState.activeAgent.set('test-session', 'coder');
@@ -2202,7 +2204,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('Test 3: Architect with delegationActive=false + edit tool → self-coding IS detected', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Mock: agentSessions.get() returns { delegationActive: false }, isArchitect returns true
 			swarmState.activeAgent.set('test-session', 'architect');
@@ -2224,7 +2226,7 @@ describe('guardrails circuit breaker', () => {
 
 		it('Test 4: Architect with delegationActive=undefined + edit tool → self-coding IS detected (legacy session)', async () => {
 			const config = defaultConfig();
-			const hooks = createGuardrailsHooks(config);
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Mock: agentSessions.get() returns { } (no delegationActive property)
 			swarmState.activeAgent.set('test-session', 'architect');
@@ -2255,7 +2257,7 @@ describe('guardrails circuit breaker', () => {
 			it('Test 1: apply_patch with Codex-style `*** Update File: <path>` → architectWriteCount increments', async () => {
 				// Mock: Set up architect session
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2288,7 +2290,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 2: apply_patch with standard unified diff `+++ b/<path>` → architectWriteCount increments', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2319,7 +2321,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 3: apply_patch with cmd array format `["apply_patch", "*** Update File: ..."]` → path extracted from cmd[1]', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2350,7 +2352,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 4: apply_patch targeting only `.swarm/context.md` → NO increment (isOutsideSwarmDir filters)', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2377,7 +2379,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 5: apply_patch with multi-file patch → ONE increment only (break after first)', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2417,7 +2419,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 6: patch tool (alias for apply_patch) → same behavior as apply_patch', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2447,7 +2449,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Test 7: write/edit tools with existing filePath extraction still work (regression)', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2486,7 +2488,7 @@ describe('guardrails circuit breaker', () => {
 		describe('Adversarial Tests', () => {
 			it('Attack Vector 1: Can attacker bypass detection by using malformed patch content?', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2513,7 +2515,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Attack Vector 2: Can attacker trick the regex by using wrong marker format?', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2542,7 +2544,7 @@ describe('guardrails circuit breaker', () => {
 				// NOTE: This test documents actual implementation behavior
 				// The /dev/null filter only applies to +++ b/ pattern, not to *** Update File: pattern
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
@@ -2574,7 +2576,7 @@ describe('guardrails circuit breaker', () => {
 
 			it('Attack Vector 4: Coder with delegationActive=true is not detected (not architect)', async () => {
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 				// Attempt: Coder with delegationActive=true, fire apply_patch with source code file
 				swarmState.activeAgent.set('test-session', 'coder');
@@ -2607,7 +2609,7 @@ describe('guardrails circuit breaker', () => {
 				// NOTE: This test documents an implementation limitation
 				// The filter only excludes '/dev/null' (with leading slash), not 'dev/null' (without)
 				const config = defaultConfig();
-				const hooks = createGuardrailsHooks(config);
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 				swarmState.activeAgent.set('test-session', 'architect');
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');

@@ -5,6 +5,8 @@
  * Adds current phase information and key decisions to the compaction context.
  */
 
+import * as fs from 'node:fs';
+import { join } from 'node:path';
 import type { PluginConfig } from '../config';
 import { loadPlan } from '../plan/manager';
 import {
@@ -81,6 +83,23 @@ export function createCompactionCustomizerHook(
 					if (patterns) {
 						output.context.push(`[SWARM PATTERNS] ${patterns}`);
 					}
+				}
+
+				// Add context optimization hint and summary count if summaries exist
+				try {
+					const summariesDir = join(directory, '.swarm', 'summaries');
+					const files = await fs.promises.readdir(summariesDir);
+					if (files.length > 0) {
+						const count = files.length;
+						output.context.push(
+							`[CONTEXT OPTIMIZATION] Tool outputs from earlier in this session have been stored to disk. When compacting, replace any large tool output blocks (bash, test_runner, lint, diff results) with a one-line reference: "[Output stored — use /swarm retrieve to access full content]". Preserve the tool name, exit status, and any error messages. Discard raw output lines.`,
+						);
+						output.context.push(
+							`[STORED OUTPUTS] ${count} tool output${count === 1 ? '' : 's'} stored in .swarm/summaries/. These are retrievable via /swarm retrieve <id>.`,
+						);
+					}
+				} catch {
+					// summaries directory doesn't exist or read error — skip hint and count
 				}
 
 				// Add knowledge tools reminder to survive context resets
