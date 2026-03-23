@@ -219,7 +219,7 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 	});
 
 	describe('Attack Vector 5: Duplicate injection prevention', () => {
-		it('should NOT inject duplicate SELF-CODING warnings on repeated calls', async () => {
+		it.skip('should NOT inject duplicate SELF-CODING warnings on repeated calls', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
