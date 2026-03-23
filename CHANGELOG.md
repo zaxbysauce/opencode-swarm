@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.31.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.3...v6.31.4) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ci:** isolate cli tests from commands and remove hanging circular-mock test ([#254](https://github.com/zaxbysauce/opencode-swarm/issues/254)) ([c5c471f](https://github.com/zaxbysauce/opencode-swarm/commit/c5c471f7dc4cb099df52287f1f98e6980908ddb0))
+
+## [6.31.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.2...v6.31.3) (2026-03-22)
+
+
+### Bug Fixes
+
+* **plan:** allow update_task_status to override completed statuses ([#246](https://github.com/zaxbysauce/opencode-swarm/issues/246)) ([81dc5d2](https://github.com/zaxbysauce/opencode-swarm/commit/81dc5d22f935fdf6942ea1026e18702426671f52))
+
+## [6.31.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.1...v6.31.2) (2026-03-22)
+
+
+### Bug Fixes
+
+* **ci:** resolve OOM hang and remove unused knowledge tool interfaces ([#244](https://github.com/zaxbysauce/opencode-swarm/issues/244)) ([f170325](https://github.com/zaxbysauce/opencode-swarm/commit/f170325fc3d98b412815d4a91d83bf3718d12df5))
+
 ## [6.31.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.0...v6.31.1) (2026-03-21)
 
 

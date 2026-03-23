@@ -141,4 +141,4 @@ Controls phase completion gating and validation.
 }
 ```
 
-For a full configuration reference, see the [README](../README.md#configuration-reference).
+For a full configuration reference, see the [Full Configuration Reference](../README.md) section in the README (expand the "Full Configuration Reference" details block).

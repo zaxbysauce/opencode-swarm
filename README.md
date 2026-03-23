@@ -1,24 +1,42 @@
 # OpenCode Swarm
 
+<div align="center">
+
 **Your AI writes the code. Swarm makes sure it actually works.**
 
-https://swarmai.site/
+[![npm version](https://img.shields.io/npm/v/opencode-swarm?color=brightgreen&label=npm)](https://www.npmjs.com/package/opencode-swarm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-6000%2B-success)](https://github.com/zaxbysauce/opencode-swarm)
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an architect-led team of specialized agents. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. Nothing ships until every required gate passes.
+[Website](https://swarmai.site/) · [Getting Started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Architecture](docs/architecture.md)
 
-You do **not** manually switch between Swarm's internal agents during normal use.
+</div>
 
-You must **explicitly choose a Swarm architect** in the OpenCode GUI before starting. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration, and those custom names will appear in the GUI dropdown.
+---
 
-If you use OpenCode's default `Build` / `Plan` options instead of selecting a Swarm architect, the plugin is bypassed entirely.
-
-Once you select a Swarm architect, that architect coordinates the internal pipeline behind the scenes, and all project state is persisted to `.swarm/` so work can resume later.
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 9 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
 npm install -g opencode-swarm
 ```
 
-* * *
+### Why Swarm?
+
+Most AI coding tools let one model write code and ask that same model whether the code is good. That misses too much. Swarm separates planning, implementation, review, testing, and documentation into specialized internal roles — and enforces gated execution so agents never mutate the codebase in parallel.
+
+### Key Features
+
+- 🏗️ **9 specialized agents** — architect, coder, reviewer, test engineer, critic, explorer, SME, docs, designer
+- 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
+- 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
+- 🌐 **11 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby
+- 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
+- 🆓 **Free tier** — works with OpenCode Zen's free model roster
+- ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
+
+> **You select a Swarm architect once in the OpenCode GUI.** The architect coordinates all other agents automatically — you never manually switch between internal roles. If you use the default OpenCode `Build` / `Plan` modes, the plugin is bypassed entirely.
+
+---
 
 ## What Actually Happens
 
@@ -59,92 +77,57 @@ All project state lives in `.swarm/`:
 └── drift-report-phase-N.json  # Plan-vs-reality drift reports
 ```
 
-That means Swarm is resumable by design. If you come back later and `.swarm/` already exists, the architect may go straight into **RESUME** or **EXECUTE** instead of replaying the full first-run discovery flow.
-
----
-
-## Why This Exists
-
-Most AI coding tools let one model write code and then ask that same model whether the code is good. That misses too much.
-
-Swarm separates planning, implementation, review, testing, and documentation into specialized internal roles, and it enforces gated execution instead of letting multiple agents mutate the codebase in parallel.
+Swarm is resumable by design. If `.swarm/` already exists, the architect goes straight into **RESUME** → **EXECUTE** instead of repeating discovery.
 
 ---
 
 ## Quick Start
 
-### 1. Install
+> **Prerequisites:** [OpenCode](https://opencode.ai) installed and working. An API key for at least one LLM provider (or use the free OpenCode Zen tier — no key required).
+
+### Step 1 — Install
 
 ```bash
 npm install -g opencode-swarm
 ```
 
-### 2. Open your project in OpenCode
+### Step 2 — Open your project in OpenCode
 
 ```bash
+cd /your/project
 opencode
 ```
 
-### 3. Verify Swarm is loaded
+### Step 3 — Select a Swarm architect and describe your goal
 
-Run these once in a project:
-
-```text
-/swarm diagnose
-/swarm agents
-/swarm config
-```
-
-What they tell you:
-
-* `/swarm diagnose` verifies Swarm health and setup
-* `/swarm agents` shows the registered internal agents and model assignments
-* `/swarm config` shows the resolved configuration currently in effect
-
-### 4. Select a Swarm architect and start
-
-1. **Choose a Swarm architect** in the OpenCode GUI (the exact name depends on your configuration — you can define multiple architects with different model assignments)
-2. Then describe what you want to build.
+1. In the OpenCode GUI, open the **agent/mode dropdown** and select a **Swarm architect** (e.g., `architect`).
+2. Type what you want to build:
 
 ```text
 Build a REST API with user registration, login, and JWT auth.
 ```
 
-You do **not** manually choose `coder`, `reviewer`, `critic`, or other internal agents. The **architect** coordinates them automatically after you select it.
+That's it. The architect coordinates all other agents automatically.
 
-### 5. Understand first run vs later runs
+> **First time?** Run `/swarm diagnose` to verify Swarm is healthy, `/swarm agents` to see registered agents, and `/swarm config` to see the resolved configuration.
 
-On a brand-new project with no `.swarm/` state, Swarm usually starts by clarifying, discovering, consulting, and planning.
-
-On a project that already has `.swarm/plan.md`, Swarm may resume immediately. That is expected.
-
-Use these commands any time:
+### Step 4 — Monitor progress
 
 ```text
-/swarm status
-/swarm plan
-/swarm history
+/swarm status    # Current phase and task
+/swarm plan      # Full project plan
+/swarm evidence  # Review and test results per task
 ```
 
-### 6. Start over when needed
-
-If you want a completely fresh Swarm run for the current project:
+### Step 5 — Start over if needed
 
 ```text
 /swarm reset --confirm
 ```
 
-Use this only when you intentionally want to discard current Swarm state.
+### Step 6 — Configure models (optional)
 
-### 7. Configure models (optional)
-
-By default, Swarm works with its default model setup. If you want to override agent models, create:
-
-```text
-.opencode/opencode-swarm.json
-```
-
-Example:
+Swarm works with its defaults out of the box. To override models, create `.opencode/opencode-swarm.json`:
 
 ```json
 {
@@ -155,17 +138,17 @@ Example:
 }
 ```
 
-You only need to specify the agents you want to override.
+You only need to specify the agents you want to override. The `architect` inherits the model currently selected in the OpenCode UI unless you set it explicitly.
 
-> Note: if `architect` is not set explicitly, it inherits the current model selected in the OpenCode UI.
+See the [full configuration reference](#configuration-reference) and the [free-tier model setup](#free-tier-opencode-zen-models) for more options.
+
+---
 
 ## Common First-Run Questions
 
 ### "Do I need to select a Swarm architect?"
 
-**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration.
-
-If you use the default OpenCode `Build` / `Plan` options without selecting a Swarm architect, the plugin is bypassed entirely.
+**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. If you use the default OpenCode `Build` / `Plan` options, the plugin is bypassed entirely.
 
 ### "Why did the second run start coding immediately?"
 
@@ -195,7 +178,7 @@ Run:
 
 Swarm works with any LLM provider supported by OpenCode. Different agents benefit from different models — the architect needs strong reasoning, the coder needs strong code generation, and the reviewer benefits from a model different from the coder (to catch blind spots).
 
-### Free Tier (OpenCode Zen Models)
+### Free Tier — OpenCode Zen Models {#free-tier-opencode-zen-models}
 
 OpenCode Zen provides free models via the `opencode/` provider prefix. These are excellent starting points and require no API key:
 
@@ -644,7 +627,7 @@ Optional enhancement: Semgrep (if on PATH).
 </details>
 
 <details>
-<summary><strong>Full Configuration Reference</strong></summary>
+<summary id="configuration-reference"><strong>Full Configuration Reference</strong></summary>
 
 Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.opencode/opencode-swarm.json` (project). Project config merges over global.
 
@@ -939,34 +922,54 @@ The following tools can be assigned to agents via overrides:
 
 ---
 
-## Recent Changes
+<details>
+<summary><strong>Recent Changes (v6.12 – v6.31)</strong></summary>
+
+> For the complete version history, see [CHANGELOG.md](CHANGELOG.md) or [docs/releases/](docs/releases/).
+
+### v6.31.0 — process.cwd() Cleanup + Watchdog + Knowledge Tools
+
+- **process.cwd() cleanup**: All 14 source files now use plugin-injected `directory` parameter. Five tools migrated to `createSwarmTool` wrapper.
+- **`curator_analyze` tool**: Architect can now explicitly trigger phase analysis and apply curator recommendations.
+- **Watchdog system**: `scope_guard` (blocks out-of-scope writes), `delegation_ledger` (tracks per-session tool calls), and loop-detector escalation.
+- **Self-correcting workflow**: `self_review` advisory hook after task transitions; `checkStaleImports` heuristic for unused import detection.
+- **Knowledge memory tools**: `knowledge_recall`, `knowledge_add`, `knowledge_remove` — any agent can now directly access the persistent knowledge base.
+
+### v6.30.1 — Bug Fixes
+
+- **Package manager detection**: `incremental_verify` now detects bun/npm/pnpm/yarn from lockfiles instead of always using `bun`.
+- **spawnAsync OOM fix**: 512KB output cap prevents infinite-output commands from OOM-crashing.
+- **Windows spawn fix**: `npx.cmd`, `npm.cmd`, `pnpm.cmd`, `yarn.cmd` resolved correctly on Windows.
+- **Curator config fix**: `applyCuratorKnowledgeUpdates` now receives fully-populated `KnowledgeConfig`.
+- **Rehydration race guard**: Concurrent `loadSnapshot` calls no longer silently drop workflow state.
+
+### v6.29.4 — Cross-Task Regression Sweep
+
+- **Regression sweep**: Architect dispatches `scope:"graph"` test runs after each task to catch cross-task regressions (found 15 in RAGAPPv2 retrospective).
+- **Curator data pipeline**: Curator outputs now visible to the architect via advisory injection.
+- **Full-suite opt-in**: Explicit flag unlocks full `bun test` execution when needed.
 
 ### v6.29.3 — Curator Visibility + Documentation Refresh
 
-This release adds Curator status reporting to `/swarm diagnose` and refreshes documentation to reflect current behavior.
-
-- **Curator status in diagnose**: `/swarm diagnose` now reports whether Curator is enabled/disabled and validates the `curator-summary.json` artifact if present.
-- **README and config docs refreshed**: Updated `.swarm/` directory tree, Curator configuration options, and drift report artifacts to match current implementation.
+- **Curator status in diagnose**: `/swarm diagnose` now reports whether Curator is enabled/disabled and validates `curator-summary.json`.
+- **README and config docs refreshed**: Updated `.swarm/` directory tree, Curator configuration options, and drift report artifacts.
 
 ### v6.29.2 — Multi-Language Incremental Verify + Slop-Detector Hardening
 
-This release adds multi-language typecheck support and hardens detection of low-quality AI-generated code.
-
-- **Multi-language incremental_verify**: Post-coder typecheck now supports TypeScript/JavaScript, Go, Rust, and C#. Runs language-appropriate build/typecheck commands per task for faster feedback.
-- **Slop-detector hardening**: Enhanced detection of AI-generated placeholder code with multi-language heuristics (comments like `// TODO`, `// FIXME`, `// HACK`, language-specific patterns for Go/Rust/C#/Python). Advisory warnings injected into coder context when slop patterns detected.
-- **CODEBASE REALITY CHECK**: Architect dispatches Explorer before planning to verify current state of referenced items. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. Skipped for greenfield projects.
-- **Evidence schema fix**: Evidence bundles now correctly validate against schema; invalid entries are filtered.
-- **Curator/docs alignment**: Curator health check in `/swarm diagnose` reports curator.enabled status and validates curator-summary.json.
+- **Multi-language incremental_verify**: Post-coder typecheck supports TypeScript/JavaScript, Go, Rust, and C#.
+- **Slop-detector hardening**: Multi-language heuristics for placeholder code detection across Go/Rust/C#/Python.
+- **CODEBASE REALITY CHECK**: Explorer verifies referenced items before planning (NOT STARTED / PARTIALLY DONE / ALREADY COMPLETE / ASSUMPTION INCORRECT).
+- **Evidence schema fix**: Evidence bundles now correctly validate against schema.
 
 ### v6.29.1 — Advisory Hook Message Injection
 
-This release improves how advisory warnings are injected into agent context.
+- **Advisory hook message injection**: Enhanced message formatting for self-coding detection, partial gate tracking, batch detection, and scope violation warnings.
 
-- **Advisory hook message injection**: Enhanced message formatting for self-coding detection, partial gate tracking, batch detection, and scope violation warnings. Messages now include structured context for faster resolution.
+### v6.26 through v6.28 — Session Durability + Turbo Mode
 
-### v6.23 through v6.28 — Stability and Incremental Improvements
-
-Subsequent releases focused on stability hardening, incremental_verify scaffolding, and tooling improvements across the pipeline. Key areas: pre_check_batch parallelization, evidence bundle validation, and diagnostics tooling.
+- **Turbo Mode**: Accelerated task delegation for faster pipeline execution.
+- **Session durability**: Directory-based evidence writes, task ID recovery from `plan.json` for cold/resumed sessions.
+- **Gate recovery fix** (v6.26.1): `update_task_status(completed)` no longer blocks pure-verification tasks without a prior coder delegation.
 
 ### v6.22 — Curator Background Analysis + Session State Persistence
 
@@ -1068,33 +1071,16 @@ This release adds runtime detection hooks to catch and warn about architect work
 
 These hooks are advisory (warnings only) and help maintain workflow discipline during long sessions.
 
----
+### v6.19 — Critic Sounding Board + Complexity-Scaled Review
 
-## v6.19 Features
+- **Critic sounding board**: Before escalating to the user, the Architect consults the critic in SOUNDING_BOARD mode. Returns: UNNECESSARY, REPHRASE, APPROVED, or RESOLVE.
+- **Escalation discipline**: Three-tier hierarchy — self-resolve → critic consult → user escalation (requires critic APPROVED).
+- **Retry circuit breaker**: After 3 coder rejections, the Architect simplifies the approach instead of adding more logic.
+- **Intent reconstruction**: Reviewer reconstructs developer intent from task specs and diffs before evaluating changes.
+- **Complexity-scaled review**: TRIVIAL → Tier 1 only; MODERATE → Tiers 1–2; COMPLEX → all three tiers.
+- **`meta.summary` convention**: Agents include one-line summaries in state events for downstream agent consumption.
 
-### Critic Sounding Board
-Before escalating to the user, the Architect consults the critic in SOUNDING_BOARD mode. The critic returns one of four verdicts: UNNECESSARY, REPHRASE, APPROVED, or RESOLVE.
-
-### Escalation Discipline
-Three-tier escalation hierarchy ensures systematic problem resolution:
-1. **Tier 1**: Self-resolve using existing context
-2. **Tier 2**: Critic consultation via sounding board
-3. **Tier 3**: User escalation (requires critic APPROVED)
-
-### Retry Circuit Breaker
-After 3 coder rejections, the Architect intervenes to simplify the approach rather than adding more logic.
-
-### Intent Reconstruction
-The mega-reviewer reconstructs developer intent from task specs and diffs before evaluating changes.
-
-### Complexity-Scaled Review
-Changes classified as TRIVIAL, MODERATE, or COMPLEX receive appropriate review depth:
-- TRIVIAL → Tier 1 only
-- MODERATE → Tiers 1-2
-- COMPLEX → All three tiers
-
-### meta.summary Convention
-Agents include one-line summaries in state events for downstream consumption by other agents.
+</details>
 
 ---
 
