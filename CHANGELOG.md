@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.32.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.4...v6.32.0) (2026-03-23)
+
+
+### Features
+
+* add truncation expansion, compaction hints, prompt hardening, and regression sweep ([#251](https://github.com/zaxbysauce/opencode-swarm/issues/251)) ([2f7e689](https://github.com/zaxbysauce/opencode-swarm/commit/2f7e68933b9574bd1f444fa7bf9a965c6ad0fff7))
+
 ## [6.31.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.3...v6.31.4) (2026-03-23)
 
 
