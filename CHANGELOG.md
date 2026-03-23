@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.31.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.3...v6.31.4) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ci:** isolate cli tests from commands and remove hanging circular-mock test ([#254](https://github.com/zaxbysauce/opencode-swarm/issues/254)) ([c5c471f](https://github.com/zaxbysauce/opencode-swarm/commit/c5c471f7dc4cb099df52287f1f98e6980908ddb0))
+
 ## [6.31.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.31.2...v6.31.3) (2026-03-22)
 
 
