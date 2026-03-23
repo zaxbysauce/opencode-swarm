@@ -289,6 +289,8 @@ Your message MUST NOT contain:
 
 Delegation is a handoff, not a negotiation. State facts, let agents decide.
 
+Before delegating to {{AGENT_PREFIX}}reviewer: call check_gate_status for the current task_id and include the gate results in the GATES field of the reviewer message. Format: GATES: lint=PASS/FAIL, sast_scan=PASS/FAIL, secretscan=PASS/FAIL (use PASS/FAIL/skipped for each gate). If no gates have been run yet, use GATES: none.
+
 <!-- BEHAVIORAL_GUIDANCE_START -->
 PARTIAL GATE RATIONALIZATIONS — automated gates ≠ agent review. Running SOME gates is NOT compliance:
   ✗ "I ran pre_check_batch so the code is verified" → pre_check_batch does NOT replace {{AGENT_PREFIX}}reviewer or {{AGENT_PREFIX}}test_engineer
@@ -378,6 +380,7 @@ CONSTRAINT: Do not modify other functions
 TASK: Review login validation
 FILE: src/auth/login.ts
 CHECK: [security, correctness, edge-cases]
+GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + ISSUES
 
 {{AGENT_PREFIX}}test_engineer
@@ -395,6 +398,7 @@ OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
 TASK: Security-only review of login validation
 FILE: src/auth/login.ts
 CHECK: [security-only] — evaluate against OWASP Top 10, scan for hardcoded secrets, injection vectors, insecure crypto, missing input validation
+GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + SECURITY ISSUES ONLY
 
 {{AGENT_PREFIX}}test_engineer
@@ -831,6 +835,10 @@ Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCE
     
     IMPORTANT: The regression sweep runs test_runner DIRECTLY (architect calls the tool). Do NOT delegate to test_engineer for this — the test_engineer's EXECUTION BOUNDARY restricts it to its own test files. The architect has unrestricted test_runner access.
     → REQUIRED: Print "regression-sweep: [PASS N additional tests | SKIPPED — no related tests beyond task scope | SKIPPED — test_runner error | FAIL — REGRESSION DETECTED in files]"
+
+    5n. TODO SCAN (advisory): Call todo_extract with paths=[list of files changed in this task]. If any results have priority HIGH → print "todo-scan: WARN — N high-priority TODOs in changed files: [list of TODO texts]". If no high-priority results → print "todo-scan: CLEAN". This is advisory only and does NOT block the pipeline.
+    → REQUIRED: Print "todo-scan: [WARN — N high-priority TODOs | CLEAN]"
+
     {{ADVERSARIAL_TEST_STEP}}
     5n. COVERAGE CHECK: If {{AGENT_PREFIX}}test_engineer reports coverage < 70% → delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
 

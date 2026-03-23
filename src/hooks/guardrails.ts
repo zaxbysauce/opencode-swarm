@@ -244,11 +244,13 @@ function isInDeclaredScope(filePath: string, scopeEntries: string[]): boolean {
 
 /**
  * Creates guardrails hooks for circuit breaker protection
- * @param directoryOrConfig Working directory (from plugin init context) OR legacy config object for backward compatibility
- * @param config Guardrails configuration (optional if first arg is config)
+ * @param directory Working directory from plugin init context (required)
+ * @param directoryOrConfig Guardrails configuration object (when passed as second arg, replaces legacy config param)
+ * @param config Guardrails configuration (optional)
  * @returns Tool before/after hooks and messages transform hook
  */
 export function createGuardrailsHooks(
+	directory: string,
 	directoryOrConfig?: string | GuardrailsConfig,
 	config?: GuardrailsConfig,
 ): {
@@ -276,23 +278,23 @@ export function createGuardrailsHooks(
 	) => Promise<void>;
 } {
 	// Backward compatibility: detect if called with legacy signature (config only)
-	let directory: string;
 	let guardrailsConfig: GuardrailsConfig | undefined;
 
-	if (
+	if (directory && typeof directory === 'object' && 'enabled' in directory) {
+		// Legacy call: createGuardrailsHooks(config) — directory param is the config object
+		console.warn(
+			'[guardrails] Legacy call without directory, falling back to process.cwd()',
+		);
+		guardrailsConfig = directory as GuardrailsConfig;
+	} else if (
 		directoryOrConfig &&
 		typeof directoryOrConfig === 'object' &&
 		'enabled' in directoryOrConfig
 	) {
-		// Legacy call: createGuardrailsHooks(config)
-		console.warn(
-			'[guardrails] Legacy call without directory, falling back to process.cwd()',
-		);
-		directory = process.cwd();
+		// New signature: createGuardrailsHooks(directory, config)
 		guardrailsConfig = directoryOrConfig as GuardrailsConfig;
 	} else {
-		// New signature: createGuardrailsHooks(directory, config)
-		directory = (directoryOrConfig as string) || process.cwd();
+		// No config provided — use config param
 		guardrailsConfig = config;
 	}
 

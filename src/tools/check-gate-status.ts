@@ -23,6 +23,7 @@ interface EvidenceData {
 	taskId: string;
 	required_gates: string[];
 	gates: Record<string, GateInfo>;
+	todo_scan?: { priority: string; count: number; details?: string[] };
 }
 
 interface GateStatusResult {
@@ -33,6 +34,7 @@ interface GateStatusResult {
 	missing_gates: string[];
 	gates: Record<string, GateInfo> | Record<string, never>;
 	message: string;
+	todo_scan: { priority: string; count: number; details?: string[] } | null;
 }
 
 // ============ Canonical Task ID Validation ============
@@ -132,6 +134,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				missing_gates: [],
 				gates: {},
 				message: 'Invalid task_id: task_id is required',
+				todo_scan: null,
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -146,6 +149,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				missing_gates: [],
 				gates: {},
 				message: `Invalid task_id format: "${taskIdInput}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3", "1.2.3.4")`,
+				todo_scan: null,
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -167,6 +171,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				missing_gates: [],
 				gates: {},
 				message: 'Invalid path: evidence path validation failed',
+				todo_scan: null,
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -184,6 +189,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				missing_gates: [],
 				gates: {},
 				message: `No evidence file found for task "${taskIdInput}" at ${evidencePath}. Evidence file may be missing or invalid.`,
+				todo_scan: null,
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -214,6 +220,11 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			message = `Task "${taskIdInput}" is incomplete. Missing gates: ${missingGates.join(', ')}.`;
 		}
 
+		// Check for todo_scan field in evidence (advisory only)
+		const todoScan = evidenceData.todo_scan as
+			| { priority: string; count: number; details?: string[] }
+			| undefined;
+
 		const result: GateStatusResult = {
 			taskId: taskIdInput,
 			status,
@@ -222,6 +233,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			missing_gates: missingGates,
 			gates: gatesMap,
 			message,
+			todo_scan: todoScan ?? null,
 		};
 
 		return JSON.stringify(result, null, 2);

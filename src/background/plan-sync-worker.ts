@@ -60,11 +60,11 @@ export class PlanSyncWorker {
 
 	constructor(options: PlanSyncWorkerOptions = {}) {
 		if (!options.directory) {
-			console.warn(
-				'[plan-sync-worker] No directory provided, falling back to process.cwd()',
+			throw new Error(
+				'[plan-sync-worker] No directory provided - options.directory is required',
 			);
 		}
-		this.directory = options.directory || process.cwd();
+		this.directory = options.directory;
 		this.debounceMs = options.debounceMs ?? 300;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
 		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;

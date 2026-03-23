@@ -300,7 +300,7 @@ export async function executePhaseComplete(
 	const agentsDispatched = Array.from(crossSessionResult.agents).sort();
 
 	// Load plugin config for policy enforcement
-	const dir = workingDirectory || directory || process.cwd();
+	const dir = workingDirectory || directory!;
 	const { config } = loadPluginConfigWithMeta(dir);
 	let phaseCompleteConfig: PhaseCompleteConfig;
 	try {
@@ -642,6 +642,48 @@ export async function executePhaseComplete(
 			warnings.push(
 				`Warning: phase ${phase} missing required agents: ${agentsMissing.join(', ')}`,
 			);
+		}
+	}
+
+	// Regression sweep check: advisory warning if enforce=true and no sweep found
+	if (phaseCompleteConfig.regression_sweep?.enforce) {
+		try {
+			// Get all task IDs for this phase from the plan
+			const planPath = validateSwarmPath(dir, 'plan.json');
+			const planRaw = fs.readFileSync(planPath, 'utf-8');
+			const plan: {
+				phases: Array<{
+					id: number;
+					tasks: Array<{ id: string; status: string }>;
+				}>;
+			} = JSON.parse(planRaw);
+			const targetPhase = plan.phases.find((p) => p.id === phase);
+			if (targetPhase) {
+				let sweepFound = false;
+				for (const task of targetPhase.tasks) {
+					const taskEvidenceResult = await loadEvidence(dir, task.id);
+					if (taskEvidenceResult.status === 'found') {
+						const entries = taskEvidenceResult.bundle.entries ?? [];
+						for (const entry of entries) {
+							if (
+								(entry as Record<string, unknown>).regression_sweep !==
+								undefined
+							) {
+								sweepFound = true;
+								break;
+							}
+						}
+					}
+					if (sweepFound) break;
+				}
+				if (!sweepFound) {
+					warnings.push(
+						`Warning: regression_sweep.enforce=true but no regression-sweep result found for any task in phase ${phase}. Run tests to populate regression-sweep results.`,
+					);
+				}
+			}
+		} catch {
+			// Non-blocking — skip check if plan.json or evidence is inaccessible
 		}
 	}
 

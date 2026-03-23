@@ -161,6 +161,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	);
 	const guardrailsHooks = createGuardrailsHooks(
 		ctx.directory,
+		undefined,
 		guardrailsConfig,
 	);
 
@@ -764,28 +765,42 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				toolOutputConfig.truncation_enabled !== false &&
 				typeof output.output === 'string'
 			) {
-				// Skip structured JSON results
-				const skipTools = [
+				// Default truncatable tools (used when truncation_tools not configured)
+				const defaultTruncatableTools = new Set([
+					'diff',
+					'symbols',
+					'bash',
+					'shell',
+					'test_runner',
+					'lint',
 					'pre_check_batch',
+					'complexity_hotspots',
 					'pkg_audit',
-					'schema_drift',
 					'sbom_generate',
-				];
-				if (!skipTools.includes(input.tool)) {
-					// Check for per-tool override or use default
-					const maxLines =
-						toolOutputConfig.per_tool?.[input.tool] ??
-						toolOutputConfig.max_lines ??
-						150;
+					'schema_drift',
+				]);
 
-					// Only truncate diff and symbols outputs
-					if (input.tool === 'diff' || input.tool === 'symbols') {
-						output.output = truncateToolOutput(
-							output.output,
-							maxLines,
-							input.tool,
-						);
-					}
+				// Build truncatable tools set from config or use default
+				const configuredTools = toolOutputConfig.truncation_tools;
+				const truncatableTools =
+					configuredTools && configuredTools.length > 0
+						? new Set(configuredTools)
+						: defaultTruncatableTools;
+
+				// Check for per-tool override or use default
+				const maxLines =
+					toolOutputConfig.per_tool?.[input.tool] ??
+					toolOutputConfig.max_lines ??
+					150;
+
+				// Check if this tool is in the truncatable set (allowlist)
+				if (truncatableTools.has(input.tool)) {
+					output.output = truncateToolOutput(
+						output.output,
+						maxLines,
+						input.tool,
+						10,
+					);
 				}
 			}
 

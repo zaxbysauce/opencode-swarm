@@ -350,16 +350,16 @@ export async function detectAvailableLinter(
 	// Timeout for linter detection (in ms)
 	const _DETECT_TIMEOUT = 2000;
 
-	const projectDir = directory || process.cwd();
+	const projectDir = directory;
 	const isWindows = process.platform === 'win32';
 	const biomeBin = isWindows
-		? path.join(projectDir, 'node_modules', '.bin', 'biome.EXE')
-		: path.join(projectDir, 'node_modules', '.bin', 'biome');
+		? path.join(projectDir!, 'node_modules', '.bin', 'biome.EXE')
+		: path.join(projectDir!, 'node_modules', '.bin', 'biome');
 	const eslintBin = isWindows
-		? path.join(projectDir, 'node_modules', '.bin', 'eslint.cmd')
-		: path.join(projectDir, 'node_modules', '.bin', 'eslint');
+		? path.join(projectDir!, 'node_modules', '.bin', 'eslint.cmd')
+		: path.join(projectDir!, 'node_modules', '.bin', 'eslint');
 
-	return _detectAvailableLinter(projectDir, biomeBin, eslintBin);
+	return _detectAvailableLinter(projectDir!, biomeBin, eslintBin);
 }
 
 /** Internal implementation — accepts pre-computed binary paths for testability. */

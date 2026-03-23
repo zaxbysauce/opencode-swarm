@@ -204,10 +204,10 @@ export async function executeDeclareScope(
 			'[declare-scope] fallbackDir is undefined, falling back to process.cwd()',
 		);
 	}
-	const directory = normalizedDir || fallbackDir || process.cwd();
+	const directory = normalizedDir || fallbackDir;
 
 	// Step 5: Check that taskId exists in plan.json
-	const planPath = path.resolve(directory, '.swarm', 'plan.json');
+	const planPath = path.resolve(directory!, '.swarm', 'plan.json');
 	if (!fs.existsSync(planPath)) {
 		return {
 			success: false,
