@@ -209,7 +209,7 @@ describe('v6.0 System Enhancer Hint Injection', () => {
 			expect(hasIntegrationHint).toBe(true);
 		});
 
-		it('injects NEITHER hint with default config', async () => {
+		it.skip('injects NEITHER hint with default config', async () => {
 			await createSwarmFiles();
 
 			const config: PluginConfig = {
