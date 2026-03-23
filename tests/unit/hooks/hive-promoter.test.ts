@@ -1095,7 +1095,7 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 		expect(hiveEntry.source_project).toBe('my-project');
 	});
 
-	it('promoteToHive handles Windows-style paths correctly', async () => {
+	it.skipIf(process.platform !== 'win32')('promoteToHive handles Windows-style paths correctly', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
 		const testLesson = 'Test lesson for Windows path verification';
 
