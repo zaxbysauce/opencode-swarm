@@ -15,7 +15,11 @@ import {
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
-import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import {
+	type LoadEvidenceResult,
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../evidence/manager';
 import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
@@ -253,12 +257,18 @@ export async function executePhaseComplete(
 	const summary = args.summary;
 	const sessionID = args.sessionID;
 
-	// Validate phase number
-	if (Number.isNaN(phase) || phase < 1) {
+	// Validate phase number — must be a positive integer
+	if (
+		Number.isNaN(phase) ||
+		phase < 1 ||
+		!Number.isFinite(phase) ||
+		!Number.isInteger(phase)
+	) {
 		return JSON.stringify(
 			{
 				success: false,
 				phase: phase,
+				status: 'blocked',
 				message: 'Invalid phase number',
 				agentsDispatched: [],
 				warnings: ['Phase must be a positive number'],
@@ -368,7 +378,9 @@ export async function executePhaseComplete(
 	if (!retroFound) {
 		// Fallback: scan all task IDs for any retro-N matching this phase
 		const allTaskIds = await listEvidenceTaskIds(dir);
-		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
+		const retroTaskIds = allTaskIds.filter(
+			(id) => id.startsWith('retro-') && /^retro-\d+$/.test(id),
+		);
 		for (const taskId of retroTaskIds) {
 			const bundleResult = await loadEvidence(dir, taskId);
 			if (bundleResult.status !== 'found') {

@@ -11,224 +11,217 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 	});
 
 	describe('1. Control characters', () => {
-		it('should handle tab character in java\\t - sanitize consistently', async () => {
-			// Tab is stripped, so 'java\t' becomes 'java'
+		it('should reject tab character in java\\t via whitelist', async () => {
+			// Whitelist rejects: 'java\t' contains tab, not in [a-z0-9-]
 			const available = await isGrammarAvailable('java\t');
-			expect(available).toBe(true); // java is available
+			expect(available).toBe(false);
 		});
 
-		it('should handle newline in java\\n - sanitize consistently', async () => {
-			// Newline is stripped, so 'java\n' becomes 'java'
+		it('should reject newline in java\\n via whitelist', async () => {
 			const available = await isGrammarAvailable('java\n');
-			expect(available).toBe(true); // java is available
+			expect(available).toBe(false);
 		});
 
-		it('should handle carriage return in java\\r - sanitize consistently', async () => {
-			// CR is stripped, so 'java\r' becomes 'java'
+		it('should reject carriage return in java\\r via whitelist', async () => {
 			const available = await isGrammarAvailable('java\r');
-			expect(available).toBe(true); // java is available
+			expect(available).toBe(false);
 		});
 
-		it('should handle multiple control chars - java\\t\\n\\r', async () => {
+		it('should reject multiple control chars - java\\t\\n\\r', async () => {
 			const available = await isGrammarAvailable('java\t\n\r');
-			expect(available).toBe(true); // java is available
+			expect(available).toBe(false);
 		});
 
-		it('should handle null byte \\x00', async () => {
-			// null byte is stripped
+		it('should reject null byte \\x00', async () => {
 			const available = await isGrammarAvailable('java\x00');
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should handle DEL character \\x7f', async () => {
-			// DEL is stripped
+		it('should reject DEL character \\x7f', async () => {
 			const available = await isGrammarAvailable('java\x7f');
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should handle multiple ASCII control chars \\x01\\x02\\x03', async () => {
+		it('should reject multiple ASCII control chars \\x01\\x02\\x03', async () => {
 			const available = await isGrammarAvailable('java\x01\x02\x03');
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should load grammar with tab in language ID', async () => {
-			// 'java\t' -> 'java' -> should load
-			const parser = await loadGrammar('java\t');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with tab in language ID', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('java\t');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 
-		it('should load grammar with newline in language ID', async () => {
-			// 'java\n' -> 'java' -> should load
-			const parser = await loadGrammar('java\n');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with newline in language ID', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('java\n');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 	});
 
 	describe('2. Path traversal attempts', () => {
-		it('should strip forward slashes - ../../etc/kotlin', async () => {
+		it('should reject forward slashes - ../../etc/kotlin', async () => {
 			const available = await isGrammarAvailable('../../etc/kotlin');
-			// After stripping: 'etckotlin' - not a valid language
 			expect(available).toBe(false);
 		});
 
-		it('should strip backslashes - ..\\..\\windows\\kotlin', async () => {
+		it('should reject backslashes - ..\\..\\windows\\kotlin', async () => {
 			const available = await isGrammarAvailable('..\\..\\windows\\kotlin');
-			// After stripping backslashes: '......windowskotlin' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip mixed slashes - .\\./kotlin', async () => {
+		it('should reject mixed slashes - .\\./kotlin', async () => {
 			const available = await isGrammarAvailable('.\\./kotlin');
-			// After stripping: '..kotlin' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip ./ prefix - ./kotlin', async () => {
+		it('should reject ./ prefix - ./kotlin', async () => {
 			const available = await isGrammarAvailable('./kotlin');
-			// After stripping: '.kotlin' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip ../ prefix - ../kotlin', async () => {
+		it('should reject ../ prefix - ../kotlin', async () => {
 			const available = await isGrammarAvailable('../kotlin');
-			// After stripping: '..kotlin' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip absolute path attempt - /etc/passwd', async () => {
+		it('should reject absolute path attempt - /etc/passwd', async () => {
 			const available = await isGrammarAvailable('/etc/passwd');
-			// After stripping: 'etcpasswd' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip Windows drive letter pattern - C:\\Windows', async () => {
+		it('should reject Windows drive letter pattern - C:\\Windows', async () => {
 			const available = await isGrammarAvailable('C:\\Windows');
-			// After stripping: 'CWindows' - not valid (C is lowercase to 'c')
 			expect(available).toBe(false);
 		});
 
-		it('should not load grammar with path traversal', async () => {
+		it('should throw when loading grammar with path traversal', async () => {
 			let threw = false;
 			try {
 				await loadGrammar('../kotlin');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/Grammar file not found/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
 
-		it('should not load grammar with slashes', async () => {
-			// 'java/script' becomes 'javascript' after stripping slash - valid!
-			// This test actually succeeds because slash is sanitized to valid language
-			const parser = await loadGrammar('java/script');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with slashes', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('java/script');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 	});
 
 	describe('3. Windows reserved characters', () => {
-		it('should strip colon - java:script', async () => {
+		it('should reject colon - java:script', async () => {
 			const available = await isGrammarAvailable('java:script');
-			// After stripping: 'javascript' - should be available!
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should strip asterisk - kotlin*', async () => {
+		it('should reject asterisk - kotlin*', async () => {
 			const available = await isGrammarAvailable('kotlin*');
-			// After stripping: 'kotlin' - should be available
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should strip question mark - swift?', async () => {
+		it('should reject question mark - swift?', async () => {
 			const available = await isGrammarAvailable('swift?');
-			// After stripping: 'swift' - should be available
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should strip double quote - "python"', async () => {
+		it('should reject double quote - "python"', async () => {
 			const available = await isGrammarAvailable('"python"');
-			// After stripping: 'python' - should be available
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should strip less than - <dart>', async () => {
+		it('should reject less than - <dart>', async () => {
 			const available = await isGrammarAvailable('<dart>');
-			// After stripping: 'dart' - should be available
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should strip greater than - rust>lang', async () => {
+		it('should reject greater than - rust>lang', async () => {
 			const available = await isGrammarAvailable('rust>lang');
-			// After stripping: 'rustlang' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip pipe - go|lang', async () => {
+		it('should reject pipe - go|lang', async () => {
 			const available = await isGrammarAvailable('go|lang');
-			// After stripping: 'golang' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip multiple reserved chars - go:|*?rust', async () => {
+		it('should reject multiple reserved chars - go:|*?rust', async () => {
 			const available = await isGrammarAvailable('go:|*?rust');
-			// After stripping: 'gorust' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should load grammar with colon (stripped to valid)', async () => {
-			const parser = await loadGrammar('java:script');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with colon', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('java:script');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 
-		it('should load grammar with asterisk (stripped to valid)', async () => {
-			const parser = await loadGrammar('kotlin*');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with asterisk', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('kotlin*');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 	});
 
 	describe('4. Unicode fullwidth slash', () => {
-		it('should strip fullwidth solidus U+FF0F', async () => {
+		it('should reject fullwidth solidus U+FF0F', async () => {
 			const available = await isGrammarAvailable('kotlin\uFF0Fscript');
-			// After stripping: 'kotlinscript' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip fullwidth reverse solidus U+FF3C', async () => {
+		it('should reject fullwidth reverse solidus U+FF3C', async () => {
 			const available = await isGrammarAvailable('swift\uFF3Ctest');
-			// After stripping: 'swifttest' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should strip other fullwidth punctuation U+FF00-U+FFEF range', async () => {
-			// Fullwidth exclamation mark U+FF01
-			// 'java\uFF01' becomes 'java' after sanitization - valid!
+		it('should reject other fullwidth punctuation U+FF00-U+FFEF range', async () => {
 			const available1 = await isGrammarAvailable('java\uFF01');
-			expect(available1).toBe(true);
+			expect(available1).toBe(false);
 
-			// Fullwidth at sign U+FF20
-			// 'python\uFF20' becomes 'python' - valid!
 			const available2 = await isGrammarAvailable('python\uFF20');
-			expect(available2).toBe(true);
+			expect(available2).toBe(false);
 
-			// Fullwidth left bracket U+FF3B
-			// 'rust\uFF3B' becomes 'rust' - valid!
 			const available3 = await isGrammarAvailable('rust\uFF3B');
-			expect(available3).toBe(true);
+			expect(available3).toBe(false);
 		});
 
-		it('should strip Unicode General Punctuation U+2000-U+206F', async () => {
-			// En quad U+2000
-			// 'java\u2000script' becomes 'javascript' - valid!
+		it('should reject Unicode General Punctuation U+2000-U+206F', async () => {
 			const available1 = await isGrammarAvailable('java\u2000script');
-			expect(available1).toBe(true);
+			expect(available1).toBe(false);
 
-			// Left-to-right mark U+200E
-			// 'python\u200E' becomes 'python' - valid!
 			const available2 = await isGrammarAvailable('python\u200E');
-			expect(available2).toBe(true);
+			expect(available2).toBe(false);
 
-			// Hyphen U+2010
-			// 'go\u2010lang' becomes 'golang' - not valid
 			const available3 = await isGrammarAvailable('go\u2010lang');
 			expect(available3).toBe(false);
 		});
@@ -255,13 +248,13 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 			expect(available).toBe(false);
 		});
 
-		it('should throw when loading grammar that becomes empty after sanitization', async () => {
+		it('should throw when loading grammar with only control chars', async () => {
 			let threw = false;
 			try {
 				await loadGrammar('\x00\x01\x02');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
@@ -272,15 +265,14 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 				await loadGrammar('/\\:');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
 	});
 
 	describe('6. Prototype pollution attempts', () => {
-		it('should treat __proto__ as regular language lookup', async () => {
-			// __proto__ is not a valid language
+		it('should reject __proto__ via whitelist (contains underscores)', async () => {
 			const available = await isGrammarAvailable('__proto__');
 			expect(available).toBe(false);
 		});
@@ -290,12 +282,14 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 			expect(available).toBe(false);
 		});
 
-		it('should treat toString as regular language lookup', async () => {
+		it('should reject toString via whitelist (contains uppercase)', async () => {
+			// 'toString' lowercased to 'tostring' passes whitelist but is not a valid language
 			const available = await isGrammarAvailable('toString');
 			expect(available).toBe(false);
 		});
 
-		it('should treat hasOwnProperty as regular language lookup', async () => {
+		it('should reject hasOwnProperty via whitelist (contains uppercase)', async () => {
+			// lowercased to 'hasownproperty' passes whitelist but is not a valid language
 			const available = await isGrammarAvailable('hasOwnProperty');
 			expect(available).toBe(false);
 		});
@@ -306,7 +300,7 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 				await loadGrammar('__proto__');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/Grammar file not found/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
@@ -532,16 +526,14 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 	});
 
 	describe('9. Mixed adversarial inputs', () => {
-		it('should handle control chars + path traversal', async () => {
+		it('should reject control chars + path traversal', async () => {
 			const available = await isGrammarAvailable('../\t\n\x00kotlin');
-			// After stripping: '...kotlin' -> '..kotlin' - not valid
 			expect(available).toBe(false);
 		});
 
-		it('should handle reserved chars + unicode', async () => {
+		it('should reject reserved chars + unicode', async () => {
 			const available = await isGrammarAvailable('java*:?\uFF0F');
-			// After stripping: 'java' - valid!
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
 		it('should handle very long string with control chars', async () => {
@@ -551,15 +543,20 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 			expect(result).toBe(false); // Length check first
 		});
 
-		it('should handle null-byte injection in otherwise valid language', async () => {
+		it('should reject null-byte injection in otherwise valid language', async () => {
 			const available = await isGrammarAvailable('java\x00script');
-			// After stripping: 'javascript' - valid
-			expect(available).toBe(true);
+			expect(available).toBe(false);
 		});
 
-		it('should load grammar with null-byte injection', async () => {
-			const parser = await loadGrammar('java\x00script');
-			expect(parser).toBeDefined();
+		it('should throw when loading grammar with null-byte injection', async () => {
+			let threw = false;
+			try {
+				await loadGrammar('java\x00script');
+			} catch (e) {
+				threw = true;
+				expect((e as Error).message).toMatch(/Invalid language ID/);
+			}
+			expect(threw).toBe(true);
 		});
 	});
 
@@ -598,9 +595,7 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 			expect(threw).toBe(true);
 		});
 
-		it('should reject 100 chars that become empty after sanitization', async () => {
-			// Create exactly 100 control chars using string repetition
-			// \x00 repeated 100 times
+		it('should reject 100 control chars via whitelist', async () => {
 			const id = '\x00'.repeat(100);
 			expect(id.length).toBe(100);
 			let threw = false;
@@ -608,7 +603,7 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 				await loadGrammar(id);
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
