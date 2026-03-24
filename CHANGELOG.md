@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.32.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.1...v6.32.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* **ci:** split hooks tests into 6 isolated groups to prevent vi.mock contamination ([#262](https://github.com/zaxbysauce/opencode-swarm/issues/262)) ([cedfbf4](https://github.com/zaxbysauce/opencode-swarm/commit/cedfbf4161cfe191758cd74eb56489f6634b3ddf))
+
 ## [6.32.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.0...v6.32.1) (2026-03-23)
 
 
