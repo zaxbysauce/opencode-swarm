@@ -67,7 +67,7 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
  */
 function sanitizeLanguageId(languageId: string): string {
 	const normalized = languageId.toLowerCase();
-	if (!/^[a-z0-9\-]+$/.test(normalized)) {
+	if (!/^[a-z0-9-]+$/.test(normalized)) {
 		throw new Error(`Invalid language ID: ${languageId}`);
 	}
 	return normalized;

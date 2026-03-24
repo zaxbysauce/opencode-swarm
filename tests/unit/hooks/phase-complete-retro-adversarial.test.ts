@@ -170,7 +170,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			expect(parsed.message).toBe('Invalid phase number');
 		});
 
-		test('phase = 1.5 (float) should pass argument validation but retro gate blocks', async () => {
+		test('phase = 1.5 (float) should be rejected at argument validation', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -192,11 +192,9 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			});
 			const parsed = JSON.parse(result);
 
-			// 1.5 is not < 1, so argument validation passes
-			// But retro gate should block since retro-1.5 won't exist
+			// 1.5 is not an integer, so argument validation rejects it
 			expect(parsed.success).toBe(false);
-			expect(parsed.status).toBe('blocked');
-			expect(parsed.reason).toBe('RETROSPECTIVE_MISSING');
+			expect(parsed.message).toBe('Invalid phase number');
 		});
 
 		test('phase = 9999999 (very large number) should be blocked by retro gate', async () => {

@@ -202,7 +202,7 @@ describe('runtime.ts - Security Verification Tests', () => {
 				await loadGrammar('');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/Invalid language ID|empty after sanitization/);
 			}
 			expect(threw).toBe(true);
 		});
@@ -213,7 +213,7 @@ describe('runtime.ts - Security Verification Tests', () => {
 				await loadGrammar('\t\n\r');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/empty after sanitization/);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});
@@ -234,45 +234,40 @@ describe('runtime.ts - Security Verification Tests', () => {
 	});
 
 	describe('7. Cache uses sanitized key', () => {
-		it('should cache with sanitized key - tab and newline variations', async () => {
+		it('should reject language IDs with tab/newline via whitelist', async () => {
 			// First, load javascript normally
 			const parser1 = await loadGrammar('javascript');
 			expect(parser1).toBeDefined();
 			expect(parserCache.size).toBe(1);
 			expect(parserCache.has('javascript')).toBe(true);
 
-			// Try to load with tab - should use same cache entry
-			const parser2 = await loadGrammar('java\tscript');
-			expect(parser2).toBeDefined();
-			expect(parserCache.size).toBe(1); // Still only 1 entry
-			expect(parser2).toBe(parser1); // Same parser instance
-
-			// Try to load with newline - should use same cache entry
-			const parser3 = await loadGrammar('java\nscript');
-			expect(parser3).toBeDefined();
-			expect(parserCache.size).toBe(1); // Still only 1 entry
-			expect(parser3).toBe(parser1); // Same parser instance
-
-			// Verify no cache pollution - no entries for 'java\tscript' or 'java\nscript'
-			expect(parserCache.has('java\tscript')).toBe(false);
-			expect(parserCache.has('java\nscript')).toBe(false);
+			// Tab/newline in language ID is now rejected by whitelist
+			let threw = false;
+			try {
+				await loadGrammar('java\tscript');
+			} catch {
+				threw = true;
+			}
+			expect(threw).toBe(true);
+			expect(parserCache.size).toBe(1); // No new cache entry
 		});
 
-		it('should cache with sanitized key - multiple path chars', async () => {
+		it('should reject language IDs with path chars via whitelist', async () => {
 			// Load a valid language
 			const parser1 = await loadGrammar('kotlin');
 			expect(parser1).toBeDefined();
 			expect(parserCache.size).toBe(1);
 			expect(parserCache.has('kotlin')).toBe(true);
 
-			// Try with path chars - should use same cache entry
-			const parser2 = await loadGrammar('kot/lin');
-			expect(parser2).toBeDefined();
-			expect(parserCache.size).toBe(1);
-			expect(parser2).toBe(parser1);
-
-			// Verify no cache pollution
-			expect(parserCache.has('kot/lin')).toBe(false);
+			// Path chars in language ID rejected by whitelist
+			let threw = false;
+			try {
+				await loadGrammar('kot/lin');
+			} catch {
+				threw = true;
+			}
+			expect(threw).toBe(true);
+			expect(parserCache.size).toBe(1); // No new cache entry
 		});
 	});
 

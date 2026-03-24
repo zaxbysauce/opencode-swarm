@@ -15,7 +15,11 @@ import {
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
-import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import {
+	type LoadEvidenceResult,
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../evidence/manager';
 import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
@@ -253,8 +257,8 @@ export async function executePhaseComplete(
 	const summary = args.summary;
 	const sessionID = args.sessionID;
 
-	// Validate phase number
-	if (Number.isNaN(phase) || phase < 1) {
+	// Validate phase number — must be a positive integer
+	if (Number.isNaN(phase) || phase < 1 || !Number.isFinite(phase) || !Number.isInteger(phase)) {
 		return JSON.stringify(
 			{
 				success: false,
@@ -370,7 +374,13 @@ export async function executePhaseComplete(
 		const allTaskIds = await listEvidenceTaskIds(dir);
 		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
 		for (const taskId of retroTaskIds) {
-			const bundleResult = await loadEvidence(dir, taskId);
+			let bundleResult: LoadEvidenceResult;
+			try {
+				bundleResult = await loadEvidence(dir, taskId);
+			} catch {
+				// Skip directories with invalid task IDs (e.g. retro-phase1)
+				continue;
+			}
 			if (bundleResult.status !== 'found') {
 				if (bundleResult.status === 'invalid_schema') {
 					invalidSchemaErrors.push(...bundleResult.errors);
