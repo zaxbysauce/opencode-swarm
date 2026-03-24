@@ -258,7 +258,12 @@ export async function executePhaseComplete(
 	const sessionID = args.sessionID;
 
 	// Validate phase number — must be a positive integer
-	if (Number.isNaN(phase) || phase < 1 || !Number.isFinite(phase) || !Number.isInteger(phase)) {
+	if (
+		Number.isNaN(phase) ||
+		phase < 1 ||
+		!Number.isFinite(phase) ||
+		!Number.isInteger(phase)
+	) {
 		return JSON.stringify(
 			{
 				success: false,
