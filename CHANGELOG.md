@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.32.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.3...v6.32.4) (2026-03-24)
+
+
+### Bug Fixes
+
+* **test:** align test assertions with actual source behavior ([#266](https://github.com/zaxbysauce/opencode-swarm/issues/266)) ([fecd742](https://github.com/zaxbysauce/opencode-swarm/commit/fecd7421c1c59d7c6be87d67ee2882031f7f4868))
+
 ## [6.32.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.2...v6.32.3) (2026-03-24)
 
 
