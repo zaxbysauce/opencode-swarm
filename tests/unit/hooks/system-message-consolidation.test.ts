@@ -225,17 +225,14 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Empty/whitespace system messages are kept in place but not merged
-			expect(result.length).toBe(5);
+			// Empty/whitespace system messages are stripped (safety-net for local models)
+			expect(result.length).toBe(3);
 			expect(result[0].role).toBe('system');
 			expect(result[0].content).toBe('Valid system prompt');
 			// No stray \n\n from empty messages in merged content
 			expect(result[0].content).not.toContain('\n\n\n');
-			// Empty system messages are preserved in their original positions
-			expect(result[2].role).toBe('system');
-			expect(result[2].content).toBe('   ');
-			expect(result[3].role).toBe('system');
-			expect(result[3].content).toBe('');
+			expect(result[1].role).toBe('user');
+			expect(result[2].role).toBe('assistant');
 		});
 
 		it('handles mix of mergeable and non-mergeable system messages correctly', () => {

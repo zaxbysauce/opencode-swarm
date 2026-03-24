@@ -33,6 +33,7 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 
 	// Collect indices and contents of system messages to merge
 	const systemMessageIndices: number[] = [];
+	const nonMergeableIndices: Set<number> = new Set();
 	const systemContents: string[] = [];
 
 	for (let i = 0; i < messages.length; i++) {
@@ -41,25 +42,26 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 		// Only process system-role messages
 		if (message.role !== 'system') continue;
 
-		// Skip system messages that have tool_call_id or name - these are likely
-		// tool-result messages misclassified as system; they will be removed by
-		// the safety-net filter (not merged into the consolidated message)
-		if (message.tool_call_id !== undefined || message.name !== undefined)
+		// Skip system messages that have tool_call_id or name - these are
+		// non-mergeable and should be preserved in their original position
+		if (message.tool_call_id !== undefined || message.name !== undefined) {
+			nonMergeableIndices.add(i);
 			continue;
+		}
 
-		// Extract text content regardless of format
+		// Skip system messages with array-type content (Anthropic-style) -
+		// these are non-mergeable and should be preserved in their original position
+		if (Array.isArray(message.content)) {
+			nonMergeableIndices.add(i);
+			continue;
+		}
+
+		// Extract text content
 		let textContent: string | null = null;
 
 		if (typeof message.content === 'string') {
 			const trimmed = message.content.trim();
 			if (trimmed.length > 0) textContent = trimmed;
-		} else if (Array.isArray(message.content)) {
-			// Handle Anthropic-style content: [{ type: "text", text: "..." }]
-			const texts = (message.content as Array<{ type?: string; text?: string }>)
-				.filter((part) => part.type === 'text' && typeof part.text === 'string')
-				.map((part) => part.text!.trim())
-				.filter((t) => t.length > 0);
-			if (texts.length > 0) textContent = texts.join('\n');
 		}
 		// null, undefined, or unrecognized content format — mark for removal
 
@@ -69,14 +71,14 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 		}
 	}
 
-	// If there are no system messages to merge, remove all system messages
-	// except the one at index 0 (local models crash on system messages at index > 0)
+	// If there are no system messages to merge, preserve non-mergeable ones
+	// and remove only mergeable system messages except index 0
 	if (systemContents.length === 0) {
 		return messages.filter((m, idx) => {
-			// Keep all non-system messages
 			if (m.role !== 'system') return true;
-			// Keep first system message only (index 0 in original array)
-			// Safety net: local models (Qwen, Gemma) crash on system messages at index > 0
+			// Keep non-mergeable system messages in place
+			if (nonMergeableIndices.has(idx)) return true;
+			// Keep first system message only
 			return idx === 0;
 		});
 	}
@@ -127,10 +129,14 @@ export function consolidateSystemMessages(messages: Message[]): Message[] {
 		result.push({ ...message });
 	}
 
-	// Safety net: strip any system message that slipped past merge logic
-	// Local models (Qwen, Gemma) crash on system messages at index > 0
+	// Safety net: strip mergeable system messages that slipped past merge logic
+	// but preserve non-mergeable ones (array content, name, tool_call_id)
 	return result.filter((msg, idx) => {
 		if (idx === 0) return true;
-		return msg.role !== 'system';
+		if (msg.role !== 'system') return true;
+		// Preserve non-mergeable system messages
+		if (msg.tool_call_id !== undefined || msg.name !== undefined) return true;
+		if (Array.isArray(msg.content)) return true;
+		return false;
 	});
 }

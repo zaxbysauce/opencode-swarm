@@ -7,27 +7,51 @@
  * 3. Threshold warnings still use warn() (regression test)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
 
-// Create mock functions before vi.mock to ensure they're available in the mock
-const mockLog = vi.fn();
-const mockWarn = vi.fn();
-const mockError = vi.fn();
+// Create mock functions before mock.module to ensure they're available
+const mockLog = mock(() => {});
+const mockWarn = mock(() => {});
+const mockError = mock(() => {});
 
 // Create mock error classes
 class MockSwarmError extends Error {
-	constructor(message: string) {
+	readonly code: string;
+	readonly guidance: string;
+	constructor(message: string, code = 'SWARM_ERROR', guidance = '') {
 		super(message);
 		this.name = 'SwarmError';
+		this.code = code;
+		this.guidance = guidance;
 	}
 }
-const MockCLIError = MockSwarmError;
-const MockConfigError = MockSwarmError;
-const MockHookError = MockSwarmError;
-const MockToolError = MockSwarmError;
+class MockCLIError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'CLI_ERROR', guidance);
+		this.name = 'CLIError';
+	}
+}
+class MockConfigError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'CONFIG_ERROR', guidance);
+		this.name = 'ConfigError';
+	}
+}
+class MockHookError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'HOOK_ERROR', guidance);
+		this.name = 'HookError';
+	}
+}
+class MockToolError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'TOOL_ERROR', guidance);
+		this.name = 'ToolError';
+	}
+}
 
 // Mock the utils module BEFORE importing context-budget
-vi.mock('../../../src/utils/index.js', () => ({
+mock.module('../../../src/utils/index.js', () => ({
 	log: mockLog,
 	warn: mockWarn,
 	error: mockError,
@@ -36,9 +60,13 @@ vi.mock('../../../src/utils/index.js', () => ({
 	ConfigError: MockConfigError,
 	HookError: MockHookError,
 	ToolError: MockToolError,
+	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
+	MAX_MERGE_DEPTH: 10,
+	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+	simpleGlobToRegex: (s: string) => new RegExp(s),
 }));
 
-vi.mock('../../../src/utils', () => ({
+mock.module('../../../src/utils', () => ({
 	log: mockLog,
 	warn: mockWarn,
 	error: mockError,
@@ -47,18 +75,23 @@ vi.mock('../../../src/utils', () => ({
 	ConfigError: MockConfigError,
 	HookError: MockHookError,
 	ToolError: MockToolError,
+	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
+	MAX_MERGE_DEPTH: 10,
+	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+	simpleGlobToRegex: (s: string) => new RegExp(s),
+}));
+
+mock.module('../../../src/utils/logger', () => ({
+	log: mockLog,
+	warn: mockWarn,
+	error: mockError,
 }));
 
 describe('context-budget log reclassification', () => {
 	beforeEach(() => {
-		// Clear all mocks before each test
 		mockLog.mockClear();
 		mockWarn.mockClear();
 		mockError.mockClear();
-
-		// Reset module-level state if needed
-		// Note: The module has a 'lastSeenAgent' variable at line 22
-		// We can't reset it easily, so we'll work around it
 	});
 
 	const getCreateContextBudgetHandler = () => {
@@ -70,7 +103,6 @@ describe('context-budget log reclassification', () => {
 	});
 
 	it('first call with model/provider uses log() not warn() for startup diagnostic', async () => {
-		// Arrange
 		const config = {
 			context_budget: {
 				enabled: true,
@@ -97,42 +129,30 @@ describe('context-budget log reclassification', () => {
 			},
 		];
 
-		// Act
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		const handler = createContextBudgetHandler(config);
 		await handler({}, { messages });
 
-		// Assert
-		// Verify log() was called for Context budget message
 		const logCalls = mockLog.mock.calls;
-		const contextBudgetLogCalls = logCalls.filter((call) =>
+		const contextBudgetLogCalls = logCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		expect(
-			contextBudgetLogCalls.length,
-			'log() should be called with "Context budget:" message',
-		).toBeGreaterThan(0);
+		expect(contextBudgetLogCalls.length).toBeGreaterThan(0);
 
-		// Verify warn() was NOT called for Context budget message
 		const warnCalls = mockWarn.mock.calls;
-		const contextBudgetWarnCalls = warnCalls.filter((call) =>
+		const contextBudgetWarnCalls = warnCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		expect(
-			contextBudgetWarnCalls.length,
-			'warn() should NOT be called with "Context budget:" message',
-		).toBe(0);
+		expect(contextBudgetWarnCalls.length).toBe(0);
 
-		// Verify the log message contains expected model and provider info
 		const logMessage = contextBudgetLogCalls[0][0];
 		expect(logMessage).toContain('model=gpt-4o');
 		expect(logMessage).toContain('provider=openai');
 	});
 
 	it('second call with same model/provider does not call log() again (deduplication)', async () => {
-		// Arrange
 		const config = {
 			context_budget: {
 				enabled: true,
@@ -159,29 +179,20 @@ describe('context-budget log reclassification', () => {
 			},
 		];
 
-		// Act - First call
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		const handler = createContextBudgetHandler(config);
 		await handler({}, { messages });
-
-		// Act - Second call with same model/provider (using the SAME handler instance)
 		await handler({}, { messages });
 
-		// Assert
 		const allLogCalls = mockLog.mock.calls;
-		const contextBudgetLogCalls = allLogCalls.filter((call) =>
+		const contextBudgetLogCalls = allLogCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		// Should only have one call from the first invocation (deduplication in loggedLimits)
-		expect(
-			contextBudgetLogCalls.length,
-			'log() should only be called once for the same model/provider combination due to loggedLimits Set',
-		).toBe(1);
+		expect(contextBudgetLogCalls.length).toBe(1);
 	});
 
 	it('different model/provider combinations trigger new log() calls', async () => {
-		// Arrange
 		const config = {
 			context_budget: {
 				enabled: true,
@@ -190,76 +201,51 @@ describe('context-budget log reclassification', () => {
 			},
 		};
 
-		// Act - First call with gpt-4o/openai
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		let handler = createContextBudgetHandler(config);
 		await handler({}, {
 			messages: [
 				{
-					info: {
-						role: 'assistant',
-						modelID: 'gpt-4o',
-						providerID: 'openai',
-					},
+					info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 					parts: [{ type: 'text', text: 'Hello' }],
 				},
 				{
-					info: {
-						role: 'user',
-						agent: 'architect',
-					},
+					info: { role: 'user', agent: 'architect' },
 					parts: [{ type: 'text', text: 'Message 1' }],
 				},
 			],
 		});
 
-		// Act - Second call with claude-3/anthropic
 		handler = createContextBudgetHandler(config);
 		await handler({}, {
 			messages: [
 				{
-					info: {
-						role: 'assistant',
-						modelID: 'claude-3-opus',
-						providerID: 'anthropic',
-					},
+					info: { role: 'assistant', modelID: 'claude-3-opus', providerID: 'anthropic' },
 					parts: [{ type: 'text', text: 'Hello' }],
 				},
 				{
-					info: {
-						role: 'user',
-						agent: 'architect',
-					},
+					info: { role: 'user', agent: 'architect' },
 					parts: [{ type: 'text', text: 'Message 2' }],
 				},
 			],
 		});
 
-		// Assert
 		const allLogCalls = mockLog.mock.calls;
-		const contextBudgetLogCalls = allLogCalls.filter((call) =>
+		const contextBudgetLogCalls = allLogCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		// Should have two calls, one for each model/provider combination
-		expect(
-			contextBudgetLogCalls.length,
-			'log() should be called twice for different model/provider combinations',
-		).toBe(2);
+		expect(contextBudgetLogCalls.length).toBe(2);
 
-		// Verify both model/providers are logged
-		const logMessages = contextBudgetLogCalls.map((call) => call[0]);
-		const hasGpt = logMessages.some((msg) => msg.includes('model=gpt-4o'));
-		const hasClaude = logMessages.some((msg) =>
-			msg.includes('model=claude-3-opus'),
-		);
+		const logMessages = contextBudgetLogCalls.map((call: any[]) => call[0]);
+		const hasGpt = logMessages.some((msg: string) => msg.includes('model=gpt-4o'));
+		const hasClaude = logMessages.some((msg: string) => msg.includes('model=claude-3-opus'));
 
-		expect(hasGpt, 'gpt-4o should be logged').toBe(true);
-		expect(hasClaude, 'claude-3-opus should be logged').toBe(true);
+		expect(hasGpt).toBe(true);
+		expect(hasClaude).toBe(true);
 	});
 
 	it('threshold warnings still use warn() (regression test)', async () => {
-		// Arrange
 		const config = {
 			context_budget: {
 				enabled: true,
@@ -268,62 +254,43 @@ describe('context-budget log reclassification', () => {
 			},
 		};
 
-		// Create a long message to exceed the warn threshold (0.7 = 70%)
-		// Using a very long text to trigger threshold warning
-		const longText = 'A'.repeat(15000); // This should exceed the default limit of 128000 * 0.7
+		const longText = 'A'.repeat(15000);
 
 		const messages = [
 			{
-				info: {
-					role: 'assistant',
-					modelID: 'gpt-4o',
-					providerID: 'openai',
-				},
+				info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 				parts: [{ type: 'text', text: 'Hello' }],
 			},
 			{
-				info: {
-					role: 'user',
-					agent: 'architect',
-				},
+				info: { role: 'user', agent: 'architect' },
 				parts: [{ type: 'text', text: longText }],
 			},
 		];
 
-		// Act
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		const handler = createContextBudgetHandler(config);
 		await handler({}, { messages });
 
-		// Assert - Verify that warn() was NOT called for the startup diagnostic
 		const warnCalls = mockWarn.mock.calls;
-		const contextBudgetWarnCalls = warnCalls.filter((call) =>
+		const contextBudgetWarnCalls = warnCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		expect(
-			contextBudgetWarnCalls.length,
-			'warn() should NOT be called for "Context budget:" startup diagnostic',
-		).toBe(0);
+		expect(contextBudgetWarnCalls.length).toBe(0);
 
-		// Verify that log() WAS called for the startup diagnostic
 		const logCalls = mockLog.mock.calls;
-		const contextBudgetLogCalls = logCalls.filter((call) =>
+		const contextBudgetLogCalls = logCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		expect(
-			contextBudgetLogCalls.length,
-			'log() should be called for "Context budget:" startup diagnostic',
-		).toBeGreaterThan(0);
+		expect(contextBudgetLogCalls.length).toBeGreaterThan(0);
 	});
 
 	it('warn() is still called for context enforcement warnings', async () => {
-		// Arrange - Use very low threshold to trigger enforcement
 		const config = {
 			context_budget: {
 				enabled: true,
-				warn_threshold: 0.001, // Very low threshold
+				warn_threshold: 0.001,
 				critical_threshold: 0.002,
 				enforce: true,
 			},
@@ -331,48 +298,32 @@ describe('context-budget log reclassification', () => {
 
 		const messages = [
 			{
-				info: {
-					role: 'assistant',
-					modelID: 'gpt-4o',
-					providerID: 'openai',
-				},
+				info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 				parts: [{ type: 'text', text: 'Hello' }],
 			},
 			{
-				info: {
-					role: 'user',
-					agent: 'architect',
-				},
-				parts: [
-					{ type: 'text', text: 'A'.repeat(5000) }, // Long text to exceed thresholds
-				],
+				info: { role: 'user', agent: 'architect' },
+				parts: [{ type: 'text', text: 'A'.repeat(5000) }],
 			},
 		];
 
-		// Act
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		const handler = createContextBudgetHandler(config);
 		await handler({}, { messages });
 
-		// Assert - The key regression test: warn() should NOT be called for "Context budget:" startup diagnostic
-		// even when thresholds are exceeded
 		const warnCalls = mockWarn.mock.calls;
-		const contextBudgetWarnCalls = warnCalls.filter((call) =>
+		const contextBudgetWarnCalls = warnCalls.filter((call: any[]) =>
 			call[0]?.includes('[swarm] Context budget:'),
 		);
 
-		expect(
-			contextBudgetWarnCalls.length,
-			'warn() should NOT be called for "Context budget:" startup diagnostic (regression test)',
-		).toBe(0);
+		expect(contextBudgetWarnCalls.length).toBe(0);
 	});
 
 	it('warn() is still called for threshold injection warnings', async () => {
-		// Arrange - Use very low threshold to trigger warning injection
 		const config = {
 			context_budget: {
 				enabled: true,
-				warn_threshold: 0.0001, // Very low threshold
+				warn_threshold: 0.0001,
 				critical_threshold: 0.0002,
 			},
 		};
@@ -381,34 +332,22 @@ describe('context-budget log reclassification', () => {
 
 		const messages = [
 			{
-				info: {
-					role: 'assistant',
-					modelID: 'gpt-4o',
-					providerID: 'openai',
-				},
+				info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 				parts: [{ type: 'text', text: 'Hello' }],
 			},
 			{
-				info: {
-					role: 'user',
-					agent: 'architect',
-				},
+				info: { role: 'user', agent: 'architect' },
 				parts: [{ type: 'text', text: longText }],
 			},
 		];
 
-		// Act
 		const createContextBudgetHandler = getCreateContextBudgetHandler();
 		const handler = createContextBudgetHandler(config);
 		await handler({}, { messages });
 
-		// Assert - Verify that the warning text was injected into the user message
 		const lastUserMessage = messages[messages.length - 1];
-		const textPart = lastUserMessage?.parts?.find((p) => p.type === 'text');
+		const textPart = lastUserMessage?.parts?.find((p: any) => p.type === 'text');
 
-		expect(
-			textPart?.text,
-			'Warning text should be injected into the user message',
-		).toMatch(/\[CONTEXT (WARNING|CRITICAL):/);
+		expect(textPart?.text).toMatch(/\[CONTEXT (WARNING|CRITICAL):/);
 	});
 });

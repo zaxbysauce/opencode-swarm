@@ -10,27 +10,51 @@
  * This combined test file ensures both reclassifications are properly verified.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
-// Local mock variables (NOT using vi.mocked())
-const mockLog = vi.fn();
-const mockWarn = vi.fn();
-const mockError = vi.fn();
+// Local mock functions
+const mockLog = mock(() => {});
+const mockWarn = mock(() => {});
+const mockError = mock(() => {});
 
 // Mock error classes
 class MockSwarmError extends Error {
-	constructor(message: string) {
+	readonly code: string;
+	readonly guidance: string;
+	constructor(message: string, code = 'SWARM_ERROR', guidance = '') {
 		super(message);
 		this.name = 'SwarmError';
+		this.code = code;
+		this.guidance = guidance;
 	}
 }
-const MockCLIError = MockSwarmError;
-const MockConfigError = MockSwarmError;
-const MockHookError = MockSwarmError;
-const MockToolError = MockSwarmError;
+class MockCLIError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'CLI_ERROR', guidance);
+		this.name = 'CLIError';
+	}
+}
+class MockConfigError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'CONFIG_ERROR', guidance);
+		this.name = 'ConfigError';
+	}
+}
+class MockHookError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'HOOK_ERROR', guidance);
+		this.name = 'HookError';
+	}
+}
+class MockToolError extends MockSwarmError {
+	constructor(message: string, guidance = '') {
+		super(message, 'TOOL_ERROR', guidance);
+		this.name = 'ToolError';
+	}
+}
 
 // Mock the utils module BEFORE importing SUT modules
-vi.mock('../../../src/utils/index.js', () => ({
+mock.module('../../../src/utils/index.js', () => ({
 	log: mockLog,
 	warn: mockWarn,
 	error: mockError,
@@ -39,9 +63,13 @@ vi.mock('../../../src/utils/index.js', () => ({
 	ConfigError: MockConfigError,
 	HookError: MockHookError,
 	ToolError: MockToolError,
+	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
+	MAX_MERGE_DEPTH: 10,
+	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+	simpleGlobToRegex: (s: string) => new RegExp(s),
 }));
 
-vi.mock('../../../src/utils', () => ({
+mock.module('../../../src/utils', () => ({
 	log: mockLog,
 	warn: mockWarn,
 	error: mockError,
@@ -50,6 +78,16 @@ vi.mock('../../../src/utils', () => ({
 	ConfigError: MockConfigError,
 	HookError: MockHookError,
 	ToolError: MockToolError,
+	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
+	MAX_MERGE_DEPTH: 10,
+	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+	simpleGlobToRegex: (s: string) => new RegExp(s),
+}));
+
+mock.module('../../../src/utils/logger', () => ({
+	log: mockLog,
+	warn: mockWarn,
+	error: mockError,
 }));
 
 describe('log-level-reclassification', () => {
@@ -61,31 +99,26 @@ describe('log-level-reclassification', () => {
 
 	describe('model-limits', () => {
 		it('BUG-1a: warn() NOT called for "Resolved limit for" message', () => {
-			// Import and call resolveModelLimit - use unique model to trigger log
 			const { resolveModelLimit } = require('../../../src/hooks/model-limits.js');
 			resolveModelLimit('claude-sonnet-4-6-test-unique-1', 'anthropic', {});
 
-			// Verify warn() was NOT called with "Resolved limit for"
 			const warnCalls = mockWarn.mock.calls;
-			const resolvedLimitWarnCall = warnCalls.find((call) =>
-				call.some((arg) => typeof arg === 'string' && arg.includes('Resolved limit for'))
+			const resolvedLimitWarnCall = warnCalls.find((call: any[]) =>
+				call.some((arg: any) => typeof arg === 'string' && arg.includes('Resolved limit for'))
 			);
 			expect(resolvedLimitWarnCall).toBeUndefined();
 		});
 
 		it('BUG-1a: log() IS called for "Resolved limit for" message with model info', () => {
-			// Import and call resolveModelLimit - use unique model to trigger log
 			const { resolveModelLimit } = require('../../../src/hooks/model-limits.js');
 			resolveModelLimit('claude-sonnet-4-6-test-unique-2', 'anthropic', {});
 
-			// Verify log() was called
 			expect(mockLog).toHaveBeenCalled();
 
-			// Verify log() was called with "Resolved limit for" and model ID
 			const logCalls = mockLog.mock.calls;
-			const resolvedLimitCall = logCalls.find((call) =>
+			const resolvedLimitCall = logCalls.find((call: any[]) =>
 				call.some(
-					(arg) =>
+					(arg: any) =>
 						typeof arg === 'string' &&
 						arg.includes('Resolved limit for') &&
 						arg.includes('claude-sonnet-4-6-test-unique-2')
@@ -98,8 +131,8 @@ describe('log-level-reclassification', () => {
 			const { resolveModelLimit } = require('../../../src/hooks/model-limits.js');
 			resolveModelLimit(undefined, undefined, {});
 			const warnCalls = mockWarn.mock.calls;
-			const resolvedLimitWarnCall = warnCalls.find((call) =>
-				call.some((arg) => typeof arg === 'string' && arg.includes('Resolved limit for'))
+			const resolvedLimitWarnCall = warnCalls.find((call: any[]) =>
+				call.some((arg: any) => typeof arg === 'string' && arg.includes('Resolved limit for'))
 			);
 			expect(resolvedLimitWarnCall).toBeUndefined();
 		});
@@ -107,7 +140,6 @@ describe('log-level-reclassification', () => {
 
 	describe('context-budget', () => {
 		it('BUG-1b: warn() NOT called for "Context budget:" startup diagnostic', async () => {
-			// Create handler with config
 			const createContextBudgetHandler = require('../../../src/hooks/context-budget.js').createContextBudgetHandler;
 			const handler = createContextBudgetHandler({
 				context_budget: {
@@ -117,7 +149,6 @@ describe('log-level-reclassification', () => {
 				},
 			});
 
-			// Invoke handler with messages containing assistant and user messages
 			await handler({}, {
 				messages: [
 					{
@@ -138,16 +169,14 @@ describe('log-level-reclassification', () => {
 				],
 			});
 
-			// Verify warn() was NOT called with "[swarm] Context budget:"
 			const warnCalls = mockWarn.mock.calls;
-			const contextBudgetWarnCall = warnCalls.find((call) =>
-				call.some((arg) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
+			const contextBudgetWarnCall = warnCalls.find((call: any[]) =>
+				call.some((arg: any) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
 			);
 			expect(contextBudgetWarnCall).toBeUndefined();
 		});
 
 		it('BUG-1b: log() IS called for "Context budget:" with model and provider info', async () => {
-			// Create handler with config
 			const createContextBudgetHandler = require('../../../src/hooks/context-budget.js').createContextBudgetHandler;
 			const handler = createContextBudgetHandler({
 				context_budget: {
@@ -157,7 +186,6 @@ describe('log-level-reclassification', () => {
 				},
 			});
 
-			// Invoke handler with messages containing assistant and user messages
 			await handler({}, {
 				messages: [
 					{
@@ -178,15 +206,13 @@ describe('log-level-reclassification', () => {
 				],
 			});
 
-			// Verify log() was called with "[swarm] Context budget:"
 			const logCalls = mockLog.mock.calls;
-			const contextBudgetLogCall = logCalls.find((call) =>
-				call.some((arg) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
+			const contextBudgetLogCall = logCalls.find((call: any[]) =>
+				call.some((arg: any) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
 			);
 			expect(contextBudgetLogCall).toBeDefined();
 
-			// Verify the log message contains model and provider info
-			const logMessage = contextBudgetLogCall[0];
+			const logMessage = (contextBudgetLogCall as any[])[0];
 			expect(logMessage).toContain('model=gpt-4o');
 			expect(logMessage).toContain('provider=openai');
 		});
@@ -215,8 +241,8 @@ describe('log-level-reclassification', () => {
 			});
 			await handler({}, { messages: [] });
 			const logCalls = mockLog.mock.calls;
-			const contextBudgetLogCall = logCalls.find((call) =>
-				call.some((arg) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
+			const contextBudgetLogCall = logCalls.find((call: any[]) =>
+				call.some((arg: any) => typeof arg === 'string' && arg.includes('[swarm] Context budget:'))
 			);
 			expect(contextBudgetLogCall).toBeUndefined();
 		});
