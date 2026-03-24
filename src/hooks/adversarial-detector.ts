@@ -1,3 +1,6 @@
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import type { ToolContext } from '@opencode-ai/plugin';
 import type { PluginConfig } from '../config';
 import { DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
@@ -365,4 +368,82 @@ export function formatPrecedentManipulationEvent(
 		agentName,
 		phase,
 	});
+}
+
+export function formatDebuggingSpiralEvent(
+	match: AdversarialPatternMatch,
+	taskId: string,
+): string {
+	return JSON.stringify({
+		event: 'debugging_spiral_detected',
+		taskId,
+		pattern: match.pattern,
+		severity: match.severity,
+		matchedText: match.matchedText,
+		confidence: match.confidence,
+		timestamp: new Date().toISOString(),
+	});
+}
+
+export async function handleDebuggingSpiral(
+	match: AdversarialPatternMatch,
+	taskId: string,
+	directory: string,
+): Promise<{
+	eventLogged: boolean;
+	checkpointCreated: boolean;
+	message: string;
+}> {
+	let eventLogged = false;
+	let checkpointCreated = false;
+
+	try {
+		const swarmDir = path.join(directory, '.swarm');
+		await fs.mkdir(swarmDir, { recursive: true });
+		const eventsPath = path.join(swarmDir, 'events.jsonl');
+		await fs.appendFile(
+			eventsPath,
+			`${formatDebuggingSpiralEvent(match, taskId)}\n`,
+		);
+		eventLogged = true;
+	} catch {
+		// non-fatal
+	}
+
+	const checkpointLabel = `spiral-${taskId}-${Date.now()}`;
+	try {
+		const { checkpoint } = await import('../tools/checkpoint.js');
+		const result = await checkpoint.execute(
+			{ action: 'save', label: checkpointLabel },
+			{ directory } as ToolContext,
+		);
+		try {
+			const parsed = JSON.parse(result as string) as { success?: boolean };
+			checkpointCreated = parsed.success === true;
+		} catch {
+			checkpointCreated = false;
+		}
+	} catch {
+		checkpointCreated = false;
+	}
+
+	const checkpointMsg = checkpointCreated
+		? `✓ Auto-checkpoint created: ${checkpointLabel}`
+		: '⚠ Auto-checkpoint failed (non-fatal)';
+
+	const message = `[FOR: architect] DEBUGGING SPIRAL DETECTED for task ${taskId}
+Issue: ${match.matchedText}
+Confidence: ${match.confidence}
+${checkpointMsg}
+Recommendation: Consider escalating to user or taking a different approach
+The current fix strategy appears to be cycling without progress`;
+
+	return { eventLogged, checkpointCreated, message };
+}
+
+// Stub: full detection logic not yet implemented
+export async function detectDebuggingSpiral(
+	_directory: string,
+): Promise<AdversarialPatternMatch | null> {
+	return null;
 }

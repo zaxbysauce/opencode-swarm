@@ -51,9 +51,42 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Unit tests (hooks)
+      - name: Unit tests (hooks - guardrails)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks --timeout 120000
+        run: bun --smol test tests/unit/hooks/guardrails*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge types/validator/store)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-types*.test.ts tests/unit/hooks/knowledge-validator*.test.ts tests/unit/hooks/knowledge-registration*.test.ts tests/unit/hooks/knowledge-store*.test.ts tests/unit/hooks/knowledge-quarantine*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge reader/migrator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge injector)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
+      - name: Unit tests (hooks - knowledge-curator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts --timeout 120000
+      - name: Unit tests (hooks - curator)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/curator*.test.ts --timeout 120000
+      - name: Unit tests (hooks - hive)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/hive*.test.ts --timeout 120000
+      - name: Unit tests (hooks - system-enhancer load-evidence)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/system-enhancer-load-evidence*.test.ts --timeout 120000
+      - name: Unit tests (hooks - system-enhancer)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/system-enhancer-adversarial.attack.test.ts tests/unit/hooks/system-enhancer-adversarial.test.ts tests/unit/hooks/system-enhancer-compaction.test.ts tests/unit/hooks/system-enhancer-context-budget-wiring.test.ts tests/unit/hooks/system-enhancer-drift.test.ts tests/unit/hooks/system-enhancer-handoff.test.ts tests/unit/hooks/system-enhancer-hf1b-adversarial.test.ts tests/unit/hooks/system-enhancer-hf1b.test.ts tests/unit/hooks/system-enhancer-lang-constraints-adversarial.test.ts tests/unit/hooks/system-enhancer-lang-constraints.test.ts tests/unit/hooks/system-enhancer-retro.test.ts tests/unit/hooks/system-enhancer-reviewer-checklist-adversarial.test.ts tests/unit/hooks/system-enhancer-reviewer-checklist.test.ts tests/unit/hooks/system-enhancer-task2-1-adversarial.test.ts tests/unit/hooks/system-enhancer-task2-1.test.ts tests/unit/hooks/system-enhancer-task2-2.test.ts tests/unit/hooks/system-enhancer-task2-3-adversarial.test.ts tests/unit/hooks/system-enhancer-task2-3.test.ts tests/unit/hooks/system-enhancer-task2-4.test.ts tests/unit/hooks/system-enhancer-task3-4.test.ts tests/unit/hooks/system-enhancer-v6.test.ts tests/unit/hooks/system-enhancer-v61.test.ts tests/unit/hooks/system-enhancer-v62-adversarial.test.ts tests/unit/hooks/system-enhancer-v62.test.ts tests/unit/hooks/system-enhancer.test.ts --timeout 120000
+      - name: Unit tests (hooks - delegation)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/delegation*.test.ts --timeout 120000
+      - name: Unit tests (hooks - adversarial-detector)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/adversarial-detect*.test.ts --timeout 120000
+      - name: Unit tests (hooks - remaining)
+        if: runner.os != 'Windows'
+        run: bun --smol test tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts --timeout 120000
       - name: Unit tests (commands, config)
         run: bun --smol test tests/unit/commands tests/unit/config --timeout 120000
       - name: Unit tests (cli)

@@ -7,6 +7,7 @@
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
 
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { isLowCapabilityModel, ORCHESTRATOR_NAME } from '../config/constants';
 import {
@@ -14,6 +15,7 @@ import {
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
+import { classifyFile, type FileZone } from '../context/zone-classifier';
 import { loadPlan } from '../plan/manager';
 import {
 	advanceTaskState,
@@ -298,6 +300,10 @@ export function createGuardrailsHooks(
 		guardrailsConfig = config;
 	}
 
+	// Normalize directory: legacy calls pass the config object as the first arg, so fall back to cwd
+	const effectiveDirectory =
+		typeof directory === 'string' ? directory : process.cwd();
+
 	// If guardrails are disabled, return no-op handlers
 	if (guardrailsConfig?.enabled === false) {
 		return {
@@ -476,13 +482,13 @@ export function createGuardrailsHooks(
 				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
 					const resolvedTarget = path
-						.resolve(directory, targetPath)
+						.resolve(effectiveDirectory, targetPath)
 						.toLowerCase();
 					const planMdPath = path
-						.resolve(directory, '.swarm', 'plan.md')
+						.resolve(effectiveDirectory, '.swarm', 'plan.md')
 						.toLowerCase();
 					const planJsonPath = path
-						.resolve(directory, '.swarm', 'plan.json')
+						.resolve(effectiveDirectory, '.swarm', 'plan.json')
 						.toLowerCase();
 					if (
 						resolvedTarget === planMdPath ||
@@ -565,12 +571,12 @@ export function createGuardrailsHooks(
 						}
 
 						for (const p of paths) {
-							const resolvedP = path.resolve(directory, p);
+							const resolvedP = path.resolve(effectiveDirectory, p);
 							const planMdPath = path
-								.resolve(directory, '.swarm', 'plan.md')
+								.resolve(effectiveDirectory, '.swarm', 'plan.md')
 								.toLowerCase();
 							const planJsonPath = path
-								.resolve(directory, '.swarm', 'plan.json')
+								.resolve(effectiveDirectory, '.swarm', 'plan.json')
 								.toLowerCase();
 							if (
 								resolvedP.toLowerCase() === planMdPath ||
@@ -585,7 +591,7 @@ export function createGuardrailsHooks(
 								);
 							}
 							if (
-								isOutsideSwarmDir(p, directory) &&
+								isOutsideSwarmDir(p, effectiveDirectory) &&
 								(isSourceCodePath(p) || hasTraversalSegments(p))
 							) {
 								const session = swarmState.agentSessions.get(input.sessionID);
@@ -607,9 +613,12 @@ export function createGuardrailsHooks(
 				if (
 					typeof targetPath === 'string' &&
 					targetPath.length > 0 &&
-					isOutsideSwarmDir(targetPath, directory) &&
+					isOutsideSwarmDir(targetPath, effectiveDirectory) &&
 					isSourceCodePath(
-						path.relative(directory, path.resolve(directory, targetPath)),
+						path.relative(
+							effectiveDirectory,
+							path.resolve(effectiveDirectory, targetPath),
+						),
 					)
 				) {
 					const session = swarmState.agentSessions.get(input.sessionID);
@@ -949,7 +958,7 @@ export function createGuardrailsHooks(
 					// v6.12: Get current phase from plan
 					let currentPhase = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(directory);
+						const plan = await loadPlan(effectiveDirectory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhase = extractPhaseNumber(phaseString);
@@ -1238,7 +1247,7 @@ export function createGuardrailsHooks(
 					// v6.12: Check for CURRENT phase, not just any phase
 					let currentPhaseForCheck = 1; // Default to phase 1
 					try {
-						const plan = await loadPlan(directory);
+						const plan = await loadPlan(effectiveDirectory);
 						if (plan) {
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhaseForCheck = extractPhaseNumber(phaseString);
@@ -1345,7 +1354,7 @@ export function createGuardrailsHooks(
 				requireReviewerAndTestEngineer
 			) {
 				try {
-					const plan = await loadPlan(directory);
+					const plan = await loadPlan(effectiveDirectory);
 					if (plan?.phases) {
 						for (const phase of plan.phases) {
 							if (phase.status === 'complete') {
@@ -1449,4 +1458,208 @@ export function hashArgs(args: unknown): number {
 	} catch {
 		return 0;
 	}
+}
+
+// ============================================================
+// Attestation API
+// ============================================================
+
+/** A record of an agent attesting to (resolving/suppressing/deferring) a finding. */
+export interface AttestationRecord {
+	findingId: string;
+	agent: string;
+	attestation: string;
+	action: 'resolve' | 'suppress' | 'defer';
+	timestamp: string;
+}
+
+/**
+ * Validates that an attestation string meets the minimum length requirement.
+ */
+export function validateAttestation(
+	attestation: string,
+	_findingId: string,
+	_agent: string,
+	_action: 'resolve' | 'suppress' | 'defer',
+): { valid: true } | { valid: false; reason: string } {
+	if (attestation.length < 30) {
+		return {
+			valid: false,
+			reason: `Attestation too short (${attestation.length} chars, minimum 30 required)`,
+		};
+	}
+	return { valid: true };
+}
+
+/**
+ * Appends an attestation record to `.swarm/evidence/attestations.jsonl`.
+ */
+export async function recordAttestation(
+	dir: string,
+	record: AttestationRecord,
+): Promise<void> {
+	const evidenceDir = path.join(dir, '.swarm', 'evidence');
+	await fs.mkdir(evidenceDir, { recursive: true });
+	const attestationsPath = path.join(evidenceDir, 'attestations.jsonl');
+	await fs.appendFile(attestationsPath, `${JSON.stringify(record)}\n`);
+}
+
+/**
+ * Validates an attestation and, on success, records it; on failure, logs a rejection event.
+ */
+export async function validateAndRecordAttestation(
+	dir: string,
+	findingId: string,
+	agent: string,
+	attestation: string,
+	action: 'resolve' | 'suppress' | 'defer',
+): Promise<{ valid: true } | { valid: false; reason: string }> {
+	const result = validateAttestation(attestation, findingId, agent, action);
+	if (!result.valid) {
+		const swarmDir = path.join(dir, '.swarm');
+		await fs.mkdir(swarmDir, { recursive: true });
+		const eventsPath = path.join(swarmDir, 'events.jsonl');
+		const event = {
+			event: 'attestation_rejected',
+			findingId,
+			agent,
+			length: attestation.length,
+			reason: result.reason,
+			timestamp: new Date().toISOString(),
+		};
+		await fs.appendFile(eventsPath, `${JSON.stringify(event)}\n`);
+		return result;
+	}
+	const record: AttestationRecord = {
+		findingId,
+		agent,
+		attestation,
+		action,
+		timestamp: new Date().toISOString(),
+	};
+	await recordAttestation(dir, record);
+	return { valid: true };
+}
+
+// ============================================================
+// File Authority API
+// ============================================================
+
+type AgentRule = {
+	readOnly?: boolean;
+	blockedExact?: string[];
+	blockedPrefix?: string[];
+	allowedPrefix?: string[];
+	blockedZones?: FileZone[];
+};
+
+const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
+	architect: {
+		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
+		blockedZones: ['generated'],
+	},
+	coder: {
+		blockedPrefix: ['.swarm/'],
+		allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/'],
+		blockedZones: ['generated', 'config'],
+	},
+	reviewer: {
+		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
+		blockedPrefix: ['src/'],
+		allowedPrefix: ['.swarm/evidence/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
+	},
+	explorer: {
+		readOnly: true,
+	},
+	sme: {
+		readOnly: true,
+	},
+	test_engineer: {
+		blockedExact: ['.swarm/plan.md'],
+		blockedPrefix: ['src/'],
+		allowedPrefix: ['tests/', '.swarm/evidence/'],
+		blockedZones: ['generated'],
+	},
+	docs: {
+		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
+	},
+	designer: {
+		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		blockedZones: ['generated'],
+	},
+	critic: {
+		allowedPrefix: ['.swarm/evidence/'],
+		blockedZones: ['generated'],
+	},
+};
+
+/**
+ * Checks whether the given agent is authorised to write to the given file path.
+ */
+export function checkFileAuthority(
+	agentName: string,
+	filePath: string,
+	_cwd: string,
+): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
+	const normalizedAgent = agentName.toLowerCase();
+	const normalizedPath = filePath.replace(/\\/g, '/');
+
+	const rules = AGENT_AUTHORITY_RULES[normalizedAgent];
+	if (!rules) {
+		return { allowed: false, reason: `Unknown agent: ${agentName}` };
+	}
+
+	if (rules.readOnly) {
+		return {
+			allowed: false,
+			reason: `Path blocked: ${normalizedPath} (agent ${normalizedAgent} is read-only)`,
+		};
+	}
+
+	if (rules.blockedExact) {
+		for (const blocked of rules.blockedExact) {
+			if (normalizedPath === blocked) {
+				return { allowed: false, reason: `Path blocked: ${normalizedPath}` };
+			}
+		}
+	}
+
+	if (rules.blockedPrefix) {
+		for (const prefix of rules.blockedPrefix) {
+			if (normalizedPath.startsWith(prefix)) {
+				return {
+					allowed: false,
+					reason: `Path blocked: ${normalizedPath} is under ${prefix}`,
+				};
+			}
+		}
+	}
+
+	if (rules.allowedPrefix && rules.allowedPrefix.length > 0) {
+		const isAllowed = rules.allowedPrefix.some((prefix) =>
+			normalizedPath.startsWith(prefix),
+		);
+		if (!isAllowed) {
+			return {
+				allowed: false,
+				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+			};
+		}
+	}
+
+	// Zone-based blocking: check after path rules pass
+	if (rules.blockedZones && rules.blockedZones.length > 0) {
+		const { zone } = classifyFile(normalizedPath);
+		if (rules.blockedZones.includes(zone)) {
+			return {
+				allowed: false,
+				reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
+				zone,
+			};
+		}
+	}
+
+	return { allowed: true };
 }

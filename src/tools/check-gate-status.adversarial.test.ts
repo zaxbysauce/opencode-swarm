@@ -199,6 +199,7 @@ describe('check_gate_status ADVERSARIAL', () => {
 	});
 
 	it('rejects task_id with template literal injection', async () => {
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test string
 		const result = await executeTool({ task_id: '${process.env}' }, tmpDir);
 		const parsed = JSON.parse(result);
 

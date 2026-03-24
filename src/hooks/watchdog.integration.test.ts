@@ -83,6 +83,7 @@ describe('Watchdog Integration Tests', () => {
 
 			// Assert: scopeGuardHook.toolBefore throws 'SCOPE VIOLATION'
 			await expect(
+				// biome-ignore lint/suspicious/noExplicitAny: test needs partial output shape
 				scopeGuardHook.toolBefore(toolBeforeInput, toolBeforeOutput as any),
 			).rejects.toThrow(/SCOPE VIOLATION/);
 
@@ -138,6 +139,7 @@ describe('Watchdog Integration Tests', () => {
 
 			// Assert: scopeGuardHook.toolBefore does NOT throw for in-scope file
 			await expect(
+				// biome-ignore lint/suspicious/noExplicitAny: test needs partial output shape
 				scopeGuardHook.toolBefore(toolBeforeInput, toolBeforeOutput as any),
 			).resolves.toBeUndefined();
 		});
