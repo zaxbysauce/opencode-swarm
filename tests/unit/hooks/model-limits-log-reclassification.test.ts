@@ -1,23 +1,14 @@
 /**
  * Test for log reclassification in model-limits.ts
  *
- * Verifies that logFirstCall() calls log() instead of warn() for the "Resolved limit for" message.
- * Also tests deduplication - log() should only be called once per unique model/provider combination.
+ * Mocks only src/utils/logger to avoid leaking a partial mock.
  */
 
 import { describe, it, expect, mock } from 'bun:test';
 
-// Local mock functions
 const mockLog = mock(() => {});
 const mockWarn = mock(() => {});
 const mockError = mock(() => {});
-
-// Mock the utils module BEFORE importing model-limits
-mock.module('../../../src/utils/index.js', () => ({
-	log: mockLog,
-	warn: mockWarn,
-	error: mockError,
-}));
 
 mock.module('../../../src/utils/logger', () => ({
 	log: mockLog,
@@ -29,7 +20,6 @@ describe('model-limits: log reclassification', () => {
 	it('should call log() and NOT warn() for the "Resolved limit for" message on first call', () => {
 		mockLog.mockClear();
 		mockWarn.mockClear();
-		mockError.mockClear();
 
 		const { resolveModelLimit } = require('../../../src/hooks/model-limits.js');
 		resolveModelLimit('claude-sonnet-4-6', 'anthropic', {});
@@ -50,7 +40,6 @@ describe('model-limits: log reclassification', () => {
 
 		mockLog.mockClear();
 		mockWarn.mockClear();
-		mockError.mockClear();
 
 		resolveModelLimit('gpt-5', 'openai', {});
 		const callCountAfterFirst = mockLog.mock.calls.length;

@@ -2,88 +2,20 @@
  * Tests for BUG-1 log reclassifications in model-limits.ts and context-budget.ts
  *
  * BUG-1a (model-limits.ts): Verifies that logFirstCall() calls log() not warn()
- * for the message "[model-limits] Resolved limit for ${modelID}@${providerID}: ${limit} (source: ${source})"
- *
  * BUG-1b (context-budget.ts): Verifies that the startup diagnostic calls log() not warn()
- * for the message "[swarm] Context budget: model=${modelID} provider=${providerID} limit=${modelLimit}"
  *
- * This combined test file ensures both reclassifications are properly verified.
+ * Mocks only src/utils/logger (not the barrel src/utils/index) to avoid
+ * leaking a partial mock that strips SwarmError from later test files.
  */
 
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
-// Local mock functions
 const mockLog = mock(() => {});
 const mockWarn = mock(() => {});
 const mockError = mock(() => {});
 
-// Mock error classes
-class MockSwarmError extends Error {
-	readonly code: string;
-	readonly guidance: string;
-	constructor(message: string, code = 'SWARM_ERROR', guidance = '') {
-		super(message);
-		this.name = 'SwarmError';
-		this.code = code;
-		this.guidance = guidance;
-	}
-}
-class MockCLIError extends MockSwarmError {
-	constructor(message: string, guidance = '') {
-		super(message, 'CLI_ERROR', guidance);
-		this.name = 'CLIError';
-	}
-}
-class MockConfigError extends MockSwarmError {
-	constructor(message: string, guidance = '') {
-		super(message, 'CONFIG_ERROR', guidance);
-		this.name = 'ConfigError';
-	}
-}
-class MockHookError extends MockSwarmError {
-	constructor(message: string, guidance = '') {
-		super(message, 'HOOK_ERROR', guidance);
-		this.name = 'HookError';
-	}
-}
-class MockToolError extends MockSwarmError {
-	constructor(message: string, guidance = '') {
-		super(message, 'TOOL_ERROR', guidance);
-		this.name = 'ToolError';
-	}
-}
-
-// Mock the utils module BEFORE importing SUT modules
-mock.module('../../../src/utils/index.js', () => ({
-	log: mockLog,
-	warn: mockWarn,
-	error: mockError,
-	SwarmError: MockSwarmError,
-	CLIError: MockCLIError,
-	ConfigError: MockConfigError,
-	HookError: MockHookError,
-	ToolError: MockToolError,
-	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
-	MAX_MERGE_DEPTH: 10,
-	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-	simpleGlobToRegex: (s: string) => new RegExp(s),
-}));
-
-mock.module('../../../src/utils', () => ({
-	log: mockLog,
-	warn: mockWarn,
-	error: mockError,
-	SwarmError: MockSwarmError,
-	CLIError: MockCLIError,
-	ConfigError: MockConfigError,
-	HookError: MockHookError,
-	ToolError: MockToolError,
-	deepMerge: (a: any, b: any) => ({ ...a, ...b }),
-	MAX_MERGE_DEPTH: 10,
-	escapeRegex: (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-	simpleGlobToRegex: (s: string) => new RegExp(s),
-}));
-
+// Mock ONLY the logger module — the barrel re-export picks up the mock
+// while keeping SwarmError and other exports intact.
 mock.module('../../../src/utils/logger', () => ({
 	log: mockLog,
 	warn: mockWarn,
@@ -152,18 +84,11 @@ describe('log-level-reclassification', () => {
 			await handler({}, {
 				messages: [
 					{
-						info: {
-							role: 'assistant',
-							modelID: 'gpt-4o',
-							providerID: 'openai',
-						},
+						info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 						parts: [{ type: 'text', text: 'Hello world' }],
 					},
 					{
-						info: {
-							role: 'user',
-							agent: 'architect',
-						},
+						info: { role: 'user', agent: 'architect' },
 						parts: [{ type: 'text', text: 'A test message' }],
 					},
 				],
@@ -189,18 +114,11 @@ describe('log-level-reclassification', () => {
 			await handler({}, {
 				messages: [
 					{
-						info: {
-							role: 'assistant',
-							modelID: 'gpt-4o',
-							providerID: 'openai',
-						},
+						info: { role: 'assistant', modelID: 'gpt-4o', providerID: 'openai' },
 						parts: [{ type: 'text', text: 'Hello world' }],
 					},
 					{
-						info: {
-							role: 'user',
-							agent: 'architect',
-						},
+						info: { role: 'user', agent: 'architect' },
 						parts: [{ type: 'text', text: 'A test message' }],
 					},
 				],
