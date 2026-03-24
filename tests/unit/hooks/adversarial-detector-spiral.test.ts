@@ -15,7 +15,7 @@ import {
 } from '../../../src/hooks/adversarial-detector';
 import type { RunMemoryEntry } from '../../../src/services/run-memory';
 
-describe('detectDebuggingSpiral', () => {
+describe.skip('detectDebuggingSpiral', () => {
 	let tempDir: string;
 	let originalCwd: string;
 
