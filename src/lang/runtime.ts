@@ -61,45 +61,16 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
 };
 
 /**
- * Sanitize a language ID to prevent path traversal and control character injection.
- * Strips control characters (ASCII 0-31, 127), path-separator characters,
- * Windows-reserved chars, and Unicode fullwidth/punctuation ranges.
+ * Sanitize a language ID using a strict whitelist.
+ * Only lowercase alphanumeric characters and hyphens are allowed.
+ * Throws on invalid input to prevent path traversal and injection.
  */
 function sanitizeLanguageId(languageId: string): string {
-	// Strip control chars (ASCII 0-31, 127), path separators (/, \),
-	// Windows-reserved chars (:, *, ?, ", <, >, |), and Unicode fullwidth/punctuation ranges
-	return languageId
-		.split('')
-		.filter((char) => {
-			const code = char.charCodeAt(0);
-			// Skip control characters (ASCII 0-31 and 127)
-			if (code <= 31 || code === 127) {
-				return false;
-			}
-			// Skip path separators and Windows reserved chars
-			if (
-				char === '/' ||
-				char === '\\' ||
-				char === ':' ||
-				char === '*' ||
-				char === '?' ||
-				char === '"' ||
-				char === '<' ||
-				char === '>' ||
-				char === '|'
-			) {
-				return false;
-			}
-			// Skip Unicode fullwidth and punctuation ranges
-			if (code >= 0x2000 && code <= 0x206f) {
-				return false;
-			}
-			if (code >= 0xff00 && code <= 0xffef) {
-				return false;
-			}
-			return true;
-		})
-		.join('');
+	const normalized = languageId.toLowerCase();
+	if (!/^[a-z0-9\-]+$/.test(normalized)) {
+		throw new Error(`Invalid language ID: ${languageId}`);
+	}
+	return normalized;
 }
 
 function getWasmFileName(languageId: string): string {
@@ -206,7 +177,12 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 	if (typeof languageId !== 'string' || languageId.length > 100) {
 		return false;
 	}
-	const normalizedId = sanitizeLanguageId(languageId).toLowerCase();
+	let normalizedId: string;
+	try {
+		normalizedId = sanitizeLanguageId(languageId).toLowerCase();
+	} catch {
+		return false;
+	}
 	if (normalizedId.length === 0) {
 		return false;
 	}

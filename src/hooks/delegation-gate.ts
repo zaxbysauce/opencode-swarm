@@ -23,6 +23,7 @@ import type {
 	EnvelopeValidationResult,
 } from '../types/delegation.js';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
+import { validateSwarmPath } from './utils';
 
 /**
  * Checks if an object has the required fields to be a DelegationEnvelope.
@@ -44,6 +45,7 @@ function isEnvelope(obj: unknown): boolean {
  */
 export function parseDelegationEnvelope(
 	content: string,
+	directory?: string,
 ): DelegationEnvelope | null {
 	try {
 		// Try direct JSON parse first
@@ -152,6 +154,17 @@ export function parseDelegationEnvelope(
 	}
 	if (normalizedMap.platformNotes) {
 		envelope.platformNotes = normalizedMap.platformNotes;
+	}
+
+	// Validate file paths if directory is provided
+	if (directory) {
+		for (const filePath of envelope.files) {
+			try {
+				validateSwarmPath(directory, filePath);
+			} catch {
+				return null;
+			}
+		}
 	}
 
 	return envelope;

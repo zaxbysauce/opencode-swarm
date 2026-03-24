@@ -46,15 +46,13 @@ describe('runtime.ts - Security Verification Tests', () => {
 
 	describe('2. Tab in language ID (kotlin\\tscript)', () => {
 		it('should throw when loading with tab in language ID', async () => {
-			// 'kotlin\tscript' -> sanitized to 'kotlinscript' -> not in map -> file not found
+			// Whitelist rejects: 'kotlin\tscript' contains tab, not in [a-z0-9-]
 			let threw = false;
 			try {
 				await loadGrammar('kotlin\tscript');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(
-					/Grammar file not found|Failed to load grammar/,
-				);
+				expect((e as Error).message).toMatch(/Invalid language ID/);
 			}
 			expect(threw).toBe(true);
 		});

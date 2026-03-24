@@ -143,7 +143,13 @@ export async function rewriteKnowledge<T>(
 			(entries.length > 0 ? '\n' : '');
 		await writeFile(filePath, content, 'utf-8');
 	} finally {
-		if (release) await release();
+		if (release) {
+			try {
+				await release();
+			} catch {
+				/* lock release failed — log warning */
+			}
+		}
 	}
 }
 

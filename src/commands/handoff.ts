@@ -2,6 +2,7 @@
  * Handle /swarm handoff command
  * Generates a handoff brief, writes to .swarm/handoff.md, triggers snapshot, and returns markdown.
  */
+import crypto from 'node:crypto';
 import { renameSync } from 'node:fs';
 import { validateSwarmPath } from '../hooks/utils';
 import {
@@ -23,7 +24,7 @@ export async function handleHandoffCommand(
 
 	// Write to .swarm/handoff.md using atomic write (temp file + rename)
 	const resolvedPath = validateSwarmPath(directory, 'handoff.md');
-	const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+	const tempPath = `${resolvedPath}.tmp.${crypto.randomUUID()}`;
 	await Bun.write(tempPath, markdown);
 	renameSync(tempPath, resolvedPath);
 
