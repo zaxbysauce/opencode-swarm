@@ -593,5 +593,5 @@ export function formatContinuationPrompt(data: HandoffData): string {
 		'- Use `knowledge_recall` to recall relevant lessons before starting',
 	);
 
-	return '```markdown\n' + lines.join('\n') + '\n```';
+	return `\`\`\`markdown\n${lines.join('\n')}\n\`\`\``;
 }

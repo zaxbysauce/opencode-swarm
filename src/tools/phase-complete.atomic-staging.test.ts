@@ -1160,7 +1160,7 @@ describe('executePhaseComplete - event line removal', () => {
 		];
 		fs.writeFileSync(
 			eventsPath,
-			preEvents.map((e) => JSON.stringify(e)).join('\n') + '\n',
+			`${preEvents.map((e) => JSON.stringify(e)).join('\n')}\n`,
 			'utf-8',
 		);
 

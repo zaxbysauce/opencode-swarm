@@ -10,10 +10,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { hasPassedAllGates, readTaskEvidence } from '../gate-evidence';
+import { readTaskEvidence } from '../gate-evidence';
 import {
 	ensureAgentSession,
 	resetSwarmState,
@@ -153,7 +153,6 @@ describe('callIdToEvidenceTaskId map behavior', () => {
 
 		// Evidence should only exist for fallback taskId, not '5.5' (which would happen
 		// if the map still had the old entry and was checked first)
-		const evidenceOld = await readTaskEvidence(tmpDir, '5.5');
 		const evidenceFallback = await readTaskEvidence(tmpDir, '1.1');
 
 		// The old taskId should NOT have evidence from this session (only one call with that taskId)

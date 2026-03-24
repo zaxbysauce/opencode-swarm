@@ -1,14 +1,19 @@
 /**
  * Tests for Task 3.12: Turbo Mode command registration in src/commands/index.ts
- * Verifies import, export, help text, and switch case routing for /swarm turbo
+ * Verifies import, export, help text, and registry routing for /swarm turbo
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as commandsIndex from '../commands/index';
+import {
+	COMMAND_REGISTRY,
+	resolveCommand,
+	VALID_COMMANDS,
+} from '../commands/registry';
 import { handleTurboCommand } from '../commands/turbo';
 import { getAgentSession, swarmState } from '../state';
 
-// Test the switch case routing by creating a mock handler
+// Test the command handler routing via registry pattern
 describe('Task 3.12: Turbo Command Registration', () => {
 	describe('Import Verification', () => {
 		it('handleTurboCommand should be importable from ./turbo', () => {
@@ -38,32 +43,27 @@ describe('Task 3.12: Turbo Command Registration', () => {
 	});
 
 	describe('Help Text Verification', () => {
-		it('HELP_TEXT should contain turbo command documentation', () => {
-			// We need to verify the help text includes the turbo command
-			// Read the source file to check for the help text
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
-
-			// Check that help text includes turbo command
-			expect(source).toContain('/swarm turbo');
-			expect(source).toContain('Turbo Mode');
-			expect(source).toContain('[on|off]');
+		it('turbo should be registered in COMMAND_REGISTRY', () => {
+			// Verify turbo is a valid registered command
+			expect(VALID_COMMANDS).toContain('turbo');
+			expect(COMMAND_REGISTRY.turbo).toBeDefined();
 		});
 
-		it('HELP_TEXT should document toggle behavior', () => {
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
+		it('turbo command should have proper description', () => {
+			// Check that description contains Turbo Mode documentation
+			expect(COMMAND_REGISTRY.turbo.description).toContain('Turbo Mode');
+			expect(COMMAND_REGISTRY.turbo.description).toContain('[on|off]');
+		});
 
+		it('turbo description should document toggle behavior', () => {
 			// Should document the default toggle behavior
-			expect(source).toContain('toggle');
+			expect(COMMAND_REGISTRY.turbo.description.toLowerCase()).toContain(
+				'toggle',
+			);
 		});
 	});
 
-	describe('Switch Case Routing', () => {
+	describe('Command Handler Routing', () => {
 		let testSessionId: string;
 
 		beforeEach(() => {
@@ -108,7 +108,7 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			swarmState.agentSessions.delete(testSessionId);
 		});
 
-		it('switch case should route "turbo" subcommand to handleTurboCommand', async () => {
+		it('should route "turbo" subcommand to handleTurboCommand', async () => {
 			// Create the command handler
 			const handler = commandsIndex.createSwarmCommandHandler(
 				'/test-project',
@@ -139,7 +139,7 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			expect(session?.turboMode).toBe(true);
 		});
 
-		it('switch case should route "turbo off" to disable turbo mode', async () => {
+		it('should route "turbo off" to disable turbo mode', async () => {
 			// Enable turbo mode first
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = true;
@@ -165,7 +165,7 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			expect(session?.turboMode).toBe(false);
 		});
 
-		it('switch case should route "turbo" (no args) to toggle', async () => {
+		it('should route "turbo" (no args) to toggle', async () => {
 			const handler = commandsIndex.createSwarmCommandHandler(
 				'/test-project',
 				{},
@@ -215,17 +215,12 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			expect(typeof commandsIndex.createSwarmCommandHandler).toBe('function');
 		});
 
-		it('turbo should be recognized as a valid subcommand in switch', () => {
-			// This is implicitly tested by the switch case routing tests above
-			// If 'turbo' wasn't in the switch, it would fall through to default HELP_TEXT
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
-
-			// Verify case 'turbo' exists in the switch statement
-			expect(source).toContain("case 'turbo':");
-			expect(source).toContain('handleTurboCommand');
+		it('turbo should be recognized as a valid subcommand via resolveCommand', () => {
+			// Verify resolveCommand correctly routes 'turbo' to the registry entry
+			const resolved = resolveCommand(['turbo']);
+			expect(resolved).not.toBeNull();
+			expect(resolved?.entry.handler).toBe(COMMAND_REGISTRY.turbo.handler);
+			expect(resolved?.entry.description).toContain('Turbo Mode');
 		});
 	});
 });
