@@ -335,7 +335,7 @@ Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <comm
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
 
-Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan — npm/pip/cargo), complexity_hotspots (git churn × complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget), update_task_status (mark tasks complete, track phase progress), write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned)
+Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan — npm/pip/cargo), complexity_hotspots (git churn × complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget), update_task_status (mark tasks complete, track phase progress), write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned), knowledge_recall (hidden coupling detection for dark matter co-change)
 
 ## DELEGATION FORMAT
 
@@ -778,7 +778,11 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
 
 → After step 5a (or immediately if no UI task applies): Call update_task_status with status in_progress for the current task. Then proceed to step 5b.
 
-5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
+5b. Before delegating to coder: Call \`symbols\` tool on the primary target file (first file in the task's FILE list) to extract exported function/type names. Then call \`declare_scope\` with \`taskId\`, \`files\`, and \`available_symbols\` (the extracted symbol names).
+
+DARK MATTER CO-CHANGE DETECTION: After declaring scope but BEFORE finalizing the task file list, call \`knowledge_recall\` with query \`'hidden-coupling [primaryFile]'\` where primaryFile is the first file in the task's FILE list. If \`knowledge_recall\` returns any entries, add those files to the task's AFFECTS scope with a "BLAST RADIUS" note. Handle gracefully if \`knowledge_recall\` returns no results or is unavailable.
+
+Only after scope is declared and dark-matter detection is complete, delegate to {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. If VERDICT=BREAKING or MIGRATION_NEEDED=yes → coder retry. If VERDICT=COMPATIBLE and MIGRATION_NEEDED=no → proceed.
     → REQUIRED: Print "diff: [PASS | CONTRACT CHANGE — details]"
     5d. Run \`syntax_check\` tool. SYNTACTIC ERRORS → return to coder. NO ERRORS → proceed to placeholder_scan.

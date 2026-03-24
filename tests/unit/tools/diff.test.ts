@@ -144,7 +144,8 @@ index 1234567..abcdefg 100644
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
-			// Source includes the raw error message in the output (git diff failed: <message>)
+			// Should expose raw error message from git
+			expect(parsed.error).toContain('fatal: not a git repository');
 			expect(parsed.error).toContain('git diff failed');
 			expect(parsed.error).toContain('fatal: not a git repository');
 			expect(parsed.files).toEqual([]);

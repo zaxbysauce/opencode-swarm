@@ -544,3 +544,54 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 
 	return lines.join('\n');
 }
+
+/**
+ * Format a context-aware continuation prompt for resuming work.
+ * Wraps output in a markdown code block for clean LLM injection.
+ */
+export function formatContinuationPrompt(data: HandoffData): string {
+	const lines: string[] = [];
+
+	// Current phase and task
+	if (data.currentPhase) {
+		lines.push(`**Phase**: ${data.currentPhase}`);
+	}
+	if (data.currentTask) {
+		lines.push(`**Current Task**: ${data.currentTask}`);
+	}
+
+	// Next task - first incomplete task after current
+	const nextTasksAfterCurrent = data.incompleteTasks.filter(
+		(t) => t !== data.currentTask,
+	);
+	if (nextTasksAfterCurrent.length > 0) {
+		lines.push(`**Next Task**: ${nextTasksAfterCurrent[0]}`);
+	}
+
+	// Pending QA state
+	if (data.pendingQA) {
+		lines.push(`**Pending QA**: ${data.pendingQA.taskId}`);
+		if (data.pendingQA.lastFailure) {
+			lines.push(`  - Last failure: ${data.pendingQA.lastFailure}`);
+		}
+	}
+
+	// Recent decisions as context for completed work
+	if (data.recentDecisions.length > 0) {
+		lines.push('');
+		lines.push('**Recent Decisions**:');
+		for (const decision of data.recentDecisions.slice(-3)) {
+			lines.push(`- ${decision}`);
+		}
+	}
+
+	// Reminders
+	lines.push('');
+	lines.push('**Reminders**:');
+	lines.push('- Read `.swarm/handoff.md` for full context');
+	lines.push(
+		'- Use `knowledge_recall` to recall relevant lessons before starting',
+	);
+
+	return '```markdown\n' + lines.join('\n') + '\n```';
+}

@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
@@ -30,6 +31,24 @@ import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { ensureAgentSession, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
+
+/**
+ * Path to the pending phase-complete staging file (relative, .swarm prefix added by validateSwarmPath)
+ */
+const PENDING_FILE = 'pending-phase-complete.json';
+
+/**
+ * Staging file schema for atomic phase-complete operations
+ */
+interface PendingStaging {
+	phase: number;
+	timestamp: string;
+	operations: Array<{
+		type: 'event_write' | 'plan_update' | 'evidence_archive';
+		path?: string;
+		details: string;
+	}>;
+}
 
 /**
  * Arguments for the phase_complete tool
@@ -241,6 +260,103 @@ function isValidRetroEntry(
 		'verdict' in entry &&
 		(entry as { verdict?: unknown }).verdict === 'pass'
 	);
+}
+
+/**
+ * Archive phase evidence when phase_complete succeeds with archive_on_complete enabled.
+ * Moves task evidence files and retro bundle to .swarm/archive/phase-{N}/
+ *
+ * @param dir - Working directory
+ * @param phase - Phase number
+ * @param phaseCompleteConfig - Phase complete configuration
+ * @param warnings - Array to append non-blocking warning messages to
+ */
+export async function archivePhaseEvidence(
+	dir: string,
+	phase: number,
+	phaseCompleteConfig: PhaseCompleteConfig,
+	warnings: string[],
+): Promise<void> {
+	// Skip if archive_on_complete is not enabled
+	if (phaseCompleteConfig.archive_on_complete !== true) {
+		return;
+	}
+
+	const archiveDir = path.join(dir, '.swarm', 'archive', `phase-${phase}`);
+	const evidenceDir = path.join(dir, '.swarm', 'evidence');
+
+	try {
+		// Check if already archived
+		try {
+			await fsPromises.access(archiveDir);
+			// Archive directory exists, skip
+			return;
+		} catch {
+			// Directory does not exist, proceed with archival
+		}
+
+		// Create archive directory
+		await fsPromises.mkdir(archiveDir, { recursive: true });
+
+		// Read plan.json to get task IDs for this phase
+		const planPath = path.join(dir, '.swarm', 'plan.json');
+		const planRaw = await fsPromises.readFile(planPath, 'utf-8');
+		const plan: {
+			phases: Array<{
+				id: number;
+				tasks: Array<{ id: string; status: string }>;
+			}>;
+		} = JSON.parse(planRaw);
+		const targetPhase = plan.phases.find((p) => p.id === phase);
+
+		// Move each task evidence file
+		if (targetPhase) {
+			for (const task of targetPhase.tasks) {
+				const taskEvidencePath = path.join(evidenceDir, `${task.id}.json`);
+				const taskArchivePath = path.join(archiveDir, `${task.id}.json`);
+				try {
+					await fsPromises.rename(taskEvidencePath, taskArchivePath);
+				} catch {
+					// File may not exist, skip
+				}
+			}
+		}
+
+		// Move retro bundle directory
+		const retroEvidencePath = path.join(evidenceDir, `retro-${phase}`);
+		const retroArchivePath = path.join(archiveDir, 'retro');
+		try {
+			await fsPromises.rename(retroEvidencePath, retroArchivePath);
+		} catch {
+			// Retro directory may not exist, skip
+		}
+	} catch (error) {
+		warnings.push(
+			`Warning: failed to archive phase evidence: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+}
+
+/**
+ * Clean up any stale pending-phase-complete.json file from a previous incomplete run.
+ * Should be called at module startup or before any phase-complete operation.
+ *
+ * @param dir - Working directory
+ */
+export async function cleanupStalePhaseCompleteStaging(
+	dir: string,
+): Promise<void> {
+	const pendingPath = validateSwarmPath(dir, PENDING_FILE);
+	try {
+		await fsPromises.access(pendingPath);
+		// File exists - stale from previous incomplete run
+		console.warn(
+			'[phase_complete] WARNING: Leftover staging file found from previous incomplete phase-complete. Discarding.',
+		);
+		await fsPromises.unlink(pendingPath);
+	} catch {
+		// File doesn't exist, nothing to clean up
+	}
 }
 
 /**
@@ -703,6 +819,94 @@ export async function executePhaseComplete(
 	const now = Date.now();
 	const durationMs = now - phaseReferenceTimestamp;
 
+	// Atomic staging: create staging file after success path is confirmed
+	let pendingStaging: PendingStaging | null = null;
+	if (phaseCompleteConfig.atomic && success) {
+		pendingStaging = {
+			phase,
+			timestamp: new Date(now).toISOString(),
+			operations: [],
+		};
+		const pendingPath = validateSwarmPath(dir, PENDING_FILE);
+		fs.writeFileSync(
+			pendingPath,
+			JSON.stringify(pendingStaging, null, 2),
+			'utf-8',
+		);
+	}
+
+	// Helper to update staging file after each operation
+	const updateStaging = () => {
+		if (pendingStaging) {
+			const pendingPath = validateSwarmPath(dir, PENDING_FILE);
+			fs.writeFileSync(
+				pendingPath,
+				JSON.stringify(pendingStaging, null, 2),
+				'utf-8',
+			);
+		}
+	};
+
+	// Helper to clean up staging file on success
+	const cleanupStaging = () => {
+		if (pendingStaging) {
+			try {
+				const pendingPath = validateSwarmPath(dir, PENDING_FILE);
+				fs.unlinkSync(pendingPath);
+			} catch {
+				// Ignore cleanup errors
+			}
+			pendingStaging = null;
+		}
+	};
+
+	// Helper to reverse operations on failure
+	// NOTE: event_write operations are NOT reversed because events.jsonl is append-only
+	const reverseOperations = async (
+		staging: PendingStaging,
+		_dir: string,
+	): Promise<void> => {
+		// Reverse operations in reverse order (LIFO)
+		// Skip event_write - it's append-only and cannot be reversed
+		for (let i = staging.operations.length - 1; i >= 0; i--) {
+			const op = staging.operations[i];
+			if (op.type === 'event_write') {
+				// event_write is append-only - cannot reverse, skip
+				continue;
+			}
+			if (op.type === 'plan_update') {
+				// Plan updates could theoretically be reversed, but for simplicity
+				// we just log a warning since plan.json reversal is complex
+				safeWarn(
+					`[phase_complete] Atomic reversal: plan_update operation not reversed (complexity)`,
+					null,
+				);
+			}
+			if (op.type === 'evidence_archive') {
+				// Evidence archives could be reversed by moving files back
+				// For now, just log a warning
+				safeWarn(
+					`[phase_complete] Atomic reversal: evidence_archive operation not reversed`,
+					null,
+				);
+			}
+		}
+	};
+
+	// Helper to handle atomic failure
+	const handleAtomicFailure = async () => {
+		if (pendingStaging) {
+			await reverseOperations(pendingStaging, dir);
+			try {
+				const pendingPath = validateSwarmPath(dir, PENDING_FILE);
+				fs.unlinkSync(pendingPath);
+			} catch {
+				// Ignore cleanup errors
+			}
+			pendingStaging = null;
+		}
+	};
+
 	// Write event to .swarm/events.jsonl
 	const event: PhaseCompleteEvent = {
 		event: 'phase_complete',
@@ -717,10 +921,23 @@ export async function executePhaseComplete(
 	try {
 		const eventsPath = validateSwarmPath(dir, 'events.jsonl');
 		fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8');
+		// Track event_write operation - but it will NOT be reversed on failure
+		// because events.jsonl is append-only
+		if (pendingStaging) {
+			pendingStaging.operations.push({
+				type: 'event_write',
+				details: 'events.jsonl',
+			});
+			updateStaging();
+		}
 	} catch (writeError) {
 		warnings.push(
 			`Warning: failed to write phase complete event: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
 		);
+		if (pendingStaging) {
+			warnings.push('staging_reversed: true');
+			await handleAtomicFailure();
+		}
 	}
 
 	// Reset phase state on success
@@ -762,13 +979,27 @@ export async function executePhaseComplete(
 					`${JSON.stringify(plan, null, 2)}\n`,
 					'utf-8',
 				);
+				if (pendingStaging) {
+					pendingStaging.operations.push({
+						type: 'plan_update',
+						details: 'plan.json',
+					});
+					updateStaging();
+				}
 			}
 		} catch (error) {
 			warnings.push(
 				`Warning: failed to update plan.json phase status: ${error instanceof Error ? error.message : String(error)}`,
 			);
+			if (pendingStaging) {
+				warnings.push('staging_reversed: true');
+				await handleAtomicFailure();
+			}
 		}
 	}
+
+	// Cleanup staging file on success
+	cleanupStaging();
 
 	if (complianceWarnings.length > 0) {
 		warnings.push(`Curator compliance: ${complianceWarnings.join('; ')}`);

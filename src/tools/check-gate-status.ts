@@ -136,7 +136,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				message: 'Invalid task_id: task_id is required',
 				todo_scan: null,
 			};
-			return JSON.stringify(errorResult, null, 2);
+			return `[GATE:BLOCK reason=Missing task_id parameter]\n${JSON.stringify(errorResult, null, 2)}`;
 		}
 
 		// Validate task_id format (canonical N.M or N.M.P or N.M.P.Q pattern with security checks)
@@ -151,7 +151,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				message: `Invalid task_id format: "${taskIdInput}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3", "1.2.3.4")`,
 				todo_scan: null,
 			};
-			return JSON.stringify(errorResult, null, 2);
+			return `[GATE:BLOCK reason=No evidence found for task ${taskIdInput}]\n${JSON.stringify(errorResult, null, 2)}`;
 		}
 
 		// Use trusted workspace root from tool context (never caller-controlled)
@@ -173,7 +173,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				message: 'Invalid path: evidence path validation failed',
 				todo_scan: null,
 			};
-			return JSON.stringify(errorResult, null, 2);
+			return `[GATE:BLOCK reason=No evidence found for task ${taskIdInput}]\n${JSON.stringify(errorResult, null, 2)}`;
 		}
 
 		// Read evidence file
@@ -191,7 +191,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				message: `No evidence file found for task "${taskIdInput}" at ${evidencePath}. Evidence file may be missing or invalid.`,
 				todo_scan: null,
 			};
-			return JSON.stringify(errorResult, null, 2);
+			return `[GATE:BLOCK reason=No evidence found for task ${taskIdInput}]\n${JSON.stringify(errorResult, null, 2)}`;
 		}
 
 		// Calculate passed and missing gates
@@ -236,6 +236,10 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			todo_scan: todoScan ?? null,
 		};
 
-		return JSON.stringify(result, null, 2);
+		const prefix =
+			status === 'all_passed'
+				? '[GATE:PASS]'
+				: `[GATE:WARN reason=Missing gates: ${missingGates.join(', ')}]`;
+		return `${prefix}\n${JSON.stringify(result, null, 2)}`;
 	},
 });

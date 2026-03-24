@@ -472,6 +472,159 @@ export function createGuardrailsHooks(
 				}
 			}
 
+			// v6.30: Destructive command guard — block dangerous shell commands
+			if (
+				cfg.block_destructive_commands !== false &&
+				(input.tool === 'bash' || input.tool === 'shell')
+			) {
+				const bashArgs = output.args as Record<string, unknown> | undefined;
+				const cmd = (
+					typeof bashArgs?.command === 'string' ? bashArgs.command : ''
+				).trim();
+
+				if (cmd.length > 0) {
+					// Case-insensitive command check
+					const cmdLower = cmd.toLowerCase();
+
+					// Fork bomb detection — match multiple variants
+					// Standard: :(){ :|:& };:
+					// Compact: :(){:|:&};:
+					// Broader structural pattern
+					const forkBombPatterns = [
+						/:\(\)\s*\{\s*:\|:|&\}\s*;:/,
+						/:\{[^}]*\|[^}]*\}\s*;:/,
+					];
+					const isForkBomb = forkBombPatterns.some((p) => p.test(cmdLower));
+					if (isForkBomb) {
+						throw new Error(
+							'BLOCKED: Potentially destructive shell command detected. This pattern can freeze or crash the system.',
+						);
+					}
+
+					// mkfs (disk format) detection
+					if (/\bmkfs\b/.test(cmdLower)) {
+						throw new Error(
+							'BLOCKED: Disk format command (mkfs) detected. This would destroy all data on the target disk.',
+						);
+					}
+
+					// docker system prune detection
+					if (/\bdocker\s+system\s+prune\b/.test(cmdLower)) {
+						throw new Error(
+							'BLOCKED: "docker system prune" detected. This would remove all unused containers, networks, and images, potentially losing important data.',
+						);
+					}
+
+					// kubectl delete detection
+					if (/\bkubectl\s+delete\b/.test(cmdLower)) {
+						throw new Error(
+							'BLOCKED: "kubectl delete" detected. This would delete Kubernetes resources and may cause service disruption.',
+						);
+					}
+
+					// git push --force and git push -f detection
+					if (
+						/\bgit\s+push\s+(--force|-f)\b/.test(cmdLower) ||
+						/\bgit\s+push\s+-+force\b/.test(cmd)
+					) {
+						throw new Error(
+							'BLOCKED: Force push detected (git push --force or git push -f). This can overwrite remote history and cause data loss for collaborators.',
+						);
+					}
+
+					// git reset --hard detection
+					if (/\bgit\s+reset\s+--hard\b/.test(cmdLower)) {
+						throw new Error(
+							'BLOCKED: "git reset --hard" detected. This would discard all local changes and reset the working tree to the last commit, causing data loss.',
+						);
+					}
+
+					// git reset --mixed with target branch (e.g., git reset --mixed origin/main)
+					if (/\bgit\s+reset\s+--mixed\s+\S+/.test(cmdLower)) {
+						throw new Error(
+							'BLOCKED: "git reset --mixed" with a target branch detected. This would reset the index and working tree to a specific commit, potentially losing uncommitted changes.',
+						);
+					}
+
+					// SQL DROP and TRUNCATE detection (case-insensitive, word boundaries)
+					if (
+						/\bDROP\s+TABLE\b/i.test(cmd) ||
+						/\bDROP\s+DATABASE\b/i.test(cmd)
+					) {
+						throw new Error(
+							'BLOCKED: SQL DROP command detected. This would permanently delete database objects and cause data loss.',
+						);
+					}
+					if (/\bTRUNCATE\s+TABLE\b/i.test(cmd)) {
+						throw new Error(
+							'BLOCKED: SQL TRUNCATE command detected. This would remove all rows from a table irreversibly.',
+						);
+					}
+
+					// rm -rf or rm -r -f detection with safe directory exceptions
+					// Match: rm -rf OR rm -r -f (separate flags in any order)
+					const isRmRf =
+						/\brm\s+-rf\b/i.test(cmd) ||
+						/\brm\b.*-r.*-f\b/.test(cmd) ||
+						/\brm\b.*-f.*-r\b/.test(cmd);
+					if (isRmRf) {
+						// Extract ALL path arguments after rm -rf / rm -r -f
+						// Handle: rm -rf <path1> <path2> and rm -rf "<path with spaces>"
+						// Quoted path pattern: capture content between matching quotes
+						const pathPattern = /(?:^|\s)(['"])(.+?)\1|([^\s]+)/g;
+						const paths: string[] = [];
+						for (const pathMatch of cmd.matchAll(pathPattern)) {
+							// pathMatch[2] is quoted content, pathMatch[3] is unquoted
+							const extractedPath = pathMatch[2] ?? pathMatch[3];
+							if (extractedPath && !extractedPath.startsWith('-')) {
+								paths.push(extractedPath);
+							}
+						}
+						// Filter out the command name 'rm' itself from paths — it's the first token, not a path
+						if (paths.length > 0 && paths[0].toLowerCase() === 'rm') {
+							paths.shift();
+						}
+
+						if (paths.length === 0) {
+							// rm -rf without a clear path target — block it
+							throw new Error(
+								'BLOCKED: Potentially destructive shell command detected. This would permanently delete files and cannot be undone.',
+							);
+						}
+
+						// Check each path — block if ANY path is unsafe
+						let hasUnsafePath = false;
+						for (const targetPath of paths) {
+							const pathLower = targetPath.toLowerCase();
+
+							// Allow rm -rf on node_modules and .git within the project
+							// These are safe because they can be restored via package manager or git
+							const isNodeModules =
+								pathLower.includes('node_modules') &&
+								!pathLower.includes('node_modules/.cache');
+							const isDotGit =
+								pathLower === '.git' ||
+								pathLower.endsWith('/.git') ||
+								pathLower.endsWith('\\.git');
+
+							if (!isNodeModules && !isDotGit) {
+								hasUnsafePath = true;
+								break;
+							}
+						}
+
+						if (hasUnsafePath) {
+							throw new Error(
+								'BLOCKED: Potentially destructive shell command detected. This would permanently delete files and cannot be undone.\n' +
+									'If you need to remove node_modules or .git, those are allowed but please confirm explicitly.\n' +
+									'For node_modules: restore with "npm install" or "bun install"\n' +
+									'For .git: restore with "git clone" from the remote repository',
+							);
+						}
+					}
+				}
+			}
+
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				const args = output.args as Record<string, unknown> | undefined;
 				const targetPath =

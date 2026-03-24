@@ -41,6 +41,10 @@ export {
 	resetSummaryIdCounter,
 } from './tool-summarizer';
 export {
+	createTrajectoryLoggerHook,
+	truncateTrajectoryFile,
+} from './trajectory-logger';
+export {
 	composeHandlers,
 	estimateTokens,
 	readSwarmFileAsync,

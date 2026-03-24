@@ -3,6 +3,7 @@
  * Reads .swarm/session/state.json and rehydrates swarmState on plugin init.
  */
 
+import { lstatSync } from 'node:fs';
 import { validateSwarmPath } from '../hooks/utils';
 import type { AgentSessionState, TaskWorkflowState } from '../state';
 import {
@@ -128,6 +129,15 @@ export async function readSnapshot(
 ): Promise<SnapshotData | null> {
 	try {
 		const resolvedPath = validateSwarmPath(directory, 'session/state.json');
+		// Reject symlinks to prevent reading outside the intended session directory
+		try {
+			const stat = lstatSync(resolvedPath);
+			if (stat.isSymbolicLink()) {
+				return null;
+			}
+		} catch {
+			// lstatSync failed (e.g., file doesn't exist) — let the subsequent file read handle it
+		}
 		const file = Bun.file(resolvedPath);
 		const content = await file.text();
 

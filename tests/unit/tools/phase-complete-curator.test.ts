@@ -8,10 +8,10 @@ import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '.
 // Mock curator functions BEFORE importing the module under test
 const mockRunCuratorPhase = mock(async () => ({
 	phase: 1,
-	agents_dispatched: ['coder', 'reviewer', 'test_engineer'],
+	digest: { phase: 1, summary: 'Test curator phase result', findings: [] },
 	compliance: [],
 	knowledge_recommendations: [],
-	summary: 'Test curator phase result',
+	summary_updated: false,
 	timestamp: new Date().toISOString(),
 }));
 
@@ -22,8 +22,22 @@ const mockApplyCuratorKnowledgeUpdates = mock(async () => ({
 
 const mockRunCriticDriftCheck = mock(async () => ({
 	phase: 1,
-	alignment: 'ALIGNED',
-	drift_score: 0,
+	report: {
+		schema_version: 1 as const,
+		phase: 1,
+		alignment: 'ALIGNED' as const,
+		drift_score: 0,
+		first_deviation: null,
+		compounding_effects: [],
+		corrections: [],
+		requirements_checked: 0,
+		requirements_satisfied: 0,
+		scope_additions: [],
+		injection_summary: 'Phase 1: ALIGNED',
+		timestamp: new Date().toISOString(),
+	},
+	report_path: '.swarm/drift-report-phase-1.json',
+	injection_text: 'Phase 1: ALIGNED',
 	recommendations: [],
 	timestamp: new Date().toISOString(),
 }));

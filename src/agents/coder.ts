@@ -21,6 +21,7 @@ RULES:
 - Respect CONSTRAINT
 - No research, no web searches, no documentation lookups
 - Use training knowledge for APIs
+- If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
 
 ## DEFENSIVE CODING RULES
 - NEVER use \`any\` type in TypeScript — always use specific types

@@ -548,7 +548,7 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 			const input: SyntaxCheckInput = {
 				changed_files: [{ path: unsupportedFile, additions: 1 }],
 				mode: 'changed',
-				languages: ['javascript'],
+				languages: ['typescript'],
 			};
 
 			const result = await syntaxCheck(input, tmpDir);

@@ -41,7 +41,10 @@ describe('check_gate_status', () => {
 
 	it('returns error when task_id is missing', async () => {
 		const result = await executeTool({}, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('Invalid task_id');
@@ -50,7 +53,10 @@ describe('check_gate_status', () => {
 
 	it('returns error when task_id is undefined', async () => {
 		const result = await executeTool({ task_id: undefined }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('Invalid task_id');
@@ -58,7 +64,10 @@ describe('check_gate_status', () => {
 
 	it('returns error when task_id is empty string', async () => {
 		const result = await executeTool({ task_id: '' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('Invalid task_id');
@@ -66,7 +75,10 @@ describe('check_gate_status', () => {
 
 	it('returns error for invalid task_id format', async () => {
 		const result = await executeTool({ task_id: 'invalid' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('Invalid task_id format');
@@ -75,7 +87,10 @@ describe('check_gate_status', () => {
 
 	it('returns error for task_id without dots', async () => {
 		const result = await executeTool({ task_id: '123' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('Invalid task_id format');
@@ -83,7 +98,10 @@ describe('check_gate_status', () => {
 
 	it('accepts valid task_id in N.M format', async () => {
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// Should return no_evidence (file doesn't exist), but format is valid
 		expect(parsed.status).toBe('no_evidence');
@@ -92,7 +110,10 @@ describe('check_gate_status', () => {
 
 	it('accepts valid task_id in N.M.P format', async () => {
 		const result = await executeTool({ task_id: '2.3.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.taskId).toBe('2.3.1');
@@ -108,7 +129,10 @@ describe('check_gate_status', () => {
 			{ task_id: '1.1', working_directory: '../etc' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// Tool safely returns no_evidence - no sensitive data leaked
 		expect(parsed.status).toBe('no_evidence');
@@ -120,7 +144,10 @@ describe('check_gate_status', () => {
 			{ task_id: '1.1', working_directory: '/etc/passwd' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// Tool safely returns no_evidence - no sensitive data leaked
 		expect(parsed.status).toBe('no_evidence');
@@ -155,7 +182,10 @@ describe('check_gate_status', () => {
 		// Try to read from attacker's controlled directory
 		// The tool will actually find and read this file!
 		const result = await executeTool({ task_id: '1.1' }, attackDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// This demonstrates the security issue: the tool reads from arbitrary directories
 		// Note: This is currently the behavior - the path validation doesn't prevent this
@@ -170,7 +200,10 @@ describe('check_gate_status', () => {
 
 	it('returns no_evidence when evidence file does not exist', async () => {
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('No evidence file found');
@@ -184,7 +217,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 		expect(parsed.message).toContain('No evidence file found');
@@ -197,7 +233,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 	});
@@ -209,7 +248,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('no_evidence');
 	});
@@ -239,7 +281,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('all_passed');
 		expect(parsed.required_gates).toEqual(['reviewer', 'test_engineer']);
@@ -267,7 +312,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '2.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('incomplete');
 		expect(parsed.required_gates).toEqual([
@@ -294,7 +342,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '3.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('incomplete');
 		expect(parsed.passed_gates).toEqual([]);
@@ -319,7 +370,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '4.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('all_passed');
 		expect(parsed.passed_gates).toEqual(['docs']);
@@ -346,7 +400,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '5.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// Check all required fields exist
 		expect(parsed).toHaveProperty('taskId');
@@ -385,7 +442,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '6.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.gates.reviewer.sessionId).toBe('test-session-123');
 		expect(parsed.gates.reviewer.timestamp).toBe('2024-06-15T10:30:00.000Z');
@@ -406,7 +466,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '7.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// With no required gates, should be all_passed
 		expect(parsed.status).toBe('all_passed');
@@ -439,7 +502,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '8.1' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		// Only required gates should be in passed_gates
 		expect(parsed.status).toBe('all_passed');
@@ -472,7 +538,10 @@ describe('check_gate_status', () => {
 		);
 
 		const result = await executeTool({ task_id: '9.1' }, customDir);
-		const parsed = JSON.parse(result);
+		const firstNewline = result.indexOf('\n');
+		const jsonPart =
+			firstNewline >= 0 ? result.substring(firstNewline + 1) : result;
+		const parsed = JSON.parse(jsonPart);
 
 		expect(parsed.status).toBe('all_passed');
 

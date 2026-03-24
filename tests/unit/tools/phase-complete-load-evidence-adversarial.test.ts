@@ -3,7 +3,7 @@
  * Tests error propagation, memory overflow, injection, boundary violations
  */
 
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -11,29 +11,17 @@ import * as os from 'node:os';
 import { resetSwarmState, ensureAgentSession } from '../../../src/state';
 
 // Mock loadEvidence and listEvidenceTaskIds from evidence/manager
-// IMPORTANT: Use local mock variable pattern, NOT vi.mocked()
-const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
-	status: 'found';
-	bundle: {
-		schema_version: string;
-		task_id: string;
-		created_at: string;
-		updated_at: string;
-		entries: Array<{
-			task_id: string;
-			type: string;
-			timestamp: string;
-			agent: string;
-			verdict: string;
-			summary: string;
-			phase_number: number;
-			[key: string]: unknown;
-		}>;
-	};
-} | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
-const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
+// IMPORTANT: Use mock.module for proper isolation in bun:test
+const mockLoadEvidence = mock(async (dir: string, taskId: string) => {
+	// Default implementation - will be overridden by mockResolvedValueOnce in tests
+	return { status: 'not_found' as const };
+});
+const mockListEvidenceTaskIds = mock(async (dir: string) => {
+	// Default implementation
+	return [];
+});
 
-vi.mock('../../../src/evidence/manager.js', () => ({
+mock.module('../../../src/evidence/manager.js', () => ({
 	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
 	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
 }));
@@ -48,7 +36,8 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 	beforeEach(() => {
 		// Reset state before each test
 		resetSwarmState();
-		vi.clearAllMocks();
+		// Note: mock.module mocks persist for the test file lifetime
+		// Each test uses mockResolvedValueOnce to set specific return values
 
 		// Create temp directory
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-load-evidence-adversarial-'));
@@ -81,7 +70,7 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			// Ignore cleanup errors
 		}
 		resetSwarmState();
-		vi.clearAllMocks();
+		// mock.module mocks are automatically cleaned up when test file completes
 	});
 
 	describe('loadEvidence throwing (sync/async) — propagation vs swallow', () => {

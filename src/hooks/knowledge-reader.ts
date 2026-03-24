@@ -436,15 +436,13 @@ export async function readMergedKnowledge(
 	const maxInject = config.max_inject_count ?? 5;
 	const topN = ranked.slice(0, maxInject);
 
-	// Step 7: Record lessons shown (fire-and-forget, non-critical)
+	// Step 7: Record lessons shown
 	if (topN.length > 0 && context?.currentPhase) {
-		recordLessonsShown(
+		await recordLessonsShown(
 			directory,
 			topN.map((e) => e.id),
 			context.currentPhase,
-		).catch(() => {
-			// Swallow errors - this is fire-and-forget
-		});
+		);
 	}
 
 	return topN;
