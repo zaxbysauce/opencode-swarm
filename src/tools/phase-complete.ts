@@ -268,6 +268,7 @@ export async function executePhaseComplete(
 			{
 				success: false,
 				phase: phase,
+				status: 'blocked',
 				message: 'Invalid phase number',
 				agentsDispatched: [],
 				warnings: ['Phase must be a positive number'],
@@ -377,15 +378,11 @@ export async function executePhaseComplete(
 	if (!retroFound) {
 		// Fallback: scan all task IDs for any retro-N matching this phase
 		const allTaskIds = await listEvidenceTaskIds(dir);
-		const retroTaskIds = allTaskIds.filter((id) => id.startsWith('retro-'));
+		const retroTaskIds = allTaskIds.filter(
+			(id) => id.startsWith('retro-') && /^retro-\d+$/.test(id),
+		);
 		for (const taskId of retroTaskIds) {
-			let bundleResult: LoadEvidenceResult;
-			try {
-				bundleResult = await loadEvidence(dir, taskId);
-			} catch {
-				// Skip directories with invalid task IDs (e.g. retro-phase1)
-				continue;
-			}
+			const bundleResult = await loadEvidence(dir, taskId);
 			if (bundleResult.status !== 'found') {
 				if (bundleResult.status === 'invalid_schema') {
 					invalidSchemaErrors.push(...bundleResult.errors);
