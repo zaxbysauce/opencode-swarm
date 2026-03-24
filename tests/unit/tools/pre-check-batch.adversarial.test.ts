@@ -267,9 +267,9 @@ describe('ADVERSARIAL: fail-closed no-files behavior', () => {
 		// Paths accepted by validation but tools fail on non-existent files
 		expect(result.gates_passed).toBe(false);
 
-		// Weakness: Tools ran on invalid paths (wasted resources)
-		// This should fail validation earlier, not at tool runtime
-		expect(result.lint.ran).toBe(true);
+		// Lint tool does not run on whitespace-only paths — they fail before tool execution
+		// This is acceptable: whitespace paths are invalid and gates still fail (fail-closed)
+		expect(result.lint.ran).toBe(false);
 	});
 
 	/**

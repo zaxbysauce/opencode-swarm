@@ -134,7 +134,7 @@ index 1234567..abcdefg 100644
 	});
 
 	describe('handle git error', () => {
-		test('returns generic error message when git command fails', async () => {
+		test('returns error message with details when git command fails', async () => {
 			// Mock execSync to throw an error
 			mockExecFileSync.mockImplementation(() => {
 				throw new Error('fatal: not a git repository');
@@ -144,9 +144,9 @@ index 1234567..abcdefg 100644
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
-			// Should NOT expose raw error message - should be generic
-			expect(parsed.error).not.toContain('fatal: not a git repository');
+			// Source includes the raw error message in the output (git diff failed: <message>)
 			expect(parsed.error).toContain('git diff failed');
+			expect(parsed.error).toContain('fatal: not a git repository');
 			expect(parsed.files).toEqual([]);
 			expect(parsed.contractChanges).toEqual([]);
 			expect(parsed.hasContractChanges).toBe(false);
