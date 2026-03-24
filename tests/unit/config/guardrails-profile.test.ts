@@ -114,6 +114,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_consecutive_errors: 5,
 			warning_threshold: 0.75,
 			idle_timeout_minutes: 60,
+			block_destructive_commands: true,
 			profiles: {
 				coder: { max_tool_calls: 400 },
 				explorer: { max_duration_minutes: 60 },
@@ -133,6 +134,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_consecutive_errors: 5,
 			warning_threshold: 0.75,
 			idle_timeout_minutes: 60,
+			block_destructive_commands: true,
 		};
 
 		const result = GuardrailsConfigSchema.parse(config);
@@ -148,6 +150,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			max_consecutive_errors: 5,
 			warning_threshold: 0.75,
 			idle_timeout_minutes: 60,
+			block_destructive_commands: true,
 			profiles: {},
 		};
 
