@@ -755,7 +755,7 @@ ${handoffContent}`;
 											`${currentTaskId}.json`,
 										);
 										if (fs.existsSync(evidencePath)) {
-											const evidenceContent = fs.readFileSync(
+											const evidenceContent = await fs.promises.readFile(
 												evidencePath,
 												'utf-8',
 											);
