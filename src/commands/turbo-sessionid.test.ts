@@ -37,6 +37,7 @@ describe('handleTurboCommand - Empty SessionID Handling (Task 3.13)', () => {
 			taskWorkflowStates: new Map(),
 			lastGateOutcome: null,
 			declaredCoderScope: null,
+			availableCoderSymbols: null,
 			lastScopeViolation: null,
 			modifiedFilesThisCoderTask: [],
 			lastPhaseCompleteTimestamp: 0,

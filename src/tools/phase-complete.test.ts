@@ -23,6 +23,7 @@ describe('archivePhaseEvidence', () => {
 		required_agents: [],
 		require_docs: false,
 		policy: 'warn' as const,
+		atomic: true,
 	});
 
 	const createMinimalPlan = (phase: number, taskIds: string[]) => ({

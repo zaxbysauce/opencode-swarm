@@ -112,6 +112,7 @@ export function deserializeAgentSession(
 		taskWorkflowStates: deserializeTaskWorkflowStates(s.taskWorkflowStates),
 		lastGateOutcome: null,
 		declaredCoderScope: null,
+		availableCoderSymbols: null,
 		lastScopeViolation: null,
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
