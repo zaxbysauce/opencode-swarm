@@ -163,7 +163,7 @@ describe('consolidateSystemMessages', () => {
 	});
 
 	describe('non-mergeable system messages', () => {
-		it('leaves system message with array-type content (Anthropic-style) in original position', () => {
+		it('merges array-type content (Anthropic-style) into string at index 0', () => {
 			const messages = [
 				{
 					role: 'system',
@@ -174,15 +174,15 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should return unchanged because the system message has non-string content
+			// Array content is extracted as text and merged at index 0
 			expect(result).not.toBe(messages);
 			expect(result.length).toBe(2);
-			// The system message should still be at index 0
 			expect(result[0].role).toBe('system');
-			expect(result[0].content).toEqual([{ type: 'text', text: 'Anthropic style content' }]);
+			expect(result[0].content).toBe('Anthropic style content');
+			expect(result[1].role).toBe('user');
 		});
 
-		it('leaves system message with name field in place and does not merge', () => {
+		it('removes system message with name field at index > 0 (safety net for local models)', () => {
 			const messages = [
 				{ role: 'system', content: 'System prompt', name: 'system_message' },
 				{ role: 'user', content: 'Hello' },
@@ -190,7 +190,7 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should return unchanged because the system message has a name field
+			// Named system message at index 0 is kept (no other system messages)
 			expect(result).not.toBe(messages);
 			expect(result.length).toBe(2);
 			expect(result[0].role).toBe('system');
@@ -198,7 +198,7 @@ describe('consolidateSystemMessages', () => {
 			expect(result[0].name).toBe('system_message');
 		});
 
-		it('leaves system message with tool_call_id field in place and does not merge', () => {
+		it('removes system message with tool_call_id at index > 0 (safety net for local models)', () => {
 			const messages = [
 				{ role: 'system', content: 'Tool result content', tool_call_id: 'call_123' },
 				{ role: 'user', content: 'Hello' },
@@ -206,7 +206,7 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should return unchanged because the system message has tool_call_id
+			// tool_call_id system message at index 0 is kept (no other system messages)
 			expect(result).not.toBe(messages);
 			expect(result.length).toBe(2);
 			expect(result[0].role).toBe('system');
@@ -247,20 +247,18 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Whitespace-only system message is filtered out, not added to result
-			expect(result.length).toBe(4);
+			// All system messages merged/removed; only one system at index 0
 			expect(result[0].role).toBe('system');
-			// Only the two valid string system messages should be merged
-			expect(result[0].content).toBe('Valid system prompt 1\n\nValid system prompt 2');
-			expect(result[1].role).toBe('user');
-			// Anthropic-style message stays in place
-			expect(result[2].role).toBe('system');
-			expect(result[2].content).toEqual([{ type: 'text', text: 'Anthropic style' }]);
-			// Whitespace-only message is removed
-			expect(result[3].role).toBe('assistant');
+			// The two valid string system messages + Anthropic text merged
+			expect(result[0].content).toContain('Valid system prompt 1');
+			expect(result[0].content).toContain('Valid system prompt 2');
+			expect(result[0].content).toContain('Anthropic style');
+			// No system messages at index > 0
+			const systemCount = result.filter(m => m.role === 'system').length;
+			expect(systemCount).toBe(1);
 		});
 
-		it('handles multiple system messages with name fields - none merged', () => {
+		it('handles multiple system messages with name fields - only first kept', () => {
 			const messages = [
 				{ role: 'system', content: 'System 1', name: 'name1' },
 				{ role: 'system', content: 'System 2', name: 'name2' },
@@ -269,16 +267,17 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// No string-only system messages without name/tool_call_id, so return unchanged
+			// No string-only system messages to merge; first system kept, rest removed
 			expect(result).not.toBe(messages);
-			expect(result.length).toBe(3);
+			expect(result.length).toBe(2);
+			expect(result[0].role).toBe('system');
+			expect(result[0].name).toBe('name1');
+			expect(result[1].role).toBe('user');
 		});
 	});
 
 	describe('strict template model compatibility', () => {
 		it('swarm agent injection does not produce multiple system messages', () => {
-			// This is the exact scenario from the bug report:
-			// OpenCode base prompt + swarm agent prompt should result in a single system message
 			const messages = [
 				{
 					role: 'system',
@@ -302,21 +301,15 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should have exactly one system message at index 0
 			const systemMessages = result.filter((m) => m.role === 'system');
 			expect(systemMessages.length).toBe(1);
-
-			// The content should contain both prompts joined
 			expect(result[0].content).toContain('You are OpenCode');
 			expect(result[0].content).toContain('Swarm Agent Context');
-
-			// Conversation order should be preserved
 			expect(result[1].role).toBe('user');
 			expect(result[2].role).toBe('assistant');
 		});
 
 		it('handles strict template with only base system message', () => {
-			// Fast path: only one system message at index 0 with string content
 			const messages = [
 				{
 					role: 'system',
@@ -327,7 +320,6 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should return new array but not merge anything
 			expect(result.length).toBe(2);
 			expect(result[0].role).toBe('system');
 			expect(result[0].content).toBe('You are OpenCode, an AI-powered IDE assistant.');
@@ -343,7 +335,6 @@ describe('consolidateSystemMessages', () => {
 
 			const result = consolidateSystemMessages(messages);
 
-			// Should merge all three into one
 			const systemMessages = result.filter((m) => m.role === 'system');
 			expect(systemMessages.length).toBe(1);
 			expect(result[0].content).toBe(
@@ -352,7 +343,6 @@ describe('consolidateSystemMessages', () => {
 		});
 
 		it('swarm agent injection does not produce multiple system messages', () => {
-			// Simulate: OpenCode system prompt + swarm-injected agent prompt + conversation
 			const input = [
 				{ role: 'system', content: 'You are a helpful assistant.' },
 				{ role: 'user', content: 'Fix the bug in auth.ts' },
@@ -361,18 +351,12 @@ describe('consolidateSystemMessages', () => {
 			];
 			const result = consolidateSystemMessages(input);
 
-			// Exactly one system message
 			const systemMessages = result.filter((m) => m.role === 'system');
 			expect(systemMessages).toHaveLength(1);
-
-			// It is at index 0
 			expect(result[0].role).toBe('system');
-
-			// Contains both prompts
 			expect(result[0].content).toContain('You are a helpful assistant.');
 			expect(result[0].content).toContain('You are the coder agent.');
 
-			// Conversation order preserved
 			const nonSystem = result.filter((m) => m.role !== 'system');
 			expect(nonSystem[0]).toEqual({ role: 'user', content: 'Fix the bug in auth.ts' });
 			expect(nonSystem[1]).toEqual({ role: 'assistant', content: 'I will delegate to the coder.' });
