@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.32.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.2...v6.32.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* address 5 critical QA findings — lockfile safety, loop cap, temp file predictability, language ID whitelist, delegation path validation ([#264](https://github.com/zaxbysauce/opencode-swarm/issues/264)) ([18f73c3](https://github.com/zaxbysauce/opencode-swarm/commit/18f73c34149a4b30309eb65e7921290fdd8a7372))
+
 ## [6.32.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.1...v6.32.2) (2026-03-24)
 
 
