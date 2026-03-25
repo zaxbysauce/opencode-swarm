@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.1...v6.33.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* cleanup and hardening for v6.33.2 ([#276](https://github.com/zaxbysauce/opencode-swarm/issues/276)) ([ef59816](https://github.com/zaxbysauce/opencode-swarm/commit/ef59816cc142b3fe070fa694a7760d3f8644bc50))
+
 ## [Unreleased]
 
 ### Features
