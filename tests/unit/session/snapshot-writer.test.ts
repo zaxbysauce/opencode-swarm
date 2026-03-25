@@ -15,6 +15,7 @@ import {
 	serializeAgentSession,
 	writeSnapshot,
 	createSnapshotWriterHook,
+	flushPendingSnapshot,
 	type SnapshotData,
 	type SerializedAgentSession,
 } from '../../../src/session/snapshot-writer';
@@ -29,6 +30,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	// Flush any pending snapshot writes to prevent test pollution
+	flushPendingSnapshot(testDir).catch(() => {
+		// Ignore errors during cleanup
+	});
+
 	// Clean up the test directory
 	if (existsSync(testDir)) {
 		rmSync(testDir, { recursive: true, force: true });
@@ -610,6 +616,9 @@ describe('createSnapshotWriterHook', () => {
 		// Call the hook
 		await hook({}, {});
 
+		// Flush the pending snapshot to trigger the debounced write
+		await flushPendingSnapshot(testDir);
+
 		// Verify the file exists after calling the hook
 		expect(existsSync(filePath)).toBe(true);
 	});
@@ -629,6 +638,9 @@ describe('createSnapshotWriterHook', () => {
 		const hook = createSnapshotWriterHook(testDir);
 
 		await hook({}, {});
+
+		// Flush the pending snapshot to trigger the debounced write
+		await flushPendingSnapshot(testDir);
 
 		const filePath = path.join(testDir, '.swarm', 'session', 'state.json');
 		const content = await Bun.file(filePath).text();
