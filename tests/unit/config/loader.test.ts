@@ -188,6 +188,7 @@ describe('config/loader', () => {
 				max_iterations: 5,
 				qa_retry_limit: 3,
 				inject_phase_reminders: true,
+				execution_mode: 'balanced',
 				adversarial_testing: { enabled: true, scope: 'all' },
 			});
 		});
