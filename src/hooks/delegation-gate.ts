@@ -26,6 +26,14 @@ import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { validateSwarmPath } from './utils';
 
 /**
+ * v6.33.1 CRIT-1: Fallback map for declared coder scope by taskId.
+ * When messagesTransform sets declaredCoderScope on the architect session,
+ * the coder session may not exist yet. This map allows scope-guard to look up
+ * the scope by taskId when the session's declaredCoderScope is null.
+ */
+export const pendingCoderScopeByTaskId = new Map<string, string[]>();
+
+/**
  * Checks if an object has the required fields to be a DelegationEnvelope.
  */
 function isEnvelope(obj: unknown): boolean {
@@ -957,6 +965,13 @@ export function createDelegationGateHook(
 				}
 				session.declaredCoderScope =
 					declaredFiles.length > 0 ? declaredFiles : null;
+
+				// v6.33.1 CRIT-1: Also store in fallback map for scope-guard access
+				if (declaredFiles.length > 0 && currentTaskId) {
+					pendingCoderScopeByTaskId.set(currentTaskId, declaredFiles);
+				} else {
+					pendingCoderScopeByTaskId.delete(currentTaskId);
+				}
 
 				// OBSERVE-ONLY (Phase 2): Record coder delegation in task state machine for telemetry.
 				// Error swallowing is intentional — Phase 3 enforcement gates will check state directly
