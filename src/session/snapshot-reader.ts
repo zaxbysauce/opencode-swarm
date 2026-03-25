@@ -226,6 +226,15 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 			// delete sessions that were idle before the process restarted.
 			session.lastToolCallTime = now;
 			session.lastAgentEventTime = now;
+			// Refresh InvocationWindow timestamps to prevent guardrails
+			// duration-limit and idle-timeout circuit breakers from firing
+			// immediately on stale windows restored from disk.
+			if (session.windows) {
+				for (const window of Object.values(session.windows)) {
+					window.startedAtMs = now;
+					window.lastSuccessTimeMs = now;
+				}
+			}
 			swarmState.agentSessions.set(sessionId, session);
 		}
 	}
