@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.4...v6.33.0) (2026-03-25)
+
+
+### Features
+
+* phase-complete atomic staging, trajectory logging, and test isolation fixes ([#269](https://github.com/zaxbysauce/opencode-swarm/issues/269)) ([ddf0055](https://github.com/zaxbysauce/opencode-swarm/commit/ddf0055f177f12f558a094810e937a70803e40c7))
+
 ## [6.32.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.3...v6.32.4) (2026-03-24)
 
 
