@@ -11,6 +11,7 @@ import {
 	type QualityBudgetEvidence,
 	type SastEvidence,
 	type SbomEvidence,
+	type SecretscanEvidence,
 	type SyntaxEvidence,
 } from '../config/evidence-schema';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
@@ -28,7 +29,7 @@ export type LoadEvidenceResult =
 	| { status: 'invalid_schema'; errors: string[] };
 
 /**
- * All valid evidence types (12 total)
+ * All valid evidence types (13 total)
  */
 export const VALID_EVIDENCE_TYPES = [
 	'review',
@@ -43,6 +44,7 @@ export const VALID_EVIDENCE_TYPES = [
 	'sbom',
 	'build',
 	'quality_budget',
+	'secretscan',
 ] as const;
 
 /**
@@ -91,6 +93,15 @@ export function isQualityBudgetEvidence(
 }
 
 /**
+ * Type guard for secretscan evidence
+ */
+export function isSecretscanEvidence(
+	evidence: Evidence,
+): evidence is SecretscanEvidence {
+	return evidence.type === 'secretscan';
+}
+
+/**
  * Task ID validation pattern: strict N.M or N.M.P numeric format
  * Same pattern as gate-evidence.ts and check-gate-status.ts
  * Pattern: ^\d+\.\d+(\.\d+)*$
@@ -108,18 +119,18 @@ const RETRO_TASK_ID_REGEX = /^retro-\d+$/;
 /**
  * Internal automated-tool evidence ID pattern.
  * Allows only the specific internal tool IDs: sast_scan, quality_budget,
- * syntax_check, placeholder_scan, sbom_generate, build.
- * Pattern: ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$
+ * syntax_check, placeholder_scan, sbom_generate, build, secretscan.
+ * Pattern: ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$
  */
 const INTERNAL_TOOL_ID_REGEX =
-	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
+	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
 
 /**
  * Validate and sanitize task ID.
  * Accepts three formats:
  * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
  * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
- * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build)
+ * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build, secretscan)
  * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
  * @throws Error with descriptive message on failure
  */
