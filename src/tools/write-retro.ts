@@ -354,6 +354,69 @@ export async function executeWriteRetro(
 		);
 	}
 
+	// Validate task_id if explicitly provided
+	if (args.task_id !== undefined) {
+		const tid = args.task_id;
+		if (!tid || tid.length === 0 || tid.length > 200) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: phase,
+					message: 'Invalid task ID: must match pattern',
+				},
+				null,
+				2,
+			);
+		}
+		if (/\0/.test(tid)) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: phase,
+					message: 'Invalid task ID: contains null bytes',
+				},
+				null,
+				2,
+			);
+		}
+		for (let i = 0; i < tid.length; i++) {
+			if (tid.charCodeAt(i) < 32) {
+				return JSON.stringify(
+					{
+						success: false,
+						phase: phase,
+						message: 'Invalid task ID: contains control characters',
+					},
+					null,
+					2,
+				);
+			}
+		}
+		if (tid.includes('..') || tid.includes('/') || tid.includes('\\')) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: phase,
+					message: 'Invalid task ID: path traversal detected',
+				},
+				null,
+				2,
+			);
+		}
+		const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
+		if (!VALID_TASK_ID.test(tid)) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: phase,
+					message: 'Invalid task ID: must match pattern',
+				},
+				null,
+				2,
+			);
+		}
+	}
+
 	// Build the taskId
 	const taskId = args.task_id ?? `retro-${phase}`;
 
