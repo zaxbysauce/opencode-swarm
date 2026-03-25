@@ -200,6 +200,8 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 
 	// Populate agentSessions with deserialized data
 	// v6.33.1: Skip malformed sessions missing required fields instead of injecting bad state
+	// v6.33.3: Refresh timestamps to prevent immediate stale eviction after rehydration
+	const now = Date.now();
 	if (snapshot.agentSessions) {
 		for (const [sessionId, serializedSession] of Object.entries(
 			snapshot.agentSessions,
@@ -218,10 +220,13 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 				);
 				continue;
 			}
-			swarmState.agentSessions.set(
-				sessionId,
-				deserializeAgentSession(serializedSession),
-			);
+			const session = deserializeAgentSession(serializedSession);
+			// Refresh timestamps to current time so startAgentSession's stale
+			// eviction sweep (now - lastToolCallTime > 2h) does not immediately
+			// delete sessions that were idle before the process restarted.
+			session.lastToolCallTime = now;
+			session.lastAgentEventTime = now;
+			swarmState.agentSessions.set(sessionId, session);
 		}
 	}
 }
