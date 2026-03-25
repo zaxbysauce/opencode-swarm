@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.2...v6.33.3) (2026-03-25)
+
+
+### Bug Fixes
+
+* **session:** resolve typecheck errors and add snapshot schema version bump ([#278](https://github.com/zaxbysauce/opencode-swarm/issues/278)) ([12186d9](https://github.com/zaxbysauce/opencode-swarm/commit/12186d9ceba3c675c2e953cbd529ce8458413c87))
+
 ## [6.33.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.1...v6.33.2) (2026-03-25)
 
 
