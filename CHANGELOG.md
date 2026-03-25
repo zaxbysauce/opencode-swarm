@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **model-fallback:** add automatic fallback model detection for transient model failures (rate limit, 429, 503, timeout, overloaded, model not found). Agent config accepts optional `fallback_models` array (max 3) per agent. Guardrails injects MODEL FALLBACK advisory and tracks `model_fallback_index` + `modelFallbackExhausted` state. Resets on successful execution.
+* **retrospective:** add `error_taxonomy` field to `RetrospectiveEvidenceSchema` — auto-classifies phase failures as `planning_error`, `interface_mismatch`, `logic_error`, `scope_creep`, or `gate_evasion` by scanning evidence bundles for the phase's tasks
+* **doc-scan:** add two-pass documentation discovery — `doc_scan` (Pass 1) scans project docs and builds index manifest at `.swarm/doc-manifest.json` with mtime-based caching; `doc_extract` (Pass 2) scores docs against task context using Jaccard bigram similarity, extracts actionable constraints (MUST/SHOULD/DO NOT patterns), deduplicates via `findNearDuplicate`, and writes to `.swarm/knowledge.jsonl` as SwarmKnowledgeEntry objects
+* **bounded-coder-revisions:** add `max_coder_revisions` config (default 5) to limit how many times a coder can be retried on a single task. When the limit is hit, a `CODER REVISION LIMIT` advisory is injected. State tracked via `coderRevisions` and `revisionLimitHit` in `AgentSessionState`, serialized/deserialized in session snapshots.
+* **secretscan-evidence:** add `SecretscanEvidenceSchema` to evidence system with `findings_count`, `scan_directory`, `files_scanned`, `skipped_files` fields. `pre_check_batch` now persists secretscan results to evidence bundle after each scan. `check_gate_status` scans EvidenceBundle for secretscan entries and reports BLOCKED status if secrets were found. Add `isSecretscanEvidence` type guard for type-safe narrowing.
+
 ## [6.33.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.0...v6.33.1) (2026-03-25)
 
 
