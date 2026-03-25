@@ -39,7 +39,6 @@ import {
 import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
 import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
 import { createDelegationLedgerHook } from './hooks/delegation-ledger.js';
-import { deleteStoredInputArgs } from './hooks/guardrails.js';
 import { createHivePromoterHook } from './hooks/hive-promoter.js';
 import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
@@ -733,12 +732,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails (after)
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
-			console.debug(
-				'[hook-chain] toolAfter start sessionID=%s agent=%s tool=%s',
-				input.sessionID,
-				input.agent,
-				input.tool?.name,
-			);
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
@@ -759,19 +752,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// v6.18 Session persistence — write snapshot after each tool call
 			await snapshotWriterHook(input, output);
 			await toolSummarizerHook?.(input, output);
-			// v6.33.1: execution_mode gates optional hooks
-			// strict: run all (default v6 behavior)
-			// balanced: skip slop-detector, incremental-verify, compaction
-			// fast: skip all optional hooks
-			const execMode = config.execution_mode ?? 'balanced';
-			if (execMode === 'strict') {
-				if (slopDetectorHook) await slopDetectorHook.toolAfter(input, output);
-				if (incrementalVerifyHook)
-					await incrementalVerifyHook.toolAfter(input, output);
-				if (compactionServiceHook)
-					await compactionServiceHook.toolAfter(input, output);
-			}
-			// balanced and fast: skip all three optional hooks
+			if (slopDetectorHook) await slopDetectorHook.toolAfter(input, output);
+			if (incrementalVerifyHook)
+				await incrementalVerifyHook.toolAfter(input, output);
+			if (compactionServiceHook)
+				await compactionServiceHook.toolAfter(input, output);
 
 			// Tool output truncation (after summarizer to avoid double-processing)
 			const toolOutputConfig = config.tool_output;
@@ -839,26 +824,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					session.lastAgentEventTime = Date.now();
 				}
 			}
-			// v6.33.1 CRIT-2 fix: Clean up stored input args after all toolAfter handlers
-			// have completed. This must run AFTER delegation-gate.toolAfter (which reads
-			// stored args) to prevent leaks when delegation-gate is disabled.
-			deleteStoredInputArgs(input.callID);
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		}) as any,
 
 		// Track agent delegations and active agent
-		'chat.message': safeHook(
-			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
-			async (input: any, output: any) => {
-				console.debug(
-					'[session] chat.message sessionID=%s agent=%s',
-					input.sessionID,
-					input.agent,
-				);
-				await delegationHandler(input, output);
-			},
-			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
-		) as any,
+		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
+		'chat.message': safeHook(delegationHandler) as any,
 
 		// v6.7 Background automation framework (scaffold only)
 		// Exposed for future Task 5.x business feature integration

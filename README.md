@@ -142,30 +142,6 @@ You only need to specify the agents you want to override. The `architect` inheri
 
 See the [full configuration reference](#configuration-reference) and the [free-tier model setup](#free-tier-opencode-zen-models) for more options.
 
-### Step 7 — Performance modes (optional)
-
-Swarm runs optional quality hooks (slop detection, incremental verification, compaction) on every tool call. For faster iteration, you can skip these:
-
-**Via slash command** (session-wide):
-```
-/swarm turbo
-```
-
-**Via config** (persistent):
-```json
-{
-  "execution_mode": "fast"
-}
-```
-
-| Mode | Behavior |
-|------|----------|
-| `strict` | Runs all quality hooks (slop detector, incremental verify, compaction). Maximum safety, highest overhead. |
-| `balanced` (default) | Skips optional quality hooks. Recommended for most workflows. |
-| `fast` | Same as balanced. Reserved for future more aggressive optimizations. |
-
-Use `strict` mode for critical security-sensitive changes. Switch to `balanced` for routine development.
-
 ---
 
 ## Common First-Run Questions

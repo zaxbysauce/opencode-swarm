@@ -27,7 +27,6 @@ import { handlePlanCommand } from './plan.js';
 import { handlePreflightCommand } from './preflight.js';
 import { handlePromoteCommand } from './promote.js';
 import { handleResetCommand } from './reset.js';
-import { handleResetSessionCommand } from './reset-session.js';
 import { handleRetrieveCommand } from './retrieve.js';
 import { handleRollbackCommand } from './rollback.js';
 import { handleSimulateCommand } from './simulate.js';
@@ -150,11 +149,6 @@ export const COMMAND_REGISTRY = {
 	reset: {
 		handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
 		description: 'Clear swarm state files [--confirm]',
-	},
-	'reset-session': {
-		handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
-		description:
-			'Clear session state while preserving plan, evidence, and knowledge',
 	},
 	rollback: {
 		handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),

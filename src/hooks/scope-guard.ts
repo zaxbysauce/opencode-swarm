@@ -13,7 +13,6 @@ import * as path from 'node:path';
 import { ORCHESTRATOR_NAME } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { swarmState } from '../state';
-import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 
 // NOTE: bash/shell tools are intentionally excluded from WRITE_TOOLS.
 // A coder agent using bash with shell redirections (echo > file, cp, sed -i) can
@@ -52,7 +51,7 @@ export interface ScopeGuardConfig {
  */
 export function createScopeGuardHook(
 	config: Partial<ScopeGuardConfig>,
-	directory: string,
+	_directory: string,
 	injectAdvisory?: (sessionId: string, message: string) => void,
 ): {
 	toolBefore: (
@@ -83,12 +82,7 @@ export function createScopeGuardHook(
 			if (isArchitect) return; // Architect writes are always allowed
 
 			// Get declared scope for this session
-			// v6.33.1 CRIT-1: Check session first, then fallback map by taskId
-			const declaredScope =
-				session?.declaredCoderScope ??
-				(session?.currentTaskId
-					? pendingCoderScopeByTaskId.get(session.currentTaskId)
-					: null);
+			const declaredScope = session?.declaredCoderScope;
 			if (!declaredScope || declaredScope.length === 0) return; // No scope declared — allow
 
 			// Get the file path from args
@@ -104,7 +98,7 @@ export function createScopeGuardHook(
 				.replace(/\[[\d;]*m/g, ''); // strip remaining ANSI CSI sequences
 
 			// Check if file is in scope
-			if (!isFileInScope(filePath, declaredScope, directory)) {
+			if (!isFileInScope(filePath, declaredScope)) {
 				const taskId = session?.currentTaskId ?? 'unknown';
 				const violationMessage = `SCOPE VIOLATION: ${agentName} attempted to modify '${filePath}' which is not in declared scope for task ${taskId}. Declared scope: [${declaredScope.slice(0, 3).join(', ')}${declaredScope.length > 3 ? '...' : ''}]`;
 
@@ -153,12 +147,10 @@ export function createScopeGuardHook(
 export function isFileInScope(
 	filePath: string,
 	scopeEntries: string[],
-	directory?: string,
 ): boolean {
-	const dir = directory ?? process.cwd();
-	const resolvedFile = path.resolve(dir, filePath);
+	const resolvedFile = path.resolve(filePath);
 	return scopeEntries.some((scope) => {
-		const resolvedScope = path.resolve(dir, scope);
+		const resolvedScope = path.resolve(scope);
 		if (resolvedFile === resolvedScope) return true;
 		const rel = path.relative(resolvedScope, resolvedFile);
 		return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);

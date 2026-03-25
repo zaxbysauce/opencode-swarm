@@ -14,14 +14,6 @@ import type {
 import { swarmState } from '../state';
 
 /**
- * v6.33.1: Debounce state for snapshot writes.
- * Coalesces rapid tool calls to reduce I/O pressure and prevent SSE drain
- * overwhelm (root cause amplifier for #270 session loss).
- */
-let pendingWrite: ReturnType<typeof setTimeout> | null = null;
-let lastWritePromise: Promise<void> = Promise.resolve();
-
-/**
  * Serialized form of AgentSessionState with Map/Set fields converted to plain arrays/objects
  */
 export interface SerializedAgentSession {
@@ -215,11 +207,8 @@ export async function writeSnapshot(
 		const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
 		await Bun.write(tempPath, content);
 		renameSync(tempPath, resolvedPath);
-	} catch (error) {
-		console.warn(
-			'[snapshot-writer] write failed:',
-			error instanceof Error ? error.message : String(error),
-		);
+	} catch {
+		// Silently swallow errors - non-fatal operation
 	}
 }
 
@@ -231,25 +220,10 @@ export function createSnapshotWriterHook(
 	directory: string,
 ): (input: unknown, output: unknown) => Promise<void> {
 	return async (_input: unknown, _output: unknown): Promise<void> => {
-		if (pendingWrite) clearTimeout(pendingWrite);
-		pendingWrite = setTimeout(() => {
-			pendingWrite = null;
-			lastWritePromise = writeSnapshot(directory, swarmState).catch(() => {});
-		}, 2000);
+		try {
+			await writeSnapshot(directory, swarmState);
+		} catch {
+			// Silently swallow errors - non-fatal hook
+		}
 	};
-}
-
-/**
- * v6.33.1: Flush any pending debounced snapshot write immediately.
- * Used by phase-complete and handoff to ensure critical state transitions
- * are persisted before returning.
- */
-export async function flushPendingSnapshot(directory: string): Promise<void> {
-	if (pendingWrite) {
-		clearTimeout(pendingWrite);
-		pendingWrite = null;
-		await writeSnapshot(directory, swarmState).catch(() => {});
-	} else {
-		await lastWritePromise;
-	}
 }

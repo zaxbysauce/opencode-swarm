@@ -14,7 +14,6 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { ensureAgentSession, resetSwarmState, swarmState } from '../state';
-import { pendingCoderScopeByTaskId } from './delegation-gate';
 import { createScopeGuardHook, isFileInScope } from './scope-guard';
 
 const SESSION_ID = 'test-session-scope-guard';
@@ -192,104 +191,9 @@ describe('scope-guard hook (Task 3.1)', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────
-	// Test 7 (CRIT-1): Fallback to pendingCoderScopeByTaskId when declaredCoderScope is null
+	// Test 7: Sanitizes path with \r\n to prevent log injection (SEC-1 fix)
 	// ─────────────────────────────────────────────────────────────
-	it('7 (CRIT-1). Falls back to pendingCoderScopeByTaskId when declaredCoderScope is null', async () => {
-		// This test verifies the CRIT-1 fix: when a coder session exists but its
-		// declaredCoderScope is null (cross-session scenario), scope-guard should
-		// fall back to the pendingCoderScopeByTaskId Map using the currentTaskId.
-
-		const CODERSESSION_ID = 'coder-session-fallback-test';
-		const TASK_ID = '1.3';
-
-		// Ensure the coder session exists with null declaredCoderScope
-		ensureAgentSession(CODERSESSION_ID, 'coder');
-		const session = swarmState.agentSessions.get(CODERSESSION_ID)!;
-		expect(session.declaredCoderScope).toBeNull();
-
-		// Set currentTaskId to match the Map key
-		session.currentTaskId = TASK_ID;
-
-		// Seed the fallback Map with scope for task 1.3
-		pendingCoderScopeByTaskId.set(TASK_ID, [
-			'/workspace/src/hooks/scope-guard.ts',
-		]);
-
-		const hook = createScopeGuardHook(
-			{ enabled: true },
-			WORKSPACE_DIR,
-			() => {},
-		);
-
-		// Test 7a: File INSIDE fallback scope — should NOT throw
-		await expect(async () => {
-			await hook.toolBefore(
-				{
-					tool: 'edit',
-					sessionID: CODERSESSION_ID,
-					callID: 'call-fallback-1',
-				},
-				{ args: { path: '/workspace/src/hooks/scope-guard.ts' } },
-			);
-		}).not.toThrow();
-
-		// Test 7b: File OUTSIDE fallback scope — should throw SCOPE VIOLATION
-		await expect(async () => {
-			await hook.toolBefore(
-				{
-					tool: 'edit',
-					sessionID: CODERSESSION_ID,
-					callID: 'call-fallback-2',
-				},
-				{ args: { path: '/workspace/src/tools/other.ts' } },
-			);
-		}).toThrow(/SCOPE VIOLATION/);
-
-		// Cleanup: remove the Map entry
-		pendingCoderScopeByTaskId.delete(TASK_ID);
-	});
-
-	// ─────────────────────────────────────────────────────────────
-	// Test 7b (CRIT-1): No fallback when currentTaskId does not match Map key
-	// ─────────────────────────────────────────────────────────────
-	it('7b (CRIT-1). No fallback when currentTaskId has no entry in Map (null scope returned)', async () => {
-		// When currentTaskId is set but has no entry in pendingCoderScopeByTaskId,
-		// the guard should return early (allow) since scope resolves to null.
-
-		const CODERSESSION_ID = 'coder-session-no-map-entry';
-		const TASK_ID = '9.9'; // Task ID with no Map entry
-
-		ensureAgentSession(CODERSESSION_ID, 'coder');
-		const session = swarmState.agentSessions.get(CODERSESSION_ID)!;
-		expect(session.declaredCoderScope).toBeNull();
-		session.currentTaskId = TASK_ID;
-
-		// Ensure the Map does NOT have an entry for this task
-		expect(pendingCoderScopeByTaskId.has(TASK_ID)).toBe(false);
-
-		const hook = createScopeGuardHook(
-			{ enabled: true },
-			WORKSPACE_DIR,
-			() => {},
-		);
-
-		// No scope in Map — should return early (allow any file)
-		await expect(async () => {
-			await hook.toolBefore(
-				{
-					tool: 'edit',
-					sessionID: CODERSESSION_ID,
-					callID: 'call-no-map-entry',
-				},
-				{ args: { path: '/workspace/any/file.ts' } },
-			);
-		}).not.toThrow();
-	});
-
-	// ─────────────────────────────────────────────────────────────
-	// Test 8: Sanitizes path with \r\n to prevent log injection (SEC-1 fix)
-	// ─────────────────────────────────────────────────────────────
-	it('8. Sanitizes path with \\r\\n to prevent log injection (SEC-1 fix)', async () => {
+	it('7. Sanitizes path with \\r\\n to prevent log injection (SEC-1 fix)', async () => {
 		ensureAgentSession(SESSION_ID, 'coder');
 		const session = swarmState.agentSessions.get(SESSION_ID)!;
 		session.declaredCoderScope = ['/workspace/src/hooks'];
@@ -325,31 +229,31 @@ describe('scope-guard hook (Task 3.1)', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────
-	// Test 9: isFileInScope handles exact match and directory containment
+	// Test 8: isFileInScope handles exact match and directory containment
 	// ─────────────────────────────────────────────────────────────
 	describe('isFileInScope', () => {
-		it('9a. Returns true for exact file match', () => {
+		it('8a. Returns true for exact file match', () => {
 			const scope = ['/workspace/src/hooks/scope-guard.ts'];
 			expect(isFileInScope('/workspace/src/hooks/scope-guard.ts', scope)).toBe(
 				true,
 			);
 		});
 
-		it('9b. Returns true for file inside directory scope', () => {
+		it('8b. Returns true for file inside directory scope', () => {
 			const scope = ['/workspace/src/hooks'];
 			expect(isFileInScope('/workspace/src/hooks/scope-guard.ts', scope)).toBe(
 				true,
 			);
 		});
 
-		it('9c. Returns false for file outside directory scope', () => {
+		it('8c. Returns false for file outside directory scope', () => {
 			const scope = ['/workspace/src/hooks'];
 			expect(isFileInScope('/workspace/src/tools/scope-guard.ts', scope)).toBe(
 				false,
 			);
 		});
 
-		it('9d. Handles path.normalize for nested directories', () => {
+		it('8d. Handles path.normalize for nested directories', () => {
 			const scope = ['/workspace/src'];
 			expect(isFileInScope('/workspace/src/hooks/scope-guard.ts', scope)).toBe(
 				true,
@@ -359,34 +263,12 @@ describe('scope-guard hook (Task 3.1)', () => {
 			);
 		});
 
-		it('9e. Returns false for parent directory traversal', () => {
+		it('8e. Returns false for parent directory traversal', () => {
 			const scope = ['/workspace/src/hooks'];
 			// File is outside scope via ..
 			expect(isFileInScope('/workspace/src/../other/file.ts', scope)).toBe(
 				false,
 			);
-		});
-
-		it('9f. Resolves relative file path against directory parameter', () => {
-			// When directory is '/workspace', 'src/foo.ts' resolves to '/workspace/src/foo.ts'
-			// which is inside scope ['/workspace/src']
-			const scope = ['/workspace/src'];
-			expect(isFileInScope('src/foo.ts', scope, '/workspace')).toBe(true);
-		});
-
-		it('9g. Resolves relative file path against different directory returns false', () => {
-			// When directory is '/other', 'src/foo.ts' resolves to '/other/src/foo.ts'
-			// which is NOT inside scope ['/workspace/src']
-			const scope = ['/workspace/src'];
-			expect(isFileInScope('src/foo.ts', scope, '/other')).toBe(false);
-		});
-
-		it('9h. Falls back to process.cwd() when directory not provided', () => {
-			// Without directory, resolves relative to process.cwd()
-			const cwd = process.cwd();
-			const scope = [cwd];
-			// A file equal to scope entry should match
-			expect(isFileInScope('.', scope)).toBe(true);
 		});
 	});
 });

@@ -9,10 +9,7 @@ import {
 	formatHandoffMarkdown,
 	getHandoffData,
 } from '../services/handoff-service';
-import {
-	flushPendingSnapshot,
-	writeSnapshot,
-} from '../session/snapshot-writer';
+import { writeSnapshot } from '../session/snapshot-writer';
 import { swarmState } from '../state';
 
 export async function handleHandoffCommand(
@@ -33,9 +30,6 @@ export async function handleHandoffCommand(
 
 	// Trigger snapshot write
 	await writeSnapshot(directory, swarmState);
-
-	// v6.33.1: Also flush any debounced pending snapshot
-	await flushPendingSnapshot(directory);
 
 	// Return markdown response
 	return `## Handoff Brief Written
