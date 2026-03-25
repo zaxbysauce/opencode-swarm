@@ -584,6 +584,7 @@ export const GuardrailsConfigSchema = z.object({
 	max_consecutive_errors: z.number().min(2).max(20).default(5),
 	warning_threshold: z.number().min(0.1).max(0.9).default(0.75),
 	idle_timeout_minutes: z.number().min(5).max(240).default(60),
+	no_op_warning_threshold: z.number().min(1).max(100).default(15),
 	qa_gates: z
 		.object({
 			required_tools: z
@@ -900,6 +901,9 @@ export const PluginConfigSchema = z.object({
 
 	// QA workflow settings
 	qa_retry_limit: z.number().min(1).max(10).default(3),
+
+	// Performance mode — controls optional hook execution overhead
+	execution_mode: z.enum(['strict', 'balanced', 'fast']).default('balanced'),
 
 	// Feature flags
 	inject_phase_reminders: z.boolean().default(true),

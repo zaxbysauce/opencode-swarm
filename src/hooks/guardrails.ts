@@ -64,6 +64,13 @@ export function deleteStoredInputArgs(callID: string): void {
 }
 
 /**
+ * v6.33.1: No-op work detector state.
+ * Tracks tool calls since last file write per session (transient, not persisted).
+ */
+const toolCallsSinceLastWrite = new Map<string, number>();
+const noOpWarningIssued = new Set<string>();
+
+/**
  * Extracts phase number from a phase string like "Phase 3: Implementation"
  */
 function extractPhaseNumber(phaseString: string | null): number {
@@ -1007,6 +1014,28 @@ export function createGuardrailsHooks(
 					}
 					// Reset tracked files after check (whether violation or not)
 					session.modifiedFilesThisCoderTask = [];
+				}
+			}
+
+			// v6.33.1: No-op work detector — warn when agent makes many tool calls
+			// with no file modifications (stuck in analysis/planning loop)
+			const sessionId = input.sessionID;
+			const normalizedToolName = input.tool.replace(/^[^:]+[:.]/, '');
+			if (isWriteTool(normalizedToolName)) {
+				toolCallsSinceLastWrite.set(sessionId, 0);
+			} else {
+				const count = (toolCallsSinceLastWrite.get(sessionId) ?? 0) + 1;
+				toolCallsSinceLastWrite.set(sessionId, count);
+				const threshold = cfg.no_op_warning_threshold ?? 15;
+				if (
+					count >= threshold &&
+					!noOpWarningIssued.has(sessionId) &&
+					session?.pendingAdvisoryMessages
+				) {
+					noOpWarningIssued.add(sessionId);
+					session.pendingAdvisoryMessages.push(
+						`WARNING: Agent has made ${count} tool calls with no file modifications. If you are stuck, use /swarm handoff to reset or /swarm turbo to reduce overhead.`,
+					);
 				}
 			}
 
