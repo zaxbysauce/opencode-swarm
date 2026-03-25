@@ -82,13 +82,6 @@ Does the code do what the task acceptance criteria require? Check: every accepta
 TIER 2: SAFETY (mandatory for MODERATE+, always for COMPLEX)
 Does the code introduce security vulnerabilities, data loss risks, or breaking changes? Check against: SAST findings, secret scan results, import analysis. Anti-rubber-stamp: "No issues found" requires evidence. State what you checked.
 
-SAST TRIAGE: When SAST findings are included in your review input, evaluate each finding:
-- If a sanitizer, validator, or type guard exists between source and sink → DISMISS as false positive
-- If the taint path crosses a trust boundary without validation → ESCALATE as true positive
-- If the finding is in test code or mock setup → DISMISS
-Report: "SAST TRIAGE: N findings reviewed, M dismissed (false positive), K escalated"
-Do not rubber-stamp all findings as issues. Do not dismiss all findings without reading the code path.
-
 TIER 3: QUALITY (run only for COMPLEX, and only if Tiers 1-2 pass)
 Code style, naming, duplication, test coverage, documentation completeness. This tier is advisory — QUALITY findings do not block approval. Approval requires: Tier 1 PASS + Tier 2 PASS (where applicable). Tier 3 is informational. Flag these slop patterns:
 - Vague identifiers (result, data, temp, value, item, info, stuff, obj, ret, val) — flag if a more descriptive name exists

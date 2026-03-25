@@ -27,12 +27,6 @@ interface RehydrationCache {
 let _rehydrationCache: RehydrationCache | null = null;
 
 /**
- * Single shared promise for rehydration from disk.
- * Deduplicates concurrent calls to rehydrateSessionFromDisk().
- */
-let _rehydrationPromise: Promise<void> | null = null;
-
-/**
  * Represents a single tool call entry for tracking purposes
  */
 export interface ToolCallEntry {
@@ -141,8 +135,6 @@ export interface AgentSessionState {
 	} | null;
 	/** Declared file scope for current coder task (null = no scope declared) */
 	declaredCoderScope: string[] | null;
-	/** Available symbols for current coder task (populated by Architect, used to ground coder imports) */
-	availableCoderSymbols: string[] | null;
 	/** Last scope violation message (null = no violation) */
 	lastScopeViolation: string | null;
 	/** Flag for one-shot scope violation warning injection in messagesTransform */
@@ -267,7 +259,15 @@ export function startAgentSession(
 
 	// Evict stale sessions based on last activity, not start time
 	// Default: 2 hours — should exceed typical agent durations (evicts inactive sessions)
-	cleanupStaleSessions(staleDurationMs);
+	const staleIds: string[] = [];
+	for (const [id, session] of swarmState.agentSessions) {
+		if (now - session.lastToolCallTime > staleDurationMs) {
+			staleIds.push(id);
+		}
+	}
+	for (const id of staleIds) {
+		swarmState.agentSessions.delete(id);
+	}
 
 	// Create new session state
 	const sessionState: AgentSessionState = {
@@ -302,7 +302,6 @@ export function startAgentSession(
 		taskWorkflowStates: new Map(),
 		lastGateOutcome: null,
 		declaredCoderScope: null,
-		availableCoderSymbols: null,
 		lastScopeViolation: null,
 		scopeViolationDetected: false,
 		modifiedFilesThisCoderTask: [],
@@ -326,46 +325,27 @@ export function startAgentSession(
 	// before clearing agentSessions, preventing a race that would silently discard
 	// in-flight workflow state.
 	if (directory) {
-		if (!_rehydrationPromise) {
-			const promise = rehydrateSessionFromDisk(directory, sessionState)
-				.catch(() => {
-					// Swallow rehydration errors - fallback to current pre-rehydration path
-				})
-				.finally(() => {
-					_rehydrationPromise = null;
-					swarmState.pendingRehydrations.delete(promise);
-				});
-			_rehydrationPromise = promise;
-			swarmState.pendingRehydrations.add(promise);
-		} else {
-			swarmState.pendingRehydrations.add(_rehydrationPromise);
-		}
+		let rehydrationPromise: Promise<void>;
+		rehydrationPromise = rehydrateSessionFromDisk(directory, sessionState)
+			.catch(() => {
+				// Swallow rehydration errors - fallback to current pre-rehydration path
+			})
+			.finally(() => {
+				swarmState.pendingRehydrations.delete(rehydrationPromise);
+			});
+		swarmState.pendingRehydrations.add(rehydrationPromise);
 	}
 }
 
 /**
  * End an agent session by removing it from the state.
- * Called by cleanupStaleSessions() during startAgentSession() to evict sessions
- * that have been idle beyond the configured TTL. Also called directly for explicit
- * session termination.
+ * NOTE: Currently unused in production — no session lifecycle teardown is wired up.
+ * Sessions accumulate for the process lifetime. Callers should integrate this into
+ * a session TTL or idle-timeout mechanism to prevent unbounded Map growth.
  * @param sessionId - The session identifier to remove
  */
 export function endAgentSession(sessionId: string): void {
 	swarmState.agentSessions.delete(sessionId);
-}
-
-/**
- * Evict sessions that have been idle beyond the stale duration.
- * Uses lastToolCallTime as the eviction threshold, not session start time.
- * @param staleDurationMs - Milliseconds of inactivity before a session is considered stale (default: 2 hours)
- */
-function cleanupStaleSessions(staleDurationMs = 7200000): void {
-	const now = Date.now();
-	for (const [id, session] of swarmState.agentSessions) {
-		if (now - session.lastToolCallTime > staleDurationMs) {
-			endAgentSession(id);
-		}
-	}
 }
 
 /**

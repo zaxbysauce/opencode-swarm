@@ -41,16 +41,20 @@ function makeInitialState(): CompactionState {
 	};
 }
 
-const states = new Map<string, CompactionState>();
-
-function getOrCreateState(sessionId: string): CompactionState {
-	let sessionState = states.get(sessionId);
-	if (!sessionState) {
-		sessionState = makeInitialState();
-		states.set(sessionId, sessionState);
-	}
-	return sessionState;
-}
+// KNOWN LIMITATION: CompactionState is a single module-level instance shared across
+// ALL active sessions in the plugin process. This means concurrent sessions share
+// compaction hysteresis thresholds (lastObservationAt, lastReflectionAt, lastEmergencyAt).
+//
+// Incorrect suppression scenario: session A triggers observation at 42% budget.
+// Session B then crosses 45%, but the shared lastObservationAt (42%) + 5% hysteresis
+// means session B's observation is suppressed even though it hasn't run for session B.
+//
+// This is acceptable for the common case (single active architect session) but may cause
+// missed compaction advisories when two architect sessions run concurrently.
+//
+// TODO: key CompactionState by sessionId (Map<string, CompactionState>) to isolate
+// per-session hysteresis. Requires threading sessionId through checkCompaction and callers.
+const state = makeInitialState();
 
 // ── Snapshot writer ────────────────────────────────────────────────────────────
 
@@ -133,21 +137,19 @@ export function createCompactionService(
 			const sessionId = _input.sessionID;
 
 			try {
-				const s = getOrCreateState(sessionId);
-
 				// Emergency tier — highest priority
 				if (
 					budgetPct >= config.emergencyThreshold &&
-					budgetPct > s.lastEmergencyAt + 5 // 5% hysteresis to prevent spam
+					budgetPct > state.lastEmergencyAt + 5 // 5% hysteresis to prevent spam
 				) {
-					s.lastEmergencyAt = budgetPct;
-					s.emergencyCount++;
+					state.lastEmergencyAt = budgetPct;
+					state.emergencyCount++;
 					const msg = buildEmergencyMessage(
 						budgetPct,
 						config.preserveLastNTurns,
 					);
 					appendSnapshot(directory, 'emergency', budgetPct, msg);
-					s.lastSnapshotAt = new Date().toISOString();
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 					return;
 				}
@@ -155,13 +157,13 @@ export function createCompactionService(
 				// Reflection tier
 				if (
 					budgetPct >= config.reflectionThreshold &&
-					budgetPct > s.lastReflectionAt + 5
+					budgetPct > state.lastReflectionAt + 5
 				) {
-					s.lastReflectionAt = budgetPct;
-					s.reflectionCount++;
+					state.lastReflectionAt = budgetPct;
+					state.reflectionCount++;
 					const msg = buildReflectionMessage(budgetPct);
 					appendSnapshot(directory, 'reflection', budgetPct, msg);
-					s.lastSnapshotAt = new Date().toISOString();
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 					return;
 				}
@@ -169,13 +171,13 @@ export function createCompactionService(
 				// Observation tier
 				if (
 					budgetPct >= config.observationThreshold &&
-					budgetPct > s.lastObservationAt + 5
+					budgetPct > state.lastObservationAt + 5
 				) {
-					s.lastObservationAt = budgetPct;
-					s.observationCount++;
+					state.lastObservationAt = budgetPct;
+					state.observationCount++;
 					const msg = buildObservationMessage(budgetPct);
 					appendSnapshot(directory, 'observation', budgetPct, msg);
-					s.lastSnapshotAt = new Date().toISOString();
+					state.lastSnapshotAt = new Date().toISOString();
 					injectMessage(sessionId, msg);
 				}
 			} catch {
@@ -189,20 +191,19 @@ export function getCompactionMetrics(): {
 	compactionCount: number;
 	lastSnapshotAt: string | null;
 } {
-	let totalCount = 0;
-	let latestSnapshot: string | null = null;
-	for (const s of states.values()) {
-		totalCount += s.observationCount + s.reflectionCount + s.emergencyCount;
-		if (
-			!latestSnapshot ||
-			(s.lastSnapshotAt && s.lastSnapshotAt > latestSnapshot)
-		) {
-			latestSnapshot = s.lastSnapshotAt;
-		}
-	}
-	return { compactionCount: totalCount, lastSnapshotAt: latestSnapshot };
+	return {
+		compactionCount:
+			state.observationCount + state.reflectionCount + state.emergencyCount,
+		lastSnapshotAt: state.lastSnapshotAt,
+	};
 }
 
 export function resetCompactionState(): void {
-	states.clear();
+	state.lastObservationAt = 0;
+	state.lastReflectionAt = 0;
+	state.lastEmergencyAt = 0;
+	state.observationCount = 0;
+	state.reflectionCount = 0;
+	state.emergencyCount = 0;
+	state.lastSnapshotAt = null;
 }

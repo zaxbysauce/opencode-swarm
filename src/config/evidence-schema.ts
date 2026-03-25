@@ -145,17 +145,6 @@ export const RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
 		)
 		.max(10)
 		.default([]),
-	error_taxonomy: z
-		.array(
-			z.enum([
-				'planning_error',
-				'interface_mismatch',
-				'logic_error',
-				'scope_creep',
-				'gate_evasion',
-			]),
-		)
-		.default([]),
 });
 export type RetrospectiveEvidence = z.infer<typeof RetrospectiveEvidenceSchema>;
 

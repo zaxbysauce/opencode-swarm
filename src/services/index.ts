@@ -81,7 +81,6 @@ export {
 // Handoff service
 export {
 	type DelegationState,
-	formatContinuationPrompt,
 	formatHandoffMarkdown,
 	getHandoffData,
 	type HandoffData,

@@ -374,7 +374,7 @@ describe('config/loader', () => {
 			// Should not crash, return user config or defaults
 			const result = loadPluginConfig(projectDir);
 			
-			expect(result.max_iterations).toBe(5); // Schema default — user config written to tempDir is not found by getUserConfigDir()
+			expect(result.max_iterations).toBe(7); // From user config, invalid project config ignored
 			expect(result.qa_retry_limit).toBe(3); // Default value
 			expect(result.inject_phase_reminders).toBe(true); // Default value
 			

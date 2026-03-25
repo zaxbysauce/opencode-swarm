@@ -3,11 +3,7 @@ export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
-export {
-	type CuratorPipelineResult,
-	curator_analyze,
-	runCuratorPipelineOnRetros,
-} from './curator-analyze';
+export { curator_analyze } from './curator-analyze';
 export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
 export { detect_domains } from './domain-detector';
@@ -78,8 +74,4 @@ export {
 	type UpdateTaskStatusResult,
 	update_task_status,
 } from './update-task-status';
-export {
-	autoGenerateMissingRetros,
-	executeWriteRetro,
-	write_retro,
-} from './write-retro';
+export { executeWriteRetro, write_retro } from './write-retro';

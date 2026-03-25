@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -7,17 +7,14 @@ import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/st
 import type { EvidenceBundle } from '../../../src/config/evidence-schema';
 
 // Mock loadEvidence and listEvidenceTaskIds from evidence/manager
-// IMPORTANT: Use mock.module for proper isolation in bun:test
-const mockLoadEvidence = mock(async (dir: string, taskId: string) => {
-	// Default implementation - will be overridden by mockResolvedValueOnce in tests
-	return { status: 'not_found' as const };
-});
-const mockListEvidenceTaskIds = mock(async (dir: string) => {
-	// Default implementation
-	return [];
-});
+// IMPORTANT: Use local mock variable pattern, NOT vi.mocked()
+const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
+	status: 'found';
+	bundle: EvidenceBundle;
+} | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
+const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
 
-mock.module('../../../src/evidence/manager', () => ({
+vi.mock('../../../src/evidence/manager', () => ({
 	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
 	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
 }));
@@ -32,8 +29,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	beforeEach(() => {
 		// Reset state before each test
 		resetSwarmState();
-		// Note: mock.module mocks persist for the test file lifetime
-		// Each test uses mockResolvedValueOnce to set specific return values
+		vi.clearAllMocks();
 
 		// Create temp directory
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-load-evidence-test-'));
@@ -66,8 +62,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			// Ignore cleanup errors
 		}
 		resetSwarmState();
-		// mock.module mocks are automatically cleaned up when test file completes
-		// No explicit mock.restore() needed for bun:test mock.module pattern
+		vi.clearAllMocks();
 	});
 
 	describe('Fix A: Discriminated union handling for loadEvidence', () => {
@@ -492,25 +487,18 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	describe('Fix D: Retrospective auto-repair migration notice', () => {
 		test.skip('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
 			// Arrange: valid bundle with all conditions for migration notice
-			// The warning fires when loadedRetroTaskId !== primaryRetroTaskId
-			// So we need: primary lookup fails, fallback finds a DIFFERENT retro ID
 			const phase = 1;
 			ensureAgentSession('sess1');
-			// First call (primary): retro-1 not found
-			mockLoadEvidence.mockResolvedValueOnce({ status: 'not_found' });
-			// Fallback returns a different retro ID (e.g., retro-fixed)
-			mockListEvidenceTaskIds.mockResolvedValueOnce(['retro-fixed']);
-			// Second call (fallback): retro-fixed is found with valid schema
-			mockLoadEvidence.mockResolvedValueOnce({
+			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'retro-fixed',
+					task_id: `retro-${phase}`,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					entries: [
 						{
-							task_id: 'retro-fixed',
+							task_id: `retro-${phase}`,
 							type: 'retrospective',
 							timestamp: new Date().toISOString(),
 							agent: 'architect',
@@ -531,6 +519,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 					],
 				},
 			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -543,24 +532,18 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 
 		test.skip('17. Migration warning appears for each valid task_complexity value', async () => {
 			// Arrange: use 'trivial' complexity (another valid value)
-			// Need: primary fails, fallback finds different ID
 			const phase = 2;
 			ensureAgentSession('sess1');
-			// First call (primary): retro-2 not found
-			mockLoadEvidence.mockResolvedValueOnce({ status: 'not_found' });
-			// Fallback returns different retro ID
-			mockListEvidenceTaskIds.mockResolvedValueOnce(['retro-alt-2']);
-			// Second call (fallback): retro-alt-2 is found with valid schema
-			mockLoadEvidence.mockResolvedValueOnce({
+			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'retro-alt-2',
+					task_id: `retro-${phase}`,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					entries: [
 						{
-							task_id: 'retro-alt-2',
+							task_id: `retro-${phase}`,
 							type: 'retrospective',
 							timestamp: new Date().toISOString(),
 							agent: 'architect',
@@ -581,6 +564,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 					],
 				},
 			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -609,24 +593,18 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 
 		test.skip('19. Migration warning text includes the correct phase number', async () => {
 			// Arrange: use phase 5 to verify phase number interpolation
-			// Need: primary fails, fallback finds different ID
 			const phase = 5;
 			ensureAgentSession('sess1');
-			// First call (primary): retro-5 not found
-			mockLoadEvidence.mockResolvedValueOnce({ status: 'not_found' });
-			// Fallback returns different retro ID
-			mockListEvidenceTaskIds.mockResolvedValueOnce(['retro-migrated-5']);
-			// Second call (fallback): retro-migrated-5 is found with valid schema
-			mockLoadEvidence.mockResolvedValueOnce({
+			mockLoadEvidence.mockResolvedValue({
 				status: 'found',
 				bundle: {
 					schema_version: '1.0.0',
-					task_id: 'retro-migrated-5',
+					task_id: `retro-${phase}`,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					entries: [
 						{
-							task_id: 'retro-migrated-5',
+							task_id: `retro-${phase}`,
 							type: 'retrospective',
 							timestamp: new Date().toISOString(),
 							agent: 'architect',
@@ -647,6 +625,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 					],
 				},
 			});
+			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
 			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);

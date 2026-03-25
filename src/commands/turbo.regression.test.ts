@@ -54,7 +54,6 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			taskWorkflowStates: new Map(),
 			lastGateOutcome: null,
 			declaredCoderScope: null,
-			availableCoderSymbols: null,
 			lastScopeViolation: null,
 			modifiedFilesThisCoderTask: [],
 			lastPhaseCompleteTimestamp: 0,

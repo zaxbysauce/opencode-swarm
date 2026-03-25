@@ -26,12 +26,6 @@ import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { validateSwarmPath } from './utils';
 
 /**
- * Maps callID → evidenceTaskId for delegation tool calls.
- * Used to correlate evidence recording with the correct task scope.
- */
-const callIdToEvidenceTaskId = new Map<string, string>();
-
-/**
  * Checks if an object has the required fields to be a DelegationEnvelope.
  */
 function isEnvelope(obj: unknown): boolean {
@@ -594,19 +588,8 @@ export function createDelegationGateHook(
 					/^\d+\.\d+$/.test(rawTaskId.trim())
 						? rawTaskId.trim()
 						: getEvidenceTaskId(session, directory);
-
-				// Store mapping for evidence recording
 				if (evidenceTaskId) {
-					callIdToEvidenceTaskId.set(input.callID, evidenceTaskId);
-				}
-
-				// Check stored mapping first
-				const storedTaskId = callIdToEvidenceTaskId.get(input.callID);
-				const effectiveTaskId =
-					storedTaskId ?? getEvidenceTaskId(session, directory);
-
-				try {
-					if (effectiveTaskId) {
+					try {
 						const turbo = hasActiveTurboMode();
 						const gateAgents = [
 							'reviewer',
@@ -622,7 +605,7 @@ export function createDelegationGateHook(
 							const { recordGateEvidence } = await import('../gate-evidence');
 							await recordGateEvidence(
 								directory,
-								effectiveTaskId,
+								evidenceTaskId,
 								targetAgentForEvidence,
 								input.sessionID,
 								turbo,
@@ -631,20 +614,17 @@ export function createDelegationGateHook(
 							const { recordAgentDispatch } = await import('../gate-evidence');
 							await recordAgentDispatch(
 								directory,
-								effectiveTaskId,
+								evidenceTaskId,
 								targetAgentForEvidence,
 								turbo,
 							);
 						}
+					} catch (err) {
+						/* non-fatal — evidence is additive, never blocks delegation */
+						console.warn(
+							`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
+						);
 					}
-				} catch (err) {
-					/* non-fatal — evidence is additive, never blocks delegation */
-					console.warn(
-						`[delegation-gate] evidence write failed for task ${effectiveTaskId}: ${err instanceof Error ? err.message : String(err)}`,
-					);
-				} finally {
-					// Clean up mapping after use
-					callIdToEvidenceTaskId.delete(input.callID);
 				}
 			}
 

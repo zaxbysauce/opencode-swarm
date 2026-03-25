@@ -181,25 +181,6 @@ export function loadPluginConfig(directory: string): PluginConfig {
 	// Migrate v6.12 presets format to v6.13+ agents format
 	mergedRaw = migratePresetsConfig(mergedRaw);
 
-	// Re-validate migrated config to catch malformed presets
-	// (migratePresetsConfig assigns activePreset as agents without schema validation)
-	try {
-		PluginConfigSchema.parse(mergedRaw);
-	} catch (migrationError) {
-		console.warn('[opencode-swarm] Migrated preset config is malformed:');
-		console.warn(
-			migrationError instanceof Error
-				? migrationError.message
-				: String(migrationError),
-		);
-		console.warn(
-			'[opencode-swarm] Falling back to fail-secure defaults with guardrails ENABLED.',
-		);
-		return PluginConfigSchema.parse({
-			guardrails: { enabled: true },
-		});
-	}
-
 	// Validate merged config with Zod (applies defaults ONCE)
 	const result = PluginConfigSchema.safeParse(mergedRaw);
 	if (!result.success) {

@@ -18,8 +18,6 @@ export interface DeclareScopeArgs {
 	files: string[];
 	whitelist?: string[];
 	working_directory?: string;
-	/** List of real exported function/type names from the target files. Injected by Architect to ground the Coder. */
-	available_symbols?: string[];
 }
 
 /**
@@ -264,7 +262,6 @@ export async function executeDeclareScope(
 	for (const [_sessionId, session] of swarmState.agentSessions) {
 		session.declaredCoderScope = mergedFiles;
 		session.lastScopeViolation = null;
-		session.availableCoderSymbols = args.available_symbols ?? null;
 	}
 
 	return {
@@ -303,12 +300,6 @@ export const declare_scope: ToolDefinition = createSwarmTool({
 			.string()
 			.optional()
 			.describe('Working directory where the plan is located'),
-		available_symbols: tool.schema
-			.array(tool.schema.string())
-			.optional()
-			.describe(
-				'List of real exported function/type names from the target files. Injected by Architect to ground the Coder.',
-			),
 	},
 	execute: async (args: unknown, _directory: string) => {
 		return JSON.stringify(

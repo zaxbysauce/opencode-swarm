@@ -7,8 +7,6 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import type { ToolContext } from '@opencode-ai/plugin';
 import type { PluginConfig } from '../config';
 import { DEFAULT_SCORING_CONFIG } from '../config/constants';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
@@ -684,116 +682,6 @@ ${handoffContent}`;
 								buildLanguageCoderConstraints(taskText_lang_a);
 							if (langConstraints_a) {
 								tryInject(langConstraints_a);
-							}
-						}
-
-						// v6.33: Coder context pack — knowledge entries + rejection history
-						if (baseRole === 'coder') {
-							try {
-								// Get current task info for knowledge recall query
-								const sessionId_ctx = _input.sessionID;
-								const session_ctx = sessionId_ctx
-									? swarmState.agentSessions.get(sessionId_ctx)
-									: null;
-								const currentTaskId = session_ctx?.currentTaskId ?? null;
-
-								// 1. Knowledge recall for debugging/integration entries
-								let knowledgeBlock = '';
-								if (currentTaskId) {
-									// Get the primary file from the task's declared scope
-									const primaryFile =
-										session_ctx?.declaredCoderScope?.[0] ?? '';
-									if (primaryFile) {
-										// knowledge_recall is registered globally — we call it via the tool directly
-										// but since we're in a hook, we simulate the recall internally
-										const { knowledgeRecall: recallTool } = await import(
-											'../tools/knowledge-recall'
-										);
-										const recallResult = await recallTool.execute(
-											{
-												query: primaryFile,
-												tier: 'swarm',
-												top_n: 3,
-											},
-											{ directory } as ToolContext,
-										);
-										const parsedResult = JSON.parse(
-											recallResult,
-										) as unknown as {
-											results?: Array<{
-												lesson: string;
-												category: string;
-											}>;
-										};
-										if (
-											parsedResult.results &&
-											parsedResult.results.length > 0
-										) {
-											const truncated = parsedResult.results
-												.slice(0, 3)
-												.map((e) => {
-													const text =
-														e.lesson.length > 200
-															? `${e.lesson.substring(0, 200)}...`
-															: e.lesson;
-													return `- [${e.category}] ${text}`;
-												})
-												.join('\n');
-											knowledgeBlock = `## CONTEXT FROM KNOWLEDGE BASE\n${truncated}\n`;
-										}
-									}
-								}
-
-								// 2. Prior rejection history from evidence
-								let rejectionBlock = '';
-								if (currentTaskId) {
-									try {
-										const evidencePath = path.join(
-											directory,
-											'.swarm',
-											'evidence',
-											`${currentTaskId}.json`,
-										);
-										if (fs.existsSync(evidencePath)) {
-											const evidenceContent = await fs.promises.readFile(
-												evidencePath,
-												'utf-8',
-											);
-											const evidence = JSON.parse(evidenceContent);
-											const reviewEntries = (
-												evidence.bundle?.entries ?? []
-											).filter(
-												(e: {
-													type?: string;
-													gate_type?: string;
-													verdict?: string;
-												}) =>
-													e.type === 'gate' &&
-													e.gate_type === 'reviewer' &&
-													e.verdict === 'reject',
-											);
-											if (reviewEntries.length > 0) {
-												const reasons = reviewEntries
-													.slice(0, 3)
-													.map(
-														(e: { reason?: string }) =>
-															`- ${e.reason ?? 'Reviewer rejection'}`,
-													)
-													.join('\n');
-												rejectionBlock = `## PRIOR REJECTIONS for this task\n${reasons}\n`;
-											}
-										}
-									} catch {
-										// Silently skip if evidence not readable
-									}
-								}
-
-								// Inject combined block
-								if (knowledgeBlock || rejectionBlock) {
-									tryInject(`\n${knowledgeBlock}${rejectionBlock}`.trim());
-								}
-							} catch {
-								// Coder context injection is best-effort
 							}
 						}
 

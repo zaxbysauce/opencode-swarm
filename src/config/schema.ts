@@ -288,8 +288,6 @@ export const PhaseCompleteConfigSchema = z.object({
 			enforce: z.boolean().default(false),
 		})
 		.optional(),
-	archive_on_complete: z.boolean().default(false),
-	atomic: z.boolean().default(true),
 });
 
 export type PhaseCompleteConfig = z.infer<typeof PhaseCompleteConfigSchema>;
@@ -601,8 +599,6 @@ export const GuardrailsConfigSchema = z.object({
 		})
 		.optional(),
 	profiles: z.record(z.string(), GuardrailsProfileSchema).optional(),
-	/** Block destructive commands (rm -rf, DROP, TRUNCATE, git push --force, etc.). Default: true */
-	block_destructive_commands: z.boolean().default(true),
 });
 
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
