@@ -526,7 +526,7 @@ describe('readSnapshot', () => {
 
 	it('returns null for wrong version', async () => {
 		const wrongVersionSnapshot = {
-			version: 2,
+			version: 3,
 			writtenAt: Date.now(),
 			toolAggregates: {},
 			activeAgent: {},
@@ -898,7 +898,7 @@ describe('loadSnapshot', () => {
 	it('calls rehydrateState only when snapshot is non-null', async () => {
 		// Test with wrong version (readSnapshot returns null)
 		const wrongVersionSnapshot = {
-			version: 2,
+			version: 3,
 			writtenAt: Date.now(),
 			toolAggregates: {},
 			activeAgent: {},

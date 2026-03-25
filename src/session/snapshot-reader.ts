@@ -146,7 +146,7 @@ export async function readSnapshot(
 		}) as SnapshotData;
 
 		// Validate version
-		if (parsed.version !== 1) {
+		if (parsed.version !== 1 && parsed.version !== 2) {
 			return null;
 		}
 

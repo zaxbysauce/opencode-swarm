@@ -84,7 +84,7 @@ interface SerializedInvocationWindow {
  * Snapshot data structure written to disk
  */
 export interface SnapshotData {
-	version: 1;
+	version: 1 | 2;
 	writtenAt: number;
 	toolAggregates: Record<string, ToolAggregate>;
 	activeAgent: Record<string, string>;
@@ -200,7 +200,7 @@ export async function writeSnapshot(
 	try {
 		// Build SnapshotData object from state
 		const snapshot: SnapshotData = {
-			version: 1,
+			version: 2,
 			writtenAt: Date.now(),
 			toolAggregates: Object.fromEntries(state.toolAggregates),
 			activeAgent: Object.fromEntries(state.activeAgent),
