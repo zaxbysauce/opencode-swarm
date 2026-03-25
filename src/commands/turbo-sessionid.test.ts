@@ -44,6 +44,10 @@ describe('handleTurboCommand - Empty SessionID Handling (Task 3.13)', () => {
 			phaseAgentsDispatched: new Set(),
 			lastCompletedPhaseAgentsDispatched: new Set(),
 			turboMode: false,
+			coderRevisions: 0,
+			revisionLimitHit: false,
+			model_fallback_index: 0,
+			modelFallbackExhausted: false,
 		});
 	});
 
