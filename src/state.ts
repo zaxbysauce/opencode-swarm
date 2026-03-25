@@ -508,6 +508,13 @@ export function ensureAgentSession(
 		if (session.pendingAdvisoryMessages === undefined) {
 			session.pendingAdvisoryMessages = [];
 		}
+		// Bounded coder revisions migration safety (v6.33)
+		if (session.coderRevisions === undefined) {
+			session.coderRevisions = 0;
+		}
+		if (session.revisionLimitHit === undefined) {
+			session.revisionLimitHit = false;
+		}
 
 		session.lastToolCallTime = now;
 		return session;
