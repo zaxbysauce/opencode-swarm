@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.33.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.0...v6.33.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* v6.33.1 stabilization — CRIT-1/2/3 bug fixes, session stability, stale state recovery, performance modes ([4bf5141](https://github.com/zaxbysauce/opencode-swarm/commit/4bf5141a809ab1dbd044a5d924359b5925b0b9c6))
+* v6.33.1 stabilization — critical bug fixes, session stability, stale state recovery ([#273](https://github.com/zaxbysauce/opencode-swarm/issues/273)) ([d849378](https://github.com/zaxbysauce/opencode-swarm/commit/d84937889f48bfaaae901585cd024da3b4f8aaa4))
+
 ## [6.33.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.32.4...v6.33.0) (2026-03-25)
 
 
