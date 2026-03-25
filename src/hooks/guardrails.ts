@@ -36,6 +36,13 @@ import { extractModelInfo } from './model-limits';
 const storedInputArgs = new Map<string, unknown>();
 
 /**
+ * v6.33: Regex pattern for transient model errors that should trigger fallback.
+ * Matches: rate limits, overloaded, timeouts, model not found, temporary failures.
+ */
+const TRANSIENT_MODEL_ERROR_PATTERN =
+	/rate.?limit|429|503|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
+
+/**
  * Retrieves stored input args for a given callID.
  * Used by other hooks (e.g., delegation-gate) to access tool input args.
  * @param callID The callID to look up
@@ -383,6 +390,10 @@ export function createGuardrailsHooks(
 					const coderSession = swarmState.agentSessions.get(input.sessionID);
 					if (coderSession) {
 						coderSession.modifiedFilesThisCoderTask = [];
+						// Reset coder revision tracking at the start of each new coder delegation
+						if (!coderSession.revisionLimitHit) {
+							coderSession.coderRevisions = 0;
+						}
 					}
 				}
 			}
@@ -397,7 +408,7 @@ export function createGuardrailsHooks(
 					throw new Error(
 						`CIRCUIT BREAKER: Delegation loop detected (${loopResult.count} identical patterns). Session paused. Ask the user for guidance.`,
 					);
-				} else if (loopResult.count === 3) {
+				} else if (loopResult.count >= 3 && loopResult.count < 5) {
 					// Soft warning at count 3 — set flag for messagesTransform to inject
 					const agentName =
 						typeof loopArgs?.subagent_type === 'string'
@@ -985,6 +996,21 @@ export function createGuardrailsHooks(
 					session.lastCoderDelegationTaskId
 				) {
 					session.currentTaskId = session.lastCoderDelegationTaskId;
+					// v6.33: Bounded coder revisions — increment and check ceiling
+					if (!session.revisionLimitHit) {
+						session.coderRevisions++;
+						const maxRevisions = cfg.max_coder_revisions ?? 5;
+						if (session.coderRevisions >= maxRevisions) {
+							session.revisionLimitHit = true;
+							session.pendingAdvisoryMessages ??= [];
+							session.pendingAdvisoryMessages.push(
+								`CODER REVISION LIMIT: Agent has been revised ${session.coderRevisions} times ` +
+									`(max: ${maxRevisions}) for task ${session.currentTaskId ?? 'unknown'}. ` +
+									`Escalate to user or consider a fundamentally different approach.`,
+							);
+							swarmState.pendingEvents++;
+						}
+					}
 					// Reset partial gate warning for this task so re-delegation gets fresh warning
 					session.partialGateWarningsIssuedForTask?.delete(
 						session.currentTaskId,
@@ -1048,9 +1074,51 @@ export function createGuardrailsHooks(
 
 			if (hasError) {
 				window.consecutiveErrors++;
+
+				// v6.33: Model fallback detection for transient model failures
+				// Only check for subagent sessions (not architect)
+				if (session) {
+					const outputStr =
+						typeof output.output === 'string' ? output.output : '';
+					// output.error may contain error message for failed tool calls (not in TS type but present at runtime)
+					const errorContent =
+						(output as Record<string, unknown>).error ?? outputStr;
+
+					if (
+						typeof errorContent === 'string' &&
+						TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent) &&
+						!session.modelFallbackExhausted
+					) {
+						// Increment fallback index
+						session.model_fallback_index++;
+						session.modelFallbackExhausted = true; // Will be reset when task succeeds
+
+						// Inject advisory message for the architect
+						session.pendingAdvisoryMessages ??= [];
+						session.pendingAdvisoryMessages.push(
+							`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
+								`The agent model may be rate-limited, overloaded, or temporarily unavailable. ` +
+								`Consider retrying with a fallback model or waiting before retrying.`,
+						);
+
+						// Track event for telemetry
+						swarmState.pendingEvents++;
+
+						// Reset fallback index on next successful task completion
+						// (handled by the success path below)
+					}
+				}
 			} else {
 				window.consecutiveErrors = 0;
 				window.lastSuccessTimeMs = Date.now();
+
+				// Reset model fallback tracking on successful execution
+				if (session) {
+					if (session.model_fallback_index > 0) {
+						session.model_fallback_index = 0;
+						session.modelFallbackExhausted = false;
+					}
+				}
 			}
 		},
 

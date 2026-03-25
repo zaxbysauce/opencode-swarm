@@ -326,10 +326,10 @@ function getSeedTaskId(session: AgentSessionState): string | null {
  * Uses synchronous disk reads for the plan.json fallback.
  * Security-hardened: validates paths and only swallows expected errors.
  */
-function getEvidenceTaskId(
+async function getEvidenceTaskId(
 	session: AgentSessionState,
 	directory: string,
-): string | null {
+): Promise<string | null> {
 	// Primary: currentTaskId or lastCoderDelegationTaskId
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
@@ -364,7 +364,7 @@ function getEvidenceTaskId(
 		}
 
 		// Read and parse the plan file
-		const planContent = fs.readFileSync(resolvedPlanPath, 'utf-8');
+		const planContent = await fs.promises.readFile(resolvedPlanPath, 'utf-8');
 		const plan = JSON.parse(planContent);
 
 		// Only expected: missing phases array or malformed structure - return null quietly
@@ -595,7 +595,7 @@ export function createDelegationGateHook(
 					rawTaskId.length <= 20 &&
 					/^\d+\.\d+$/.test(rawTaskId.trim())
 						? rawTaskId.trim()
-						: getEvidenceTaskId(session, directory);
+						: await getEvidenceTaskId(session, directory);
 				if (evidenceTaskId) {
 					try {
 						const turbo = hasActiveTurboMode();
@@ -787,7 +787,7 @@ export function createDelegationGateHook(
 						rawTaskId.length <= 20 &&
 						/^\d+\.\d+$/.test(rawTaskId.trim())
 							? rawTaskId.trim()
-							: getEvidenceTaskId(session, directory);
+							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
 						try {
 							const turbo = hasActiveTurboMode();
@@ -946,7 +946,8 @@ export function createDelegationGateHook(
 
 			// Capture the prior coder task ID BEFORE Step 3 updates lastCoderDelegationTaskId
 			const priorCoderTaskId = sessionID
-				? (ensureAgentSession(sessionID).lastCoderDelegationTaskId ?? null)
+				? (swarmState.agentSessions.get(sessionID)?.lastCoderDelegationTaskId ??
+					null)
 				: null;
 
 			// Step 3: If this is a coder delegation with a task ID, track it

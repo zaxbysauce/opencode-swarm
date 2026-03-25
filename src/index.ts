@@ -733,12 +733,14 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails (after)
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
-			console.debug(
-				'[hook-chain] toolAfter start sessionID=%s agent=%s tool=%s',
-				input.sessionID,
-				input.agent,
-				input.tool?.name,
-			);
+			if (process.env.DEBUG_SWARM) {
+				console.debug(
+					'[hook-chain] toolAfter start sessionID=%s agent=%s tool=%s',
+					input.sessionID,
+					input.agent,
+					input.tool?.name,
+				);
+			}
 			// Run existing handlers
 			await activityHooks.toolAfter(input, output);
 			await guardrailsHooks.toolAfter(input, output);
@@ -850,11 +852,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		'chat.message': safeHook(
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 			async (input: any, output: any) => {
-				console.debug(
-					'[session] chat.message sessionID=%s agent=%s',
-					input.sessionID,
-					input.agent,
-				);
+				if (process.env.DEBUG_SWARM) {
+					console.debug(
+						'[session] chat.message sessionID=%s agent=%s',
+						input.sessionID,
+						input.agent,
+					);
+				}
 				await delegationHandler(input, output);
 			},
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
