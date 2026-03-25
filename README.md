@@ -252,6 +252,55 @@ For production use, mix providers to maximize quality across writing vs. reviewi
 | MiniMax | `minimax-coding-plan/<model>` | `minimax-coding-plan/MiniMax-M2.5` |
 | Kimi | `kimi-for-coding/<model>` | `kimi-for-coding/k2p5` |
 
+### Model Fallback (v6.33)
+
+When a transient model error occurs (rate limit, 429, 503, timeout, overloaded, model not found), Swarm can automatically switch to a fallback model.
+
+**Configuration:**
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "anthropic/claude-opus-4-6",
+      "fallback_models": [
+        "anthropic/claude-sonnet-4-5",
+        "opencode/gpt-5-nano"
+      ]
+    }
+  }
+}
+```
+
+- **`fallback_models`** — Optional array of up to 3 fallback model identifiers. When the primary model fails with a transient error, Swarm injects a `MODEL FALLBACK` advisory and the next retry uses the next fallback model in the list.
+- **Advisory injection** — When a transient error is detected, a `MODEL FALLBACK` advisory is injected into the architect's context: *"Transient model error detected (attempt N). The agent model may be rate-limited, overloaded, or temporarily unavailable. Consider retrying with a fallback model or waiting before retrying."*
+- **Exhaustion guard** — After exhausting all fallbacks (`modelFallbackExhausted = true`), further transient errors do not spam additional advisories.
+- **Reset on success** — Both `model_fallback_index` and `modelFallbackExhausted` reset to 0/false on the next successful tool execution.
+
+### Bounded Coder Revisions (v6.33)
+
+When a task requires multiple coder attempts (e.g., reviewer rejections), Swarm tracks how many times the coder has been re-delegated for the same task and warns when limits are approached.
+
+**Configuration:**
+
+```json
+{
+  "guardrails": {
+    "max_coder_revisions": 5
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_coder_revisions` | integer | `5` | Maximum coder re-delegations per task before advisory warning (1–20) |
+
+**Behavior:**
+- **`coderRevisions` counter** — Incremented each time the coder delegation completes for the same task (reset on new task)
+- **`revisionLimitHit` flag** — Set when `coderRevisions >= max_coder_revisions`
+- **Advisory injection** — When the limit is hit, a `CODER REVISION LIMIT` advisory is injected: *"Agent has been revised N times (max: M) for task X. Escalate to user or consider a fundamentally different approach."*
+- **Persistence** — Both `coderRevisions` and `revisionLimitHit` are serialized/deserialized in session snapshots
+
 ## Useful Commands
 
 | Command | What It Does |
@@ -419,7 +468,8 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 | review | Verdict, risk level, specific issues |
 | test | Pass/fail counts, coverage %, failure messages |
 | diff | Files changed, additions/deletions |
-| retrospective | Phase metrics, lessons learned (injected into next phase) |
+| retrospective | Phase metrics, lessons learned, error taxonomy classification (injected into next phase) |
+| secretscan | Secret scan results: findings count, files scanned, skipped files (v6.33) |
 
 </details>
 
@@ -659,11 +709,11 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
 {
   "agents": {
     "architect": { "model": "anthropic/claude-opus-4-6" },
-    "coder": { "model": "minimax-coding-plan/MiniMax-M2.5" },
+    "coder": { "model": "minimax-coding-plan/MiniMax-M2.5", "fallback_models": ["minimax-coding-plan/MiniMax-M2.1"] },
     "explorer": { "model": "minimax-coding-plan/MiniMax-M2.1" },
     "sme": { "model": "kimi-for-coding/k2p5" },
     "critic": { "model": "zai-coding-plan/glm-5" },
-    "reviewer": { "model": "zai-coding-plan/glm-5" },
+    "reviewer": { "model": "zai-coding-plan/glm-5", "fallback_models": ["opencode/big-pickle"] },
     "test_engineer": { "model": "minimax-coding-plan/MiniMax-M2.5" },
     "docs": { "model": "zai-coding-plan/glm-4.7-flash" },
     "designer": { "model": "kimi-for-coding/k2p5" }
@@ -857,14 +907,14 @@ Swarm limits which tools each agent can access based on their role. This prevent
 
 | Agent | Tools | Count | Rationale |
 |-------|-------|:---:|-----------|
-| **architect** | All 21 tools | 21 | Orchestrator needs full visibility |
+| **architect** | All 23 tools | 23 | Orchestrator needs full visibility |
 | **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner | 11 | Security-focused QA |
 | **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary | 6 | Write-focused, minimal read tools |
 | **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit | 8 | Testing and verification |
 | **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 9 | Discovery and analysis |
 | **sme** | complexity_hotspots, detect_domains, extract_code_blocks, imports, retrieve_summary, schema_drift, symbols | 7 | Domain expertise research |
 | **critic** | complexity_hotspots, detect_domains, imports, retrieve_summary, symbols | 5 | Plan review, minimal toolset |
-| **docs** | detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 8 | Documentation synthesis |
+| **docs** | detect_domains, doc_extract, doc_scan, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 10 | Documentation synthesis and discovery |
 | **designer** | extract_code_blocks, retrieve_summary, symbols | 3 | UI-focused, minimal toolset |
 
 ### Configuration
@@ -924,13 +974,17 @@ The following tools can be assigned to agents via overrides:
 | `checkpoint` | Save/restore git checkpoints |
 | `check_gate_status` | Read-only query of task gate status |
 | `complexity_hotspots` | Identify high-risk code areas |
+| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 | `detect_domains` | Detect SME domains from text |
 | `diff` | Analyze git diffs and changes |
+| `doc_extract` | Extract actionable constraints from project documentation relevant to current task (Jaccard bigram scoring + dedup) |
+| `doc_scan` | Scan project documentation and build index manifest at `.swarm/doc-manifest.json` (mtime-based caching) |
 | `evidence_check` | Verify task evidence |
 | `extract_code_blocks` | Extract code from markdown |
 | `gitingest` | Ingest external repositories |
 | `imports` | Analyze import relationships |
 | `lint` | Run project linters |
+| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
 | `pkg_audit` | Security audit of dependencies |
 | `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
 | `retrieve_summary` | Retrieve summarized tool outputs |
@@ -941,8 +995,6 @@ The following tools can be assigned to agents via overrides:
 | `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
-| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
-| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 
 ---
 
