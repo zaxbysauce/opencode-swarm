@@ -19,6 +19,7 @@ export const EvidenceTypeSchema = z.enum([
 	'sbom',
 	'build',
 	'quality_budget',
+	'secretscan',
 ]);
 export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 
@@ -144,6 +145,17 @@ export const RetrospectiveEvidenceSchema = BaseEvidenceSchema.extend({
 			}),
 		)
 		.max(10)
+		.default([]),
+	error_taxonomy: z
+		.array(
+			z.enum([
+				'planning_error',
+				'interface_mismatch',
+				'logic_error',
+				'scope_creep',
+				'gate_evasion',
+			]),
+		)
 		.default([]),
 });
 export type RetrospectiveEvidence = z.infer<typeof RetrospectiveEvidenceSchema>;
@@ -297,6 +309,16 @@ export const QualityBudgetEvidenceSchema = BaseEvidenceSchema.extend({
 });
 export type QualityBudgetEvidence = z.infer<typeof QualityBudgetEvidenceSchema>;
 
+// Secretscan evidence schema
+export const SecretscanEvidenceSchema = BaseEvidenceSchema.extend({
+	type: z.literal('secretscan'),
+	findings_count: z.number().int().min(0).default(0),
+	scan_directory: z.string().optional(),
+	files_scanned: z.number().int().min(0).default(0),
+	skipped_files: z.number().int().min(0).default(0),
+});
+export type SecretscanEvidence = z.infer<typeof SecretscanEvidenceSchema>;
+
 // Discriminated union of all evidence types
 export const EvidenceSchema = z.discriminatedUnion('type', [
 	ReviewEvidenceSchema,
@@ -311,6 +333,7 @@ export const EvidenceSchema = z.discriminatedUnion('type', [
 	SbomEvidenceSchema,
 	BuildEvidenceSchema,
 	QualityBudgetEvidenceSchema,
+	SecretscanEvidenceSchema,
 ]);
 export type Evidence = z.infer<typeof EvidenceSchema>;
 

@@ -142,6 +142,12 @@ export interface AgentSessionState {
 	/** Files modified by the current coder task (populated by guardrails toolBefore/toolAfter, reset on new coder delegation) */
 	modifiedFilesThisCoderTask: string[];
 
+	// Bounded Coder Revisions (v6.33)
+	/** Number of coder revisions in the current task (incremented on each coder delegation completion) */
+	coderRevisions: number;
+	/** Flag set when coder revisions hit the configured ceiling */
+	revisionLimitHit: boolean;
+
 	// Phase completion tracking
 	/** Timestamp of most recent phase completion */
 	lastPhaseCompleteTimestamp: number;
@@ -151,6 +157,12 @@ export interface AgentSessionState {
 	phaseAgentsDispatched: Set<string>;
 	/** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
 	lastCompletedPhaseAgentsDispatched: Set<string>;
+
+	// Model Fallback (v6.33)
+	/** Current index into the fallback_models array (0 = primary model, incremented on transient failure) */
+	model_fallback_index: number;
+	/** Flag set when all fallback models have been exhausted */
+	modelFallbackExhausted: boolean;
 
 	// Turbo Mode (v6.26)
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
@@ -307,6 +319,12 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		// Model Fallback (v6.33)
+		model_fallback_index: 0,
+		modelFallbackExhausted: false,
+		// Bounded Coder Revisions (v6.33)
+		coderRevisions: 0,
+		revisionLimitHit: false,
 		loopDetectionWindow: [],
 		pendingAdvisoryMessages: [],
 	};
@@ -476,6 +494,13 @@ export function ensureAgentSession(
 		// Turbo Mode migration safety (v6.26)
 		if (session.turboMode === undefined) {
 			session.turboMode = false;
+		}
+		// Model Fallback migration safety (v6.33)
+		if (session.model_fallback_index === undefined) {
+			session.model_fallback_index = 0;
+		}
+		if (session.modelFallbackExhausted === undefined) {
+			session.modelFallbackExhausted = false;
 		}
 		if (session.loopDetectionWindow === undefined) {
 			session.loopDetectionWindow = [];

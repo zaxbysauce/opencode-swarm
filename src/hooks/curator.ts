@@ -54,7 +54,9 @@ export async function readCuratorSummary(
 
 		return parsed;
 	} catch {
-		console.warn('Failed to parse curator-summary.json: invalid JSON');
+		if (process.env.DEBUG_SWARM) {
+			console.warn('Failed to parse curator-summary.json: invalid JSON');
+		}
 		return null;
 	}
 }
@@ -73,8 +75,10 @@ export async function writeCuratorSummary(
 	// Ensure .swarm/ directory exists
 	fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
 
-	// Write JSON file
-	await Bun.write(resolvedPath, JSON.stringify(summary, null, 2));
+	// Atomic write: write to temp file then rename
+	const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+	await Bun.write(tempPath, JSON.stringify(summary, null, 2));
+	fs.renameSync(tempPath, resolvedPath);
 }
 
 /**
@@ -119,7 +123,9 @@ export function filterPhaseEvents(
 				}
 			}
 		} catch {
-			console.warn('filterPhaseEvents: skipping malformed line');
+			if (process.env.DEBUG_SWARM) {
+				console.warn('filterPhaseEvents: skipping malformed line');
+			}
 		}
 	}
 

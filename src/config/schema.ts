@@ -85,6 +85,7 @@ export const AgentOverrideConfigSchema = z.object({
 	model: z.string().optional(),
 	temperature: z.number().min(0).max(2).optional(),
 	disabled: z.boolean().optional(),
+	fallback_models: z.array(z.string()).max(3).optional(),
 });
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>;
@@ -585,6 +586,7 @@ export const GuardrailsConfigSchema = z.object({
 	warning_threshold: z.number().min(0.1).max(0.9).default(0.75),
 	idle_timeout_minutes: z.number().min(5).max(240).default(60),
 	no_op_warning_threshold: z.number().min(1).max(100).default(15),
+	max_coder_revisions: z.number().int().min(1).max(20).default(5),
 	qa_gates: z
 		.object({
 			required_tools: z

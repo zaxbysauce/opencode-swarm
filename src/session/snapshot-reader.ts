@@ -115,6 +115,10 @@ export function deserializeAgentSession(
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
 		pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
+		model_fallback_index: s.model_fallback_index ?? 0,
+		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+		coderRevisions: s.coderRevisions ?? 0,
+		revisionLimitHit: s.revisionLimitHit ?? false,
 	};
 }
 

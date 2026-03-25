@@ -271,4 +271,91 @@ describe('guardrails loop detection', () => {
 		// Flag should NOT be cleared because injection didn't happen
 		expect(session.loopWarningPending).toBeDefined();
 	});
+
+	// -------------------------------------------------------------------------
+	// Test 9: FR-001 Gap fix — Warning fires at count=4 (was only at count=3)
+	// -------------------------------------------------------------------------
+	test('toolBefore with Task, 4 identical delegations — loopWarningPending is set at count=4 (FR-001 gap fix)', async () => {
+		const sessionId = 'session-4-identical-fr001';
+		ensureAgentSession(sessionId, 'architect');
+		swarmState.activeAgent.set(sessionId, 'architect');
+
+		const args = makeTaskArgs('coder', 'Fix the same bug');
+
+		// Make 4 identical delegations
+		for (let i = 1; i <= 4; i++) {
+			const input = { tool: 'Task', sessionID: sessionId, callID: `call-${i}` };
+			const output = { args };
+			await hooks.toolBefore(input as any, output as any);
+		}
+
+		const session = swarmState.agentSessions.get(sessionId);
+		expect(session?.loopWarningPending).toBeDefined();
+		expect(session?.loopWarningPending?.message).toContain('LOOP DETECTED');
+		expect(session?.loopWarningPending?.agent).toBe('coder');
+		// Message should reference count >= 3 (not just "3 times")
+		expect(session?.loopWarningPending?.message).toMatch(/3 times|4 times|repeated/);
+	});
+
+	// -------------------------------------------------------------------------
+	// Test 10: Boundary — count=1 should NOT trigger warning
+	// -------------------------------------------------------------------------
+	test('toolBefore with Task, 1 delegation — no warning (count=1 below threshold)', async () => {
+		const sessionId = 'session-1-delegation';
+		ensureAgentSession(sessionId, 'architect');
+		swarmState.activeAgent.set(sessionId, 'architect');
+
+		const args = makeTaskArgs('coder', 'Fix a bug');
+
+		const input = { tool: 'Task', sessionID: sessionId, callID: 'call-1' };
+		const output = { args };
+		await hooks.toolBefore(input as any, output as any);
+
+		const session = swarmState.agentSessions.get(sessionId);
+		expect(session?.loopWarningPending).toBeUndefined();
+	});
+
+	// -------------------------------------------------------------------------
+	// Test 11: FR-001 — Warning fires at count=3 AND count=4, then hard block at count=5
+	// -------------------------------------------------------------------------
+	test('toolBefore with Task, progression 3->4->5: warning at 3, warning at 4, block at 5', async () => {
+		const sessionId = 'session-progression-345';
+		ensureAgentSession(sessionId, 'architect');
+		swarmState.activeAgent.set(sessionId, 'architect');
+
+		const args = makeTaskArgs('reviewer', 'Review task');
+
+		// Call 1-2: no warning
+		for (let i = 1; i <= 2; i++) {
+			const input = { tool: 'Task', sessionID: sessionId, callID: `call-${i}` };
+			const output = { args };
+			await hooks.toolBefore(input as any, output as any);
+		}
+		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeUndefined();
+
+		// Call 3: warning fires
+		const input3 = { tool: 'Task', sessionID: sessionId, callID: 'call-3' };
+		const output3 = { args };
+		await hooks.toolBefore(input3 as any, output3 as any);
+		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeDefined();
+
+		// Clear the warning to test count=4
+		swarmState.agentSessions.get(sessionId)!.loopWarningPending = undefined;
+
+		// Call 4: warning fires again (this was the gap)
+		const input4 = { tool: 'Task', sessionID: sessionId, callID: 'call-4' };
+		const output4 = { args };
+		await hooks.toolBefore(input4 as any, output4 as any);
+		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeDefined();
+
+		// Clear the warning to test count=5 block
+		swarmState.agentSessions.get(sessionId)!.loopWarningPending = undefined;
+
+		// Call 5: hard block
+		const input5 = { tool: 'Task', sessionID: sessionId, callID: 'call-5' };
+		const output5 = { args };
+		await expect(hooks.toolBefore(input5 as any, output5 as any)).rejects.toThrow(
+			'CIRCUIT BREAKER',
+		);
+	});
 });

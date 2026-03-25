@@ -9,6 +9,8 @@ import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import pLimit from 'p-limit';
 import type { PluginConfig } from '../config';
+import type { SecretscanEvidence } from '../config/evidence-schema.js';
+import { saveEvidence } from '../evidence/manager.js';
 import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';
 import type { LintResult, LintSuccessResult, SupportedLinter } from './lint';
@@ -823,6 +825,30 @@ export async function runPreCheckBatch(
 		warn(
 			`pre_check_batch: Secretscan error - GATE FAILED: ${secretscanResult.error}`,
 		);
+	}
+
+	// v6.33: Persist secretscan results to evidence bundle
+	if (secretscanResult.ran && secretscanResult.result) {
+		try {
+			const scanResult = secretscanResult.result as SecretscanResult;
+			const secretscanEvidence: SecretscanEvidence = {
+				task_id: 'secretscan',
+				type: 'secretscan',
+				timestamp: new Date().toISOString(),
+				agent: 'pre_check_batch',
+				verdict: scanResult.count > 0 ? 'fail' : 'pass',
+				summary: `Secretscan: ${scanResult.count} finding(s), ${scanResult.files_scanned ?? 0} files scanned, ${scanResult.skipped_files ?? 0} skipped`,
+				findings_count: scanResult.count,
+				scan_directory: scanResult.scan_dir,
+				files_scanned: scanResult.files_scanned,
+				skipped_files: scanResult.skipped_files,
+			};
+			await saveEvidence(directory, 'secretscan', secretscanEvidence);
+		} catch (e) {
+			warn(
+				`Failed to persist secretscan evidence: ${e instanceof Error ? e.message : String(e)}`,
+			);
+		}
 	}
 
 	// Check SAST scan (hard gate)
