@@ -195,10 +195,25 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 	}
 
 	// Populate agentSessions with deserialized data
+	// v6.33.1: Skip malformed sessions missing required fields instead of injecting bad state
 	if (snapshot.agentSessions) {
 		for (const [sessionId, serializedSession] of Object.entries(
 			snapshot.agentSessions,
 		)) {
+			// Validate required fields exist before deserializing
+			if (
+				!serializedSession ||
+				typeof serializedSession !== 'object' ||
+				typeof serializedSession.agentName !== 'string' ||
+				typeof serializedSession.lastToolCallTime !== 'number' ||
+				typeof serializedSession.delegationActive !== 'boolean'
+			) {
+				console.warn(
+					'[snapshot-reader] Skipping malformed session %s: missing required fields (agentName, lastToolCallTime, delegationActive)',
+					sessionId,
+				);
+				continue;
+			}
 			swarmState.agentSessions.set(
 				sessionId,
 				deserializeAgentSession(serializedSession),

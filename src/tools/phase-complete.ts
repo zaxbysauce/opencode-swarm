@@ -28,6 +28,7 @@ import { runCriticDriftCheck } from '../hooks/curator-drift';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
+import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { ensureAgentSession, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
@@ -784,6 +785,9 @@ export async function executePhaseComplete(
 		agentsMissing,
 		warnings,
 	};
+
+	// v6.33.1: Flush debounced snapshot on phase-complete
+	await flushPendingSnapshot(dir);
 
 	return JSON.stringify(
 		{ ...result, timestamp: event.timestamp, duration_ms: durationMs },
