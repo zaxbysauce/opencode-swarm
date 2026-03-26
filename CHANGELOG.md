@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.35.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.0...v6.35.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* **telemetry:** resolve actual primary model name in modelFallback events ([2d12a58](https://github.com/zaxbysauce/opencode-swarm/commit/2d12a58b83c4884f5554e3905ad09b3ac83066e3))
+
 ## [6.35.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.34.0...v6.35.0) (2026-03-26)
 
 
