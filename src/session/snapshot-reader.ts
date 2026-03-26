@@ -114,6 +114,7 @@ export function deserializeAgentSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
+		loopDetectionWindow: [],
 		pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
 		model_fallback_index: s.model_fallback_index ?? 0,
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
@@ -226,13 +227,25 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 			// delete sessions that were idle before the process restarted.
 			session.lastToolCallTime = now;
 			session.lastAgentEventTime = now;
-			// Refresh InvocationWindow timestamps to prevent guardrails
-			// duration-limit and idle-timeout circuit breakers from firing
-			// immediately on stale windows restored from disk.
+			// Reset InvocationWindows to a clean state on rehydration.
+			// A process restart means the agent will resume from scratch on
+			// the OpenCode side, so accumulated counters and circuit breaker
+			// flags from the previous run must not carry over:
+			//   - hardLimitHit: would permanently block every tool call (line 737)
+			//   - toolCalls: accumulated count could immediately exceed max_tool_calls
+			//   - consecutiveErrors: could immediately trigger error circuit breaker
+			//   - recentToolCalls: stale entries cause false repetition detection
+			//   - startedAtMs/lastSuccessTimeMs: stale timestamps trigger duration/idle limits
 			if (session.windows) {
 				for (const window of Object.values(session.windows)) {
 					window.startedAtMs = now;
 					window.lastSuccessTimeMs = now;
+					window.hardLimitHit = false;
+					window.toolCalls = 0;
+					window.consecutiveErrors = 0;
+					window.recentToolCalls = [];
+					window.warningIssued = false;
+					window.warningReason = '';
 				}
 			}
 			swarmState.agentSessions.set(sessionId, session);
