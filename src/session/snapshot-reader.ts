@@ -222,20 +222,16 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 				continue;
 			}
 			const session = deserializeAgentSession(serializedSession);
-			// Refresh timestamps to current time so startAgentSession's stale
-			// eviction sweep (now - lastToolCallTime > 2h) does not immediately
-			// delete sessions that were idle before the process restarted.
+
+			// ── Timestamps ────────────────────────────────────────────────
+			// Refresh timestamps so the stale eviction sweep in startAgentSession
+			// (now - lastToolCallTime > 2h) does not delete rehydrated sessions.
 			session.lastToolCallTime = now;
 			session.lastAgentEventTime = now;
-			// Reset InvocationWindows to a clean state on rehydration.
-			// A process restart means the agent will resume from scratch on
-			// the OpenCode side, so accumulated counters and circuit breaker
-			// flags from the previous run must not carry over:
-			//   - hardLimitHit: would permanently block every tool call (line 737)
-			//   - toolCalls: accumulated count could immediately exceed max_tool_calls
-			//   - consecutiveErrors: could immediately trigger error circuit breaker
-			//   - recentToolCalls: stale entries cause false repetition detection
-			//   - startedAtMs/lastSuccessTimeMs: stale timestamps trigger duration/idle limits
+
+			// ── InvocationWindows ─────────────────────────────────────────
+			// A process restart means OpenCode will resume the agent from scratch,
+			// so accumulated counters and circuit breaker flags must not carry over.
 			if (session.windows) {
 				for (const window of Object.values(session.windows)) {
 					window.startedAtMs = now;
@@ -248,6 +244,29 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 					window.warningReason = '';
 				}
 			}
+
+			// ── Transient per-session state ───────────────────────────────
+			// These fields accumulate during a single process lifetime and
+			// MUST NOT survive restart.  Carrying them forward causes:
+			//   - revisionLimitHit/coderRevisions: premature coder revision cap
+			//   - selfFixAttempted + lastGateFailure: false self-fix warnings
+			//   - architectWriteCount/selfCodingWarnedAtCount: false self-coding warnings
+			//   - pendingAdvisoryMessages: stale advisories injected into prompts
+			//   - model_fallback_index/modelFallbackExhausted: stuck fallback state
+			//   - scopeViolationDetected: false scope violation warnings
+			//   - delegationActive: prevents clean delegation lifecycle on restart
+			session.revisionLimitHit = false;
+			session.coderRevisions = 0;
+			session.selfFixAttempted = false;
+			session.lastGateFailure = null;
+			session.architectWriteCount = 0;
+			session.selfCodingWarnedAtCount = 0;
+			session.pendingAdvisoryMessages = [];
+			session.model_fallback_index = 0;
+			session.modelFallbackExhausted = false;
+			session.scopeViolationDetected = false;
+			session.delegationActive = false;
+
 			swarmState.agentSessions.set(sessionId, session);
 		}
 	}
