@@ -114,6 +114,7 @@ export function deserializeAgentSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
+		loopDetectionWindow: [],
 		pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
 		model_fallback_index: s.model_fallback_index ?? 0,
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
