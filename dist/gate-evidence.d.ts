@@ -64,6 +64,12 @@ export declare function recordAgentDispatch(directory: string, taskId: string, a
  */
 export declare function readTaskEvidence(directory: string, taskId: string): Promise<TaskEvidence | null>;
 /**
+ * Returns the TaskEvidence for a task, or null if the file does not exist (ENOENT).
+ * Throws on malformed JSON, permission errors, or other non-ENOENT issues.
+ * Used by checkReviewerGate for evidence-first gate checking with proper error handling.
+ */
+export declare function readTaskEvidenceRaw(directory: string, taskId: string): TaskEvidence | null;
+/**
  * Returns true only when every required_gate has a matching gates entry.
  * Returns false if no evidence file exists.
  */

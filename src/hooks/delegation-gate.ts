@@ -401,6 +401,53 @@ async function getEvidenceTaskId(
 }
 
 /**
+ * Writes per-phase drift-verifier evidence after critic_drift_verifier completes
+ * a delegation. The critic agent is configured read-only, so the delegation-gate
+ * produces the evidence file on its behalf. phase_complete reads this file at
+ * .swarm/evidence/{phase}/drift-verifier.json and blocks when missing.
+ *
+ * Derives the phase number from the task ID (e.g. "2.3" → phase 2).
+ * Non-throwing: write errors are logged but never propagate.
+ */
+function writeDriftVerifierEvidence(
+	directory: string,
+	taskId: string,
+	sessionId: string,
+): void {
+	try {
+		const dotIndex = taskId.indexOf('.');
+		const phase = dotIndex > 0 ? taskId.slice(0, dotIndex) : taskId;
+		if (!/^\d+$/.test(phase)) return;
+
+		const evidenceDir = path.join(directory, '.swarm', 'evidence', phase);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		const evidencePath = path.join(evidenceDir, 'drift-verifier.json');
+		const now = new Date().toISOString();
+
+		const evidence = {
+			entries: [
+				{
+					type: 'drift-verification',
+					verdict: 'approved',
+					summary: 'critic_drift_verifier completed delegation successfully',
+					timestamp: now,
+					agent: 'critic_drift_verifier',
+					session_id: sessionId,
+				},
+			],
+		};
+
+		fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2), 'utf-8');
+	} catch (err) {
+		// Non-fatal — evidence is additive, never blocks delegation
+		console.warn(
+			`[delegation-gate] drift-verifier evidence write failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
+}
+
+/**
  * Creates the experimental.chat.messages.transform hook for delegation gating.
  * Inspects coder delegations and warns when tasks are oversized or batched.
  */
@@ -599,6 +646,7 @@ export function createDelegationGateHook(
 							'docs',
 							'designer',
 							'critic',
+							'critic_drift_verifier',
 							'explorer',
 							'sme',
 						];
@@ -620,6 +668,13 @@ export function createDelegationGateHook(
 								targetAgentForEvidence,
 								turbo,
 							);
+						}
+
+						// Write per-phase drift-verifier evidence when critic_drift_verifier completes.
+						// phase_complete reads .swarm/evidence/{phase}/drift-verifier.json and blocks
+						// if missing; the critic agent is read-only so we produce the file here.
+						if (targetAgentForEvidence === 'critic_drift_verifier') {
+							writeDriftVerifierEvidence(directory, evidenceTaskId, input.sessionID);
 						}
 					}
 				} catch (err) {

@@ -477,11 +477,11 @@ export async function executePhaseComplete(
 						phase,
 						status: 'blocked' as const,
 						reason: 'COMPLETION_INCOMPLETE',
-						message: `Phase ${phase} cannot be completed: ${completionResult.message}`,
+						message: `Phase ${phase} cannot be completed: ${completionResult.reason}`,
 						agentsDispatched,
 						agentsMissing: [],
-						warnings: completionResult.blocked_tasks
-							? [`Blocked tasks: ${completionResult.blocked_tasks.join(', ')}`]
+						warnings: completionResult.blockedTasks
+							? [`Blocked tasks: ${completionResult.blockedTasks.map((t: { task_id: string }) => t.task_id).join(', ')}`]
 							: [],
 					},
 					null,

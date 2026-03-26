@@ -41,6 +41,14 @@ export interface SerializedAgentSession {
     taskWorkflowStates?: Record<string, string>;
     /** Flag for one-shot scope violation warning injection (omitted when undefined for additive-only schema) */
     scopeViolationDetected?: boolean;
+    /** Current index into the fallback_models array (v6.33) */
+    model_fallback_index: number;
+    /** Flag set when all fallback models have been exhausted (v6.33) */
+    modelFallbackExhausted: boolean;
+    /** Number of coder revisions in the current task (v6.33) */
+    coderRevisions: number;
+    /** Flag set when coder revisions hit the configured ceiling (v6.33) */
+    revisionLimitHit: boolean;
 }
 /**
  * Minimal interface for serialized InvocationWindow
@@ -65,7 +73,7 @@ interface SerializedInvocationWindow {
  * Snapshot data structure written to disk
  */
 export interface SnapshotData {
-    version: 1;
+    version: 1 | 2;
     writtenAt: number;
     toolAggregates: Record<string, ToolAggregate>;
     activeAgent: Record<string, string>;
@@ -87,4 +95,10 @@ export declare function writeSnapshot(directory: string, state: typeof swarmStat
  * Returns a hook function that writes the current swarmState to disk.
  */
 export declare function createSnapshotWriterHook(directory: string): (input: unknown, output: unknown) => Promise<void>;
+/**
+ * v6.33.1: Flush any pending debounced snapshot write immediately.
+ * Used by phase-complete and handoff to ensure critical state transitions
+ * are persisted before returning.
+ */
+export declare function flushPendingSnapshot(directory: string): Promise<void>;
 export {};

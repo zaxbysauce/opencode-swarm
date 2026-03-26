@@ -57,6 +57,7 @@ import { initTelemetry, telemetry } from './telemetry';
 import {
 	check_gate_status,
 	checkpoint,
+	completion_verify,
 	complexity_hotspots,
 	curator_analyze,
 	declare_scope,
@@ -453,6 +454,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		tool: {
 			check_gate_status,
 			checkpoint,
+			completion_verify,
 			complexity_hotspots,
 			curator_analyze,
 			knowledgeAdd,

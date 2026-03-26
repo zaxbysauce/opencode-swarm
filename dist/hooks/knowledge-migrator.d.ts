@@ -5,6 +5,7 @@ export interface MigrationResult {
     entriesMigrated: number;
     entriesDropped: number;
     entriesTotal: number;
-    skippedReason?: 'sentinel-exists' | 'no-context-file' | 'empty-context';
+    skippedReason?: 'sentinel-exists' | 'no-context-file' | 'empty-context' | 'external-sentinel-exists';
 }
+export declare function migrateKnowledgeToExternal(_directory: string, _config: KnowledgeConfig): Promise<MigrationResult>;
 export declare function migrateContextToKnowledge(directory: string, config: KnowledgeConfig): Promise<MigrationResult>;
