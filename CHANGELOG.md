@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.7...v6.33.8) (2026-03-26)
+
+
+### Bug Fixes
+
+* **session:** gate all diagnostic logging behind DEBUG_SWARM env var ([#287](https://github.com/zaxbysauce/opencode-swarm/issues/287)) ([a70bf04](https://github.com/zaxbysauce/opencode-swarm/commit/a70bf0428a19ea7a7eae3fbd81d28d67316defdc))
+
 ## [6.33.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.6...v6.33.7) (2026-03-26)
 
 
