@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.35.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.34.0...v6.35.0) (2026-03-26)
+
+
+### Features
+
+* **swarm:** modernize agent prompts, deduplicate path security, and fix evidence pipeline ([#295](https://github.com/zaxbysauce/opencode-swarm/issues/295)) ([9d4f47d](https://github.com/zaxbysauce/opencode-swarm/commit/9d4f47d86c870de1b175aefc15b32d78d6c77473))
+
 ## [6.34.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.9...v6.34.0) (2026-03-26)
 
 
