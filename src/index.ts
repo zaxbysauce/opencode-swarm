@@ -758,38 +758,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`,
 				);
 
-			// ── v6.33.7 CRITICAL: Task handoff runs FIRST ─────────────────────
-			// Restore architect identity BEFORE any hooks run.  Previously this
-			// ran at the very end of the hook chain.  If ANY hook hung (e.g. due
-			// to Windows file-system stalls in getEvidenceTaskId's async I/O or
-			// Bun.write in gate-evidence atomicWrite), the handoff never executed,
-			// activeAgent stayed on the sub-agent, and the entire TUI froze
-			// because tool.execute.after never resolved.
 			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '');
 			const isTaskTool = normalizedTool === 'Task' || normalizedTool === 'task';
-			if (isTaskTool) {
-				const sessionId = input.sessionID;
-				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
-				ensureAgentSession(sessionId, ORCHESTRATOR_NAME);
-				const taskSession = swarmState.agentSessions.get(sessionId);
-				if (taskSession) {
-					taskSession.delegationActive = false;
-					taskSession.lastAgentEventTime = Date.now();
-				}
-				if (_dbg)
-					console.error(
-						`[DIAG] Task handoff DONE (early) session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`,
-					);
-			}
-
-			// ── Hook chain with timeout protection ────────────────────────────
-			// v6.33.7: Wrap entire hook chain in a 30-second timeout.
-			// If any hook hangs (unresolved promise), we force-return instead of
-			// freezing the session.  The Task handoff above already ran, so the
-			// architect identity is correct even if hooks are abandoned.
-			const HOOK_CHAIN_TIMEOUT_MS = 30_000;
-			const hookChainStart = Date.now();
-			let hookChainTimedOut = false;
 
 			const hookChain = async (): Promise<void> => {
 				await activityHooks.toolAfter(input, output);
@@ -874,29 +844,30 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				}
 			};
 
-			const timeout = new Promise<void>((resolve) => {
-				setTimeout(() => {
-					hookChainTimedOut = true;
-					resolve();
-				}, HOOK_CHAIN_TIMEOUT_MS);
-			});
-
-			await Promise.race([
-				hookChain().catch((err) => {
-					// Always log hook chain errors — these indicate a real problem
-					console.warn(
-						`[swarm] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`,
-					);
-				}),
-				timeout,
-			]);
-
-			if (hookChainTimedOut) {
-				const elapsed = Date.now() - hookChainStart;
-				// Always log timeouts — these indicate a hanging hook
+			try {
+				await hookChain();
+			} catch (err) {
 				console.warn(
-					`[swarm] toolAfter TIMEOUT after ${elapsed}ms tool=${_toolName} session=${input.sessionID} — hooks abandoned to prevent session freeze`,
+					`[swarm] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`,
 				);
+			}
+
+			// ── Task handoff runs AFTER hooks ───────────────────────────────
+			// Hooks must see the original subagent identity to record evidence
+			// correctly. The handoff restores architect identity afterward.
+			if (isTaskTool) {
+				const sessionId = input.sessionID;
+				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
+				ensureAgentSession(sessionId, ORCHESTRATOR_NAME);
+				const taskSession = swarmState.agentSessions.get(sessionId);
+				if (taskSession) {
+					taskSession.delegationActive = false;
+					taskSession.lastAgentEventTime = Date.now();
+				}
+				if (_dbg)
+					console.error(
+						`[DIAG] Task handoff DONE session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`,
+					);
 			}
 
 			deleteStoredInputArgs(input.callID);
