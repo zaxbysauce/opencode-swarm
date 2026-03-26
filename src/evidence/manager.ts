@@ -1,5 +1,4 @@
-import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
-import * as fs from 'node:fs/promises';
+import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { ZodError } from 'zod';
 import {
@@ -261,7 +260,7 @@ export async function saveEvidence(
 	);
 	try {
 		await Bun.write(tempPath, bundleJson);
-		await fs.rename(tempPath, evidencePath);
+		renameSync(tempPath, evidencePath);
 	} catch (error) {
 		// Clean up temp file on failure
 		try {
@@ -381,7 +380,7 @@ export async function loadEvidence(
 			);
 			try {
 				await Bun.write(tempPath, bundleJson);
-				await fs.rename(tempPath, evidencePath);
+				renameSync(tempPath, evidencePath);
 			} catch (writeError) {
 				// Clean up temp file on failure
 				try {
