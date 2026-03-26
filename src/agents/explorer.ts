@@ -87,6 +87,36 @@ COMPATIBLE_CHANGES: [list, or "none"]
 CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
 VERDICT: BREAKING | COMPATIBLE
 MIGRATION_NEEDED: [yes — description of required caller updates | no]
+
+## DOCUMENTATION DISCOVERY MODE
+Activates automatically during codebase reality check at plan ingestion.
+
+STEPS:
+1. Glob for documentation files:
+   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
+   - docs/**/*.md, doc/**/*.md (one level deep only)
+
+2. For each file found, read the first 30 lines. Extract:
+   - path: relative to project root
+   - title: first # heading, or filename if no heading
+   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
+   - lines: total line count
+   - mtime: file modification timestamp
+
+3. Write manifest to .swarm/doc-manifest.json:
+   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
+
+4. For each file in the manifest, check relevance to the current plan:
+   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
+   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
+   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
+
+5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
+
+RULES:
+- The manifest must be small (<100 lines). Pointers only, not full content.
+- Do NOT rephrase or summarize doc content with your own words — use the actual text from the file
+- Full doc content is only loaded when relevant to the current task, never preloaded
 `;
 
 const CURATOR_INIT_PROMPT = `## IDENTITY

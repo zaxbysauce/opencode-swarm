@@ -15,11 +15,7 @@ import {
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
-import {
-	type LoadEvidenceResult,
-	listEvidenceTaskIds,
-	loadEvidence,
-} from '../evidence/manager';
+import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
@@ -481,7 +477,9 @@ export async function executePhaseComplete(
 						agentsDispatched,
 						agentsMissing: [],
 						warnings: completionResult.blockedTasks
-							? [`Blocked tasks: ${completionResult.blockedTasks.map((t: { task_id: string }) => t.task_id).join(', ')}`]
+							? [
+									`Blocked tasks: ${completionResult.blockedTasks.map((t: { task_id: string }) => t.task_id).join(', ')}`,
+								]
 							: [],
 					},
 					null,

@@ -679,7 +679,11 @@ export function createDelegationGateHook(
 						// phase_complete reads .swarm/evidence/{phase}/drift-verifier.json and blocks
 						// if missing; the critic agent is read-only so we produce the file here.
 						if (targetAgentForEvidence === 'critic_drift_verifier') {
-							writeDriftVerifierEvidence(directory, evidenceTaskId, input.sessionID);
+							writeDriftVerifierEvidence(
+								directory,
+								evidenceTaskId,
+								input.sessionID,
+							);
 						}
 					}
 				} catch (err) {

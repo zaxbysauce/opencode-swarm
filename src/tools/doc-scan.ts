@@ -98,7 +98,7 @@ function matchesDocPattern(filePath: string, patterns: string[]): boolean {
 			.replace(/\/\*.*$/, '');
 
 		if (
-			normalizedPath.startsWith(dirPrefix + '/') ||
+			normalizedPath.startsWith(`${dirPrefix}/`) ||
 			normalizedPath === dirPrefix
 		) {
 			return true;
@@ -150,7 +150,7 @@ function extractTitleAndSummary(
 
 	// Truncate if needed
 	if (summary.length > MAX_SUMMARY_LENGTH) {
-		summary = summary.slice(0, MAX_SUMMARY_LENGTH - 3) + '...';
+		summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 3)}...`;
 	}
 
 	return { title, summary };

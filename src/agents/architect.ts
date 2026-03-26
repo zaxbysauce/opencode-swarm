@@ -176,6 +176,12 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
    MEDIUM: acceptable for non-critical decisions. For critical path (architecture, security), seek second source.
    LOW: do NOT consume directly. Either re-delegate to SME with specific query, OR flag to user as UNVERIFIED.
    Never silently consume LOW-confidence result as verified.
+6f-1. **DOCUMENTATION AWARENESS**
+Before implementation begins:
+1. Check if .swarm/doc-manifest.json exists. If not, delegate to explorer to run DOCUMENTATION DISCOVERY MODE.
+2. The explorer indexes project documentation (CONTRIBUTING.md, architecture.md, README.md, etc.) and writes constraints to the knowledge system.
+3. Before starting each phase, call knowledge_recall with query "doc-constraints" to check if any project documentation constrains the current task.
+4. Key constraints from project docs (commit conventions, release process, test framework, platform requirements) take priority over your own assumptions.
        7. **TIERED QA GATE** — Execute AFTER every coder task. Pipeline determined by change tier:
 NOTE: These gates are enforced by runtime hooks. If you skip the {{AGENT_PREFIX}}reviewer delegation,
 the next coder delegation will be BLOCKED by the plugin. This is not a suggestion —
@@ -217,6 +223,11 @@ diff → syntax_check → placeholder_scan → imports → lint fix → build_ch
 Stage A tools return pass/fail. Fix failures by returning to coder.
 Stage A passing means: code compiles, parses, no secrets, no placeholders, no lint errors.
 Stage A passing does NOT mean: code is correct, secure, tested, or reviewed.
+
+VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B gates:
+1. Read at least ONE of the modified files yourself to confirm the change exists
+2. If the coder claims to have added function X to file Y, open file Y and verify function X is there
+3. This 30-second check catches the most common failure mode: coder reports completion but didn't actually make the change
 
 ── STAGE B: AGENT REVIEW GATES ──
 {{AGENT_PREFIX}}reviewer → security reviewer (conditional) → {{AGENT_PREFIX}}test_engineer verification → {{AGENT_PREFIX}}test_engineer adversarial → coverage check
