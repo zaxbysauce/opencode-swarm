@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.8...v6.33.9) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove hook chain timeout, restore correct Task handoff order, and async evidence rename ([1784a20](https://github.com/zaxbysauce/opencode-swarm/commit/1784a2021d9b00f8e6d8da9da2ed42b5c20964e2))
+
 ## [6.33.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.7...v6.33.8) (2026-03-26)
 
 
