@@ -435,7 +435,7 @@ describe('ADVERSARIAL: fallback evidence directory security', () => {
 			);
 
 			// Should have logged a warning
-			expect(warnMessages.some((m) => m.includes('evidence write failed'))).toBe(true);
+			expect(warnMessages.some((m) => m.includes('evidence recording failed') || m.includes('evidence write failed'))).toBe(true);
 		} finally {
 			console.warn = originalWarn;
 			rmSync(readOnlyDir, { recursive: true, force: true });
