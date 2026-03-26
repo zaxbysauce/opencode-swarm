@@ -24,6 +24,7 @@ import {
 	getActiveWindow,
 	swarmState,
 } from '../state';
+import { telemetry } from '../telemetry.js';
 import { warn } from '../utils';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
@@ -783,6 +784,12 @@ export function createGuardrailsHooks(
 				window.toolCalls >= agentConfig.max_tool_calls
 			) {
 				window.hardLimitHit = true;
+				telemetry.hardLimitHit(
+					input.sessionID,
+					window.agentName,
+					'tool_calls',
+					window.toolCalls,
+				);
 				warn('Circuit breaker: tool call limit hit', {
 					sessionID: input.sessionID,
 					agentName: window.agentName,
@@ -801,6 +808,12 @@ export function createGuardrailsHooks(
 				elapsedMinutes >= agentConfig.max_duration_minutes
 			) {
 				window.hardLimitHit = true;
+				telemetry.hardLimitHit(
+					input.sessionID,
+					window.agentName,
+					'duration',
+					elapsedMinutes,
+				);
 				warn('Circuit breaker: duration limit hit', {
 					sessionID: input.sessionID,
 					agentName: window.agentName,
@@ -816,6 +829,12 @@ export function createGuardrailsHooks(
 
 			if (repetitionCount >= agentConfig.max_repetitions) {
 				window.hardLimitHit = true;
+				telemetry.hardLimitHit(
+					input.sessionID,
+					window.agentName,
+					'repetition',
+					repetitionCount,
+				);
 				throw new Error(
 					`🛑 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`,
 				);
@@ -823,6 +842,12 @@ export function createGuardrailsHooks(
 
 			if (window.consecutiveErrors >= agentConfig.max_consecutive_errors) {
 				window.hardLimitHit = true;
+				telemetry.hardLimitHit(
+					input.sessionID,
+					window.agentName,
+					'consecutive_errors',
+					window.consecutiveErrors,
+				);
 				throw new Error(
 					`🛑 LIMIT REACHED: ${window.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`,
 				);
@@ -832,6 +857,12 @@ export function createGuardrailsHooks(
 			const idleMinutes = (Date.now() - window.lastSuccessTimeMs) / 60000;
 			if (idleMinutes >= agentConfig.idle_timeout_minutes) {
 				window.hardLimitHit = true;
+				telemetry.hardLimitHit(
+					input.sessionID,
+					window.agentName,
+					'idle_timeout',
+					idleMinutes,
+				);
 				warn('Circuit breaker: idle timeout hit', {
 					sessionID: input.sessionID,
 					agentName: window.agentName,
@@ -1002,6 +1033,7 @@ export function createGuardrailsHooks(
 						const maxRevisions = cfg.max_coder_revisions ?? 5;
 						if (session.coderRevisions >= maxRevisions) {
 							session.revisionLimitHit = true;
+							telemetry.revisionLimitHit(input.sessionID, session.agentName);
 							session.pendingAdvisoryMessages ??= [];
 							session.pendingAdvisoryMessages.push(
 								`CODER REVISION LIMIT: Agent has been revised ${session.coderRevisions} times ` +
@@ -1036,6 +1068,12 @@ export function createGuardrailsHooks(
 								undeclaredFiles.join(', ');
 							// Flag for warning injection in messagesTransform
 							session.scopeViolationDetected = true;
+							telemetry.scopeViolation(
+								input.sessionID,
+								session.agentName,
+								session.currentTaskId ?? 'unknown',
+								'undeclared files modified',
+							);
 						}
 					}
 					// Reset tracked files after check (whether violation or not)
@@ -1091,6 +1129,13 @@ export function createGuardrailsHooks(
 					) {
 						// Increment fallback index
 						session.model_fallback_index++;
+						telemetry.modelFallback(
+							input.sessionID,
+							session.agentName,
+							'primary',
+							'fallback',
+							'transient_model_error',
+						);
 						session.modelFallbackExhausted = true; // Will be reset when task succeeds
 
 						// Inject advisory message for the architect
@@ -1182,6 +1227,11 @@ export function createGuardrailsHooks(
 				const pending = session.loopWarningPending;
 				// Clear before injecting to avoid repeat
 				session.loopWarningPending = undefined;
+				telemetry.loopDetected(
+					_input.sessionID,
+					session.agentName,
+					pending.message,
+				);
 				// Inject into first system message (same pattern as self-coding warning)
 				const loopSystemMsg = systemMessages[0];
 				if (loopSystemMsg) {

@@ -22,10 +22,22 @@ const mockApplyCuratorKnowledgeUpdates = mock(async () => ({
 
 const mockRunCriticDriftCheck = mock(async () => ({
 	phase: 1,
-	alignment: 'ALIGNED',
-	drift_score: 0,
-	recommendations: [],
-	timestamp: new Date().toISOString(),
+	report: {
+		schema_version: 1 as const,
+		phase: 1,
+		timestamp: new Date().toISOString(),
+		alignment: 'ALIGNED' as const,
+		drift_score: 0,
+		first_deviation: null,
+		compounding_effects: [],
+		corrections: [],
+		requirements_checked: 0,
+		requirements_satisfied: 0,
+		scope_additions: [],
+		injection_summary: '',
+	},
+	report_path: '',
+	injection_text: '',
 }));
 
 // Mock the curator modules
@@ -93,6 +105,47 @@ function writeRetroBundle(
 }
 
 /**
+ * Helper function to write gate evidence files for Phase 4 mandatory gates
+ */
+function writeGateEvidence(directory: string, phase: number): void {
+	const evidenceDir = path.join(directory, '.swarm', 'evidence', `${phase}`);
+	fs.mkdirSync(evidenceDir, { recursive: true });
+
+	// Write completion-verify.json
+	const completionVerify = {
+		status: 'passed',
+		tasksChecked: 1,
+		tasksPassed: 1,
+		tasksBlocked: 0,
+		reason: 'All task identifiers found in source files',
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'completion-verify.json'),
+		JSON.stringify(completionVerify, null, 2),
+	);
+
+	// Write drift-verifier.json
+	const driftVerifier = {
+		schema_version: '1.0.0',
+		task_id: 'drift-verifier',
+		entries: [
+			{
+				task_id: 'drift-verifier',
+				type: 'drift_verification',
+				timestamp: new Date().toISOString(),
+				agent: 'critic_drift_verifier',
+				verdict: 'approved',
+				summary: 'Drift check passed',
+			},
+		],
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'drift-verifier.json'),
+		JSON.stringify(driftVerifier, null, 2),
+	);
+}
+
+/**
  * Create config with optional curator settings
  */
 function createConfig(curatorConfig?: {
@@ -147,6 +200,9 @@ describe('phase_complete - curator pipeline', () => {
 
 		// Write retro bundle for phase 1
 		writeRetroBundle(tempDir, 1, 'pass');
+		writeGateEvidence(tempDir, 1);
+		writeRetroBundle(tempDir, 2, 'pass');
+		writeGateEvidence(tempDir, 2);
 
 		// Create default config WITHOUT curator enabled (default case)
 		fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
@@ -486,6 +542,9 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 
 		writeRetroBundle(tempDir, 1, 'pass');
+		writeGateEvidence(tempDir, 1);
+		writeRetroBundle(tempDir, 2, 'pass');
+		writeGateEvidence(tempDir, 2);
 	});
 
 	afterEach(() => {

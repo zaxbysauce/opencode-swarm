@@ -53,6 +53,7 @@ import { shouldRunOnStartup } from './services/config-doctor';
 import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
+import { initTelemetry, telemetry } from './telemetry';
 import {
 	check_gate_status,
 	checkpoint,
@@ -96,10 +97,14 @@ import { truncateToolOutput } from './utils/tool-output';
  * - Code generation with QA review
  * - Iterative refinement with triage
  */
+// Heartbeat throttle map: sessionId -> last heartbeat timestamp
+const _heartbeatTimers = new Map<string, number>();
+
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
+	initTelemetry(ctx.directory);
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
 	const pipelineHook = createPipelineTrackerHook(config, ctx.directory);
@@ -662,6 +667,21 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					if (process.env.DEBUG_SWARM)
 						console.error(`[DIAG] systemTransform enhancer DONE`);
 				},
+				// Heartbeat: throttled to 30s per session
+				(input: unknown, _output: unknown): Promise<void> => {
+					try {
+						const { sessionID } = input as { sessionID?: string };
+						if (!sessionID) return Promise.resolve();
+						const lastTime = _heartbeatTimers.get(sessionID);
+						if (Date.now() - (lastTime ?? 0) > 30_000) {
+							_heartbeatTimers.set(sessionID, Date.now());
+							telemetry.heartbeat(sessionID);
+						}
+					} catch {
+						// never throws
+					}
+					return Promise.resolve();
+				},
 				automationConfig.capabilities?.phase_preflight === true &&
 				preflightTriggerManager
 					? createPhaseMonitorHook(ctx.directory, preflightTriggerManager)
@@ -857,12 +877,19 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// correctly. The handoff restores architect identity afterward.
 			if (isTaskTool) {
 				const sessionId = input.sessionID;
+				const agentName = swarmState.activeAgent.get(sessionId) || 'unknown';
 				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
 				ensureAgentSession(sessionId, ORCHESTRATOR_NAME);
 				const taskSession = swarmState.agentSessions.get(sessionId);
 				if (taskSession) {
 					taskSession.delegationActive = false;
 					taskSession.lastAgentEventTime = Date.now();
+					telemetry.delegationEnd(
+						sessionId,
+						agentName,
+						taskSession.currentTaskId || '',
+						'completed',
+					);
 				}
 				if (_dbg)
 					console.error(

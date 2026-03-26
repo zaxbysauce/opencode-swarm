@@ -21,6 +21,7 @@ import {
 	getContextBudgetReport,
 } from '../services';
 import { swarmState } from '../state';
+import { telemetry } from '../telemetry';
 import { warn } from '../utils';
 import {
 	detectAdversarialPair,
@@ -830,6 +831,11 @@ ${handoffContent}`;
 								contextBudgetConfig,
 							);
 							swarmState.lastBudgetPct = budgetReport.budgetPct;
+							telemetry.budgetUpdated(
+								_input.sessionID ?? 'unknown',
+								budgetReport.budgetPct,
+								'architect',
+							);
 							const budgetWarning = await formatBudgetWarning(
 								budgetReport,
 								directory,
@@ -1419,6 +1425,11 @@ ${handoffContent}`;
 							contextBudgetConfig_b,
 						);
 						swarmState.lastBudgetPct = budgetReport_b.budgetPct;
+						telemetry.budgetUpdated(
+							_input.sessionID ?? 'unknown',
+							budgetReport_b.budgetPct,
+							'architect',
+						);
 						const budgetWarning_b = await formatBudgetWarning(
 							budgetReport_b,
 							directory,

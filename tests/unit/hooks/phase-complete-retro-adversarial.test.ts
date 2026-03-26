@@ -61,6 +61,45 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 		);
 	}
 
+	// Helper function to write gate evidence files for Phase 4 mandatory gates
+	function writeGateEvidence(phase: number): void {
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', `${phase}`);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		// Write completion-verify.json
+		const completionVerify = {
+			status: 'passed',
+			tasksChecked: 1,
+			tasksPassed: 1,
+			tasksBlocked: 0,
+			reason: 'All task identifiers found in source files',
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'completion-verify.json'),
+			JSON.stringify(completionVerify, null, 2),
+		);
+
+		// Write drift-verifier.json
+		const driftVerifier = {
+			schema_version: '1.0.0',
+			task_id: 'drift-verifier',
+			entries: [
+				{
+					task_id: 'drift-verifier',
+					type: 'drift_verification',
+					timestamp: new Date().toISOString(),
+					agent: 'critic_drift_verifier',
+					verdict: 'approved',
+					summary: 'Drift check passed',
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'drift-verifier.json'),
+			JSON.stringify(driftVerifier, null, 2),
+		);
+	}
+
 	describe('Attack Vector 1: Path traversal in phase number', () => {
 		test('phase = NaN should be rejected (sanitization)', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
@@ -250,6 +289,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			maliciousEntry.verdict = 'pass';
 
 			writeRetroBundleWithEntries('retro-1', [maliciousEntry]);
+			writeGateEvidence(1);
 
 			// Zod validation rejects the bundle because it's missing required fields
 			// (JSON.stringify doesn't serialize properties correctly from Object.create(null))
@@ -289,6 +329,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			entry.verdict = 'pass';
 
 			writeRetroBundleWithEntries('retro-1', [entry]);
+			writeGateEvidence(1);
 
 			// Zod validation rejects the bundle (missing required fields)
 			const result = await phase_complete.execute({
@@ -344,6 +385,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -395,6 +437,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -447,6 +490,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -497,6 +541,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -563,6 +608,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			});
 
 			writeRetroBundleWithEntries('retro-1', largeEntries);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -615,6 +661,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			// This should either crash (TypeError: Cannot read property 'type' of null)
 			// or it should handle it gracefully
@@ -732,6 +779,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -784,6 +832,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					lessons_learned: ['Lesson 1'],
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -825,6 +874,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					phase_number: 1,
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -864,6 +914,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					phase_number: 1,
 				},
 			]);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,

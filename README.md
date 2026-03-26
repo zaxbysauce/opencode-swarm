@@ -14,7 +14,7 @@
 
 ---
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 9 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 11 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
 npm install -g opencode-swarm
@@ -26,8 +26,9 @@ Most AI coding tools let one model write code and ask that same model whether th
 
 ### Key Features
 
-- 🏗️ **9 specialized agents** — architect, coder, reviewer, test engineer, critic, explorer, SME, docs, designer
+- 🏗️ **11 specialized agents** — architect, coder, reviewer, test engineer, critic, critic_sounding_board, critic_drift_verifier, explorer, SME, docs, designer
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
+- 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
 - 🌐 **11 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
@@ -73,6 +74,7 @@ All project state lives in `.swarm/`:
 ├── context.md           # Technical decisions and SME guidance
 ├── events.jsonl         # Event stream for diagnostics
 ├── evidence/            # Review/test evidence bundles per task
+├── telemetry.jsonl      # Session observability events (JSONL)
 ├── curator-summary.json # Curator system state (if enabled)
 └── drift-report-phase-N.json  # Plan-vs-reality drift reports
 ```
@@ -327,7 +329,7 @@ That means the normal user workflow is:
 3. let Swarm coordinate the internal pipeline
 4. inspect progress with `/swarm status`, `/swarm plan`, and `/swarm evidence`
 
-Agent roles:
+Agent roles (see [Agent Categories](#agent-categories) for classification reference):
 
 | Agent | Role | When It Runs |
 |---|---|---|
@@ -335,6 +337,8 @@ Agent roles:
 | `explorer` | Scans the codebase and gathers context | Before planning, after phase wrap |
 | `sme` | Provides domain guidance | During planning / consultation |
 | `critic` | Reviews the plan before execution | Before coding starts |
+| `critic_sounding_board` | Pre-escalation pushback before user contact | When architect hits impasse |
+| `critic_drift_verifier` | Phase completion verifier (implementation matches plan) | Before phase_complete |
 | `coder` | Implements one task at a time | During execution |
 | `reviewer` | Reviews correctness and security | After each task |
 | `test_engineer` | Writes and runs tests | After each task |
@@ -354,13 +358,28 @@ If you want to see what is active right now, run:
 
 | | OpenCode Swarm | oh-my-opencode | get-shit-done |
 |---|:-:|:-:|:-:|
-| Multiple specialized agents | ✅ 9 agents | ❌ Prompt config | ❌ Single-agent macros |
+| Multiple specialized agents | ✅ 11 agents | ❌ Prompt config | ❌ Single-agent macros |
 | Plan reviewed before coding starts | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
 | Different model for review vs. coding | ✅ | ❌ | ❌ |
 | Saves state to disk, resumable | ✅ | ❌ | ❌ |
 | Security scanning built in | ✅ | ❌ | ❌ |
 | Learns from its own mistakes | ✅ (retrospectives) | ❌ | ❌ |
+
+---
+
+## Agent Categories
+
+Agents are classified into four categories for the monitor server `/metadata` endpoint:
+
+| Category | Agents |
+|----------|--------|
+| `orchestrator` | architect |
+| `pipeline` | explorer, coder, test_engineer |
+| `qa` | reviewer, critic, critic_sounding_board, critic_drift_verifier |
+| `support` | sme, docs, designer |
+
+Use `getAgentCategory(agentName)` from `src/config/agent-categories.ts` to resolve an agent's category at runtime.
 
 ---
 
@@ -405,9 +424,11 @@ The architect moves through these modes automatically:
 | `PLAN` | Architect writes or updates the phased plan (includes CODEBASE REALITY CHECK on brownfield projects) |
 | `CRITIC-GATE` | Critic reviews the plan before execution |
 | `EXECUTE` | Tasks are implemented one at a time through the QA pipeline |
-| `PHASE-WRAP` | A phase closes out, docs are updated, and a retrospective is written |
+| `PHASE-WRAP` | A phase closes out, docs are updated, retrospective is written, and phase completion gates are enforced |
 
 > **CODEBASE REALITY CHECK (v6.29.2):** Before any planning, the Architect dispatches Explorer to verify the current state of every referenced item. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. This prevents planning against stale assumptions. Skipped for greenfield projects with no existing codebase references.
+
+> **Phase Completion Gates (v6.33.4):** Before a phase can be marked complete, two mandatory gates are enforced: (1) completion-verify — deterministic check that plan task identifiers exist in source files, and (2) critic_drift_verifier evidence — verification that the drift verifier approved the implementation. Both gates are automatically bypassed when turbo mode is active.
 
 ### Important
 
@@ -470,6 +491,40 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 | diff | Files changed, additions/deletions |
 | retrospective | Phase metrics, lessons learned, error taxonomy classification (injected into next phase) |
 | secretscan | Secret scan results: findings count, files scanned, skipped files (v6.33) |
+
+### telemetry.jsonl: Session Observability
+
+Swarm emits structured JSONL events to `.swarm/telemetry.jsonl` for observability tooling (dashboards, alerting, audit logs). Events are fire-and-forget — failures never affect execution.
+
+```json
+{"timestamp":"2026-03-25T14:30:00.000Z","event":"session_started","sessionId":"abc123","agentName":"architect"}
+{"timestamp":"2026-03-25T14:30:05.000Z","event":"delegation_begin","sessionId":"abc123","agentName":"coder","taskId":"1.1"}
+{"timestamp":"2026-03-25T14:31:00.000Z","event":"delegation_end","sessionId":"abc123","agentName":"coder","taskId":"1.1","result":"success"}
+{"timestamp":"2026-03-25T14:31:10.000Z","event":"gate_passed","sessionId":"abc123","gate":"reviewer","taskId":"1.1"}
+{"timestamp":"2026-03-25T14:32:00.000Z","event":"phase_changed","sessionId":"abc123","oldPhase":1,"newPhase":2}
+```
+
+| Event | When Emitted |
+|-------|-------------|
+| `session_started` | New agent session created |
+| `session_ended` | Session ends (reason: normal, timeout, error) |
+| `agent_activated` | Agent identity confirmed via chat.message |
+| `delegation_begin` | Task dispatched to a sub-agent |
+| `delegation_end` | Sub-agent returns (success, rejected, error) |
+| `task_state_changed` | Task workflow state transitions |
+| `gate_passed` | Evidence written to `.swarm/evidence/{taskId}.json` |
+| `gate_failed` | Gate check blocked task completion |
+| `phase_changed` | Phase completed and new phase started |
+| `budget_updated` | Context budget crossed warning/critical threshold |
+| `hard_limit_hit` | Tool call/duration/repetition limit reached |
+| `revision_limit_hit` | Coder revision limit exceeded |
+| `loop_detected` | Repetitive tool call pattern detected |
+| `scope_violation` | Architect wrote outside declared scope |
+| `qa_skip_violation` | QA gate skipped without valid reason |
+| `model_fallback` | Transient error triggered model fallback |
+| `heartbeat` | 30-second throttled keep-alive signal |
+
+File rotates automatically at 10MB to `.swarm/telemetry.jsonl.1`.
 
 </details>
 

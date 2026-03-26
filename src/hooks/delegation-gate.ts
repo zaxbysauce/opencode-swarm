@@ -18,6 +18,7 @@ import {
 	hasActiveTurboMode,
 	swarmState,
 } from '../state';
+import { telemetry } from '../telemetry.js';
 import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
@@ -1162,6 +1163,11 @@ export function createDelegationGateHook(
 						if (!hasReviewer || !hasTestEngineer || priorTaskStuckAtCoder) {
 							// Escalating enforcement: warn on first skip, hard block on second
 							if (session.qaSkipCount >= 1) {
+								telemetry.qaSkipViolation(
+									_input.sessionID,
+									session.agentName,
+									session.qaSkipCount + 1,
+								);
 								const skippedTasks = session.qaSkipTaskIds.join(', ');
 								throw new Error(
 									`🛑 QA GATE ENFORCEMENT: ${session.qaSkipCount + 1} consecutive coder delegations without reviewer/test_engineer. ` +

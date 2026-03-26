@@ -13,6 +13,7 @@
 
 import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
+import { telemetry } from './telemetry.js';
 
 export interface GateEvidence {
 	sessionId: string;
@@ -171,6 +172,7 @@ export async function recordGateEvidence(
 	};
 
 	await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+	telemetry.gatePassed(sessionId, gate, taskId);
 }
 
 /**
@@ -218,6 +220,26 @@ export async function readTaskEvidence(
 		return readExisting(getEvidencePath(directory, taskId));
 	} catch {
 		return null;
+	}
+}
+
+/**
+ * Returns the TaskEvidence for a task, or null if the file does not exist (ENOENT).
+ * Throws on malformed JSON, permission errors, or other non-ENOENT issues.
+ * Used by checkReviewerGate for evidence-first gate checking with proper error handling.
+ */
+export function readTaskEvidenceRaw(
+	directory: string,
+	taskId: string,
+): TaskEvidence | null {
+	assertValidTaskId(taskId);
+	const evidencePath = getEvidencePath(directory, taskId);
+	try {
+		const raw = readFileSync(evidencePath, 'utf-8');
+		return JSON.parse(raw) as TaskEvidence;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+		throw error;
 	}
 }
 

@@ -1,6 +1,7 @@
 export { build_check } from './build-check';
 export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
+export { completion_verify } from './completion-verify';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
 export { curator_analyze } from './curator-analyze';

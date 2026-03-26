@@ -8,9 +8,11 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { updateTaskStatus } from '../plan/manager';
 import { advanceTaskState, getTaskState, swarmState } from '../state';
+import { telemetry } from '../telemetry.js';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -177,22 +179,14 @@ export function checkReviewerGate(
 		// === evidence-first check (durable, survives restarts) ===
 		const resolvedDir = workingDirectory!;
 		try {
-			const evidencePath = path.join(
-				resolvedDir,
-				'.swarm',
-				'evidence',
-				`${taskId}.json`,
-			);
-			const raw = fs.readFileSync(evidencePath, 'utf-8');
-			const evidence = JSON.parse(raw) as {
-				required_gates?: string[];
-				gates?: Record<string, unknown>;
-			};
+			const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
 
-			if (
-				evidence?.required_gates &&
+			if (evidence === null) {
+				// No evidence file (ENOENT) — fall through to session state
+			} else if (
+				evidence.required_gates &&
 				Array.isArray(evidence.required_gates) &&
-				evidence?.gates
+				evidence.gates
 			) {
 				const allGatesMet = evidence.required_gates.every(
 					(gate: string) => evidence.gates![gate] != null,
@@ -204,6 +198,12 @@ export function checkReviewerGate(
 				const missingGates = evidence.required_gates.filter(
 					(gate: string) => evidence.gates![gate] == null,
 				);
+				telemetry.gateFailed(
+					'',
+					'qa_gate',
+					taskId,
+					`Missing gates: [${missingGates.join(', ')}]`,
+				);
 				return {
 					blocked: true,
 					reason:
@@ -213,8 +213,24 @@ export function checkReviewerGate(
 						`Delegate the missing gate agents before marking task as completed.`,
 				};
 			}
-		} catch {
-			// No evidence file or parse error — fall through to session state
+		} catch (error) {
+			// Malformed JSON, permission error, or other non-ENOENT issue — BLOCK
+			console.warn(
+				`[gate-evidence] Evidence file for task ${taskId} is corrupt or unreadable:`,
+				error,
+			);
+			telemetry.gateFailed(
+				'',
+				'qa_gate',
+				taskId,
+				`Evidence file corrupt or unreadable`,
+			);
+			return {
+				blocked: true,
+				reason:
+					`Evidence file for task ${taskId} is corrupt or unreadable. ` +
+					`Fix the file at .swarm/evidence/${taskId}.json or delete it to fall through to session state.`,
+			};
 		}
 
 		// === session state check (fallback for pre-evidence tasks) ===
@@ -331,6 +347,12 @@ export function checkReviewerGate(
 
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
+		telemetry.gateFailed(
+			'',
+			'qa_gate',
+			taskId,
+			`Missing state: tests_run or complete`,
+		);
 		return {
 			blocked: true,
 			reason: `Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`,

@@ -26,8 +26,9 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 	/**
 	 * Helper to read events.jsonl and parse all lines
+	 * @param eventType - Optional filter to only return events of this type
 	 */
-	function readEvents(): Array<Record<string, unknown>> {
+	function readEvents(eventType?: string): Array<Record<string, unknown>> {
 		const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 		if (!fs.existsSync(eventsPath)) {
 			return [];
@@ -47,6 +48,9 @@ describe('phase_complete integration — adversarial scenarios', () => {
 				console.error(content);
 				throw parseError;
 			}
+		}
+		if (eventType) {
+			return events.filter((e) => e.event === eventType);
 		}
 		return events;
 	}
@@ -108,6 +112,47 @@ describe('phase_complete integration — adversarial scenarios', () => {
 		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
 	}
 
+	/**
+	 * Helper to write gate evidence files for Phase 4 mandatory gates
+	 */
+	function writeGateEvidence(phase: number): void {
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', `${phase}`);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		// Write completion-verify.json
+		const completionVerify = {
+			status: 'passed',
+			tasksChecked: 1,
+			tasksPassed: 1,
+			tasksBlocked: 0,
+			reason: 'All task identifiers found in source files',
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'completion-verify.json'),
+			JSON.stringify(completionVerify, null, 2),
+		);
+
+		// Write drift-verifier.json
+		const driftVerifier = {
+			schema_version: '1.0.0',
+			task_id: 'drift-verifier',
+			entries: [
+				{
+					task_id: 'drift-verifier',
+					type: 'drift_verification',
+					timestamp: new Date().toISOString(),
+					agent: 'critic_drift_verifier',
+					verdict: 'approved',
+					summary: 'Drift check passed',
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'drift-verifier.json'),
+			JSON.stringify(driftVerifier, null, 2),
+		);
+	}
+
 	describe('1. Concurrent event appends', () => {
 		it('two phase_complete calls back-to-back to same session — both events appear, no corruption', async () => {
 			// Config: no required agents to simplify
@@ -129,6 +174,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			// Call phase_complete twice back-to-back
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result1 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -140,6 +186,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
 			writeRetro(2);
+			writeGateEvidence(2);
 			const result2 = await executePhaseComplete({
 				phase: 2,
 				sessionID,
@@ -153,8 +200,8 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			expect(parsed1.success).toBe(true);
 			expect(parsed2.success).toBe(true);
 
-			// Both events should appear in events.jsonl
-			const events = readEvents();
+			// Both phase_complete events should appear in events.jsonl
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(2);
 
 			// Verify events are correctly formed (no corruption)
@@ -192,6 +239,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			ensureAgentSession(sessionID);
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -240,6 +288,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			ensureAgentSession(sessionID);
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -284,6 +333,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			// Write retro BEFORE making .swarm read-only
 			writeRetro(1);
+			writeGateEvidence(1);
 
 			// Make .swarm directory read-only
 			const swarmDir = path.join(tempDir, '.swarm');
@@ -356,6 +406,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// First call: phase=3
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			writeRetro(3);
+			writeGateEvidence(3);
 			const result1 = await executePhaseComplete({
 				phase: 3,
 				sessionID,
@@ -369,6 +420,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// Second call: phase=1 (out of order)
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result2 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -411,6 +463,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const longSummary = 'A'.repeat(1000);
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -421,7 +474,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			expect(parsed.success).toBe(true);
 
 			// Check the event file - summary should be truncated to 500 chars
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 
 			const event = events[0];
@@ -448,6 +501,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const dangerousSummary = 'Line 1\nLine 2\\Backslash"Quote"';
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -493,6 +547,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			ensureAgentSession(sessionID);
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -503,7 +558,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			expect(parsed.success).toBe(true);
 
 			// Event should be written correctly
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 			expect(events[0].event).toBe('phase_complete');
 			expect(events[0].phase).toBe(1);
@@ -526,6 +581,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			ensureAgentSession(session1);
 			recordPhaseAgentDispatch(session1, 'coder');
 			writeRetro(1);
+			writeGateEvidence(1);
 			await executePhaseComplete({
 				phase: 1,
 				sessionID: session1,
@@ -545,6 +601,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// Session 1, Phase 2 (back to session 1)
 			recordPhaseAgentDispatch(session1, 'coder');
 			writeRetro(2);
+			writeGateEvidence(2);
 			await executePhaseComplete({
 				phase: 2,
 				sessionID: session1,
@@ -559,8 +616,8 @@ describe('phase_complete integration — adversarial scenarios', () => {
 				summary: 'Session 2, Phase 2',
 			}, tempDir);
 
-			// All 4 events should be present in the order they were called
-			const events = readEvents();
+			// All 4 phase_complete events should be present in the order they were called
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(4);
 
 			expect(events[0].sessionID || 'unknown').toBeTruthy();
@@ -600,6 +657,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'extra_agent_2');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -619,7 +677,7 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			expect(parsed.agentsDispatched).toContain('extra_agent_2');
 
 			// Check event file
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 
 			const event = events[0];
