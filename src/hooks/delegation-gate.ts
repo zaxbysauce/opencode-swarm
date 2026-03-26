@@ -382,28 +382,18 @@ async function getEvidenceTaskId(
 			}
 		}
 	} catch (err) {
-		// Only silently swallow expected cases:
-		// - ENOENT: file doesn't exist (missing plan.json)
-		// - ENOTDIR: path component is not a directory
-		// - SyntaxError: malformed JSON (invalid plan.json)
-		// Re-throw unexpected errors (permission, disk, etc.) so they're not hidden
-		if (err instanceof Error) {
-			// Check for expected error types
-			if (err instanceof SyntaxError) {
-				// Expected: malformed JSON - return null quietly
-				return null;
-			}
-			// Check for expected error codes
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === 'ENOENT' || code === 'ENOTDIR') {
-				// Expected: missing file - return null quietly
-				return null;
-			}
-			// Unexpected error - re-throw to not hide potential issues
-			throw err;
+		// v6.33.7: Never re-throw from getEvidenceTaskId.
+		// Previously, unexpected errors (EPERM, EBUSY, etc.) were re-thrown,
+		// which propagated out of the evidence try-catch (since this call was
+		// outside it) and into the toolAfter chain.  On Windows, EBUSY from
+		// virus scanner file locks caused the entire hook chain to fail.
+		// Evidence task ID lookup is best-effort — return null on any error.
+		if (process.env.DEBUG_SWARM && err instanceof Error) {
+			console.warn(
+				`[delegation-gate] getEvidenceTaskId error: ${err.message} (code=${(err as NodeJS.ErrnoException).code ?? 'none'})`,
+			);
 		}
-		// Unknown error type - re-throw
-		throw err;
+		return null;
 	}
 
 	return null;
@@ -588,16 +578,19 @@ export function createDelegationGateHook(
 			}
 
 			// Record gate evidence for stored-args path
+			// v6.33.7: Entire block wrapped in try-catch — getEvidenceTaskId can
+			// re-throw unexpected errors (EPERM, EBUSY on Windows) which previously
+			// escaped outside the evidence try-catch and propagated to safeHook.
 			if (typeof subagentType === 'string') {
-				const rawTaskId = directArgs?.task_id;
-				const evidenceTaskId =
-					typeof rawTaskId === 'string' &&
-					rawTaskId.length <= 20 &&
-					/^\d+\.\d+$/.test(rawTaskId.trim())
-						? rawTaskId.trim()
-						: await getEvidenceTaskId(session, directory);
-				if (evidenceTaskId) {
-					try {
+				try {
+					const rawTaskId = directArgs?.task_id;
+					const evidenceTaskId =
+						typeof rawTaskId === 'string' &&
+						rawTaskId.length <= 20 &&
+						/^\d+\.\d+$/.test(rawTaskId.trim())
+							? rawTaskId.trim()
+							: await getEvidenceTaskId(session, directory);
+					if (evidenceTaskId) {
 						const turbo = hasActiveTurboMode();
 						const gateAgents = [
 							'reviewer',
@@ -627,12 +620,12 @@ export function createDelegationGateHook(
 								turbo,
 							);
 						}
-					} catch (err) {
-						/* non-fatal — evidence is additive, never blocks delegation */
-						console.warn(
-							`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
-						);
 					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
 				}
 			}
 
@@ -780,7 +773,8 @@ export function createDelegationGateHook(
 				}
 
 				// Record gate evidence for delegation-chain fallback path
-				{
+				// v6.33.7: Entire block wrapped in try-catch (same fix as stored-args path)
+				try {
 					const rawTaskId = directArgs?.task_id;
 					const evidenceTaskId =
 						typeof rawTaskId === 'string' &&
@@ -789,35 +783,33 @@ export function createDelegationGateHook(
 							? rawTaskId.trim()
 							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
-						try {
-							const turbo = hasActiveTurboMode();
-							if (hasReviewer) {
-								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(
-									directory,
-									evidenceTaskId,
-									'reviewer',
-									input.sessionID,
-									turbo,
-								);
-							}
-							if (hasTestEngineer) {
-								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(
-									directory,
-									evidenceTaskId,
-									'test_engineer',
-									input.sessionID,
-									turbo,
-								);
-							}
-						} catch (err) {
-							/* non-fatal — evidence is additive, never blocks delegation */
-							console.warn(
-								`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
+						const turbo = hasActiveTurboMode();
+						if (hasReviewer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'reviewer',
+								input.sessionID,
+								turbo,
+							);
+						}
+						if (hasTestEngineer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'test_engineer',
+								input.sessionID,
+								turbo,
 							);
 						}
 					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] fallback evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
 				}
 			}
 		}
