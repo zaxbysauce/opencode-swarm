@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.4...v6.33.5) (2026-03-26)
+
+
+### Bug Fixes
+
+* **rehydration:** reset InvocationWindow counters and flags on startup ([#282](https://github.com/zaxbysauce/opencode-swarm/issues/282)) ([28e8a5a](https://github.com/zaxbysauce/opencode-swarm/commit/28e8a5a4e027bb0e5fc3fb860852f4514af0cf93))
+
 ## [6.33.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.3...v6.33.4) (2026-03-25)
 
 
