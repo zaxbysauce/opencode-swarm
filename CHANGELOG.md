@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.5...v6.33.6) (2026-03-26)
+
+
+### Bug Fixes
+
+* prevent stale delegation reversion from hijacking active sub-agents ([2d24070](https://github.com/zaxbysauce/opencode-swarm/commit/2d24070ac3912842b523bd0de81fcddf201807c5))
+
 ## [6.33.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.4...v6.33.5) (2026-03-26)
 
 
