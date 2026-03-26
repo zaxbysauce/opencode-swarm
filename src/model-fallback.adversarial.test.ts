@@ -203,7 +203,7 @@ describe('ADVERSARIAL 4: fallback_models with extremely long model names', () =>
 	it('4.3 10K char model name should survive serialization round-trip', () => {
 		const longName = 'x'.repeat(10240);
 		startAgentSession(testSessionId, 'architect');
-		const session = getAgentSession(testSessionId)!;
+		const _session = getAgentSession(testSessionId)!;
 
 		// Store long name indirectly via AgentOverrideConfig in a mock serialized session
 		const config = AgentOverrideConfigSchema.parse({
@@ -689,10 +689,10 @@ describe('ADVERSARIAL 12: model_fallback_index as float (3.14)', () => {
 		startAgentSession(testSessionId, 'architect');
 		const session = getAgentSession(testSessionId)!;
 
-		session.model_fallback_index = 3.14159;
+		session.model_fallback_index = Math.PI;
 		const serialized = serializeAgentSession(session);
 
 		// JSON preserves decimal values
-		expect(serialized.model_fallback_index).toBe(3.14159);
+		expect(serialized.model_fallback_index).toBe(Math.PI);
 	});
 });

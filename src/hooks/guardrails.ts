@@ -22,6 +22,7 @@ import {
 	beginInvocation,
 	ensureAgentSession,
 	getActiveWindow,
+	type InvocationWindow,
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
@@ -339,6 +340,164 @@ export function createGuardrailsHooks(
 	];
 	const requireReviewerAndTestEngineer =
 		cfg.qa_gates?.require_reviewer_test_engineer ?? true;
+
+	/**
+	 * Checks gate limits (hard limits, idle timeout, soft warnings) for the current invocation.
+	 * Extracted from toolBefore for maintainability.
+	 */
+	async function checkGateLimits(params: {
+		sessionID: string;
+		window: InvocationWindow;
+		agentConfig: GuardrailsConfig;
+		elapsedMinutes: number;
+		repetitionCount: number;
+	}): Promise<void> {
+		const { sessionID, window, agentConfig, elapsedMinutes, repetitionCount } =
+			params;
+
+		// Check HARD limits (any one triggers circuit breaker)
+		if (
+			agentConfig.max_tool_calls > 0 &&
+			window.toolCalls >= agentConfig.max_tool_calls
+		) {
+			window.hardLimitHit = true;
+			telemetry.hardLimitHit(
+				sessionID,
+				window.agentName,
+				'tool_calls',
+				window.toolCalls,
+			);
+			warn('Circuit breaker: tool call limit hit', {
+				sessionID,
+				agentName: window.agentName,
+				invocationId: window.id,
+				windowKey: `${window.agentName}:${window.id}`,
+				resolvedMaxCalls: agentConfig.max_tool_calls,
+				currentCalls: window.toolCalls,
+			});
+			throw new Error(
+				`🛑 LIMIT REACHED: Tool calls exhausted (${window.toolCalls}/${agentConfig.max_tool_calls}). Finish the current operation and return your progress summary.`,
+			);
+		}
+
+		if (
+			agentConfig.max_duration_minutes > 0 &&
+			elapsedMinutes >= agentConfig.max_duration_minutes
+		) {
+			window.hardLimitHit = true;
+			telemetry.hardLimitHit(
+				sessionID,
+				window.agentName,
+				'duration',
+				elapsedMinutes,
+			);
+			warn('Circuit breaker: duration limit hit', {
+				sessionID,
+				agentName: window.agentName,
+				invocationId: window.id,
+				windowKey: `${window.agentName}:${window.id}`,
+				resolvedMaxMinutes: agentConfig.max_duration_minutes,
+				elapsedMinutes: Math.floor(elapsedMinutes),
+			});
+			throw new Error(
+				`🛑 LIMIT REACHED: Duration exhausted (${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min). Finish the current operation and return your progress summary.`,
+			);
+		}
+
+		if (repetitionCount >= agentConfig.max_repetitions) {
+			window.hardLimitHit = true;
+			telemetry.hardLimitHit(
+				sessionID,
+				window.agentName,
+				'repetition',
+				repetitionCount,
+			);
+			throw new Error(
+				`🛑 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`,
+			);
+		}
+
+		if (window.consecutiveErrors >= agentConfig.max_consecutive_errors) {
+			window.hardLimitHit = true;
+			telemetry.hardLimitHit(
+				sessionID,
+				window.agentName,
+				'consecutive_errors',
+				window.consecutiveErrors,
+			);
+			throw new Error(
+				`🛑 LIMIT REACHED: ${window.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`,
+			);
+		}
+
+		// Check IDLE timeout — detects agents stuck without successful tool calls
+		const idleMinutes = (Date.now() - window.lastSuccessTimeMs) / 60000;
+		if (idleMinutes >= agentConfig.idle_timeout_minutes) {
+			window.hardLimitHit = true;
+			telemetry.hardLimitHit(
+				sessionID,
+				window.agentName,
+				'idle_timeout',
+				idleMinutes,
+			);
+			warn('Circuit breaker: idle timeout hit', {
+				sessionID,
+				agentName: window.agentName,
+				invocationId: window.id,
+				windowKey: `${window.agentName}:${window.id}`,
+				idleTimeoutMinutes: agentConfig.idle_timeout_minutes,
+				idleMinutes: Math.floor(idleMinutes),
+			});
+			throw new Error(
+				`🛑 LIMIT REACHED: No successful tool call for ${Math.floor(idleMinutes)} minutes (idle timeout: ${agentConfig.idle_timeout_minutes} min). This suggests the agent may be stuck. Return your progress summary.`,
+			);
+		}
+
+		// Check SOFT limits (only if warning not already issued)
+		if (!window.warningIssued) {
+			const toolPct =
+				agentConfig.max_tool_calls > 0
+					? window.toolCalls / agentConfig.max_tool_calls
+					: 0;
+			const durationPct =
+				agentConfig.max_duration_minutes > 0
+					? elapsedMinutes / agentConfig.max_duration_minutes
+					: 0;
+			const repPct = repetitionCount / agentConfig.max_repetitions;
+			const errorPct =
+				window.consecutiveErrors / agentConfig.max_consecutive_errors;
+
+			const reasons: string[] = [];
+			if (
+				agentConfig.max_tool_calls > 0 &&
+				toolPct >= agentConfig.warning_threshold
+			) {
+				reasons.push(
+					`tool calls ${window.toolCalls}/${agentConfig.max_tool_calls}`,
+				);
+			}
+			if (durationPct >= agentConfig.warning_threshold) {
+				reasons.push(
+					`duration ${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min`,
+				);
+			}
+			if (repPct >= agentConfig.warning_threshold) {
+				reasons.push(
+					`repetitions ${repetitionCount}/${agentConfig.max_repetitions}`,
+				);
+			}
+			if (errorPct >= agentConfig.warning_threshold) {
+				reasons.push(
+					`errors ${window.consecutiveErrors}/${agentConfig.max_consecutive_errors}`,
+				);
+			}
+
+			if (reasons.length > 0) {
+				window.warningIssued = true;
+				window.warningReason = reasons.join(', ');
+			}
+		}
+	}
 
 	return {
 		/**
@@ -778,148 +937,14 @@ export function createGuardrailsHooks(
 			// Compute elapsed minutes
 			const elapsedMinutes = (Date.now() - window.startedAtMs) / 60000;
 
-			// Check HARD limits (any one triggers circuit breaker)
-			if (
-				agentConfig.max_tool_calls > 0 &&
-				window.toolCalls >= agentConfig.max_tool_calls
-			) {
-				window.hardLimitHit = true;
-				telemetry.hardLimitHit(
-					input.sessionID,
-					window.agentName,
-					'tool_calls',
-					window.toolCalls,
-				);
-				warn('Circuit breaker: tool call limit hit', {
-					sessionID: input.sessionID,
-					agentName: window.agentName,
-					invocationId: window.id,
-					windowKey: `${window.agentName}:${window.id}`,
-					resolvedMaxCalls: agentConfig.max_tool_calls,
-					currentCalls: window.toolCalls,
-				});
-				throw new Error(
-					`🛑 LIMIT REACHED: Tool calls exhausted (${window.toolCalls}/${agentConfig.max_tool_calls}). Finish the current operation and return your progress summary.`,
-				);
-			}
-
-			if (
-				agentConfig.max_duration_minutes > 0 &&
-				elapsedMinutes >= agentConfig.max_duration_minutes
-			) {
-				window.hardLimitHit = true;
-				telemetry.hardLimitHit(
-					input.sessionID,
-					window.agentName,
-					'duration',
-					elapsedMinutes,
-				);
-				warn('Circuit breaker: duration limit hit', {
-					sessionID: input.sessionID,
-					agentName: window.agentName,
-					invocationId: window.id,
-					windowKey: `${window.agentName}:${window.id}`,
-					resolvedMaxMinutes: agentConfig.max_duration_minutes,
-					elapsedMinutes: Math.floor(elapsedMinutes),
-				});
-				throw new Error(
-					`🛑 LIMIT REACHED: Duration exhausted (${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min). Finish the current operation and return your progress summary.`,
-				);
-			}
-
-			if (repetitionCount >= agentConfig.max_repetitions) {
-				window.hardLimitHit = true;
-				telemetry.hardLimitHit(
-					input.sessionID,
-					window.agentName,
-					'repetition',
-					repetitionCount,
-				);
-				throw new Error(
-					`🛑 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`,
-				);
-			}
-
-			if (window.consecutiveErrors >= agentConfig.max_consecutive_errors) {
-				window.hardLimitHit = true;
-				telemetry.hardLimitHit(
-					input.sessionID,
-					window.agentName,
-					'consecutive_errors',
-					window.consecutiveErrors,
-				);
-				throw new Error(
-					`🛑 LIMIT REACHED: ${window.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`,
-				);
-			}
-
-			// Check IDLE timeout — detects agents stuck without successful tool calls
-			const idleMinutes = (Date.now() - window.lastSuccessTimeMs) / 60000;
-			if (idleMinutes >= agentConfig.idle_timeout_minutes) {
-				window.hardLimitHit = true;
-				telemetry.hardLimitHit(
-					input.sessionID,
-					window.agentName,
-					'idle_timeout',
-					idleMinutes,
-				);
-				warn('Circuit breaker: idle timeout hit', {
-					sessionID: input.sessionID,
-					agentName: window.agentName,
-					invocationId: window.id,
-					windowKey: `${window.agentName}:${window.id}`,
-					idleTimeoutMinutes: agentConfig.idle_timeout_minutes,
-					idleMinutes: Math.floor(idleMinutes),
-				});
-				throw new Error(
-					`🛑 LIMIT REACHED: No successful tool call for ${Math.floor(idleMinutes)} minutes (idle timeout: ${agentConfig.idle_timeout_minutes} min). This suggests the agent may be stuck. Return your progress summary.`,
-				);
-			}
-
-			// Check SOFT limits (only if warning not already issued)
-			if (!window.warningIssued) {
-				const toolPct =
-					agentConfig.max_tool_calls > 0
-						? window.toolCalls / agentConfig.max_tool_calls
-						: 0;
-				const durationPct =
-					agentConfig.max_duration_minutes > 0
-						? elapsedMinutes / agentConfig.max_duration_minutes
-						: 0;
-				const repPct = repetitionCount / agentConfig.max_repetitions;
-				const errorPct =
-					window.consecutiveErrors / agentConfig.max_consecutive_errors;
-
-				const reasons: string[] = [];
-				if (
-					agentConfig.max_tool_calls > 0 &&
-					toolPct >= agentConfig.warning_threshold
-				) {
-					reasons.push(
-						`tool calls ${window.toolCalls}/${agentConfig.max_tool_calls}`,
-					);
-				}
-				if (durationPct >= agentConfig.warning_threshold) {
-					reasons.push(
-						`duration ${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min`,
-					);
-				}
-				if (repPct >= agentConfig.warning_threshold) {
-					reasons.push(
-						`repetitions ${repetitionCount}/${agentConfig.max_repetitions}`,
-					);
-				}
-				if (errorPct >= agentConfig.warning_threshold) {
-					reasons.push(
-						`errors ${window.consecutiveErrors}/${agentConfig.max_consecutive_errors}`,
-					);
-				}
-
-				if (reasons.length > 0) {
-					window.warningIssued = true;
-					window.warningReason = reasons.join(', ');
-				}
-			}
+			// Check gate limits (hard limits, idle timeout, soft warnings)
+			await checkGateLimits({
+				sessionID: input.sessionID,
+				window,
+				agentConfig,
+				elapsedMinutes,
+				repetitionCount,
+			});
 
 			// v6.12: Store input args for delegation detection in toolAfter
 			setStoredInputArgs(input.callID, output.args);

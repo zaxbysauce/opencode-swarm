@@ -170,8 +170,6 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	// SME, Critic, Docs, Designer — reasoning/general tasks
 	sme: 'opencode/trinity-large-preview-free',
 	critic: 'opencode/trinity-large-preview-free',
-	critic_sounding_board: 'opencode/trinity-large-preview-free',
-	critic_drift_verifier: 'opencode/trinity-large-preview-free',
 	docs: 'opencode/trinity-large-preview-free',
 	designer: 'opencode/trinity-large-preview-free',
 

@@ -18,6 +18,9 @@ import { createTestEngineerAgent } from './test-engineer';
 
 export type { AgentDefinition } from './architect';
 
+// Track agents for which we've already warned about missing config
+const warnedAgents = new Set<string>();
+
 /**
  * Strip the swarm prefix from an agent name to get the base name.
  * e.g., "local_coder" with prefix "local" → "coder"
@@ -54,8 +57,17 @@ function getModelForAgent(
 	const explicit = swarmAgents?.[baseAgentName]?.model;
 	if (explicit) return explicit;
 
-	// 2. Default from constants
-	return DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+	// 2. Default from constants — warn once per agent if not in config
+	const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+	if (!warnedAgents.has(baseAgentName)) {
+		warnedAgents.add(baseAgentName);
+		console.warn(
+			"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
+			baseAgentName,
+			resolvedModel,
+		);
+	}
+	return resolvedModel;
 }
 
 /**
@@ -237,7 +249,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5b. Create Critic Sounding Board
 	if (!isAgentDisabled('critic_sounding_board', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic_sounding_board'),
+			getModel('critic'),
 			undefined,
 			undefined,
 			'sounding_board' as CriticRole,
@@ -249,7 +261,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5c. Create Critic Drift Verifier
 	if (!isAgentDisabled('critic_drift_verifier', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic_drift_verifier'),
+			getModel('critic'),
 			undefined,
 			undefined,
 			'phase_drift_verifier' as CriticRole,

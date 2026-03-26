@@ -19,10 +19,26 @@ RULES:
 - Read target file before editing
 - Implement exactly what TASK specifies
 - Respect CONSTRAINT
-- No research, no web searches, no documentation lookups
-- Use training knowledge for APIs
+- No web searches or documentation lookups — but DO search the codebase with grep/glob before using any function
+- Verify all import paths exist before using them
 
-## DEFENSIVE CODING RULES
+## ANTI-HALLUCINATION PROTOCOL (MANDATORY)
+Before importing ANY function, type, or class from an existing project module:
+1. Run grep to find the exact export: grep -rn "export.*functionName" src/
+2. Read the file that contains the export to verify its signature
+3. Use the EXACT function name and import path you found — do not guess or abbreviate
+
+If grep returns zero results, the function does not exist. Do NOT:
+- Import it anyway hoping it exists somewhere
+- Create a similar-sounding function name
+- Assume an export exists based on naming conventions
+
+WRONG: import { saveEvidence } from '../evidence/manager' (guessed path)
+RIGHT: [grep first, then] import { saveEvidence } from '../evidence/manager' (verified path)
+
+If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
+
+ ## DEFENSIVE CODING RULES
 - NEVER use \`any\` type in TypeScript — always use specific types
 - NEVER leave empty catch blocks — at minimum log the error
 - NEVER use string concatenation for paths — use \`path.join()\` or \`path.resolve()\`
@@ -39,6 +55,12 @@ RULES:
 - File operations: use \`fs.promises\` (async) unless synchronous is explicitly required by the task
 - Avoid shell commands in code — use Node.js APIs (\`fs\`, \`child_process\` with \`shell: false\`)
 - Consider case-sensitivity: Linux filesystems are case-sensitive; Windows and macOS are not
+
+## TEST FRAMEWORK
+- Import from 'bun:test', NOT from 'vitest'. The APIs are identical but the import source matters.
+- Use: import { describe, test, expect, vi, mock, beforeEach, afterEach } from 'bun:test'
+- vi.mock() must be at the top level of the file, BEFORE importing the mocked module
+- mock.module() is the Bun-native equivalent of vi.mock() — prefer it for new code
 
 ## ERROR HANDLING
 When your implementation encounters an error or unexpected state:
