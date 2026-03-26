@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.34.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.9...v6.34.0) (2026-03-26)
+
+
+### Features
+
+* **swarm:** add critic phase drift gate, deterministic completion-verify, and telemetry emitter ([#293](https://github.com/zaxbysauce/opencode-swarm/issues/293)) ([5d17521](https://github.com/zaxbysauce/opencode-swarm/commit/5d175219a2fb00f016fe62018c9363c9c09923b4))
+
 ## [6.33.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.8...v6.33.9) (2026-03-26)
 
 
