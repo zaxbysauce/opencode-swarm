@@ -415,6 +415,7 @@ function writeDriftVerifierEvidence(
 	sessionId: string,
 ): void {
 	try {
+		// Task IDs follow the N.M format (e.g. "2.3" → phase 2)
 		const dotIndex = taskId.indexOf('.');
 		const phase = dotIndex > 0 ? taskId.slice(0, dotIndex) : taskId;
 		if (!/^\d+$/.test(phase)) return;
@@ -425,6 +426,10 @@ function writeDriftVerifierEvidence(
 		const evidencePath = path.join(evidenceDir, 'drift-verifier.json');
 		const now = new Date().toISOString();
 
+		// Verdict defaults to 'approved' because the delegation-gate only sees
+		// that the agent completed — the critic's free-form LLM output is not
+		// reliably parseable for structured verdicts. The architect is responsible
+		// for handling rejection before calling phase_complete.
 		const evidence = {
 			entries: [
 				{
