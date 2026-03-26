@@ -65258,7 +65258,8 @@ var OpenCodeSwarm = async (ctx) => {
     },
     "experimental.chat.messages.transform": composeHandlers(...[
       (input, _output) => {
-        console.error(`[DIAG] messagesTransform START`);
+        if (process.env.DEBUG_SWARM)
+          console.error(`[DIAG] messagesTransform START`);
         const p = input;
         if (p.sessionID) {
           const archAgent = swarmState.activeAgent.get(p.sessionID);
@@ -65282,24 +65283,28 @@ var OpenCodeSwarm = async (ctx) => {
         if (output.messages) {
           output.messages = consolidateSystemMessages(output.messages);
         }
-        console.error(`[DIAG] messagesTransform DONE`);
+        if (process.env.DEBUG_SWARM)
+          console.error(`[DIAG] messagesTransform DONE`);
         return Promise.resolve();
       }
     ].filter((fn) => Boolean(fn))),
     "experimental.chat.system.transform": composeHandlers(...[
       async (input, output) => {
-        console.error(`[DIAG] systemTransform START`);
+        if (process.env.DEBUG_SWARM)
+          console.error(`[DIAG] systemTransform START`);
       },
       systemEnhancerHook["experimental.chat.system.transform"],
       async (_input, _output) => {
-        console.error(`[DIAG] systemTransform enhancer DONE`);
+        if (process.env.DEBUG_SWARM)
+          console.error(`[DIAG] systemTransform enhancer DONE`);
       },
       automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory) : undefined
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),
     "tool.execute.before": async (input, output) => {
-      console.error(`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, "") ?? input.tool} session=${input.sessionID}`);
+      if (process.env.DEBUG_SWARM)
+        console.error(`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, "") ?? input.tool} session=${input.sessionID}`);
       if (!swarmState.activeAgent.has(input.sessionID)) {
         swarmState.activeAgent.set(input.sessionID, ORCHESTRATOR_NAME);
       }
@@ -65328,8 +65333,10 @@ var OpenCodeSwarm = async (ctx) => {
       await safeHook(activityHooks.toolBefore)(input, output);
     },
     "tool.execute.after": async (input, output) => {
+      const _dbg = !!process.env.DEBUG_SWARM;
       const _toolName = input.tool?.replace?.(/^[^:]+[:.]/, "") ?? input.tool;
-      console.error(`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`);
+      if (_dbg)
+        console.error(`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`);
       const normalizedTool = input.tool.replace(/^[^:]+[:.]/, "");
       const isTaskTool = normalizedTool === "Task" || normalizedTool === "task";
       if (isTaskTool) {
@@ -65341,34 +65348,43 @@ var OpenCodeSwarm = async (ctx) => {
           taskSession.delegationActive = false;
           taskSession.lastAgentEventTime = Date.now();
         }
-        console.error(`[DIAG] Task handoff DONE (early) session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`);
+        if (_dbg)
+          console.error(`[DIAG] Task handoff DONE (early) session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`);
       }
       const HOOK_CHAIN_TIMEOUT_MS = 30000;
       const hookChainStart = Date.now();
       let hookChainTimedOut = false;
       const hookChain = async () => {
         await activityHooks.toolAfter(input, output);
-        console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
         await guardrailsHooks.toolAfter(input, output);
-        console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);
         await safeHook(delegationLedgerHook.toolAfter)(input, output);
-        console.error(`[DIAG] toolAfter ledger done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter ledger done tool=${_toolName}`);
         await safeHook(selfReviewHook.toolAfter)(input, output);
-        console.error(`[DIAG] toolAfter selfReview done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter selfReview done tool=${_toolName}`);
         await safeHook(delegationGateHooks.toolAfter)(input, output);
-        console.error(`[DIAG] toolAfter delegationGate done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter delegationGate done tool=${_toolName}`);
         if (knowledgeCuratorHook)
           await safeHook(knowledgeCuratorHook)(input, output);
         if (hivePromoterHook)
           await safeHook(hivePromoterHook)(input, output);
-        console.error(`[DIAG] toolAfter knowledge done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter knowledge done tool=${_toolName}`);
         await safeHook(steeringConsumedHook)(input, output);
         await safeHook(coChangeSuggesterHook)(input, output);
         await safeHook(darkMatterDetectorHook)(input, output);
-        console.error(`[DIAG] toolAfter intelligence done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter intelligence done tool=${_toolName}`);
         await snapshotWriterHook(input, output);
         await toolSummarizerHook?.(input, output);
-        console.error(`[DIAG] toolAfter snapshot+summarizer done tool=${_toolName}`);
+        if (_dbg)
+          console.error(`[DIAG] toolAfter snapshot+summarizer done tool=${_toolName}`);
         const execMode = config3.execution_mode ?? "balanced";
         if (execMode === "strict") {
           if (slopDetectorHook)
@@ -65409,21 +65425,24 @@ var OpenCodeSwarm = async (ctx) => {
       });
       await Promise.race([
         hookChain().catch((err2) => {
-          console.error(`[DIAG] toolAfter hook chain error tool=${_toolName}: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          console.warn(`[swarm] toolAfter hook chain error tool=${_toolName}: ${err2 instanceof Error ? err2.message : String(err2)}`);
         }),
         timeout
       ]);
       if (hookChainTimedOut) {
         const elapsed = Date.now() - hookChainStart;
-        console.error(`[DIAG] toolAfter TIMEOUT after ${elapsed}ms tool=${_toolName} session=${input.sessionID} \u2014 hooks abandoned to prevent session freeze`);
+        console.warn(`[swarm] toolAfter TIMEOUT after ${elapsed}ms tool=${_toolName} session=${input.sessionID} \u2014 hooks abandoned to prevent session freeze`);
       }
       deleteStoredInputArgs(input.callID);
-      console.error(`[DIAG] toolAfter COMPLETE tool=${_toolName}`);
+      if (_dbg)
+        console.error(`[DIAG] toolAfter COMPLETE tool=${_toolName}`);
     },
     "chat.message": safeHook(async (input, output) => {
-      console.error(`[DIAG] chat.message agent=${input.agent ?? "none"} session=${input.sessionID}`);
+      if (process.env.DEBUG_SWARM)
+        console.error(`[DIAG] chat.message agent=${input.agent ?? "none"} session=${input.sessionID}`);
       await delegationHandler(input, output);
-      console.error(`[DIAG] chat.message DONE agent=${input.agent ?? "none"}`);
+      if (process.env.DEBUG_SWARM)
+        console.error(`[DIAG] chat.message DONE agent=${input.agent ?? "none"}`);
     }),
     automation: automationManager
   };
