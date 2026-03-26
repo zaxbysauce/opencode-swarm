@@ -9,6 +9,7 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
 import { isLowCapabilityModel, ORCHESTRATOR_NAME } from '../config/constants';
 import {
 	type GuardrailsConfig,
@@ -1112,6 +1113,7 @@ export function createGuardrailsHooks(
 			const normalizedToolName = input.tool.replace(/^[^:]+[:.]/, '');
 			if (isWriteTool(normalizedToolName)) {
 				toolCallsSinceLastWrite.set(sessionId, 0);
+				noOpWarningIssued.delete(sessionId);
 			} else {
 				const count = (toolCallsSinceLastWrite.get(sessionId) ?? 0) + 1;
 				toolCallsSinceLastWrite.set(sessionId, count);
@@ -1154,22 +1156,44 @@ export function createGuardrailsHooks(
 					) {
 						// Increment fallback index
 						session.model_fallback_index++;
-						telemetry.modelFallback(
-							input.sessionID,
-							session.agentName,
-							'primary',
-							'fallback',
-							'transient_model_error',
-						);
 						session.modelFallbackExhausted = true; // Will be reset when task succeeds
 
-						// Inject advisory message for the architect
-						session.pendingAdvisoryMessages ??= [];
-						session.pendingAdvisoryMessages.push(
-							`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
-								`The agent model may be rate-limited, overloaded, or temporarily unavailable. ` +
-								`Consider retrying with a fallback model or waiting before retrying.`,
+						// Resolve the fallback model from config
+						const baseAgentName = session.agentName
+							? session.agentName.replace(/^[^_]+[_]/, '')
+							: '';
+						const fallbackModel = resolveFallbackModel(
+							baseAgentName,
+							session.model_fallback_index,
+							getSwarmAgents(),
 						);
+
+						if (fallbackModel) {
+							// Update telemetry with actual model names
+							telemetry.modelFallback(
+								input.sessionID,
+								session.agentName,
+								'primary',
+								fallbackModel,
+								'transient_model_error',
+							);
+
+							// Inject actionable advisory with the specific fallback model
+							session.pendingAdvisoryMessages ??= [];
+							session.pendingAdvisoryMessages.push(
+								`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
+									`Configured fallback model: "${fallbackModel}". ` +
+									`Consider retrying with this model or using /swarm handoff to reset.`,
+							);
+						} else {
+							// No fallback configured — generic advisory
+							session.pendingAdvisoryMessages ??= [];
+							session.pendingAdvisoryMessages.push(
+								`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
+									`No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` +
+									`to the agent's config in opencode-swarm.json.`,
+							);
+						}
 
 						// Track event for telemetry
 						swarmState.pendingEvents++;

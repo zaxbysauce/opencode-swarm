@@ -21,6 +21,14 @@ export type { AgentDefinition } from './architect';
 // Track agents for which we've already warned about missing config
 const warnedAgents = new Set<string>();
 
+// Module-level reference to swarm agents config for runtime fallback resolution by guardrails
+let _swarmAgents:
+	| Record<
+			string,
+			{ model?: string; fallback_models?: string[]; disabled?: boolean }
+	  >
+	| undefined;
+
 /**
  * Strip the swarm prefix from an agent name to get the base name.
  * e.g., "local_coder" with prefix "local" → "coder"
@@ -45,7 +53,12 @@ function getModelForAgent(
 	agentName: string,
 	swarmAgents?: Record<
 		string,
-		{ model?: string; temperature?: number; disabled?: boolean }
+		{
+			model?: string;
+			temperature?: number;
+			disabled?: boolean;
+			fallback_models?: string[];
+		}
 	>,
 	swarmPrefix?: string,
 ): string {
@@ -56,6 +69,11 @@ function getModelForAgent(
 	// 1. Check explicit override
 	const explicit = swarmAgents?.[baseAgentName]?.model;
 	if (explicit) return explicit;
+
+	// NOTE: fallback_models resolution happens at runtime in guardrails (toolAfter),
+	// not here. getModelForAgent runs once at agent creation. The guardrails hook
+	// modifies agents[name].config.model directly when session.model_fallback_index > 0.
+	// The config's fallback_models array is read by guardrails to select the fallback.
 
 	// 2. Default from constants — warn once per agent if not in config
 	const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
@@ -68,6 +86,41 @@ function getModelForAgent(
 		);
 	}
 	return resolvedModel;
+}
+
+/**
+ * Resolve the fallback model for an agent based on its config and fallback index.
+ * Called by guardrails at runtime when a transient model error is detected.
+ */
+export function resolveFallbackModel(
+	agentBaseName: string,
+	fallbackIndex: number,
+	swarmAgents?: Record<
+		string,
+		{
+			model?: string;
+			temperature?: number;
+			disabled?: boolean;
+			fallback_models?: string[];
+		}
+	>,
+): string | null {
+	const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+	if (!fallbackModels || fallbackModels.length === 0) return null;
+	if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length) return null;
+	return fallbackModels[fallbackIndex - 1];
+}
+
+/**
+ * Get the swarm agents config (for runtime fallback resolution by guardrails).
+ */
+export function getSwarmAgents():
+	| Record<
+			string,
+			{ model?: string; fallback_models?: string[]; disabled?: boolean }
+	  >
+	| undefined {
+	return _swarmAgents;
 }
 
 /**
@@ -124,6 +177,7 @@ function createSwarmAgents(
 ): AgentDefinition[] {
 	const agents: AgentDefinition[] = [];
 	const swarmAgents = swarmConfig.agents;
+	_swarmAgents = swarmAgents;
 
 	// Prefix for non-default swarms (e.g., "local" for swarmId "local")
 	// We pass swarmId as the prefix identifier, but only prepend to names if not default
