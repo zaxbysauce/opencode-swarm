@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.6...v6.33.7) (2026-03-26)
+
+
+### Bug Fixes
+
+* **session:** prevent session freeze by moving task handoff before hooks and adding timeout protection ([#285](https://github.com/zaxbysauce/opencode-swarm/issues/285)) ([7156cff](https://github.com/zaxbysauce/opencode-swarm/commit/7156cff19f4fcca3979acd4bd468af0e01d2054d))
+
 ## [6.33.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.5...v6.33.6) (2026-03-26)
 
 
