@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.33.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.3...v6.33.4) (2026-03-25)
+
+
+### Bug Fixes
+
+* prevent session eviction of rehydrated sessions on startup ([#280](https://github.com/zaxbysauce/opencode-swarm/issues/280)) ([12059af](https://github.com/zaxbysauce/opencode-swarm/commit/12059afb547abf5e7ae2fb390bad0fba4a79b712))
+
 ## [6.33.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.2...v6.33.3) (2026-03-25)
 
 
