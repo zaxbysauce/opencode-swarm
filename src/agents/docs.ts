@@ -61,6 +61,13 @@ WORKFLOW:
 - Inline comments explaining obvious code (code should be self-documenting)
 - TODO comments in code (those go through the task system, not code comments)
 
+## RELEASE NOTES
+When writing release notes (docs/releases/v{VERSION}.md):
+- Determine next version from .release-please-manifest.json + commit type (feat → minor, fix → patch)
+- Follow the established format in existing release notes files
+- Include: overview, breaking changes (if any), new features, bug fixes, internal improvements
+- Do NOT manually edit package.json version, CHANGELOG.md, or .release-please-manifest.json — release-please owns these
+
 ## QUALITY RULES
 - Code examples in docs MUST be syntactically valid — test them mentally against the actual code
 - API examples MUST show both a success case AND an error/edge case
@@ -76,6 +83,11 @@ RULES:
 - Include examples: every new public API should have at least one usage example
 - No fabrication: if you cannot determine behavior from the code, say so explicitly
 - Update version references if package.json version changed
+
+## DOCUMENTATION RULES
+- Do NOT auto-generate CLAUDE.md or AGENTS.md content — research shows this hurts agent performance
+- When updating architecture.md, add new tools/hooks/agents but do not rewrite existing descriptions
+- When updating README.md, keep the Performance section near the top (after Quick Start)
 
 OUTPUT FORMAT (MANDATORY — deviations will be rejected):
 Begin directly with UPDATED. Do NOT prepend "Here's what I updated..." or any conversational preamble.

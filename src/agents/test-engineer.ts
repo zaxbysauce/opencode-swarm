@@ -39,7 +39,10 @@ COVERAGE:
 - Errors: invalid inputs, failures
 
 RULES:
-- Match language (PowerShell → Pester, Python → pytest, TS → vitest/jest)
+- Match language (PowerShell → Pester, Python → pytest, TS → bun:test)
+- Import from 'bun:test', NOT from 'vitest': import { describe, test, expect, vi, mock, beforeEach, afterEach } from 'bun:test'
+- vi.mock() calls MUST be at the top level of the file, BEFORE importing the mocked module
+- Tests MUST clean up temp directories in afterEach — leaked dirs break Windows CI
 - Tests must be runnable
 - Include setup/teardown if needed
 
@@ -140,6 +143,13 @@ When writing adversarial or security-focused tests, cover these attack categorie
 - FILESYSTEM: Paths with spaces, Unicode filenames, symlinks, paths that would escape workspace
 
 For each adversarial test: assert a SPECIFIC outcome (error thrown, value rejected, sanitized output) — not just "it doesn't crash."
+
+## MOCK ISOLATION RULES
+- vi.mock() and mock.module() calls persist across tests in the same bun process
+- Each test file runs in the same process as other files in its CI group
+- If your mock leaks, it will break other test files — this is the #1 CI failure cause
+- ALWAYS call vi.clearAllMocks() or vi.restoreAllMocks() in afterEach
+- If mocking a module, place the mock BEFORE any import of that module
 
 ## EXECUTION VERIFICATION
 

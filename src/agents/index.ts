@@ -18,6 +18,17 @@ import { createTestEngineerAgent } from './test-engineer';
 
 export type { AgentDefinition } from './architect';
 
+// Track agents for which we've already warned about missing config
+const warnedAgents = new Set<string>();
+
+// Module-level reference to swarm agents config for runtime fallback resolution by guardrails
+let _swarmAgents:
+	| Record<
+			string,
+			{ model?: string; fallback_models?: string[]; disabled?: boolean }
+	  >
+	| undefined;
+
 /**
  * Strip the swarm prefix from an agent name to get the base name.
  * e.g., "local_coder" with prefix "local" → "coder"
@@ -42,7 +53,12 @@ function getModelForAgent(
 	agentName: string,
 	swarmAgents?: Record<
 		string,
-		{ model?: string; temperature?: number; disabled?: boolean }
+		{
+			model?: string;
+			temperature?: number;
+			disabled?: boolean;
+			fallback_models?: string[];
+		}
 	>,
 	swarmPrefix?: string,
 ): string {
@@ -54,8 +70,57 @@ function getModelForAgent(
 	const explicit = swarmAgents?.[baseAgentName]?.model;
 	if (explicit) return explicit;
 
-	// 2. Default from constants
-	return DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+	// NOTE: fallback_models resolution happens at runtime in guardrails (toolAfter),
+	// not here. getModelForAgent runs once at agent creation. The guardrails hook
+	// modifies agents[name].config.model directly when session.model_fallback_index > 0.
+	// The config's fallback_models array is read by guardrails to select the fallback.
+
+	// 2. Default from constants — warn once per agent if not in config
+	const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+	if (!warnedAgents.has(baseAgentName)) {
+		warnedAgents.add(baseAgentName);
+		console.warn(
+			"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
+			baseAgentName,
+			resolvedModel,
+		);
+	}
+	return resolvedModel;
+}
+
+/**
+ * Resolve the fallback model for an agent based on its config and fallback index.
+ * Called by guardrails at runtime when a transient model error is detected.
+ */
+export function resolveFallbackModel(
+	agentBaseName: string,
+	fallbackIndex: number,
+	swarmAgents?: Record<
+		string,
+		{
+			model?: string;
+			temperature?: number;
+			disabled?: boolean;
+			fallback_models?: string[];
+		}
+	>,
+): string | null {
+	const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+	if (!fallbackModels || fallbackModels.length === 0) return null;
+	if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length) return null;
+	return fallbackModels[fallbackIndex - 1];
+}
+
+/**
+ * Get the swarm agents config (for runtime fallback resolution by guardrails).
+ */
+export function getSwarmAgents():
+	| Record<
+			string,
+			{ model?: string; fallback_models?: string[]; disabled?: boolean }
+	  >
+	| undefined {
+	return _swarmAgents;
 }
 
 /**
@@ -112,6 +177,7 @@ function createSwarmAgents(
 ): AgentDefinition[] {
 	const agents: AgentDefinition[] = [];
 	const swarmAgents = swarmConfig.agents;
+	_swarmAgents = swarmAgents;
 
 	// Prefix for non-default swarms (e.g., "local" for swarmId "local")
 	// We pass swarmId as the prefix identifier, but only prepend to names if not default
@@ -237,7 +303,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5b. Create Critic Sounding Board
 	if (!isAgentDisabled('critic_sounding_board', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic_sounding_board'),
+			swarmAgents?.['critic_sounding_board']?.model ?? getModel('critic'),
 			undefined,
 			undefined,
 			'sounding_board' as CriticRole,
@@ -249,7 +315,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5c. Create Critic Drift Verifier
 	if (!isAgentDisabled('critic_drift_verifier', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic_drift_verifier'),
+			swarmAgents?.['critic_drift_verifier']?.model ?? getModel('critic'),
 			undefined,
 			undefined,
 			'phase_drift_verifier' as CriticRole,

@@ -660,7 +660,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Inject system prompt enhancements + phase monitor (when phase_preflight or knowledge enabled)
 		'experimental.chat.system.transform': composeHandlers(
 			...([
-				async (input: unknown, output: unknown): Promise<void> => {
+				async (_input: unknown, _output: unknown): Promise<void> => {
 					if (process.env.DEBUG_SWARM)
 						console.error(`[DIAG] systemTransform START`);
 				},

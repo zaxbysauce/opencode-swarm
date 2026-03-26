@@ -17,7 +17,6 @@ import * as path from 'node:path';
 import { AgentOverrideConfigSchema } from './config/schema';
 import { deserializeAgentSession } from './session/snapshot-reader';
 import { serializeAgentSession } from './session/snapshot-writer';
-import type { AgentSessionState } from './state';
 import {
 	ensureAgentSession,
 	getAgentSession,

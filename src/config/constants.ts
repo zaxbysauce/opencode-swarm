@@ -167,7 +167,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	reviewer: 'opencode/big-pickle',
 	test_engineer: 'opencode/gpt-5-nano',
 
-	// SME, Critic, Docs, Designer — reasoning/general tasks
+	// SME, Critic variants, Docs, Designer — reasoning/general tasks
 	sme: 'opencode/trinity-large-preview-free',
 	critic: 'opencode/trinity-large-preview-free',
 	critic_sounding_board: 'opencode/trinity-large-preview-free',

@@ -247,6 +247,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.reject(enoentError));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -311,6 +312,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.resolve('not valid json {{{'));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -336,6 +338,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		);
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -370,6 +373,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.resolve(JSON.stringify(plan)));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -405,6 +409,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.resolve(JSON.stringify(plan)));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -442,6 +447,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.resolve(JSON.stringify(plan)));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -470,6 +476,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.reject(permissionError));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
@@ -499,6 +506,7 @@ describe('getEvidenceTaskId async conversion verification', () => {
 		const mockReadFile = mock(() => Promise.reject(enotdirError));
 		const originalReadFile = fs.promises.readFile;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test mock requires type assertion
 		(fs.promises as any).readFile = mockReadFile;
 
 		try {
