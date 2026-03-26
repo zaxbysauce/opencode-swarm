@@ -249,7 +249,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5b. Create Critic Sounding Board
 	if (!isAgentDisabled('critic_sounding_board', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic'),
+			swarmAgents?.['critic_sounding_board']?.model ?? getModel('critic'),
 			undefined,
 			undefined,
 			'sounding_board' as CriticRole,
@@ -261,7 +261,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	// 5c. Create Critic Drift Verifier
 	if (!isAgentDisabled('critic_drift_verifier', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAgent(
-			getModel('critic'),
+			swarmAgents?.['critic_drift_verifier']?.model ?? getModel('critic'),
 			undefined,
 			undefined,
 			'phase_drift_verifier' as CriticRole,
