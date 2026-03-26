@@ -7,11 +7,18 @@
 import type { PluginConfig } from '../config';
 import type { DelegationEnvelope, EnvelopeValidationResult } from '../types/delegation.js';
 /**
+ * v6.33.1 CRIT-1: Fallback map for declared coder scope by taskId.
+ * When messagesTransform sets declaredCoderScope on the architect session,
+ * the coder session may not exist yet. This map allows scope-guard to look up
+ * the scope by taskId when the session's declaredCoderScope is null.
+ */
+export declare const pendingCoderScopeByTaskId: Map<string, string[]>;
+/**
  * Parses a string to extract a DelegationEnvelope.
  * Returns null if no valid envelope is found.
  * Never throws - all errors are caught and result in null.
  */
-export declare function parseDelegationEnvelope(content: string): DelegationEnvelope | null;
+export declare function parseDelegationEnvelope(content: string, directory?: string): DelegationEnvelope | null;
 interface ValidationContext {
     planTasks: string[];
     validAgents: string[];
