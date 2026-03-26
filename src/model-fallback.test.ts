@@ -490,38 +490,47 @@ describe('model fallback edge cases', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('snapshot writer and reader integration', () => {
-	it('7.1 full snapshot round-trip preserves model fallback fields', async () => {
-		// This tests the actual write → read cycle via the filesystem
+	it('7.1 model fallback fields are serialized to snapshot but reset to defaults on restart', async () => {
+		// This tests the actual write → read cycle via the filesystem.
+		// model_fallback_index and modelFallbackExhausted are treated as
+		// transient per-session state: they are written to the snapshot so
+		// they are not lost mid-session, but rehydrateState intentionally
+		// resets them to 0/false on startup to avoid "stuck fallback state"
+		// where an agent remains locked into a fallback model across restarts.
 		const snapshotDir = path.join(tmpDir, '.swarm', 'session');
 		mkdirSync(snapshotDir, { recursive: true });
 
-		// Create and populate session
+		// Create and populate session with non-default fallback state
 		startAgentSession(testSessionId, 'architect');
 		const original = getAgentSession(testSessionId)!;
 		original.model_fallback_index = 2;
 		original.modelFallbackExhausted = true;
 
-		// Serialize to file
+		// Serialize to file — values are persisted in the snapshot JSON
 		const { writeSnapshot } = await import('./session/snapshot-writer');
 		await writeSnapshot(tmpDir, swarmState);
 
-		// Clear state to simulate restart
-		resetSwarmState();
-
-		// Read back from file
+		// Verify the raw snapshot contains the non-default values
 		const { readSnapshot, rehydrateState } = await import(
 			'./session/snapshot-reader'
 		);
 		const snapshot = await readSnapshot(tmpDir);
 		expect(snapshot).not.toBeNull();
+		const rawSession = snapshot!.agentSessions[testSessionId];
+		expect(rawSession).toBeDefined();
+		expect(rawSession.model_fallback_index).toBe(2);
+		expect(rawSession.modelFallbackExhausted).toBe(true);
 
+		// Clear state to simulate restart, then rehydrate
+		resetSwarmState();
 		await rehydrateState(snapshot!);
 
-		// Verify restored state
+		// After restart, transient fallback state is reset to defaults to
+		// prevent agents from being stuck in fallback mode across sessions.
 		const restored = getAgentSession(testSessionId);
 		expect(restored).toBeDefined();
-		expect(restored!.model_fallback_index).toBe(2);
-		expect(restored!.modelFallbackExhausted).toBe(true);
+		expect(restored!.model_fallback_index).toBe(0);
+		expect(restored!.modelFallbackExhausted).toBe(false);
 	});
 
 	it('7.2 snapshot with missing model fallback fields uses defaults', async () => {
