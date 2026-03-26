@@ -27,15 +27,20 @@ describe('phase_complete integration — events.jsonl', () => {
 
 	/**
 	 * Helper to read events.jsonl and parse all lines
+	 * @param eventType - Optional filter to only return events of this type
 	 */
-	function readEvents(): Array<Record<string, unknown>> {
+	function readEvents(eventType?: string): Array<Record<string, unknown>> {
 		const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 		if (!fs.existsSync(eventsPath)) {
 			return [];
 		}
 		const content = fs.readFileSync(eventsPath, 'utf-8');
 		const lines = content.trim().split('\n').filter((l) => l.trim());
-		return lines.map((l) => JSON.parse(l));
+		const events = lines.map((l) => JSON.parse(l));
+		if (eventType) {
+			return events.filter((e) => e.event === eventType);
+		}
+		return events;
 	}
 
 	/**
@@ -87,6 +92,47 @@ describe('phase_complete integration — events.jsonl', () => {
 		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
 	}
 
+	/**
+	 * Helper to write gate evidence files for Phase 4 mandatory gates
+	 */
+	function writeGateEvidence(phase: number): void {
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', `${phase}`);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		// Write completion-verify.json
+		const completionVerify = {
+			status: 'passed',
+			tasksChecked: 1,
+			tasksPassed: 1,
+			tasksBlocked: 0,
+			reason: 'All task identifiers found in source files',
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'completion-verify.json'),
+			JSON.stringify(completionVerify, null, 2),
+		);
+
+		// Write drift-verifier.json
+		const driftVerifier = {
+			schema_version: '1.0.0',
+			task_id: 'drift-verifier',
+			entries: [
+				{
+					task_id: 'drift-verifier',
+					type: 'drift_verification',
+					timestamp: new Date().toISOString(),
+					agent: 'critic_drift_verifier',
+					verdict: 'approved',
+					summary: 'Drift check passed',
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'drift-verifier.json'),
+			JSON.stringify(driftVerifier, null, 2),
+		);
+	}
+
 	describe('1. Full successful architect session', () => {
 		it('writes correct event with all agents dispatched', async () => {
 			// Use default config: required_agents: [coder, reviewer, test_engineer], require_docs: true
@@ -100,6 +146,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -116,8 +163,8 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed.agentsDispatched).toContain('docs');
 			expect(parsed.agentsMissing).toEqual([]);
 
-			// Assert: events.jsonl has exactly 1 line
-			const events = readEvents();
+			// Assert: events.jsonl has exactly 1 phase_complete event
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 
 			const event = events[0];
@@ -144,6 +191,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -158,7 +206,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed.agentsMissing).toContain('docs');
 
 			// Assert: event line written with incomplete status
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 
 			const event = events[0];
@@ -193,6 +241,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result1 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -210,6 +259,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(2);
+			writeGateEvidence(2);
 			const result2 = await executePhaseComplete({
 				phase: 2,
 				sessionID,
@@ -219,8 +269,8 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed2.success).toBe(true);
 			expect(parsed2.phase).toBe(2);
 
-			// Assert: events.jsonl has exactly 2 newline-delimited JSON lines
-			const events = readEvents();
+			// Assert: events.jsonl has exactly 2 phase_complete events
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(2);
 
 			// Assert: line 1 has phase: 1, line 2 has phase: 2
@@ -260,6 +310,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'docs');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result1 = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -275,6 +326,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(2);
+			writeGateEvidence(2);
 			const result2 = await executePhaseComplete({
 				phase: 2,
 				sessionID,
@@ -285,7 +337,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed2.status).toBe('warned');
 
 			// Verify phase 2 event only has 'coder' in agents_dispatched (NOT coder+reviewer+etc from phase 1)
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(2);
 
 			const phase2Event = events[1];
@@ -316,6 +368,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'reviewer');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -328,7 +381,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed.agentsMissing).toEqual([]);
 
 			// Check event
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 			expect(events[0].status).toBe('success');
 			expect(events[0].agents_missing).toEqual([]);
@@ -354,6 +407,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -369,7 +423,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed.agentsMissing).toContain('test_engineer');
 
 			// Assert: event line written with status: warned
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 
 			const event = events[0];
@@ -402,6 +456,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			]);
 
 			writeRetro(1);
+			writeGateEvidence(1);
 			const result = await executePhaseComplete({
 				phase: 1,
 				sessionID,
@@ -411,7 +466,7 @@ describe('phase_complete integration — events.jsonl', () => {
 			expect(parsed.success).toBe(true);
 
 			// Check event includes agents from delegation chains
-			const events = readEvents();
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(1);
 			expect(events[0].agents_dispatched).toContain('coder');
 			expect(events[0].agents_dispatched).toContain('reviewer');
@@ -433,16 +488,18 @@ describe('phase_complete integration — events.jsonl', () => {
 			const session1 = 'sess1';
 			ensureAgentSession(session1);
 			writeRetro(1);
+			writeGateEvidence(1);
 			await executePhaseComplete({ phase: 1, sessionID: session1 }, tempDir);
 
 			// Session 2
 			const session2 = 'sess2';
 			ensureAgentSession(session2);
 			writeRetro(1);
+			writeGateEvidence(1);
 			await executePhaseComplete({ phase: 1, sessionID: session2 }, tempDir);
 
-			// Should have 2 events
-			const events = readEvents();
+			// Should have 2 phase_complete events
+			const events = readEvents('phase_complete');
 			expect(events.length).toBe(2);
 		});
 	});

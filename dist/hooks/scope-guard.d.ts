@@ -23,7 +23,7 @@ export interface ScopeGuardConfig {
  * @param _directory - The workspace directory (reserved for future use)
  * @param injectAdvisory - Optional callback to push advisory to architect session
  */
-export declare function createScopeGuardHook(config: Partial<ScopeGuardConfig>, _directory: string, injectAdvisory?: (sessionId: string, message: string) => void): {
+export declare function createScopeGuardHook(config: Partial<ScopeGuardConfig>, directory: string, injectAdvisory?: (sessionId: string, message: string) => void): {
     toolBefore: (input: {
         tool: string;
         sessionID: string;
@@ -40,4 +40,4 @@ export declare function createScopeGuardHook(config: Partial<ScopeGuardConfig>, 
  * @param scopeEntries - Array of declared scope entries (files or directories)
  * @returns true if the file is within scope, false otherwise
  */
-export declare function isFileInScope(filePath: string, scopeEntries: string[]): boolean;
+export declare function isFileInScope(filePath: string, scopeEntries: string[], directory?: string): boolean;

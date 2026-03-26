@@ -1,10 +1,12 @@
 export { build_check } from './build-check';
 export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
+export { completion_verify } from './completion-verify';
 export { complexity_hotspots } from './complexity-hotspots';
 export { curator_analyze } from './curator-analyze';
 export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
+export { doc_extract, doc_scan } from './doc-scan';
 export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';

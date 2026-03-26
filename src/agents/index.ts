@@ -8,7 +8,7 @@ import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
-import { createCriticAgent } from './critic';
+import { type CriticRole, createCriticAgent } from './critic';
 import { createDesignerAgent } from './designer';
 import { createDocsAgent } from './docs';
 import { createExplorerAgent } from './explorer';
@@ -221,14 +221,40 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix));
 	}
 
+	// 5a. Create Critic (Plan Review)
 	if (!isAgentDisabled('critic', swarmAgents, swarmPrefix)) {
 		const criticPrompts = getPrompts('critic');
 		const critic = createCriticAgent(
 			getModel('critic'),
 			criticPrompts.prompt,
 			criticPrompts.appendPrompt,
+			'plan_critic' as CriticRole,
 		);
 		critic.name = prefixName('critic');
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+	}
+
+	// 5b. Create Critic Sounding Board
+	if (!isAgentDisabled('critic_sounding_board', swarmAgents, swarmPrefix)) {
+		const critic = createCriticAgent(
+			getModel('critic_sounding_board'),
+			undefined,
+			undefined,
+			'sounding_board' as CriticRole,
+		);
+		critic.name = prefixName('critic_sounding_board');
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+	}
+
+	// 5c. Create Critic Drift Verifier
+	if (!isAgentDisabled('critic_drift_verifier', swarmAgents, swarmPrefix)) {
+		const critic = createCriticAgent(
+			getModel('critic_drift_verifier'),
+			undefined,
+			undefined,
+			'phase_drift_verifier' as CriticRole,
+		);
+		critic.name = prefixName('critic_drift_verifier');
 		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
 	}
 

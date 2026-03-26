@@ -106,6 +106,10 @@ export interface AgentSessionState {
     scopeViolationDetected?: boolean;
     /** Files modified by the current coder task (populated by guardrails toolBefore/toolAfter, reset on new coder delegation) */
     modifiedFilesThisCoderTask: string[];
+    /** Number of coder revisions in the current task (incremented on each coder delegation completion) */
+    coderRevisions: number;
+    /** Flag set when coder revisions hit the configured ceiling */
+    revisionLimitHit: boolean;
     /** Timestamp of most recent phase completion */
     lastPhaseCompleteTimestamp: number;
     /** Phase number of most recent phase completion */
@@ -114,6 +118,10 @@ export interface AgentSessionState {
     phaseAgentsDispatched: Set<string>;
     /** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
     lastCompletedPhaseAgentsDispatched: Set<string>;
+    /** Current index into the fallback_models array (0 = primary model, incremented on transient failure) */
+    model_fallback_index: number;
+    /** Flag set when all fallback models have been exhausted */
+    modelFallbackExhausted: boolean;
     /** Session-scoped Turbo Mode flag for controlling LLM inference speed */
     turboMode: boolean;
     /** Sliding window of last 10 Task delegation hashes for loop detection */

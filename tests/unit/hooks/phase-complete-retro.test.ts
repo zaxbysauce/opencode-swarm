@@ -94,6 +94,45 @@ describe('phase_complete retrospective gate', () => {
 		);
 	}
 
+	// Helper function to write gate evidence files for Phase 4 mandatory gates
+	function writeGateEvidence(phase: number): void {
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', `${phase}`);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		// Write completion-verify.json
+		const completionVerify = {
+			status: 'passed',
+			tasksChecked: 1,
+			tasksPassed: 1,
+			tasksBlocked: 0,
+			reason: 'All task identifiers found in source files',
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'completion-verify.json'),
+			JSON.stringify(completionVerify, null, 2),
+		);
+
+		// Write drift-verifier.json
+		const driftVerifier = {
+			schema_version: '1.0.0',
+			task_id: 'drift-verifier',
+			entries: [
+				{
+					task_id: 'drift-verifier',
+					type: 'drift_verification',
+					timestamp: new Date().toISOString(),
+					agent: 'critic_drift_verifier',
+					verdict: 'approved',
+					summary: 'Drift check passed',
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'drift-verifier.json'),
+			JSON.stringify(driftVerifier, null, 2),
+		);
+	}
+
 	describe('Test 1: missing retro blocks phase_complete', () => {
 		test('returns blocked status when no retro bundle exists', async () => {
 			// Create config with empty required_agents to bypass delegation check
@@ -111,6 +150,9 @@ describe('phase_complete retrospective gate', () => {
 			);
 
 			ensureAgentSession('sess1');
+
+			// Write gate evidence for Phase 4 mandatory gates
+			writeGateEvidence(1);
 
 			// No retro bundle written - should be blocked
 			const result = await phase_complete.execute({
@@ -147,6 +189,7 @@ describe('phase_complete retrospective gate', () => {
 
 			// Write valid retro bundle for phase 1
 			writeRetroBundle('retro-1', 1, 'pass');
+			writeGateEvidence(1);
 
 			// Should succeed
 			const result = await phase_complete.execute({
@@ -181,6 +224,7 @@ describe('phase_complete retrospective gate', () => {
 
 			// Write retro bundle with verdict=fail
 			writeRetroBundle('retro-1', 1, 'fail');
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -214,6 +258,7 @@ describe('phase_complete retrospective gate', () => {
 
 			// Write retro bundle for phase 2, but we're completing phase 1
 			writeRetroBundle('retro-2', 2, 'pass');
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -248,6 +293,7 @@ describe('phase_complete retrospective gate', () => {
 			// Write retro bundle at retro-100 (valid format) with phase_number=1
 			// Direct lookup for retro-1 will fail, but fallback scan should find retro-100
 			writeRetroBundle('retro-100', 1, 'pass');
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -284,6 +330,9 @@ describe('phase_complete retrospective gate', () => {
 				force: true,
 			});
 
+			// Re-create gate evidence for Phase 4 (Phase 4 gates run before retrospective gate)
+			writeGateEvidence(1);
+
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID: 'sess1',
@@ -316,6 +365,7 @@ describe('phase_complete retrospective gate', () => {
 
 			// Write malformed bundle - loadEvidence returns null for invalid JSON
 			writeMalformedBundle('retro-1');
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -424,6 +474,7 @@ describe('phase_complete retrospective gate', () => {
 				path.join(retroDir, 'evidence.json'),
 				JSON.stringify(retroBundle, null, 2),
 			);
+			writeGateEvidence(1);
 
 			const result = await phase_complete.execute({
 				phase: 1,
@@ -457,6 +508,7 @@ describe('phase_complete retrospective gate', () => {
 			// Write retros for multiple phases
 			writeRetroBundle('retro-1', 1, 'pass');
 			writeRetroBundle('retro-2', 2, 'pass');
+			writeGateEvidence(2);
 
 			// Complete phase 2 - should use retro-2
 			const result = await phase_complete.execute({

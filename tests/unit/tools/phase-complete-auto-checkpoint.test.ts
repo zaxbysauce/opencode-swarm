@@ -102,12 +102,52 @@ describe('phase_complete auto-checkpoint trigger', () => {
 		);
 	}
 
+	// Helper function to write gate evidence files for Phase 4 mandatory gates
+	function writeGateEvidence(phase: number): void {
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', `${phase}`);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		// Write completion-verify.json
+		const completionVerify = {
+			status: 'passed',
+			tasksChecked: 1,
+			tasksPassed: 1,
+			tasksBlocked: 0,
+			reason: 'All task identifiers found in source files',
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'completion-verify.json'),
+			JSON.stringify(completionVerify, null, 2),
+		);
+
+		// Write drift-verifier.json
+		const driftVerifier = {
+			schema_version: '1.0.0',
+			task_id: 'drift-verifier',
+			entries: [
+				{
+					task_id: 'drift-verifier',
+					type: 'drift_verification',
+					timestamp: new Date().toISOString(),
+					agent: 'critic_drift_verifier',
+					verdict: 'approved',
+					summary: 'Drift check passed',
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(evidenceDir, 'drift-verifier.json'),
+			JSON.stringify(driftVerifier, null, 2),
+		);
+	}
+
 	describe('auto-checkpoint creation', () => {
 		test('Auto-checkpoint created with correct label format phase-N-complete', async () => {
 			// Arrange: Create session and valid retro bundle for phase 1
 			const sessionId = 'test-session-1';
 			ensureAgentSession(sessionId);
 			writeRetroBundle(1, 'pass');
+			writeGateEvidence(1);
 
 			// Act: Call phase_complete for phase 1
 			const result = await phase_complete.execute({ phase: 1, sessionID: sessionId });
@@ -127,6 +167,7 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			const sessionId = 'test-session-2';
 			ensureAgentSession(sessionId);
 			writeRetroBundle(2, 'pass');
+			writeGateEvidence(2);
 
 			// Act: Call phase_complete for phase 2
 			const result = await phase_complete.execute({ phase: 2, sessionID: sessionId });
@@ -161,6 +202,8 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			ensureAgentSession(sessionId);
 			writeRetroBundle(1, 'pass');
 			writeRetroBundle(3, 'pass');
+			writeGateEvidence(1);
+			writeGateEvidence(3);
 
 			// First complete phase 1 to create the first checkpoint
 			const result1 = await phase_complete.execute({ phase: 1, sessionID: sessionId });
@@ -190,6 +233,7 @@ describe('phase_complete auto-checkpoint trigger', () => {
 
 				// Create valid retro bundle
 				writeRetroBundle(phaseNum, 'pass');
+				writeGateEvidence(phaseNum);
 
 				// Act
 				const result = await phase_complete.execute({ phase: phaseNum, sessionID: sessionId });
@@ -266,6 +310,39 @@ describe('phase_complete auto-checkpoint trigger', () => {
 					path.join(retroDir, 'evidence.json'),
 					JSON.stringify(retroBundle, null, 2),
 					'utf-8',
+				);
+
+				// Write gate evidence for Phase 4 mandatory gates
+				const evidenceDir = path.join(nonGitDir, '.swarm', 'evidence', '1');
+				fs.mkdirSync(evidenceDir, { recursive: true });
+				const completionVerify = {
+					status: 'passed',
+					tasksChecked: 1,
+					tasksPassed: 1,
+					tasksBlocked: 0,
+					reason: 'All task identifiers found in source files',
+				};
+				fs.writeFileSync(
+					path.join(evidenceDir, 'completion-verify.json'),
+					JSON.stringify(completionVerify, null, 2),
+				);
+				const driftVerifier = {
+					schema_version: '1.0.0',
+					task_id: 'drift-verifier',
+					entries: [
+						{
+							task_id: 'drift-verifier',
+							type: 'drift_verification',
+							timestamp: new Date().toISOString(),
+							agent: 'critic_drift_verifier',
+							verdict: 'approved',
+							summary: 'Drift check passed',
+						},
+					],
+				};
+				fs.writeFileSync(
+					path.join(evidenceDir, 'drift-verifier.json'),
+					JSON.stringify(driftVerifier, null, 2),
 				);
 
 				// Change to non-git directory

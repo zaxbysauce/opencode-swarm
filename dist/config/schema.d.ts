@@ -18,6 +18,7 @@ export declare const AgentOverrideConfigSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
     temperature: z.ZodOptional<z.ZodNumber>;
     disabled: z.ZodOptional<z.ZodBoolean>;
+    fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>;
 export declare const SwarmConfigSchema: z.ZodObject<{
@@ -26,6 +27,7 @@ export declare const SwarmConfigSchema: z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
         temperature: z.ZodOptional<z.ZodNumber>;
         disabled: z.ZodOptional<z.ZodBoolean>;
+        fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type SwarmConfig = z.infer<typeof SwarmConfigSchema>;
@@ -231,8 +233,8 @@ export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
 export declare const AdversarialDetectionConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
-        warn: "warn";
         gate: "gate";
+        warn: "warn";
         ignore: "ignore";
     }>>;
     pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
@@ -313,6 +315,8 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
     max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
     warning_threshold: z.ZodDefault<z.ZodNumber>;
     idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
+    no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
+    max_coder_revisions: z.ZodDefault<z.ZodNumber>;
     qa_gates: z.ZodOptional<z.ZodObject<{
         required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
         require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
@@ -467,6 +471,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
         temperature: z.ZodOptional<z.ZodNumber>;
         disabled: z.ZodOptional<z.ZodBoolean>;
+        fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
     swarms: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
@@ -474,6 +479,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
             model: z.ZodOptional<z.ZodString>;
             temperature: z.ZodOptional<z.ZodNumber>;
             disabled: z.ZodOptional<z.ZodBoolean>;
+            fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>>;
     }, z.core.$strip>>>;
     max_iterations: z.ZodDefault<z.ZodNumber>;
@@ -497,6 +503,11 @@ export declare const PluginConfigSchema: z.ZodObject<{
         }, z.core.$strip>>;
     }, z.core.$strip>>;
     qa_retry_limit: z.ZodDefault<z.ZodNumber>;
+    execution_mode: z.ZodDefault<z.ZodEnum<{
+        strict: "strict";
+        balanced: "balanced";
+        fast: "fast";
+    }>>;
     inject_phase_reminders: z.ZodDefault<z.ZodBoolean>;
     hooks: z.ZodOptional<z.ZodObject<{
         system_enhancer: z.ZodDefault<z.ZodBoolean>;
@@ -585,6 +596,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
         warning_threshold: z.ZodDefault<z.ZodNumber>;
         idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
+        no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
+        max_coder_revisions: z.ZodDefault<z.ZodNumber>;
         qa_gates: z.ZodOptional<z.ZodObject<{
             required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
             require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
@@ -637,8 +650,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
     adversarial_detection: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
-            warn: "warn";
             gate: "gate";
+            warn: "warn";
             ignore: "ignore";
         }>>;
         pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;

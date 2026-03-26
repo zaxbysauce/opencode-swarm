@@ -29,7 +29,9 @@ import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
-import { ensureAgentSession, swarmState } from '../state';
+import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
+import { telemetry } from '../telemetry';
+import { executeCompletionVerify } from './completion-verify';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -457,6 +459,152 @@ export async function executePhaseComplete(
 		);
 	}
 
+	// Turbo mode: skip both completion-verify and drift-verifier gates
+	if (hasActiveTurboMode()) {
+		// Non-blocking warning so architect knows gates were bypassed
+		console.warn(
+			`[phase_complete] Turbo mode active — skipping completion-verify and drift-verifier gates for phase ${phase}`,
+		);
+	} else {
+		// Gate 1: Completion Verify (deterministic, in-process)
+		try {
+			const completionResultRaw = await executeCompletionVerify({ phase }, dir);
+			const completionResult = JSON.parse(completionResultRaw);
+			if (completionResult.status === 'blocked') {
+				return JSON.stringify(
+					{
+						success: false,
+						phase,
+						status: 'blocked' as const,
+						reason: 'COMPLETION_INCOMPLETE',
+						message: `Phase ${phase} cannot be completed: ${completionResult.reason}`,
+						agentsDispatched,
+						agentsMissing: [],
+						warnings: completionResult.blockedTasks
+							? [`Blocked tasks: ${completionResult.blockedTasks.map((t: { task_id: string }) => t.task_id).join(', ')}`]
+							: [],
+					},
+					null,
+					2,
+				);
+			}
+		} catch (completionError) {
+			// Non-blocking — treat as warning and continue
+			safeWarn(
+				`[phase_complete] Completion verify error (non-blocking):`,
+				completionError,
+			);
+		}
+
+		// Gate 2: Drift Verifier (evidence-based, LLM ran earlier)
+		// Check for evidence at .swarm/evidence/{phase}/drift-verifier.json
+		try {
+			const driftEvidencePath = path.join(
+				dir,
+				'.swarm',
+				'evidence',
+				String(phase),
+				'drift-verifier.json',
+			);
+			let driftVerdictFound = false;
+			let driftVerdictApproved = false;
+
+			try {
+				const driftEvidenceContent = fs.readFileSync(
+					driftEvidencePath,
+					'utf-8',
+				);
+				const driftEvidence = JSON.parse(driftEvidenceContent);
+				const entries = driftEvidence.entries ?? [];
+				for (const entry of entries) {
+					if (
+						typeof entry.type === 'string' &&
+						entry.type.includes('drift') &&
+						typeof entry.verdict === 'string'
+					) {
+						driftVerdictFound = true;
+						if (entry.verdict === 'approved') {
+							driftVerdictApproved = true;
+						}
+						// Check if summary indicates needs_revision
+						if (
+							entry.verdict === 'rejected' ||
+							(typeof entry.summary === 'string' &&
+								entry.summary.includes('NEEDS_REVISION'))
+						) {
+							return JSON.stringify(
+								{
+									success: false,
+									phase,
+									status: 'blocked' as const,
+									reason: 'DRIFT_VERIFICATION_REJECTED',
+									message: `Phase ${phase} cannot be completed: drift verifier returned verdict '${entry.verdict}'. Address the drift issues before completing the phase.`,
+									agentsDispatched,
+									agentsMissing: [],
+									warnings: [],
+								},
+								null,
+								2,
+							);
+						}
+					}
+				}
+			} catch (readError) {
+				// File doesn't exist or is invalid JSON
+				if ((readError as NodeJS.ErrnoException).code !== 'ENOENT') {
+					safeWarn(
+						`[phase_complete] Drift verifier evidence unreadable:`,
+						readError,
+					);
+				}
+				// Treat as missing — fall through to blocked check below
+				driftVerdictFound = false;
+			}
+
+			if (!driftVerdictFound) {
+				return JSON.stringify(
+					{
+						success: false,
+						phase,
+						status: 'blocked' as const,
+						reason: 'DRIFT_VERIFICATION_MISSING',
+						message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Ensure the architect has delegated to critic_drift_verifier before calling phase_complete.`,
+						agentsDispatched,
+						agentsMissing: [],
+						warnings: [],
+					},
+					null,
+					2,
+				);
+			}
+
+			if (!driftVerdictApproved && driftVerdictFound) {
+				// Drift verdict found but not approved — this shouldn't happen if above checks passed,
+				// but treat as rejected for safety
+				return JSON.stringify(
+					{
+						success: false,
+						phase,
+						status: 'blocked' as const,
+						reason: 'DRIFT_VERIFICATION_REJECTED',
+						message: `Phase ${phase} cannot be completed: drift verifier verdict is not approved.`,
+						agentsDispatched,
+						agentsMissing: [],
+						warnings: [],
+					},
+					null,
+					2,
+				);
+			}
+		} catch (driftError) {
+			// Non-blocking — treat as warning and continue
+			safeWarn(
+				`[phase_complete] Drift verifier error (non-blocking):`,
+				driftError,
+			);
+		}
+	}
+
 	// Knowledge config with sensible defaults — hoisted so it is available to both
 	// the retro curation path below and the curator pipeline at line ~513.
 	const knowledgeConfig: KnowledgeConfig = {
@@ -550,9 +698,12 @@ export async function executePhaseComplete(
 					`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Call curator_analyze with recommendations to apply knowledge updates from this phase.`,
 				);
 
-				if (driftResult.report.drift_score > 0) {
+				if (
+					driftResult?.report?.drift_score &&
+					driftResult.report.drift_score > 0
+				) {
 					callerSessionState.pendingAdvisoryMessages.push(
-						`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${driftResult.injection_text.slice(0, 300)}. Review ${driftResult.report_path} and address spec alignment before proceeding.`,
+						`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${(driftResult.injection_text || '').slice(0, 300)}. Review ${driftResult.report_path || 'unknown'} and address spec alignment before proceeding.`,
 					);
 				}
 			}
@@ -739,7 +890,9 @@ export async function executePhaseComplete(
 				}
 				contributorSession.phaseAgentsDispatched = new Set();
 				contributorSession.lastPhaseCompleteTimestamp = now;
+				const oldPhase = contributorSession.lastPhaseCompletePhase;
 				contributorSession.lastPhaseCompletePhase = phase;
+				telemetry.phaseChanged(contributorSessionId, oldPhase ?? 0, phase);
 			}
 		}
 

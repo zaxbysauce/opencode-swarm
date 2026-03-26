@@ -14,6 +14,7 @@ import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
 import type { TaskEvidence } from './gate-evidence';
+import { telemetry } from './telemetry.js';
 
 /**
  * Cached plan + evidence data read once at plugin init by buildRehydrationCache().
@@ -330,6 +331,7 @@ export function startAgentSession(
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
+	telemetry.sessionStarted(sessionId, agentName);
 	// Keep activeAgent map in sync so guardrails can always resolve the agent name
 	// without falling back to ORCHESTRATOR_NAME for legitimately-named sessions.
 	swarmState.activeAgent.set(sessionId, agentName);
@@ -397,7 +399,9 @@ export function ensureAgentSession(
 	if (session) {
 		// Update agent name if provided and different from current
 		if (agentName && agentName !== session.agentName) {
+			const oldName = session.agentName;
 			session.agentName = agentName;
+			telemetry.agentActivated(sessionId, agentName, oldName);
 			session.delegationActive = false;
 			session.lastAgentEventTime = now;
 
@@ -595,6 +599,11 @@ export function beginInvocation(
 	// Prune old windows to prevent memory leak
 	pruneOldWindows(sessionId, 24 * 60 * 60 * 1000, 50); // 24h max age, 50 max windows
 
+	telemetry.delegationBegin(
+		sessionId,
+		stripped,
+		session.currentTaskId ?? 'unknown',
+	);
 	return window;
 }
 
@@ -743,6 +752,7 @@ export function advanceTaskState(
 	}
 
 	session.taskWorkflowStates.set(taskId, newState);
+	telemetry.taskStateChanged(session.agentName, taskId, newState, current);
 }
 
 /**

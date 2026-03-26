@@ -104,6 +104,10 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Clear swarm state files [--confirm]";
     };
+    readonly 'reset-session': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Clear session state while preserving plan, evidence, and knowledge";
+    };
     readonly rollback: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Restore swarm state to a checkpoint <phase>";
