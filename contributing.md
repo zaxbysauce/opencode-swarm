@@ -150,9 +150,13 @@ When writing or modifying tests, place them in the correct directory:
 
 ---
 
-## Release notes (required)
+## Release notes (mandatory — no exceptions)
 
-Every PR that introduces user-facing changes must include a release notes file at `docs/releases/v{NEXT_VERSION}.md`. The release pipeline uses this file to replace the auto-generated release body on GitHub and on the release PR. Without it, users get a generic changelog with no explanation of what changed or how to migrate.
+**Every PR MUST include a release notes file at `docs/releases/v{NEXT_VERSION}.md`.** This is not optional. This is not conditional on "user-facing changes." This is not a "nice to have." If your PR is merged without it, release-please publishes a generic changelog with no explanation of what changed or how to migrate. Every PR goes through a changelog. Every PR needs notes.
+
+The release pipeline reads this file after merge and uses it as the GitHub Release body. If the file is missing, users see a bare list of commit messages — which is useless for anyone upgrading.
+
+### How to determine the version
 
 Find the current version in `.release-please-manifest.json` and increment it according to the bump your commit type will trigger (`fix`/`perf` → patch, `feat` → minor):
 
@@ -161,7 +165,9 @@ Find the current version in `.release-please-manifest.json` and increment it acc
 | `fix`, `perf` | `6.33.1` | `6.33.2` |
 | `feat` | `6.33.1` | `6.34.0` |
 
-The file is freeform markdown. Focus on what changed for users, migration steps if any, and any known caveats. PRs without a release notes file will be blocked by the `check-title` CI check.
+### What to include
+
+The file is freeform markdown. Cover what changed for users, migration steps if any, and any known caveats. Even a one-line change deserves a note explaining why it matters. See `docs/releases/v6.35.0.md` for the canonical format.
 
 ---
 
@@ -203,4 +209,4 @@ gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 - [ ] New tests are in the correct `tests/` subdirectory
 - [ ] If adding a workflow, all `uses:` references are SHA-pinned
 - [ ] All CI checks pass locally before opening the PR
-- [ ] `docs/releases/v{NEXT_VERSION}.md` exists with user-facing release notes
+- [ ] `docs/releases/v{NEXT_VERSION}.md` exists with release notes — this is MANDATORY for every PR, no exceptions
