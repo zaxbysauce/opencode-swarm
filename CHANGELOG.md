@@ -1,5 +1,78 @@
 # Changelog
 
+## [6.34.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.9...v6.34.0) (2026-03-26)
+
+
+### Features
+
+* **swarm:** add critic phase drift gate, deterministic completion-verify, and telemetry emitter ([#293](https://github.com/zaxbysauce/opencode-swarm/issues/293)) ([5d17521](https://github.com/zaxbysauce/opencode-swarm/commit/5d175219a2fb00f016fe62018c9363c9c09923b4))
+
+## [6.33.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.8...v6.33.9) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove hook chain timeout, restore correct Task handoff order, and async evidence rename ([1784a20](https://github.com/zaxbysauce/opencode-swarm/commit/1784a2021d9b00f8e6d8da9da2ed42b5c20964e2))
+
+## [6.33.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.7...v6.33.8) (2026-03-26)
+
+
+### Bug Fixes
+
+* **session:** gate all diagnostic logging behind DEBUG_SWARM env var ([#287](https://github.com/zaxbysauce/opencode-swarm/issues/287)) ([a70bf04](https://github.com/zaxbysauce/opencode-swarm/commit/a70bf0428a19ea7a7eae3fbd81d28d67316defdc))
+
+## [6.33.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.6...v6.33.7) (2026-03-26)
+
+
+### Bug Fixes
+
+* **session:** prevent session freeze by moving task handoff before hooks and adding timeout protection ([#285](https://github.com/zaxbysauce/opencode-swarm/issues/285)) ([7156cff](https://github.com/zaxbysauce/opencode-swarm/commit/7156cff19f4fcca3979acd4bd468af0e01d2054d))
+
+## [6.33.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.5...v6.33.6) (2026-03-26)
+
+
+### Bug Fixes
+
+* prevent stale delegation reversion from hijacking active sub-agents ([2d24070](https://github.com/zaxbysauce/opencode-swarm/commit/2d24070ac3912842b523bd0de81fcddf201807c5))
+
+## [6.33.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.4...v6.33.5) (2026-03-26)
+
+
+### Bug Fixes
+
+* **rehydration:** reset InvocationWindow counters and flags on startup ([#282](https://github.com/zaxbysauce/opencode-swarm/issues/282)) ([28e8a5a](https://github.com/zaxbysauce/opencode-swarm/commit/28e8a5a4e027bb0e5fc3fb860852f4514af0cf93))
+
+## [6.33.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.3...v6.33.4) (2026-03-25)
+
+
+### Bug Fixes
+
+* prevent session eviction of rehydrated sessions on startup ([#280](https://github.com/zaxbysauce/opencode-swarm/issues/280)) ([12059af](https://github.com/zaxbysauce/opencode-swarm/commit/12059afb547abf5e7ae2fb390bad0fba4a79b712))
+
+## [6.33.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.2...v6.33.3) (2026-03-25)
+
+
+### Bug Fixes
+
+* **session:** resolve typecheck errors and add snapshot schema version bump ([#278](https://github.com/zaxbysauce/opencode-swarm/issues/278)) ([12186d9](https://github.com/zaxbysauce/opencode-swarm/commit/12186d9ceba3c675c2e953cbd529ce8458413c87))
+
+## [6.33.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.1...v6.33.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* cleanup and hardening for v6.33.2 ([#276](https://github.com/zaxbysauce/opencode-swarm/issues/276)) ([ef59816](https://github.com/zaxbysauce/opencode-swarm/commit/ef59816cc142b3fe070fa694a7760d3f8644bc50))
+
+## [Unreleased]
+
+### Features
+
+* **model-fallback:** add automatic fallback model detection for transient model failures (rate limit, 429, 503, timeout, overloaded, model not found). Agent config accepts optional `fallback_models` array (max 3) per agent. Guardrails injects MODEL FALLBACK advisory and tracks `model_fallback_index` + `modelFallbackExhausted` state. Resets on successful execution.
+* **retrospective:** add `error_taxonomy` field to `RetrospectiveEvidenceSchema` — auto-classifies phase failures as `planning_error`, `interface_mismatch`, `logic_error`, `scope_creep`, or `gate_evasion` by scanning evidence bundles for the phase's tasks
+* **doc-scan:** add two-pass documentation discovery — `doc_scan` (Pass 1) scans project docs and builds index manifest at `.swarm/doc-manifest.json` with mtime-based caching; `doc_extract` (Pass 2) scores docs against task context using Jaccard bigram similarity, extracts actionable constraints (MUST/SHOULD/DO NOT patterns), deduplicates via `findNearDuplicate`, and writes to `.swarm/knowledge.jsonl` as SwarmKnowledgeEntry objects
+* **bounded-coder-revisions:** add `max_coder_revisions` config (default 5) to limit how many times a coder can be retried on a single task. When the limit is hit, a `CODER REVISION LIMIT` advisory is injected. State tracked via `coderRevisions` and `revisionLimitHit` in `AgentSessionState`, serialized/deserialized in session snapshots.
+* **secretscan-evidence:** add `SecretscanEvidenceSchema` to evidence system with `findings_count`, `scan_directory`, `files_scanned`, `skipped_files` fields. `pre_check_batch` now persists secretscan results to evidence bundle after each scan. `check_gate_status` scans EvidenceBundle for secretscan entries and reports BLOCKED status if secrets were found. Add `isSecretscanEvidence` type guard for type-safe narrowing.
+
 ## [6.33.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.33.0...v6.33.1) (2026-03-25)
 
 

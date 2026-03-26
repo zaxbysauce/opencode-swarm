@@ -7,7 +7,7 @@
 
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
-import { saveEvidence } from '../evidence/manager';
+import { loadEvidence, saveEvidence } from '../evidence/manager';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -446,7 +446,72 @@ export async function executeWriteRetro(
 		user_directives: [],
 		// Required by RetrospectiveEvidence schema; not collected via tool args to avoid complex nested object parsing
 		approaches_tried: [],
+		error_taxonomy: [] as (
+			| 'planning_error'
+			| 'interface_mismatch'
+			| 'logic_error'
+			| 'scope_creep'
+			| 'gate_evasion'
+		)[],
 	};
+
+	// --- Error taxonomy classification from evidence ---
+	const taxonomy: (
+		| 'planning_error'
+		| 'interface_mismatch'
+		| 'logic_error'
+		| 'scope_creep'
+		| 'gate_evasion'
+	)[] = [];
+	try {
+		// Read evidence for tasks belonging to this phase
+		// Phase N tasks are N.1, N.2, N.3, etc. — check evidence bundles
+		for (const taskSuffix of ['1', '2', '3', '4', '5']) {
+			const phaseTaskId = `${phase}.${taskSuffix}`;
+			const result = await loadEvidence(directory, phaseTaskId);
+			if (result.status !== 'found') continue;
+			const bundle = result.bundle;
+
+			// Scan entries for rejection/failure patterns
+			for (const entry of bundle.entries) {
+				const e = entry as Record<string, unknown>;
+
+				// Check for reviewer rejection
+				if (e.type === 'review' && e.verdict === 'fail') {
+					const reasonParts: string[] = [];
+					if (typeof e.summary === 'string') reasonParts.push(e.summary);
+					if (Array.isArray(e.issues)) {
+						for (const iss of e.issues as Record<string, unknown>[]) {
+							if (typeof iss.message === 'string')
+								reasonParts.push(iss.message);
+						}
+					}
+					const reason = reasonParts.join(' ');
+					if (/signature|type|contract|interface/i.test(reason)) {
+						taxonomy.push('interface_mismatch');
+					} else {
+						taxonomy.push('logic_error');
+					}
+				}
+				// Check for test failure
+				else if (e.type === 'test' && e.verdict === 'fail') {
+					taxonomy.push('logic_error');
+				}
+				// Check for scope violation
+				else if (e.agent === 'scope_guard' && e.verdict === 'fail') {
+					taxonomy.push('scope_creep');
+				}
+				// Check for loop detector block
+				else if (e.agent === 'loop_detector' && e.verdict === 'fail') {
+					taxonomy.push('gate_evasion');
+				}
+			}
+		}
+	} catch {
+		// Evidence read failures are non-fatal — taxonomy stays empty
+	}
+	// Deduplicate and assign
+	retroEntry.error_taxonomy = [...new Set(taxonomy)];
 
 	// Call saveEvidence to handle wrapping in EvidenceBundle + atomic write
 	try {

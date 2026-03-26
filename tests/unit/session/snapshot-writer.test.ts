@@ -410,7 +410,7 @@ describe('writeSnapshot', () => {
 		expect(() => JSON.parse(content)).not.toThrow();
 	});
 
-	it('writes JSON with version: 1', async () => {
+	it('writes JSON with version: 2', async () => {
 		const state = {
 			toolAggregates: new Map(),
 			activeAgent: new Map(),
@@ -426,7 +426,7 @@ describe('writeSnapshot', () => {
 		const content = await Bun.file(filePath).text();
 		const parsed = JSON.parse(content) as SnapshotData;
 
-		expect(parsed.version).toBe(1);
+		expect(parsed.version).toBe(2);
 	});
 
 	it('creates .swarm/session/ directory if it does not exist', async () => {
@@ -504,7 +504,7 @@ describe('writeSnapshot', () => {
 		const parsed = JSON.parse(content) as SnapshotData;
 
 		expect(parsed).toEqual({
-			version: 1,
+			version: 2,
 			writtenAt: expect.any(Number),
 			toolAggregates: {},
 			activeAgent: {},
@@ -541,6 +541,12 @@ describe('writeSnapshot', () => {
 			phaseAgentsDispatched: new Set(['coder']),
 			qaSkipCount: 0,
 			qaSkipTaskIds: [],
+			turboMode: false,
+			pendingAdvisoryMessages: [],
+			model_fallback_index: 0,
+			modelFallbackExhausted: false,
+			coderRevisions: 0,
+			revisionLimitHit: false,
 		};
 
 		const state = {
@@ -586,6 +592,11 @@ describe('writeSnapshot', () => {
 			qaSkipTaskIds: [],
 			taskWorkflowStates: {},
 			turboMode: false,
+			pendingAdvisoryMessages: [],
+			model_fallback_index: 0,
+			modelFallbackExhausted: false,
+			coderRevisions: 0,
+			revisionLimitHit: false,
 		});
 	});
 });
@@ -648,7 +659,7 @@ describe('createSnapshotWriterHook', () => {
 		expect(() => JSON.parse(content)).not.toThrow();
 
 		const parsed = JSON.parse(content) as SnapshotData;
-		expect(parsed.version).toBe(1);
+		expect(parsed.version).toBe(2);
 	});
 });
 

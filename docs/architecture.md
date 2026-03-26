@@ -254,14 +254,52 @@ For each task in current phase:
 
 ```
 All tasks in phase done
-    │
-    ├── Re-run @explorer (codebase changed)
-    ├── @docs synthesizer pass (updates docs per changes)
-    ├── Update context.md with learnings
-    ├── Archive to .swarm/history/phase-N.md
-    │
-    └── Ask user: "Ready for Phase [N+1]?"
+│
+├── 1. @explorer - Rescan codebase after changes
+├── 2. @docs - Update documentation for all changes in this phase
+├── 3. Update context.md with learnings and decisions
+├── 4. Write retrospective evidence via write_retro tool
+├── 4.5. Run evidence_check to verify all completed tasks have required evidence
+├── 5. Run sbom_generate with scope='changed' for dependency snapshot
+├── 5.5. Defense-in-depth drift check: Delegate to @critic_drift_verifier BEFORE phase_complete
+│         - Returns early feedback on plan drift
+│         - Writes drift verification evidence to .swarm/evidence/{phase}/drift-verifier.json
+│         - Skip this step if spec.md does not exist
+├── 5.6. Verify mandatory gate evidence exists:
+│         - .swarm/evidence/{phase}/completion-verify.json (auto-written by completion-verify gate)
+│         - .swarm/evidence/{phase}/drift-verifier.json (written by @critic_drift_verifier)
+│         If either missing: run the missing gate first
+│         Note: Turbo mode automatically bypasses both gates
+├── 6. Call phase_complete (enforces two mandatory gates automatically)
+│         - Gate 1: completion-verify — deterministic identifier check in source files
+│         - Gate 2: drift verifier evidence — reads drift-verifier.json for approved verdict
+│         - Both gates bypassed when turbo mode is active
+└── 7. Ask user: "Ready for Phase [N+1]?"
 ```
+
+### Phase Completion Gates (v6.33.4)
+
+The `phase_complete` tool enforces two mandatory gates before marking a phase complete:
+
+| Gate | Purpose | Blocking Reason | Turbo Bypass |
+|------|---------|-----------------|--------------|
+| `completion-verify` | Deterministic check that plan task identifiers exist in source files | `COMPLETION_INCOMPLETE` — zero identifiers found in target files | Yes |
+| `drift-verifier` | Evidence-based check that `critic_drift_verifier` approved the implementation | `DRIFT_VERIFICATION_MISSING` or `DRIFT_VERIFICATION_REJECTED` | Yes |
+
+**Gate 1: Completion Verify**
+- Parses plan task descriptions for identifiers (backtick, camelCase, PascalCase, config keys)
+- Scans target source files for matches
+- Blocks if zero identifiers found in any task's target files
+- Non-blocking on errors — treats as warning and continues
+
+**Gate 2: Drift Verifier Evidence**
+- Reads `.swarm/evidence/{phase}/drift-verifier.json`
+- Checks for entry with `type` containing 'drift' and `verdict` of 'approved'
+- Blocks if evidence missing or verdict is 'rejected'
+- Defense-in-depth: architect should delegate to `@critic_drift_verifier` BEFORE calling `phase_complete` for early feedback
+
+**Turbo Mode Behavior:**
+When `hasActiveTurboMode()` returns true, both gates are automatically bypassed. The `phase_complete` tool logs a warning and proceeds without enforcement.
 
 ---
 
@@ -602,6 +640,71 @@ Agent times out or errors:
 └── Document in context.md
 ```
 
+### Model Fallback (v6.33)
+
+When an agent encounters a transient model error (rate limit, 429, 503, timeout, overloaded, model not found), the guardrails hook detects the failure and triggers fallback behavior:
+
+**Detection:** The `toolAfter` hook in `guardrails.ts` checks for null/undefined tool output combined with error messages matching `TRANSIENT_MODEL_ERROR_PATTERN`:
+
+```typescript
+const TRANSIENT_MODEL_ERROR_PATTERN =
+  /rate.?limit|429|503|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
+```
+
+**Behavior on transient error:**
+1. Increment `session.model_fallback_index` (position in fallback_models array)
+2. Set `session.modelFallbackExhausted = true` (prevents advisory spam)
+3. Inject `MODEL FALLBACK` advisory into `session.pendingAdvisoryMessages`
+
+**Behavior on success:**
+- Reset `session.model_fallback_index = 0`
+- Reset `session.modelFallbackExhausted = false`
+
+**Configuration:** Per-agent `fallback_models` array (max 3) in `AgentOverrideConfigSchema`:
+
+```typescript
+export const AgentOverrideConfigSchema = z.object({
+  model: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  disabled: z.boolean().optional(),
+  fallback_models: z.array(z.string()).max(3).optional(),
+});
+```
+
+### Bounded Coder Revisions (v6.33)
+
+When a task requires multiple coder attempts (e.g., reviewer rejections), the guardrails hook tracks revision counts and warns when limits are approached.
+
+**State fields:**
+- `session.coderRevisions` — Number of times the coder has been re-delegated for the current task
+- `session.revisionLimitHit` — Boolean flag set when `coderRevisions >= max_coder_revisions`
+
+**Detection:** The `toolAfter` hook in `guardrails.ts` increments `session.coderRevisions` when a coder delegation completes:
+
+```typescript
+// In guardrails.ts toolAfter handler
+if (delegation.isDelegation && delegation.targetAgent === 'coder') {
+  if (!session.revisionLimitHit) {
+    session.coderRevisions++;
+    const maxRevisions = cfg.max_coder_revisions ?? 5;
+    if (session.coderRevisions >= maxRevisions) {
+      session.revisionLimitHit = true;
+      session.pendingAdvisoryMessages.push(
+        `CODER REVISION LIMIT: Agent has been revised ${session.coderRevisions} times ` +
+          `(max: ${maxRevisions}) for task ${session.currentTaskId ?? 'unknown'}. ` +
+          `Escalate to user or consider a fundamentally different approach.`
+      );
+    }
+  }
+}
+```
+
+**Reset:** `coderRevisions` resets to 0 when a new coder delegation is dispatched (unless `revisionLimitHit` is already true).
+
+**Configuration:** `guardrails.max_coder_revisions` in `GuardrailsConfigSchema` (default: 5, range: 1–20).
+
+**Snapshot persistence:** Both `coderRevisions` and `revisionLimitHit` are serialized in `SerializedAgentSession` and restored on session rehydration.
+
 ---
 
 ## Why Serial Execution?
@@ -724,14 +827,19 @@ Audits completed tasks in `.swarm/evidence/` against required evidence types (re
 **Safety**: Validates task ID format (N.M, N.M.P, retro-N, or internal tool IDs), skips symlinks, reads JSON with size limits
 
 ### `check_gate_status` — Task Gate Status Query
-Read-only tool to query the gate status of a specific task. Reads `.swarm/evidence/{taskId}.json` and returns structured JSON describing which gates have passed, which are missing, and the overall task status.
+Read-only tool to query the gate status of a specific task. Reads `.swarm/evidence/{taskId}.json` and EvidenceBundle entries and returns structured JSON describing which gates have passed, which are missing, and the overall task status.
 
 **Usage**: Any phase to check task completion status without mutating evidence
 
 **Input**: `task_id` (task identifier in N.M, N.M.P, retro-N format, or internal tool ID like "sast_scan", "quality_budget", etc.)  
-**Output**: JSON with `taskId`, `status` (all_passed|incomplete|no_evidence), `required_gates`, `passed_gates`, `missing_gates`, `gates` map, `message`, and `todo_scan` (advisory TODO count if available)
+**Output**: JSON with `taskId`, `status` (all_passed|incomplete|no_evidence), `required_gates`, `passed_gates`, `missing_gates`, `gates` map, `message`, `todo_scan` (advisory TODO count if available), and `secretscan_verdict` (v6.33)
 
-**Safety**: Validates task ID format against three accepted patterns (canonical N.M or N.M.P numeric format, retrospective format retro-N, or internal tool IDs like sast_scan/quality_budget/syntax_check/placeholder_scan/sbom_generate/build), enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
+**Secretscan verdict (v6.33)**: The tool now scans EvidenceBundle entries for `secretscan` type evidence using the `isSecretscanEvidence` type guard. When secretscan entries are found, it reports:
+- `pass` — No secrets found (verdict: pass, approved, or info)
+- `fail` — Secrets detected (verdict: fail or rejected), status becomes `incomplete` and task is BLOCKED
+- `not_run` — No secretscan evidence found for this task
+
+**Safety**: Validates task ID format against three accepted patterns (canonical N.M or N.M.P numeric format, retrospective format retro-N, or internal tool IDs like sast_scan/quality_budget/syntax_check/placeholder_scan/sbom_generate/build/secretscan), enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
 
 ### `pkg_audit` — Vulnerability Scanner
 Wraps `npm audit`, `pip-audit`, and `cargo audit` via Bun.spawn to identify security vulnerabilities in project dependencies.
@@ -762,6 +870,60 @@ Compares OpenAPI specification files against actual route implementations to sur
 **Output**: Drift report with missing implementations, extra routes, and parameter mismatches
 
 **Safety**: Validates spec file extension whitelist and size limits (<10MB), uses lstatSync to skip symlinks, YAML parsing with regex `g` flag for multi-line patterns
+
+### `doc_scan` + `doc_extract` — Two-Pass Documentation Discovery
+
+Implements a two-pass progressive disclosure for documentation: Pass 1 indexes docs at plan time, Pass 2 extracts relevant constraints at task start.
+
+#### Pass 1: `doc_scan` — Documentation Indexer
+
+Scans project documentation files and builds an index manifest at `.swarm/doc-manifest.json`.
+
+**Usage**: Phase 4 (PLAN mode) to build documentation index before tasks begin
+
+**Input**: `force` (optional boolean, force re-scan even if cache is valid)  
+**Output**: JSON with `success`, `files_count`, `cached`, and full `manifest` object
+
+**Manifest schema**:
+```typescript
+interface DocManifest {
+  schema_version: 1;
+  scanned_at: string;        // ISO timestamp
+  files: DocManifestFile[];  // Sorted by path
+}
+
+interface DocManifestFile {
+  path: string;     // Relative to project root
+  title: string;    // First # heading or filename
+  summary: string;  // First non-empty paragraph (max 200 chars)
+  lines: number;    // Total line count
+  mtime: number;   // fs.statSync().mtimeMs for cache invalidation
+}
+```
+
+**Discovery patterns**: Uses `doc_patterns` from `DocsConfigSchema` plus extras (`ARCHITECTURE.md`, `CLAUDE.md`, `AGENTS.md`, `.github/*.md`, `doc/**/*.md`). Skips `node_modules`, `.git`, `.swarm`, test files, and type definitions.
+
+**Caching**: mtime-based — only re-scans if any indexed file has changed since last scan.
+
+#### Pass 2: `doc_extract` — Constraint Extractor
+
+Reads the manifest, scores docs against task context using Jaccard bigram similarity, and extracts actionable constraints into `.swarm/knowledge.jsonl`.
+
+**Usage**: Phase 5 (EXECUTE mode) at task start to load relevant documentation constraints
+
+**Input**: `task_files` (array of file paths), `task_description` (string)  
+**Output**: JSON with `success`, `extracted` count, `skipped` count, and per-doc `details` with score and constraints
+
+**Algorithm**:
+1. Read `.swarm/doc-manifest.json` (or generate via `doc_scan` if missing)
+2. Build task context from `task_files` + `task_description`
+3. Compute Jaccard bigram similarity between task context and each doc's `{path, title, summary}`
+4. For docs with score > 0.1 relevance threshold, read full content and extract constraints
+5. Extract lines matching constraint patterns: `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, `DO NOT`, `ALWAYS`, `NEVER`, `REQUIRED`; or bullet points with action words
+6. Dedup against existing `.swarm/knowledge.jsonl` entries via `findNearDuplicate` (0.6 similarity threshold)
+7. Append non-duplicate constraints as `SwarmKnowledgeEntry` objects
+
+**Constraints**: Max 5 per document, 15-200 characters each, markdown stripped.
 
 ### Common Security Patterns
 
@@ -832,6 +994,7 @@ The evidence system persists verifiable execution artifacts per task.
 | `diff` | files_changed[], additions, deletions | Code change summary |
 | `approval` | (base fields only) | Explicit approval record |
 | `note` | (base fields only) | Free-form annotation |
+| `secretscan` | findings_count, scan_directory, files_scanned, skipped_files | Secret scan results (v6.33) |
 
 ### Storage
 
@@ -1149,6 +1312,8 @@ Agent awareness tracks what each agent is doing and shares relevant context acro
   - `lastScopeViolation: string | null` — Last scope containment violation message (Phase 5). Set when coder modifies >2 files outside declared scope; cleared after warning is injected.
   - `modifiedFilesThisCoderTask: string[]` — File paths the architect has written during the current coder task (Phase 5). Reset to `[]` when the next coder delegation starts.
   - `scopeViolationDetected?: boolean` — One-shot flag (Phase 5). Set when a scope violation is found; cleared immediately after the warning is injected into the next architect message.
+  - `model_fallback_index: number` — Current index into the fallback_models array (v6.33). Incremented on transient model failure; resets to 0 on success.
+  - `modelFallbackExhausted: boolean` — Flag set when all fallback models have been exhausted (v6.33). Prevents advisory spam on consecutive transient errors.
 - `eventCounter: number` — Tracks events for flush threshold
 - `flushLock: Promise | null` — Serializes context.md writes
 - `resetSwarmState()` — Clears all state (used in tests)
@@ -1570,7 +1735,8 @@ separating `.swarm/context.md` into distinct concerns:
 │   ├── retro-1/evidence.json   ← Phase 1 retrospective
 │   ├── retro-2/evidence.json   ← Phase 2 retrospective
 │   └── {task-id}/evidence.json ← Task-level evidence bundles
-└── events.jsonl        ← Event log
+├── events.jsonl        ← Event log
+└── telemetry.jsonl     ← Session observability (JSONL, 10MB rotation)
 ```
 
 Key principles:

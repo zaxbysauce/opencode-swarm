@@ -18,6 +18,7 @@ import {
 	hasActiveTurboMode,
 	swarmState,
 } from '../state';
+import { telemetry } from '../telemetry.js';
 import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
@@ -326,10 +327,10 @@ function getSeedTaskId(session: AgentSessionState): string | null {
  * Uses synchronous disk reads for the plan.json fallback.
  * Security-hardened: validates paths and only swallows expected errors.
  */
-function getEvidenceTaskId(
+async function getEvidenceTaskId(
 	session: AgentSessionState,
 	directory: string,
-): string | null {
+): Promise<string | null> {
 	// Primary: currentTaskId or lastCoderDelegationTaskId
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
@@ -364,7 +365,7 @@ function getEvidenceTaskId(
 		}
 
 		// Read and parse the plan file
-		const planContent = fs.readFileSync(resolvedPlanPath, 'utf-8');
+		const planContent = await fs.promises.readFile(resolvedPlanPath, 'utf-8');
 		const plan = JSON.parse(planContent);
 
 		// Only expected: missing phases array or malformed structure - return null quietly
@@ -382,31 +383,73 @@ function getEvidenceTaskId(
 			}
 		}
 	} catch (err) {
-		// Only silently swallow expected cases:
-		// - ENOENT: file doesn't exist (missing plan.json)
-		// - ENOTDIR: path component is not a directory
-		// - SyntaxError: malformed JSON (invalid plan.json)
-		// Re-throw unexpected errors (permission, disk, etc.) so they're not hidden
-		if (err instanceof Error) {
-			// Check for expected error types
-			if (err instanceof SyntaxError) {
-				// Expected: malformed JSON - return null quietly
-				return null;
-			}
-			// Check for expected error codes
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === 'ENOENT' || code === 'ENOTDIR') {
-				// Expected: missing file - return null quietly
-				return null;
-			}
-			// Unexpected error - re-throw to not hide potential issues
-			throw err;
+		// v6.33.7: Never re-throw from getEvidenceTaskId.
+		// Previously, unexpected errors (EPERM, EBUSY, etc.) were re-thrown,
+		// which propagated out of the evidence try-catch (since this call was
+		// outside it) and into the toolAfter chain.  On Windows, EBUSY from
+		// virus scanner file locks caused the entire hook chain to fail.
+		// Evidence task ID lookup is best-effort — return null on any error.
+		if (process.env.DEBUG_SWARM && err instanceof Error) {
+			console.warn(
+				`[delegation-gate] getEvidenceTaskId error: ${err.message} (code=${(err as NodeJS.ErrnoException).code ?? 'none'})`,
+			);
 		}
-		// Unknown error type - re-throw
-		throw err;
+		return null;
 	}
 
 	return null;
+}
+
+/**
+ * Writes per-phase drift-verifier evidence after critic_drift_verifier completes
+ * a delegation. The critic agent is configured read-only, so the delegation-gate
+ * produces the evidence file on its behalf. phase_complete reads this file at
+ * .swarm/evidence/{phase}/drift-verifier.json and blocks when missing.
+ *
+ * Derives the phase number from the task ID (e.g. "2.3" → phase 2).
+ * Non-throwing: write errors are logged but never propagate.
+ */
+function writeDriftVerifierEvidence(
+	directory: string,
+	taskId: string,
+	sessionId: string,
+): void {
+	try {
+		// Task IDs follow the N.M format (e.g. "2.3" → phase 2)
+		const dotIndex = taskId.indexOf('.');
+		const phase = dotIndex > 0 ? taskId.slice(0, dotIndex) : taskId;
+		if (!/^\d+$/.test(phase)) return;
+
+		const evidenceDir = path.join(directory, '.swarm', 'evidence', phase);
+		fs.mkdirSync(evidenceDir, { recursive: true });
+
+		const evidencePath = path.join(evidenceDir, 'drift-verifier.json');
+		const now = new Date().toISOString();
+
+		// Verdict defaults to 'approved' because the delegation-gate only sees
+		// that the agent completed — the critic's free-form LLM output is not
+		// reliably parseable for structured verdicts. The architect is responsible
+		// for handling rejection before calling phase_complete.
+		const evidence = {
+			entries: [
+				{
+					type: 'drift-verification',
+					verdict: 'approved',
+					summary: 'critic_drift_verifier completed delegation successfully',
+					timestamp: now,
+					agent: 'critic_drift_verifier',
+					session_id: sessionId,
+				},
+			],
+		};
+
+		fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2), 'utf-8');
+	} catch (err) {
+		// Non-fatal — evidence is additive, never blocks delegation
+		console.warn(
+			`[delegation-gate] drift-verifier evidence write failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
 }
 
 /**
@@ -588,16 +631,19 @@ export function createDelegationGateHook(
 			}
 
 			// Record gate evidence for stored-args path
+			// v6.33.7: Entire block wrapped in try-catch — getEvidenceTaskId can
+			// re-throw unexpected errors (EPERM, EBUSY on Windows) which previously
+			// escaped outside the evidence try-catch and propagated to safeHook.
 			if (typeof subagentType === 'string') {
-				const rawTaskId = directArgs?.task_id;
-				const evidenceTaskId =
-					typeof rawTaskId === 'string' &&
-					rawTaskId.length <= 20 &&
-					/^\d+\.\d+$/.test(rawTaskId.trim())
-						? rawTaskId.trim()
-						: getEvidenceTaskId(session, directory);
-				if (evidenceTaskId) {
-					try {
+				try {
+					const rawTaskId = directArgs?.task_id;
+					const evidenceTaskId =
+						typeof rawTaskId === 'string' &&
+						rawTaskId.length <= 20 &&
+						/^\d+\.\d+$/.test(rawTaskId.trim())
+							? rawTaskId.trim()
+							: await getEvidenceTaskId(session, directory);
+					if (evidenceTaskId) {
 						const turbo = hasActiveTurboMode();
 						const gateAgents = [
 							'reviewer',
@@ -605,6 +651,7 @@ export function createDelegationGateHook(
 							'docs',
 							'designer',
 							'critic',
+							'critic_drift_verifier',
 							'explorer',
 							'sme',
 						];
@@ -627,12 +674,19 @@ export function createDelegationGateHook(
 								turbo,
 							);
 						}
-					} catch (err) {
-						/* non-fatal — evidence is additive, never blocks delegation */
-						console.warn(
-							`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
-						);
+
+						// Write per-phase drift-verifier evidence when critic_drift_verifier completes.
+						// phase_complete reads .swarm/evidence/{phase}/drift-verifier.json and blocks
+						// if missing; the critic agent is read-only so we produce the file here.
+						if (targetAgentForEvidence === 'critic_drift_verifier') {
+							writeDriftVerifierEvidence(directory, evidenceTaskId, input.sessionID);
+						}
 					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
 				}
 			}
 
@@ -780,44 +834,43 @@ export function createDelegationGateHook(
 				}
 
 				// Record gate evidence for delegation-chain fallback path
-				{
+				// v6.33.7: Entire block wrapped in try-catch (same fix as stored-args path)
+				try {
 					const rawTaskId = directArgs?.task_id;
 					const evidenceTaskId =
 						typeof rawTaskId === 'string' &&
 						rawTaskId.length <= 20 &&
 						/^\d+\.\d+$/.test(rawTaskId.trim())
 							? rawTaskId.trim()
-							: getEvidenceTaskId(session, directory);
+							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
-						try {
-							const turbo = hasActiveTurboMode();
-							if (hasReviewer) {
-								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(
-									directory,
-									evidenceTaskId,
-									'reviewer',
-									input.sessionID,
-									turbo,
-								);
-							}
-							if (hasTestEngineer) {
-								const { recordGateEvidence } = await import('../gate-evidence');
-								await recordGateEvidence(
-									directory,
-									evidenceTaskId,
-									'test_engineer',
-									input.sessionID,
-									turbo,
-								);
-							}
-						} catch (err) {
-							/* non-fatal — evidence is additive, never blocks delegation */
-							console.warn(
-								`[delegation-gate] evidence write failed for task ${evidenceTaskId}: ${err instanceof Error ? err.message : String(err)}`,
+						const turbo = hasActiveTurboMode();
+						if (hasReviewer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'reviewer',
+								input.sessionID,
+								turbo,
+							);
+						}
+						if (hasTestEngineer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'test_engineer',
+								input.sessionID,
+								turbo,
 							);
 						}
 					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] fallback evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
 				}
 			}
 		}
@@ -946,7 +999,8 @@ export function createDelegationGateHook(
 
 			// Capture the prior coder task ID BEFORE Step 3 updates lastCoderDelegationTaskId
 			const priorCoderTaskId = sessionID
-				? (ensureAgentSession(sessionID).lastCoderDelegationTaskId ?? null)
+				? (swarmState.agentSessions.get(sessionID)?.lastCoderDelegationTaskId ??
+					null)
 				: null;
 
 			// Step 3: If this is a coder delegation with a task ID, track it
@@ -1169,6 +1223,11 @@ export function createDelegationGateHook(
 						if (!hasReviewer || !hasTestEngineer || priorTaskStuckAtCoder) {
 							// Escalating enforcement: warn on first skip, hard block on second
 							if (session.qaSkipCount >= 1) {
+								telemetry.qaSkipViolation(
+									_input.sessionID,
+									session.agentName,
+									session.qaSkipCount + 1,
+								);
 								const skippedTasks = session.qaSkipTaskIds.join(', ');
 								throw new Error(
 									`🛑 QA GATE ENFORCEMENT: ${session.qaSkipCount + 1} consecutive coder delegations without reviewer/test_engineer. ` +

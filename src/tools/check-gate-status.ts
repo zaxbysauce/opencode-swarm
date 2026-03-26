@@ -7,6 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { isSecretscanEvidence, loadEvidence } from '../evidence/manager.js';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -35,6 +36,7 @@ interface GateStatusResult {
 	gates: Record<string, GateInfo> | Record<string, never>;
 	message: string;
 	todo_scan: { priority: string; count: number; details?: string[] } | null;
+	secretscan_verdict?: 'pass' | 'fail' | 'not_run';
 }
 
 // ============ Canonical Task ID Validation ============
@@ -209,7 +211,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 		}
 
 		// Determine overall status
-		const status: 'all_passed' | 'incomplete' =
+		let status: 'all_passed' | 'incomplete' =
 			missingGates.length === 0 ? 'all_passed' : 'incomplete';
 
 		// Build message
@@ -218,6 +220,45 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			message = `All required gates have passed for task "${taskIdInput}".`;
 		} else {
 			message = `Task "${taskIdInput}" is incomplete. Missing gates: ${missingGates.join(', ')}.`;
+		}
+
+		// Check for secretscan evidence in EvidenceBundle format (supplementary to gate-evidence)
+		let secretscanVerdict: 'pass' | 'fail' | 'not_run' = 'not_run';
+		try {
+			const evidenceResult = await loadEvidence(directory, taskIdInput);
+			if (evidenceResult.status === 'found') {
+				const secretscanEntries = evidenceResult.bundle.entries.filter(
+					(entry) => entry.type === 'secretscan',
+				);
+				if (secretscanEntries.length > 0) {
+					const lastSecretscan =
+						secretscanEntries[secretscanEntries.length - 1];
+					if (isSecretscanEvidence(lastSecretscan)) {
+						if (
+							lastSecretscan.verdict === 'fail' ||
+							lastSecretscan.verdict === 'rejected'
+						) {
+							secretscanVerdict = 'fail';
+							missingGates.push('secretscan (BLOCKED — secrets detected)');
+							if (status === 'all_passed') {
+								status = 'incomplete';
+							}
+							message = `BLOCKED: Secretscan found secrets in prior scan. ${message}`;
+						} else if (
+							lastSecretscan.verdict === 'pass' ||
+							lastSecretscan.verdict === 'approved' ||
+							lastSecretscan.verdict === 'info'
+						) {
+							secretscanVerdict = 'pass';
+						}
+					}
+				} else {
+					message +=
+						' Advisory: No secretscan evidence found for this task. Consider running secretscan.';
+				}
+			}
+		} catch {
+			// Evidence loading failures should not break the tool
 		}
 
 		// Check for todo_scan field in evidence (advisory only)
@@ -234,6 +275,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			gates: gatesMap,
 			message,
 			todo_scan: todoScan ?? null,
+			secretscan_verdict: secretscanVerdict,
 		};
 
 		return JSON.stringify(result, null, 2);

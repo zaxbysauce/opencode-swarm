@@ -181,6 +181,47 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 	}
 });
 
+/**
+ * Helper function to write gate evidence files for Phase 4 mandatory gates
+ */
+function writeGateEvidence(directory: string, phase: number): void {
+	const evidenceDir = path.join(directory, '.swarm', 'evidence', `${phase}`);
+	fs.mkdirSync(evidenceDir, { recursive: true });
+
+	// Write completion-verify.json
+	const completionVerify = {
+		status: 'passed',
+		tasksChecked: 1,
+		tasksPassed: 1,
+		tasksBlocked: 0,
+		reason: 'All task identifiers found in source files',
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'completion-verify.json'),
+		JSON.stringify(completionVerify, null, 2),
+	);
+
+	// Write drift-verifier.json
+	const driftVerifier = {
+		schema_version: '1.0.0',
+		task_id: 'drift-verifier',
+		entries: [
+			{
+				task_id: 'drift-verifier',
+				type: 'drift_verification',
+				timestamp: new Date().toISOString(),
+				agent: 'critic_drift_verifier',
+				verdict: 'approved',
+				summary: 'Drift check passed',
+			},
+		],
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'drift-verifier.json'),
+		JSON.stringify(driftVerifier, null, 2),
+	);
+}
+
 describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 	beforeEach(() => {
 		resetSwarmState();
@@ -309,6 +350,8 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-adversarial-'));
 		// Create required evidence directory
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence', 'retro-1'), { recursive: true });
+		// Write gate evidence for Phase 4 mandatory gates
+		writeGateEvidence(tempDir, 1);
 	});
 	
 	afterEach(() => {

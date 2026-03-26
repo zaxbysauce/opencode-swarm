@@ -5,31 +5,49 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = import.meta.require;
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 function $constructor(name, initializer, params) {
   function init(inst, def) {
     if (!inst._zod) {
@@ -107,7 +125,7 @@ var init_core = __esm(() => {
   globalConfig = {};
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var exports_util = {};
 __export(exports_util, {
   unwrapMessage: () => unwrapMessage,
@@ -783,7 +801,7 @@ var init_util = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 function flattenError(error, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -924,7 +942,7 @@ var init_errors = __esm(() => {
   $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -1006,7 +1024,7 @@ var init_parse = __esm(() => {
   safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 var exports_regexes = {};
 __export(exports_regexes, {
   xid: () => xid,
@@ -1162,7 +1180,7 @@ var init_regexes = __esm(() => {
   sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues(property, result.issues));
@@ -1715,7 +1733,7 @@ var init_checks = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 class Doc {
   constructor(args = []) {
     this.content = [];
@@ -1753,7 +1771,7 @@ class Doc {
   }
 }
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 var version;
 var init_versions = __esm(() => {
   version = {
@@ -1763,7 +1781,7 @@ var init_versions = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 function isValidBase64(data) {
   if (data === "")
     return true;
@@ -3736,7 +3754,7 @@ var init_schemas = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ar.js
+// node_modules/zod/v4/locales/ar.js
 function ar_default() {
   return {
     localeError: error()
@@ -3846,7 +3864,7 @@ var init_ar = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/az.js
+// node_modules/zod/v4/locales/az.js
 function az_default() {
   return {
     localeError: error2()
@@ -3955,7 +3973,7 @@ var init_az = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/be.js
+// node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -4115,7 +4133,7 @@ var init_be = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/bg.js
+// node_modules/zod/v4/locales/bg.js
 function bg_default() {
   return {
     localeError: error4()
@@ -4239,7 +4257,7 @@ var init_bg = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ca.js
+// node_modules/zod/v4/locales/ca.js
 function ca_default() {
   return {
     localeError: error5()
@@ -4350,7 +4368,7 @@ var init_ca = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/cs.js
+// node_modules/zod/v4/locales/cs.js
 function cs_default() {
   return {
     localeError: error6()
@@ -4465,7 +4483,7 @@ var init_cs = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/da.js
+// node_modules/zod/v4/locales/da.js
 function da_default() {
   return {
     localeError: error7()
@@ -4584,7 +4602,7 @@ var init_da = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/de.js
+// node_modules/zod/v4/locales/de.js
 function de_default() {
   return {
     localeError: error8()
@@ -4696,7 +4714,7 @@ var init_de = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 function en_default() {
   return {
     localeError: error9()
@@ -4806,7 +4824,7 @@ var init_en = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/eo.js
+// node_modules/zod/v4/locales/eo.js
 function eo_default() {
   return {
     localeError: error10()
@@ -4919,7 +4937,7 @@ var init_eo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/es.js
+// node_modules/zod/v4/locales/es.js
 function es_default() {
   return {
     localeError: error11()
@@ -5055,7 +5073,7 @@ var init_es = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fa.js
+// node_modules/zod/v4/locales/fa.js
 function fa_default() {
   return {
     localeError: error12()
@@ -5173,7 +5191,7 @@ var init_fa = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fi.js
+// node_modules/zod/v4/locales/fi.js
 function fi_default() {
   return {
     localeError: error13()
@@ -5289,7 +5307,7 @@ var init_fi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr.js
+// node_modules/zod/v4/locales/fr.js
 function fr_default() {
   return {
     localeError: error14()
@@ -5401,7 +5419,7 @@ var init_fr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default() {
   return {
     localeError: error15()
@@ -5512,7 +5530,7 @@ var init_fr_CA = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/he.js
+// node_modules/zod/v4/locales/he.js
 function he_default() {
   return {
     localeError: error16()
@@ -5709,7 +5727,7 @@ var init_he = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hu.js
+// node_modules/zod/v4/locales/hu.js
 function hu_default() {
   return {
     localeError: error17()
@@ -5821,7 +5839,7 @@ var init_hu = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hy.js
+// node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -5972,7 +5990,7 @@ var init_hy = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/id.js
+// node_modules/zod/v4/locales/id.js
 function id_default() {
   return {
     localeError: error19()
@@ -6082,7 +6100,7 @@ var init_id = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/is.js
+// node_modules/zod/v4/locales/is.js
 function is_default() {
   return {
     localeError: error20()
@@ -6195,7 +6213,7 @@ var init_is = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/it.js
+// node_modules/zod/v4/locales/it.js
 function it_default() {
   return {
     localeError: error21()
@@ -6307,7 +6325,7 @@ var init_it = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ja.js
+// node_modules/zod/v4/locales/ja.js
 function ja_default() {
   return {
     localeError: error22()
@@ -6418,7 +6436,7 @@ var init_ja = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ka.js
+// node_modules/zod/v4/locales/ka.js
 function ka_default() {
   return {
     localeError: error23()
@@ -6534,7 +6552,7 @@ var init_ka = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/km.js
+// node_modules/zod/v4/locales/km.js
 function km_default() {
   return {
     localeError: error24()
@@ -6648,7 +6666,7 @@ var init_km = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/kh.js
+// node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
@@ -6656,7 +6674,7 @@ var init_kh = __esm(() => {
   init_km();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ko.js
+// node_modules/zod/v4/locales/ko.js
 function ko_default() {
   return {
     localeError: error25()
@@ -6771,7 +6789,7 @@ var init_ko = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/lt.js
+// node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber(number2) {
   const abs = Math.abs(number2);
   const last = abs % 10;
@@ -6977,7 +6995,7 @@ var init_lt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/mk.js
+// node_modules/zod/v4/locales/mk.js
 function mk_default() {
   return {
     localeError: error27()
@@ -7090,7 +7108,7 @@ var init_mk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ms.js
+// node_modules/zod/v4/locales/ms.js
 function ms_default() {
   return {
     localeError: error28()
@@ -7201,7 +7219,7 @@ var init_ms = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/nl.js
+// node_modules/zod/v4/locales/nl.js
 function nl_default() {
   return {
     localeError: error29()
@@ -7315,7 +7333,7 @@ var init_nl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/no.js
+// node_modules/zod/v4/locales/no.js
 function no_default() {
   return {
     localeError: error30()
@@ -7427,7 +7445,7 @@ var init_no = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ota.js
+// node_modules/zod/v4/locales/ota.js
 function ota_default() {
   return {
     localeError: error31()
@@ -7540,7 +7558,7 @@ var init_ota = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ps.js
+// node_modules/zod/v4/locales/ps.js
 function ps_default() {
   return {
     localeError: error32()
@@ -7658,7 +7676,7 @@ var init_ps = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pl.js
+// node_modules/zod/v4/locales/pl.js
 function pl_default() {
   return {
     localeError: error33()
@@ -7771,7 +7789,7 @@ var init_pl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pt.js
+// node_modules/zod/v4/locales/pt.js
 function pt_default() {
   return {
     localeError: error34()
@@ -7883,7 +7901,7 @@ var init_pt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ru.js
+// node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -8043,7 +8061,7 @@ var init_ru = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sl.js
+// node_modules/zod/v4/locales/sl.js
 function sl_default() {
   return {
     localeError: error36()
@@ -8156,7 +8174,7 @@ var init_sl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sv.js
+// node_modules/zod/v4/locales/sv.js
 function sv_default() {
   return {
     localeError: error37()
@@ -8270,7 +8288,7 @@ var init_sv = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ta.js
+// node_modules/zod/v4/locales/ta.js
 function ta_default() {
   return {
     localeError: error38()
@@ -8384,7 +8402,7 @@ var init_ta = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/th.js
+// node_modules/zod/v4/locales/th.js
 function th_default() {
   return {
     localeError: error39()
@@ -8498,7 +8516,7 @@ var init_th = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/tr.js
+// node_modules/zod/v4/locales/tr.js
 function tr_default() {
   return {
     localeError: error40()
@@ -8607,7 +8625,7 @@ var init_tr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uk.js
+// node_modules/zod/v4/locales/uk.js
 function uk_default() {
   return {
     localeError: error41()
@@ -8719,7 +8737,7 @@ var init_uk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ua.js
+// node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
@@ -8727,7 +8745,7 @@ var init_ua = __esm(() => {
   init_uk();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ur.js
+// node_modules/zod/v4/locales/ur.js
 function ur_default() {
   return {
     localeError: error42()
@@ -8841,7 +8859,7 @@ var init_ur = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uz.js
+// node_modules/zod/v4/locales/uz.js
 function uz_default() {
   return {
     localeError: error43()
@@ -8954,7 +8972,7 @@ var init_uz = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/vi.js
+// node_modules/zod/v4/locales/vi.js
 function vi_default() {
   return {
     localeError: error44()
@@ -9066,7 +9084,7 @@ var init_vi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default() {
   return {
     localeError: error45()
@@ -9179,7 +9197,7 @@ var init_zh_CN = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default() {
   return {
     localeError: error46()
@@ -9290,7 +9308,7 @@ var init_zh_TW = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/yo.js
+// node_modules/zod/v4/locales/yo.js
 function yo_default() {
   return {
     localeError: error47()
@@ -9401,7 +9419,7 @@ var init_yo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/index.js
+// node_modules/zod/v4/locales/index.js
 var exports_locales = {};
 __export(exports_locales, {
   zhTW: () => zh_TW_default,
@@ -9506,7 +9524,7 @@ var init_locales = __esm(() => {
   init_yo();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 class $ZodRegistry {
   constructor() {
     this._map = new WeakMap;
@@ -9558,7 +9576,7 @@ var init_registries = __esm(() => {
   globalRegistry = globalThis.__zod_globalRegistry;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -10486,7 +10504,7 @@ var init_api = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -10834,7 +10852,7 @@ var init_to_json_schema = __esm(() => {
   init_registries();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/zod/v4/core/json-schema-processors.js
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
     const registry2 = input;
@@ -11346,7 +11364,7 @@ var init_json_schema_processors = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-generator.js
+// node_modules/zod/v4/core/json-schema-generator.js
 class JSONSchemaGenerator {
   get metadataRegistry() {
     return this.ctx.metadataRegistry;
@@ -11410,11 +11428,11 @@ var init_json_schema_generator = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema.js
+// node_modules/zod/v4/core/json-schema.js
 var exports_json_schema = {};
 var init_json_schema = () => {};
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/index.js
+// node_modules/zod/v4/core/index.js
 var exports_core2 = {};
 __export(exports_core2, {
   version: () => version,
@@ -11709,7 +11727,7 @@ var init_core2 = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/checks.js
+// node_modules/zod/v4/classic/checks.js
 var exports_checks2 = {};
 __export(exports_checks2, {
   uppercase: () => _uppercase,
@@ -11746,7 +11764,7 @@ var init_checks2 = __esm(() => {
   init_core2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var exports_iso = {};
 __export(exports_iso, {
   time: () => time2,
@@ -11792,7 +11810,7 @@ var init_iso = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -11832,7 +11850,7 @@ var init_errors2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse3, parseAsync2, safeParse2, safeParseAsync2, encode2, decode2, encodeAsync2, decodeAsync2, safeEncode2, safeDecode2, safeEncodeAsync2, safeDecodeAsync2;
 var init_parse2 = __esm(() => {
   init_core2();
@@ -11851,7 +11869,7 @@ var init_parse2 = __esm(() => {
   safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var exports_schemas2 = {};
 __export(exports_schemas2, {
   xor: () => xor,
@@ -13104,7 +13122,7 @@ var init_schemas2 = __esm(() => {
   meta2 = meta;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/compat.js
+// node_modules/zod/v4/classic/compat.js
 function setErrorMap(map2) {
   config({
     customError: map2
@@ -13132,7 +13150,7 @@ var init_compat = __esm(() => {
   (function(ZodFirstPartyTypeKind2) {})(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/from-json-schema.js
+// node_modules/zod/v4/classic/from-json-schema.js
 function detectVersion(schema, defaultTarget) {
   const $schema = schema.$schema;
   if ($schema === "https://json-schema.org/draft/2020-12/schema") {
@@ -13601,7 +13619,7 @@ var init_from_json_schema = __esm(() => {
   ]);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/coerce.js
+// node_modules/zod/v4/classic/coerce.js
 var exports_coerce = {};
 __export(exports_coerce, {
   string: () => string3,
@@ -13630,7 +13648,7 @@ var init_coerce = __esm(() => {
   init_schemas2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
   xor: () => xor,
@@ -13889,7 +13907,7 @@ var init_external = __esm(() => {
   config(en_default());
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/index.js
+// node_modules/zod/index.js
 var init_zod = __esm(() => {
   init_external();
   init_external();
@@ -13922,7 +13940,7 @@ function deepMerge(base, override) {
 var MAX_MERGE_DEPTH = 10;
 
 // src/config/evidence-schema.ts
-var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
+var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, SecretscanEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
 var init_evidence_schema = __esm(() => {
   init_zod();
   EVIDENCE_MAX_JSON_BYTES = 500 * 1024;
@@ -13940,7 +13958,8 @@ var init_evidence_schema = __esm(() => {
     "sast",
     "sbom",
     "build",
-    "quality_budget"
+    "quality_budget",
+    "secretscan"
   ]);
   EvidenceVerdictSchema = exports_external.enum([
     "pass",
@@ -14021,7 +14040,14 @@ var init_evidence_schema = __esm(() => {
       approach: exports_external.string().min(1),
       result: exports_external.enum(["success", "failure", "partial"]),
       abandoned_reason: exports_external.string().optional()
-    })).max(10).default([])
+    })).max(10).default([]),
+    error_taxonomy: exports_external.array(exports_external.enum([
+      "planning_error",
+      "interface_mismatch",
+      "logic_error",
+      "scope_creep",
+      "gate_evasion"
+    ])).default([])
   });
   SyntaxEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("syntax"),
@@ -14132,6 +14158,13 @@ var init_evidence_schema = __esm(() => {
     })).default([]),
     files_analyzed: exports_external.array(exports_external.string())
   });
+  SecretscanEvidenceSchema = BaseEvidenceSchema.extend({
+    type: exports_external.literal("secretscan"),
+    findings_count: exports_external.number().int().min(0).default(0),
+    scan_directory: exports_external.string().optional(),
+    files_scanned: exports_external.number().int().min(0).default(0),
+    skipped_files: exports_external.number().int().min(0).default(0)
+  });
   EvidenceSchema = exports_external.discriminatedUnion("type", [
     ReviewEvidenceSchema,
     TestEvidenceSchema,
@@ -14144,7 +14177,8 @@ var init_evidence_schema = __esm(() => {
     SastEvidenceSchema,
     SbomEvidenceSchema,
     BuildEvidenceSchema,
-    QualityBudgetEvidenceSchema
+    QualityBudgetEvidenceSchema,
+    SecretscanEvidenceSchema
   ]);
   EvidenceBundleSchema = exports_external.object({
     schema_version: exports_external.literal("1.0.0"),
@@ -14242,7 +14276,8 @@ var init_utils2 = __esm(() => {
 });
 
 // src/evidence/manager.ts
-import { mkdirSync, readdirSync, renameSync, rmSync, statSync as statSync2 } from "fs";
+import { mkdirSync, readdirSync, rmSync, statSync as statSync2 } from "fs";
+import * as fs2 from "fs/promises";
 import * as path3 from "path";
 function isValidEvidenceType(type) {
   return VALID_EVIDENCE_TYPES.includes(type);
@@ -14318,7 +14353,7 @@ async function saveEvidence(directory, taskId, evidence) {
   const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
   try {
     await Bun.write(tempPath, bundleJson);
-    renameSync(tempPath, evidencePath);
+    await fs2.rename(tempPath, evidencePath);
   } catch (error49) {
     try {
       rmSync(tempPath, { force: true });
@@ -14374,7 +14409,7 @@ async function loadEvidence(directory, taskId) {
       const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
       try {
         await Bun.write(tempPath, bundleJson);
-        renameSync(tempPath, evidencePath);
+        await fs2.rename(tempPath, evidencePath);
       } catch (writeError) {
         try {
           rmSync(tempPath, { force: true });
@@ -14499,11 +14534,12 @@ var init_manager = __esm(() => {
     "sast",
     "sbom",
     "build",
-    "quality_budget"
+    "quality_budget",
+    "secretscan"
   ];
   TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
   RETRO_TASK_ID_REGEX = /^retro-\d+$/;
-  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$/;
+  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -14562,7 +14598,7 @@ var init_plan_schema = __esm(() => {
   });
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/polyfills.js
+// node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module) => {
   var constants = __require("constants");
   var origCwd = process.cwd;
@@ -14587,54 +14623,54 @@ var require_polyfills = __commonJS((exports, module) => {
   }
   var chdir;
   module.exports = patch;
-  function patch(fs3) {
+  function patch(fs4) {
     if (constants.hasOwnProperty("O_SYMLINK") && process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
-      patchLchmod(fs3);
+      patchLchmod(fs4);
     }
-    if (!fs3.lutimes) {
-      patchLutimes(fs3);
+    if (!fs4.lutimes) {
+      patchLutimes(fs4);
     }
-    fs3.chown = chownFix(fs3.chown);
-    fs3.fchown = chownFix(fs3.fchown);
-    fs3.lchown = chownFix(fs3.lchown);
-    fs3.chmod = chmodFix(fs3.chmod);
-    fs3.fchmod = chmodFix(fs3.fchmod);
-    fs3.lchmod = chmodFix(fs3.lchmod);
-    fs3.chownSync = chownFixSync(fs3.chownSync);
-    fs3.fchownSync = chownFixSync(fs3.fchownSync);
-    fs3.lchownSync = chownFixSync(fs3.lchownSync);
-    fs3.chmodSync = chmodFixSync(fs3.chmodSync);
-    fs3.fchmodSync = chmodFixSync(fs3.fchmodSync);
-    fs3.lchmodSync = chmodFixSync(fs3.lchmodSync);
-    fs3.stat = statFix(fs3.stat);
-    fs3.fstat = statFix(fs3.fstat);
-    fs3.lstat = statFix(fs3.lstat);
-    fs3.statSync = statFixSync(fs3.statSync);
-    fs3.fstatSync = statFixSync(fs3.fstatSync);
-    fs3.lstatSync = statFixSync(fs3.lstatSync);
-    if (fs3.chmod && !fs3.lchmod) {
-      fs3.lchmod = function(path6, mode, cb) {
+    fs4.chown = chownFix(fs4.chown);
+    fs4.fchown = chownFix(fs4.fchown);
+    fs4.lchown = chownFix(fs4.lchown);
+    fs4.chmod = chmodFix(fs4.chmod);
+    fs4.fchmod = chmodFix(fs4.fchmod);
+    fs4.lchmod = chmodFix(fs4.lchmod);
+    fs4.chownSync = chownFixSync(fs4.chownSync);
+    fs4.fchownSync = chownFixSync(fs4.fchownSync);
+    fs4.lchownSync = chownFixSync(fs4.lchownSync);
+    fs4.chmodSync = chmodFixSync(fs4.chmodSync);
+    fs4.fchmodSync = chmodFixSync(fs4.fchmodSync);
+    fs4.lchmodSync = chmodFixSync(fs4.lchmodSync);
+    fs4.stat = statFix(fs4.stat);
+    fs4.fstat = statFix(fs4.fstat);
+    fs4.lstat = statFix(fs4.lstat);
+    fs4.statSync = statFixSync(fs4.statSync);
+    fs4.fstatSync = statFixSync(fs4.fstatSync);
+    fs4.lstatSync = statFixSync(fs4.lstatSync);
+    if (fs4.chmod && !fs4.lchmod) {
+      fs4.lchmod = function(path6, mode, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs3.lchmodSync = function() {};
+      fs4.lchmodSync = function() {};
     }
-    if (fs3.chown && !fs3.lchown) {
-      fs3.lchown = function(path6, uid, gid, cb) {
+    if (fs4.chown && !fs4.lchown) {
+      fs4.lchown = function(path6, uid, gid, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs3.lchownSync = function() {};
+      fs4.lchownSync = function() {};
     }
     if (platform === "win32") {
-      fs3.rename = typeof fs3.rename !== "function" ? fs3.rename : function(fs$rename) {
-        function rename(from, to, cb) {
+      fs4.rename = typeof fs4.rename !== "function" ? fs4.rename : function(fs$rename) {
+        function rename2(from, to, cb) {
           var start = Date.now();
           var backoff = 0;
           fs$rename(from, to, function CB(er) {
             if (er && (er.code === "EACCES" || er.code === "EPERM" || er.code === "EBUSY") && Date.now() - start < 60000) {
               setTimeout(function() {
-                fs3.stat(to, function(stater, st) {
+                fs4.stat(to, function(stater, st) {
                   if (stater && stater.code === "ENOENT")
                     fs$rename(from, to, CB);
                   else
@@ -14650,11 +14686,11 @@ var require_polyfills = __commonJS((exports, module) => {
           });
         }
         if (Object.setPrototypeOf)
-          Object.setPrototypeOf(rename, fs$rename);
-        return rename;
-      }(fs3.rename);
+          Object.setPrototypeOf(rename2, fs$rename);
+        return rename2;
+      }(fs4.rename);
     }
-    fs3.read = typeof fs3.read !== "function" ? fs3.read : function(fs$read) {
+    fs4.read = typeof fs4.read !== "function" ? fs4.read : function(fs$read) {
       function read(fd, buffer, offset, length, position, callback_) {
         var callback;
         if (callback_ && typeof callback_ === "function") {
@@ -14662,23 +14698,23 @@ var require_polyfills = __commonJS((exports, module) => {
           callback = function(er, _, __) {
             if (er && er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
-              return fs$read.call(fs3, fd, buffer, offset, length, position, callback);
+              return fs$read.call(fs4, fd, buffer, offset, length, position, callback);
             }
             callback_.apply(this, arguments);
           };
         }
-        return fs$read.call(fs3, fd, buffer, offset, length, position, callback);
+        return fs$read.call(fs4, fd, buffer, offset, length, position, callback);
       }
       if (Object.setPrototypeOf)
         Object.setPrototypeOf(read, fs$read);
       return read;
-    }(fs3.read);
-    fs3.readSync = typeof fs3.readSync !== "function" ? fs3.readSync : function(fs$readSync) {
+    }(fs4.read);
+    fs4.readSync = typeof fs4.readSync !== "function" ? fs4.readSync : function(fs$readSync) {
       return function(fd, buffer, offset, length, position) {
         var eagCounter = 0;
         while (true) {
           try {
-            return fs$readSync.call(fs3, fd, buffer, offset, length, position);
+            return fs$readSync.call(fs4, fd, buffer, offset, length, position);
           } catch (er) {
             if (er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
@@ -14688,90 +14724,90 @@ var require_polyfills = __commonJS((exports, module) => {
           }
         }
       };
-    }(fs3.readSync);
-    function patchLchmod(fs4) {
-      fs4.lchmod = function(path6, mode, callback) {
-        fs4.open(path6, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err, fd) {
+    }(fs4.readSync);
+    function patchLchmod(fs5) {
+      fs5.lchmod = function(path6, mode, callback) {
+        fs5.open(path6, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err, fd) {
           if (err) {
             if (callback)
               callback(err);
             return;
           }
-          fs4.fchmod(fd, mode, function(err2) {
-            fs4.close(fd, function(err22) {
+          fs5.fchmod(fd, mode, function(err2) {
+            fs5.close(fd, function(err22) {
               if (callback)
                 callback(err2 || err22);
             });
           });
         });
       };
-      fs4.lchmodSync = function(path6, mode) {
-        var fd = fs4.openSync(path6, constants.O_WRONLY | constants.O_SYMLINK, mode);
+      fs5.lchmodSync = function(path6, mode) {
+        var fd = fs5.openSync(path6, constants.O_WRONLY | constants.O_SYMLINK, mode);
         var threw = true;
         var ret;
         try {
-          ret = fs4.fchmodSync(fd, mode);
+          ret = fs5.fchmodSync(fd, mode);
           threw = false;
         } finally {
           if (threw) {
             try {
-              fs4.closeSync(fd);
+              fs5.closeSync(fd);
             } catch (er) {}
           } else {
-            fs4.closeSync(fd);
+            fs5.closeSync(fd);
           }
         }
         return ret;
       };
     }
-    function patchLutimes(fs4) {
-      if (constants.hasOwnProperty("O_SYMLINK") && fs4.futimes) {
-        fs4.lutimes = function(path6, at, mt, cb) {
-          fs4.open(path6, constants.O_SYMLINK, function(er, fd) {
+    function patchLutimes(fs5) {
+      if (constants.hasOwnProperty("O_SYMLINK") && fs5.futimes) {
+        fs5.lutimes = function(path6, at, mt, cb) {
+          fs5.open(path6, constants.O_SYMLINK, function(er, fd) {
             if (er) {
               if (cb)
                 cb(er);
               return;
             }
-            fs4.futimes(fd, at, mt, function(er2) {
-              fs4.close(fd, function(er22) {
+            fs5.futimes(fd, at, mt, function(er2) {
+              fs5.close(fd, function(er22) {
                 if (cb)
                   cb(er2 || er22);
               });
             });
           });
         };
-        fs4.lutimesSync = function(path6, at, mt) {
-          var fd = fs4.openSync(path6, constants.O_SYMLINK);
+        fs5.lutimesSync = function(path6, at, mt) {
+          var fd = fs5.openSync(path6, constants.O_SYMLINK);
           var ret;
           var threw = true;
           try {
-            ret = fs4.futimesSync(fd, at, mt);
+            ret = fs5.futimesSync(fd, at, mt);
             threw = false;
           } finally {
             if (threw) {
               try {
-                fs4.closeSync(fd);
+                fs5.closeSync(fd);
               } catch (er) {}
             } else {
-              fs4.closeSync(fd);
+              fs5.closeSync(fd);
             }
           }
           return ret;
         };
-      } else if (fs4.futimes) {
-        fs4.lutimes = function(_a2, _b, _c, cb) {
+      } else if (fs5.futimes) {
+        fs5.lutimes = function(_a2, _b, _c, cb) {
           if (cb)
             process.nextTick(cb);
         };
-        fs4.lutimesSync = function() {};
+        fs5.lutimesSync = function() {};
       }
     }
     function chmodFix(orig) {
       if (!orig)
         return orig;
       return function(target, mode, cb) {
-        return orig.call(fs3, target, mode, function(er) {
+        return orig.call(fs4, target, mode, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -14784,7 +14820,7 @@ var require_polyfills = __commonJS((exports, module) => {
         return orig;
       return function(target, mode) {
         try {
-          return orig.call(fs3, target, mode);
+          return orig.call(fs4, target, mode);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -14795,7 +14831,7 @@ var require_polyfills = __commonJS((exports, module) => {
       if (!orig)
         return orig;
       return function(target, uid, gid, cb) {
-        return orig.call(fs3, target, uid, gid, function(er) {
+        return orig.call(fs4, target, uid, gid, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -14808,7 +14844,7 @@ var require_polyfills = __commonJS((exports, module) => {
         return orig;
       return function(target, uid, gid) {
         try {
-          return orig.call(fs3, target, uid, gid);
+          return orig.call(fs4, target, uid, gid);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -14833,14 +14869,14 @@ var require_polyfills = __commonJS((exports, module) => {
           if (cb)
             cb.apply(this, arguments);
         }
-        return options ? orig.call(fs3, target, options, callback) : orig.call(fs3, target, callback);
+        return options ? orig.call(fs4, target, options, callback) : orig.call(fs4, target, callback);
       };
     }
     function statFixSync(orig) {
       if (!orig)
         return orig;
       return function(target, options) {
-        var stats = options ? orig.call(fs3, target, options) : orig.call(fs3, target);
+        var stats = options ? orig.call(fs4, target, options) : orig.call(fs4, target);
         if (stats) {
           if (stats.uid < 0)
             stats.uid += 4294967296;
@@ -14865,11 +14901,11 @@ var require_polyfills = __commonJS((exports, module) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/legacy-streams.js
+// node_modules/graceful-fs/legacy-streams.js
 var require_legacy_streams = __commonJS((exports, module) => {
   var Stream = __require("stream").Stream;
   module.exports = legacy;
-  function legacy(fs3) {
+  function legacy(fs4) {
     return {
       ReadStream,
       WriteStream
@@ -14914,7 +14950,7 @@ var require_legacy_streams = __commonJS((exports, module) => {
         });
         return;
       }
-      fs3.open(this.path, this.flags, this.mode, function(err, fd) {
+      fs4.open(this.path, this.flags, this.mode, function(err, fd) {
         if (err) {
           self.emit("error", err);
           self.readable = false;
@@ -14954,7 +14990,7 @@ var require_legacy_streams = __commonJS((exports, module) => {
       this.busy = false;
       this._queue = [];
       if (this.fd === null) {
-        this._open = fs3.open;
+        this._open = fs4.open;
         this._queue.push([this._open, this.path, this.flags, this.mode, undefined]);
         this.flush();
       }
@@ -14962,7 +14998,7 @@ var require_legacy_streams = __commonJS((exports, module) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/clone.js
+// node_modules/graceful-fs/clone.js
 var require_clone = __commonJS((exports, module) => {
   module.exports = clone3;
   var getPrototypeOf = Object.getPrototypeOf || function(obj) {
@@ -14982,9 +15018,9 @@ var require_clone = __commonJS((exports, module) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
+// node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module) => {
-  var fs3 = __require("fs");
+  var fs4 = __require("fs");
   var polyfills = require_polyfills();
   var legacy = require_legacy_streams();
   var clone3 = require_clone();
@@ -15016,12 +15052,12 @@ var require_graceful_fs = __commonJS((exports, module) => {
 GFS4: `);
       console.error(m);
     };
-  if (!fs3[gracefulQueue]) {
+  if (!fs4[gracefulQueue]) {
     queue = global[gracefulQueue] || [];
-    publishQueue(fs3, queue);
-    fs3.close = function(fs$close) {
+    publishQueue(fs4, queue);
+    fs4.close = function(fs$close) {
       function close(fd, cb) {
-        return fs$close.call(fs3, fd, function(err) {
+        return fs$close.call(fs4, fd, function(err) {
           if (!err) {
             resetQueue();
           }
@@ -15033,40 +15069,40 @@ GFS4: `);
         value: fs$close
       });
       return close;
-    }(fs3.close);
-    fs3.closeSync = function(fs$closeSync) {
+    }(fs4.close);
+    fs4.closeSync = function(fs$closeSync) {
       function closeSync(fd) {
-        fs$closeSync.apply(fs3, arguments);
+        fs$closeSync.apply(fs4, arguments);
         resetQueue();
       }
       Object.defineProperty(closeSync, previousSymbol, {
         value: fs$closeSync
       });
       return closeSync;
-    }(fs3.closeSync);
+    }(fs4.closeSync);
     if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) {
       process.on("exit", function() {
-        debug(fs3[gracefulQueue]);
-        __require("assert").equal(fs3[gracefulQueue].length, 0);
+        debug(fs4[gracefulQueue]);
+        __require("assert").equal(fs4[gracefulQueue].length, 0);
       });
     }
   }
   var queue;
   if (!global[gracefulQueue]) {
-    publishQueue(global, fs3[gracefulQueue]);
+    publishQueue(global, fs4[gracefulQueue]);
   }
-  module.exports = patch(clone3(fs3));
-  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs3.__patched) {
-    module.exports = patch(fs3);
-    fs3.__patched = true;
+  module.exports = patch(clone3(fs4));
+  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs4.__patched) {
+    module.exports = patch(fs4);
+    fs4.__patched = true;
   }
-  function patch(fs4) {
-    polyfills(fs4);
-    fs4.gracefulify = patch;
-    fs4.createReadStream = createReadStream;
-    fs4.createWriteStream = createWriteStream;
-    var fs$readFile = fs4.readFile;
-    fs4.readFile = readFile;
+  function patch(fs5) {
+    polyfills(fs5);
+    fs5.gracefulify = patch;
+    fs5.createReadStream = createReadStream;
+    fs5.createWriteStream = createWriteStream;
+    var fs$readFile = fs5.readFile;
+    fs5.readFile = readFile;
     function readFile(path6, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
@@ -15082,8 +15118,8 @@ GFS4: `);
         });
       }
     }
-    var fs$writeFile = fs4.writeFile;
-    fs4.writeFile = writeFile;
+    var fs$writeFile = fs5.writeFile;
+    fs5.writeFile = writeFile;
     function writeFile(path6, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
@@ -15099,9 +15135,9 @@ GFS4: `);
         });
       }
     }
-    var fs$appendFile = fs4.appendFile;
+    var fs$appendFile = fs5.appendFile;
     if (fs$appendFile)
-      fs4.appendFile = appendFile;
+      fs5.appendFile = appendFile;
     function appendFile(path6, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
@@ -15117,9 +15153,9 @@ GFS4: `);
         });
       }
     }
-    var fs$copyFile = fs4.copyFile;
+    var fs$copyFile = fs5.copyFile;
     if (fs$copyFile)
-      fs4.copyFile = copyFile;
+      fs5.copyFile = copyFile;
     function copyFile(src, dest, flags, cb) {
       if (typeof flags === "function") {
         cb = flags;
@@ -15137,15 +15173,15 @@ GFS4: `);
         });
       }
     }
-    var fs$readdir = fs4.readdir;
-    fs4.readdir = readdir;
+    var fs$readdir = fs5.readdir;
+    fs5.readdir = readdir;
     var noReaddirOptionVersions = /^v[0-5]\./;
     function readdir(path6, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir(path7, options2, cb2, startTime) {
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path7, options2, cb2, startTime) {
         return fs$readdir(path7, fs$readdirCallback(path7, options2, cb2, startTime));
-      } : function go$readdir(path7, options2, cb2, startTime) {
+      } : function go$readdir2(path7, options2, cb2, startTime) {
         return fs$readdir(path7, options2, fs$readdirCallback(path7, options2, cb2, startTime));
       };
       return go$readdir(path6, options, cb);
@@ -15169,21 +15205,21 @@ GFS4: `);
       }
     }
     if (process.version.substr(0, 4) === "v0.8") {
-      var legStreams = legacy(fs4);
+      var legStreams = legacy(fs5);
       ReadStream = legStreams.ReadStream;
       WriteStream = legStreams.WriteStream;
     }
-    var fs$ReadStream = fs4.ReadStream;
+    var fs$ReadStream = fs5.ReadStream;
     if (fs$ReadStream) {
       ReadStream.prototype = Object.create(fs$ReadStream.prototype);
       ReadStream.prototype.open = ReadStream$open;
     }
-    var fs$WriteStream = fs4.WriteStream;
+    var fs$WriteStream = fs5.WriteStream;
     if (fs$WriteStream) {
       WriteStream.prototype = Object.create(fs$WriteStream.prototype);
       WriteStream.prototype.open = WriteStream$open;
     }
-    Object.defineProperty(fs4, "ReadStream", {
+    Object.defineProperty(fs5, "ReadStream", {
       get: function() {
         return ReadStream;
       },
@@ -15193,7 +15229,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    Object.defineProperty(fs4, "WriteStream", {
+    Object.defineProperty(fs5, "WriteStream", {
       get: function() {
         return WriteStream;
       },
@@ -15204,7 +15240,7 @@ GFS4: `);
       configurable: true
     });
     var FileReadStream = ReadStream;
-    Object.defineProperty(fs4, "FileReadStream", {
+    Object.defineProperty(fs5, "FileReadStream", {
       get: function() {
         return FileReadStream;
       },
@@ -15215,7 +15251,7 @@ GFS4: `);
       configurable: true
     });
     var FileWriteStream = WriteStream;
-    Object.defineProperty(fs4, "FileWriteStream", {
+    Object.defineProperty(fs5, "FileWriteStream", {
       get: function() {
         return FileWriteStream;
       },
@@ -15264,13 +15300,13 @@ GFS4: `);
       });
     }
     function createReadStream(path6, options) {
-      return new fs4.ReadStream(path6, options);
+      return new fs5.ReadStream(path6, options);
     }
     function createWriteStream(path6, options) {
-      return new fs4.WriteStream(path6, options);
+      return new fs5.WriteStream(path6, options);
     }
-    var fs$open = fs4.open;
-    fs4.open = open;
+    var fs$open = fs5.open;
+    fs5.open = open;
     function open(path6, flags, mode, cb) {
       if (typeof mode === "function")
         cb = mode, mode = null;
@@ -15286,20 +15322,20 @@ GFS4: `);
         });
       }
     }
-    return fs4;
+    return fs5;
   }
   function enqueue(elem) {
     debug("ENQUEUE", elem[0].name, elem[1]);
-    fs3[gracefulQueue].push(elem);
+    fs4[gracefulQueue].push(elem);
     retry();
   }
   var retryTimer;
   function resetQueue() {
     var now = Date.now();
-    for (var i = 0;i < fs3[gracefulQueue].length; ++i) {
-      if (fs3[gracefulQueue][i].length > 2) {
-        fs3[gracefulQueue][i][3] = now;
-        fs3[gracefulQueue][i][4] = now;
+    for (var i = 0;i < fs4[gracefulQueue].length; ++i) {
+      if (fs4[gracefulQueue][i].length > 2) {
+        fs4[gracefulQueue][i][3] = now;
+        fs4[gracefulQueue][i][4] = now;
       }
     }
     retry();
@@ -15307,9 +15343,9 @@ GFS4: `);
   function retry() {
     clearTimeout(retryTimer);
     retryTimer = undefined;
-    if (fs3[gracefulQueue].length === 0)
+    if (fs4[gracefulQueue].length === 0)
       return;
-    var elem = fs3[gracefulQueue].shift();
+    var elem = fs4[gracefulQueue].shift();
     var fn = elem[0];
     var args = elem[1];
     var err = elem[2];
@@ -15331,7 +15367,7 @@ GFS4: `);
         debug("RETRY", fn.name, args);
         fn.apply(null, args.concat([startTime]));
       } else {
-        fs3[gracefulQueue].push(elem);
+        fs4[gracefulQueue].push(elem);
       }
     }
     if (retryTimer === undefined) {
@@ -15340,7 +15376,7 @@ GFS4: `);
   }
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry_operation.js
+// node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS((exports, module) => {
   function RetryOperation(timeouts, options) {
     if (typeof options === "boolean") {
@@ -15469,7 +15505,7 @@ var require_retry_operation = __commonJS((exports, module) => {
   };
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry.js
+// node_modules/retry/lib/retry.js
 var require_retry = __commonJS((exports) => {
   var RetryOperation = require_retry_operation();
   exports.operation = function(options) {
@@ -15553,7 +15589,7 @@ var require_retry = __commonJS((exports) => {
   };
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/signals.js
+// node_modules/signal-exit/signals.js
 var require_signals = __commonJS((exports, module) => {
   module.exports = [
     "SIGABRT",
@@ -15570,7 +15606,7 @@ var require_signals = __commonJS((exports, module) => {
   }
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/index.js
+// node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS((exports, module) => {
   var process3 = global.process;
   var processOk = function(process4) {
@@ -15620,7 +15656,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.on(ev, cb);
       return remove;
     };
-    unload = function unload() {
+    unload = function unload2() {
       if (!loaded || !processOk(global.process)) {
         return;
       }
@@ -15635,7 +15671,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.count -= 1;
     };
     module.exports.unload = unload;
-    emit = function emit(event, code, signal) {
+    emit = function emit2(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -15664,7 +15700,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       return signals;
     };
     loaded = false;
-    load = function load() {
+    load = function load2() {
       if (loaded || !processOk(global.process)) {
         return;
       }
@@ -15683,7 +15719,7 @@ var require_signal_exit = __commonJS((exports, module) => {
     };
     module.exports.load = load;
     originalProcessReallyExit = process3.reallyExit;
-    processReallyExit = function processReallyExit(code) {
+    processReallyExit = function processReallyExit2(code) {
       if (!processOk(global.process)) {
         return;
       }
@@ -15693,7 +15729,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
-    processEmit = function processEmit(ev, arg) {
+    processEmit = function processEmit2(ev, arg) {
       if (ev === "exit" && processOk(global.process)) {
         if (arg !== undefined) {
           process3.exitCode = arg;
@@ -15723,13 +15759,13 @@ var require_signal_exit = __commonJS((exports, module) => {
   var processEmit;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
+// node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module) => {
   var cacheSymbol = Symbol();
-  function probe(file3, fs3, callback) {
-    const cachedPrecision = fs3[cacheSymbol];
+  function probe(file3, fs4, callback) {
+    const cachedPrecision = fs4[cacheSymbol];
     if (cachedPrecision) {
-      return fs3.stat(file3, (err, stat) => {
+      return fs4.stat(file3, (err, stat) => {
         if (err) {
           return callback(err);
         }
@@ -15737,16 +15773,16 @@ var require_mtime_precision = __commonJS((exports, module) => {
       });
     }
     const mtime = new Date(Math.ceil(Date.now() / 1000) * 1000 + 5);
-    fs3.utimes(file3, mtime, mtime, (err) => {
+    fs4.utimes(file3, mtime, mtime, (err) => {
       if (err) {
         return callback(err);
       }
-      fs3.stat(file3, (err2, stat) => {
+      fs4.stat(file3, (err2, stat) => {
         if (err2) {
           return callback(err2);
         }
         const precision = stat.mtime.getTime() % 1000 === 0 ? "s" : "ms";
-        Object.defineProperty(fs3, cacheSymbol, { value: precision });
+        Object.defineProperty(fs4, cacheSymbol, { value: precision });
         callback(null, stat.mtime, precision);
       });
     });
@@ -15762,10 +15798,10 @@ var require_mtime_precision = __commonJS((exports, module) => {
   exports.getMtime = getMtime;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
+// node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module) => {
   var path6 = __require("path");
-  var fs3 = require_graceful_fs();
+  var fs4 = require_graceful_fs();
   var retry = require_retry();
   var onExit = require_signal_exit();
   var mtimePrecision = require_mtime_precision();
@@ -15888,7 +15924,7 @@ var require_lockfile = __commonJS((exports, module) => {
       update: null,
       realpath: true,
       retries: 0,
-      fs: fs3,
+      fs: fs4,
       onCompromised: (err) => {
         throw err;
       },
@@ -15932,7 +15968,7 @@ var require_lockfile = __commonJS((exports, module) => {
   }
   function unlock(file3, options, callback) {
     options = {
-      fs: fs3,
+      fs: fs4,
       realpath: true,
       ...options
     };
@@ -15954,7 +15990,7 @@ var require_lockfile = __commonJS((exports, module) => {
     options = {
       stale: 1e4,
       realpath: true,
-      fs: fs3,
+      fs: fs4,
       ...options
     };
     options.stale = Math.max(options.stale || 0, 2000);
@@ -15987,18 +16023,18 @@ var require_lockfile = __commonJS((exports, module) => {
   exports.getLocks = getLocks;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
+// node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module) => {
-  var fs3 = require_graceful_fs();
-  function createSyncFs(fs4) {
+  var fs4 = require_graceful_fs();
+  function createSyncFs(fs5) {
     const methods = ["mkdir", "realpath", "stat", "rmdir", "utimes"];
-    const newFs = { ...fs4 };
+    const newFs = { ...fs5 };
     methods.forEach((method) => {
       newFs[method] = (...args) => {
         const callback = args.pop();
         let ret;
         try {
-          ret = fs4[`${method}Sync`](...args);
+          ret = fs5[`${method}Sync`](...args);
         } catch (err) {
           return callback(err);
         }
@@ -16036,7 +16072,7 @@ var require_adapter = __commonJS((exports, module) => {
   }
   function toSyncOptions(options) {
     options = { ...options };
-    options.fs = createSyncFs(options.fs || fs3);
+    options.fs = createSyncFs(options.fs || fs4);
     if (typeof options.retries === "number" && options.retries > 0 || options.retries && typeof options.retries.retries === "number" && options.retries.retries > 0) {
       throw Object.assign(new Error("Cannot use retries with the sync api"), { code: "ESYNC" });
     }
@@ -16049,7 +16085,7 @@ var require_adapter = __commonJS((exports, module) => {
   };
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/index.js
+// node_modules/proper-lockfile/index.js
 var require_proper_lockfile = __commonJS((exports, module) => {
   var lockfile = require_lockfile();
   var { toPromise, toSync, toSyncOptions } = require_adapter();
@@ -16083,7 +16119,7 @@ var require_proper_lockfile = __commonJS((exports, module) => {
 });
 
 // src/plan/manager.ts
-import { renameSync as renameSync3, unlinkSync } from "fs";
+import { renameSync as renameSync2, unlinkSync } from "fs";
 import * as path11 from "path";
 async function loadPlanJsonOnly(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
@@ -16175,7 +16211,7 @@ ${markdown}`;
   const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
+    renameSync2(mdTempPath, mdPath);
   } finally {
     try {
       unlinkSync(mdTempPath);
@@ -16264,7 +16300,7 @@ async function savePlan(directory, plan, options) {
   const tempPath = path11.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(tempPath, JSON.stringify(validated, null, 2));
-    renameSync3(tempPath, planPath);
+    renameSync2(tempPath, planPath);
   } finally {
     try {
       unlinkSync(tempPath);
@@ -16278,7 +16314,7 @@ ${markdown}`;
   const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
     await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
+    renameSync2(mdTempPath, mdPath);
   } finally {
     try {
       unlinkSync(mdTempPath);
@@ -16582,7 +16618,7 @@ __export(exports_config_doctor, {
   applySafeAutoFixes: () => applySafeAutoFixes
 });
 import * as crypto2 from "crypto";
-import * as fs3 from "fs";
+import * as fs4 from "fs";
 import * as os4 from "os";
 import * as path13 from "path";
 function getUserConfigDir3() {
@@ -16627,15 +16663,15 @@ function createConfigBackup(directory) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let content = null;
-  if (fs3.existsSync(projectConfigPath)) {
+  if (fs4.existsSync(projectConfigPath)) {
     try {
-      content = fs3.readFileSync(projectConfigPath, "utf-8");
+      content = fs4.readFileSync(projectConfigPath, "utf-8");
     } catch {}
   }
-  if (content === null && fs3.existsSync(userConfigPath)) {
+  if (content === null && fs4.existsSync(userConfigPath)) {
     configPath = userConfigPath;
     try {
-      content = fs3.readFileSync(userConfigPath, "utf-8");
+      content = fs4.readFileSync(userConfigPath, "utf-8");
     } catch {}
   }
   if (content === null) {
@@ -16650,8 +16686,8 @@ function createConfigBackup(directory) {
 }
 function writeBackupArtifact(directory, backup) {
   const swarmDir = path13.join(directory, ".swarm");
-  if (!fs3.existsSync(swarmDir)) {
-    fs3.mkdirSync(swarmDir, { recursive: true });
+  if (!fs4.existsSync(swarmDir)) {
+    fs4.mkdirSync(swarmDir, { recursive: true });
   }
   const backupFilename = `config-backup-${backup.createdAt}.json`;
   const backupPath = path13.join(swarmDir, backupFilename);
@@ -16662,15 +16698,15 @@ function writeBackupArtifact(directory, backup) {
     content: backup.content,
     preview: backup.content.substring(0, 500) + (backup.content.length > 500 ? "..." : "")
   };
-  fs3.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
+  fs4.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
   return backupPath;
 }
 function restoreFromBackup(backupPath, directory) {
-  if (!fs3.existsSync(backupPath)) {
+  if (!fs4.existsSync(backupPath)) {
     return null;
   }
   try {
-    const artifact = JSON.parse(fs3.readFileSync(backupPath, "utf-8"));
+    const artifact = JSON.parse(fs4.readFileSync(backupPath, "utf-8"));
     if (!artifact.content || !artifact.configPath || !artifact.contentHash) {
       return null;
     }
@@ -16685,10 +16721,10 @@ function restoreFromBackup(backupPath, directory) {
     }
     const targetPath = artifact.configPath;
     const targetDir = path13.dirname(targetPath);
-    if (!fs3.existsSync(targetDir)) {
-      fs3.mkdirSync(targetDir, { recursive: true });
+    if (!fs4.existsSync(targetDir)) {
+      fs4.mkdirSync(targetDir, { recursive: true });
     }
-    fs3.writeFileSync(targetPath, artifact.content, "utf-8");
+    fs4.writeFileSync(targetPath, artifact.content, "utf-8");
     return targetPath;
   } catch {
     return null;
@@ -16698,12 +16734,12 @@ function readConfigFromFile(directory) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let configContent = null;
-  if (fs3.existsSync(projectConfigPath)) {
+  if (fs4.existsSync(projectConfigPath)) {
     configPath = projectConfigPath;
-    configContent = fs3.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs3.existsSync(userConfigPath)) {
+    configContent = fs4.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs4.existsSync(userConfigPath)) {
     configPath = userConfigPath;
-    configContent = fs3.readFileSync(userConfigPath, "utf-8");
+    configContent = fs4.readFileSync(userConfigPath, "utf-8");
   }
   if (configContent === null) {
     return null;
@@ -16999,9 +17035,9 @@ function runConfigDoctor(config3, directory) {
   const hasAutoFixableIssues = findings.some((f) => f.autoFixable && f.proposedFix?.risk === "low");
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configSource = "defaults";
-  if (fs3.existsSync(projectConfigPath)) {
+  if (fs4.existsSync(projectConfigPath)) {
     configSource = projectConfigPath;
-  } else if (fs3.existsSync(userConfigPath)) {
+  } else if (fs4.existsSync(userConfigPath)) {
     configSource = userConfigPath;
   }
   return {
@@ -17030,12 +17066,12 @@ function applySafeAutoFixes(directory, result) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let configContent;
-  if (fs3.existsSync(projectConfigPath)) {
+  if (fs4.existsSync(projectConfigPath)) {
     configPath = projectConfigPath;
-    configContent = fs3.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs3.existsSync(userConfigPath)) {
+    configContent = fs4.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs4.existsSync(userConfigPath)) {
     configPath = userConfigPath;
-    configContent = fs3.readFileSync(userConfigPath, "utf-8");
+    configContent = fs4.readFileSync(userConfigPath, "utf-8");
   } else {
     return { appliedFixes, updatedConfigPath: null };
   }
@@ -17105,18 +17141,18 @@ function applySafeAutoFixes(directory, result) {
   }
   if (appliedFixes.length > 0) {
     const configDir = path13.dirname(configPath);
-    if (!fs3.existsSync(configDir)) {
-      fs3.mkdirSync(configDir, { recursive: true });
+    if (!fs4.existsSync(configDir)) {
+      fs4.mkdirSync(configDir, { recursive: true });
     }
-    fs3.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
+    fs4.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
     updatedConfigPath = configPath;
   }
   return { appliedFixes, updatedConfigPath };
 }
 function writeDoctorArtifact(directory, result) {
   const swarmDir = path13.join(directory, ".swarm");
-  if (!fs3.existsSync(swarmDir)) {
-    fs3.mkdirSync(swarmDir, { recursive: true });
+  if (!fs4.existsSync(swarmDir)) {
+    fs4.mkdirSync(swarmDir, { recursive: true });
   }
   const artifactFilename = "config-doctor.json";
   const artifactPath = path13.join(swarmDir, artifactFilename);
@@ -17140,7 +17176,7 @@ function writeDoctorArtifact(directory, result) {
       } : null
     }))
   };
-  fs3.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
+  fs4.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
   return artifactPath;
 }
 function shouldRunOnStartup(automationConfig) {
@@ -17479,7 +17515,7 @@ var init_evidence_summary_service = __esm(() => {
 });
 
 // src/cli/index.ts
-import * as fs11 from "fs";
+import * as fs13 from "fs";
 import * as os5 from "os";
 import * as path23 from "path";
 
@@ -17566,6 +17602,7 @@ var TOOL_NAMES = [
   "todo_extract",
   "evidence_check",
   "check_gate_status",
+  "completion_verify",
   "sbom_generate",
   "checkpoint",
   "pkg_audit",
@@ -17584,13 +17621,18 @@ var TOOL_NAMES = [
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
 // src/config/constants.ts
-var QA_AGENTS = ["reviewer", "critic"];
+var QA_AGENTS = [
+  "reviewer",
+  "critic",
+  "critic_drift_verifier"
+];
 var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
 var ORCHESTRATOR_NAME = "architect";
 var ALL_SUBAGENT_NAMES = [
   "sme",
   "docs",
   "designer",
+  "critic_sounding_board",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -17682,6 +17724,21 @@ var AGENT_TOOL_MAP = {
     "retrieve_summary",
     "symbols"
   ],
+  critic_sounding_board: [
+    "complexity_hotspots",
+    "detect_domains",
+    "imports",
+    "retrieve_summary",
+    "symbols"
+  ],
+  critic_drift_verifier: [
+    "completion_verify",
+    "complexity_hotspots",
+    "detect_domains",
+    "imports",
+    "retrieve_summary",
+    "symbols"
+  ],
   docs: [
     "detect_domains",
     "extract_code_blocks",
@@ -17705,7 +17762,8 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 var AgentOverrideConfigSchema = exports_external.object({
   model: exports_external.string().optional(),
   temperature: exports_external.number().min(0).max(2).optional(),
-  disabled: exports_external.boolean().optional()
+  disabled: exports_external.boolean().optional(),
+  fallback_models: exports_external.array(exports_external.string()).max(3).optional()
 });
 var SwarmConfigSchema = exports_external.object({
   name: exports_external.string().optional(),
@@ -18045,6 +18103,8 @@ var GuardrailsConfigSchema = exports_external.object({
   max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
   warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
   idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
+  no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
+  max_coder_revisions: exports_external.number().int().min(1).max(20).default(5),
   qa_gates: exports_external.object({
     required_tools: exports_external.array(exports_external.string().min(1)).default([
       "diff",
@@ -18160,6 +18220,7 @@ var PluginConfigSchema = exports_external.object({
   pipeline: PipelineConfigSchema.optional(),
   phase_complete: PhaseCompleteConfigSchema.optional(),
   qa_retry_limit: exports_external.number().min(1).max(10).default(3),
+  execution_mode: exports_external.enum(["strict", "balanced", "fast"]).default("balanced"),
   inject_phase_reminders: exports_external.boolean().default(true),
   hooks: HooksConfigSchema.optional(),
   gates: GateConfigSchema.optional(),
@@ -18720,10 +18781,10 @@ async function handleBenchmarkCommand(directory, args) {
 
 // src/tools/checkpoint.ts
 import { spawnSync } from "child_process";
-import * as fs2 from "fs";
+import * as fs3 from "fs";
 import * as path4 from "path";
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/external.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
   xid: () => xid4,
@@ -18953,7 +19014,7 @@ __export(exports_external2, {
   $brand: () => $brand2
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
 var exports_core4 = {};
 __export(exports_core4, {
   version: () => version2,
@@ -19217,7 +19278,7 @@ __export(exports_core4, {
   $ZodAny: () => $ZodAny2
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/core.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
 var NEVER2 = Object.freeze({
   status: "aborted"
 });
@@ -19284,7 +19345,7 @@ function config2(newConfig) {
     Object.assign(globalConfig2, newConfig);
   return globalConfig2;
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/util.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
   unwrapMessage: () => unwrapMessage2,
@@ -19913,7 +19974,7 @@ class Class2 {
   constructor(..._args) {}
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
 var initializer3 = (inst, def) => {
   inst.name = "$ZodError";
   Object.defineProperty(inst, "_zod", {
@@ -20056,7 +20117,7 @@ function prettifyError2(error49) {
 `);
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -20143,7 +20204,7 @@ var _safeDecodeAsync2 = (_Err) => async (schema, value, _ctx) => {
   return _safeParseAsync2(_Err)(schema, value, _ctx);
 };
 var safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/regexes.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
   xid: () => xid3,
@@ -20295,7 +20356,7 @@ var sha512_hex2 = /^[0-9a-fA-F]{128}$/;
 var sha512_base642 = /* @__PURE__ */ fixedBase642(86, "==");
 var sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
 var $ZodCheck2 = /* @__PURE__ */ $constructor2("$ZodCheck", (inst, def) => {
   var _a2;
   inst._zod ?? (inst._zod = {});
@@ -20836,7 +20897,7 @@ var $ZodCheckOverwrite2 = /* @__PURE__ */ $constructor2("$ZodCheckOverwrite", (i
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/doc.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
 class Doc2 {
   constructor(args = []) {
     this.content = [];
@@ -20874,14 +20935,14 @@ class Doc2 {
   }
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/versions.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
 var version2 = {
   major: 4,
   minor: 1,
   patch: 8
 };
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
 var $ZodType2 = /* @__PURE__ */ $constructor2("$ZodType", (inst, def) => {
   var _a2;
   inst ?? (inst = {});
@@ -22704,7 +22765,7 @@ function handleRefineResult2(result, payload, input, inst) {
     payload.issues.push(issue2(_iss));
   }
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
 var exports_locales2 = {};
 __export(exports_locales2, {
   zhTW: () => zh_TW_default2,
@@ -22755,7 +22816,7 @@ __export(exports_locales2, {
   ar: () => ar_default2
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ar.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
 var error49 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -22871,7 +22932,7 @@ function ar_default2() {
     localeError: error49()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/az.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -22986,7 +23047,7 @@ function az_default2() {
     localeError: error50()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/be.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -23150,7 +23211,7 @@ function be_default2() {
     localeError: error51()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ca.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 var error52 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -23267,7 +23328,7 @@ function ca_default2() {
     localeError: error52()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/cs.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 var error53 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -23402,7 +23463,7 @@ function cs_default2() {
     localeError: error53()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/da.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 var error54 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -23533,7 +23594,7 @@ function da_default2() {
     localeError: error54()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/de.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 var error55 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -23649,7 +23710,7 @@ function de_default2() {
     localeError: error55()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/en.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 var parsedType2 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -23766,7 +23827,7 @@ function en_default2() {
     localeError: error56()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/eo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 var parsedType3 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -23882,7 +23943,7 @@ function eo_default2() {
     localeError: error57()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/es.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 var error58 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -24030,7 +24091,7 @@ function es_default2() {
     localeError: error58()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fa.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 var error59 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -24152,7 +24213,7 @@ function fa_default2() {
     localeError: error59()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 var error60 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -24274,7 +24335,7 @@ function fi_default2() {
     localeError: error60()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 var error61 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -24390,7 +24451,7 @@ function fr_default2() {
     localeError: error61()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 var error62 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -24507,7 +24568,7 @@ function fr_CA_default2() {
     localeError: error62()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/he.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 var error63 = () => {
   const Sizable = {
     string: { unit: "\u05D0\u05D5\u05EA\u05D9\u05D5\u05EA", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" },
@@ -24623,7 +24684,7 @@ function he_default2() {
     localeError: error63()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/hu.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 var error64 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -24739,7 +24800,7 @@ function hu_default2() {
     localeError: error64()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/id.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 var error65 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -24855,7 +24916,7 @@ function id_default2() {
     localeError: error65()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/is.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 var parsedType4 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -24972,7 +25033,7 @@ function is_default2() {
     localeError: error66()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/it.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 var error67 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -25088,7 +25149,7 @@ function it_default2() {
     localeError: error67()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ja.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 var error68 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -25203,7 +25264,7 @@ function ja_default2() {
     localeError: error68()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ka.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 var parsedType5 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -25328,7 +25389,7 @@ function ka_default2() {
     localeError: error69()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/km.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 var error70 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -25446,11 +25507,11 @@ function km_default2() {
   };
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/kh.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ko.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
 var error71 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -25571,7 +25632,7 @@ function ko_default2() {
     localeError: error71()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/lt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 var parsedType6 = (data) => {
   const t = typeof data;
   return parsedTypeFromType(t, data);
@@ -25800,7 +25861,7 @@ function lt_default2() {
     localeError: error72()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/mk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 var error73 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -25917,7 +25978,7 @@ function mk_default2() {
     localeError: error73()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ms.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 var error74 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -26033,7 +26094,7 @@ function ms_default2() {
     localeError: error74()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/nl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 var error75 = () => {
   const Sizable = {
     string: { unit: "tekens" },
@@ -26150,7 +26211,7 @@ function nl_default2() {
     localeError: error75()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/no.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 var error76 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -26266,7 +26327,7 @@ function no_default2() {
     localeError: error76()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ota.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 var error77 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -26382,7 +26443,7 @@ function ota_default2() {
     localeError: error77()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ps.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 var error78 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -26504,7 +26565,7 @@ function ps_default2() {
     localeError: error78()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 var error79 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -26621,7 +26682,7 @@ function pl_default2() {
     localeError: error79()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 var error80 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "ter" },
@@ -26737,7 +26798,7 @@ function pt_default2() {
     localeError: error80()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ru.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -26901,7 +26962,7 @@ function ru_default2() {
     localeError: error81()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 var error82 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -27018,7 +27079,7 @@ function sl_default2() {
     localeError: error82()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sv.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 var error83 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -27136,7 +27197,7 @@ function sv_default2() {
     localeError: error83()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ta.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 var error84 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -27253,7 +27314,7 @@ function ta_default2() {
     localeError: error84()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/th.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 var error85 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -27370,7 +27431,7 @@ function th_default2() {
     localeError: error85()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/tr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 var parsedType7 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -27485,7 +27546,7 @@ function tr_default2() {
     localeError: error86()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/uk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 var error87 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -27602,11 +27663,11 @@ function uk_default2() {
   };
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ua.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ur.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
 var error88 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -27723,7 +27784,7 @@ function ur_default2() {
     localeError: error88()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/vi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 var error89 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -27839,7 +27900,7 @@ function vi_default2() {
     localeError: error89()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 var error90 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -27955,7 +28016,7 @@ function zh_CN_default2() {
     localeError: error90()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 var error91 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -28072,7 +28133,7 @@ function zh_TW_default2() {
     localeError: error91()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/yo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 var error92 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -28187,7 +28248,7 @@ function yo_default2() {
     localeError: error92()
   };
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/registries.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 var $output2 = Symbol("ZodOutput");
 var $input2 = Symbol("ZodInput");
 
@@ -28238,7 +28299,7 @@ function registry2() {
   return new $ZodRegistry2;
 }
 var globalRegistry2 = /* @__PURE__ */ registry2();
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/api.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
     type: "string",
@@ -29116,7 +29177,7 @@ function _stringFormat2(Class3, format, fnOrRegex, _params = {}) {
   const inst = new Class3(def);
   return inst;
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
     this.counter = 0;
@@ -29920,9 +29981,9 @@ function isTransforming2(_schema, _ctx) {
   }
   throw new Error(`Unknown schema type: ${def.type}`);
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/iso.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
   time: () => time4,
@@ -29963,7 +30024,7 @@ function duration4(params) {
   return _isoDuration2(ZodISODuration2, params);
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
   $ZodError2.init(inst, issues);
   inst.name = "ZodError";
@@ -29998,7 +30059,7 @@ var ZodRealError2 = $constructor2("ZodError", initializer4, {
   Parent: Error
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
 var parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
 var parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
 var safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
@@ -30012,7 +30073,7 @@ var safeDecode4 = /* @__PURE__ */ _safeDecode2(ZodRealError2);
 var safeEncodeAsync4 = /* @__PURE__ */ _safeEncodeAsync2(ZodRealError2);
 var safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
 var ZodType2 = /* @__PURE__ */ $constructor2("ZodType", (inst, def) => {
   $ZodType2.init(inst, def);
   inst.def = def;
@@ -30987,7 +31048,7 @@ function json2(params) {
 function preprocess2(fn, schema) {
   return pipe2(transform2(fn), schema);
 }
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/compat.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
 var ZodIssueCode2 = {
   invalid_type: "invalid_type",
   too_big: "too_big",
@@ -31011,7 +31072,7 @@ function getErrorMap2() {
 }
 var ZodFirstPartyTypeKind2;
 (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/coerce.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
   string: () => string6,
@@ -31036,9 +31097,9 @@ function date8(params) {
   return _coercedDate2(ZodDate2, params);
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/external.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 config2(en_default2());
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/tool.js
+// node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
@@ -31111,8 +31172,8 @@ function getCheckpointLogPath(directory) {
 function readCheckpointLog(directory) {
   const logPath = getCheckpointLogPath(directory);
   try {
-    if (fs2.existsSync(logPath)) {
-      const content = fs2.readFileSync(logPath, "utf-8");
+    if (fs3.existsSync(logPath)) {
+      const content = fs3.readFileSync(logPath, "utf-8");
       const parsed = JSON.parse(content);
       if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
         return { version: 1, checkpoints: [] };
@@ -31125,12 +31186,12 @@ function readCheckpointLog(directory) {
 function writeCheckpointLog(log2, directory) {
   const logPath = getCheckpointLogPath(directory);
   const dir = path4.dirname(logPath);
-  if (!fs2.existsSync(dir)) {
-    fs2.mkdirSync(dir, { recursive: true });
+  if (!fs3.existsSync(dir)) {
+    fs3.mkdirSync(dir, { recursive: true });
   }
   const tempPath = `${logPath}.tmp`;
-  fs2.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
-  fs2.renameSync(tempPath, logPath);
+  fs3.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
+  fs3.renameSync(tempPath, logPath);
 }
 function gitExec(args) {
   const result = spawnSync("git", args, {
@@ -31601,8 +31662,11 @@ async function rewriteKnowledge(filePath, entries) {
 ` : "");
     await writeFile(filePath, content, "utf-8");
   } finally {
-    if (release)
-      await release();
+    if (release) {
+      try {
+        await release();
+      } catch {}
+    }
   }
 }
 function normalize2(text) {
@@ -33606,7 +33670,8 @@ async function handleExportCommand(directory, _args) {
 }
 // src/commands/handoff.ts
 init_utils2();
-import { renameSync as renameSync5 } from "fs";
+import crypto3 from "crypto";
+import { renameSync as renameSync4 } from "fs";
 
 // src/services/handoff-service.ts
 init_utils2();
@@ -33907,8 +33972,10 @@ function formatHandoffMarkdown(data) {
 
 // src/session/snapshot-writer.ts
 init_utils2();
-import { mkdirSync as mkdirSync4, renameSync as renameSync4 } from "fs";
+import { mkdirSync as mkdirSync4, renameSync as renameSync3 } from "fs";
 import * as path14 from "path";
+var pendingWrite = null;
+var lastWritePromise = Promise.resolve();
 function serializeAgentSession(s) {
   const gateLog = {};
   const rawGateLog = s.gateLog ?? new Map;
@@ -33970,13 +34037,17 @@ function serializeAgentSession(s) {
     taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
     ...s.scopeViolationDetected !== undefined && {
       scopeViolationDetected: s.scopeViolationDetected
-    }
+    },
+    model_fallback_index: s.model_fallback_index ?? 0,
+    modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+    coderRevisions: s.coderRevisions ?? 0,
+    revisionLimitHit: s.revisionLimitHit ?? false
   };
 }
 async function writeSnapshot(directory, state) {
   try {
     const snapshot = {
-      version: 1,
+      version: 2,
       writtenAt: Date.now(),
       toolAggregates: Object.fromEntries(state.toolAggregates),
       activeAgent: Object.fromEntries(state.activeAgent),
@@ -33992,8 +34063,21 @@ async function writeSnapshot(directory, state) {
     mkdirSync4(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await Bun.write(tempPath, content);
-    renameSync4(tempPath, resolvedPath);
-  } catch {}
+    renameSync3(tempPath, resolvedPath);
+  } catch (error93) {
+    if (process.env.DEBUG_SWARM) {
+      console.warn("[snapshot-writer] write failed:", error93 instanceof Error ? error93.message : String(error93));
+    }
+  }
+}
+async function flushPendingSnapshot(directory) {
+  if (pendingWrite) {
+    clearTimeout(pendingWrite);
+    pendingWrite = null;
+    await writeSnapshot(directory, swarmState).catch(() => {});
+  } else {
+    await lastWritePromise;
+  }
 }
 
 // src/commands/handoff.ts
@@ -34001,10 +34085,11 @@ async function handleHandoffCommand(directory, _args) {
   const handoffData = await getHandoffData(directory);
   const markdown = formatHandoffMarkdown(handoffData);
   const resolvedPath = validateSwarmPath(directory, "handoff.md");
-  const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  const tempPath = `${resolvedPath}.tmp.${crypto3.randomUUID()}`;
   await Bun.write(tempPath, markdown);
-  renameSync5(tempPath, resolvedPath);
+  renameSync4(tempPath, resolvedPath);
   await writeSnapshot(directory, swarmState);
+  await flushPendingSnapshot(directory);
   return `## Handoff Brief Written
 
 Brief written to \`.swarm/handoff.md\`.
@@ -34601,15 +34686,15 @@ async function handlePlanCommand(directory, args) {
 // src/services/preflight-service.ts
 init_manager();
 init_manager2();
-import * as fs8 from "fs";
+import * as fs9 from "fs";
 import * as path20 from "path";
 
 // src/tools/lint.ts
-import * as fs5 from "fs";
+import * as fs6 from "fs";
 import * as path17 from "path";
 
 // src/build/discovery.ts
-import * as fs4 from "fs";
+import * as fs5 from "fs";
 import * as path16 from "path";
 
 // src/lang/detector.ts
@@ -35650,7 +35735,7 @@ function findBuildFiles(workingDir, patterns) {
     if (pattern.includes("*")) {
       const dir = workingDir;
       try {
-        const files = fs4.readdirSync(dir);
+        const files = fs5.readdirSync(dir);
         const regex = simpleGlobToRegex(pattern);
         const matches = files.filter((f) => regex.test(f));
         if (matches.length > 0) {
@@ -35659,7 +35744,7 @@ function findBuildFiles(workingDir, patterns) {
       } catch {}
     } else {
       const filePath = path16.join(workingDir, pattern);
-      if (fs4.existsSync(filePath)) {
+      if (fs5.existsSync(filePath)) {
         return filePath;
       }
     }
@@ -35668,11 +35753,11 @@ function findBuildFiles(workingDir, patterns) {
 }
 function getRepoDefinedScripts(workingDir, scripts) {
   const packageJsonPath = path16.join(workingDir, "package.json");
-  if (!fs4.existsSync(packageJsonPath)) {
+  if (!fs5.existsSync(packageJsonPath)) {
     return [];
   }
   try {
-    const content = fs4.readFileSync(packageJsonPath, "utf-8");
+    const content = fs5.readFileSync(packageJsonPath, "utf-8");
     const pkg = JSON.parse(content);
     if (!pkg.scripts || typeof pkg.scripts !== "object") {
       return [];
@@ -35709,7 +35794,7 @@ function findAllBuildFiles(workingDir) {
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
         const filePath = path16.join(workingDir, pattern);
-        if (fs4.existsSync(filePath)) {
+        if (fs5.existsSync(filePath)) {
           allBuildFiles.add(filePath);
         }
       }
@@ -35719,7 +35804,7 @@ function findAllBuildFiles(workingDir) {
 }
 function findFilesRecursive(dir, regex, results) {
   try {
-    const entries = fs4.readdirSync(dir, { withFileTypes: true });
+    const entries = fs5.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path16.join(dir, entry.name);
       if (entry.isDirectory() && !["node_modules", ".git", "dist", "build", "target"].includes(entry.name)) {
@@ -35745,7 +35830,7 @@ async function discoverBuildCommandsFromProfiles(workingDir) {
     for (const cmd of sortedCommands) {
       if (cmd.detectFile) {
         const detectFilePath = path16.join(workingDir, cmd.detectFile);
-        if (!fs4.existsSync(detectFilePath)) {
+        if (!fs5.existsSync(detectFilePath)) {
           continue;
         }
       }
@@ -35878,7 +35963,7 @@ function getLinterCommand(linter, mode, projectDir) {
 }
 function getAdditionalLinterCommand(linter, mode, cwd) {
   const gradlewName = process.platform === "win32" ? "gradlew.bat" : "gradlew";
-  const gradlew = fs5.existsSync(path17.join(cwd, gradlewName)) ? path17.join(cwd, gradlewName) : null;
+  const gradlew = fs6.existsSync(path17.join(cwd, gradlewName)) ? path17.join(cwd, gradlewName) : null;
   switch (linter) {
     case "ruff":
       return mode === "fix" ? ["ruff", "check", "--fix", "."] : ["ruff", "check", "."];
@@ -35912,12 +35997,12 @@ function getAdditionalLinterCommand(linter, mode, cwd) {
   }
 }
 function detectRuff(cwd) {
-  if (fs5.existsSync(path17.join(cwd, "ruff.toml")))
+  if (fs6.existsSync(path17.join(cwd, "ruff.toml")))
     return isCommandAvailable("ruff");
   try {
     const pyproject = path17.join(cwd, "pyproject.toml");
-    if (fs5.existsSync(pyproject)) {
-      const content = fs5.readFileSync(pyproject, "utf-8");
+    if (fs6.existsSync(pyproject)) {
+      const content = fs6.readFileSync(pyproject, "utf-8");
       if (content.includes("[tool.ruff]"))
         return isCommandAvailable("ruff");
     }
@@ -35925,21 +36010,21 @@ function detectRuff(cwd) {
   return false;
 }
 function detectClippy(cwd) {
-  return fs5.existsSync(path17.join(cwd, "Cargo.toml")) && isCommandAvailable("cargo");
+  return fs6.existsSync(path17.join(cwd, "Cargo.toml")) && isCommandAvailable("cargo");
 }
 function detectGolangciLint(cwd) {
-  return fs5.existsSync(path17.join(cwd, "go.mod")) && isCommandAvailable("golangci-lint");
+  return fs6.existsSync(path17.join(cwd, "go.mod")) && isCommandAvailable("golangci-lint");
 }
 function detectCheckstyle(cwd) {
-  const hasMaven = fs5.existsSync(path17.join(cwd, "pom.xml"));
-  const hasGradle = fs5.existsSync(path17.join(cwd, "build.gradle")) || fs5.existsSync(path17.join(cwd, "build.gradle.kts"));
-  const hasBinary = hasMaven && isCommandAvailable("mvn") || hasGradle && (fs5.existsSync(path17.join(cwd, "gradlew")) || isCommandAvailable("gradle"));
+  const hasMaven = fs6.existsSync(path17.join(cwd, "pom.xml"));
+  const hasGradle = fs6.existsSync(path17.join(cwd, "build.gradle")) || fs6.existsSync(path17.join(cwd, "build.gradle.kts"));
+  const hasBinary = hasMaven && isCommandAvailable("mvn") || hasGradle && (fs6.existsSync(path17.join(cwd, "gradlew")) || isCommandAvailable("gradle"));
   return (hasMaven || hasGradle) && hasBinary;
 }
 function detectKtlint(cwd) {
-  const hasKotlin = fs5.existsSync(path17.join(cwd, "build.gradle.kts")) || fs5.existsSync(path17.join(cwd, "build.gradle")) || (() => {
+  const hasKotlin = fs6.existsSync(path17.join(cwd, "build.gradle.kts")) || fs6.existsSync(path17.join(cwd, "build.gradle")) || (() => {
     try {
-      return fs5.readdirSync(cwd).some((f) => f.endsWith(".kt") || f.endsWith(".kts"));
+      return fs6.readdirSync(cwd).some((f) => f.endsWith(".kt") || f.endsWith(".kts"));
     } catch {
       return false;
     }
@@ -35948,7 +36033,7 @@ function detectKtlint(cwd) {
 }
 function detectDotnetFormat(cwd) {
   try {
-    const files = fs5.readdirSync(cwd);
+    const files = fs6.readdirSync(cwd);
     const hasCsproj = files.some((f) => f.endsWith(".csproj") || f.endsWith(".sln"));
     return hasCsproj && isCommandAvailable("dotnet");
   } catch {
@@ -35956,14 +36041,14 @@ function detectDotnetFormat(cwd) {
   }
 }
 function detectCppcheck(cwd) {
-  if (fs5.existsSync(path17.join(cwd, "CMakeLists.txt"))) {
+  if (fs6.existsSync(path17.join(cwd, "CMakeLists.txt"))) {
     return isCommandAvailable("cppcheck");
   }
   try {
     const dirsToCheck = [cwd, path17.join(cwd, "src")];
     const hasCpp = dirsToCheck.some((dir) => {
       try {
-        return fs5.readdirSync(dir).some((f) => /\.(c|cpp|cc|cxx|h|hpp)$/.test(f));
+        return fs6.readdirSync(dir).some((f) => /\.(c|cpp|cc|cxx|h|hpp)$/.test(f));
       } catch {
         return false;
       }
@@ -35974,13 +36059,13 @@ function detectCppcheck(cwd) {
   }
 }
 function detectSwiftlint(cwd) {
-  return fs5.existsSync(path17.join(cwd, "Package.swift")) && isCommandAvailable("swiftlint");
+  return fs6.existsSync(path17.join(cwd, "Package.swift")) && isCommandAvailable("swiftlint");
 }
 function detectDartAnalyze(cwd) {
-  return fs5.existsSync(path17.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
+  return fs6.existsSync(path17.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
 }
 function detectRubocop(cwd) {
-  return (fs5.existsSync(path17.join(cwd, "Gemfile")) || fs5.existsSync(path17.join(cwd, "gems.rb")) || fs5.existsSync(path17.join(cwd, ".rubocop.yml"))) && (isCommandAvailable("rubocop") || isCommandAvailable("bundle"));
+  return (fs6.existsSync(path17.join(cwd, "Gemfile")) || fs6.existsSync(path17.join(cwd, "gems.rb")) || fs6.existsSync(path17.join(cwd, ".rubocop.yml"))) && (isCommandAvailable("rubocop") || isCommandAvailable("bundle"));
 }
 function detectAdditionalLinter(cwd) {
   if (detectRuff(cwd))
@@ -36025,7 +36110,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
-    } else if (biomeProc.exitCode === 0 && fs5.existsSync(biomeBin)) {
+    } else if (biomeProc.exitCode === 0 && fs6.existsSync(biomeBin)) {
       return "biome";
     }
   } catch {}
@@ -36039,7 +36124,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
-    } else if (eslintProc.exitCode === 0 && fs5.existsSync(eslintBin)) {
+    } else if (eslintProc.exitCode === 0 && fs6.existsSync(eslintBin)) {
       return "eslint";
     }
   } catch {}
@@ -36209,7 +36294,7 @@ For Rust: rustup component add clippy`
 });
 
 // src/tools/secretscan.ts
-import * as fs6 from "fs";
+import * as fs7 from "fs";
 import * as path18 from "path";
 var MAX_FILE_PATH_LENGTH = 500;
 var MAX_FILE_SIZE_BYTES = 512 * 1024;
@@ -36452,9 +36537,9 @@ function isGlobOrPathPattern(pattern) {
 function loadSecretScanIgnore(scanDir) {
   const ignorePath = path18.join(scanDir, ".secretscanignore");
   try {
-    if (!fs6.existsSync(ignorePath))
+    if (!fs7.existsSync(ignorePath))
       return [];
-    const content = fs6.readFileSync(ignorePath, "utf8");
+    const content = fs7.readFileSync(ignorePath, "utf8");
     const patterns = [];
     for (const rawLine of content.split(/\r?\n/)) {
       const line = rawLine.trim();
@@ -36572,11 +36657,11 @@ function createRedactedContext(line, findings) {
   result += line.slice(lastEnd);
   return result;
 }
-var O_NOFOLLOW = process.platform !== "win32" ? fs6.constants.O_NOFOLLOW : undefined;
+var O_NOFOLLOW = process.platform !== "win32" ? fs7.constants.O_NOFOLLOW : undefined;
 function scanFileForSecrets(filePath) {
   const findings = [];
   try {
-    const lstat = fs6.lstatSync(filePath);
+    const lstat = fs7.lstatSync(filePath);
     if (lstat.isSymbolicLink()) {
       return findings;
     }
@@ -36585,14 +36670,14 @@ function scanFileForSecrets(filePath) {
     }
     let buffer;
     if (O_NOFOLLOW !== undefined) {
-      const fd = fs6.openSync(filePath, "r", O_NOFOLLOW);
+      const fd = fs7.openSync(filePath, "r", O_NOFOLLOW);
       try {
-        buffer = fs6.readFileSync(fd);
+        buffer = fs7.readFileSync(fd);
       } finally {
-        fs6.closeSync(fd);
+        fs7.closeSync(fd);
       }
     } else {
-      buffer = fs6.readFileSync(filePath);
+      buffer = fs7.readFileSync(filePath);
     }
     if (isBinaryFile(filePath, buffer)) {
       return findings;
@@ -36647,7 +36732,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
   const files = [];
   let entries;
   try {
-    entries = fs6.readdirSync(dir);
+    entries = fs7.readdirSync(dir);
   } catch {
     stats.fileErrors++;
     return files;
@@ -36670,7 +36755,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
     }
     let lstat;
     try {
-      lstat = fs6.lstatSync(fullPath);
+      lstat = fs7.lstatSync(fullPath);
     } catch {
       stats.fileErrors++;
       continue;
@@ -36682,7 +36767,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
     if (lstat.isDirectory()) {
       let realPath;
       try {
-        realPath = fs6.realpathSync(fullPath);
+        realPath = fs7.realpathSync(fullPath);
       } catch {
         stats.fileErrors++;
         continue;
@@ -36765,7 +36850,7 @@ var secretscan = createSwarmTool({
     }
     try {
       const scanDir = path18.resolve(directory);
-      if (!fs6.existsSync(scanDir)) {
+      if (!fs7.existsSync(scanDir)) {
         const errorResult = {
           error: "directory not found",
           scan_dir: directory,
@@ -36776,7 +36861,7 @@ var secretscan = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const dirStat = fs6.statSync(scanDir);
+      const dirStat = fs7.statSync(scanDir);
       if (!dirStat.isDirectory()) {
         const errorResult = {
           error: "target must be a directory, not a file",
@@ -36827,7 +36912,7 @@ var secretscan = createSwarmTool({
           break;
         const fileFindings = scanFileForSecrets(filePath);
         try {
-          const stat2 = fs6.statSync(filePath);
+          const stat2 = fs7.statSync(filePath);
           if (stat2.size > MAX_FILE_SIZE_BYTES) {
             skippedFiles++;
             continue;
@@ -36914,7 +36999,7 @@ async function runSecretscan(directory) {
 }
 
 // src/tools/test-runner.ts
-import * as fs7 from "fs";
+import * as fs8 from "fs";
 import * as path19 from "path";
 var MAX_OUTPUT_BYTES3 = 512000;
 var MAX_COMMAND_LENGTH2 = 500;
@@ -37014,19 +37099,19 @@ function hasDevDependency(devDeps, ...patterns) {
   return hasPackageJsonDependency(devDeps, ...patterns);
 }
 function detectGoTest(cwd) {
-  return fs7.existsSync(path19.join(cwd, "go.mod")) && isCommandAvailable("go");
+  return fs8.existsSync(path19.join(cwd, "go.mod")) && isCommandAvailable("go");
 }
 function detectJavaMaven(cwd) {
-  return fs7.existsSync(path19.join(cwd, "pom.xml")) && isCommandAvailable("mvn");
+  return fs8.existsSync(path19.join(cwd, "pom.xml")) && isCommandAvailable("mvn");
 }
 function detectGradle(cwd) {
-  const hasBuildFile = fs7.existsSync(path19.join(cwd, "build.gradle")) || fs7.existsSync(path19.join(cwd, "build.gradle.kts"));
-  const hasGradlew = fs7.existsSync(path19.join(cwd, "gradlew")) || fs7.existsSync(path19.join(cwd, "gradlew.bat"));
+  const hasBuildFile = fs8.existsSync(path19.join(cwd, "build.gradle")) || fs8.existsSync(path19.join(cwd, "build.gradle.kts"));
+  const hasGradlew = fs8.existsSync(path19.join(cwd, "gradlew")) || fs8.existsSync(path19.join(cwd, "gradlew.bat"));
   return hasBuildFile && (hasGradlew || isCommandAvailable("gradle"));
 }
 function detectDotnetTest(cwd) {
   try {
-    const files = fs7.readdirSync(cwd);
+    const files = fs8.readdirSync(cwd);
     const hasCsproj = files.some((f) => f.endsWith(".csproj"));
     return hasCsproj && isCommandAvailable("dotnet");
   } catch {
@@ -37034,32 +37119,32 @@ function detectDotnetTest(cwd) {
   }
 }
 function detectCTest(cwd) {
-  const hasSource = fs7.existsSync(path19.join(cwd, "CMakeLists.txt"));
-  const hasBuildCache = fs7.existsSync(path19.join(cwd, "CMakeCache.txt")) || fs7.existsSync(path19.join(cwd, "build", "CMakeCache.txt"));
+  const hasSource = fs8.existsSync(path19.join(cwd, "CMakeLists.txt"));
+  const hasBuildCache = fs8.existsSync(path19.join(cwd, "CMakeCache.txt")) || fs8.existsSync(path19.join(cwd, "build", "CMakeCache.txt"));
   return (hasSource || hasBuildCache) && isCommandAvailable("ctest");
 }
 function detectSwiftTest(cwd) {
-  return fs7.existsSync(path19.join(cwd, "Package.swift")) && isCommandAvailable("swift");
+  return fs8.existsSync(path19.join(cwd, "Package.swift")) && isCommandAvailable("swift");
 }
 function detectDartTest(cwd) {
-  return fs7.existsSync(path19.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
+  return fs8.existsSync(path19.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
 }
 function detectRSpec(cwd) {
-  const hasRSpecFile = fs7.existsSync(path19.join(cwd, ".rspec"));
-  const hasGemfile = fs7.existsSync(path19.join(cwd, "Gemfile"));
-  const hasSpecDir = fs7.existsSync(path19.join(cwd, "spec"));
+  const hasRSpecFile = fs8.existsSync(path19.join(cwd, ".rspec"));
+  const hasGemfile = fs8.existsSync(path19.join(cwd, "Gemfile"));
+  const hasSpecDir = fs8.existsSync(path19.join(cwd, "spec"));
   const hasRSpec = hasRSpecFile || hasGemfile && hasSpecDir;
   return hasRSpec && (isCommandAvailable("bundle") || isCommandAvailable("rspec"));
 }
 function detectMinitest(cwd) {
-  return fs7.existsSync(path19.join(cwd, "test")) && (fs7.existsSync(path19.join(cwd, "Gemfile")) || fs7.existsSync(path19.join(cwd, "Rakefile"))) && isCommandAvailable("ruby");
+  return fs8.existsSync(path19.join(cwd, "test")) && (fs8.existsSync(path19.join(cwd, "Gemfile")) || fs8.existsSync(path19.join(cwd, "Rakefile"))) && isCommandAvailable("ruby");
 }
 async function detectTestFramework(cwd) {
   const baseDir = cwd;
   try {
     const packageJsonPath = path19.join(baseDir, "package.json");
-    if (fs7.existsSync(packageJsonPath)) {
-      const content = fs7.readFileSync(packageJsonPath, "utf-8");
+    if (fs8.existsSync(packageJsonPath)) {
+      const content = fs8.readFileSync(packageJsonPath, "utf-8");
       const pkg = JSON.parse(content);
       const _deps = pkg.dependencies || {};
       const devDeps = pkg.devDependencies || {};
@@ -37078,7 +37163,7 @@ async function detectTestFramework(cwd) {
         return "jest";
       if (hasDevDependency(devDeps, "mocha", "@types/mocha"))
         return "mocha";
-      if (fs7.existsSync(path19.join(baseDir, "bun.lockb")) || fs7.existsSync(path19.join(baseDir, "bun.lock"))) {
+      if (fs8.existsSync(path19.join(baseDir, "bun.lockb")) || fs8.existsSync(path19.join(baseDir, "bun.lock"))) {
         if (scripts.test?.includes("bun"))
           return "bun";
       }
@@ -37088,28 +37173,28 @@ async function detectTestFramework(cwd) {
     const pyprojectTomlPath = path19.join(baseDir, "pyproject.toml");
     const setupCfgPath = path19.join(baseDir, "setup.cfg");
     const requirementsTxtPath = path19.join(baseDir, "requirements.txt");
-    if (fs7.existsSync(pyprojectTomlPath)) {
-      const content = fs7.readFileSync(pyprojectTomlPath, "utf-8");
+    if (fs8.existsSync(pyprojectTomlPath)) {
+      const content = fs8.readFileSync(pyprojectTomlPath, "utf-8");
       if (content.includes("[tool.pytest"))
         return "pytest";
       if (content.includes("pytest"))
         return "pytest";
     }
-    if (fs7.existsSync(setupCfgPath)) {
-      const content = fs7.readFileSync(setupCfgPath, "utf-8");
+    if (fs8.existsSync(setupCfgPath)) {
+      const content = fs8.readFileSync(setupCfgPath, "utf-8");
       if (content.includes("[pytest]"))
         return "pytest";
     }
-    if (fs7.existsSync(requirementsTxtPath)) {
-      const content = fs7.readFileSync(requirementsTxtPath, "utf-8");
+    if (fs8.existsSync(requirementsTxtPath)) {
+      const content = fs8.readFileSync(requirementsTxtPath, "utf-8");
       if (content.includes("pytest"))
         return "pytest";
     }
   } catch {}
   try {
     const cargoTomlPath = path19.join(baseDir, "Cargo.toml");
-    if (fs7.existsSync(cargoTomlPath)) {
-      const content = fs7.readFileSync(cargoTomlPath, "utf-8");
+    if (fs8.existsSync(cargoTomlPath)) {
+      const content = fs8.readFileSync(cargoTomlPath, "utf-8");
       if (content.includes("[dev-dependencies]")) {
         if (content.includes("tokio") || content.includes("mockall") || content.includes("pretty_assertions")) {
           return "cargo";
@@ -37121,7 +37206,7 @@ async function detectTestFramework(cwd) {
     const pesterConfigPath = path19.join(baseDir, "pester.config.ps1");
     const pesterConfigJsonPath = path19.join(baseDir, "pester.config.ps1.json");
     const pesterPs1Path = path19.join(baseDir, "tests.ps1");
-    if (fs7.existsSync(pesterConfigPath) || fs7.existsSync(pesterConfigJsonPath) || fs7.existsSync(pesterPs1Path)) {
+    if (fs8.existsSync(pesterConfigPath) || fs8.existsSync(pesterConfigJsonPath) || fs8.existsSync(pesterPs1Path)) {
       return "pester";
     }
   } catch {}
@@ -37191,7 +37276,7 @@ function getTestFilesFromConvention(sourceFiles) {
         path19.join(dirname9, "test", `${nameWithoutExt}${ext}`)
       ];
       for (const testFile of possibleTestFiles) {
-        if (fs7.existsSync(testFile) && !testFiles.includes(testFile)) {
+        if (fs8.existsSync(testFile) && !testFiles.includes(testFile)) {
           testFiles.push(testFile);
         }
       }
@@ -37207,7 +37292,7 @@ async function getTestFilesFromGraph(sourceFiles) {
   }
   for (const testFile of candidateTestFiles) {
     try {
-      const content = fs7.readFileSync(testFile, "utf-8");
+      const content = fs8.readFileSync(testFile, "utf-8");
       const testDir = path19.dirname(testFile);
       const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
       let match;
@@ -37228,7 +37313,7 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs7.existsSync(withExt)) {
+              if (sourceFiles.includes(withExt) || fs8.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
@@ -37269,7 +37354,7 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs7.existsSync(withExt)) {
+              if (sourceFiles.includes(withExt) || fs8.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
@@ -37365,8 +37450,8 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
       return ["mvn", "test"];
     case "gradle": {
       const isWindows = process.platform === "win32";
-      const hasGradlewBat = fs7.existsSync(path19.join(baseDir, "gradlew.bat"));
-      const hasGradlew = fs7.existsSync(path19.join(baseDir, "gradlew"));
+      const hasGradlewBat = fs8.existsSync(path19.join(baseDir, "gradlew.bat"));
+      const hasGradlew = fs8.existsSync(path19.join(baseDir, "gradlew"));
       if (hasGradlewBat && isWindows)
         return ["gradlew.bat", "test"];
       if (hasGradlew)
@@ -37383,7 +37468,7 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
         "cmake-build-release",
         "out"
       ];
-      const actualBuildDir = buildDirCandidates.find((d) => fs7.existsSync(path19.join(baseDir, d, "CMakeCache.txt"))) ?? "build";
+      const actualBuildDir = buildDirCandidates.find((d) => fs8.existsSync(path19.join(baseDir, d, "CMakeCache.txt"))) ?? "build";
       return ["ctest", "--test-dir", actualBuildDir];
     }
     case "swift-test":
@@ -37994,8 +38079,8 @@ function validateTimeout(timeoutMs, defaultValue) {
 function getPackageVersion(dir) {
   try {
     const packagePath = path20.join(dir, "package.json");
-    if (fs8.existsSync(packagePath)) {
-      const content = fs8.readFileSync(packagePath, "utf-8");
+    if (fs9.existsSync(packagePath)) {
+      const content = fs9.readFileSync(packagePath, "utf-8");
       const pkg = JSON.parse(content);
       return pkg.version ?? null;
     }
@@ -38005,8 +38090,8 @@ function getPackageVersion(dir) {
 function getChangelogVersion(dir) {
   try {
     const changelogPath = path20.join(dir, "CHANGELOG.md");
-    if (fs8.existsSync(changelogPath)) {
-      const content = fs8.readFileSync(changelogPath, "utf-8");
+    if (fs9.existsSync(changelogPath)) {
+      const content = fs9.readFileSync(changelogPath, "utf-8");
       const match = content.match(/^##\s*\[?(\d+\.\d+\.\d+)\]?/m);
       if (match) {
         return match[1];
@@ -38019,9 +38104,9 @@ function getVersionFileVersion(dir) {
   const possibleFiles = ["VERSION.txt", "version.txt", "VERSION", "version"];
   for (const file3 of possibleFiles) {
     const filePath = path20.join(dir, file3);
-    if (fs8.existsSync(filePath)) {
+    if (fs9.existsSync(filePath)) {
       try {
-        const content = fs8.readFileSync(filePath, "utf-8").trim();
+        const content = fs9.readFileSync(filePath, "utf-8").trim();
         const match = content.match(/(\d+\.\d+\.\d+)/);
         if (match) {
           return match[1];
@@ -38564,7 +38649,7 @@ async function handlePromoteCommand(directory, args) {
 }
 
 // src/commands/reset.ts
-import * as fs9 from "fs";
+import * as fs10 from "fs";
 
 // src/background/manager.ts
 init_utils();
@@ -39263,8 +39348,8 @@ async function handleResetCommand(directory, args) {
   for (const filename of filesToReset) {
     try {
       const resolvedPath = validateSwarmPath(directory, filename);
-      if (fs9.existsSync(resolvedPath)) {
-        fs9.unlinkSync(resolvedPath);
+      if (fs10.existsSync(resolvedPath)) {
+        fs10.unlinkSync(resolvedPath);
         results.push(`- \u2705 Deleted ${filename}`);
       } else {
         results.push(`- \u23ED\uFE0F ${filename} not found (skipped)`);
@@ -39281,8 +39366,8 @@ async function handleResetCommand(directory, args) {
   }
   try {
     const summariesPath = validateSwarmPath(directory, "summaries");
-    if (fs9.existsSync(summariesPath)) {
-      fs9.rmSync(summariesPath, { recursive: true, force: true });
+    if (fs10.existsSync(summariesPath)) {
+      fs10.rmSync(summariesPath, { recursive: true, force: true });
       results.push("- \u2705 Deleted summaries/ directory");
     } else {
       results.push("- \u23ED\uFE0F summaries/ not found (skipped)");
@@ -39296,6 +39381,37 @@ async function handleResetCommand(directory, args) {
     ...results,
     "",
     "Swarm state has been cleared. Start fresh with a new plan."
+  ].join(`
+`);
+}
+
+// src/commands/reset-session.ts
+init_utils2();
+import * as fs11 from "fs";
+async function handleResetSessionCommand(directory, _args) {
+  const results = [];
+  try {
+    const statePath = validateSwarmPath(directory, "session/state.json");
+    if (fs11.existsSync(statePath)) {
+      fs11.unlinkSync(statePath);
+      results.push("\u2705 Deleted .swarm/session/state.json");
+    } else {
+      results.push("\u23ED\uFE0F state.json not found (already clean)");
+    }
+  } catch {
+    results.push("\u274C Failed to delete state.json");
+  }
+  const sessionCount = swarmState.agentSessions.size;
+  swarmState.agentSessions.clear();
+  results.push(`\u2705 Cleared ${sessionCount} in-memory agent session(s)`);
+  return [
+    "## Session State Reset",
+    "",
+    ...results,
+    "",
+    "Session state cleared. Plan, evidence, and knowledge preserved.",
+    "",
+    "**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup."
   ].join(`
 `);
 }
@@ -39380,18 +39496,18 @@ ${error93 instanceof Error ? error93.message : String(error93)}`;
 
 // src/commands/rollback.ts
 init_utils2();
-import * as fs10 from "fs";
+import * as fs12 from "fs";
 import * as path22 from "path";
 async function handleRollbackCommand(directory, args) {
   const phaseArg = args[0];
   if (!phaseArg) {
     const manifestPath2 = validateSwarmPath(directory, "checkpoints/manifest.json");
-    if (!fs10.existsSync(manifestPath2)) {
+    if (!fs12.existsSync(manifestPath2)) {
       return "No checkpoints found. Use `/swarm checkpoint` to create checkpoints.";
     }
     let manifest2;
     try {
-      manifest2 = JSON.parse(fs10.readFileSync(manifestPath2, "utf-8"));
+      manifest2 = JSON.parse(fs12.readFileSync(manifestPath2, "utf-8"));
     } catch {
       return "Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.";
     }
@@ -39413,12 +39529,12 @@ async function handleRollbackCommand(directory, args) {
     return "Error: Phase number must be a positive integer.";
   }
   const manifestPath = validateSwarmPath(directory, "checkpoints/manifest.json");
-  if (!fs10.existsSync(manifestPath)) {
+  if (!fs12.existsSync(manifestPath)) {
     return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
   }
   let manifest;
   try {
-    manifest = JSON.parse(fs10.readFileSync(manifestPath, "utf-8"));
+    manifest = JSON.parse(fs12.readFileSync(manifestPath, "utf-8"));
   } catch {
     return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
   }
@@ -39428,10 +39544,10 @@ async function handleRollbackCommand(directory, args) {
     return `Error: Checkpoint for phase ${targetPhase} not found. Available phases: ${available}`;
   }
   const checkpointDir = validateSwarmPath(directory, `checkpoints/phase-${targetPhase}`);
-  if (!fs10.existsSync(checkpointDir)) {
+  if (!fs12.existsSync(checkpointDir)) {
     return `Error: Checkpoint directory for phase ${targetPhase} does not exist.`;
   }
-  const checkpointFiles = fs10.readdirSync(checkpointDir);
+  const checkpointFiles = fs12.readdirSync(checkpointDir);
   if (checkpointFiles.length === 0) {
     return `Error: Checkpoint for phase ${targetPhase} is empty. Cannot rollback.`;
   }
@@ -39442,7 +39558,7 @@ async function handleRollbackCommand(directory, args) {
     const src = path22.join(checkpointDir, file3);
     const dest = path22.join(swarmDir, file3);
     try {
-      fs10.cpSync(src, dest, { recursive: true, force: true });
+      fs12.cpSync(src, dest, { recursive: true, force: true });
       successes.push(file3);
     } catch (error93) {
       failures.push({ file: file3, error: error93.message });
@@ -39459,7 +39575,7 @@ async function handleRollbackCommand(directory, args) {
     timestamp: new Date().toISOString()
   };
   try {
-    fs10.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
+    fs12.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
 `);
   } catch (error93) {
     console.error("Failed to write rollback event:", error93);
@@ -39502,11 +39618,11 @@ async function handleSimulateCommand(directory, args) {
   ];
   const report = reportLines.filter(Boolean).join(`
 `);
-  const fs11 = await import("fs/promises");
+  const fs13 = await import("fs/promises");
   const path23 = await import("path");
   const reportPath = path23.join(directory, ".swarm", "simulate-report.md");
-  await fs11.mkdir(path23.dirname(reportPath), { recursive: true });
-  await fs11.writeFile(reportPath, report, "utf-8");
+  await fs13.mkdir(path23.dirname(reportPath), { recursive: true });
+  await fs13.writeFile(reportPath, report, "utf-8");
   return `${darkMatterPairs.length} hidden coupling pairs detected`;
 }
 
@@ -39907,6 +40023,47 @@ async function executeWriteRetro(args, directory) {
       message: "Invalid summary: must be a non-empty string"
     }, null, 2);
   }
+  if (args.task_id !== undefined) {
+    const tid = args.task_id;
+    if (!tid || tid.length === 0 || tid.length > 200) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+    if (/\0/.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: contains null bytes"
+      }, null, 2);
+    }
+    for (let i = 0;i < tid.length; i++) {
+      if (tid.charCodeAt(i) < 32) {
+        return JSON.stringify({
+          success: false,
+          phase,
+          message: "Invalid task ID: contains control characters"
+        }, null, 2);
+      }
+    }
+    if (tid.includes("..") || tid.includes("/") || tid.includes("\\")) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: path traversal detected"
+      }, null, 2);
+    }
+    const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
+    if (!VALID_TASK_ID.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+  }
   const taskId = args.task_id ?? `retro-${phase}`;
   const retroEntry = {
     task_id: taskId,
@@ -39930,8 +40087,46 @@ async function executeWriteRetro(args, directory) {
     top_rejection_reasons: args.top_rejection_reasons ?? [],
     lessons_learned: (args.lessons_learned ?? []).slice(0, 5),
     user_directives: [],
-    approaches_tried: []
+    approaches_tried: [],
+    error_taxonomy: []
   };
+  const taxonomy = [];
+  try {
+    for (const taskSuffix of ["1", "2", "3", "4", "5"]) {
+      const phaseTaskId = `${phase}.${taskSuffix}`;
+      const result = await loadEvidence(directory, phaseTaskId);
+      if (result.status !== "found")
+        continue;
+      const bundle = result.bundle;
+      for (const entry of bundle.entries) {
+        const e = entry;
+        if (e.type === "review" && e.verdict === "fail") {
+          const reasonParts = [];
+          if (typeof e.summary === "string")
+            reasonParts.push(e.summary);
+          if (Array.isArray(e.issues)) {
+            for (const iss of e.issues) {
+              if (typeof iss.message === "string")
+                reasonParts.push(iss.message);
+            }
+          }
+          const reason = reasonParts.join(" ");
+          if (/signature|type|contract|interface/i.test(reason)) {
+            taxonomy.push("interface_mismatch");
+          } else {
+            taxonomy.push("logic_error");
+          }
+        } else if (e.type === "test" && e.verdict === "fail") {
+          taxonomy.push("logic_error");
+        } else if (e.agent === "scope_guard" && e.verdict === "fail") {
+          taxonomy.push("scope_creep");
+        } else if (e.agent === "loop_detector" && e.verdict === "fail") {
+          taxonomy.push("gate_evasion");
+        }
+      }
+    }
+  } catch {}
+  retroEntry.error_taxonomy = [...new Set(taxonomy)];
   try {
     await saveEvidence(directory, taskId, retroEntry);
     return JSON.stringify({
@@ -40146,6 +40341,10 @@ var COMMAND_REGISTRY = {
     handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
     description: "Clear swarm state files [--confirm]"
   },
+  "reset-session": {
+    handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
+    description: "Clear session state while preserving plan, evidence, and knowledge"
+  },
   rollback: {
     handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
     description: "Restore swarm state to a checkpoint <phase>"
@@ -40219,13 +40418,13 @@ var OPENCODE_CONFIG_PATH = path23.join(CONFIG_DIR, "opencode.json");
 var PLUGIN_CONFIG_PATH = path23.join(CONFIG_DIR, "opencode-swarm.json");
 var PROMPTS_DIR = path23.join(CONFIG_DIR, "opencode-swarm");
 function ensureDir(dir) {
-  if (!fs11.existsSync(dir)) {
-    fs11.mkdirSync(dir, { recursive: true });
+  if (!fs13.existsSync(dir)) {
+    fs13.mkdirSync(dir, { recursive: true });
   }
 }
 function loadJson(filepath) {
   try {
-    const content = fs11.readFileSync(filepath, "utf-8");
+    const content = fs13.readFileSync(filepath, "utf-8");
     const stripped = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (match, comment) => comment ? "" : match).replace(/,(\s*[}\]])/g, "$1");
     return JSON.parse(stripped);
   } catch {
@@ -40233,7 +40432,7 @@ function loadJson(filepath) {
   }
 }
 function saveJson(filepath, data) {
-  fs11.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}
+  fs13.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}
 `, "utf-8");
 }
 async function install() {
@@ -40266,7 +40465,7 @@ async function install() {
   saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
   console.log("\u2713 Added opencode-swarm to OpenCode plugins");
   console.log("\u2713 Disabled default OpenCode agents (explore, general)");
-  if (!fs11.existsSync(PLUGIN_CONFIG_PATH)) {
+  if (!fs13.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
       agents: {
         coder: { model: "opencode/minimax-m2.5-free" },
@@ -40309,7 +40508,7 @@ async function uninstall() {
 `);
     const opencodeConfig = loadJson(OPENCODE_CONFIG_PATH);
     if (!opencodeConfig) {
-      if (fs11.existsSync(OPENCODE_CONFIG_PATH)) {
+      if (fs13.existsSync(OPENCODE_CONFIG_PATH)) {
         console.log(`\u2717 Could not parse opencode config at: ${OPENCODE_CONFIG_PATH}`);
         return 1;
       } else {
@@ -40341,13 +40540,13 @@ async function uninstall() {
     console.log("\u2713 Re-enabled default OpenCode agents (explore, general)");
     if (process.argv.includes("--clean")) {
       let cleaned = false;
-      if (fs11.existsSync(PLUGIN_CONFIG_PATH)) {
-        fs11.unlinkSync(PLUGIN_CONFIG_PATH);
+      if (fs13.existsSync(PLUGIN_CONFIG_PATH)) {
+        fs13.unlinkSync(PLUGIN_CONFIG_PATH);
         console.log(`\u2713 Removed plugin config: ${PLUGIN_CONFIG_PATH}`);
         cleaned = true;
       }
-      if (fs11.existsSync(PROMPTS_DIR)) {
-        fs11.rmSync(PROMPTS_DIR, { recursive: true });
+      if (fs13.existsSync(PROMPTS_DIR)) {
+        fs13.rmSync(PROMPTS_DIR, { recursive: true });
         console.log(`\u2713 Removed custom prompts: ${PROMPTS_DIR}`);
         cleaned = true;
       }

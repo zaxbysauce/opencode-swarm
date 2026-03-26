@@ -14,6 +14,7 @@ import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
 import type { TaskEvidence } from './gate-evidence';
+import { telemetry } from './telemetry.js';
 
 /**
  * Cached plan + evidence data read once at plugin init by buildRehydrationCache().
@@ -142,6 +143,12 @@ export interface AgentSessionState {
 	/** Files modified by the current coder task (populated by guardrails toolBefore/toolAfter, reset on new coder delegation) */
 	modifiedFilesThisCoderTask: string[];
 
+	// Bounded Coder Revisions (v6.33)
+	/** Number of coder revisions in the current task (incremented on each coder delegation completion) */
+	coderRevisions: number;
+	/** Flag set when coder revisions hit the configured ceiling */
+	revisionLimitHit: boolean;
+
 	// Phase completion tracking
 	/** Timestamp of most recent phase completion */
 	lastPhaseCompleteTimestamp: number;
@@ -151,6 +158,12 @@ export interface AgentSessionState {
 	phaseAgentsDispatched: Set<string>;
 	/** Set of agents dispatched in the most recently completed phase (persisted across phase reset) */
 	lastCompletedPhaseAgentsDispatched: Set<string>;
+
+	// Model Fallback (v6.33)
+	/** Current index into the fallback_models array (0 = primary model, incremented on transient failure) */
+	model_fallback_index: number;
+	/** Flag set when all fallback models have been exhausted */
+	modelFallbackExhausted: boolean;
 
 	// Turbo Mode (v6.26)
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
@@ -307,11 +320,18 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		// Model Fallback (v6.33)
+		model_fallback_index: 0,
+		modelFallbackExhausted: false,
+		// Bounded Coder Revisions (v6.33)
+		coderRevisions: 0,
+		revisionLimitHit: false,
 		loopDetectionWindow: [],
 		pendingAdvisoryMessages: [],
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
+	telemetry.sessionStarted(sessionId, agentName);
 	// Keep activeAgent map in sync so guardrails can always resolve the agent name
 	// without falling back to ORCHESTRATOR_NAME for legitimately-named sessions.
 	swarmState.activeAgent.set(sessionId, agentName);
@@ -379,7 +399,9 @@ export function ensureAgentSession(
 	if (session) {
 		// Update agent name if provided and different from current
 		if (agentName && agentName !== session.agentName) {
+			const oldName = session.agentName;
 			session.agentName = agentName;
+			telemetry.agentActivated(sessionId, agentName, oldName);
 			session.delegationActive = false;
 			session.lastAgentEventTime = now;
 
@@ -477,11 +499,25 @@ export function ensureAgentSession(
 		if (session.turboMode === undefined) {
 			session.turboMode = false;
 		}
+		// Model Fallback migration safety (v6.33)
+		if (session.model_fallback_index === undefined) {
+			session.model_fallback_index = 0;
+		}
+		if (session.modelFallbackExhausted === undefined) {
+			session.modelFallbackExhausted = false;
+		}
 		if (session.loopDetectionWindow === undefined) {
 			session.loopDetectionWindow = [];
 		}
 		if (session.pendingAdvisoryMessages === undefined) {
 			session.pendingAdvisoryMessages = [];
+		}
+		// Bounded coder revisions migration safety (v6.33)
+		if (session.coderRevisions === undefined) {
+			session.coderRevisions = 0;
+		}
+		if (session.revisionLimitHit === undefined) {
+			session.revisionLimitHit = false;
 		}
 
 		session.lastToolCallTime = now;
@@ -563,6 +599,11 @@ export function beginInvocation(
 	// Prune old windows to prevent memory leak
 	pruneOldWindows(sessionId, 24 * 60 * 60 * 1000, 50); // 24h max age, 50 max windows
 
+	telemetry.delegationBegin(
+		sessionId,
+		stripped,
+		session.currentTaskId ?? 'unknown',
+	);
 	return window;
 }
 
@@ -711,6 +752,7 @@ export function advanceTaskState(
 	}
 
 	session.taskWorkflowStates.set(taskId, newState);
+	telemetry.taskStateChanged(session.agentName, taskId, newState, current);
 }
 
 /**

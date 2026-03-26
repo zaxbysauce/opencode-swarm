@@ -1,4 +1,4 @@
-import { type BuildEvidence, type Evidence, type EvidenceBundle, type PlaceholderEvidence, type QualityBudgetEvidence, type SastEvidence, type SbomEvidence, type SyntaxEvidence } from '../config/evidence-schema';
+import { type BuildEvidence, type Evidence, type EvidenceBundle, type PlaceholderEvidence, type QualityBudgetEvidence, type SastEvidence, type SbomEvidence, type SecretscanEvidence, type SyntaxEvidence } from '../config/evidence-schema';
 /**
  * Discriminated union returned by loadEvidence.
  * - 'found': file exists and passed Zod schema validation
@@ -15,9 +15,9 @@ export type LoadEvidenceResult = {
     errors: string[];
 };
 /**
- * All valid evidence types (12 total)
+ * All valid evidence types (13 total)
  */
-export declare const VALID_EVIDENCE_TYPES: readonly ["review", "test", "diff", "approval", "note", "retrospective", "syntax", "placeholder", "sast", "sbom", "build", "quality_budget"];
+export declare const VALID_EVIDENCE_TYPES: readonly ["review", "test", "diff", "approval", "note", "retrospective", "syntax", "placeholder", "sast", "sbom", "build", "quality_budget", "secretscan"];
 /**
  * Check if a string is a valid evidence type.
  * Returns true if the type is recognized, false otherwise.
@@ -33,11 +33,15 @@ export declare function isSbomEvidence(evidence: Evidence): evidence is SbomEvid
 export declare function isBuildEvidence(evidence: Evidence): evidence is BuildEvidence;
 export declare function isQualityBudgetEvidence(evidence: Evidence): evidence is QualityBudgetEvidence;
 /**
+ * Type guard for secretscan evidence
+ */
+export declare function isSecretscanEvidence(evidence: Evidence): evidence is SecretscanEvidence;
+/**
  * Validate and sanitize task ID.
  * Accepts three formats:
  * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
  * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
- * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build)
+ * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build, secretscan)
  * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
  * @throws Error with descriptive message on failure
  */

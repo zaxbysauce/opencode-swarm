@@ -57,6 +57,48 @@ function writeRetroBundle(
 }
 
 /**
+ * Helper function to write gate evidence files for Phase 4 mandatory gates
+ * (completion-verify and drift-verifier)
+ */
+function writeGateEvidence(directory: string, phase: number): void {
+	const evidenceDir = path.join(directory, '.swarm', 'evidence', `${phase}`);
+	fs.mkdirSync(evidenceDir, { recursive: true });
+
+	// Write completion-verify.json
+	const completionVerify = {
+		status: 'passed',
+		tasksChecked: 1,
+		tasksPassed: 1,
+		tasksBlocked: 0,
+		reason: 'All task identifiers found in source files',
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'completion-verify.json'),
+		JSON.stringify(completionVerify, null, 2),
+	);
+
+	// Write drift-verifier.json
+	const driftVerifier = {
+		schema_version: '1.0.0',
+		task_id: 'drift-verifier',
+		entries: [
+			{
+				task_id: 'drift-verifier',
+				type: 'drift_verification',
+				timestamp: new Date().toISOString(),
+				agent: 'critic_drift_verifier',
+				verdict: 'approved',
+				summary: 'Drift check passed',
+			},
+		],
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'drift-verifier.json'),
+		JSON.stringify(driftVerifier, null, 2),
+	);
+}
+
+/**
  * Helper to create a minimal ToolContext mock for testing
  */
 function mockCtx(sessionID: string, directory: string): ToolContext {
@@ -92,6 +134,10 @@ describe('phase_complete tool', () => {
 		// Write retro bundles for phases 1 and 2 (tests use these phases)
 		writeRetroBundle(tempDir, 1, 'pass');
 		writeRetroBundle(tempDir, 2, 'pass');
+
+		// Write gate evidence files for Phase 4 mandatory gates
+		writeGateEvidence(tempDir, 1);
+		writeGateEvidence(tempDir, 2);
 	});
 
 	afterEach(() => {
@@ -592,6 +638,7 @@ describe('phase_complete tool', () => {
 			// but we'll make the events.jsonl unwritable to cause the warning
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			writeRetroBundle(tempDir, 1, 'pass');
+			writeGateEvidence(tempDir, 1);
 
 			// Create events.jsonl as a directory instead of file to cause write failure
 			fs.mkdirSync(path.join(tempDir, '.swarm', 'events.jsonl'), { recursive: true });
@@ -1126,6 +1173,12 @@ describe('phase_complete tool', () => {
 				swarm: 'mega',
 				current_phase: 99,
 				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: []
+					},
 					{
 						id: 99,
 						name: 'Phase 99',

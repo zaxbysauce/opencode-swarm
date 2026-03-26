@@ -114,7 +114,12 @@ export function deserializeAgentSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: s.scopeViolationDetected,
 		modifiedFilesThisCoderTask: [],
+		loopDetectionWindow: [],
 		pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
+		model_fallback_index: s.model_fallback_index ?? 0,
+		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+		coderRevisions: s.coderRevisions ?? 0,
+		revisionLimitHit: s.revisionLimitHit ?? false,
 	};
 }
 
@@ -142,7 +147,7 @@ export async function readSnapshot(
 		}) as SnapshotData;
 
 		// Validate version
-		if (parsed.version !== 1) {
+		if (parsed.version !== 1 && parsed.version !== 2) {
 			return null;
 		}
 
@@ -196,6 +201,8 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 
 	// Populate agentSessions with deserialized data
 	// v6.33.1: Skip malformed sessions missing required fields instead of injecting bad state
+	// v6.33.3: Refresh timestamps to prevent immediate stale eviction after rehydration
+	const now = Date.now();
 	if (snapshot.agentSessions) {
 		for (const [sessionId, serializedSession] of Object.entries(
 			snapshot.agentSessions,
@@ -214,10 +221,53 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 				);
 				continue;
 			}
-			swarmState.agentSessions.set(
-				sessionId,
-				deserializeAgentSession(serializedSession),
-			);
+			const session = deserializeAgentSession(serializedSession);
+
+			// ── Timestamps ────────────────────────────────────────────────
+			// Refresh timestamps so the stale eviction sweep in startAgentSession
+			// (now - lastToolCallTime > 2h) does not delete rehydrated sessions.
+			session.lastToolCallTime = now;
+			session.lastAgentEventTime = now;
+
+			// ── InvocationWindows ─────────────────────────────────────────
+			// A process restart means OpenCode will resume the agent from scratch,
+			// so accumulated counters and circuit breaker flags must not carry over.
+			if (session.windows) {
+				for (const window of Object.values(session.windows)) {
+					window.startedAtMs = now;
+					window.lastSuccessTimeMs = now;
+					window.hardLimitHit = false;
+					window.toolCalls = 0;
+					window.consecutiveErrors = 0;
+					window.recentToolCalls = [];
+					window.warningIssued = false;
+					window.warningReason = '';
+				}
+			}
+
+			// ── Transient per-session state ───────────────────────────────
+			// These fields accumulate during a single process lifetime and
+			// MUST NOT survive restart.  Carrying them forward causes:
+			//   - revisionLimitHit/coderRevisions: premature coder revision cap
+			//   - selfFixAttempted + lastGateFailure: false self-fix warnings
+			//   - architectWriteCount/selfCodingWarnedAtCount: false self-coding warnings
+			//   - pendingAdvisoryMessages: stale advisories injected into prompts
+			//   - model_fallback_index/modelFallbackExhausted: stuck fallback state
+			//   - scopeViolationDetected: false scope violation warnings
+			//   - delegationActive: prevents clean delegation lifecycle on restart
+			session.revisionLimitHit = false;
+			session.coderRevisions = 0;
+			session.selfFixAttempted = false;
+			session.lastGateFailure = null;
+			session.architectWriteCount = 0;
+			session.selfCodingWarnedAtCount = 0;
+			session.pendingAdvisoryMessages = [];
+			session.model_fallback_index = 0;
+			session.modelFallbackExhausted = false;
+			session.scopeViolationDetected = false;
+			session.delegationActive = false;
+
+			swarmState.agentSessions.set(sessionId, session);
 		}
 	}
 }

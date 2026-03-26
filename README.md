@@ -14,7 +14,7 @@
 
 ---
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 9 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 11 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
 npm install -g opencode-swarm
@@ -26,8 +26,9 @@ Most AI coding tools let one model write code and ask that same model whether th
 
 ### Key Features
 
-- 🏗️ **9 specialized agents** — architect, coder, reviewer, test engineer, critic, explorer, SME, docs, designer
+- 🏗️ **11 specialized agents** — architect, coder, reviewer, test engineer, critic, critic_sounding_board, critic_drift_verifier, explorer, SME, docs, designer
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
+- 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
 - 🌐 **11 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
@@ -73,6 +74,7 @@ All project state lives in `.swarm/`:
 ├── context.md           # Technical decisions and SME guidance
 ├── events.jsonl         # Event stream for diagnostics
 ├── evidence/            # Review/test evidence bundles per task
+├── telemetry.jsonl      # Session observability events (JSONL)
 ├── curator-summary.json # Curator system state (if enabled)
 └── drift-report-phase-N.json  # Plan-vs-reality drift reports
 ```
@@ -252,6 +254,55 @@ For production use, mix providers to maximize quality across writing vs. reviewi
 | MiniMax | `minimax-coding-plan/<model>` | `minimax-coding-plan/MiniMax-M2.5` |
 | Kimi | `kimi-for-coding/<model>` | `kimi-for-coding/k2p5` |
 
+### Model Fallback (v6.33)
+
+When a transient model error occurs (rate limit, 429, 503, timeout, overloaded, model not found), Swarm can automatically switch to a fallback model.
+
+**Configuration:**
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "anthropic/claude-opus-4-6",
+      "fallback_models": [
+        "anthropic/claude-sonnet-4-5",
+        "opencode/gpt-5-nano"
+      ]
+    }
+  }
+}
+```
+
+- **`fallback_models`** — Optional array of up to 3 fallback model identifiers. When the primary model fails with a transient error, Swarm injects a `MODEL FALLBACK` advisory and the next retry uses the next fallback model in the list.
+- **Advisory injection** — When a transient error is detected, a `MODEL FALLBACK` advisory is injected into the architect's context: *"Transient model error detected (attempt N). The agent model may be rate-limited, overloaded, or temporarily unavailable. Consider retrying with a fallback model or waiting before retrying."*
+- **Exhaustion guard** — After exhausting all fallbacks (`modelFallbackExhausted = true`), further transient errors do not spam additional advisories.
+- **Reset on success** — Both `model_fallback_index` and `modelFallbackExhausted` reset to 0/false on the next successful tool execution.
+
+### Bounded Coder Revisions (v6.33)
+
+When a task requires multiple coder attempts (e.g., reviewer rejections), Swarm tracks how many times the coder has been re-delegated for the same task and warns when limits are approached.
+
+**Configuration:**
+
+```json
+{
+  "guardrails": {
+    "max_coder_revisions": 5
+  }
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_coder_revisions` | integer | `5` | Maximum coder re-delegations per task before advisory warning (1–20) |
+
+**Behavior:**
+- **`coderRevisions` counter** — Incremented each time the coder delegation completes for the same task (reset on new task)
+- **`revisionLimitHit` flag** — Set when `coderRevisions >= max_coder_revisions`
+- **Advisory injection** — When the limit is hit, a `CODER REVISION LIMIT` advisory is injected: *"Agent has been revised N times (max: M) for task X. Escalate to user or consider a fundamentally different approach."*
+- **Persistence** — Both `coderRevisions` and `revisionLimitHit` are serialized/deserialized in session snapshots
+
 ## Useful Commands
 
 | Command | What It Does |
@@ -278,7 +329,7 @@ That means the normal user workflow is:
 3. let Swarm coordinate the internal pipeline
 4. inspect progress with `/swarm status`, `/swarm plan`, and `/swarm evidence`
 
-Agent roles:
+Agent roles (see [Agent Categories](#agent-categories) for classification reference):
 
 | Agent | Role | When It Runs |
 |---|---|---|
@@ -286,6 +337,8 @@ Agent roles:
 | `explorer` | Scans the codebase and gathers context | Before planning, after phase wrap |
 | `sme` | Provides domain guidance | During planning / consultation |
 | `critic` | Reviews the plan before execution | Before coding starts |
+| `critic_sounding_board` | Pre-escalation pushback before user contact | When architect hits impasse |
+| `critic_drift_verifier` | Phase completion verifier (implementation matches plan) | Before phase_complete |
 | `coder` | Implements one task at a time | During execution |
 | `reviewer` | Reviews correctness and security | After each task |
 | `test_engineer` | Writes and runs tests | After each task |
@@ -305,13 +358,28 @@ If you want to see what is active right now, run:
 
 | | OpenCode Swarm | oh-my-opencode | get-shit-done |
 |---|:-:|:-:|:-:|
-| Multiple specialized agents | ✅ 9 agents | ❌ Prompt config | ❌ Single-agent macros |
+| Multiple specialized agents | ✅ 11 agents | ❌ Prompt config | ❌ Single-agent macros |
 | Plan reviewed before coding starts | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
 | Different model for review vs. coding | ✅ | ❌ | ❌ |
 | Saves state to disk, resumable | ✅ | ❌ | ❌ |
 | Security scanning built in | ✅ | ❌ | ❌ |
 | Learns from its own mistakes | ✅ (retrospectives) | ❌ | ❌ |
+
+---
+
+## Agent Categories
+
+Agents are classified into four categories for the monitor server `/metadata` endpoint:
+
+| Category | Agents |
+|----------|--------|
+| `orchestrator` | architect |
+| `pipeline` | explorer, coder, test_engineer |
+| `qa` | reviewer, critic, critic_sounding_board, critic_drift_verifier |
+| `support` | sme, docs, designer |
+
+Use `getAgentCategory(agentName)` from `src/config/agent-categories.ts` to resolve an agent's category at runtime.
 
 ---
 
@@ -356,9 +424,11 @@ The architect moves through these modes automatically:
 | `PLAN` | Architect writes or updates the phased plan (includes CODEBASE REALITY CHECK on brownfield projects) |
 | `CRITIC-GATE` | Critic reviews the plan before execution |
 | `EXECUTE` | Tasks are implemented one at a time through the QA pipeline |
-| `PHASE-WRAP` | A phase closes out, docs are updated, and a retrospective is written |
+| `PHASE-WRAP` | A phase closes out, docs are updated, retrospective is written, and phase completion gates are enforced |
 
 > **CODEBASE REALITY CHECK (v6.29.2):** Before any planning, the Architect dispatches Explorer to verify the current state of every referenced item. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. This prevents planning against stale assumptions. Skipped for greenfield projects with no existing codebase references.
+
+> **Phase Completion Gates (v6.33.4):** Before a phase can be marked complete, two mandatory gates are enforced: (1) completion-verify — deterministic check that plan task identifiers exist in source files, and (2) critic_drift_verifier evidence — verification that the drift verifier approved the implementation. Both gates are automatically bypassed when turbo mode is active.
 
 ### Important
 
@@ -419,7 +489,42 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 | review | Verdict, risk level, specific issues |
 | test | Pass/fail counts, coverage %, failure messages |
 | diff | Files changed, additions/deletions |
-| retrospective | Phase metrics, lessons learned (injected into next phase) |
+| retrospective | Phase metrics, lessons learned, error taxonomy classification (injected into next phase) |
+| secretscan | Secret scan results: findings count, files scanned, skipped files (v6.33) |
+
+### telemetry.jsonl: Session Observability
+
+Swarm emits structured JSONL events to `.swarm/telemetry.jsonl` for observability tooling (dashboards, alerting, audit logs). Events are fire-and-forget — failures never affect execution.
+
+```json
+{"timestamp":"2026-03-25T14:30:00.000Z","event":"session_started","sessionId":"abc123","agentName":"architect"}
+{"timestamp":"2026-03-25T14:30:05.000Z","event":"delegation_begin","sessionId":"abc123","agentName":"coder","taskId":"1.1"}
+{"timestamp":"2026-03-25T14:31:00.000Z","event":"delegation_end","sessionId":"abc123","agentName":"coder","taskId":"1.1","result":"success"}
+{"timestamp":"2026-03-25T14:31:10.000Z","event":"gate_passed","sessionId":"abc123","gate":"reviewer","taskId":"1.1"}
+{"timestamp":"2026-03-25T14:32:00.000Z","event":"phase_changed","sessionId":"abc123","oldPhase":1,"newPhase":2}
+```
+
+| Event | When Emitted |
+|-------|-------------|
+| `session_started` | New agent session created |
+| `session_ended` | Session ends (reason: normal, timeout, error) |
+| `agent_activated` | Agent identity confirmed via chat.message |
+| `delegation_begin` | Task dispatched to a sub-agent |
+| `delegation_end` | Sub-agent returns (success, rejected, error) |
+| `task_state_changed` | Task workflow state transitions |
+| `gate_passed` | Evidence written to `.swarm/evidence/{taskId}.json` |
+| `gate_failed` | Gate check blocked task completion |
+| `phase_changed` | Phase completed and new phase started |
+| `budget_updated` | Context budget crossed warning/critical threshold |
+| `hard_limit_hit` | Tool call/duration/repetition limit reached |
+| `revision_limit_hit` | Coder revision limit exceeded |
+| `loop_detected` | Repetitive tool call pattern detected |
+| `scope_violation` | Architect wrote outside declared scope |
+| `qa_skip_violation` | QA gate skipped without valid reason |
+| `model_fallback` | Transient error triggered model fallback |
+| `heartbeat` | 30-second throttled keep-alive signal |
+
+File rotates automatically at 10MB to `.swarm/telemetry.jsonl.1`.
 
 </details>
 
@@ -659,11 +764,11 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
 {
   "agents": {
     "architect": { "model": "anthropic/claude-opus-4-6" },
-    "coder": { "model": "minimax-coding-plan/MiniMax-M2.5" },
+    "coder": { "model": "minimax-coding-plan/MiniMax-M2.5", "fallback_models": ["minimax-coding-plan/MiniMax-M2.1"] },
     "explorer": { "model": "minimax-coding-plan/MiniMax-M2.1" },
     "sme": { "model": "kimi-for-coding/k2p5" },
     "critic": { "model": "zai-coding-plan/glm-5" },
-    "reviewer": { "model": "zai-coding-plan/glm-5" },
+    "reviewer": { "model": "zai-coding-plan/glm-5", "fallback_models": ["opencode/big-pickle"] },
     "test_engineer": { "model": "minimax-coding-plan/MiniMax-M2.5" },
     "docs": { "model": "zai-coding-plan/glm-4.7-flash" },
     "designer": { "model": "kimi-for-coding/k2p5" }
@@ -857,14 +962,14 @@ Swarm limits which tools each agent can access based on their role. This prevent
 
 | Agent | Tools | Count | Rationale |
 |-------|-------|:---:|-----------|
-| **architect** | All 21 tools | 21 | Orchestrator needs full visibility |
+| **architect** | All 23 tools | 23 | Orchestrator needs full visibility |
 | **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner | 11 | Security-focused QA |
 | **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary | 6 | Write-focused, minimal read tools |
 | **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit | 8 | Testing and verification |
 | **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 9 | Discovery and analysis |
 | **sme** | complexity_hotspots, detect_domains, extract_code_blocks, imports, retrieve_summary, schema_drift, symbols | 7 | Domain expertise research |
 | **critic** | complexity_hotspots, detect_domains, imports, retrieve_summary, symbols | 5 | Plan review, minimal toolset |
-| **docs** | detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 8 | Documentation synthesis |
+| **docs** | detect_domains, doc_extract, doc_scan, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 10 | Documentation synthesis and discovery |
 | **designer** | extract_code_blocks, retrieve_summary, symbols | 3 | UI-focused, minimal toolset |
 
 ### Configuration
@@ -924,13 +1029,17 @@ The following tools can be assigned to agents via overrides:
 | `checkpoint` | Save/restore git checkpoints |
 | `check_gate_status` | Read-only query of task gate status |
 | `complexity_hotspots` | Identify high-risk code areas |
+| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 | `detect_domains` | Detect SME domains from text |
 | `diff` | Analyze git diffs and changes |
+| `doc_extract` | Extract actionable constraints from project documentation relevant to current task (Jaccard bigram scoring + dedup) |
+| `doc_scan` | Scan project documentation and build index manifest at `.swarm/doc-manifest.json` (mtime-based caching) |
 | `evidence_check` | Verify task evidence |
 | `extract_code_blocks` | Extract code from markdown |
 | `gitingest` | Ingest external repositories |
 | `imports` | Analyze import relationships |
 | `lint` | Run project linters |
+| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
 | `pkg_audit` | Security audit of dependencies |
 | `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
 | `retrieve_summary` | Retrieve summarized tool outputs |
@@ -941,8 +1050,6 @@ The following tools can be assigned to agents via overrides:
 | `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
-| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
-| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 
 ---
 

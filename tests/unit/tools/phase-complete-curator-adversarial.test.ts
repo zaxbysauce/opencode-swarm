@@ -117,6 +117,47 @@ function writeRetroBundle(
 	);
 }
 
+/**
+ * Helper function to write gate evidence files for Phase 4 mandatory gates
+ */
+function writeGateEvidence(directory: string, phase: number): void {
+	const evidenceDir = path.join(directory, '.swarm', 'evidence', `${phase}`);
+	fs.mkdirSync(evidenceDir, { recursive: true });
+
+	// Write completion-verify.json
+	const completionVerify = {
+		status: 'passed',
+		tasksChecked: 1,
+		tasksPassed: 1,
+		tasksBlocked: 0,
+		reason: 'All task identifiers found in source files',
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'completion-verify.json'),
+		JSON.stringify(completionVerify, null, 2),
+	);
+
+	// Write drift-verifier.json
+	const driftVerifier = {
+		schema_version: '1.0.0',
+		task_id: 'drift-verifier',
+		entries: [
+			{
+				task_id: 'drift-verifier',
+				type: 'drift_verification',
+				timestamp: new Date().toISOString(),
+				agent: 'critic_drift_verifier',
+				verdict: 'approved',
+				summary: 'Drift check passed',
+			},
+		],
+	};
+	fs.writeFileSync(
+		path.join(evidenceDir, 'drift-verifier.json'),
+		JSON.stringify(driftVerifier, null, 2),
+	);
+}
+
 describe('phase_complete - curator pipeline adversarial tests', () => {
 	let tempDir: string;
 	let originalCwd: string;
@@ -151,6 +192,7 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 
 		// Write retro bundle for phase 1
 		writeRetroBundle(tempDir, 1, 'pass');
+		writeGateEvidence(tempDir, 1);
 
 		// Create .opencode directory
 		fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });

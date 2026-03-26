@@ -32,3 +32,10 @@ export declare function detectAdversarialPatterns(text: string): AdversarialPatt
  * Format a precedent manipulation detection event for JSONL emission.
  */
 export declare function formatPrecedentManipulationEvent(match: AdversarialPatternMatch, agentName: string, phase: number): string;
+export declare function formatDebuggingSpiralEvent(match: AdversarialPatternMatch, taskId: string): string;
+export declare function handleDebuggingSpiral(match: AdversarialPatternMatch, taskId: string, directory: string): Promise<{
+    eventLogged: boolean;
+    checkpointCreated: boolean;
+    message: string;
+}>;
+export declare function detectDebuggingSpiral(_directory: string): Promise<AdversarialPatternMatch | null>;

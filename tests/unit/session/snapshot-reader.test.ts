@@ -526,7 +526,7 @@ describe('readSnapshot', () => {
 
 	it('returns null for wrong version', async () => {
 		const wrongVersionSnapshot = {
-			version: 2,
+			version: 3,
 			writtenAt: Date.now(),
 			toolAggregates: {},
 			activeAgent: {},
@@ -810,6 +810,82 @@ describe('rehydrateState', () => {
 		expect(swarmState.pendingEvents).toBe(42);
 	});
 
+	it('resets InvocationWindow counters and hardLimitHit on rehydration', async () => {
+		resetSwarmState();
+
+		const staleTime = Date.now() - 3 * 60 * 60 * 1000; // 3 hours ago
+		const snapshot: SnapshotData = {
+			version: 2,
+			writtenAt: staleTime,
+			toolAggregates: {},
+			activeAgent: { 'ses_abc': 'coder' },
+			delegationChains: {},
+			agentSessions: {
+				'ses_abc': {
+					agentName: 'coder',
+					lastToolCallTime: staleTime,
+					lastAgentEventTime: staleTime,
+					delegationActive: true,
+					activeInvocationId: 3,
+					lastInvocationIdByAgent: { coder: 3 },
+					windows: {
+						'coder:3': {
+							id: 3,
+							agentName: 'coder',
+							startedAtMs: staleTime,
+							toolCalls: 395,
+							consecutiveErrors: 4,
+							hardLimitHit: true,
+							lastSuccessTimeMs: staleTime,
+							recentToolCalls: [
+								{ tool: 'bash', argsHash: 123, timestamp: staleTime },
+							],
+							warningIssued: true,
+							warningReason: 'tool call limit approaching',
+						},
+					},
+					lastCompactionHint: 0,
+					architectWriteCount: 0,
+					lastCoderDelegationTaskId: null,
+					currentTaskId: 'task-1',
+					gateLog: {},
+					reviewerCallCount: {},
+					lastGateFailure: null,
+					partialGateWarningsIssuedForTask: [],
+					selfFixAttempted: false,
+					catastrophicPhaseWarnings: [],
+					lastPhaseCompleteTimestamp: 0,
+					lastPhaseCompletePhase: 0,
+					phaseAgentsDispatched: [],
+					qaSkipCount: 0,
+					qaSkipTaskIds: [],
+				} as any,
+			},
+		};
+
+		const beforeRehydrate = Date.now();
+		await rehydrateState(snapshot);
+
+		const session = swarmState.agentSessions.get('ses_abc');
+		expect(session).toBeDefined();
+
+		// Session timestamps should be refreshed
+		expect(session!.lastToolCallTime).toBeGreaterThanOrEqual(beforeRehydrate);
+		expect(session!.lastAgentEventTime).toBeGreaterThanOrEqual(beforeRehydrate);
+
+		// Window should exist and have reset counters
+		const window = session!.windows['coder:3'];
+		expect(window).toBeDefined();
+		expect(window.startedAtMs).toBeGreaterThanOrEqual(beforeRehydrate);
+		expect(window.lastSuccessTimeMs).toBeGreaterThanOrEqual(beforeRehydrate);
+		expect(window.hardLimitHit).toBe(false);
+		expect(window.toolCalls).toBe(0);
+		expect(window.consecutiveErrors).toBe(0);
+		expect(window.recentToolCalls).toEqual([]);
+		expect(window.warningIssued).toBe(false);
+		expect(window.warningReason).toBe('');
+	});
+
 	it('empty snapshot objects produce empty Maps', async () => {
 		const snapshot: SnapshotData = {
 			version: 1,
@@ -898,7 +974,7 @@ describe('loadSnapshot', () => {
 	it('calls rehydrateState only when snapshot is non-null', async () => {
 		// Test with wrong version (readSnapshot returns null)
 		const wrongVersionSnapshot = {
-			version: 2,
+			version: 3,
 			writtenAt: Date.now(),
 			toolAggregates: {},
 			activeAgent: {},

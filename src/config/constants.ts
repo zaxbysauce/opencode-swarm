@@ -1,6 +1,10 @@
 import type { ToolName } from '../tools/tool-names';
 import { TOOL_NAME_SET } from '../tools/tool-names';
-export const QA_AGENTS = ['reviewer', 'critic'] as const;
+export const QA_AGENTS = [
+	'reviewer',
+	'critic',
+	'critic_drift_verifier',
+] as const;
 
 export const PIPELINE_AGENTS = ['explorer', 'coder', 'test_engineer'] as const;
 
@@ -10,6 +14,7 @@ export const ALL_SUBAGENT_NAMES = [
 	'sme',
 	'docs',
 	'designer',
+	'critic_sounding_board',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -109,6 +114,21 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'symbols',
 	],
+	critic_sounding_board: [
+		'complexity_hotspots',
+		'detect_domains',
+		'imports',
+		'retrieve_summary',
+		'symbols',
+	],
+	critic_drift_verifier: [
+		'completion_verify',
+		'complexity_hotspots',
+		'detect_domains',
+		'imports',
+		'retrieve_summary',
+		'symbols',
+	],
 	docs: [
 		'detect_domains',
 		'extract_code_blocks',
@@ -150,6 +170,8 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	// SME, Critic, Docs, Designer — reasoning/general tasks
 	sme: 'opencode/trinity-large-preview-free',
 	critic: 'opencode/trinity-large-preview-free',
+	critic_sounding_board: 'opencode/trinity-large-preview-free',
+	critic_drift_verifier: 'opencode/trinity-large-preview-free',
 	docs: 'opencode/trinity-large-preview-free',
 	designer: 'opencode/trinity-large-preview-free',
 

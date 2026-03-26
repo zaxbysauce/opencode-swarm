@@ -54,6 +54,14 @@ export interface SerializedAgentSession {
 	taskWorkflowStates?: Record<string, string>;
 	/** Flag for one-shot scope violation warning injection (omitted when undefined for additive-only schema) */
 	scopeViolationDetected?: boolean;
+	/** Current index into the fallback_models array (v6.33) */
+	model_fallback_index: number;
+	/** Flag set when all fallback models have been exhausted (v6.33) */
+	modelFallbackExhausted: boolean;
+	/** Number of coder revisions in the current task (v6.33) */
+	coderRevisions: number;
+	/** Flag set when coder revisions hit the configured ceiling (v6.33) */
+	revisionLimitHit: boolean;
 }
 
 /**
@@ -76,7 +84,7 @@ interface SerializedInvocationWindow {
  * Snapshot data structure written to disk
  */
 export interface SnapshotData {
-	version: 1;
+	version: 1 | 2;
 	writtenAt: number;
 	toolAggregates: Record<string, ToolAggregate>;
 	activeAgent: Record<string, string>;
@@ -174,6 +182,10 @@ export function serializeAgentSession(
 		...(s.scopeViolationDetected !== undefined && {
 			scopeViolationDetected: s.scopeViolationDetected,
 		}),
+		model_fallback_index: s.model_fallback_index ?? 0,
+		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+		coderRevisions: s.coderRevisions ?? 0,
+		revisionLimitHit: s.revisionLimitHit ?? false,
 	};
 }
 
@@ -188,7 +200,7 @@ export async function writeSnapshot(
 	try {
 		// Build SnapshotData object from state
 		const snapshot: SnapshotData = {
-			version: 1,
+			version: 2,
 			writtenAt: Date.now(),
 			toolAggregates: Object.fromEntries(state.toolAggregates),
 			activeAgent: Object.fromEntries(state.activeAgent),
@@ -216,10 +228,12 @@ export async function writeSnapshot(
 		await Bun.write(tempPath, content);
 		renameSync(tempPath, resolvedPath);
 	} catch (error) {
-		console.warn(
-			'[snapshot-writer] write failed:',
-			error instanceof Error ? error.message : String(error),
-		);
+		if (process.env.DEBUG_SWARM) {
+			console.warn(
+				'[snapshot-writer] write failed:',
+				error instanceof Error ? error.message : String(error),
+			);
+		}
 	}
 }
 

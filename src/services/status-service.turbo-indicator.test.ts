@@ -78,6 +78,10 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			phaseAgentsDispatched: new Set(),
 			lastCompletedPhaseAgentsDispatched: new Set(),
 			turboMode: false,
+			coderRevisions: 0,
+			revisionLimitHit: false,
+			model_fallback_index: 0,
+			modelFallbackExhausted: false,
 		});
 	});
 

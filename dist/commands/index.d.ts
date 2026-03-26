@@ -21,6 +21,7 @@ export { handlePromoteCommand } from './promote';
 export type { CommandContext, CommandEntry, RegisteredCommand, } from './registry.js';
 export { COMMAND_REGISTRY, resolveCommand, VALID_COMMANDS, } from './registry.js';
 export { handleResetCommand } from './reset';
+export { handleResetSessionCommand } from './reset-session';
 export { handleRetrieveCommand } from './retrieve';
 export { handleRollbackCommand } from './rollback';
 export { handleSimulateCommand } from './simulate';

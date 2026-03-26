@@ -150,13 +150,18 @@ When writing or modifying tests, place them in the correct directory:
 
 ---
 
-## Release notes (optional but encouraged)
+## Release notes (required)
 
-The release pipeline checks for a file at `docs/releases/v{VERSION}.md` after each release. If that file exists, its contents replace the auto-generated release body on GitHub and on the release PR.
+Every PR that introduces user-facing changes must include a release notes file at `docs/releases/v{NEXT_VERSION}.md`. The release pipeline uses this file to replace the auto-generated release body on GitHub and on the release PR. Without it, users get a generic changelog with no explanation of what changed or how to migrate.
 
-If your PR introduces a user-facing change worth explaining in depth, create `docs/releases/v{NEXT_VERSION}.md`. You can find the current version in `.release-please-manifest.json`. Increment it according to the bump your commit type will trigger.
+Find the current version in `.release-please-manifest.json` and increment it according to the bump your commit type will trigger (`fix`/`perf` → patch, `feat` → minor):
 
-The file is freeform markdown. Focus on what changed for users, migration steps if any, and any known caveats.
+| Commit type | Current version | Next version |
+|---|---|---|
+| `fix`, `perf` | `6.33.1` | `6.33.2` |
+| `feat` | `6.33.1` | `6.34.0` |
+
+The file is freeform markdown. Focus on what changed for users, migration steps if any, and any known caveats. PRs without a release notes file will be blocked by the `check-title` CI check.
 
 ---
 
@@ -198,4 +203,4 @@ gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 - [ ] New tests are in the correct `tests/` subdirectory
 - [ ] If adding a workflow, all `uses:` references are SHA-pinned
 - [ ] All CI checks pass locally before opening the PR
-- [ ] If user-facing change: consider adding `docs/releases/v{NEXT_VERSION}.md`
+- [ ] `docs/releases/v{NEXT_VERSION}.md` exists with user-facing release notes

@@ -7,6 +7,7 @@
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
 import { type GuardrailsConfig } from '../config/schema';
+import { type FileZone } from '../context/zone-classifier';
 /**
  * Retrieves stored input args for a given callID.
  * Used by other hooks (e.g., delegation-gate) to access tool input args.
@@ -72,3 +73,43 @@ export declare function createGuardrailsHooks(directory: string, directoryOrConf
  * @returns Numeric hash (0 if hashing fails)
  */
 export declare function hashArgs(args: unknown): number;
+/** A record of an agent attesting to (resolving/suppressing/deferring) a finding. */
+export interface AttestationRecord {
+    findingId: string;
+    agent: string;
+    attestation: string;
+    action: 'resolve' | 'suppress' | 'defer';
+    timestamp: string;
+}
+/**
+ * Validates that an attestation string meets the minimum length requirement.
+ */
+export declare function validateAttestation(attestation: string, _findingId: string, _agent: string, _action: 'resolve' | 'suppress' | 'defer'): {
+    valid: true;
+} | {
+    valid: false;
+    reason: string;
+};
+/**
+ * Appends an attestation record to `.swarm/evidence/attestations.jsonl`.
+ */
+export declare function recordAttestation(dir: string, record: AttestationRecord): Promise<void>;
+/**
+ * Validates an attestation and, on success, records it; on failure, logs a rejection event.
+ */
+export declare function validateAndRecordAttestation(dir: string, findingId: string, agent: string, attestation: string, action: 'resolve' | 'suppress' | 'defer'): Promise<{
+    valid: true;
+} | {
+    valid: false;
+    reason: string;
+}>;
+/**
+ * Checks whether the given agent is authorised to write to the given file path.
+ */
+export declare function checkFileAuthority(agentName: string, filePath: string, _cwd: string): {
+    allowed: true;
+} | {
+    allowed: false;
+    reason: string;
+    zone?: FileZone;
+};

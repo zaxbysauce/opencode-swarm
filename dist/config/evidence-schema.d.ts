@@ -4,6 +4,7 @@ export declare const EVIDENCE_MAX_PATCH_BYTES: number;
 export declare const EVIDENCE_MAX_TASK_BYTES: number;
 export declare const EvidenceTypeSchema: z.ZodEnum<{
     diff: "diff";
+    secretscan: "secretscan";
     quality_budget: "quality_budget";
     placeholder: "placeholder";
     test: "test";
@@ -29,6 +30,7 @@ export declare const BaseEvidenceSchema: z.ZodObject<{
     task_id: z.ZodString;
     type: z.ZodEnum<{
         diff: "diff";
+        secretscan: "secretscan";
         quality_budget: "quality_budget";
         placeholder: "placeholder";
         test: "test";
@@ -217,6 +219,13 @@ export declare const RetrospectiveEvidenceSchema: z.ZodObject<{
         }>;
         abandoned_reason: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
+    error_taxonomy: z.ZodDefault<z.ZodArray<z.ZodEnum<{
+        planning_error: "planning_error";
+        interface_mismatch: "interface_mismatch";
+        logic_error: "logic_error";
+        scope_creep: "scope_creep";
+        gate_evasion: "gate_evasion";
+    }>>>;
 }, z.core.$strip>;
 export type RetrospectiveEvidence = z.infer<typeof RetrospectiveEvidenceSchema>;
 export declare const SyntaxEvidenceSchema: z.ZodObject<{
@@ -434,6 +443,26 @@ export declare const QualityBudgetEvidenceSchema: z.ZodObject<{
     files_analyzed: z.ZodArray<z.ZodString>;
 }, z.core.$strip>;
 export type QualityBudgetEvidence = z.infer<typeof QualityBudgetEvidenceSchema>;
+export declare const SecretscanEvidenceSchema: z.ZodObject<{
+    task_id: z.ZodString;
+    timestamp: z.ZodString;
+    agent: z.ZodString;
+    verdict: z.ZodEnum<{
+        pass: "pass";
+        fail: "fail";
+        approved: "approved";
+        rejected: "rejected";
+        info: "info";
+    }>;
+    summary: z.ZodString;
+    metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    type: z.ZodLiteral<"secretscan">;
+    findings_count: z.ZodDefault<z.ZodNumber>;
+    scan_directory: z.ZodOptional<z.ZodString>;
+    files_scanned: z.ZodDefault<z.ZodNumber>;
+    skipped_files: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type SecretscanEvidence = z.infer<typeof SecretscanEvidenceSchema>;
 export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     task_id: z.ZodString;
     timestamp: z.ZodString;
@@ -587,6 +616,13 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         }>;
         abandoned_reason: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
+    error_taxonomy: z.ZodDefault<z.ZodArray<z.ZodEnum<{
+        planning_error: "planning_error";
+        interface_mismatch: "interface_mismatch";
+        logic_error: "logic_error";
+        scope_creep: "scope_creep";
+        gate_evasion: "gate_evasion";
+    }>>>;
 }, z.core.$strip>, z.ZodObject<{
     task_id: z.ZodString;
     timestamp: z.ZodString;
@@ -790,6 +826,24 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         files: z.ZodArray<z.ZodString>;
     }, z.core.$strip>>>;
     files_analyzed: z.ZodArray<z.ZodString>;
+}, z.core.$strip>, z.ZodObject<{
+    task_id: z.ZodString;
+    timestamp: z.ZodString;
+    agent: z.ZodString;
+    verdict: z.ZodEnum<{
+        pass: "pass";
+        fail: "fail";
+        approved: "approved";
+        rejected: "rejected";
+        info: "info";
+    }>;
+    summary: z.ZodString;
+    metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    type: z.ZodLiteral<"secretscan">;
+    findings_count: z.ZodDefault<z.ZodNumber>;
+    scan_directory: z.ZodOptional<z.ZodString>;
+    files_scanned: z.ZodDefault<z.ZodNumber>;
+    skipped_files: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>], "type">;
 export type Evidence = z.infer<typeof EvidenceSchema>;
 export declare const EvidenceBundleSchema: z.ZodObject<{
@@ -948,6 +1002,13 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
             }>;
             abandoned_reason: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>>;
+        error_taxonomy: z.ZodDefault<z.ZodArray<z.ZodEnum<{
+            planning_error: "planning_error";
+            interface_mismatch: "interface_mismatch";
+            logic_error: "logic_error";
+            scope_creep: "scope_creep";
+            gate_evasion: "gate_evasion";
+        }>>>;
     }, z.core.$strip>, z.ZodObject<{
         task_id: z.ZodString;
         timestamp: z.ZodString;
@@ -1151,6 +1212,24 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
             files: z.ZodArray<z.ZodString>;
         }, z.core.$strip>>>;
         files_analyzed: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        task_id: z.ZodString;
+        timestamp: z.ZodString;
+        agent: z.ZodString;
+        verdict: z.ZodEnum<{
+            pass: "pass";
+            fail: "fail";
+            approved: "approved";
+            rejected: "rejected";
+            info: "info";
+        }>;
+        summary: z.ZodString;
+        metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+        type: z.ZodLiteral<"secretscan">;
+        findings_count: z.ZodDefault<z.ZodNumber>;
+        scan_directory: z.ZodOptional<z.ZodString>;
+        files_scanned: z.ZodDefault<z.ZodNumber>;
+        skipped_files: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>], "type">>>;
     created_at: z.ZodString;
     updated_at: z.ZodString;
