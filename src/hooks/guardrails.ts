@@ -1169,11 +1169,16 @@ export function createGuardrailsHooks(
 						);
 
 						if (fallbackModel) {
+							// Resolve primary model name for telemetry
+							const swarmAgents = getSwarmAgents();
+							const primaryModel =
+								swarmAgents?.[baseAgentName]?.model ?? 'default';
+
 							// Update telemetry with actual model names
 							telemetry.modelFallback(
 								input.sessionID,
 								session.agentName,
-								'primary',
+								primaryModel,
 								fallbackModel,
 								'transient_model_error',
 							);
