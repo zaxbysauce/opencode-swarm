@@ -612,7 +612,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			...[
 				// Delegation ledger: inject summary when architect session resumes
 				(input: unknown, _output: unknown): Promise<void> => {
-					console.error(`[DIAG] messagesTransform START`);
+					if (process.env.DEBUG_SWARM)
+						console.error(`[DIAG] messagesTransform START`);
 					const p = input as { sessionID?: string };
 					if (p.sessionID) {
 						const archAgent = swarmState.activeAgent.get(p.sessionID);
@@ -641,7 +642,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						// biome-ignore lint/suspicious/noExplicitAny: consolidateSystemMessages accepts unknown[]
 						output.messages = consolidateSystemMessages(output.messages as any);
 					}
-					console.error(`[DIAG] messagesTransform DONE`);
+					if (process.env.DEBUG_SWARM)
+						console.error(`[DIAG] messagesTransform DONE`);
 					return Promise.resolve();
 				},
 			].filter((fn): fn is NonNullable<typeof fn> => Boolean(fn)),
@@ -652,11 +654,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		'experimental.chat.system.transform': composeHandlers(
 			...([
 				async (input: unknown, output: unknown): Promise<void> => {
-					console.error(`[DIAG] systemTransform START`);
+					if (process.env.DEBUG_SWARM)
+						console.error(`[DIAG] systemTransform START`);
 				},
 				systemEnhancerHook['experimental.chat.system.transform'],
 				async (_input: unknown, _output: unknown): Promise<void> => {
-					console.error(`[DIAG] systemTransform enhancer DONE`);
+					if (process.env.DEBUG_SWARM)
+						console.error(`[DIAG] systemTransform enhancer DONE`);
 				},
 				automationConfig.capabilities?.phase_preflight === true &&
 				preflightTriggerManager
@@ -683,9 +687,10 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.before': (async (input: any, output: any) => {
-			console.error(
-				`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool} session=${input.sessionID}`,
-			);
+			if (process.env.DEBUG_SWARM)
+				console.error(
+					`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool} session=${input.sessionID}`,
+				);
 			// If no active agent is mapped for this session, it's the primary agent (architect)
 			// Subagent delegations always set activeAgent via chat.message before tool calls
 			if (!swarmState.activeAgent.has(input.sessionID)) {
@@ -746,10 +751,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Track tool usage + guardrails (after)
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
+			const _dbg = !!process.env.DEBUG_SWARM;
 			const _toolName = input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool;
-			console.error(
-				`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`,
-			);
+			if (_dbg)
+				console.error(
+					`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`,
+				);
 
 			// ── v6.33.7 CRITICAL: Task handoff runs FIRST ─────────────────────
 			// Restore architect identity BEFORE any hooks run.  Previously this
@@ -762,20 +769,17 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			const isTaskTool = normalizedTool === 'Task' || normalizedTool === 'task';
 			if (isTaskTool) {
 				const sessionId = input.sessionID;
-				// Set active agent to architect
 				swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
-				// Ensure session is architect and reset state
 				ensureAgentSession(sessionId, ORCHESTRATOR_NAME);
-				// Mark delegation as inactive
 				const taskSession = swarmState.agentSessions.get(sessionId);
 				if (taskSession) {
 					taskSession.delegationActive = false;
-					// Update agent event timestamp for stale detection
 					taskSession.lastAgentEventTime = Date.now();
 				}
-				console.error(
-					`[DIAG] Task handoff DONE (early) session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`,
-				);
+				if (_dbg)
+					console.error(
+						`[DIAG] Task handoff DONE (early) session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`,
+					);
 			}
 
 			// ── Hook chain with timeout protection ────────────────────────────
@@ -788,40 +792,39 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			let hookChainTimedOut = false;
 
 			const hookChain = async (): Promise<void> => {
-				// Run existing handlers
 				await activityHooks.toolAfter(input, output);
-				console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
+				if (_dbg)
+					console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
 				await guardrailsHooks.toolAfter(input, output);
-				console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);
-				// Watchdog: delegation-ledger records delegation events
+				if (_dbg)
+					console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);
 				await safeHook(delegationLedgerHook.toolAfter)(input, output);
-				console.error(`[DIAG] toolAfter ledger done tool=${_toolName}`);
-				// Self-review advisory hook
+				if (_dbg)
+					console.error(`[DIAG] toolAfter ledger done tool=${_toolName}`);
 				await safeHook(selfReviewHook.toolAfter)(input, output);
-				console.error(`[DIAG] toolAfter selfReview done tool=${_toolName}`);
+				if (_dbg)
+					console.error(`[DIAG] toolAfter selfReview done tool=${_toolName}`);
 				await safeHook(delegationGateHooks.toolAfter)(input, output);
-				console.error(`[DIAG] toolAfter delegationGate done tool=${_toolName}`);
-				// v6.17 Knowledge hooks — after guardrails, before summarizer
+				if (_dbg)
+					console.error(
+						`[DIAG] toolAfter delegationGate done tool=${_toolName}`,
+					);
 				if (knowledgeCuratorHook)
 					await safeHook(knowledgeCuratorHook)(input, output);
 				if (hivePromoterHook) await safeHook(hivePromoterHook)(input, output);
-				console.error(`[DIAG] toolAfter knowledge done tool=${_toolName}`);
-				// v6.18 Steering acknowledgment — auto-acknowledges unconsumed directives
+				if (_dbg)
+					console.error(`[DIAG] toolAfter knowledge done tool=${_toolName}`);
 				await safeHook(steeringConsumedHook)(input, output);
-				// v6.18 Agent intelligence hooks — co-change suggestions and dark-matter gap detection
 				await safeHook(coChangeSuggesterHook)(input, output);
 				await safeHook(darkMatterDetectorHook)(input, output);
-				console.error(`[DIAG] toolAfter intelligence done tool=${_toolName}`);
-				// v6.18 Session persistence — write snapshot after each tool call
+				if (_dbg)
+					console.error(`[DIAG] toolAfter intelligence done tool=${_toolName}`);
 				await snapshotWriterHook(input, output);
 				await toolSummarizerHook?.(input, output);
-				console.error(
-					`[DIAG] toolAfter snapshot+summarizer done tool=${_toolName}`,
-				);
-				// v6.33.1: execution_mode gates optional hooks
-				// strict: run all (default v6 behavior)
-				// balanced: skip slop-detector, incremental-verify, compaction
-				// fast: skip all optional hooks
+				if (_dbg)
+					console.error(
+						`[DIAG] toolAfter snapshot+summarizer done tool=${_toolName}`,
+					);
 				const execMode = config.execution_mode ?? 'balanced';
 				if (execMode === 'strict') {
 					if (slopDetectorHook) await slopDetectorHook.toolAfter(input, output);
@@ -830,7 +833,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					if (compactionServiceHook)
 						await compactionServiceHook.toolAfter(input, output);
 				}
-				// balanced and fast: skip all three optional hooks
 
 				// Tool output truncation (after summarizer to avoid double-processing)
 				const toolOutputConfig = config.tool_output;
@@ -839,7 +841,6 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					toolOutputConfig.truncation_enabled !== false &&
 					typeof output.output === 'string'
 				) {
-					// Default truncatable tools (used when truncation_tools not configured)
 					const defaultTruncatableTools = new Set([
 						'diff',
 						'symbols',
@@ -853,21 +854,15 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						'sbom_generate',
 						'schema_drift',
 					]);
-
-					// Build truncatable tools set from config or use default
 					const configuredTools = toolOutputConfig.truncation_tools;
 					const truncatableTools =
 						configuredTools && configuredTools.length > 0
 							? new Set(configuredTools)
 							: defaultTruncatableTools;
-
-					// Check for per-tool override or use default
 					const maxLines =
 						toolOutputConfig.per_tool?.[input.tool] ??
 						toolOutputConfig.max_lines ??
 						150;
-
-					// Check if this tool is in the truncatable set (allowlist)
 					if (truncatableTools.has(input.tool)) {
 						output.output = truncateToolOutput(
 							output.output,
@@ -888,8 +883,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 			await Promise.race([
 				hookChain().catch((err) => {
-					console.error(
-						`[DIAG] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`,
+					// Always log hook chain errors — these indicate a real problem
+					console.warn(
+						`[swarm] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`,
 					);
 				}),
 				timeout,
@@ -897,16 +893,14 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 			if (hookChainTimedOut) {
 				const elapsed = Date.now() - hookChainStart;
-				console.error(
-					`[DIAG] toolAfter TIMEOUT after ${elapsed}ms tool=${_toolName} session=${input.sessionID} — hooks abandoned to prevent session freeze`,
+				// Always log timeouts — these indicate a hanging hook
+				console.warn(
+					`[swarm] toolAfter TIMEOUT after ${elapsed}ms tool=${_toolName} session=${input.sessionID} — hooks abandoned to prevent session freeze`,
 				);
 			}
 
-			// v6.33.1 CRIT-2 fix: Clean up stored input args after all toolAfter handlers
-			// have completed. This must run AFTER delegation-gate.toolAfter (which reads
-			// stored args) to prevent leaks when delegation-gate is disabled.
 			deleteStoredInputArgs(input.callID);
-			console.error(`[DIAG] toolAfter COMPLETE tool=${_toolName}`);
+			if (_dbg) console.error(`[DIAG] toolAfter COMPLETE tool=${_toolName}`);
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		}) as any,
 
@@ -914,13 +908,15 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		'chat.message': safeHook(
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 			async (input: any, output: any) => {
-				console.error(
-					`[DIAG] chat.message agent=${input.agent ?? 'none'} session=${input.sessionID}`,
-				);
+				if (process.env.DEBUG_SWARM)
+					console.error(
+						`[DIAG] chat.message agent=${input.agent ?? 'none'} session=${input.sessionID}`,
+					);
 				await delegationHandler(input, output);
-				console.error(
-					`[DIAG] chat.message DONE agent=${input.agent ?? 'none'}`,
-				);
+				if (process.env.DEBUG_SWARM)
+					console.error(
+						`[DIAG] chat.message DONE agent=${input.agent ?? 'none'}`,
+					);
 			},
 			// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		) as any,
