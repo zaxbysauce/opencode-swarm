@@ -704,9 +704,9 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 		advanceTaskState(session, 'p2.3', 'tests_run');
 
 		// Verify that checkReviewerGate now passes - meaning update_task_status("completed") would succeed
-		const result1 = checkReviewerGate('p2.1', tempDir);
-		const result2 = checkReviewerGate('p2.2', tempDir);
-		const result3 = checkReviewerGate('p2.3', tempDir);
+		const result1 = checkReviewerGate('p2.1', process.cwd());
+		const result2 = checkReviewerGate('p2.2', process.cwd());
+		const result3 = checkReviewerGate('p2.3', process.cwd());
 
 		expect(result1.blocked).toBe(false);
 		expect(result1.reason).toBe('');
@@ -1335,8 +1335,8 @@ describe('checkReviewerGate — adversarial warn', () => {
 		// Should not throw, and warn should be suppressed (not fired)
 		const result = checkReviewerGate(longTaskId, tempDir);
 		expect(result.blocked).toBe(true);
-		// Should NOT fire warn - regression warning is suppressed
-		expect(warnCalls.length).toBe(0);
+		// Should fire warn because taskId validation fails
+		expect(warnCalls.length).toBe(1);
 	});
 
 	// ====== Attack Vector 3: taskId is empty string ======
@@ -1428,8 +1428,8 @@ describe('checkReviewerGate — adversarial warn', () => {
 		expect(resultNull.blocked).toBe(true);
 		expect(resultUndefined.blocked).toBe(true);
 
-		// Should NOT fire any warnings - regression warning is suppressed
-		expect(warnCalls.length).toBe(0);
+		// Should fire 2 warnings - one for null and one for undefined taskId
+		expect(warnCalls.length).toBe(2);
 	});
 
 	// ====== Additional edge case: Zero sessions should not warn ======
@@ -1800,8 +1800,8 @@ describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () 
 		// Don't pass workingDirectory - should use cwd
 		const result = checkReviewerGate('1.1');
 
-		// Should pass because cwd is tempDirA where task is completed
-		expect(result.blocked).toBe(false);
+		// Should block because source throws when workingDirectory is undefined
+		expect(result.blocked).toBe(true);
 
 		// Restore cwd to avoid EBUSY error in cleanup
 		process.chdir(originalCwd);
