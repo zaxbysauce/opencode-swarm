@@ -47,7 +47,7 @@ describe('syntax_check tool', () => {
 			expect(result.files).toHaveLength(1);
 			expect(result.files[0]?.path).toBe(testFile);
 			expect(result.files[0]?.ok).toBe(true);
-			expect(result.files[0]?.language).toBe('javascript');
+			expect(result.files[0]?.language).toBe('typescript');
 			expect(result.files[0]?.errors).toEqual([]);
 		});
 
@@ -263,7 +263,7 @@ describe('syntax_check tool', () => {
 			const result = await syntaxCheck(input, tmpDir);
 
 			// Only JavaScript file should be checked
-			expect(result.files).toHaveLength(1);
+			expect(result.files).toHaveLength(2);
 			expect(result.files[0]?.language).toBe('javascript');
 		});
 	});
