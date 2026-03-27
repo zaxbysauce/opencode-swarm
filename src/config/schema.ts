@@ -587,6 +587,7 @@ export const GuardrailsConfigSchema = z.object({
 	idle_timeout_minutes: z.number().min(5).max(240).default(60),
 	no_op_warning_threshold: z.number().min(1).max(100).default(15),
 	max_coder_revisions: z.number().int().min(1).max(20).default(5),
+	runaway_output_max_turns: z.number().int().min(1).max(20).default(5),
 	qa_gates: z
 		.object({
 			required_tools: z

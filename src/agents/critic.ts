@@ -349,3 +349,33 @@ export function createCriticAgent(
 		},
 	};
 }
+
+/**
+ * Creates a Critic agent configured for phase drift verification.
+ * Follows the createExplorerCuratorAgent pattern: returns name 'critic' (same agent),
+ * different prompt — the drift verifier is the Critic doing a different job.
+ */
+export function createCriticDriftVerifierAgent(
+	model: string,
+	customAppendPrompt?: string,
+): AgentDefinition {
+	const prompt = customAppendPrompt
+		? `${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${customAppendPrompt}`
+		: PHASE_DRIFT_VERIFIER_PROMPT;
+
+	return {
+		name: 'critic',
+		description:
+			'Phase drift verifier. Independently verifies that every task in a completed phase was actually implemented as specified.',
+		config: {
+			model,
+			temperature: 0.1,
+			prompt,
+			tools: {
+				write: false,
+				edit: false,
+				patch: false,
+			},
+		},
+	};
+}

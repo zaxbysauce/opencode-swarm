@@ -1,5 +1,6 @@
 import {
 	createCriticAgent,
+	createCriticDriftVerifierAgent,
 	PLAN_CRITIC_PROMPT,
 	SOUNDING_BOARD_PROMPT,
 	PHASE_DRIFT_VERIFIER_PROMPT,
@@ -15,17 +16,17 @@ describe('critic.ts prompt overhaul', () => {
 	// TEST 1: Verify createCriticAgent returns correct prompt based on role
 	// ============================================================
 	describe('createCriticAgent prompt selection by role', () => {
-		test('role=plan_critic (explicit) → prompt is PLAN_CRITIC_PROMPT', () => {
+		test('role=plan_critic (explicit) -> prompt is PLAN_CRITIC_PROMPT', () => {
 			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
 			expect(agent.config.prompt).toBe(PLAN_CRITIC_PROMPT);
 		});
 
-		test('role=sounding_board → prompt is SOUNDING_BOARD_PROMPT', () => {
+		test('role=sounding_board -> prompt is SOUNDING_BOARD_PROMPT', () => {
 			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
 			expect(agent.config.prompt).toBe(SOUNDING_BOARD_PROMPT);
 		});
 
-		test('role=phase_drift_verifier → prompt is PHASE_DRIFT_VERIFIER_PROMPT', () => {
+		test('role=phase_drift_verifier -> prompt is PHASE_DRIFT_VERIFIER_PROMPT', () => {
 			const agent = createCriticAgent(
 				TEST_MODEL,
 				undefined,
@@ -35,7 +36,7 @@ describe('critic.ts prompt overhaul', () => {
 			expect(agent.config.prompt).toBe(PHASE_DRIFT_VERIFIER_PROMPT);
 		});
 
-		test('no role (default) → prompt is PLAN_CRITIC_PROMPT', () => {
+		test('no role (default) -> prompt is PLAN_CRITIC_PROMPT', () => {
 			const agent = createCriticAgent(TEST_MODEL);
 			expect(agent.config.prompt).toBe(PLAN_CRITIC_PROMPT);
 		});
@@ -45,17 +46,17 @@ describe('critic.ts prompt overhaul', () => {
 	// TEST 2: Verify agent name is set correctly based on role
 	// ============================================================
 	describe('createCriticAgent name selection by role', () => {
-		test('plan_critic → name "critic"', () => {
+		test('plan_critic -> name "critic"', () => {
 			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
 			expect(agent.name).toBe('critic');
 		});
 
-		test('sounding_board → name "critic_sounding_board"', () => {
+		test('sounding_board -> name "critic_sounding_board"', () => {
 			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
 			expect(agent.name).toBe('critic_sounding_board');
 		});
 
-		test('phase_drift_verifier → name "critic_drift_verifier"', () => {
+		test('phase_drift_verifier -> name "critic_drift_verifier"', () => {
 			const agent = createCriticAgent(
 				TEST_MODEL,
 				undefined,
@@ -187,6 +188,55 @@ describe('critic.ts prompt overhaul', () => {
 			// We verify it doesn't exist by checking that importing it throws
 			// @ts-expect-error - intentionally testing that this export does not exist
 			expect(() => import('../../src/agents/critic')).not.toHaveProperty('createCriticDriftAgent');
+		});
+	});
+
+	// ============================================================
+	// NEW: Verify createCriticDriftVerifierAgent (separate factory)
+	// ============================================================
+	describe('createCriticDriftVerifierAgent', () => {
+		test('returns agent with name "critic" (not critic_drift_verifier)', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.name).toBe('critic');
+		});
+
+		test('uses PHASE_DRIFT_VERIFIER_PROMPT by default', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.config.prompt).toBe(PHASE_DRIFT_VERIFIER_PROMPT);
+		});
+
+		test('appends customAppendPrompt to PHASE_DRIFT_VERIFIER_PROMPT', () => {
+			const appendPrompt = 'Custom drift context';
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL, appendPrompt);
+			expect(agent.config.prompt).toBe(`${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${appendPrompt}`);
+		});
+
+		test('uses the provided model', () => {
+			const agent = createCriticDriftVerifierAgent('my-custom-model');
+			expect(agent.config.model).toBe('my-custom-model');
+		});
+
+		test('has temperature 0.1', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.config.temperature).toBe(0.1);
+		});
+
+		test('has tools with write:false, edit:false, patch:false', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.config.tools.write).toBe(false);
+			expect(agent.config.tools.edit).toBe(false);
+			expect(agent.config.tools.patch).toBe(false);
+		});
+
+		test('has drift verifier description', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.description).toContain('Phase drift verifier');
+			expect(agent.description).toContain('Independently verifies');
+		});
+
+		test('no customAppendPrompt uses base prompt only', () => {
+			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
+			expect(agent.config.prompt).not.toContain('\n\n');
 		});
 	});
 

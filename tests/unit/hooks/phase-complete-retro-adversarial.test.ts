@@ -88,7 +88,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 					task_id: 'drift-verifier',
 					type: 'drift_verification',
 					timestamp: new Date().toISOString(),
-					agent: 'critic_drift_verifier',
+					agent: 'critic',
 					verdict: 'approved',
 					summary: 'Drift check passed',
 				},

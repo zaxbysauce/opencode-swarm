@@ -116,6 +116,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			idle_timeout_minutes: 60,
 			no_op_warning_threshold: 15,
 			max_coder_revisions: 5,
+			runaway_output_max_turns: 5,
 			profiles: {
 				coder: { max_tool_calls: 400 },
 				explorer: { max_duration_minutes: 60 },
@@ -137,6 +138,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			idle_timeout_minutes: 60,
 			no_op_warning_threshold: 15,
 			max_coder_revisions: 5,
+			runaway_output_max_turns: 5,
 		};
 
 		const result = GuardrailsConfigSchema.parse(config);
@@ -154,6 +156,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 			idle_timeout_minutes: 60,
 			no_op_warning_threshold: 15,
 			max_coder_revisions: 5,
+			runaway_output_max_turns: 5,
 			profiles: {},
 		};
 

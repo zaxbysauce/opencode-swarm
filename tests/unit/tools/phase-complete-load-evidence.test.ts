@@ -52,7 +52,7 @@ function writeGateEvidence(directory: string, phase: number): void {
 				task_id: 'drift-verifier',
 				type: 'drift_verification',
 				timestamp: new Date().toISOString(),
-				agent: 'critic_drift_verifier',
+				agent: 'critic',
 				verdict: 'approved',
 				summary: 'Drift check passed',
 			},
@@ -111,7 +111,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Fix A: Discriminated union handling for loadEvidence', () => {
-		test('1. When loadEvidence returns found with valid retro → retroFound = true → normal flow', async () => {
+		test('1. When loadEvidence returns found with valid retro -> retroFound = true -> normal flow', async () => {
 			// Arrange
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -158,7 +158,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			expect(parsed.reason).toBeUndefined();
 		});
 
-		test('2. When loadEvidence returns not_found → retroFound = false → RETROSPECTIVE_MISSING blocked response', async () => {
+		test('2. When loadEvidence returns not_found -> retroFound = false -> RETROSPECTIVE_MISSING blocked response', async () => {
 			// Arrange
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -246,7 +246,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Fix B: Schema errors captured and included in error message', () => {
-		test('5. When loadEvidence returns invalid_schema → schema errors appear in blocked response message', async () => {
+		test('5. When loadEvidence returns invalid_schema -> schema errors appear in blocked response message', async () => {
 			// Arrange
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -442,7 +442,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Combined scenarios: Discriminated union + schema errors + template', () => {
-		test('14. Fallback scan: when primary is not_found but fallback finds valid retro → proceeds', async () => {
+		test('14. Fallback scan: when primary is not_found but fallback finds valid retro -> proceeds', async () => {
 			// Arrange
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -493,7 +493,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			expect(parsed.status).toBe('success');
 		});
 
-		test('15. Full flow: not_found → fallback not_found → blocked with template and schema errors', async () => {
+		test('15. Full flow: not_found -> fallback not_found -> blocked with template and schema errors', async () => {
 			// Arrange
 			const phase = 1;
 			ensureAgentSession('sess1');
@@ -530,7 +530,7 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 	});
 
 	describe('Fix D: Retrospective auto-repair migration notice', () => {
-		test.skip('16. When retro bundle has schema_version 1.0.0 + valid complexity → migration warning in result', async () => {
+		test.skip('16. When retro bundle has schema_version 1.0.0 + valid complexity -> migration warning in result', async () => {
 			// Arrange: valid bundle with all conditions for migration notice
 			const phase = 1;
 			ensureAgentSession('sess1');

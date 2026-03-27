@@ -79,6 +79,7 @@ export function deleteStoredInputArgs(callID: string): void {
  */
 const toolCallsSinceLastWrite = new Map<string, number>();
 const noOpWarningIssued = new Set<string>();
+const consecutiveNoToolTurns = new Map<string, number>();
 
 /**
  * Extracts phase number from a phase string like "Phase 3: Implementation"
@@ -512,6 +513,8 @@ export function createGuardrailsHooks(
 			// is deterministic and correctly indicates when a subagent is active. We check it FIRST
 			// to skip self-coding detection entirely for delegated tool calls.
 			const currentSession = swarmState.agentSessions.get(input.sessionID);
+			// v6.35.1: Runaway output detector — reset counter on any tool call
+			consecutiveNoToolTurns.set(input.sessionID, 0);
 			if (currentSession?.delegationActive) {
 				// A subagent is using this tool — not the architect
 				// Skip self-coding detection entirely for this tool call
@@ -1275,6 +1278,94 @@ export function createGuardrailsHooks(
 			const systemMessages = messages.filter(
 				(msg) => msg.info?.role === 'system',
 			);
+
+			// v6.35.1: Runaway output detector — catch models streaming without tool calls
+			// Uses module-level consecutiveNoToolTurns Map for state across calls
+			if (isArchitectSession) {
+				// Find the last assistant message in conversation
+				let lastAssistantMsg: (typeof messages)[0] | undefined;
+				for (let i = messages.length - 1; i >= 0; i--) {
+					if (messages[i].info?.role === 'assistant') {
+						lastAssistantMsg = messages[i];
+						break;
+					}
+				}
+
+				if (lastAssistantMsg) {
+					const lastHasToolUse = lastAssistantMsg.parts?.some(
+						(part) => part.type === 'tool_use',
+					);
+
+					if (lastHasToolUse) {
+						// Model used a tool — reset counter
+						consecutiveNoToolTurns.set(sessionId, 0);
+					} else {
+						// Check if last assistant message was high-output
+						const textLen =
+							lastAssistantMsg.parts
+								?.filter((p) => p.type === 'text' && typeof p.text === 'string')
+								.reduce((sum, p) => sum + (p.text as string).length, 0) ?? 0;
+
+						if (textLen > 4000) {
+							const count = (consecutiveNoToolTurns.get(sessionId) ?? 0) + 1;
+							consecutiveNoToolTurns.set(sessionId, count);
+
+							const maxTurns = cfg.runaway_output_max_turns;
+							if (count >= maxTurns) {
+								// Hard STOP — inject into first system message
+								const stopMsg = systemMessages[0];
+								if (stopMsg) {
+									const stopPart = (stopMsg.parts ?? []).find(
+										(part): part is { type: string; text: string } =>
+											part.type === 'text' && typeof part.text === 'string',
+									);
+									if (
+										stopPart &&
+										!stopPart.text.includes('RUNAWAY OUTPUT STOP')
+									) {
+										stopPart.text =
+											`[RUNAWAY OUTPUT STOP]\n` +
+											`You have produced ${count} consecutive responses without using any tools. ` +
+											`You MUST call a tool in your next response.\n` +
+											`[/RUNAWAY OUTPUT STOP]\n\n` +
+											stopPart.text;
+									}
+								}
+								// Reset counter after injection
+								consecutiveNoToolTurns.set(sessionId, 0);
+							} else if (count >= 3) {
+								// Advisory warning at 3 consecutive
+								if (session) {
+									session.pendingAdvisoryMessages ??= [];
+									if (
+										!session.pendingAdvisoryMessages.some((m: string) =>
+											m.includes('runaway output'),
+										)
+									) {
+										session.pendingAdvisoryMessages.push(
+											`WARNING: Model is generating analysis without taking action. ` +
+												`${count} consecutive high-output responses without tool calls detected. ` +
+												`Use a tool or report BLOCKED.`,
+										);
+									}
+								}
+							}
+						} else {
+							// Short assistant message without tool — not runaway, but not using tools either
+							// Only reset if the message is very short (likely acknowledgment)
+							const shortLen =
+								lastAssistantMsg.parts
+									?.filter(
+										(p) => p.type === 'text' && typeof p.text === 'string',
+									)
+									.reduce((sum, p) => sum + (p.text as string).length, 0) ?? 0;
+							if (shortLen < 200) {
+								consecutiveNoToolTurns.set(sessionId, 0);
+							}
+						}
+					}
+				}
+			}
 
 			// v6.29: Loop detection warning injection
 			if (isArchitectSession && session?.loopWarningPending) {

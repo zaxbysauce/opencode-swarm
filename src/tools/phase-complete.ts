@@ -301,6 +301,9 @@ export async function executePhaseComplete(
 	// Get phase reference timestamp from session state (derived from last phase complete)
 	const phaseReferenceTimestamp = session.lastPhaseCompleteTimestamp ?? 0;
 
+	// Build warnings list early so it is available to both the drift gate and post-gate logic
+	const warnings: string[] = [];
+
 	// Use aggregated cross-session agents for required-agent evaluation
 	const crossSessionResult = collectCrossSessionDispatchedAgents(
 		phaseReferenceTimestamp,
@@ -560,20 +563,30 @@ export async function executePhaseComplete(
 			}
 
 			if (!driftVerdictFound) {
-				return JSON.stringify(
-					{
-						success: false,
-						phase,
-						status: 'blocked' as const,
-						reason: 'DRIFT_VERIFICATION_MISSING',
-						message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Ensure the architect has delegated to critic_drift_verifier before calling phase_complete.`,
-						agentsDispatched,
-						agentsMissing: [],
-						warnings: [],
-					},
-					null,
-					2,
-				);
+				// If no spec.md exists, drift verification is advisory-only
+				const specPath = path.join(dir, '.swarm', 'spec.md');
+				const specExists = fs.existsSync(specPath);
+
+				if (!specExists) {
+					warnings.push(
+						`Drift verifier evidence missing — no spec.md found, drift check is advisory-only.`,
+					);
+				} else {
+					return JSON.stringify(
+						{
+							success: false,
+							phase,
+							status: 'blocked' as const,
+							reason: 'DRIFT_VERIFICATION_MISSING',
+							message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Run drift verification before completing the phase.`,
+							agentsDispatched,
+							agentsMissing: [],
+							warnings: [],
+						},
+						null,
+						2,
+					);
+				}
 			}
 
 			if (!driftVerdictApproved && driftVerdictFound) {
@@ -736,7 +749,6 @@ export async function executePhaseComplete(
 	);
 
 	// Build warnings and determine success based on policy
-	const warnings: string[] = [];
 
 	// Plan.json fallback: if agents are missing but all tasks in the phase are
 	// completed in plan.json, treat the phase as closeable. Completed tasks prove
