@@ -75,15 +75,30 @@ export function createSwarmCommandHandler(
 	output: { parts: unknown[] },
 ) => Promise<void> {
 	return async (input, output) => {
-		// Ignore non-swarm commands
-		if (input.command !== 'swarm') {
+		// Accept both the generic 'swarm' command and individual shortcut commands
+		// like 'swarm-config', 'swarm-status', 'swarm-sync-plan', etc.
+		// When a user selects a shortcut from the command picker (e.g. swarm-config),
+		// OpenCode sets input.command to the registered key ('swarm-config') and
+		// input.arguments to any additional $ARGUMENTS the user typed. Without this
+		// check those shortcuts were silently ignored and fell through to the LLM.
+		if (input.command !== 'swarm' && !input.command.startsWith('swarm-')) {
 			return;
 		}
 
 		// Verified: input.arguments receives the expanded $ARGUMENTS from the template.
 		// The hook output.parts overrides the LLM response in the UI.
 		// Parse arguments
-		const tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
+		let tokens: string[];
+		if (input.command === 'swarm') {
+			// Generic /swarm $ARGUMENTS: arguments contain the full subcommand + args
+			tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
+		} else {
+			// Shortcut command like 'swarm-config': extract subcommand from the key
+			// e.g. 'swarm-config' → 'config', 'swarm-sync-plan' → 'sync-plan'
+			const subcommand = input.command.slice('swarm-'.length);
+			const extraArgs = input.arguments.trim().split(/\s+/).filter(Boolean);
+			tokens = [subcommand, ...extraArgs];
+		}
 
 		let text: string;
 
