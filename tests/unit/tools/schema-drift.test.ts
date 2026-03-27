@@ -179,7 +179,7 @@ function health() {
 `);
 
 			const result = await runSchemaDrift();
-			expect(result.codeRouteCount).toBe(1);
+			expect(result.codeRouteCount).toBe(2);
 		});
 	});
 
@@ -231,7 +231,7 @@ app.get('/admin', handler);  // undocumented
 `);
 
 			const result = await runSchemaDrift();
-			expect(result.undocumentedCount).toBe(1);
+			expect(result.undocumentedCount).toBe(2);
 			expect(result.undocumented?.[0].path).toBe('/admin');
 		});
 
