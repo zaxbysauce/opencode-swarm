@@ -169,7 +169,7 @@ describe('phase_complete — drift verifier gate', () => {
 	});
 
 	describe('Gate 2: Drift Verifier', () => {
-		test('1. APPROVED verdict in drift evidence → phase completes successfully', async () => {
+		test('1. APPROVED verdict in drift evidence -> phase completes successfully', async () => {
 			// Write drift evidence with approved verdict
 			writeDriftEvidence(tempDir, 1, 'approved', 'No drift detected. Phase is clean.');
 
@@ -181,7 +181,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.reason).toBeUndefined();
 		});
 
-		test('2. NEEDS_REVISION in drift evidence summary → blocks with DRIFT_VERIFICATION_REJECTED', async () => {
+		test('2. NEEDS_REVISION in drift evidence summary -> blocks with DRIFT_VERIFICATION_REJECTED', async () => {
 			// Write drift evidence with rejected verdict
 			writeDriftEvidence(tempDir, 1, 'rejected', 'Phase needs revision. NEEDS_REVISION: fix the implementation issues.');
 
@@ -194,7 +194,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.message).toContain('drift verifier returned verdict');
 		});
 
-		test('3. Missing drift evidence → blocks with DRIFT_VERIFICATION_MISSING', async () => {
+		test('3. Missing drift evidence -> blocks with DRIFT_VERIFICATION_MISSING', async () => {
 			// Do NOT write drift evidence file
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
@@ -206,7 +206,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.message).toContain('.swarm/evidence/1/drift-verifier.json');
 		});
 
-		test('4. Turbo mode active → skips both gates (phase completes without drift evidence)', async () => {
+		test('4. Turbo mode active -> skips both gates (phase completes without drift evidence)', async () => {
 			// Enable turbo mode
 			const session = swarmState.agentSessions.get('sess1');
 			session!.turboMode = true;
@@ -220,7 +220,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.status).toBe('success');
 		});
 
-		test('5. Invalid JSON in drift evidence → treated as missing (blocks)', async () => {
+		test('5. Invalid JSON in drift evidence -> treated as missing (blocks)', async () => {
 			// Write malformed JSON to drift evidence file
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
@@ -237,7 +237,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');
 		});
 
-		test('6. drift evidence with verdict "rejected" → blocks with DRIFT_VERIFICATION_REJECTED', async () => {
+		test('6. drift evidence with verdict "rejected" -> blocks with DRIFT_VERIFICATION_REJECTED', async () => {
 			writeDriftEvidence(tempDir, 1, 'rejected', 'Implementation has drift from spec.');
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
@@ -248,7 +248,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_REJECTED');
 		});
 
-		test('7. drift evidence entry without type containing "drift" → treated as missing', async () => {
+		test('7. drift evidence entry without type containing "drift" -> treated as missing', async () => {
 			// Write drift evidence with entry type that doesn't contain 'drift'
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
@@ -271,7 +271,7 @@ describe('phase_complete — drift verifier gate', () => {
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// No drift entry found → blocks with missing
+			// No drift entry found -> blocks with missing
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');
@@ -279,7 +279,7 @@ describe('phase_complete — drift verifier gate', () => {
 	});
 
 	describe('Gate 1: Completion Verify', () => {
-		test('8. completion-verify blocked → blocks with COMPLETION_INCOMPLETE', async () => {
+		test('8. completion-verify blocked -> blocks with COMPLETION_INCOMPLETE', async () => {
 			// Write a plan.json where the task has no identifiers that can be verified
 			// (completion-verify will block because the task description has no parseable file paths)
 			// But actually completion-verify blocks when it finds files but they don't contain identifiers
@@ -310,7 +310,7 @@ describe('phase_complete — drift verifier gate', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			// src/foo.ts does NOT exist → completion-verify will block
+			// src/foo.ts does NOT exist -> completion-verify will block
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
@@ -319,7 +319,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.reason).toBe('COMPLETION_INCOMPLETE');
 		});
 
-		test('9. error in completion-verify → non-blocking (phase continues to drift check)', async () => {
+		test('9. error in completion-verify -> non-blocking (phase continues to drift check)', async () => {
 			// Completion-verify error is caught and treated as warning
 			// Phase should continue to drift check
 			// Write drift evidence to allow phase to complete
@@ -397,7 +397,7 @@ describe('phase_complete — drift verifier gate', () => {
 	});
 
 	describe('Edge Cases', () => {
-		test('12. drift evidence with empty entries array → treated as missing', async () => {
+		test('12. drift evidence with empty entries array -> treated as missing', async () => {
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
 			fs.writeFileSync(
@@ -417,7 +417,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');
 		});
 
-		test('13. drift evidence with no verdict field → treated as missing', async () => {
+		test('13. drift evidence with no verdict field -> treated as missing', async () => {
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
 			fs.writeFileSync(
@@ -439,13 +439,13 @@ describe('phase_complete — drift verifier gate', () => {
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// No verdict found → treated as missing
+			// No verdict found -> treated as missing
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');
 		});
 
-		test('14. multiple entries in drift evidence, only one with drift type → uses that entry', async () => {
+		test('14. multiple entries in drift evidence, only one with drift type -> uses that entry', async () => {
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
 			fs.writeFileSync(
@@ -477,7 +477,7 @@ describe('phase_complete — drift verifier gate', () => {
 			expect(parsed.status).toBe('success');
 		});
 
-		test('15. drift evidence found but verdict is not approved and summary does not contain NEEDS_REVISION → treated as rejected', async () => {
+		test('15. drift evidence found but verdict is not approved and summary does not contain NEEDS_REVISION -> treated as rejected', async () => {
 			const driftDir = path.join(tempDir, '.swarm', 'evidence', '1');
 			fs.mkdirSync(driftDir, { recursive: true });
 			fs.writeFileSync(

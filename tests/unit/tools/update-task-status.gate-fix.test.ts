@@ -226,7 +226,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('1. evidence file with all gates met → blocked: false', () => {
+	test('1. evidence file with all gates met -> blocked: false', () => {
 		// Create evidence file with all required gates satisfied
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
@@ -251,7 +251,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.reason).toBe('');
 	});
 
-	test('2. evidence file with missing gate → blocked: true with specific message', () => {
+	test('2. evidence file with missing gate -> blocked: true with specific message', () => {
 		// Create evidence file with only one gate satisfied
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
@@ -275,7 +275,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.reason).toContain('reviewer');
 	});
 
-	test('3. no evidence file (ENOENT) → falls through to session state', () => {
+	test('3. no evidence file (ENOENT) -> falls through to session state', () => {
 		// Do NOT create any evidence file
 		// Set up a session with task in tests_run state (should pass)
 		const session = createWorkflowTestSessionWithPassedTask('1.1');
@@ -287,7 +287,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.blocked).toBe(false);
 	});
 
-	test('4. no evidence file (ENOENT) with no valid session → blocked: true', () => {
+	test('4. no evidence file (ENOENT) with no valid session -> blocked: true', () => {
 		// Do NOT create any evidence file
 		// Set up a session with task NOT in tests_run/complete state
 		const session = createWorkflowTestSession(); // task at idle
@@ -300,7 +300,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.reason).toContain('QA gates');
 	});
 
-	test('5. malformed JSON in evidence file → blocked: true (not silent fallthrough)', () => {
+	test('5. malformed JSON in evidence file -> blocked: true (not silent fallthrough)', () => {
 		// Create a corrupt JSON file
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
@@ -319,7 +319,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.reason).toContain('1.1');
 	});
 
-	test('6. cross-session evidence (different sessionId) → still unblocked', () => {
+	test('6. cross-session evidence (different sessionId) -> still unblocked', () => {
 		// Create evidence from session-999 but check from session-1
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
@@ -344,7 +344,7 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.blocked).toBe(false);
 	});
 
-	test('7. evidence with empty required_gates → blocked: false', () => {
+	test('7. evidence with empty required_gates -> blocked: false', () => {
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
 			required_gates: [],
@@ -361,11 +361,11 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Empty required_gates means no gates needed → passes
+		// Empty required_gates means no gates needed -> passes
 		expect(result.blocked).toBe(false);
 	});
 
-	test('8. evidence with extra gates beyond required → blocked: false', () => {
+	test('8. evidence with extra gates beyond required -> blocked: false', () => {
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
 			required_gates: ['reviewer'],
@@ -399,8 +399,8 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Evidence directory doesn't exist → ENOENT → falls through to session state
-		// Session has tests_run → passes
+		// Evidence directory doesn't exist -> ENOENT -> falls through to session state
+		// Session has tests_run -> passes
 		expect(result.blocked).toBe(false);
 	});
 
@@ -491,7 +491,7 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('evidence file missing required_gates field entirely → uses evidence.gates keys as fallback', () => {
+	test('evidence file missing required_gates field entirely -> uses evidence.gates keys as fallback', () => {
 		// Evidence structure where required_gates is missing but gates object exists
 		// The check requires evidence.required_gates to be truthy and an array
 		const evidence = {
@@ -513,11 +513,11 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Falls through to session state which has tests_run → passes
+		// Falls through to session state which has tests_run -> passes
 		expect(result.blocked).toBe(false);
 	});
 
-	test('evidence file with null gates → falls through to session state', () => {
+	test('evidence file with null gates -> falls through to session state', () => {
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
 			required_gates: ['reviewer'],
@@ -616,7 +616,7 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('1. Evidence directory exists with files, no evidence.json → returns unblocked', () => {
+	test('1. Evidence directory exists with files, no evidence.json -> returns unblocked', () => {
 		// Create evidence directory for task 1.1 with some files, but NO evidence.json
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
@@ -630,12 +630,12 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Directory fallback removed — falls through to session state → idle → blocked
+		// Directory fallback removed — falls through to session state -> idle -> blocked
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('QA gates');
 	});
 
-	test('2. Evidence directory exists but empty → falls through to session state', () => {
+	test('2. Evidence directory exists but empty -> falls through to session state', () => {
 		// Create empty evidence directory for task 1.1, no evidence.json
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
@@ -647,11 +647,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Empty directory → falls through to session state → session has tests_run → passes
+		// Empty directory -> falls through to session state -> session has tests_run -> passes
 		expect(result.blocked).toBe(false);
 	});
 
-	test('3. Evidence directory doesn't exist at all → falls through to session state', () => {
+	test('3. Evidence directory does not exist at all -> falls through to session state', () => {
 		// Do NOT create evidence directory at all
 		// .swarm/evidence directory exists but task-specific directory does not
 
@@ -661,11 +661,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// No evidence dir → ENOENT → falls through to session state → passes
+		// No evidence dir -> ENOENT -> falls through to session state -> passes
 		expect(result.blocked).toBe(false);
 	});
 
-	test('4. Evidence directory with files but session in idle → still passes (dir check wins)', () => {
+	test('4. Evidence directory with files but session in idle -> still passes (dir check wins)', () => {
 		// Create evidence directory with files
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
@@ -677,11 +677,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Directory fallback removed — falls through to session state → idle → blocked
+		// Directory fallback removed — falls through to session state -> idle -> blocked
 		expect(result.blocked).toBe(true);
 	});
 
-	test('5. No evidence.json, no evidence directory, no valid session → blocked', () => {
+	test('5. No evidence.json, no evidence directory, no valid session -> blocked', () => {
 		// Do NOT create evidence directory or evidence.json
 
 		// Session in idle state (not tests_run/complete)
@@ -690,12 +690,12 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Falls through all checks → blocked
+		// Falls through all checks -> blocked
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('QA gates');
 	});
 
-	test('6. evidence.json exists with all gates met → returns unblocked (regression check)', () => {
+	test('6. evidence.json exists with all gates met -> returns unblocked (regression check)', () => {
 		// Create evidence file with all required gates satisfied
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
@@ -717,11 +717,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// evidence.json with all gates met → unblocked (evidence.json takes precedence)
+		// evidence.json with all gates met -> unblocked (evidence.json takes precedence)
 		expect(result.blocked).toBe(false);
 	});
 
-	test('7. evidence.json exists with missing gates → returns blocked (regression check)', () => {
+	test('7. evidence.json exists with missing gates -> returns blocked (regression check)', () => {
 		// Create evidence file with missing gates
 		const evidence: TaskEvidence = {
 			taskId: '1.1',
@@ -743,7 +743,7 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// evidence.json with missing gates → blocked (evidence.json is authoritative)
+		// evidence.json with missing gates -> blocked (evidence.json is authoritative)
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toContain('missing required gates');
 		expect(result.reason).toContain('test_engineer');
