@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.35.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.2...v6.35.3) (2026-03-27)
+
+
+### Bug Fixes
+
+* **tests:** resolve 48 broken unit test assertions across 16 files in tools test suite ([#302](https://github.com/zaxbysauce/opencode-swarm/issues/302)) ([efcecc3](https://github.com/zaxbysauce/opencode-swarm/commit/efcecc31a70e102064826df3e93a9968cae72253))
+
 ## [6.35.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.1...v6.35.2) (2026-03-27)
 
 
