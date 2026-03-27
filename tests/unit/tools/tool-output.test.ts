@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { truncateToolOutput } from './tool-output';
+import { truncateToolOutput } from '../../../src/utils/tool-output';
 
 function makeLines(n: number): string {
 	return Array.from({ length: n }, (_, i) => `line${i + 1}`).join('\n');

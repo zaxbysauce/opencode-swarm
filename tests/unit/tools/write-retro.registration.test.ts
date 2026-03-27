@@ -370,14 +370,14 @@ describe('write_retro runtime registration adversarial verification', () => {
 					test_failures: 0,
 					security_findings: 0,
 					integration_issues: 0,
-					task_id: 'custom-retro-1',
+					task_id: 'retro-99',
 				},
 				tempDir,
 			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
-			expect(parsed.task_id).toBe('custom-retro-1');
+			expect(parsed.task_id).toBe('retro-99');
 		});
 
 		test('handles optional lessons_learned', async () => {

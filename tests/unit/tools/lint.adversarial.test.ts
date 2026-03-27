@@ -175,7 +175,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.output.length).toBe(MAX_OUTPUT_BYTES);
 			expect(result.output).not.toContain('truncated');
@@ -187,7 +187,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.output.length).toBeLessThanOrEqual(MAX_OUTPUT_BYTES + 30);
 			expect(result.output).toContain('... (output truncated)');
@@ -200,7 +200,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockExitCode = 0;
 			
 			const startTime = Date.now();
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			const elapsed = Date.now() - startTime;
 			
 			// Should truncate quickly, not process entire 100MB
@@ -216,7 +216,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = 'y'.repeat(MAX_OUTPUT_BYTES / 2 + 100);
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.output.length).toBeLessThanOrEqual(MAX_OUTPUT_BYTES + 30);
 			expect(result.output).toContain('... (output truncated)');
@@ -231,7 +231,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			// Should truncate without corrupting UTF-8
 			expect(() => JSON.stringify(result)).not.toThrow();
@@ -243,7 +243,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			// Should handle null bytes without crashing
 			expect(result.success).toBe(true);
@@ -255,7 +255,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = 'x'.repeat(100_000_000);
 			mockExitCode = 1;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.output.length).toBeLessThanOrEqual(MAX_OUTPUT_BYTES + 30);
 			expect(result.output).toContain('... (output truncated)');
@@ -268,19 +268,24 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 		it('SEC-022: should return only static command array (no dynamic parts)', () => {
 			// getLinterCommand is internal and doesn't accept external input
 			// but we verify it returns only hardcoded values
-			const checkCmd = getLinterCommand('biome', 'check');
-			const fixCmd = getLinterCommand('biome', 'fix');
+			const checkCmd = getLinterCommand('biome', 'check', process.cwd());
+			const fixCmd = getLinterCommand('biome', 'fix', process.cwd());
 			
-			expect(checkCmd).toEqual(['npx', 'biome', 'check', '.']);
-			expect(fixCmd).toEqual(['npx', 'biome', 'check', '--write', '.']);
+			expect(checkCmd[0]).toContain('biome');
+			expect(checkCmd[1]).toBe('check');
+			expect(checkCmd[2]).toBe('.');
+			expect(fixCmd[0]).toContain('biome');
+			expect(fixCmd[1]).toBe('check');
+			expect(fixCmd[2]).toBe('--write');
+			expect(fixCmd[3]).toBe('.');
 		});
 		
 		it('SEC-023: should never include shell metacharacters', () => {
 			const cmds = [
-				getLinterCommand('biome', 'check'),
-				getLinterCommand('biome', 'fix'),
-				getLinterCommand('eslint', 'check'),
-				getLinterCommand('eslint', 'fix'),
+				getLinterCommand('biome', 'check', process.cwd()),
+				getLinterCommand('biome', 'fix', process.cwd()),
+				getLinterCommand('eslint', 'check', process.cwd()),
+				getLinterCommand('eslint', 'fix', process.cwd()),
 			];
 			
 			for (const cmd of cmds) {
@@ -298,7 +303,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 		});
 		
 		it('SEC-024: should not use shell execution (array format)', () => {
-			const cmd = getLinterCommand('biome', 'check');
+			const cmd = getLinterCommand('biome', 'check', process.cwd());
 			
 			// Bun.spawn with array avoids shell interpretation
 			expect(Array.isArray(cmd)).toBe(true);
@@ -379,7 +384,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			const validLinters: SupportedLinter[] = ['biome', 'eslint'];
 			
 			for (const linter of validLinters) {
-				const result = await runLint(linter, 'check');
+				const result = await runLint(linter, 'check', process.cwd());
 				expect(result.success).toBe(true);
 				expect(result.linter).toBe(linter);
 			}
@@ -403,7 +408,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			};
 			
 			// Should not throw
-			await expect(runLint('biome', 'check')).resolves.toBeDefined();
+			await expect(runLint('biome', 'check', process.cwd())).resolves.toBeDefined();
 		});
 		
 		it('SEC-038: should handle spawn throwing circular reference error', async () => {
@@ -414,7 +419,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			circularErr.self = circularErr;
 			mockSpawnError = circularErr as unknown as Error;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.success).toBe(false);
 			expect(result.error).toContain('Execution failed');
@@ -426,7 +431,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = -1;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.success).toBe(true);
 			expect(result.exitCode).toBe(-1);
@@ -438,7 +443,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 255;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result.success).toBe(true);
 			expect(result.exitCode).toBe(255);
@@ -448,7 +453,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('Internal error at /home/user/secret/path.ts:123');
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			// Error message is included but should be in error field, not leak secrets
 			expect(result.success).toBe(false);
@@ -461,13 +466,16 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 	describe('cross-platform behavior', () => {
 		
 		it('SEC-042: should generate same command structure on all platforms', () => {
-			// Commands should be platform-agnostic (use npx)
-			const biomeCheck = getLinterCommand('biome', 'check');
-			const eslintFix = getLinterCommand('eslint', 'fix');
+			// Commands should be platform-agnostic (use direct binary paths)
+			const biomeCheck = getLinterCommand('biome', 'check', process.cwd());
+			const eslintFix = getLinterCommand('eslint', 'fix', process.cwd());
 			
-			// All start with npx for cross-platform compatibility
-			expect(biomeCheck[0]).toBe('npx');
-			expect(eslintFix[0]).toBe('npx');
+			// Binary paths differ by platform but structure is consistent
+			expect(biomeCheck[0]).toContain('biome');
+			expect(biomeCheck[1]).toBe('check');
+			expect(eslintFix[0]).toContain('eslint');
+			expect(eslintFix[1]).toBe('.');
+			expect(eslintFix[2]).toBe('--fix');
 		});
 	});
 	
@@ -480,7 +488,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(() => JSON.stringify(result)).not.toThrow();
 		});
@@ -489,7 +497,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('test');
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(() => JSON.stringify(result)).not.toThrow();
 		});
@@ -500,7 +508,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			const serialized = JSON.stringify(result);
 			
 			expect(serialized).not.toContain('__proto__');
@@ -518,7 +526,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			mockStderr = '';
 			mockExitCode = 0;
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			// All required fields present
 			expect(result).toHaveProperty('success');
@@ -542,7 +550,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('test');
 			
-			const result = await runLint('biome', 'check');
+			const result = await runLint('biome', 'check', process.cwd());
 			
 			expect(result).toHaveProperty('success');
 			expect(result).toHaveProperty('mode');

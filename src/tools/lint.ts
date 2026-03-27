@@ -350,6 +350,11 @@ export async function detectAvailableLinter(
 	// Timeout for linter detection (in ms)
 	const _DETECT_TIMEOUT = 2000;
 
+	if (!directory) return null;
+
+	// Check if directory exists before attempting detection
+	if (!fs.existsSync(directory)) return null;
+
 	const projectDir = directory;
 	const isWindows = process.platform === 'win32';
 	const biomeBin = isWindows

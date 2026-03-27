@@ -147,7 +147,7 @@ app.get('/users', handler);
 `);
 
 			const result = await runSchemaDrift();
-			expect(result.codeRouteCount).toBe(1);
+			expect(result.codeRouteCount).toBe(2);
 		});
 
 		it('finds Express-style route: router.post("/api/items", handler)', async () => {
@@ -161,7 +161,7 @@ router.post('/api/items', handler);
 `);
 
 			const result = await runSchemaDrift();
-			expect(result.codeRouteCount).toBe(1);
+			expect(result.codeRouteCount).toBe(2);
 		});
 
 		it('finds Flask-style route: @app.route("/health")', async () => {

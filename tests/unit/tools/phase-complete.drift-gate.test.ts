@@ -155,6 +155,8 @@ describe('phase_complete — drift verifier gate', () => {
 		// Set up session with required agents
 		ensureAgentSession('sess1');
 		recordPhaseAgentDispatch('sess1', 'coder');
+		// Explicitly disable turbo mode to prevent state leakage from other test files
+		swarmState.agentSessions.get('sess1')!.turboMode = false;
 	});
 
 	afterEach(() => {

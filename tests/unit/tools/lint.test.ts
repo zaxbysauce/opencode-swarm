@@ -3,6 +3,7 @@ import {
 	validateArgs,
 	getLinterCommand,
 	detectAvailableLinter,
+	_detectAvailableLinter,
 	runLint,
 	MAX_OUTPUT_BYTES,
 	MAX_COMMAND_LENGTH,
@@ -124,30 +125,38 @@ describe('lint tool', () => {
 	describe('getLinterCommand', () => {
 		describe('biome', () => {
 			it('should return correct command for check mode', () => {
-				const cmd = getLinterCommand('biome', 'check');
-				expect(cmd).toEqual(['npx', 'biome', 'check', '.']);
+				const cmd = getLinterCommand('biome', 'check', process.cwd());
+				expect(cmd[0]).toContain('biome');
+				expect(cmd[1]).toBe('check');
+				expect(cmd[2]).toBe('.');
 			});
 			
 			it('should return correct command for fix mode', () => {
-				const cmd = getLinterCommand('biome', 'fix');
-				expect(cmd).toEqual(['npx', 'biome', 'check', '--write', '.']);
+				const cmd = getLinterCommand('biome', 'fix', process.cwd());
+				expect(cmd[0]).toContain('biome');
+				expect(cmd[1]).toBe('check');
+				expect(cmd[2]).toBe('--write');
+				expect(cmd[3]).toBe('.');
 			});
 		});
 		
 		describe('eslint', () => {
 			it('should return correct command for check mode', () => {
-				const cmd = getLinterCommand('eslint', 'check');
-				expect(cmd).toEqual(['npx', 'eslint', '.']);
+				const cmd = getLinterCommand('eslint', 'check', process.cwd());
+				expect(cmd[0]).toContain('eslint');
+				expect(cmd[1]).toBe('.');
 			});
 			
 			it('should return correct command for fix mode', () => {
-				const cmd = getLinterCommand('eslint', 'fix');
-				expect(cmd).toEqual(['npx', 'eslint', '.', '--fix']);
+				const cmd = getLinterCommand('eslint', 'fix', process.cwd());
+				expect(cmd[0]).toContain('eslint');
+				expect(cmd[1]).toBe('.');
+				expect(cmd[2]).toBe('--fix');
 			});
 		});
 		
 		it('should return array of strings', () => {
-			const cmd = getLinterCommand('biome', 'check');
+			const cmd = getLinterCommand('biome', 'check', process.cwd());
 			expect(Array.isArray(cmd)).toBe(true);
 			expect(cmd.every(s => typeof s === 'string')).toBe(true);
 		});
@@ -160,7 +169,7 @@ describe('lint tool', () => {
 			mockStdout = 'biome version 1.0.0';
 			mockExitCode = 0;
 			
-			const linter = await detectAvailableLinter('/tmp');
+			const linter = await detectAvailableLinter(process.cwd());
 			expect(linter).toBe('biome');
 		});
 		
@@ -203,7 +212,7 @@ describe('lint tool', () => {
 				} as unknown as ReturnType<typeof Bun.spawn>;
 			};
 			
-			const linter = await detectAvailableLinter('/tmp');
+			const linter = await _detectAvailableLinter(process.cwd(), '/tmp/fake/biome', '/tmp/fake/eslint');
 			expect(linter).toBe('eslint');
 			expect(callCount).toBe(2);
 		});
@@ -212,7 +221,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockExitCode = 1;
 			
-			const linter = await detectAvailableLinter('/tmp');
+			const linter = await detectAvailableLinter(process.cwd());
 			expect(linter).toBeNull();
 		});
 		
@@ -220,7 +229,7 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockSpawnError = new Error('spawn failed');
 			
-			const linter = await detectAvailableLinter('/tmp');
+			const linter = await detectAvailableLinter(process.cwd());
 			expect(linter).toBeNull();
 		});
 	});

@@ -874,8 +874,8 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(0, tempDir);
-				// Not blocked due to format - current behavior allows through
-				expect(result.blocked).toBe(false);
+				// Blocked because numeric taskId fails format validation
+				expect(result.blocked).toBe(true);
 			});
 
 			it('numeric taskId 123 blocked due to idle state, not format validation', () => {
@@ -884,8 +884,8 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(123, tempDir);
-				// Not blocked due to format - current behavior allows through
-				expect(result.blocked).toBe(false);
+				// Blocked because numeric taskId fails format validation
+				expect(result.blocked).toBe(true);
 			});
 		});
 
@@ -941,9 +941,9 @@ describe('update-task-status adversarial tests', () => {
 				session.taskWorkflowStates.set('__proto__', 'tests_run' as any);
 				swarmState.agentSessions.set('proto-key-session', session);
 
-				// Querying __proto__ as taskId should work
+				// Querying __proto__ as taskId is blocked due to invalid format
 				const result = checkReviewerGate('__proto__', tempDir);
-				expect(result.blocked).toBe(false);
+				expect(result.blocked).toBe(true);
 				// Object.prototype must not be polluted
 				expect((Object.prototype as any).tests_run).toBeUndefined();
 			});
@@ -1242,8 +1242,8 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(0, tempDir);
-				// JavaScript coerces number 0 to string '0' - Map lookup succeeds
-				expect(result.blocked).toBe(false);
+				// Blocked because numeric taskId fails format validation before Map lookup
+				expect(result.blocked).toBe(true);
 			});
 
 			it('allows numeric taskId 123 when Map has string key "123" (JS coercion)', () => {
@@ -1253,8 +1253,8 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(123, tempDir);
-				// JavaScript coerces number 123 to string '123' - Map lookup succeeds
-				expect(result.blocked).toBe(false);
+				// Blocked because numeric taskId fails format validation before Map lookup
+				expect(result.blocked).toBe(true);
 			});
 
 			it('ALLOWS numeric taskId when Map has numeric key (edge case)', () => {
@@ -1265,9 +1265,8 @@ describe('update-task-status adversarial tests', () => {
 
 				// @ts-ignore - passing number where string expected
 				const result = checkReviewerGate(1.1, tempDir);
-				// This might pass if the key is actually set as number
-				// Map(1.1, 'tests_run') vs get(1.1) - identity match
-				expect(result.blocked).toBe(false);
+				// Blocked because numeric taskId fails format validation
+				expect(result.blocked).toBe(true);
 			});
 		});
 

@@ -129,6 +129,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'todo_extract',
 				'evidence_check',
 				'check_gate_status',
+				'completion_verify',
 				'sbom_generate',
 				'checkpoint',
 				'pkg_audit',
@@ -170,6 +171,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'todo_extract',
 				'evidence_check',
 				'check_gate_status',
+				'completion_verify',
 				'sbom_generate',
 				'checkpoint',
 				'pkg_audit',
@@ -195,7 +197,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should handle maximum array length', () => {
 			// Verify array has expected count
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(30); // Explicit expected count
+			expect(TOOL_NAMES.length).toBe(31); // Explicit expected count
 		});
 
 		test('should have non-empty registry', () => {
