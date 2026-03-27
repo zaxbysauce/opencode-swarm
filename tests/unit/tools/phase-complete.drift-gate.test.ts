@@ -74,7 +74,7 @@ function writeDriftEvidence(
 				task_id: `drift-verifier-${phaseNumber}`,
 				type: 'drift',
 				timestamp: new Date().toISOString(),
-				agent: 'critic_drift_verifier',
+				agent: 'critic',
 				verdict: verdict,
 				summary: summary,
 			},

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
 	createCriticAgent,
+	createCriticDriftVerifierAgent,
 	PLAN_CRITIC_PROMPT,
 	SOUNDING_BOARD_PROMPT,
 	PHASE_DRIFT_VERIFIER_PROMPT,
@@ -308,6 +309,11 @@ describe('adversarial: createCriticAgent', () => {
 			const mod = await import('../../../src/agents/critic');
 			expect(typeof mod.createCriticAgent).toBe('function');
 		});
+
+		it('should export createCriticDriftVerifierAgent function', async () => {
+			const mod = await import('../../../src/agents/critic');
+			expect(typeof mod.createCriticDriftVerifierAgent).toBe('function');
+		});
 	});
 
 	// ============================================================
@@ -349,6 +355,47 @@ describe('adversarial: createCriticAgent', () => {
 			expect(planAgent.name).toBe('critic');
 			expect(soundAgent.name).toBe('critic_sounding_board');
 			expect(driftAgent.name).toBe('critic_drift_verifier');
+		});
+	});
+
+	// ============================================================
+	// ATTACK VECTOR 8: createCriticDriftVerifierAgent (new factory)
+	// Verify it returns name 'critic' and handles edge cases
+	// ============================================================
+	describe('ATTACK VECTOR 8: createCriticDriftVerifierAgent', () => {
+		it('returns name "critic" not "critic_drift_verifier"', () => {
+			const agent = createCriticDriftVerifierAgent('test-model');
+			expect(agent.name).toBe('critic');
+			expect(agent.name).not.toBe('critic_drift_verifier');
+		});
+
+		it('handles very long customAppendPrompt', () => {
+			const injection = 'A'.repeat(100000);
+			const agent = createCriticDriftVerifierAgent('test-model', injection);
+			expect(agent.config.prompt.length).toBeGreaterThan(90000);
+			expect(agent.config.prompt).toContain(PHASE_DRIFT_VERIFIER_PROMPT);
+		});
+
+		it('handles Unicode in customAppendPrompt', () => {
+			const agent = createCriticDriftVerifierAgent('test-model', '\u202E RTL OVERRIDE');
+			expect(agent.config.prompt).toContain('\u202E');
+		});
+
+		it('handles null byte in customAppendPrompt', () => {
+			const agent = createCriticDriftVerifierAgent('test-model', 'test\x00null');
+			expect(agent.config.prompt).toContain('test\x00null');
+		});
+
+		it('handles empty string customAppendPrompt', () => {
+			const agent = createCriticDriftVerifierAgent('test-model', '');
+			expect(agent.config.prompt).toBe(PHASE_DRIFT_VERIFIER_PROMPT);
+		});
+
+		it('description does not leak internal paths', () => {
+			const agent = createCriticDriftVerifierAgent('test-model');
+			const desc = agent.description?.toLowerCase() ?? '';
+			expect(desc).not.toContain('critic.ts');
+			expect(desc).not.toContain('src/agents');
 		});
 	});
 

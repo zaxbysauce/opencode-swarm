@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import { getGlobalEventBus } from '../background/event-bus.js';
 import type {
@@ -200,6 +201,56 @@ export async function runCriticDriftCheck(
 
 		// 9. Write drift report
 		const reportPath = await writeDriftReport(directory, report);
+
+		// Write drift-verifier.json in the format phase-complete.ts expects:
+		// { entries: [{ type: string containing 'drift', verdict: 'approved'|'rejected', summary: string, timestamp: string }] }
+		try {
+			const evidenceDir = path.join(
+				directory,
+				'.swarm',
+				'evidence',
+				String(phase),
+			);
+			fsSync.mkdirSync(evidenceDir, { recursive: true });
+			const evidencePath = path.join(evidenceDir, 'drift-verifier.json');
+
+			let verdict: string;
+			let summary: string;
+			if (alignment === 'MAJOR_DRIFT') {
+				verdict = 'rejected';
+				summary = `Major drift detected (score: ${driftScore.toFixed(2)}): ${firstDeviation ? firstDeviation.description : 'alignment issues detected'}`;
+			} else if (alignment === 'MINOR_DRIFT') {
+				verdict = 'approved';
+				summary = `Minor drift detected (score: ${driftScore.toFixed(2)}): ${firstDeviation ? firstDeviation.description : 'minor alignment issues'}`;
+			} else {
+				verdict = 'approved';
+				summary = 'Drift check passed: all requirements aligned';
+			}
+
+			const evidence = {
+				entries: [
+					{
+						type: 'drift-verification',
+						verdict,
+						summary,
+						timestamp: new Date().toISOString(),
+						agent: 'curator-drift',
+						session_id: 'curator',
+					},
+				],
+			};
+
+			fsSync.writeFileSync(
+				evidencePath,
+				JSON.stringify(evidence, null, 2),
+				'utf-8',
+			);
+		} catch (driftWriteErr) {
+			// Non-fatal — evidence is additive, never blocks phase_complete
+			console.warn(
+				`[curator-drift] drift-verifier evidence write failed: ${driftWriteErr instanceof Error ? driftWriteErr.message : String(driftWriteErr)}`,
+			);
+		}
 
 		// 10. Emit curator.drift.completed event
 		getGlobalEventBus().publish('curator.drift.completed', {

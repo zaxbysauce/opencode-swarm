@@ -121,7 +121,7 @@ describe('phase_complete integration — events.jsonl', () => {
 					task_id: 'drift-verifier',
 					type: 'drift_verification',
 					timestamp: new Date().toISOString(),
-					agent: 'critic_drift_verifier',
+					agent: 'critic',
 					verdict: 'approved',
 					summary: 'Drift check passed',
 				},

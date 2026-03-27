@@ -554,3 +554,221 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 		expect(result.blocked).toBe(false);
 	});
 });
+
+// ============================================================================
+// checkReviewerGate evidence directory fallback (Phase 3.2 fix)
+// ============================================================================
+
+describe('checkReviewerGate — evidence directory fallback (lines 236-245)', () => {
+	let tempDir: string;
+	let originalCwd: string;
+	let originalAgentSessions: Map<string, any>;
+
+	beforeEach(() => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dir-evidence-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		// Create .swarm directory with valid plan
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+
+		// Save and clear agent sessions for isolated testing
+		originalAgentSessions = new Map(swarmState.agentSessions);
+		swarmState.agentSessions.clear();
+	});
+
+	afterEach(() => {
+		swarmState.agentSessions.clear();
+		for (const [key, value] of originalAgentSessions) {
+			swarmState.agentSessions.set(key, value);
+		}
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('1. Evidence directory exists with files, no evidence.json → returns unblocked', () => {
+		// Create evidence directory for task 1.1 with some files, but NO evidence.json
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		// Create some marker files to simulate agent output files in the evidence directory
+		fs.writeFileSync(path.join(evidenceDir, 'reviewer-output.md'), '# Review output');
+		fs.writeFileSync(path.join(evidenceDir, 'test-results.json'), '{}');
+
+		// Session in idle state (would block if session state was used)
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// Should pass because evidence directory has files → evidence-first ENOENT → dir check → files exist → unblocked
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('2. Evidence directory exists but empty → falls through to session state', () => {
+		// Create empty evidence directory for task 1.1, no evidence.json
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		// Leave directory empty
+
+		// Session in tests_run state (would pass via session state)
+		const session = createWorkflowTestSessionWithPassedTask('1.1');
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// Empty directory → falls through to session state → session has tests_run → passes
+		expect(result.blocked).toBe(false);
+	});
+
+	test('3. Evidence directory doesn't exist at all → falls through to session state', () => {
+		// Do NOT create evidence directory at all
+		// .swarm/evidence directory exists but task-specific directory does not
+
+		// Session in tests_run state
+		const session = createWorkflowTestSessionWithPassedTask('1.1');
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// No evidence dir → ENOENT → falls through to session state → passes
+		expect(result.blocked).toBe(false);
+	});
+
+	test('4. Evidence directory with files but session in idle → still passes (dir check wins)', () => {
+		// Create evidence directory with files
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(path.join(evidenceDir, 'some-output.txt'), 'content');
+
+		// Session in idle state (would block if session state was used)
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// Evidence directory has files → unblocked regardless of session state
+		expect(result.blocked).toBe(false);
+	});
+
+	test('5. No evidence.json, no evidence directory, no valid session → blocked', () => {
+		// Do NOT create evidence directory or evidence.json
+
+		// Session in idle state (not tests_run/complete)
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// Falls through all checks → blocked
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('QA gates');
+	});
+
+	test('6. evidence.json exists with all gates met → returns unblocked (regression check)', () => {
+		// Create evidence file with all required gates satisfied
+		const evidence: TaskEvidence = {
+			taskId: '1.1',
+			required_gates: ['reviewer', 'test_engineer'],
+			gates: {
+				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
+				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+			},
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			JSON.stringify(evidence),
+		);
+
+		// Also create an evidence directory with files (should not matter since evidence.json exists)
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(path.join(evidenceDir, 'extra-file.txt'), 'should be ignored');
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// evidence.json with all gates met → unblocked (evidence.json takes precedence)
+		expect(result.blocked).toBe(false);
+	});
+
+	test('7. evidence.json exists with missing gates → returns blocked (regression check)', () => {
+		// Create evidence file with missing gates
+		const evidence: TaskEvidence = {
+			taskId: '1.1',
+			required_gates: ['reviewer', 'test_engineer'],
+			gates: {
+				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
+				// test_engineer is MISSING
+			},
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			JSON.stringify(evidence),
+		);
+
+		// Create evidence directory with files (should not matter since evidence.json exists and is authoritative)
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(path.join(evidenceDir, 'extra-file.txt'), 'should be ignored');
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// evidence.json with missing gates → blocked (evidence.json is authoritative)
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('missing required gates');
+		expect(result.reason).toContain('test_engineer');
+	});
+
+	test('8. Evidence directory check does not interfere with corrupt evidence.json blocking', () => {
+		// Create corrupt evidence.json (should block per existing behavior)
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			'{ invalid json }',
+		);
+
+		// Create evidence directory with files
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(path.join(evidenceDir, 'some-file.txt'), 'content');
+
+		// Session in tests_run state
+		const session = createWorkflowTestSessionWithPassedTask('1.1');
+		swarmState.agentSessions.set('session-1', session);
+
+		const result = checkReviewerGate('1.1', tempDir);
+
+		// Corrupt evidence.json should block (evidence dir check should NOT be reached)
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('corrupt or unreadable');
+	});
+});
