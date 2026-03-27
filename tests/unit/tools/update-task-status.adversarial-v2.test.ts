@@ -25,14 +25,14 @@ import * as fs from 'node:fs';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { resetSwarmState } from '../state';
+import { resetSwarmState } from '../../../src/state';
 import {
 	checkReviewerGate,
 	checkReviewerGateWithScope,
 	executeUpdateTaskStatus,
 	validateStatus,
 	validateTaskId,
-} from './update-task-status';
+} from '../../../src/tools/update-task-status';
 
 let tmpDir: string;
 
