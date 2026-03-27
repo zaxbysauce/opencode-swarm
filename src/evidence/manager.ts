@@ -127,12 +127,25 @@ const INTERNAL_TOOL_ID_REGEX =
 	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
 
 /**
+ * General safe alphanumeric task ID pattern.
+ * Accepts task IDs that start with an ASCII letter or digit, followed by any
+ * combination of ASCII letters, digits, hyphens, underscores, or single dots.
+ * Double dots (..) are already blocked by the path-traversal check above, so
+ * this pattern safely broadens the allowlist without re-introducing that risk.
+ * Examples: task-1, my_task, Task123, a, phase1-step2
+ * Pattern: ^[a-zA-Z0-9][a-zA-Z0-9._-]*$
+ */
+const GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+
+/**
  * Validate and sanitize task ID.
- * Accepts three formats:
+ * Accepts four formats:
  * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
  * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
- * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build, secretscan)
- * Rejects: .., ../, null bytes, control characters, empty string, other non-numeric IDs
+ * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, etc.)
+ * 4. General safe alphanumeric IDs: ASCII letter/digit start, body of letters/digits/dots/hyphens/underscores
+ * Rejects: empty string, null bytes, control characters, path traversal (..), spaces, and any
+ * character outside the ASCII alphanumeric + [._-] set.
  * @throws Error with descriptive message on failure
  */
 export function sanitizeTaskId(taskId: string): string {
@@ -153,7 +166,8 @@ export function sanitizeTaskId(taskId: string): string {
 		}
 	}
 
-	// Check for path traversal patterns
+	// Check for path traversal patterns — must happen before pattern matching
+	// so that strings like "a..b" are blocked even though they start with a letter.
 	if (
 		taskId.includes('..') ||
 		taskId.includes('../') ||
@@ -177,9 +191,14 @@ export function sanitizeTaskId(taskId: string): string {
 		return taskId;
 	}
 
-	// Reject anything else
+	// Accept any general safe alphanumeric task ID (e.g. task-1, my_task, Task123)
+	if (GENERAL_TASK_ID_REGEX.test(taskId)) {
+		return taskId;
+	}
+
+	// Reject anything else (spaces, special chars, unicode beyond ASCII, etc.)
 	throw new Error(
-		`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, ^retro-\\d+$, or ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$, got "${taskId}"`,
+		`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`,
 	);
 }
 
