@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as commandsIndex from '../commands/index';
+import { COMMAND_REGISTRY, VALID_COMMANDS } from '../commands/registry';
 import { handleTurboCommand } from '../commands/turbo';
 import { getAgentSession, swarmState } from '../state';
 
@@ -38,28 +39,31 @@ describe('Task 3.12: Turbo Command Registration', () => {
 	});
 
 	describe('Help Text Verification', () => {
-		it('HELP_TEXT should contain turbo command documentation', () => {
-			// We need to verify the help text includes the turbo command
-			// Read the source file to check for the help text
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
+		it('HELP_TEXT should contain turbo command documentation', async () => {
+			// Verify the runtime HELP_TEXT (returned when no subcommand is given)
+			// includes the turbo entry with its description.
+			const handler = commandsIndex.createSwarmCommandHandler('/tmp', {});
+			const output = { parts: [] as unknown[] };
 
-			// Check that help text includes turbo command
-			expect(source).toContain('/swarm turbo');
-			expect(source).toContain('Turbo Mode');
-			expect(source).toContain('[on|off]');
+			await handler({ command: 'swarm', arguments: '', sessionID: 'no-session' }, output);
+
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).toContain('/swarm turbo');
+			expect(text).toContain('Turbo Mode');
+			expect(text).toContain('[on|off]');
 		});
 
-		it('HELP_TEXT should document toggle behavior', () => {
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
+		it('HELP_TEXT should document toggle behavior', async () => {
+			// The turbo command description mentions toggling — verify it appears
+			// in the runtime help output, not in static source text.
+			const handler = commandsIndex.createSwarmCommandHandler('/tmp', {});
+			const output = { parts: [] as unknown[] };
 
-			// Should document the default toggle behavior
-			expect(source).toContain('toggle');
+			await handler({ command: 'swarm', arguments: '', sessionID: 'no-session' }, output);
+
+			const text = (output.parts[0] as { text: string }).text;
+			// Description is "Toggle Turbo Mode …" — check case-insensitively
+			expect(text.toLowerCase()).toContain('toggle');
 		});
 	});
 
@@ -219,16 +223,12 @@ describe('Task 3.12: Turbo Command Registration', () => {
 		});
 
 		it('turbo should be recognized as a valid subcommand in switch', () => {
-			// This is implicitly tested by the switch case routing tests above
-			// If 'turbo' wasn't in the switch, it would fall through to default HELP_TEXT
-			const source = require('node:fs').readFileSync(
-				require('node:path').join(__dirname, '../commands/index.ts'),
-				'utf-8',
-			);
-
-			// Verify case 'turbo' exists in the switch statement
-			expect(source).toContain("case 'turbo':");
-			expect(source).toContain('handleTurboCommand');
+			// The command registry is the single source of truth for routing —
+			// verify 'turbo' is registered there rather than inspecting source text.
+			expect(VALID_COMMANDS).toContain('turbo');
+			expect(typeof COMMAND_REGISTRY.turbo).toBe('object');
+			expect(typeof COMMAND_REGISTRY.turbo.handler).toBe('function');
+			expect(COMMAND_REGISTRY.turbo.description).toContain('Turbo Mode');
 		});
 	});
 });
