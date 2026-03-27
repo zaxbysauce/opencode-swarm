@@ -269,7 +269,7 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		const swarmDir = path.join(tmpDir, '.swarm');
 		const files = await fs.readdir(swarmDir);
 
-		expect(files.sort()).toEqual(['plan.json', 'plan.md']);
+		expect(files.sort()).toEqual(['.plan-write-marker', 'plan.json', 'plan.md']);
 	});
 
 	it('multiple saves do not accumulate temp files', async () => {
