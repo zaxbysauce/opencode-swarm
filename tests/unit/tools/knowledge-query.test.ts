@@ -3,7 +3,7 @@
  * Covers tier filtering, status/category/score filters, formatted output, and architect-only access assumptions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, mock } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import { writeFileSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
@@ -34,6 +34,16 @@ describe('knowledge-query tool verification tests', () => {
 		} catch {
 			// Ignore cleanup errors
 		}
+	});
+
+	// Mock resolveHiveKnowledgePath to return a path inside tmpDir so hive knowledge
+	// doesn't leak from the real global hive file across test runs.
+	// We only mock resolveHiveKnowledgePath - readKnowledge and resolveSwarmKnowledgePath
+	// should remain as real functions so swarm-tier tests work correctly.
+	beforeAll(() => {
+		mock.module('../../../src/hooks/knowledge-store.js', () => ({
+			resolveHiveKnowledgePath: () => path.join(tmpDir, '.swarm', 'shared-learnings.jsonl'),
+		}));
 	});
 
 	// Helper to write knowledge file
