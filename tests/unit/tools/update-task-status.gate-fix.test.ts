@@ -559,7 +559,7 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 // checkReviewerGate evidence directory fallback (Phase 3.2 fix)
 // ============================================================================
 
-describe('checkReviewerGate — evidence directory fallback (lines 236-245)', () => {
+describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Codex review fix)', () => {
 	let tempDir: string;
 	let originalCwd: string;
 	let originalAgentSessions: Map<string, any>;
@@ -630,9 +630,9 @@ describe('checkReviewerGate — evidence directory fallback (lines 236-245)', ()
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Should pass because evidence directory has files → evidence-first ENOENT → dir check → files exist → unblocked
-		expect(result.blocked).toBe(false);
-		expect(result.reason).toBe('');
+		// Directory fallback removed — falls through to session state → idle → blocked
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('QA gates');
 	});
 
 	test('2. Evidence directory exists but empty → falls through to session state', () => {
@@ -677,8 +677,8 @@ describe('checkReviewerGate — evidence directory fallback (lines 236-245)', ()
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Evidence directory has files → unblocked regardless of session state
-		expect(result.blocked).toBe(false);
+		// Directory fallback removed — falls through to session state → idle → blocked
+		expect(result.blocked).toBe(true);
 	});
 
 	test('5. No evidence.json, no evidence directory, no valid session → blocked', () => {

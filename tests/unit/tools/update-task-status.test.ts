@@ -1920,7 +1920,7 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 	});
 });
 
-describe('checkReviewerGate — evidence directory check (v6.35.1 fix)', () => {
+describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Codex review fix)', () => {
 	let originalAgentSessions: typeof swarmState.agentSessions;
 	let tempDir: string;
 	let originalCwd: string;
@@ -1990,9 +1990,9 @@ describe('checkReviewerGate — evidence directory check (v6.35.1 fix)', () => {
 
 		const result = checkReviewerGate('1.1', tempDir);
 
-		// Should return unblocked because evidence directory has files
-		expect(result.blocked).toBe(false);
-		expect(result.reason).toBe('');
+		// Should be blocked because directory fallback removed — falls through to session state which shows idle
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('QA gates');
 	});
 
 	test('falls through to session state when evidence directory is empty', () => {

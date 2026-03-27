@@ -233,17 +233,6 @@ export function checkReviewerGate(
 			};
 		}
 
-		// === evidence directory check (survives missing/corrupt evidence.json) ===
-		try {
-			const evidenceDir = path.join(resolvedDir, '.swarm', 'evidence', taskId);
-			const files = fs.readdirSync(evidenceDir);
-			if (files.length > 0) {
-				return { blocked: false, reason: '' };
-			}
-		} catch {
-			// Directory doesn't exist — continue to session state fallback
-		}
-
 		// === session state check (fallback for pre-evidence tasks) ===
 
 		// If no active sessions, allow through (test context)
