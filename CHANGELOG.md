@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.35.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.1...v6.35.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* drift evidence write, gate fallback, runaway output detector, and eliminate critic_drift_verifier agent ([#298](https://github.com/zaxbysauce/opencode-swarm/issues/298)) ([ba04892](https://github.com/zaxbysauce/opencode-swarm/commit/ba04892f45f5da3df7de7df0516fb348053e9811))
+
 ## [6.35.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.0...v6.35.1) (2026-03-26)
 
 
