@@ -90,6 +90,17 @@ function writeDriftEvidence(
 }
 
 /**
+ * Helper function to write a spec.md file to trigger blocking when drift evidence is missing/invalid
+ */
+function writeSpecMd(directory: string): void {
+	fs.mkdirSync(path.join(directory, '.swarm'), { recursive: true });
+	fs.writeFileSync(
+		path.join(directory, '.swarm', 'spec.md'),
+		'# Test Spec\n\n## FR-01\nFeature requirement 1.\n',
+	);
+}
+
+/**
  * Helper to set up permissive config and plan.json for tests
  */
 function setupPermissiveConfig(tempDir: string): void {
@@ -198,6 +209,7 @@ describe('phase_complete — drift verifier gate', () => {
 
 		test('3. Missing drift evidence -> blocks with DRIFT_VERIFICATION_MISSING', async () => {
 			// Do NOT write drift evidence file
+			writeSpecMd(tempDir);
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -230,6 +242,7 @@ describe('phase_complete — drift verifier gate', () => {
 				path.join(driftDir, 'drift-verifier.json'),
 				'{ invalid json } garbage',
 			);
+			writeSpecMd(tempDir);
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -269,6 +282,7 @@ describe('phase_complete — drift verifier gate', () => {
 					],
 				}),
 			);
+			writeSpecMd(tempDir);
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -410,6 +424,7 @@ describe('phase_complete — drift verifier gate', () => {
 					entries: [],
 				}),
 			);
+			writeSpecMd(tempDir);
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
@@ -437,6 +452,7 @@ describe('phase_complete — drift verifier gate', () => {
 					],
 				}),
 			);
+			writeSpecMd(tempDir);
 
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);

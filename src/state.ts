@@ -1003,10 +1003,17 @@ export async function rehydrateSessionFromDisk(
 }
 
 /**
- * Check if ANY active session has Turbo Mode enabled.
- * @returns true if any session has turboMode: true
+ * Check if Turbo Mode is enabled for a specific session or ANY session.
+ * @param sessionID - Optional session ID to check. If provided, checks only that session.
+ *                    If omitted, checks all sessions (backward-compatible global behavior).
+ * @returns true if the specified session has turboMode: true, or if any session has turboMode: true when no sessionID provided
  */
-export function hasActiveTurboMode(): boolean {
+export function hasActiveTurboMode(sessionID?: string): boolean {
+	if (sessionID) {
+		const session = swarmState.agentSessions.get(sessionID);
+		return session?.turboMode === true;
+	}
+	// Global fallback — existing behavior when no sessionID provided
 	for (const [_sessionId, session] of swarmState.agentSessions) {
 		if (session.turboMode === true) {
 			return true;
