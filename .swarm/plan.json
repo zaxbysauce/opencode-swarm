@@ -1,0 +1,285 @@
+{
+  "schema_version": "1.0.0",
+  "title": "opencode-swarm v6.36.0 — Phase Drift Verification + Curator Pipeline + Stack Trace Fix",
+  "swarm": "mega",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "name": "Re-verify Current Wiring",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "1.1",
+          "phase": 1,
+          "status": "completed",
+          "size": "medium",
+          "description": "Re-audit phase-end verification code paths. Write implementation notes to .swarm/evidence/phase-wiring-audit.md.",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.2",
+          "phase": 1,
+          "status": "completed",
+          "size": "medium",
+          "description": "Re-audit curator pipeline wiring. Write implementation notes to .swarm/evidence/curator-wiring-audit.md.",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Fix Core Drift Verification Architecture",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "2.1",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Update architect PHASE-WRAP instructions in src/agents/architect.ts with critic_drift_verifier delegation before phase_complete.",
+          "depends": [
+            "1.1"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "2.2",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Register critic_drift_verifier as a separate agent in src/agents/index.ts following the critic_sounding_board pattern.",
+          "depends": [
+            "1.1"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "2.3",
+          "phase": 2,
+          "status": "completed",
+          "size": "large",
+          "description": "Fix the core timing bug in phase-complete.ts where curator-drift writes drift-verifier.json after the gate checks for it. Remove runCriticDriftCheck, replace with readPriorDriftReports advisory.",
+          "depends": [
+            "2.1",
+            "2.2"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "2.4",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Tighten enforcement for missing spec.md. When spec.md absent and drift evidence missing, use plan.json fallback comparison basis instead of silent auto-approval.",
+          "depends": [
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "2.5",
+          "phase": 2,
+          "status": "completed",
+          "size": "medium",
+          "description": "Restrict turbo mode bypasses by adding optional sessionID parameter to hasActiveTurboMode() in state.ts.",
+          "depends": [
+            "1.1"
+          ],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Curator Pipeline Fixes",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "3.1",
+          "phase": 3,
+          "status": "completed",
+          "size": "medium",
+          "description": "Verify and fix curator pipeline outputs. curateAndStoreSwarm now returns {stored, skipped, rejected}. Advisory message includes knowledge stats.",
+          "depends": [
+            "1.2",
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "3.2",
+          "phase": 3,
+          "status": "completed",
+          "size": "medium",
+          "description": "Fix curator knowledge update path. Category inference now covers all 9 KnowledgeCategory values. Added 'archived' to status union.",
+          "depends": [
+            "1.2",
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "3.3",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Rename runCriticDriftCheck to runDeterministicDriftCheck in curator-drift.ts and all test files.",
+          "depends": [
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "3.4",
+          "phase": 3,
+          "status": "completed",
+          "size": "medium",
+          "description": "Add curator pipeline health integration test proving curator enabled, init/phase run, output written, output consumed.",
+          "depends": [
+            "3.1",
+            "3.2",
+            "3.3"
+          ],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Fix Stack Trace Leakage from Tool Failures (Hotfix)",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "4.1",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Fix update_task_status error serialization. Replace errors: [String(error)] at line 672 with error instanceof Error ? error.message : String(error). Sanitize console.warn at line 210-212 to use message-only handling.",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.2",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Add generic tool-error sanitization wrapper in src/tools/create-tool.ts. Wrap the execute call in try/catch returning sanitized JSON error instead of raw stack traces. Never surface host runtime paths.",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.3",
+          "phase": 4,
+          "status": "completed",
+          "size": "medium",
+          "description": "Sweep all TUI-visible error leakage paths. Fix raw String(error) in tool return values: save-plan.ts:255, curator-analyze.ts:121. Fix raw console.warn/error with error object: phase-complete.ts safeWarn (line 68-74), build-check.ts:318, rollback.ts:133, commands/knowledge.ts (4 instances at lines 35,61,97,141). Fix raw String(error) in commands: promote.ts:75,86, curate.ts:58.",
+          "depends": [
+            "4.1",
+            "4.2"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "4.4",
+          "phase": 4,
+          "status": "completed",
+          "size": "medium",
+          "description": "Add regression tests: update-task-status returns only error message not stack frames; thrown error from wrapped tool returns sanitized JSON; sanitized text does not contain internal runtime paths or stack frame patterns. New test file for create-tool.ts wrapper.",
+          "depends": [
+            "4.1",
+            "4.2",
+            "4.3"
+          ],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Validation and Preservation",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "5.1",
+          "phase": 5,
+          "status": "completed",
+          "size": "medium",
+          "description": "Add end-to-end phase completion validation test proving critic drift verification, evidence persistence, phase_complete success.",
+          "depends": [
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "5.2",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Add bypass behavior validation tests covering normal mode with/without spec, turbo mode, curator disabled, critic drift missing.",
+          "depends": [
+            "2.3",
+            "2.4",
+            "2.5"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "5.3",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Verify all prompt modernization sections remain present in agent files. No regressions from Phase 2 changes.",
+          "depends": [
+            "2.1"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "5.4",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Record guardrails decomposition as deferred tech debt in .swarm/evidence/deferred-tech-debt.md. No code changes.",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Acceptance and Release Prep",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "6.1",
+          "phase": 6,
+          "status": "completed",
+          "size": "small",
+          "description": "Run full acceptance: bun test passes, bunx biome ci passes, bun run typecheck passes. Verify SC-001 through SC-010.",
+          "depends": [
+            "4.4",
+            "5.1",
+            "5.2",
+            "5.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "6.2",
+          "phase": 6,
+          "status": "completed",
+          "size": "small",
+          "description": "Create release notes at docs/releases/v6.36.0.md. Cover drift verification, curator fixes, spec absence handling, turbo scope restriction, stack trace leakage fix, and deferred items.",
+          "depends": [
+            "6.1"
+          ],
+          "files_touched": []
+        }
+      ]
+    }
+  ],
+  "migration_status": "native"
+}
