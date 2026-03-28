@@ -2,7 +2,7 @@
  * Adversarial security tests for Task 2.15: Session restart rehydration
  *
  * ONLY attack vectors - malformed inputs, oversized payloads, injection attempts, boundary violations
- * Tests the security hardening of rehydrateSessionFromDisk, readPlanFromDisk, and readEvidenceFromDisk
+ * Tests the security hardening of rehydrateSessionFromDisk, readPlanFromDisk, and readGateEvidenceFromDisk
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
@@ -491,7 +491,7 @@ describe('ADVERSARIAL: Session restart rehydration security tests', () => {
 
 		it('rejects task ID with path traversal pattern in evidence filename', async () => {
 			// Arrange: Try to create evidence file with path traversal in filename
-			// The readEvidenceFromDisk validates taskId format with regex ^\d+\.\d+(\.\d+)*$
+			// The readGateEvidenceFromDisk validates taskId format with regex ^\d+\.\d+(\.\d+)*$
 			// So files with path traversal characters should be skipped
 
 			// Create the evidence directory path that would be used

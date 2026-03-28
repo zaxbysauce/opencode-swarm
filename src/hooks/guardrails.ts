@@ -1159,23 +1159,34 @@ export function createGuardrailsHooks(
 					) {
 						// Increment fallback index
 						session.model_fallback_index++;
-						session.modelFallbackExhausted = true; // Will be reset when task succeeds
 
 						// Resolve the fallback model from config
 						const baseAgentName = session.agentName
 							? session.agentName.replace(/^[^_]+[_]/, '')
 							: '';
+						const swarmAgents = getSwarmAgents();
+						const fallbackModels =
+							swarmAgents?.[baseAgentName]?.fallback_models;
+						// Mark exhausted only when all fallback models have been tried
+						session.modelFallbackExhausted =
+							!fallbackModels ||
+							session.model_fallback_index > fallbackModels.length;
+
 						const fallbackModel = resolveFallbackModel(
 							baseAgentName,
 							session.model_fallback_index,
-							getSwarmAgents(),
+							swarmAgents,
 						);
 
 						if (fallbackModel) {
-							// Resolve primary model name for telemetry
-							const swarmAgents = getSwarmAgents();
+							// Resolve primary model name for telemetry before applying fallback
 							const primaryModel =
 								swarmAgents?.[baseAgentName]?.model ?? 'default';
+
+							// Actually apply the fallback model to the agent config
+							if (swarmAgents?.[baseAgentName]) {
+								swarmAgents[baseAgentName].model = fallbackModel;
+							}
 
 							// Update telemetry with actual model names
 							telemetry.modelFallback(
@@ -1189,9 +1200,8 @@ export function createGuardrailsHooks(
 							// Inject actionable advisory with the specific fallback model
 							session.pendingAdvisoryMessages ??= [];
 							session.pendingAdvisoryMessages.push(
-								`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
-									`Configured fallback model: "${fallbackModel}". ` +
-									`Consider retrying with this model or using /swarm handoff to reset.`,
+								`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` +
+									`Using /swarm handoff to reset to primary model.`,
 							);
 						} else {
 							// No fallback configured — generic advisory

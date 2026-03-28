@@ -754,6 +754,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			// Watchdog: scope-guard runs after guardrails WITHOUT safeHook — throws must propagate to block tools
 			await scopeGuardHook.toolBefore(input, output);
 
+			// Reviewer gate enforcement — throws must propagate to block coder re-delegation
+			await delegationGateHooks.toolBefore(input, output);
+
 			// v6.29: One-time 50% context pressure warning
 			if (swarmState.lastBudgetPct >= 50) {
 				const pressureSession = ensureAgentSession(

@@ -50,6 +50,13 @@ export declare function createDelegationGateHook(config: PluginConfig, directory
     messagesTransform: (input: Record<string, never>, output: {
         messages?: MessageWithParts[];
     }) => Promise<void>;
+    toolBefore: (input: {
+        tool: string;
+        sessionID: string;
+        callID: string;
+    }, output: {
+        args: unknown;
+    }) => Promise<void>;
     toolAfter: (input: {
         tool: string;
         sessionID: string;

@@ -72,7 +72,7 @@ function getModelForAgent(
 
 	// NOTE: fallback_models resolution happens at runtime in guardrails (toolAfter),
 	// not here. getModelForAgent runs once at agent creation. The guardrails hook
-	// modifies agents[name].config.model directly when session.model_fallback_index > 0.
+	// modifies _swarmAgents[name].model directly when session.model_fallback_index > 0.
 	// The config's fallback_models array is read by guardrails to select the fallback.
 
 	// 2. Default from constants — warn once per agent if not in config

@@ -412,6 +412,14 @@ export function createDelegationGateHook(
 		input: Record<string, never>,
 		output: { messages?: MessageWithParts[] },
 	) => Promise<void>;
+	toolBefore: (
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+		},
+		output: { args: unknown },
+	) => Promise<void>;
 	toolAfter: (
 		input: {
 			tool: string;
@@ -437,11 +445,63 @@ export function createDelegationGateHook(
 			): Promise<void> => {
 				// No-op when delegation gate is disabled
 			},
+			toolBefore: async (): Promise<void> => {
+				// No-op when delegation gate is disabled
+			},
 			toolAfter: async (): Promise<void> => {
 				// No-op when delegation gate is disabled
 			},
 		};
 	}
+
+	// toolBefore: runtime reviewer gate enforcement
+	// Blocks coder re-delegation when the task's workflow state is coder_delegated
+	// (meaning a coder already ran but no reviewer has run yet)
+	const toolBefore = async (
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+		},
+		output: { args: unknown },
+	): Promise<void> => {
+		if (!input.sessionID) return;
+
+		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
+		if (normalized !== 'Task' && normalized !== 'task') return;
+
+		const args = output.args as Record<string, unknown> | undefined;
+		if (!args) return;
+
+		const subagentType = args.subagent_type;
+		if (typeof subagentType !== 'string') return;
+
+		const targetAgent = stripKnownSwarmPrefix(subagentType);
+		if (targetAgent !== 'coder') return;
+
+		// Only check for the architect session (the orchestrator)
+		const session = swarmState.agentSessions.get(input.sessionID);
+		if (!session || !session.taskWorkflowStates) return;
+
+		// Check if ANY task is in coder_delegated state (coder ran, no reviewer yet)
+		for (const [taskId, state] of session.taskWorkflowStates) {
+			if (state !== 'coder_delegated') continue;
+
+			// Turbo mode bypasses the block — but Tier 3 tasks are never bypassed
+			const turbo = hasActiveTurboMode(input.sessionID);
+			if (turbo) {
+				// Tier 3 tasks always require reviewer, even in turbo mode
+				// Tier 3 pattern: task IDs like 3.x or tasks in phase 3
+				const isTier3 = taskId.startsWith('3.');
+				if (!isTier3) continue; // Allow bypass for non-Tier-3 in turbo
+			}
+
+			throw new Error(
+				`REVIEWER_GATE_VIOLATION: Cannot re-delegate to coder without reviewer delegation. ` +
+					`Task ${taskId} state: coder_delegated. Delegate to reviewer first.`,
+			);
+		}
+	};
 
 	// toolAfter: resets qaSkip fields and advances task states based on delegation type
 	// Uses stored input args from guardrails when available, falls back to delegationChains
@@ -817,6 +877,7 @@ export function createDelegationGateHook(
 	};
 
 	return {
+		toolBefore,
 		messagesTransform: async (
 			_input: Record<string, never>,
 			output: { messages?: MessageWithParts[] },
