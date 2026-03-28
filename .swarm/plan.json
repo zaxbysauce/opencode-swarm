@@ -1,0 +1,262 @@
+{
+  "schema_version": "1.0.0",
+  "title": "opencode-swarm v6.36.0 — Phase Drift Verification + Curator Pipeline + Stack Trace Fix",
+  "swarm": "mega",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "name": "Re-verify Current Wiring",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "1.1",
+          "phase": 1,
+          "status": "completed",
+          "size": "small",
+          "description": "Re",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "1.2",
+          "phase": 1,
+          "status": "completed",
+          "size": "small",
+          "description": "Re",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Fix Core Drift Verification Architecture",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "2.1",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Update architect PHASE",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.2",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Register critic_drift_verifier as a separate agent in src/agents/index.ts following the critic_sounding_board pattern. [MEDIUM]",
+          "depends": [
+            "1.1"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "2.3",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Fix the core timing bug in phase",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.4",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Tighten enforcement for missing spec.md. When spec.md absent and drift evidence missing, use plan.json fallback comparison basis instead of silent auto",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "2.5",
+          "phase": 2,
+          "status": "completed",
+          "size": "small",
+          "description": "Restrict turbo mode bypasses by adding optional sessionID parameter to hasActiveTurboMode() in state.ts. [MEDIUM]",
+          "depends": [
+            "1.1"
+          ],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Curator Pipeline Fixes",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "3.1",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Verify and fix curator pipeline outputs. curateAndStoreSwarm now returns {stored, skipped, rejected}. Advisory message includes knowledge stats. [MEDIUM]",
+          "depends": [
+            "1.2",
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "3.2",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Fix curator knowledge update path. Category inference now covers all 9 KnowledgeCategory values. Added 'archived' to status union. [MEDIUM]",
+          "depends": [
+            "1.2",
+            "2.3"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "3.3",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Rename runCriticDriftCheck to runDeterministicDriftCheck in curator",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "3.4",
+          "phase": 3,
+          "status": "completed",
+          "size": "small",
+          "description": "Add curator pipeline health integration test proving curator enabled, init/phase run, output written, output consumed. [MEDIUM]",
+          "depends": [
+            "3.1",
+            "3.2",
+            "3.3"
+          ],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Fix Stack Trace Leakage from Tool Failures (Hotfix)",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "4.1",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Fix update_task_status error serialization. Replace errors: [String(error)] at line 672 with error instanceof Error ? error.message : String(error). Sanitize console.warn at line 210",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.2",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Add generic tool",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.3",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Sweep all TUI",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "4.4",
+          "phase": 4,
+          "status": "completed",
+          "size": "small",
+          "description": "Add regression tests: update",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Validation and Preservation",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "5.1",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Add end",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "5.2",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Add bypass behavior validation tests covering normal mode with/without spec, turbo mode, curator disabled, critic drift missing. [SMALL]",
+          "depends": [
+            "2.3",
+            "2.4",
+            "2.5"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "5.3",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Verify all prompt modernization sections remain present in agent files. No regressions from Phase 2 changes. [SMALL]",
+          "depends": [
+            "2.1"
+          ],
+          "files_touched": []
+        },
+        {
+          "id": "5.4",
+          "phase": 5,
+          "status": "completed",
+          "size": "small",
+          "description": "Record guardrails decomposition as deferred tech debt in .swarm/evidence/deferred",
+          "depends": [],
+          "files_touched": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Acceptance and Release Prep",
+      "status": "complete",
+      "tasks": [
+        {
+          "id": "6.1",
+          "phase": 6,
+          "status": "completed",
+          "size": "small",
+          "description": "Run full acceptance: bun test passes, bunx biome ci passes, bun run typecheck passes. Verify SC",
+          "depends": [],
+          "files_touched": []
+        },
+        {
+          "id": "6.2",
+          "phase": 6,
+          "status": "completed",
+          "size": "small",
+          "description": "Create release notes at docs/releases/v6.36.0.md. Cover drift verification, curator fixes, spec absence handling, turbo scope restriction, stack trace leakage fix, and deferred items. [SMALL]",
+          "depends": [
+            "6.1"
+          ],
+          "files_touched": []
+        }
+      ]
+    }
+  ],
+  "migration_status": "migrated"
+}

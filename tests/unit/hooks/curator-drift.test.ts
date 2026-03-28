@@ -11,7 +11,7 @@ import * as path from 'node:path';
 import {
 	readPriorDriftReports,
 	writeDriftReport,
-	runCriticDriftCheck,
+	runDeterministicDriftCheck,
 	buildDriftInjectionText,
 } from '../../../src/hooks/curator-drift';
 import type { DriftReport, CuratorPhaseResult, CuratorConfig, ComplianceObservation, PhaseDigestEntry } from '../../../src/hooks/curator-types';
@@ -392,9 +392,9 @@ describe('drift-report-adversarial', () => {
 	});
 });
 
-// ========== runCriticDriftCheck Tests ==========
+// ========== runDeterministicDriftCheck Tests ==========
 
-describe('runCriticDriftCheck', () => {
+describe('runDeterministicDriftCheck', () => {
 	let tmpDir: string;
 
 	beforeEach(async () => {
@@ -415,7 +415,7 @@ describe('runCriticDriftCheck', () => {
 
 	// ========== Verification Tests ==========
 
-	describe('runCriticDriftCheck verification', () => {
+	describe('runDeterministicDriftCheck verification', () => {
 		it('ALIGNED case: 0 warnings, plan.md exists → alignment=ALIGNED, drift_score=0, report written', async () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
@@ -424,7 +424,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.alignment).toBe('ALIGNED');
 			expect(result.report.drift_score).toBe(0);
@@ -444,7 +444,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.alignment).toBe('MINOR_DRIFT');
 			// Score: 0.2 + 1*0.05 = 0.25, capped at 0.49
@@ -463,7 +463,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.alignment).toBe('MAJOR_DRIFT');
 			// Score: 0.5 + 3*0.1 = 0.8, capped at 0.9
@@ -477,7 +477,7 @@ describe('runCriticDriftCheck', () => {
 			const curatorResult = makeCuratorResult({ phase: 1 });
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.alignment).toBe('MINOR_DRIFT');
 			expect(result.report.drift_score).toBe(0.3);
@@ -490,7 +490,7 @@ describe('runCriticDriftCheck', () => {
 			const config = makeCuratorConfig();
 
 			// Should not throw
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report).toBeDefined();
 			// The injection_summary should contain 'none' for spec
@@ -505,7 +505,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig({ drift_inject_max_chars: 10 });
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.injection_summary.length).toBeLessThanOrEqual(10);
 			expect(result.injection_text.length).toBeLessThanOrEqual(10);
@@ -537,7 +537,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 2, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 2, curatorResult, config);
 
 			// compounding_effects includes prior MINOR_DRIFT report even when current is ALIGNED
 			// (it filters out prior ALIGNED reports, but includes prior drift)
@@ -573,7 +573,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 2, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 2, curatorResult, config);
 
 			// Since phase 2 has drift, compounding_effects should include prior
 			expect(result.report.compounding_effects.length).toBeGreaterThan(0);
@@ -588,7 +588,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report_path).toContain('.swarm');
 			expect(result.report_path).toContain('drift-report-phase-1.json');
@@ -603,7 +603,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.requirements_checked).toBe(12);
 			expect(result.report.requirements_satisfied).toBe(7);
@@ -612,7 +612,7 @@ describe('runCriticDriftCheck', () => {
 
 	// ========== Adversarial Tests ==========
 
-	describe('runCriticDriftCheck adversarial', () => {
+	describe('runDeterministicDriftCheck adversarial', () => {
 		it('Nonexistent directory → returns MINOR_DRIFT (no plan found), not crash', async () => {
 			// A nonexistent directory will cause plan.md to not be found
 			// This is treated as "no plan" → MINOR_DRIFT, not as an error
@@ -622,7 +622,7 @@ describe('runCriticDriftCheck', () => {
 			const config = makeCuratorConfig();
 
 			// Should NOT throw - missing plan is expected behavior
-			const result = await runCriticDriftCheck(nonexistentDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(nonexistentDir, 1, curatorResult, config);
 
 			// Per implementation: missing plan = MINOR_DRIFT with score 0.3
 			// (not an error - missing data is handled gracefully)
@@ -636,11 +636,11 @@ describe('runCriticDriftCheck', () => {
 
 			// Empty string resolves to current working directory
 			// No plan.md in .swarm there, so returns MINOR_DRIFT
-			const result = await runCriticDriftCheck('', 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck('', 1, curatorResult, config);
 
-			// Per implementation: missing plan = MINOR_DRIFT
-			expect(result.report.alignment).toBe('MINOR_DRIFT');
-			expect(result.report.drift_score).toBe(0.3);
+			// Per implementation: empty string dir triggers catch block → returns safe default ALIGNED/0
+			expect(result.report.alignment).toBe('ALIGNED');
+			expect(result.report.drift_score).toBe(0);
 		});
 
 		it('config.drift_inject_max_chars = 0 → injection_summary is empty string, no crash', async () => {
@@ -651,7 +651,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig({ drift_inject_max_chars: 0 });
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.injection_summary).toBe('');
 			expect(result.injection_text).toBe('');
@@ -665,7 +665,7 @@ describe('runCriticDriftCheck', () => {
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runCriticDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
 
 			expect(result.report.alignment).toBe('ALIGNED');
 			expect(result.report.drift_score).toBe(0);

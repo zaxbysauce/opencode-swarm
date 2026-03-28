@@ -45,7 +45,10 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			const handler = commandsIndex.createSwarmCommandHandler('/tmp', {});
 			const output = { parts: [] as unknown[] };
 
-			await handler({ command: 'swarm', arguments: '', sessionID: 'no-session' }, output);
+			await handler(
+				{ command: 'swarm', arguments: '', sessionID: 'no-session' },
+				output,
+			);
 
 			const text = (output.parts[0] as { text: string }).text;
 			expect(text).toContain('/swarm turbo');
@@ -59,7 +62,10 @@ describe('Task 3.12: Turbo Command Registration', () => {
 			const handler = commandsIndex.createSwarmCommandHandler('/tmp', {});
 			const output = { parts: [] as unknown[] };
 
-			await handler({ command: 'swarm', arguments: '', sessionID: 'no-session' }, output);
+			await handler(
+				{ command: 'swarm', arguments: '', sessionID: 'no-session' },
+				output,
+			);
 
 			const text = (output.parts[0] as { text: string }).text;
 			// Description is "Toggle Turbo Mode …" — check case-insensitively

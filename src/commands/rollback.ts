@@ -130,7 +130,10 @@ export async function handleRollbackCommand(
 	try {
 		fs.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}\n`);
 	} catch (error) {
-		console.error('Failed to write rollback event:', error);
+		console.error(
+			'Failed to write rollback event:',
+			error instanceof Error ? error.message : String(error),
+		);
 	}
 
 	return `Rolled back to phase ${targetPhase}: ${checkpoint.label || 'no label'}`;

@@ -13,6 +13,7 @@ import {
 	rewriteKnowledge,
 } from './knowledge-store.js';
 import type {
+	KnowledgeCategory,
 	KnowledgeConfig,
 	RejectedLesson,
 	SwarmKnowledgeEntry,
@@ -246,6 +247,7 @@ async function processRetractions(
 
 /**
  * Curate and store swarm knowledge entries from lessons.
+ * @returns Promise resolving to an object with counts of stored, skipped, and rejected lessons.
  */
 export async function curateAndStoreSwarm(
 	lessons: string[],
@@ -253,19 +255,37 @@ export async function curateAndStoreSwarm(
 	phaseInfo: { phase_number: number },
 	directory: string,
 	config: KnowledgeConfig,
-): Promise<void> {
+): Promise<{ stored: number; skipped: number; rejected: number }> {
 	const knowledgePath = resolveSwarmKnowledgePath(directory);
 	const existingEntries =
 		(await readKnowledge<SwarmKnowledgeEntry>(knowledgePath)) ?? [];
 
+	let stored = 0;
+	let skipped = 0;
+	let rejected = 0;
+
+	// Tag-to-category mapping (static, hoisted outside loop)
+	const categoryByTag = new Map<string, KnowledgeCategory>([
+		['process', 'process'],
+		['architecture', 'architecture'],
+		['tooling', 'tooling'],
+		['security', 'security'],
+		['testing', 'testing'],
+		['debugging', 'debugging'],
+		['performance', 'performance'],
+		['integration', 'integration'],
+		['other', 'other'],
+	]);
+
 	for (const lesson of lessons) {
 		// Determine category from tags
 		const tags = inferTags(lesson);
-		let category: 'process' | 'security' | 'testing' = 'process';
-		if (tags.includes('security')) {
-			category = 'security';
-		} else if (tags.includes('testing')) {
-			category = 'testing';
+		let category: KnowledgeCategory = 'process';
+		for (const tag of tags) {
+			if (categoryByTag.has(tag)) {
+				category = categoryByTag.get(tag)!;
+				break;
+			}
 		}
 
 		// Build meta object for validation
@@ -284,14 +304,15 @@ export async function curateAndStoreSwarm(
 
 		// If validation failed (severity is 'error'), reject the lesson
 		if (result.valid === false || result.severity === 'error') {
-			const rejected: RejectedLesson = {
+			const rejectedLesson: RejectedLesson = {
 				id: crypto.randomUUID(),
 				lesson,
 				rejection_reason: result.reason ?? 'unknown',
 				rejected_at: new Date().toISOString(),
 				rejection_layer: result.layer ?? 1,
 			};
-			await appendRejectedLesson(directory, rejected);
+			await appendRejectedLesson(directory, rejectedLesson);
+			rejected++;
 			continue;
 		}
 
@@ -302,6 +323,7 @@ export async function curateAndStoreSwarm(
 			config.dedup_threshold,
 		);
 		if (duplicate) {
+			skipped++;
 			continue; // skip duplicate
 		}
 
@@ -336,6 +358,7 @@ export async function curateAndStoreSwarm(
 
 		// Append to knowledge store
 		await appendKnowledge(knowledgePath, entry);
+		stored++;
 
 		// Add to existing entries for subsequent deduplication checks
 		existingEntries.push(entry);
@@ -343,6 +366,8 @@ export async function curateAndStoreSwarm(
 
 	// Run auto-promotion after processing all lessons
 	await runAutoPromotion(directory, config);
+
+	return { stored, skipped, rejected };
 }
 
 /**

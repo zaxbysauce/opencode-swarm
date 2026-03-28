@@ -20,7 +20,6 @@ import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
 } from '../hooks/curator';
-import { runCriticDriftCheck } from '../hooks/curator-drift';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
@@ -68,7 +67,10 @@ interface CrossSessionAgentsResult {
 
 function safeWarn(message: string, error: unknown): void {
 	try {
-		console.warn(message, error);
+		console.warn(
+			message,
+			error instanceof Error ? error.message : String(error),
+		);
 	} catch {
 		// Ignore logger failures to keep phase_complete non-blocking
 	}
@@ -459,7 +461,7 @@ export async function executePhaseComplete(
 	}
 
 	// Turbo mode: skip both completion-verify and drift-verifier gates
-	if (hasActiveTurboMode()) {
+	if (hasActiveTurboMode(sessionID)) {
 		// Non-blocking warning so architect knows gates were bypassed
 		console.warn(
 			`[phase_complete] Turbo mode active — skipping completion-verify and drift-verifier gates for phase ${phase}`,
@@ -568,9 +570,38 @@ export async function executePhaseComplete(
 				const specExists = fs.existsSync(specPath);
 
 				if (!specExists) {
-					warnings.push(
-						`Drift verifier evidence missing — no spec.md found, drift check is advisory-only.`,
-					);
+					// Try to read plan.json to provide better guidance
+					let incompleteTaskCount = 0;
+					let planPhaseFound = false;
+					try {
+						const planPath = validateSwarmPath(dir, 'plan.json');
+						const planRaw = fs.readFileSync(planPath, 'utf-8');
+						const plan: {
+							phases: Array<{
+								id: number;
+								tasks: Array<{ id: string; status: string }>;
+							}>;
+						} = JSON.parse(planRaw);
+						const targetPhase = plan.phases.find((p) => p.id === phase);
+						if (targetPhase) {
+							planPhaseFound = true;
+							incompleteTaskCount = targetPhase.tasks.filter(
+								(t) => t.status !== 'completed',
+							).length;
+						}
+					} catch {
+						// plan.json missing or unreadable — incompleteTaskCount stays 0
+					}
+
+					if (incompleteTaskCount > 0 || !planPhaseFound) {
+						warnings.push(
+							`No spec.md found and drift verification evidence missing. Phase ${phase} has ${incompleteTaskCount} incomplete task(s) in plan.json — consider running critic_drift_verifier before phase completion.`,
+						);
+					} else {
+						warnings.push(
+							`No spec.md found. Phase ${phase} tasks are all completed in plan.json. Drift verification was skipped.`,
+						);
+					}
 				} else {
 					return JSON.stringify(
 						{
@@ -670,7 +701,7 @@ export async function executePhaseComplete(
 
 	let complianceWarnings: string[] = [];
 
-	// Curator pipeline: collect phase data and run drift check. Never blocks phase_complete.
+	// Curator pipeline: collect phase data and run knowledge updates. Never blocks phase_complete.
 	try {
 		const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 		if (curatorConfig.enabled && curatorConfig.phase_enabled) {
@@ -681,16 +712,10 @@ export async function executePhaseComplete(
 				curatorConfig,
 				{},
 			);
-			await applyCuratorKnowledgeUpdates(
+			const knowledgeResult = await applyCuratorKnowledgeUpdates(
 				dir,
 				curatorResult.knowledge_recommendations,
 				knowledgeConfig,
-			);
-			const driftResult = await runCriticDriftCheck(
-				dir,
-				phase,
-				curatorResult,
-				curatorConfig,
 			);
 			// Advisory injection: push actionable curator message to architect session
 			const callerSessionState = swarmState.agentSessions.get(sessionID);
@@ -706,16 +731,25 @@ export async function executePhaseComplete(
 						: '';
 
 				callerSessionState.pendingAdvisoryMessages.push(
-					`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Call curator_analyze with recommendations to apply knowledge updates from this phase.`,
+					`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Knowledge: ${knowledgeResult.applied} applied, ${knowledgeResult.skipped} skipped. Call curator_analyze with recommendations to apply knowledge updates from this phase.`,
 				);
 
-				if (
-					driftResult?.report?.drift_score &&
-					driftResult.report.drift_score > 0
-				) {
-					callerSessionState.pendingAdvisoryMessages.push(
-						`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${(driftResult.injection_text || '').slice(0, 300)}. Review ${driftResult.report_path || 'unknown'} and address spec alignment before proceeding.`,
+				// Check for drift advisories from prior deterministic drift checks
+				try {
+					const { readPriorDriftReports } = await import(
+						'../hooks/curator-drift'
 					);
+					const priorReports = await readPriorDriftReports(dir);
+					const phaseReport = priorReports
+						.filter((r) => r.phase === phase)
+						.pop();
+					if (phaseReport && phaseReport.drift_score > 0) {
+						callerSessionState.pendingAdvisoryMessages.push(
+							`[CURATOR DRIFT DETECTED (phase ${phase}, score ${phaseReport.drift_score})]: Consider running critic_drift_verifier before phase completion to get a proper drift review. Review drift report for phase ${phase} and address spec alignment if applicable.`,
+						);
+					}
+				} catch {
+					// Non-blocking — drift advisory is informational only
 				}
 			}
 			// Surface non-suppressed compliance observations in return value
