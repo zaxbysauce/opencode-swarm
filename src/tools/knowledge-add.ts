@@ -7,6 +7,7 @@ import type {
 	KnowledgeCategory,
 	SwarmKnowledgeEntry,
 } from '../hooks/knowledge-types.js';
+import { loadPlan } from '../plan/manager.js';
 import { createSwarmTool } from './create-tool.js';
 
 const VALID_CATEGORIES: KnowledgeCategory[] = [
@@ -108,6 +109,15 @@ export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
 					? scopeInput
 					: 'global';
 
+			// Derive project_name from plan title
+			let project_name = '';
+			try {
+				const plan = await loadPlan(directory);
+				project_name = plan?.title ?? '';
+			} catch {
+				// plan load failure must not prevent knowledge storage
+			}
+
 			// Construct the entry
 			const entry: SwarmKnowledgeEntry = {
 				id: crypto.randomUUID(),
@@ -119,7 +129,7 @@ export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
 				confidence: 0.5,
 				status: 'candidate',
 				confirmed_by: [],
-				project_name: '',
+				project_name,
 				retrieval_outcomes: {
 					applied_count: 0,
 					succeeded_after_count: 0,
