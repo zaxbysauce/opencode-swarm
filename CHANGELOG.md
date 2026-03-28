@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.36.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.4...v6.36.0) (2026-03-28)
+
+
+### Features
+
+* **swarm:** add critic drift verifier, fix curator pipeline, and sanitize stack traces ([227bcb5](https://github.com/zaxbysauce/opencode-swarm/commit/227bcb5bd9d671a828a9669c4c2cf1253fc47955))
+* **swarm:** add critic drift verifier, fix curator pipeline, and sanitize stack traces ([#311](https://github.com/zaxbysauce/opencode-swarm/issues/311)) ([978c6f9](https://github.com/zaxbysauce/opencode-swarm/commit/978c6f9c5fd9e71a1c3a530e9dd487ad124ac11c))
+
 ## [6.35.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.3...v6.35.4) (2026-03-28)
 
 
