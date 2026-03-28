@@ -331,7 +331,9 @@ export declare function applyRehydrationCache(session: AgentSessionState): void;
  */
 export declare function rehydrateSessionFromDisk(directory: string, session: AgentSessionState): Promise<void>;
 /**
- * Check if ANY active session has Turbo Mode enabled.
- * @returns true if any session has turboMode: true
+ * Check if Turbo Mode is enabled for a specific session or ANY session.
+ * @param sessionID - Optional session ID to check. If provided, checks only that session.
+ *                    If omitted, checks all sessions (backward-compatible global behavior).
+ * @returns true if the specified session has turboMode: true, or if any session has turboMode: true when no sessionID provided
  */
-export declare function hasActiveTurboMode(): boolean;
+export declare function hasActiveTurboMode(sessionID?: string): boolean;

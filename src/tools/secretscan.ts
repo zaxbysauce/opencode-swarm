@@ -400,7 +400,7 @@ function isExcluded(
 }
 
 function containsControlChars(str: string): boolean {
-	return /[\0\r]/.test(str);
+	return /[\0\t\r\n]/.test(str);
 }
 
 function validateDirectoryInput(dir: string): string | null {

@@ -850,11 +850,12 @@ async function readPlanFromDisk(directory: string): Promise<Plan | null> {
 }
 
 /**
- * Reads all evidence files from .swarm/evidence/*.json
- * Returns a Map of taskId -> TaskEvidence (only valid evidence parsed).
- * Non-fatal: skips malformed files.
+ * Reads gate evidence files from .swarm/evidence/*.json (written by recordGateEvidence).
+ * Returns a Map of taskId -> TaskEvidence (only valid gate evidence parsed).
+ * Validates that each file has the gate evidence schema: { taskId: string, required_gates: string[] }.
+ * Non-fatal: skips malformed files without throwing.
  */
-async function readEvidenceFromDisk(
+async function readGateEvidenceFromDisk(
 	directory: string,
 ): Promise<Map<string, TaskEvidence>> {
 	const evidenceMap = new Map<string, TaskEvidence>();
@@ -879,7 +880,8 @@ async function readEvidenceFromDisk(
 				const content = await fs.readFile(filePath, 'utf-8');
 				const parsed = JSON.parse(content);
 
-				// Basic validation: must have taskId and required_gates
+				// Gate evidence schema validation: must have taskId and required_gates
+				// to match what recordGateEvidence writes ({ taskId, required_gates, gates })
 				if (
 					parsed &&
 					typeof parsed.taskId === 'string' &&
@@ -933,7 +935,7 @@ export async function buildRehydrationCache(directory: string): Promise<void> {
 		}
 	}
 
-	const evidenceMap = await readEvidenceFromDisk(directory);
+	const evidenceMap = await readGateEvidenceFromDisk(directory);
 	_rehydrationCache = { planTaskStates, evidenceMap };
 }
 

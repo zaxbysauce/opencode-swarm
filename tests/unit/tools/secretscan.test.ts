@@ -1404,4 +1404,40 @@ describe('secretscan tool', () => {
 			});
 		});
 	});
+
+	describe('containsControlChars consistency', () => {
+		it('blocks tab character in directory input', async () => {
+			const result = await secretscan.execute({ directory: '/tmp/test\tdir' }, {} as any);
+			const parsed = parseResult(result);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('control characters');
+		});
+
+		it('blocks newline character in directory input', async () => {
+			const result = await secretscan.execute({ directory: '/tmp/test\ndir' }, {} as any);
+			const parsed = parseResult(result);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('control characters');
+		});
+
+		it('blocks carriage return in directory input', async () => {
+			const result = await secretscan.execute({ directory: '/tmp/test\rdir' }, {} as any);
+			const parsed = parseResult(result);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('control characters');
+		});
+
+		it('blocks null byte in directory input', async () => {
+			const result = await secretscan.execute({ directory: '/tmp/test\0dir' }, {} as any);
+			const parsed = parseResult(result);
+			expect(parsed.error).toBeDefined();
+			expect(parsed.error).toContain('control characters');
+		});
+
+		it('allows normal strings without control characters', async () => {
+			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const parsed = parseResult(result);
+			expect(parsed.error).toBeUndefined();
+		});
+	});
 });

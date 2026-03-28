@@ -4,43 +4,25 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: __accessProp.bind(mod, key),
+        get: () => mod[key],
         enumerable: true
       });
-  if (canCache)
-    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __returnValue = (v) => v;
-function __exportSetter(name2, newValue) {
-  this[name2] = __returnValue.bind(null, newValue);
-}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: __exportSetter.bind(all, name2)
+      set: (newValue) => all[name2] = () => newValue
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -127,17 +109,14 @@ function isLowCapabilityModel(modelId) {
 var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, AGENT_TOOL_MAP, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS;
 var init_constants = __esm(() => {
   init_tool_names();
-  QA_AGENTS = [
-    "reviewer",
-    "critic",
-    "critic_drift_verifier"
-  ];
+  QA_AGENTS = ["reviewer", "critic"];
   PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
   ALL_SUBAGENT_NAMES = [
     "sme",
     "docs",
     "designer",
     "critic_sounding_board",
+    "critic_drift_verifier",
     ...QA_AGENTS,
     ...PIPELINE_AGENTS
   ];
@@ -237,7 +216,6 @@ var init_constants = __esm(() => {
       "symbols"
     ],
     critic_drift_verifier: [
-      "completion_verify",
       "complexity_hotspots",
       "detect_domains",
       "imports",
@@ -14840,6 +14818,7 @@ var init_schema = __esm(() => {
     idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
     no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
     max_coder_revisions: exports_external.number().int().min(1).max(20).default(5),
+    runaway_output_max_turns: exports_external.number().int().min(1).max(20).default(5),
     qa_gates: exports_external.object({
       required_tools: exports_external.array(exports_external.string().min(1)).default([
         "diff",
@@ -15585,7 +15564,10 @@ function sanitizeTaskId(taskId) {
   if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
     return taskId;
   }
-  throw new Error(`Invalid task ID: must match pattern ^\\d+\\.\\d+(\\.\\d+)*$, ^retro-\\d+$, or ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build)$, got "${taskId}"`);
+  if (GENERAL_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  throw new Error(`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`);
 }
 async function saveEvidence(directory, taskId, evidence) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
@@ -15698,7 +15680,7 @@ async function loadEvidence(directory, taskId) {
       return { status: "found", bundle: validated };
     } catch (error49) {
       warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [String(error49)];
+      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
       return { status: "invalid_schema", errors: errors3 };
     }
   }
@@ -15707,7 +15689,7 @@ async function loadEvidence(directory, taskId) {
     return { status: "found", bundle: validated };
   } catch (error49) {
     warn(`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [String(error49)];
+    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
     return { status: "invalid_schema", errors: errors3 };
   }
 }
@@ -15795,7 +15777,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
+var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager = __esm(() => {
   init_zod();
   init_evidence_schema();
@@ -15819,6 +15801,7 @@ var init_manager = __esm(() => {
   TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
   RETRO_TASK_ID_REGEX = /^retro-\d+$/;
   INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
+  GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -30032,7 +30015,16 @@ function createSwarmTool(opts) {
     args: opts.args,
     execute: async (args2, ctx) => {
       const directory = ctx?.directory ?? process.cwd();
-      return opts.execute(args2, directory, ctx);
+      try {
+        return await opts.execute(args2, directory, ctx);
+      } catch (error93) {
+        const message = error93 instanceof Error ? error93.message : String(error93);
+        return JSON.stringify({
+          success: false,
+          message: "Tool execution failed",
+          errors: [message]
+        }, null, 2);
+      }
     }
   });
 }
@@ -33881,6 +33873,10 @@ function detectAdditionalLinter(cwd) {
 }
 async function detectAvailableLinter(directory) {
   const _DETECT_TIMEOUT = 2000;
+  if (!directory)
+    return null;
+  if (!fs12.existsSync(directory))
+    return null;
   const projectDir = directory;
   const isWindows = process.platform === "win32";
   const biomeBin = isWindows ? path23.join(projectDir, "node_modules", ".bin", "biome.EXE") : path23.join(projectDir, "node_modules", ".bin", "biome");
@@ -34181,7 +34177,7 @@ function isExcluded(entry, relPath, exactNames, globPatterns) {
   return false;
 }
 function containsControlChars(str) {
-  return /[\0\r]/.test(str);
+  return /[\0\t\r\n]/.test(str);
 }
 function validateDirectoryInput(dir) {
   if (!dir || dir.length === 0) {
@@ -36623,6 +36619,175 @@ var init_preflight_integration = __esm(() => {
   init_status_artifact();
   init_trigger();
   init_preflight_service();
+});
+
+// src/hooks/curator-drift.ts
+var exports_curator_drift = {};
+__export(exports_curator_drift, {
+  writeDriftReport: () => writeDriftReport,
+  runDeterministicDriftCheck: () => runDeterministicDriftCheck,
+  readPriorDriftReports: () => readPriorDriftReports,
+  buildDriftInjectionText: () => buildDriftInjectionText
+});
+import * as fs26 from "fs";
+import * as path37 from "path";
+async function readPriorDriftReports(directory) {
+  const swarmDir = path37.join(directory, ".swarm");
+  const entries = await fs26.promises.readdir(swarmDir).catch(() => null);
+  if (entries === null)
+    return [];
+  const reportFiles = entries.filter((name2) => name2.startsWith(DRIFT_REPORT_PREFIX) && name2.endsWith(".json")).sort();
+  const reports = [];
+  for (const filename of reportFiles) {
+    const content = await readSwarmFileAsync(directory, filename);
+    if (content === null)
+      continue;
+    try {
+      const report = JSON.parse(content);
+      if (typeof report.phase !== "number" || typeof report.alignment !== "string") {
+        console.warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
+        continue;
+      }
+      reports.push(report);
+    } catch {
+      console.warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
+    }
+  }
+  reports.sort((a, b) => a.phase - b.phase);
+  return reports;
+}
+async function writeDriftReport(directory, report) {
+  const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
+  const filePath = validateSwarmPath(directory, filename);
+  const swarmDir = path37.dirname(filePath);
+  await fs26.promises.mkdir(swarmDir, { recursive: true });
+  try {
+    await fs26.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
+  } catch (err2) {
+    throw new Error(`[curator-drift] Failed to write drift report to ${filePath}: ${String(err2)}`);
+  }
+  return filePath;
+}
+async function runDeterministicDriftCheck(directory, phase, curatorResult, config3, injectAdvisory) {
+  try {
+    const planMd = await readSwarmFileAsync(directory, "plan.md");
+    const specMd = await readSwarmFileAsync(directory, "spec.md");
+    const priorReports = await readPriorDriftReports(directory);
+    const complianceCount = curatorResult.compliance.length;
+    const warningCompliance = curatorResult.compliance.filter((obs) => obs.severity === "warning");
+    let alignment = "ALIGNED";
+    let driftScore = 0;
+    if (!planMd) {
+      alignment = "MINOR_DRIFT";
+      driftScore = 0.3;
+    } else if (warningCompliance.length >= 3) {
+      alignment = "MAJOR_DRIFT";
+      driftScore = Math.min(0.9, 0.5 + warningCompliance.length * 0.1);
+    } else if (warningCompliance.length >= 1 || complianceCount >= 3) {
+      alignment = "MINOR_DRIFT";
+      driftScore = Math.min(0.49, 0.2 + complianceCount * 0.05);
+    }
+    const priorSummaries = priorReports.map((r) => r.injection_summary).filter(Boolean);
+    const keyCorrections = warningCompliance.map((obs) => obs.description);
+    const firstDeviation = warningCompliance.length > 0 ? {
+      phase,
+      task: "unknown",
+      description: warningCompliance[0]?.description ?? ""
+    } : null;
+    const payloadLines = [
+      `CURATOR_DIGEST: ${JSON.stringify(curatorResult.digest)}`,
+      `CURATOR_COMPLIANCE: ${JSON.stringify(curatorResult.compliance)}`,
+      `PLAN: ${planMd ?? "none"}`,
+      `SPEC: ${specMd ?? "none"}`,
+      `PRIOR_DRIFT_REPORTS: ${JSON.stringify(priorSummaries)}`
+    ];
+    const payload = payloadLines.join(`
+`);
+    const requirementsChecked = curatorResult.digest.tasks_total;
+    const requirementsSatisfied = curatorResult.digest.tasks_completed;
+    const injectionSummaryRaw = `Phase ${phase}: ${alignment} (${driftScore.toFixed(2)}) \u2014 ${firstDeviation ? firstDeviation.description : "all requirements on track"}.${keyCorrections.length > 0 ? `Correction: ${keyCorrections[0] ?? ""}.` : ""}`;
+    const injectionSummary = injectionSummaryRaw.slice(0, config3.drift_inject_max_chars);
+    const report = {
+      schema_version: 1,
+      phase,
+      timestamp: new Date().toISOString(),
+      alignment,
+      drift_score: driftScore,
+      first_deviation: firstDeviation,
+      compounding_effects: priorReports.filter((r) => r.alignment !== "ALIGNED").map((r) => `Phase ${r.phase}: ${r.alignment}`).slice(0, 5),
+      corrections: keyCorrections.slice(0, 5),
+      requirements_checked: requirementsChecked,
+      requirements_satisfied: requirementsSatisfied,
+      scope_additions: [],
+      injection_summary: injectionSummary
+    };
+    const reportPath = await writeDriftReport(directory, report);
+    getGlobalEventBus().publish("curator.drift.completed", {
+      phase,
+      alignment,
+      drift_score: driftScore,
+      report_path: reportPath
+    });
+    if (injectAdvisory && alignment !== "ALIGNED" && driftScore > 0) {
+      try {
+        const advisoryText = `CURATOR DRIFT DETECTED (phase ${phase}, score ${driftScore.toFixed(2)}): ${injectionSummary.slice(0, 300)}. Review .swarm/${DRIFT_REPORT_PREFIX}${phase}.json and address spec alignment before proceeding.`;
+        injectAdvisory(advisoryText);
+      } catch {}
+    }
+    const injectionText = injectionSummary;
+    return {
+      phase,
+      report,
+      report_path: reportPath,
+      injection_text: injectionText
+    };
+  } catch (err2) {
+    getGlobalEventBus().publish("curator.error", {
+      operation: "drift",
+      phase,
+      error: String(err2)
+    });
+    const defaultReport = {
+      schema_version: 1,
+      phase,
+      timestamp: new Date().toISOString(),
+      alignment: "ALIGNED",
+      drift_score: 0,
+      first_deviation: null,
+      compounding_effects: [],
+      corrections: [],
+      requirements_checked: 0,
+      requirements_satisfied: 0,
+      scope_additions: [],
+      injection_summary: `Phase ${phase}: drift analysis unavailable (${String(err2)})`
+    };
+    return {
+      phase,
+      report: defaultReport,
+      report_path: "",
+      injection_text: ""
+    };
+  }
+}
+function buildDriftInjectionText(report, maxChars) {
+  if (maxChars <= 0) {
+    return "";
+  }
+  let text;
+  if (report.alignment === "ALIGNED" && report.drift_score < 0.1) {
+    text = `<drift_report>Phase ${report.phase}: ALIGNED, all requirements on track.</drift_report>`;
+  } else {
+    const keyFinding = report.first_deviation?.description ?? "no deviation recorded";
+    const score = report.drift_score ?? 0;
+    const correctionClause = report.corrections?.[0] ? `Correction: ${report.corrections[0]}.` : "";
+    text = `<drift_report>Phase ${report.phase}: ${report.alignment} (${score.toFixed(2)}) \u2014 ${keyFinding}. ${correctionClause}</drift_report>`;
+  }
+  return text.slice(0, maxChars);
+}
+var DRIFT_REPORT_PREFIX = "drift-report-phase-";
+var init_curator_drift = __esm(() => {
+  init_event_bus();
+  init_utils2();
 });
 
 // node_modules/web-tree-sitter/tree-sitter.js
@@ -40203,7 +40368,7 @@ async function readPlanFromDisk(directory) {
     return null;
   }
 }
-async function readEvidenceFromDisk(directory) {
+async function readGateEvidenceFromDisk(directory) {
   const evidenceMap = new Map;
   try {
     const evidenceDir = path3.join(directory, ".swarm", "evidence");
@@ -40238,7 +40403,7 @@ async function buildRehydrationCache(directory) {
       }
     }
   }
-  const evidenceMap = await readEvidenceFromDisk(directory);
+  const evidenceMap = await readGateEvidenceFromDisk(directory);
   _rehydrationCache = { planTaskStates, evidenceMap };
 }
 function applyRehydrationCache(session) {
@@ -40276,7 +40441,11 @@ async function rehydrateSessionFromDisk(directory, session) {
   await buildRehydrationCache(directory);
   applyRehydrationCache(session);
 }
-function hasActiveTurboMode() {
+function hasActiveTurboMode(sessionID) {
+  if (sessionID) {
+    const session = swarmState.agentSessions.get(sessionID);
+    return session?.turboMode === true;
+  }
   for (const [_sessionId, session] of swarmState.agentSessions) {
     if (session.turboMode === true) {
       return true;
@@ -40291,7 +40460,7 @@ var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 ## IDENTITY
 
 Swarm: {{SWARM_ID}}
-Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}critic_drift_verifier, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
+Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
 
 {{TURBO_MODE_BANNER}}
 
@@ -40343,7 +40512,9 @@ Do not re-trigger DISCOVER or CONSULT because you noticed a project phase bounda
 Output to .swarm/plan.md MUST use "## Phase N" headers. Do not write MODE labels into plan.md.
 
 1. DELEGATE all coding to {{AGENT_PREFIX}}coder. You do NOT write code.
-YOUR TOOLS: Task (delegation), diff, syntax_check, placeholder_scan, imports, lint, secretscan, sast_scan, build_check, pre_check_batch, quality_budget, symbols, complexity_hotspots, schema_drift, todo_extract, evidence_check, sbom_generate, checkpoint, pkg_audit, test_runner.
+// IMPORTANT: This list MUST match AGENT_TOOL_MAP['architect'] in src/config/constants.ts
+// If you add a tool to the map, add it here. If you remove it from the map, remove it here.
+YOUR TOOLS: Task (delegation), checkpoint, check_gate_status, complexity_hotspots, declare_scope, detect_domains, diff, evidence_check, extract_code_blocks, gitingest, imports, knowledge_query, lint, pkg_audit, pre_check_batch, retrieve_summary, save_plan, schema_drift, secretscan, symbols, test_runner, todo_extract, update_task_status, write_retro.
 CODER'S TOOLS: write, edit, patch, apply_patch, create_file, insert, replace \u2014 any tool that modifies file contents.
 If a tool modifies a file, it is a CODER tool. Delegate.
 2. ONE agent per message. Send, STOP, wait for response.
@@ -40425,6 +40596,12 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
    MEDIUM: acceptable for non-critical decisions. For critical path (architecture, security), seek second source.
    LOW: do NOT consume directly. Either re-delegate to SME with specific query, OR flag to user as UNVERIFIED.
    Never silently consume LOW-confidence result as verified.
+6f-1. **DOCUMENTATION AWARENESS**
+Before implementation begins:
+1. Check if .swarm/doc-manifest.json exists. If not, delegate to explorer to run DOCUMENTATION DISCOVERY MODE.
+2. The explorer indexes project documentation (CONTRIBUTING.md, architecture.md, README.md, etc.) and writes constraints to the knowledge system.
+3. Before starting each phase, call knowledge_recall with query "doc-constraints" to check if any project documentation constrains the current task.
+4. Key constraints from project docs (commit conventions, release process, test framework, platform requirements) take priority over your own assumptions.
        7. **TIERED QA GATE** \u2014 Execute AFTER every coder task. Pipeline determined by change tier:
 NOTE: These gates are enforced by runtime hooks. If you skip the {{AGENT_PREFIX}}reviewer delegation,
 the next coder delegation will be BLOCKED by the plugin. This is not a suggestion \u2014
@@ -40466,6 +40643,11 @@ diff \u2192 syntax_check \u2192 placeholder_scan \u2192 imports \u2192 lint fix 
 Stage A tools return pass/fail. Fix failures by returning to coder.
 Stage A passing means: code compiles, parses, no secrets, no placeholders, no lint errors.
 Stage A passing does NOT mean: code is correct, secure, tested, or reviewed.
+
+VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B gates:
+1. Read at least ONE of the modified files yourself to confirm the change exists
+2. If the coder claims to have added function X to file Y, open file Y and verify function X is there
+3. This 30-second check catches the most common failure mode: coder reports completion but didn't actually make the change
 
 \u2500\u2500 STAGE B: AGENT REVIEW GATES \u2500\u2500
 {{AGENT_PREFIX}}reviewer \u2192 security reviewer (conditional) \u2192 {{AGENT_PREFIX}}test_engineer verification \u2192 {{AGENT_PREFIX}}test_engineer adversarial \u2192 coverage check
@@ -40573,7 +40755,6 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}test_engineer - Test generation AND execution (writes tests, runs them, reports PASS/FAIL)
 {{AGENT_PREFIX}}critic - Plan review gate (reviews plan BEFORE implementation)
 {{AGENT_PREFIX}}critic_sounding_board - Pre-escalation pushback (honest engineer review before user contact)
-{{AGENT_PREFIX}}critic_drift_verifier - Phase completion verifier (independently verifies implementation matches plan)
 {{AGENT_PREFIX}}docs - Documentation updates (README, API docs, guides \u2014 NOT .swarm/ files)
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components \u2014 runs BEFORE coder on UI tasks)
 
@@ -40589,6 +40770,8 @@ SMEs advise only. Reviewer and critic review only. None of them write code.
 Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan \u2014 npm/pip/cargo), complexity_hotspots (git churn \xD7 complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget), update_task_status (mark tasks complete, track phase progress), write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned)
 
 ## DELEGATION FORMAT
+
+Delegations are performed ONLY by calling the **Task** tool. Writing delegation text into the chat does nothing \u2014 the agent will not receive it. Every delegation below is the content you pass to the Task tool, not text you output to the conversation.
 
 All delegations MUST use this exact structure (MANDATORY \u2014 malformed delegations will be rejected):
 Do NOT add conversational preamble before the agent prefix. Begin directly with the agent name.
@@ -40816,7 +40999,7 @@ For complex tasks, make a second explorer call focused on risk/gap analysis:
 After explorer returns:
 - Run \`symbols\` tool on key files identified by explorer to understand public API surfaces
 - Run \`complexity_hotspots\` if not already run in Phase 0 (check context.md for existing analysis). Note modules with recommendation "security_review" or "full_gates" in context.md.
-- Check for project governance files using the \`glob\` tool with patterns \`project-instructions.md\`, \`docs/project-instructions.md\`, and \`INSTRUCTIONS.md\` (checked in that priority order \u2014 first match wins). If a file is found: read it and extract all MUST (mandatory constraints) and SHOULD (recommended practices) rules. Write the extracted rules as a summary to \`.swarm/context.md\` under a \`## Project Governance\` section \u2014 append if the section already exists, create it if not. If no MUST or SHOULD rules are found in the file, skip writing. If no governance file is found: skip silently. Existing DISCOVER steps are unchanged.
+- Check for project governance files using the \`glob\` tool with patterns \`project-instructions.md\`, \`docs/project-instructions.md\`, \`CONTRIBUTING.md\`, and \`INSTRUCTIONS.md\` (checked in that priority order \u2014 first match wins). If a file is found: read it and extract all MUST (mandatory constraints) and SHOULD (recommended practices) rules. Write the extracted rules as a summary to \`.swarm/context.md\` under a \`## Project Governance\` section \u2014 append if the section already exists, create it if not. If no MUST or SHOULD rules are found in the file, skip writing. If no governance file is found: skip silently. Existing DISCOVER steps are unchanged.
 
 ### MODE: CONSULT
 Check .swarm/context.md for cached guidance first.
@@ -41179,11 +41362,11 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 4. Write retrospective evidence: record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via write_retro. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
-5.5. **Defense-in-depth drift check**: The \`phase_complete\` tool now enforces two mandatory gates automatically \u2014 (1) completion-verify (deterministic identifier check) and (2) critic_drift_verifier evidence check. If either gate fails, \`phase_complete\` returns status 'blocked'. As defense-in-depth, delegate to {{AGENT_PREFIX}}critic_drift_verifier BEFORE calling phase_complete to get early feedback on drift issues and write the required evidence. If spec.md does not exist: skip the critic delegation.
+5.5. **Drift verification**: Delegate to {{AGENT_PREFIX}}critic_drift_verifier for phase drift review BEFORE calling phase_complete. The critic_drift_verifier will read every target file, verify described changes exist, and produce drift evidence. Persist critic drift evidence at \`.swarm/evidence/{phase}/drift-verifier.json\`. Only then call phase_complete. If the critic returns needs_revision, address the missing items before retrying phase_complete. If spec.md does not exist: skip the critic delegation. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
-  - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
-  - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by {{AGENT_PREFIX}}critic_drift_verifier in step 5.5)
-  If either is missing, run the missing gate first. Turbo mode skips both gates automatically.
+   - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
+   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by the critic_drift_verifier delegation in step 5.5)
+   If either is missing, run the missing gate first. Turbo mode skips both gates automatically.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -41262,7 +41445,7 @@ While Turbo Mode is active:
 - **Stage A gates** (lint, imports, pre_check_batch) are still REQUIRED for ALL tasks
 - **Tier 3 tasks** (security-sensitive files matching: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security) still require FULL review (Stage B)
 - **Tier 0-2 tasks** can skip Stage B (reviewer, test_engineer) to speed up execution
-- **Phase completion gates** (completion-verify and critic_drift_verifier) are automatically bypassed \u2014 phase_complete will succeed without drift verification evidence when turbo is active
+- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed \u2014 phase_complete will succeed without drift verification evidence when turbo is active. Note: turbo bypass is session-scoped; one session's turbo does not affect other sessions.
 
 Classification still determines the pipeline:
 - TIER 0 (metadata): lint + diff only \u2014 no change
@@ -41308,10 +41491,26 @@ RULES:
 - Read target file before editing
 - Implement exactly what TASK specifies
 - Respect CONSTRAINT
-- No research, no web searches, no documentation lookups
-- Use training knowledge for APIs
+- No web searches or documentation lookups \u2014 but DO search the codebase with grep/glob before using any function
+- Verify all import paths exist before using them
 
-## DEFENSIVE CODING RULES
+## ANTI-HALLUCINATION PROTOCOL (MANDATORY)
+Before importing ANY function, type, or class from an existing project module:
+1. Run grep to find the exact export: grep -rn "export.*functionName" src/
+2. Read the file that contains the export to verify its signature
+3. Use the EXACT function name and import path you found \u2014 do not guess or abbreviate
+
+If grep returns zero results, the function does not exist. Do NOT:
+- Import it anyway hoping it exists somewhere
+- Create a similar-sounding function name
+- Assume an export exists based on naming conventions
+
+WRONG: import { saveEvidence } from '../evidence/manager' (guessed path)
+RIGHT: [grep first, then] import { saveEvidence } from '../evidence/manager' (verified path)
+
+If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
+
+ ## DEFENSIVE CODING RULES
 - NEVER use \`any\` type in TypeScript \u2014 always use specific types
 - NEVER leave empty catch blocks \u2014 at minimum log the error
 - NEVER use string concatenation for paths \u2014 use \`path.join()\` or \`path.resolve()\`
@@ -41328,6 +41527,12 @@ RULES:
 - File operations: use \`fs.promises\` (async) unless synchronous is explicitly required by the task
 - Avoid shell commands in code \u2014 use Node.js APIs (\`fs\`, \`child_process\` with \`shell: false\`)
 - Consider case-sensitivity: Linux filesystems are case-sensitive; Windows and macOS are not
+
+## TEST FRAMEWORK
+- Import from 'bun:test', NOT from 'vitest'. The APIs are identical but the import source matters.
+- Use: import { describe, test, expect, vi, mock, beforeEach, afterEach } from 'bun:test'
+- vi.mock() must be at the top level of the file, BEFORE importing the mocked module
+- mock.module() is the Bun-native equivalent of vi.mock() \u2014 prefer it for new code
 
 ## ERROR HANDLING
 When your implementation encounters an error or unexpected state:
@@ -41968,6 +42173,13 @@ WORKFLOW:
 - Inline comments explaining obvious code (code should be self-documenting)
 - TODO comments in code (those go through the task system, not code comments)
 
+## RELEASE NOTES
+When writing release notes (docs/releases/v{VERSION}.md):
+- Determine next version from .release-please-manifest.json + commit type (feat \u2192 minor, fix \u2192 patch)
+- Follow the established format in existing release notes files
+- Include: overview, breaking changes (if any), new features, bug fixes, internal improvements
+- Do NOT manually edit package.json version, CHANGELOG.md, or .release-please-manifest.json \u2014 release-please owns these
+
 ## QUALITY RULES
 - Code examples in docs MUST be syntactically valid \u2014 test them mentally against the actual code
 - API examples MUST show both a success case AND an error/edge case
@@ -41983,6 +42195,11 @@ RULES:
 - Include examples: every new public API should have at least one usage example
 - No fabrication: if you cannot determine behavior from the code, say so explicitly
 - Update version references if package.json version changed
+
+## DOCUMENTATION RULES
+- Do NOT auto-generate CLAUDE.md or AGENTS.md content \u2014 research shows this hurts agent performance
+- When updating architecture.md, add new tools/hooks/agents but do not rewrite existing descriptions
+- When updating README.md, keep the Performance section near the top (after Quick Start)
 
 OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
 Begin directly with UPDATED. Do NOT prepend "Here's what I updated..." or any conversational preamble.
@@ -42100,6 +42317,36 @@ COMPATIBLE_CHANGES: [list, or "none"]
 CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
 VERDICT: BREAKING | COMPATIBLE
 MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
+
+## DOCUMENTATION DISCOVERY MODE
+Activates automatically during codebase reality check at plan ingestion.
+
+STEPS:
+1. Glob for documentation files:
+   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
+   - docs/**/*.md, doc/**/*.md (one level deep only)
+
+2. For each file found, read the first 30 lines. Extract:
+   - path: relative to project root
+   - title: first # heading, or filename if no heading
+   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
+   - lines: total line count
+   - mtime: file modification timestamp
+
+3. Write manifest to .swarm/doc-manifest.json:
+   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
+
+4. For each file in the manifest, check relevance to the current plan:
+   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
+   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
+   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
+
+5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
+
+RULES:
+- The manifest must be small (<100 lines). Pointers only, not full content.
+- Do NOT rephrase or summarize doc content with your own words \u2014 use the actual text from the file
+- Full doc content is only loaded when relevant to the current task, never preloaded
 `;
 function createExplorerAgent(model, customPrompt, customAppendPrompt) {
   let prompt = EXPLORER_PROMPT;
@@ -42164,6 +42411,12 @@ DO NOT:
 
 Your unique value is catching LOGIC ERRORS, EDGE CASES, and SECURITY FLAWS that automated tools cannot detect. If your review only catches things a linter would catch, you are not adding value.
 
+DO (explicitly):
+- READ the changed files yourself \u2014 do not rely on the coder's self-report
+- VERIFY imports exist: if the coder added a new import, grep for the export in the source
+- CHECK test files were updated: if the coder changed a function signature, the tests should reflect it
+- VERIFY platform compatibility: path.join() used for all paths, no hardcoded separators
+
 ## REVIEW REASONING
 For each changed function or method, answer these before formulating issues:
 1. PRECONDITIONS: What must be true for this code to work correctly?
@@ -42192,6 +42445,15 @@ Does the code do what the task acceptance criteria require? Check: every accepta
 
 TIER 2: SAFETY (mandatory for MODERATE+, always for COMPLEX)
 Does the code introduce security vulnerabilities, data loss risks, or breaking changes? Check against: SAST findings, secret scan results, import analysis. Anti-rubber-stamp: "No issues found" requires evidence. State what you checked.
+
+### SAST TRIAGE (within Tier 2)
+When SAST findings are included in your review input (via GATES field):
+For each finding, evaluate whether the flagged taint path is actually exploitable:
+- If a sanitizer, validator, or type guard exists between source and sink \u2192 DISMISS as false positive
+- If the taint path crosses a trust boundary without validation \u2192 ESCALATE as true positive
+- If the finding is in test code or mock setup \u2192 DISMISS
+Report: "SAST TRIAGE: N findings reviewed, M dismissed (false positive), K escalated"
+Do not rubber-stamp all findings as issues. Do not dismiss all findings without reading the code path.
 
 TIER 3: QUALITY (run only for COMPLEX, and only if Tiers 1-2 pass)
 Code style, naming, duplication, test coverage, documentation completeness. This tier is advisory \u2014 QUALITY findings do not block approval. Approval requires: Tier 1 PASS + Tier 2 PASS (where applicable). Tier 3 is informational. Flag these slop patterns:
@@ -42432,7 +42694,10 @@ COVERAGE:
 - Errors: invalid inputs, failures
 
 RULES:
-- Match language (PowerShell \u2192 Pester, Python \u2192 pytest, TS \u2192 vitest/jest)
+- Match language (PowerShell \u2192 Pester, Python \u2192 pytest, TS \u2192 bun:test)
+- Import from 'bun:test', NOT from 'vitest': import { describe, test, expect, vi, mock, beforeEach, afterEach } from 'bun:test'
+- vi.mock() calls MUST be at the top level of the file, BEFORE importing the mocked module
+- Tests MUST clean up temp directories in afterEach \u2014 leaked dirs break Windows CI
 - Tests must be runnable
 - Include setup/teardown if needed
 
@@ -42534,6 +42799,13 @@ When writing adversarial or security-focused tests, cover these attack categorie
 
 For each adversarial test: assert a SPECIFIC outcome (error thrown, value rejected, sanitized output) \u2014 not just "it doesn't crash."
 
+## MOCK ISOLATION RULES
+- vi.mock() and mock.module() calls persist across tests in the same bun process
+- Each test file runs in the same process as other files in its CI group
+- If your mock leaks, it will break other test files \u2014 this is the #1 CI failure cause
+- ALWAYS call vi.clearAllMocks() or vi.restoreAllMocks() in afterEach
+- If mocking a module, place the mock BEFORE any import of that module
+
 ## EXECUTION VERIFICATION
 
 After writing tests, you MUST run them. A test file that was written but never executed is NOT a deliverable.
@@ -42598,6 +42870,8 @@ ${customAppendPrompt}`;
 }
 
 // src/agents/index.ts
+var warnedAgents = new Set;
+var _swarmAgents;
 function stripSwarmPrefix(agentName, swarmPrefix) {
   if (!swarmPrefix || !agentName)
     return agentName;
@@ -42612,7 +42886,23 @@ function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   const explicit = swarmAgents?.[baseAgentName]?.model;
   if (explicit)
     return explicit;
-  return DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+  const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
+  if (!warnedAgents.has(baseAgentName)) {
+    warnedAgents.add(baseAgentName);
+    console.warn("[swarm] Agent '%s' not found in config \u2014 using default model '%s'. Add it to opencode-swarm.json to customize.", baseAgentName, resolvedModel);
+  }
+  return resolvedModel;
+}
+function resolveFallbackModel(agentBaseName, fallbackIndex, swarmAgents) {
+  const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+  if (!fallbackModels || fallbackModels.length === 0)
+    return null;
+  if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length)
+    return null;
+  return fallbackModels[fallbackIndex - 1];
+}
+function getSwarmAgents() {
+  return _swarmAgents;
 }
 function isAgentDisabled(agentName, swarmAgents, swarmPrefix) {
   const baseAgentName = stripSwarmPrefix(agentName, swarmPrefix);
@@ -42632,6 +42922,7 @@ function applyOverrides(agent, swarmAgents, swarmPrefix) {
 function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
   const agents = [];
   const swarmAgents = swarmConfig.agents;
+  _swarmAgents = swarmAgents;
   const prefix = isDefault ? "" : `${swarmId}_`;
   const swarmPrefix = isDefault ? undefined : swarmId;
   const qaRetryLimit = pluginConfig?.qa_retry_limit ?? 3;
@@ -42696,12 +42987,12 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("critic_sounding_board", swarmAgents, swarmPrefix)) {
-    const critic = createCriticAgent(getModel("critic_sounding_board"), undefined, undefined, "sounding_board");
+    const critic = createCriticAgent(swarmAgents?.critic_sounding_board?.model ?? getModel("critic"), undefined, undefined, "sounding_board");
     critic.name = prefixName("critic_sounding_board");
     agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("critic_drift_verifier", swarmAgents, swarmPrefix)) {
-    const critic = createCriticAgent(getModel("critic_drift_verifier"), undefined, undefined, "phase_drift_verifier");
+    const critic = createCriticAgent(swarmAgents?.critic_drift_verifier?.model ?? getModel("critic"), undefined, undefined, "phase_drift_verifier");
     critic.name = prefixName("critic_drift_verifier");
     agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
   }
@@ -45422,7 +45713,7 @@ async function handleCurateCommand(directory, _args) {
     if (error93 instanceof Error) {
       return `\u274C Curation failed: ${error93.message}`;
     }
-    return `\u274C Curation failed: ${String(error93)}`;
+    return `\u274C Curation failed: ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
 }
 function formatCurationSummary(summary) {
@@ -45812,7 +46103,7 @@ async function handleDarkMatterCommand(directory, args2) {
 [${entries.length} dark matter finding(s) saved to .swarm/knowledge.jsonl]`;
       }
     } catch (err2) {
-      console.warn("dark-matter: failed to save knowledge entries:", err2);
+      console.warn("dark-matter: failed to save knowledge entries:", err2 instanceof Error ? err2.message : String(err2));
       return output;
     }
   }
@@ -47586,7 +47877,7 @@ async function handleKnowledgeQuarantineCommand(directory, args2) {
     await quarantineEntry(directory, entryId, reason, "user");
     return `\u2705 Entry ${entryId} quarantined successfully.`;
   } catch (error93) {
-    console.warn("[knowledge-command] quarantineEntry error:", error93);
+    console.warn("[knowledge-command] quarantineEntry error:", error93 instanceof Error ? error93.message : String(error93));
     return `\u274C Failed to quarantine entry. Check the entry ID and try again.`;
   }
 }
@@ -47602,7 +47893,7 @@ async function handleKnowledgeRestoreCommand(directory, args2) {
     await restoreEntry(directory, entryId);
     return `\u2705 Entry ${entryId} restored successfully.`;
   } catch (error93) {
-    console.warn("[knowledge-command] restoreEntry error:", error93);
+    console.warn("[knowledge-command] restoreEntry error:", error93 instanceof Error ? error93.message : String(error93));
     return `\u274C Failed to restore entry. Check the entry ID and try again.`;
   }
 }
@@ -47624,7 +47915,7 @@ async function handleKnowledgeMigrateCommand(directory, args2) {
     }
     return `\u2705 Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
   } catch (error93) {
-    console.warn("[knowledge-command] migrateContextToKnowledge error:", error93);
+    console.warn("[knowledge-command] migrateContextToKnowledge error:", error93 instanceof Error ? error93.message : String(error93));
     return "\u274C Migration failed. Check .swarm/context.md is readable.";
   }
 }
@@ -47651,7 +47942,7 @@ async function handleKnowledgeListCommand(directory, _args) {
     return lines.join(`
 `);
   } catch (error93) {
-    console.warn("[knowledge-command] list error:", error93);
+    console.warn("[knowledge-command] list error:", error93 instanceof Error ? error93.message : String(error93));
     return "\u274C Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.";
   }
 }
@@ -47842,7 +48133,7 @@ async function handlePromoteCommand(directory, args2) {
       if (error93 instanceof Error) {
         return error93.message;
       }
-      return `Failed to promote lesson: ${String(error93)}`;
+      return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
     }
   }
   try {
@@ -47851,7 +48142,7 @@ async function handlePromoteCommand(directory, args2) {
     if (error93 instanceof Error) {
       return error93.message;
     }
-    return `Failed to promote lesson: ${String(error93)}`;
+    return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
 }
 
@@ -48137,7 +48428,7 @@ async function handleRollbackCommand(directory, args2) {
     fs18.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
 `);
   } catch (error93) {
-    console.error("Failed to write rollback event:", error93);
+    console.error("Failed to write rollback event:", error93 instanceof Error ? error93.message : String(error93));
   }
   return `Rolled back to phase ${targetPhase}: ${checkpoint2.label || "no label"}`;
 }
@@ -49506,10 +49797,17 @@ var HELP_TEXT = [
 `);
 function createSwarmCommandHandler(directory, agents) {
   return async (input, output) => {
-    if (input.command !== "swarm") {
+    if (input.command !== "swarm" && !input.command.startsWith("swarm-")) {
       return;
     }
-    const tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
+    let tokens;
+    if (input.command === "swarm") {
+      tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
+    } else {
+      const subcommand = input.command.slice("swarm-".length);
+      const extraArgs = input.arguments.trim().split(/\s+/).filter(Boolean);
+      tokens = [subcommand, ...extraArgs];
+    }
     let text;
     const resolved = resolveCommand(tokens);
     if (!resolved) {
@@ -50195,9 +50493,9 @@ import * as path32 from "path";
 init_telemetry();
 
 // src/hooks/guardrails.ts
+import * as path30 from "path";
 init_constants();
 init_schema();
-import * as path30 from "path";
 init_manager2();
 init_telemetry();
 init_utils();
@@ -50256,6 +50554,7 @@ function deleteStoredInputArgs(callID) {
 }
 var toolCallsSinceLastWrite = new Map;
 var noOpWarningIssued = new Set;
+var consecutiveNoToolTurns = new Map;
 function extractPhaseNumber(phaseString) {
   if (!phaseString)
     return 1;
@@ -50401,9 +50700,86 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
     "pre_check_batch"
   ];
   const requireReviewerAndTestEngineer = cfg.qa_gates?.require_reviewer_test_engineer ?? true;
+  async function checkGateLimits(params) {
+    const { sessionID, window: window2, agentConfig, elapsedMinutes, repetitionCount } = params;
+    if (agentConfig.max_tool_calls > 0 && window2.toolCalls >= agentConfig.max_tool_calls) {
+      window2.hardLimitHit = true;
+      telemetry.hardLimitHit(sessionID, window2.agentName, "tool_calls", window2.toolCalls);
+      warn("Circuit breaker: tool call limit hit", {
+        sessionID,
+        agentName: window2.agentName,
+        invocationId: window2.id,
+        windowKey: `${window2.agentName}:${window2.id}`,
+        resolvedMaxCalls: agentConfig.max_tool_calls,
+        currentCalls: window2.toolCalls
+      });
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: Tool calls exhausted (${window2.toolCalls}/${agentConfig.max_tool_calls}). Finish the current operation and return your progress summary.`);
+    }
+    if (agentConfig.max_duration_minutes > 0 && elapsedMinutes >= agentConfig.max_duration_minutes) {
+      window2.hardLimitHit = true;
+      telemetry.hardLimitHit(sessionID, window2.agentName, "duration", elapsedMinutes);
+      warn("Circuit breaker: duration limit hit", {
+        sessionID,
+        agentName: window2.agentName,
+        invocationId: window2.id,
+        windowKey: `${window2.agentName}:${window2.id}`,
+        resolvedMaxMinutes: agentConfig.max_duration_minutes,
+        elapsedMinutes: Math.floor(elapsedMinutes)
+      });
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: Duration exhausted (${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min). Finish the current operation and return your progress summary.`);
+    }
+    if (repetitionCount >= agentConfig.max_repetitions) {
+      window2.hardLimitHit = true;
+      telemetry.hardLimitHit(sessionID, window2.agentName, "repetition", repetitionCount);
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`);
+    }
+    if (window2.consecutiveErrors >= agentConfig.max_consecutive_errors) {
+      window2.hardLimitHit = true;
+      telemetry.hardLimitHit(sessionID, window2.agentName, "consecutive_errors", window2.consecutiveErrors);
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: ${window2.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`);
+    }
+    const idleMinutes = (Date.now() - window2.lastSuccessTimeMs) / 60000;
+    if (idleMinutes >= agentConfig.idle_timeout_minutes) {
+      window2.hardLimitHit = true;
+      telemetry.hardLimitHit(sessionID, window2.agentName, "idle_timeout", idleMinutes);
+      warn("Circuit breaker: idle timeout hit", {
+        sessionID,
+        agentName: window2.agentName,
+        invocationId: window2.id,
+        windowKey: `${window2.agentName}:${window2.id}`,
+        idleTimeoutMinutes: agentConfig.idle_timeout_minutes,
+        idleMinutes: Math.floor(idleMinutes)
+      });
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: No successful tool call for ${Math.floor(idleMinutes)} minutes (idle timeout: ${agentConfig.idle_timeout_minutes} min). This suggests the agent may be stuck. Return your progress summary.`);
+    }
+    if (!window2.warningIssued) {
+      const toolPct = agentConfig.max_tool_calls > 0 ? window2.toolCalls / agentConfig.max_tool_calls : 0;
+      const durationPct = agentConfig.max_duration_minutes > 0 ? elapsedMinutes / agentConfig.max_duration_minutes : 0;
+      const repPct = repetitionCount / agentConfig.max_repetitions;
+      const errorPct = window2.consecutiveErrors / agentConfig.max_consecutive_errors;
+      const reasons = [];
+      if (agentConfig.max_tool_calls > 0 && toolPct >= agentConfig.warning_threshold) {
+        reasons.push(`tool calls ${window2.toolCalls}/${agentConfig.max_tool_calls}`);
+      }
+      if (durationPct >= agentConfig.warning_threshold) {
+        reasons.push(`duration ${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min`);
+      }
+      if (repPct >= agentConfig.warning_threshold) {
+        reasons.push(`repetitions ${repetitionCount}/${agentConfig.max_repetitions}`);
+      }
+      if (errorPct >= agentConfig.warning_threshold) {
+        reasons.push(`errors ${window2.consecutiveErrors}/${agentConfig.max_consecutive_errors}`);
+      }
+      if (reasons.length > 0) {
+        window2.warningIssued = true;
+        window2.warningReason = reasons.join(", ");
+      }
+    }
+  }
   return {
     toolBefore: async (input, output) => {
       const currentSession = swarmState.agentSessions.get(input.sessionID);
+      consecutiveNoToolTurns.set(input.sessionID, 0);
       if (currentSession?.delegationActive) {
         if (isWriteTool(input.tool)) {
           const delegArgs = output.args;
@@ -50637,79 +51013,13 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
         }
       }
       const elapsedMinutes = (Date.now() - window2.startedAtMs) / 60000;
-      if (agentConfig.max_tool_calls > 0 && window2.toolCalls >= agentConfig.max_tool_calls) {
-        window2.hardLimitHit = true;
-        telemetry.hardLimitHit(input.sessionID, window2.agentName, "tool_calls", window2.toolCalls);
-        warn("Circuit breaker: tool call limit hit", {
-          sessionID: input.sessionID,
-          agentName: window2.agentName,
-          invocationId: window2.id,
-          windowKey: `${window2.agentName}:${window2.id}`,
-          resolvedMaxCalls: agentConfig.max_tool_calls,
-          currentCalls: window2.toolCalls
-        });
-        throw new Error(`\uD83D\uDED1 LIMIT REACHED: Tool calls exhausted (${window2.toolCalls}/${agentConfig.max_tool_calls}). Finish the current operation and return your progress summary.`);
-      }
-      if (agentConfig.max_duration_minutes > 0 && elapsedMinutes >= agentConfig.max_duration_minutes) {
-        window2.hardLimitHit = true;
-        telemetry.hardLimitHit(input.sessionID, window2.agentName, "duration", elapsedMinutes);
-        warn("Circuit breaker: duration limit hit", {
-          sessionID: input.sessionID,
-          agentName: window2.agentName,
-          invocationId: window2.id,
-          windowKey: `${window2.agentName}:${window2.id}`,
-          resolvedMaxMinutes: agentConfig.max_duration_minutes,
-          elapsedMinutes: Math.floor(elapsedMinutes)
-        });
-        throw new Error(`\uD83D\uDED1 LIMIT REACHED: Duration exhausted (${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min). Finish the current operation and return your progress summary.`);
-      }
-      if (repetitionCount >= agentConfig.max_repetitions) {
-        window2.hardLimitHit = true;
-        telemetry.hardLimitHit(input.sessionID, window2.agentName, "repetition", repetitionCount);
-        throw new Error(`\uD83D\uDED1 LIMIT REACHED: Repeated the same tool call ${repetitionCount} times. This suggests a loop. Return your progress summary.`);
-      }
-      if (window2.consecutiveErrors >= agentConfig.max_consecutive_errors) {
-        window2.hardLimitHit = true;
-        telemetry.hardLimitHit(input.sessionID, window2.agentName, "consecutive_errors", window2.consecutiveErrors);
-        throw new Error(`\uD83D\uDED1 LIMIT REACHED: ${window2.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`);
-      }
-      const idleMinutes = (Date.now() - window2.lastSuccessTimeMs) / 60000;
-      if (idleMinutes >= agentConfig.idle_timeout_minutes) {
-        window2.hardLimitHit = true;
-        telemetry.hardLimitHit(input.sessionID, window2.agentName, "idle_timeout", idleMinutes);
-        warn("Circuit breaker: idle timeout hit", {
-          sessionID: input.sessionID,
-          agentName: window2.agentName,
-          invocationId: window2.id,
-          windowKey: `${window2.agentName}:${window2.id}`,
-          idleTimeoutMinutes: agentConfig.idle_timeout_minutes,
-          idleMinutes: Math.floor(idleMinutes)
-        });
-        throw new Error(`\uD83D\uDED1 LIMIT REACHED: No successful tool call for ${Math.floor(idleMinutes)} minutes (idle timeout: ${agentConfig.idle_timeout_minutes} min). This suggests the agent may be stuck. Return your progress summary.`);
-      }
-      if (!window2.warningIssued) {
-        const toolPct = agentConfig.max_tool_calls > 0 ? window2.toolCalls / agentConfig.max_tool_calls : 0;
-        const durationPct = agentConfig.max_duration_minutes > 0 ? elapsedMinutes / agentConfig.max_duration_minutes : 0;
-        const repPct = repetitionCount / agentConfig.max_repetitions;
-        const errorPct = window2.consecutiveErrors / agentConfig.max_consecutive_errors;
-        const reasons = [];
-        if (agentConfig.max_tool_calls > 0 && toolPct >= agentConfig.warning_threshold) {
-          reasons.push(`tool calls ${window2.toolCalls}/${agentConfig.max_tool_calls}`);
-        }
-        if (durationPct >= agentConfig.warning_threshold) {
-          reasons.push(`duration ${Math.floor(elapsedMinutes)}/${agentConfig.max_duration_minutes} min`);
-        }
-        if (repPct >= agentConfig.warning_threshold) {
-          reasons.push(`repetitions ${repetitionCount}/${agentConfig.max_repetitions}`);
-        }
-        if (errorPct >= agentConfig.warning_threshold) {
-          reasons.push(`errors ${window2.consecutiveErrors}/${agentConfig.max_consecutive_errors}`);
-        }
-        if (reasons.length > 0) {
-          window2.warningIssued = true;
-          window2.warningReason = reasons.join(", ");
-        }
-      }
+      await checkGateLimits({
+        sessionID: input.sessionID,
+        window: window2,
+        agentConfig,
+        elapsedMinutes,
+        repetitionCount
+      });
       setStoredInputArgs(input.callID, output.args);
     },
     toolAfter: async (input, output) => {
@@ -50797,6 +51107,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
       const normalizedToolName = input.tool.replace(/^[^:]+[:.]/, "");
       if (isWriteTool(normalizedToolName)) {
         toolCallsSinceLastWrite.set(sessionId, 0);
+        noOpWarningIssued.delete(sessionId);
       } else {
         const count = (toolCallsSinceLastWrite.get(sessionId) ?? 0) + 1;
         toolCallsSinceLastWrite.set(sessionId, count);
@@ -50817,10 +51128,23 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
           const errorContent = output.error ?? outputStr;
           if (typeof errorContent === "string" && TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent) && !session.modelFallbackExhausted) {
             session.model_fallback_index++;
-            telemetry.modelFallback(input.sessionID, session.agentName, "primary", "fallback", "transient_model_error");
-            session.modelFallbackExhausted = true;
-            session.pendingAdvisoryMessages ??= [];
-            session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` + `The agent model may be rate-limited, overloaded, or temporarily unavailable. ` + `Consider retrying with a fallback model or waiting before retrying.`);
+            const baseAgentName = session.agentName ? session.agentName.replace(/^[^_]+[_]/, "") : "";
+            const swarmAgents = getSwarmAgents();
+            const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
+            session.modelFallbackExhausted = !fallbackModels || session.model_fallback_index > fallbackModels.length;
+            const fallbackModel = resolveFallbackModel(baseAgentName, session.model_fallback_index, swarmAgents);
+            if (fallbackModel) {
+              const primaryModel = swarmAgents?.[baseAgentName]?.model ?? "default";
+              if (swarmAgents?.[baseAgentName]) {
+                swarmAgents[baseAgentName].model = fallbackModel;
+              }
+              telemetry.modelFallback(input.sessionID, session.agentName, primaryModel, fallbackModel, "transient_model_error");
+              session.pendingAdvisoryMessages ??= [];
+              session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` + `Using /swarm handoff to reset to primary model.`);
+            } else {
+              session.pendingAdvisoryMessages ??= [];
+              session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` + `No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` + `to the agent's config in opencode-swarm.json.`);
+            }
             swarmState.pendingEvents++;
           }
         }
@@ -50869,6 +51193,54 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
       const activeAgent = swarmState.activeAgent.get(sessionId);
       const isArchitectSession = activeAgent ? stripKnownSwarmPrefix(activeAgent) === ORCHESTRATOR_NAME : session ? stripKnownSwarmPrefix(session.agentName) === ORCHESTRATOR_NAME : false;
       const systemMessages = messages.filter((msg) => msg.info?.role === "system");
+      if (isArchitectSession) {
+        let lastAssistantMsg;
+        for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+          if (messages[i2].info?.role === "assistant") {
+            lastAssistantMsg = messages[i2];
+            break;
+          }
+        }
+        if (lastAssistantMsg) {
+          const lastHasToolUse = lastAssistantMsg.parts?.some((part) => part.type === "tool_use");
+          if (lastHasToolUse) {
+            consecutiveNoToolTurns.set(sessionId, 0);
+          } else {
+            const textLen = lastAssistantMsg.parts?.filter((p) => p.type === "text" && typeof p.text === "string").reduce((sum, p) => sum + p.text.length, 0) ?? 0;
+            if (textLen > 4000) {
+              const count = (consecutiveNoToolTurns.get(sessionId) ?? 0) + 1;
+              consecutiveNoToolTurns.set(sessionId, count);
+              const maxTurns = cfg.runaway_output_max_turns;
+              if (count >= maxTurns) {
+                const stopMsg = systemMessages[0];
+                if (stopMsg) {
+                  const stopPart = (stopMsg.parts ?? []).find((part) => part.type === "text" && typeof part.text === "string");
+                  if (stopPart && !stopPart.text.includes("RUNAWAY OUTPUT STOP")) {
+                    stopPart.text = `[RUNAWAY OUTPUT STOP]
+` + `You have produced ${count} consecutive responses without using any tools. ` + `You MUST call a tool in your next response.
+` + `[/RUNAWAY OUTPUT STOP]
+
+` + stopPart.text;
+                  }
+                }
+                consecutiveNoToolTurns.set(sessionId, 0);
+              } else if (count >= 3) {
+                if (session) {
+                  session.pendingAdvisoryMessages ??= [];
+                  if (!session.pendingAdvisoryMessages.some((m) => m.includes("runaway output"))) {
+                    session.pendingAdvisoryMessages.push(`WARNING: Model is generating analysis without taking action. ` + `${count} consecutive high-output responses without tool calls detected. ` + `Use a tool or report BLOCKED.`);
+                  }
+                }
+              }
+            } else {
+              const shortLen = lastAssistantMsg.parts?.filter((p) => p.type === "text" && typeof p.text === "string").reduce((sum, p) => sum + p.text.length, 0) ?? 0;
+              if (shortLen < 200) {
+                consecutiveNoToolTurns.set(sessionId, 0);
+              }
+            }
+          }
+        }
+      }
       if (isArchitectSession && session?.loopWarningPending) {
         const pending = session.loopWarningPending;
         session.loopWarningPending = undefined;
@@ -51168,42 +51540,46 @@ async function getEvidenceTaskId(session, directory) {
   }
   return null;
 }
-function writeDriftVerifierEvidence(directory, taskId, sessionId) {
-  try {
-    const dotIndex = taskId.indexOf(".");
-    const phase = dotIndex > 0 ? taskId.slice(0, dotIndex) : taskId;
-    if (!/^\d+$/.test(phase))
-      return;
-    const evidenceDir = path32.join(directory, ".swarm", "evidence", phase);
-    fs21.mkdirSync(evidenceDir, { recursive: true });
-    const evidencePath = path32.join(evidenceDir, "drift-verifier.json");
-    const now = new Date().toISOString();
-    const evidence = {
-      entries: [
-        {
-          type: "drift-verification",
-          verdict: "approved",
-          summary: "critic_drift_verifier completed delegation successfully",
-          timestamp: now,
-          agent: "critic_drift_verifier",
-          session_id: sessionId
-        }
-      ]
-    };
-    fs21.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2), "utf-8");
-  } catch (err2) {
-    console.warn(`[delegation-gate] drift-verifier evidence write failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
-  }
-}
 function createDelegationGateHook(config3, directory) {
   const enabled = config3.hooks?.delegation_gate !== false;
   const delegationMaxChars = config3.hooks?.delegation_max_chars ?? 4000;
   if (!enabled) {
     return {
       messagesTransform: async (_input, _output) => {},
+      toolBefore: async () => {},
       toolAfter: async () => {}
     };
   }
+  const toolBefore = async (input, output) => {
+    if (!input.sessionID)
+      return;
+    const normalized = input.tool.replace(/^[^:]+[:.]/, "");
+    if (normalized !== "Task" && normalized !== "task")
+      return;
+    const args2 = output.args;
+    if (!args2)
+      return;
+    const subagentType = args2.subagent_type;
+    if (typeof subagentType !== "string")
+      return;
+    const targetAgent = stripKnownSwarmPrefix(subagentType);
+    if (targetAgent !== "coder")
+      return;
+    const session = swarmState.agentSessions.get(input.sessionID);
+    if (!session || !session.taskWorkflowStates)
+      return;
+    for (const [taskId, state2] of session.taskWorkflowStates) {
+      if (state2 !== "coder_delegated")
+        continue;
+      const turbo = hasActiveTurboMode(input.sessionID);
+      if (turbo) {
+        const isTier3 = taskId.startsWith("3.");
+        if (!isTier3)
+          continue;
+      }
+      throw new Error(`REVIEWER_GATE_VIOLATION: Cannot re-delegate to coder without reviewer delegation. ` + `Task ${taskId} state: coder_delegated. Delegate to reviewer first.`);
+    }
+  };
   const toolAfter = async (input, _output) => {
     if (!input.sessionID)
       return;
@@ -51289,14 +51665,13 @@ function createDelegationGateHook(config3, directory) {
           const rawTaskId = directArgs?.task_id;
           const evidenceTaskId = typeof rawTaskId === "string" && rawTaskId.length <= 20 && /^\d+\.\d+$/.test(rawTaskId.trim()) ? rawTaskId.trim() : await getEvidenceTaskId(session, directory);
           if (evidenceTaskId) {
-            const turbo = hasActiveTurboMode();
+            const turbo = hasActiveTurboMode(input.sessionID);
             const gateAgents = [
               "reviewer",
               "test_engineer",
               "docs",
               "designer",
               "critic",
-              "critic_drift_verifier",
               "explorer",
               "sme"
             ];
@@ -51307,9 +51682,6 @@ function createDelegationGateHook(config3, directory) {
             } else {
               const { recordAgentDispatch: recordAgentDispatch2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
               await recordAgentDispatch2(directory, evidenceTaskId, targetAgentForEvidence, turbo);
-            }
-            if (targetAgentForEvidence === "critic_drift_verifier") {
-              writeDriftVerifierEvidence(directory, evidenceTaskId, input.sessionID);
             }
           }
         } catch (err2) {
@@ -51412,7 +51784,7 @@ function createDelegationGateHook(config3, directory) {
           const rawTaskId = directArgs?.task_id;
           const evidenceTaskId = typeof rawTaskId === "string" && rawTaskId.length <= 20 && /^\d+\.\d+$/.test(rawTaskId.trim()) ? rawTaskId.trim() : await getEvidenceTaskId(session, directory);
           if (evidenceTaskId) {
-            const turbo = hasActiveTurboMode();
+            const turbo = hasActiveTurboMode(input.sessionID);
             if (hasReviewer) {
               const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
               await recordGateEvidence2(directory, evidenceTaskId, "reviewer", input.sessionID, turbo);
@@ -51429,6 +51801,7 @@ function createDelegationGateHook(config3, directory) {
     }
   };
   return {
+    toolBefore,
     messagesTransform: async (_input, output) => {
       const messages = output.messages;
       if (!messages || messages.length === 0)
@@ -53991,7 +54364,9 @@ async function readMergedKnowledge(directory, config3, context) {
       finalScore: 0
     });
   }
-  const ranked = merged.map((entry) => {
+  const scopeFilter = config3.scope_filter ?? ["global"];
+  const filtered = merged.filter((entry) => scopeFilter.some((pattern) => (entry.scope ?? "global") === pattern));
+  const ranked = filtered.map((entry) => {
     let categoryScore = 0;
     if (context?.currentPhase) {
       const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
@@ -54236,13 +54611,28 @@ async function processRetractions(retractions, directory) {
 async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
   const knowledgePath = resolveSwarmKnowledgePath(directory);
   const existingEntries = await readKnowledge(knowledgePath) ?? [];
+  let stored = 0;
+  let skipped = 0;
+  let rejected = 0;
+  const categoryByTag = new Map([
+    ["process", "process"],
+    ["architecture", "architecture"],
+    ["tooling", "tooling"],
+    ["security", "security"],
+    ["testing", "testing"],
+    ["debugging", "debugging"],
+    ["performance", "performance"],
+    ["integration", "integration"],
+    ["other", "other"]
+  ]);
   for (const lesson of lessons) {
     const tags = inferTags(lesson);
     let category = "process";
-    if (tags.includes("security")) {
-      category = "security";
-    } else if (tags.includes("testing")) {
-      category = "testing";
+    for (const tag of tags) {
+      if (categoryByTag.has(tag)) {
+        category = categoryByTag.get(tag);
+        break;
+      }
     }
     const meta3 = {
       category,
@@ -54251,18 +54641,20 @@ async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, c
     };
     const result = validateLesson(lesson, existingEntries.map((e) => e.lesson), meta3);
     if (result.valid === false || result.severity === "error") {
-      const rejected = {
+      const rejectedLesson = {
         id: crypto.randomUUID(),
         lesson,
         rejection_reason: result.reason ?? "unknown",
         rejected_at: new Date().toISOString(),
         rejection_layer: result.layer ?? 1
       };
-      await appendRejectedLesson(directory, rejected);
+      await appendRejectedLesson(directory, rejectedLesson);
+      rejected++;
       continue;
     }
     const duplicate = findNearDuplicate(lesson, existingEntries, config3.dedup_threshold);
     if (duplicate) {
+      skipped++;
       continue;
     }
     const entry = {
@@ -54293,9 +54685,11 @@ async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, c
       auto_generated: true
     };
     await appendKnowledge(knowledgePath, entry);
+    stored++;
     existingEntries.push(entry);
   }
   await runAutoPromotion(directory, config3);
+  return { stored, skipped, rejected };
 }
 async function runAutoPromotion(directory, config3) {
   const knowledgePath = resolveSwarmKnowledgePath(directory);
@@ -54511,167 +54905,8 @@ Use this data to avoid repeating known failure patterns.`;
   return prefix + summaryText + suffix;
 }
 
-// src/hooks/curator-drift.ts
-init_event_bus();
-init_utils2();
-import * as fs26 from "fs";
-import * as path37 from "path";
-var DRIFT_REPORT_PREFIX = "drift-report-phase-";
-async function readPriorDriftReports(directory) {
-  const swarmDir = path37.join(directory, ".swarm");
-  const entries = await fs26.promises.readdir(swarmDir).catch(() => null);
-  if (entries === null)
-    return [];
-  const reportFiles = entries.filter((name2) => name2.startsWith(DRIFT_REPORT_PREFIX) && name2.endsWith(".json")).sort();
-  const reports = [];
-  for (const filename of reportFiles) {
-    const content = await readSwarmFileAsync(directory, filename);
-    if (content === null)
-      continue;
-    try {
-      const report = JSON.parse(content);
-      if (typeof report.phase !== "number" || typeof report.alignment !== "string") {
-        console.warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
-        continue;
-      }
-      reports.push(report);
-    } catch {
-      console.warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
-    }
-  }
-  reports.sort((a, b) => a.phase - b.phase);
-  return reports;
-}
-async function writeDriftReport(directory, report) {
-  const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
-  const filePath = validateSwarmPath(directory, filename);
-  const swarmDir = path37.dirname(filePath);
-  await fs26.promises.mkdir(swarmDir, { recursive: true });
-  try {
-    await fs26.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
-  } catch (err2) {
-    throw new Error(`[curator-drift] Failed to write drift report to ${filePath}: ${String(err2)}`);
-  }
-  return filePath;
-}
-async function runCriticDriftCheck(directory, phase, curatorResult, config3, injectAdvisory) {
-  try {
-    const planMd = await readSwarmFileAsync(directory, "plan.md");
-    const specMd = await readSwarmFileAsync(directory, "spec.md");
-    const priorReports = await readPriorDriftReports(directory);
-    const complianceCount = curatorResult.compliance.length;
-    const warningCompliance = curatorResult.compliance.filter((obs) => obs.severity === "warning");
-    let alignment = "ALIGNED";
-    let driftScore = 0;
-    if (!planMd) {
-      alignment = "MINOR_DRIFT";
-      driftScore = 0.3;
-    } else if (warningCompliance.length >= 3) {
-      alignment = "MAJOR_DRIFT";
-      driftScore = Math.min(0.9, 0.5 + warningCompliance.length * 0.1);
-    } else if (warningCompliance.length >= 1 || complianceCount >= 3) {
-      alignment = "MINOR_DRIFT";
-      driftScore = Math.min(0.49, 0.2 + complianceCount * 0.05);
-    }
-    const priorSummaries = priorReports.map((r) => r.injection_summary).filter(Boolean);
-    const keyCorrections = warningCompliance.map((obs) => obs.description);
-    const firstDeviation = warningCompliance.length > 0 ? {
-      phase,
-      task: "unknown",
-      description: warningCompliance[0]?.description ?? ""
-    } : null;
-    const payloadLines = [
-      `CURATOR_DIGEST: ${JSON.stringify(curatorResult.digest)}`,
-      `CURATOR_COMPLIANCE: ${JSON.stringify(curatorResult.compliance)}`,
-      `PLAN: ${planMd ?? "none"}`,
-      `SPEC: ${specMd ?? "none"}`,
-      `PRIOR_DRIFT_REPORTS: ${JSON.stringify(priorSummaries)}`
-    ];
-    const payload = payloadLines.join(`
-`);
-    const requirementsChecked = curatorResult.digest.tasks_total;
-    const requirementsSatisfied = curatorResult.digest.tasks_completed;
-    const injectionSummaryRaw = `Phase ${phase}: ${alignment} (${driftScore.toFixed(2)}) \u2014 ${firstDeviation ? firstDeviation.description : "all requirements on track"}.${keyCorrections.length > 0 ? `Correction: ${keyCorrections[0] ?? ""}.` : ""}`;
-    const injectionSummary = injectionSummaryRaw.slice(0, config3.drift_inject_max_chars);
-    const report = {
-      schema_version: 1,
-      phase,
-      timestamp: new Date().toISOString(),
-      alignment,
-      drift_score: driftScore,
-      first_deviation: firstDeviation,
-      compounding_effects: priorReports.filter((r) => r.alignment !== "ALIGNED").map((r) => `Phase ${r.phase}: ${r.alignment}`).slice(0, 5),
-      corrections: keyCorrections.slice(0, 5),
-      requirements_checked: requirementsChecked,
-      requirements_satisfied: requirementsSatisfied,
-      scope_additions: [],
-      injection_summary: injectionSummary
-    };
-    const reportPath = await writeDriftReport(directory, report);
-    getGlobalEventBus().publish("curator.drift.completed", {
-      phase,
-      alignment,
-      drift_score: driftScore,
-      report_path: reportPath
-    });
-    if (injectAdvisory && alignment !== "ALIGNED" && driftScore > 0) {
-      try {
-        const advisoryText = `CURATOR DRIFT DETECTED (phase ${phase}, score ${driftScore.toFixed(2)}): ${injectionSummary.slice(0, 300)}. Review .swarm/${DRIFT_REPORT_PREFIX}${phase}.json and address spec alignment before proceeding.`;
-        injectAdvisory(advisoryText);
-      } catch {}
-    }
-    const injectionText = injectionSummary;
-    return {
-      phase,
-      report,
-      report_path: reportPath,
-      injection_text: injectionText
-    };
-  } catch (err2) {
-    getGlobalEventBus().publish("curator.error", {
-      operation: "drift",
-      phase,
-      error: String(err2)
-    });
-    const defaultReport = {
-      schema_version: 1,
-      phase,
-      timestamp: new Date().toISOString(),
-      alignment: "ALIGNED",
-      drift_score: 0,
-      first_deviation: null,
-      compounding_effects: [],
-      corrections: [],
-      requirements_checked: 0,
-      requirements_satisfied: 0,
-      scope_additions: [],
-      injection_summary: `Phase ${phase}: drift analysis unavailable (${String(err2)})`
-    };
-    return {
-      phase,
-      report: defaultReport,
-      report_path: "",
-      injection_text: ""
-    };
-  }
-}
-function buildDriftInjectionText(report, maxChars) {
-  if (maxChars <= 0) {
-    return "";
-  }
-  let text;
-  if (report.alignment === "ALIGNED" && report.drift_score < 0.1) {
-    text = `<drift_report>Phase ${report.phase}: ALIGNED, all requirements on track.</drift_report>`;
-  } else {
-    const keyFinding = report.first_deviation?.description ?? "no deviation recorded";
-    const score = report.drift_score ?? 0;
-    const correctionClause = report.corrections?.[0] ? `Correction: ${report.corrections[0]}.` : "";
-    text = `<drift_report>Phase ${report.phase}: ${report.alignment} (${score.toFixed(2)}) \u2014 ${keyFinding}. ${correctionClause}</drift_report>`;
-  }
-  return text.slice(0, maxChars);
-}
-
 // src/hooks/knowledge-injector.ts
+init_curator_drift();
 init_utils2();
 function formatStars(confidence) {
   if (confidence >= 0.9)
@@ -54723,9 +54958,7 @@ function createKnowledgeInjectorHook(directory, config3) {
     if (!output.messages || output.messages.length === 0)
       return;
     const plan = await loadPlan(directory);
-    if (!plan)
-      return;
-    const currentPhase = plan.current_phase ?? 1;
+    const currentPhase = plan?.current_phase ?? 1;
     const totalChars = output.messages.reduce((sum, msg) => {
       return sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0);
     }, 0);
@@ -54735,19 +54968,16 @@ function createKnowledgeInjectorHook(directory, config3) {
     const agentName = systemMsg?.info?.agent;
     if (!agentName || !isOrchestratorAgent(agentName))
       return;
-    if (lastSeenPhase === null) {
-      lastSeenPhase = currentPhase;
-      return;
-    } else if (currentPhase === lastSeenPhase && cachedInjectionText !== null) {
+    if (currentPhase === lastSeenPhase && cachedInjectionText !== null) {
       injectKnowledgeMessage(output, cachedInjectionText);
       return;
     } else if (currentPhase !== lastSeenPhase) {
       lastSeenPhase = currentPhase;
       cachedInjectionText = null;
     }
-    const phaseDescription = extractCurrentPhaseFromPlan2(plan) ?? `Phase ${currentPhase}`;
+    const phaseDescription = plan ? extractCurrentPhaseFromPlan2(plan) ?? `Phase ${currentPhase}` : "Phase 0";
     const context = {
-      projectName: plan.title,
+      projectName: plan?.title ?? "unknown",
       currentPhase: phaseDescription
     };
     const entries = await readMergedKnowledge(directory, config3, context);
@@ -55558,7 +55788,7 @@ var build_check = createSwarmTool({
     try {
       await saveEvidence(workingDir, "build", evidence);
     } catch (error93) {
-      console.error("Failed to save build evidence:", error93);
+      console.error("Failed to save build evidence:", error93 instanceof Error ? error93.message : String(error93));
     }
     return JSON.stringify(result, null, 2);
   }
@@ -55745,14 +55975,6 @@ init_utils2();
 import * as fs30 from "fs";
 import * as path41 from "path";
 init_create_tool();
-function hasActiveTurboMode2() {
-  for (const [_sessionId, session] of swarmState.agentSessions) {
-    if (session.turboMode === true) {
-      return true;
-    }
-  }
-  return false;
-}
 function extractMatches(regex, text) {
   return Array.from(text.matchAll(regex));
 }
@@ -55817,7 +56039,7 @@ async function executeCompletionVerify(args2, directory) {
     };
     return JSON.stringify(result2, null, 2);
   }
-  if (hasActiveTurboMode2()) {
+  if (hasActiveTurboMode(args2.sessionID)) {
     const result2 = {
       success: true,
       phase,
@@ -56348,7 +56570,7 @@ var curator_analyze = createSwarmTool({
       }, null, 2);
     } catch (error93) {
       return JSON.stringify({
-        error: String(error93),
+        error: error93 instanceof Error ? error93.message : String(error93),
         phase: typedArgs.phase
       }, null, 2);
     }
@@ -56754,7 +56976,7 @@ function matchesDocPattern(filePath, patterns) {
     }
     const patternNormalized = normalizeSeparators(pattern);
     const dirPrefix = patternNormalized.replace(/\/\*\*.*$/, "").replace(/\/\*.*$/, "");
-    if (normalizedPath.startsWith(dirPrefix + "/") || normalizedPath === dirPrefix) {
+    if (normalizedPath.startsWith(`${dirPrefix}/`) || normalizedPath === dirPrefix) {
       return true;
     }
   }
@@ -56785,7 +57007,7 @@ function extractTitleAndSummary(content, filename) {
     }
   }
   if (summary.length > MAX_SUMMARY_LENGTH) {
-    summary = summary.slice(0, MAX_SUMMARY_LENGTH - 3) + "...";
+    summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 3)}...`;
   }
   return { title, summary };
 }
@@ -58075,6 +58297,7 @@ var imports = createSwarmTool({
 });
 // src/tools/knowledge-add.ts
 init_dist();
+init_manager2();
 init_create_tool();
 var VALID_CATEGORIES2 = [
   "process",
@@ -58142,6 +58365,11 @@ var knowledgeAdd = createSwarmTool({
       }
     }
     const scope = typeof scopeInput === "string" && scopeInput.length > 0 ? scopeInput : "global";
+    let project_name = "";
+    try {
+      const plan = await loadPlan(directory);
+      project_name = plan?.title ?? "";
+    } catch {}
     const entry = {
       id: crypto.randomUUID(),
       tier: "swarm",
@@ -58152,7 +58380,7 @@ var knowledgeAdd = createSwarmTool({
       confidence: 0.5,
       status: "candidate",
       confirmed_by: [],
-      project_name: "",
+      project_name,
       retrieval_outcomes: {
         applied_count: 0,
         succeeded_after_count: 0,
@@ -58566,7 +58794,7 @@ init_telemetry();
 init_create_tool();
 function safeWarn(message, error93) {
   try {
-    console.warn(message, error93);
+    console.warn(message, error93 instanceof Error ? error93.message : String(error93));
   } catch {}
 }
 function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSessionId) {
@@ -58645,6 +58873,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   }
   const session = ensureAgentSession(sessionID);
   const phaseReferenceTimestamp = session.lastPhaseCompleteTimestamp ?? 0;
+  const warnings = [];
   const crossSessionResult = collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, sessionID);
   const agentsDispatched = Array.from(crossSessionResult.agents).sort();
   const dir = workingDirectory || directory;
@@ -58755,7 +58984,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       ]
     }, null, 2);
   }
-  if (hasActiveTurboMode()) {
+  if (hasActiveTurboMode(sessionID)) {
     console.warn(`[phase_complete] Turbo mode active \u2014 skipping completion-verify and drift-verifier gates for phase ${phase}`);
   } else {
     try {
@@ -58770,7 +58999,9 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           message: `Phase ${phase} cannot be completed: ${completionResult.reason}`,
           agentsDispatched,
           agentsMissing: [],
-          warnings: completionResult.blockedTasks ? [`Blocked tasks: ${completionResult.blockedTasks.map((t) => t.task_id).join(", ")}`] : []
+          warnings: completionResult.blockedTasks ? [
+            `Blocked tasks: ${completionResult.blockedTasks.map((t) => t.task_id).join(", ")}`
+          ] : []
         }, null, 2);
       }
     } catch (completionError) {
@@ -58811,16 +59042,38 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         driftVerdictFound = false;
       }
       if (!driftVerdictFound) {
-        return JSON.stringify({
-          success: false,
-          phase,
-          status: "blocked",
-          reason: "DRIFT_VERIFICATION_MISSING",
-          message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Ensure the architect has delegated to critic_drift_verifier before calling phase_complete.`,
-          agentsDispatched,
-          agentsMissing: [],
-          warnings: []
-        }, null, 2);
+        const specPath = path48.join(dir, ".swarm", "spec.md");
+        const specExists = fs37.existsSync(specPath);
+        if (!specExists) {
+          let incompleteTaskCount = 0;
+          let planPhaseFound = false;
+          try {
+            const planPath = validateSwarmPath(dir, "plan.json");
+            const planRaw = fs37.readFileSync(planPath, "utf-8");
+            const plan = JSON.parse(planRaw);
+            const targetPhase = plan.phases.find((p) => p.id === phase);
+            if (targetPhase) {
+              planPhaseFound = true;
+              incompleteTaskCount = targetPhase.tasks.filter((t) => t.status !== "completed").length;
+            }
+          } catch {}
+          if (incompleteTaskCount > 0 || !planPhaseFound) {
+            warnings.push(`No spec.md found and drift verification evidence missing. Phase ${phase} has ${incompleteTaskCount} incomplete task(s) in plan.json \u2014 consider running critic_drift_verifier before phase completion.`);
+          } else {
+            warnings.push(`No spec.md found. Phase ${phase} tasks are all completed in plan.json. Drift verification was skipped.`);
+          }
+        } else {
+          return JSON.stringify({
+            success: false,
+            phase,
+            status: "blocked",
+            reason: "DRIFT_VERIFICATION_MISSING",
+            message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Run drift verification before completing the phase.`,
+            agentsDispatched,
+            agentsMissing: [],
+            warnings: []
+          }, null, 2);
+        }
       }
       if (!driftVerdictApproved && driftVerdictFound) {
         return JSON.stringify({
@@ -58874,17 +59127,21 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
     if (curatorConfig.enabled && curatorConfig.phase_enabled) {
       const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {});
-      await applyCuratorKnowledgeUpdates(dir, curatorResult.knowledge_recommendations, knowledgeConfig);
-      const driftResult = await runCriticDriftCheck(dir, phase, curatorResult, curatorConfig);
+      const knowledgeResult = await applyCuratorKnowledgeUpdates(dir, curatorResult.knowledge_recommendations, knowledgeConfig);
       const callerSessionState = swarmState.agentSessions.get(sessionID);
       if (callerSessionState) {
         callerSessionState.pendingAdvisoryMessages ??= [];
         const digestSummary = curatorResult.digest?.summary ? curatorResult.digest.summary.slice(0, 200) : "Phase analysis complete";
         const complianceNote = curatorResult.compliance.length > 0 ? ` (${curatorResult.compliance.length} compliance observation(s))` : "";
-        callerSessionState.pendingAdvisoryMessages.push(`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Call curator_analyze with recommendations to apply knowledge updates from this phase.`);
-        if (driftResult?.report?.drift_score && driftResult.report.drift_score > 0) {
-          callerSessionState.pendingAdvisoryMessages.push(`[CURATOR DRIFT DETECTED (phase ${phase}, score ${driftResult.report.drift_score})]: ${(driftResult.injection_text || "").slice(0, 300)}. Review ${driftResult.report_path || "unknown"} and address spec alignment before proceeding.`);
-        }
+        callerSessionState.pendingAdvisoryMessages.push(`[CURATOR] Phase ${phase} digest: ${digestSummary}${complianceNote}. Knowledge: ${knowledgeResult.applied} applied, ${knowledgeResult.skipped} skipped. Call curator_analyze with recommendations to apply knowledge updates from this phase.`);
+        try {
+          const { readPriorDriftReports: readPriorDriftReports2 } = await Promise.resolve().then(() => (init_curator_drift(), exports_curator_drift));
+          const priorReports = await readPriorDriftReports2(dir);
+          const phaseReport = priorReports.filter((r) => r.phase === phase).pop();
+          if (phaseReport && phaseReport.drift_score > 0) {
+            callerSessionState.pendingAdvisoryMessages.push(`[CURATOR DRIFT DETECTED (phase ${phase}, score ${phaseReport.drift_score})]: Consider running critic_drift_verifier before phase completion to get a proper drift review. Review drift report for phase ${phase} and address spec alignment if applicable.`);
+          }
+        } catch {}
       }
       if (curatorResult.compliance.length > 0 && !curatorConfig.suppress_warnings) {
         const complianceLines = curatorResult.compliance.map((obs) => `[${obs.severity.toUpperCase()}] ${obs.description}`).slice(0, 5);
@@ -58899,7 +59156,6 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     effectiveRequired.push("docs");
   }
   let agentsMissing = effectiveRequired.filter((req) => !crossSessionResult.agents.has(req));
-  const warnings = [];
   if (agentsMissing.length > 0) {
     try {
       const planPath = validateSwarmPath(dir, "plan.json");
@@ -59021,7 +59277,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   return JSON.stringify({ ...result, timestamp: event.timestamp, duration_ms: durationMs }, null, 2);
 }
 var phase_complete = createSwarmTool({
-  description: "Mark a phase as complete and track which agents were dispatched. " + "Used for phase completion gating and tracking. " + "Accepts phase number and optional summary. Returns list of agents that were dispatched.",
+  description: "Mark a phase as complete and track which agents were dispatched. Used for phase completion gating and tracking. Accepts phase number and optional summary. Returns list of agents that were dispatched.",
   args: {
     phase: tool.schema.number().describe("The phase number being completed (e.g., 1, 2, 3)"),
     summary: tool.schema.string().optional().describe("Optional summary of what was accomplished in this phase"),
@@ -63019,7 +63275,7 @@ async function executeSavePlan(args2, fallbackDir) {
     return {
       success: false,
       message: "Failed to save plan: retry with save_plan after resolving the error above",
-      errors: [String(error93)],
+      errors: [error93 instanceof Error ? error93.message : String(error93)],
       recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
@@ -65180,17 +65436,9 @@ function matchesTier3Pattern(files) {
   }
   return false;
 }
-function hasActiveTurboMode3() {
-  for (const [_sessionId, session] of swarmState.agentSessions) {
-    if (session.turboMode === true) {
-      return true;
-    }
-  }
-  return false;
-}
 function checkReviewerGate(taskId, workingDirectory) {
   try {
-    if (hasActiveTurboMode3()) {
+    if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
         const planPath = path59.join(resolvedDir2, ".swarm", "plan.json");
@@ -65227,7 +65475,7 @@ function checkReviewerGate(taskId, workingDirectory) {
         };
       }
     } catch (error93) {
-      console.warn(`[gate-evidence] Evidence file for task ${taskId} is corrupt or unreadable:`, error93);
+      console.warn(`[gate-evidence] Evidence file for task ${taskId} is corrupt or unreadable:`, error93 instanceof Error ? error93.message : String(error93));
       telemetry.gateFailed("", "qa_gate", taskId, `Evidence file corrupt or unreadable`);
       return {
         blocked: true,
@@ -65520,7 +65768,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     return {
       success: false,
       message: "Failed to update task status",
-      errors: [String(error93)]
+      errors: [error93 instanceof Error ? error93.message : String(error93)]
     };
   }
 }
@@ -65785,6 +66033,8 @@ var OpenCodeSwarm = async (ctx) => {
       knowledgeRecall,
       knowledgeRemove,
       detect_domains,
+      doc_extract,
+      doc_scan,
       evidence_check,
       extract_code_blocks,
       gitingest,
@@ -65945,7 +66195,7 @@ var OpenCodeSwarm = async (ctx) => {
       }
     ].filter((fn) => Boolean(fn))),
     "experimental.chat.system.transform": composeHandlers(...[
-      async (input, output) => {
+      async (_input, _output) => {
         if (process.env.DEBUG_SWARM)
           console.error(`[DIAG] systemTransform START`);
       },
@@ -65991,6 +66241,7 @@ var OpenCodeSwarm = async (ctx) => {
       }
       await guardrailsHooks.toolBefore(input, output);
       await scopeGuardHook.toolBefore(input, output);
+      await delegationGateHooks.toolBefore(input, output);
       if (swarmState.lastBudgetPct >= 50) {
         const pressureSession = ensureAgentSession(input.sessionID, swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME);
         if (!pressureSession.contextPressureWarningSent) {
@@ -66086,6 +66337,11 @@ var OpenCodeSwarm = async (ctx) => {
           taskSession.delegationActive = false;
           taskSession.lastAgentEventTime = Date.now();
           telemetry.delegationEnd(sessionId, agentName, taskSession.currentTaskId || "", "completed");
+          const baseAgentName = stripKnownSwarmPrefix(agentName);
+          if (baseAgentName === "reviewer" || baseAgentName === "test_engineer" || baseAgentName === "critic" || baseAgentName === "critic_sounding_board") {
+            taskSession.pendingAdvisoryMessages ??= [];
+            taskSession.pendingAdvisoryMessages.push(`[PIPELINE] ${baseAgentName} delegation complete for task ${taskSession.currentTaskId ?? "unknown"}. ` + `Resume the QA gate pipeline \u2014 check your task pipeline steps for the next required action. ` + `Do not stop here.`);
+          }
         }
         if (_dbg)
           console.error(`[DIAG] Task handoff DONE session=${sessionId} activeAgent=${swarmState.activeAgent.get(sessionId)}`);
