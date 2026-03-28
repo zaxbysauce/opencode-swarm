@@ -146,8 +146,23 @@ export async function readSnapshot(
 			return value;
 		}) as SnapshotData;
 
-		// Validate version
+		// Validate version — quarantine incompatible snapshots so they are not
+		// re-read on every subsequent restart.  This prevents stale state from
+		// older plugin versions from being blindly rehydrated, which was the
+		// root cause of the "agents output text but don't edit files" regression.
 		if (parsed.version !== 1 && parsed.version !== 2) {
+			try {
+				const quarantinePath = validateSwarmPath(
+					directory,
+					'session/state.json.quarantine',
+				);
+				// Rename the stale file.  Errors are swallowed — the important
+				// thing is that we return null so the caller starts fresh.
+				const { renameSync } = await import('node:fs');
+				renameSync(resolvedPath, quarantinePath);
+			} catch {
+				// Quarantine rename failed — not fatal, still return null below.
+			}
 			return null;
 		}
 
