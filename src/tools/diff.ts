@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
 import { createSwarmTool } from './create-tool';
 
 const MAX_DIFF_LINES = 500;
@@ -57,6 +58,7 @@ export interface DiffResult {
 	contractChanges: string[];
 	hasContractChanges: boolean;
 	summary: string;
+	astDiffs?: ASTDiffResult[];
 }
 
 export interface DiffErrorResult {
@@ -199,6 +201,67 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			const hasContractChanges = contractChanges.length > 0;
 			const fileCount = files.length;
 
+			// Try AST diff for richer structural analysis on each changed file
+			const astDiffs: ASTDiffResult[] = [];
+			for (const file of files) {
+				try {
+					// Get old content from base ref and new content from working tree
+					let oldContent: string;
+					let newContent: string;
+					if (base === 'staged') {
+						oldContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+						newContent = execFileSync('git', ['show', `:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+					} else if (base === 'unstaged') {
+						oldContent = execFileSync('git', ['show', `:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+						newContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+						// For unstaged: old = index, new = working tree (read from disk)
+						const fsModule = await import('node:fs');
+						const pathModule = await import('node:path');
+						newContent = fsModule.readFileSync(
+							pathModule.join(directory, file.path),
+							'utf-8',
+						);
+					} else {
+						oldContent = execFileSync('git', ['show', `${base}:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+						newContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
+							encoding: 'utf-8',
+							timeout: 5000,
+							cwd: directory,
+						});
+					}
+					const astResult = await computeASTDiff(
+						file.path,
+						oldContent,
+						newContent,
+					);
+					if (astResult && astResult.changes.length > 0) {
+						astDiffs.push(astResult);
+					}
+				} catch {
+					// AST diff not available for this file — git diff is sufficient
+				}
+			}
+
 			const truncated = diffLines.length > MAX_DIFF_LINES;
 
 			const summary = truncated
@@ -210,6 +273,7 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				contractChanges,
 				hasContractChanges,
 				summary,
+				...(astDiffs.length > 0 ? { astDiffs } : {}),
 			};
 
 			return JSON.stringify(result, null, 2);

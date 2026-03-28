@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
+import { releaseLock, tryAcquireLock } from '../parallel/file-locks.js';
 import { savePlan } from '../plan/manager';
 import { createSwarmTool } from './create-tool';
 
@@ -225,28 +226,52 @@ export async function executeSavePlan(
 	// Step 4: Save the plan using validated target workspace
 	// Note: targetWorkspace is guaranteed to be defined here due to Step 2 validation
 	const dir = targetWorkspace as string;
+	const lockTaskId = `save-plan-${Date.now()}`;
+	const planFilePath = 'plan.json';
 	try {
-		await savePlan(dir, plan);
-		// Advisory: write marker file for unauthorized-write detection
+		// Acquire file lock to prevent concurrent plan writes
+		const lockResult = tryAcquireLock(
+			dir,
+			planFilePath,
+			'architect',
+			lockTaskId,
+		);
+		if (!lockResult.acquired) {
+			return {
+				success: false,
+				message: `Plan write blocked: file is locked by ${lockResult.existing?.agent ?? 'another agent'} (task: ${lockResult.existing?.taskId ?? 'unknown'})`,
+				errors: [
+					'Concurrent plan write detected — retry after the current write completes',
+				],
+				recovery_guidance:
+					'Wait a moment and retry save_plan. The lock will expire automatically if the holding agent fails.',
+			};
+		}
 		try {
-			const markerPath = path.join(dir, '.swarm', '.plan-write-marker');
-			const marker = JSON.stringify({
-				source: 'save_plan',
-				timestamp: new Date().toISOString(),
+			await savePlan(dir, plan);
+			// Advisory: write marker file for unauthorized-write detection
+			try {
+				const markerPath = path.join(dir, '.swarm', '.plan-write-marker');
+				const marker = JSON.stringify({
+					source: 'save_plan',
+					timestamp: new Date().toISOString(),
+					phases_count: plan.phases.length,
+					tasks_count: tasksCount,
+				});
+				await fs.promises.writeFile(markerPath, marker, 'utf8');
+			} catch {
+				// Advisory only - marker write failure does not affect plan save
+			}
+			return {
+				success: true,
+				message: 'Plan saved successfully',
+				plan_path: path.join(dir, '.swarm', 'plan.json'),
 				phases_count: plan.phases.length,
 				tasks_count: tasksCount,
-			});
-			await fs.promises.writeFile(markerPath, marker, 'utf8');
-		} catch {
-			// Advisory only - marker write failure does not affect plan save
+			};
+		} finally {
+			releaseLock(dir, planFilePath, lockTaskId);
 		}
-		return {
-			success: true,
-			message: 'Plan saved successfully',
-			plan_path: path.join(dir, '.swarm', 'plan.json'),
-			phases_count: plan.phases.length,
-			tasks_count: tasksCount,
-		};
 	} catch (error) {
 		return {
 			success: false,

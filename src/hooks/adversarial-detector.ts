@@ -441,9 +441,61 @@ The current fix strategy appears to be cycling without progress`;
 	return { eventLogged, checkpointCreated, message };
 }
 
-// Stub: full detection logic not yet implemented
+/** In-memory circular buffer of recent tool calls for spiral detection */
+const recentToolCalls: Array<{
+	tool: string;
+	argsHash: string;
+	timestamp: number;
+}> = [];
+const MAX_RECENT_CALLS = 20;
+const SPIRAL_THRESHOLD = 5;
+const SPIRAL_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Record a tool call for debugging spiral detection.
+ * Call this from toolAfter to track repetitive patterns.
+ */
+export function recordToolCall(tool: string, args: unknown): void {
+	const argsHash =
+		typeof args === 'string'
+			? args.slice(0, 100)
+			: JSON.stringify(args ?? '').slice(0, 100);
+	recentToolCalls.push({ tool, argsHash, timestamp: Date.now() });
+	if (recentToolCalls.length > MAX_RECENT_CALLS) {
+		recentToolCalls.shift();
+	}
+}
+
+/**
+ * Detect debugging spiral: same tool called 5+ times in a row with similar args
+ * within a 5-minute window. Indicates the agent is stuck in a loop.
+ */
 export async function detectDebuggingSpiral(
 	_directory: string,
 ): Promise<AdversarialPatternMatch | null> {
+	const now = Date.now();
+	const windowCalls = recentToolCalls.filter(
+		(c) => now - c.timestamp < SPIRAL_WINDOW_MS,
+	);
+
+	if (windowCalls.length < SPIRAL_THRESHOLD) return null;
+
+	// Check last N calls for same tool + similar args
+	const lastN = windowCalls.slice(-SPIRAL_THRESHOLD);
+	const firstTool = lastN[0].tool;
+	const firstArgs = lastN[0].argsHash;
+
+	const allSameTool = lastN.every((c) => c.tool === firstTool);
+	const allSimilarArgs = lastN.every((c) => c.argsHash === firstArgs);
+
+	if (allSameTool && allSimilarArgs) {
+		return {
+			pattern: 'VELOCITY_RATIONALIZATION',
+			severity: 'HIGH',
+			matchedText: `Tool '${firstTool}' called ${SPIRAL_THRESHOLD}+ times with identical args`,
+			confidence: 'HIGH',
+		};
+	}
+
 	return null;
 }

@@ -2,10 +2,16 @@
  * Curator core — file I/O for curator summary persistence.
  * Extended incrementally: filterPhaseEvents, checkPhaseCompliance,
  * runCuratorInit, runCuratorPhase, applyCuratorKnowledgeUpdates added in subsequent tasks.
+ *
+ * LLM delegation: runCuratorPhase and runCuratorInit accept an optional llmDelegate
+ * callback for LLM-based analysis. When provided, the prepared data context is sent
+ * to the explorer agent in CURATOR_PHASE/CURATOR_INIT mode for richer analysis.
+ * When the delegate is absent or fails, falls back to data-only behavior.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createExplorerCuratorAgent } from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
 import type {
 	ComplianceObservation,
@@ -27,6 +33,58 @@ import type {
 	SwarmKnowledgeEntry,
 } from './knowledge-types.js';
 import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
+
+/**
+ * Optional LLM delegate callback type.
+ * Takes a system prompt and user input, returns the LLM output text.
+ * Used to delegate analysis to the explorer agent in CURATOR mode.
+ */
+export type CuratorLLMDelegate = (
+	systemPrompt: string,
+	userInput: string,
+) => Promise<string>;
+
+/** Timeout for curator LLM delegation calls (ms) */
+const CURATOR_LLM_TIMEOUT_MS = 30_000;
+
+/**
+ * Parse KNOWLEDGE_UPDATES section from curator LLM output.
+ * Expected format per line: "- [action] [entry_id or "new"]: [reason]"
+ */
+export function parseKnowledgeRecommendations(
+	llmOutput: string,
+): KnowledgeRecommendation[] {
+	const recommendations: KnowledgeRecommendation[] = [];
+	const section = llmOutput.match(
+		/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/,
+	);
+	if (!section) return recommendations;
+
+	const lines = section[1].split('\n');
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed.startsWith('-')) continue;
+
+		// Match "- promote entry_123: reason text" or "- archive entry_456: reason text"
+		const match = trimmed.match(
+			/^-\s+(promote|archive|flag_contradiction)\s+(\S+):\s+(.+)$/i,
+		);
+		if (match) {
+			const action =
+				match[1].toLowerCase() as KnowledgeRecommendation['action'];
+			const entryId = match[2] === 'new' ? undefined : match[2];
+			const reason = match[3].trim();
+			recommendations.push({
+				action,
+				entry_id: entryId,
+				lesson: reason,
+				reason,
+			});
+		}
+	}
+
+	return recommendations;
+}
 
 /**
  * Read curator summary from .swarm/curator-summary.json
@@ -293,15 +351,17 @@ export function checkPhaseCompliance(
 
 /**
  * Prepare curator init data: reads prior summary, knowledge entries, and context.md.
- * Returns a structured briefing result. Does NOT make LLM calls.
- * The caller (phase-monitor integration) is responsible for the actual agent delegation.
+ * When an llmDelegate is provided, delegates to the explorer agent in CURATOR_INIT mode
+ * for LLM-based analysis that enhances the data-only briefing.
  * @param directory - The workspace directory
  * @param config - Curator configuration
+ * @param llmDelegate - Optional LLM delegate for enhanced analysis
  * @returns CuratorInitResult with briefing text, contradictions, and stats
  */
 export async function runCuratorInit(
 	directory: string,
 	config: CuratorConfig,
+	llmDelegate?: CuratorLLMDelegate,
 ): Promise<CuratorInitResult> {
 	try {
 		// 1. Read prior curator summary
@@ -383,14 +443,60 @@ export async function runCuratorInit(
 				typeof e.lesson === 'string' ? e.lesson : JSON.stringify(e.lesson),
 			);
 
+		let briefingText = briefingParts.join('\n');
+
+		// 6. LLM delegation: enhance briefing with CURATOR_INIT agent analysis
+		if (llmDelegate) {
+			try {
+				const curatorAgent = createExplorerCuratorAgent(
+					'default',
+					'CURATOR_INIT',
+				);
+				const userInput = [
+					'TASK: CURATOR_INIT',
+					`PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : 'none'}`,
+					`KNOWLEDGE_ENTRIES: ${JSON.stringify(highConfidenceEntries.slice(0, 10))}`,
+					`PROJECT_CONTEXT: ${contextMd?.slice(0, config.max_summary_tokens * 2) ?? 'none'}`,
+				].join('\n');
+
+				const systemPrompt = curatorAgent.config.prompt ?? '';
+				const llmOutput = await Promise.race([
+					llmDelegate(systemPrompt, userInput),
+					new Promise<never>((_, reject) =>
+						setTimeout(
+							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
+							CURATOR_LLM_TIMEOUT_MS,
+						),
+					),
+				]);
+
+				// Enhance briefing with LLM output if available
+				if (llmOutput?.trim()) {
+					briefingText = `${briefingText}\n\n## LLM-Enhanced Analysis\n${llmOutput.trim()}`;
+				}
+
+				getGlobalEventBus().publish('curator.init.llm_completed', {
+					enhanced: true,
+				});
+			} catch (err) {
+				// LLM failure: fall back to data-only mode with warning
+				console.warn(
+					`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err instanceof Error ? err.message : String(err)}`,
+				);
+				getGlobalEventBus().publish('curator.init.llm_fallback', {
+					error: String(err),
+				});
+			}
+		}
+
 		const result: CuratorInitResult = {
-			briefing: briefingParts.join('\n'),
+			briefing: briefingText,
 			contradictions,
 			knowledge_entries_reviewed: allEntries.length,
 			prior_phases_covered: priorSummary ? priorSummary.last_phase_covered : 0,
 		};
 
-		// 6. Emit event
+		// 7. Emit event
 		getGlobalEventBus().publish('curator.init.completed', {
 			prior_phases_covered: result.prior_phases_covered,
 			knowledge_entries_reviewed: result.knowledge_entries_reviewed,
@@ -415,12 +521,14 @@ export async function runCuratorInit(
 
 /**
  * Run curator phase analysis: reads events, runs compliance, updates and writes summary.
- * Does NOT make LLM calls. The caller is responsible for agent delegation.
+ * When an llmDelegate is provided, delegates to the explorer agent in CURATOR_PHASE mode
+ * for LLM-based architectural drift analysis and knowledge recommendations.
  * @param directory - The workspace directory
  * @param phase - The phase number that just completed
  * @param agentsDispatched - List of agent names dispatched in this phase
  * @param config - Curator configuration
  * @param knowledgeConfig - Knowledge configuration (used for knowledge path resolution)
+ * @param llmDelegate - Optional LLM delegate for enhanced analysis
  * @returns CuratorPhaseResult with digest, compliance, and recommendations
  */
 export async function runCuratorPhase(
@@ -429,6 +537,7 @@ export async function runCuratorPhase(
 	agentsDispatched: string[],
 	_config: CuratorConfig,
 	_knowledgeConfig: { directory?: string },
+	llmDelegate?: CuratorLLMDelegate,
 ): Promise<CuratorPhaseResult> {
 	try {
 		// 1. Read prior curator summary
@@ -489,12 +598,56 @@ export async function runCuratorPhase(
 			blockers_resolved: [],
 		};
 
-		// 6. Knowledge recommendations are intentionally empty here.
-		// This function is a data preparer — it does not invoke LLM agents.
-		// The caller (phase-monitor integration, Task 6) runs the CURATOR_PHASE
-		// agent and parses its output to populate recommendations before persisting.
-		// runCuratorPhase only initializes the summary structure; the caller updates it.
-		const knowledgeRecommendations: KnowledgeRecommendation[] = [];
+		// 6. LLM delegation: delegate to explorer agent in CURATOR_PHASE mode
+		// for knowledge recommendations and enhanced phase analysis
+		let knowledgeRecommendations: KnowledgeRecommendation[] = [];
+		if (llmDelegate) {
+			try {
+				const curatorAgent = createExplorerCuratorAgent(
+					'default',
+					'CURATOR_PHASE',
+				);
+
+				const priorDigest = priorSummary?.digest ?? 'none';
+				const systemPrompt = curatorAgent.config.prompt ?? '';
+				const userInput = [
+					`TASK: CURATOR_PHASE ${phase}`,
+					`PRIOR_DIGEST: ${priorDigest}`,
+					`PHASE_EVENTS: ${JSON.stringify(phaseEvents.slice(0, 50))}`,
+					`PHASE_DECISIONS: ${JSON.stringify(keyDecisions)}`,
+					`AGENTS_DISPATCHED: ${JSON.stringify(agentsDispatched)}`,
+					`AGENTS_EXPECTED: ["reviewer", "test_engineer"]`,
+				].join('\n');
+
+				const llmOutput = await Promise.race([
+					llmDelegate(systemPrompt, userInput),
+					new Promise<never>((_, reject) =>
+						setTimeout(
+							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
+							CURATOR_LLM_TIMEOUT_MS,
+						),
+					),
+				]);
+
+				if (llmOutput?.trim()) {
+					knowledgeRecommendations = parseKnowledgeRecommendations(llmOutput);
+				}
+
+				getGlobalEventBus().publish('curator.phase.llm_completed', {
+					phase,
+					recommendations: knowledgeRecommendations.length,
+				});
+			} catch (err) {
+				// LLM failure: fall back to data-only mode (empty recommendations)
+				console.warn(
+					`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err instanceof Error ? err.message : String(err)}`,
+				);
+				getGlobalEventBus().publish('curator.phase.llm_fallback', {
+					phase,
+					error: String(err),
+				});
+			}
+		}
 
 		// 7. Update and write curator summary
 		const sessionId = `session-${Date.now()}`;

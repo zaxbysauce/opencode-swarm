@@ -36,6 +36,12 @@ import {
 	createToolSummarizerHook,
 	safeHook,
 } from './hooks';
+import {
+	detectAdversarialPatterns,
+	detectDebuggingSpiral,
+	handleDebuggingSpiral,
+	recordToolCall,
+} from './hooks/adversarial-detector.js';
 import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
 import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
 import { createDelegationLedgerHook } from './hooks/delegation-ledger.js';
@@ -312,6 +318,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 	if (automationConfig.mode !== 'manual') {
 		automationManager = createAutomationManager(automationConfig);
+		automationManager.start();
 
 		// v6.7 Task 5.5: Initialize trigger manager (plumbing only, no preflight logic yet)
 		const { PreflightTriggerManager: PTM } = await import(
@@ -382,9 +389,18 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			}
 		}
 
+		// Cleanup: stop automation manager and workers on process exit
+		const cleanupAutomation = () => {
+			automationManager?.stop();
+		};
+		process.on('exit', cleanupAutomation);
+		process.on('SIGINT', cleanupAutomation);
+		process.on('SIGTERM', cleanupAutomation);
+
 		log('Automation framework initialized', {
 			mode: automationConfig.mode,
 			enabled: automationManager?.isEnabled(),
+			running: automationManager?.isActive(),
 			preflightEnabled: preflightTriggerManager?.isEnabled(),
 		});
 	}
@@ -808,6 +824,64 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					console.error(
 						`[DIAG] toolAfter delegationGate done tool=${_toolName}`,
 					);
+
+				// Adversarial semantic pattern detection on agent output
+				if (isTaskTool && typeof output.output === 'string') {
+					try {
+						const adversarialMatches = detectAdversarialPatterns(output.output);
+						if (adversarialMatches.length > 0) {
+							const sessionId = input.sessionID;
+							const session = swarmState.agentSessions.get(sessionId);
+							if (session) {
+								session.pendingAdvisoryMessages ??= [];
+								session.pendingAdvisoryMessages.push(
+									`ADVERSARIAL PATTERN DETECTED: ${adversarialMatches.map((p) => p.pattern).join(', ')}. ` +
+										'Review agent output for potential prompt injection or gate bypass.',
+								);
+							}
+							// Telemetry: emit event for adversarial pattern detection
+							if ('adversarialPatternDetected' in telemetry) {
+								// biome-ignore lint/suspicious/noExplicitAny: telemetry method may not exist yet
+								(telemetry as Record<string, any>).adversarialPatternDetected(
+									input.sessionID,
+									adversarialMatches,
+								);
+							}
+						}
+					} catch {
+						// adversarial detection errors must never block
+					}
+				}
+
+				// Record tool call for debugging spiral detection
+				try {
+					recordToolCall(normalizedTool, input.args);
+				} catch {
+					// non-fatal
+				}
+
+				// Debugging spiral detection
+				try {
+					const spiralMatch = await detectDebuggingSpiral(ctx.directory);
+					if (spiralMatch) {
+						const taskId =
+							swarmState.agentSessions.get(input.sessionID)?.currentTaskId ??
+							'unknown';
+						const spiralResult = await handleDebuggingSpiral(
+							spiralMatch,
+							taskId,
+							ctx.directory,
+						);
+						const session = swarmState.agentSessions.get(input.sessionID);
+						if (session) {
+							session.pendingAdvisoryMessages ??= [];
+							session.pendingAdvisoryMessages.push(spiralResult.message);
+						}
+					}
+				} catch {
+					// non-fatal
+				}
+
 				if (knowledgeCuratorHook)
 					await safeHook(knowledgeCuratorHook)(input, output);
 				if (hivePromoterHook) await safeHook(hivePromoterHook)(input, output);
@@ -829,8 +903,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					if (slopDetectorHook) await slopDetectorHook.toolAfter(input, output);
 					if (incrementalVerifyHook)
 						await incrementalVerifyHook.toolAfter(input, output);
-					if (compactionServiceHook)
-						await compactionServiceHook.toolAfter(input, output);
+				}
+				// Compaction service runs in both strict and balanced modes
+				// (context management is critical regardless of quality strictness level)
+				if (execMode !== 'fast' && compactionServiceHook) {
+					await compactionServiceHook.toolAfter(input, output);
 				}
 
 				// Tool output truncation (after summarizer to avoid double-processing)
