@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.37.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.36.0...v6.37.0) (2026-03-28)
+
+
+### Features
+
+* **swarm:** fix trust-critical findings — secretscan regex, evidence rehydration, model fallback, reviewer gate, architect tools ([#313](https://github.com/zaxbysauce/opencode-swarm/issues/313)) ([bcb5600](https://github.com/zaxbysauce/opencode-swarm/commit/bcb5600db2d73dc7be71d096b10f09a702a752d5))
+
 ## [6.36.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.4...v6.36.0) (2026-03-28)
 
 
