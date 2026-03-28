@@ -351,9 +351,15 @@ export async function readMergedKnowledge(
 		});
 	}
 
+	// Step 3.5: Apply scope_filter — exclude entries whose scope doesn't match
+	const scopeFilter = config.scope_filter ?? ['global'];
+	const filtered = merged.filter((entry) =>
+		scopeFilter.some((pattern) => (entry.scope ?? 'global') === pattern),
+	);
+
 	// Step 4: Compute finalScore using three-tier weighted scoring
 	// Category: 40%, Confidence: 35%, Keywords: 25%
-	const ranked: RankedEntry[] = merged.map((entry) => {
+	const ranked: RankedEntry[] = filtered.map((entry) => {
 		// Category match score (40% weight)
 		let categoryScore = 0;
 		if (context?.currentPhase) {

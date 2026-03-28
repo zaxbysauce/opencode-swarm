@@ -126,11 +126,9 @@ export function createKnowledgeInjectorHook(
 		) => {
 			if (!output.messages || output.messages.length === 0) return;
 
-			// Load plan — exit gracefully if no plan
+			// Load plan — proceed with default context if no plan exists
 			const plan = await loadPlan(directory);
-			if (!plan) return;
-
-			const currentPhase = plan.current_phase ?? 1;
+			const currentPhase = plan?.current_phase ?? 1;
 
 			// Context budget check — skip injection when context is stressed
 			const totalChars = output.messages.reduce((sum, msg) => {
@@ -146,14 +144,7 @@ export function createKnowledgeInjectorHook(
 			if (!agentName || !isOrchestratorAgent(agentName)) return;
 
 			// Phase transition detection
-			if (lastSeenPhase === null) {
-				// First call: initialize without injecting
-				lastSeenPhase = currentPhase;
-				return;
-			} else if (
-				currentPhase === lastSeenPhase &&
-				cachedInjectionText !== null
-			) {
+			if (currentPhase === lastSeenPhase && cachedInjectionText !== null) {
 				// Same phase, cached text available — re-inject (handles compaction)
 				injectKnowledgeMessage(output, cachedInjectionText);
 				return;
@@ -164,10 +155,11 @@ export function createKnowledgeInjectorHook(
 			}
 
 			// Build context for merged knowledge read
-			const phaseDescription =
-				extractCurrentPhaseFromPlan(plan) ?? `Phase ${currentPhase}`;
+			const phaseDescription = plan
+				? (extractCurrentPhaseFromPlan(plan) ?? `Phase ${currentPhase}`)
+				: 'Phase 0';
 			const context: ProjectContext = {
-				projectName: plan.title,
+				projectName: plan?.title ?? 'unknown',
 				currentPhase: phaseDescription,
 			};
 

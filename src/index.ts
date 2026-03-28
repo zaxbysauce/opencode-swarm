@@ -63,6 +63,8 @@ import {
 	declare_scope,
 	detect_domains,
 	diff,
+	doc_extract,
+	doc_scan,
 	evidence_check,
 	extract_code_blocks,
 	gitingest,
@@ -461,6 +463,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			knowledgeRecall,
 			knowledgeRemove,
 			detect_domains,
+			doc_extract,
+			doc_scan,
 			evidence_check,
 			extract_code_blocks,
 			gitingest,
@@ -892,6 +896,23 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						taskSession.currentTaskId || '',
 						'completed',
 					);
+					// Pipeline continuation advisory — prevents happy-path stall when
+					// delegated agents return clean results. The architect must resume
+					// direct tool execution for remaining QA gate steps.
+					const baseAgentName = stripKnownSwarmPrefix(agentName);
+					if (
+						baseAgentName === 'reviewer' ||
+						baseAgentName === 'test_engineer' ||
+						baseAgentName === 'critic' ||
+						baseAgentName === 'critic_sounding_board'
+					) {
+						taskSession.pendingAdvisoryMessages ??= [];
+						taskSession.pendingAdvisoryMessages.push(
+							`[PIPELINE] ${baseAgentName} delegation complete for task ${taskSession.currentTaskId ?? 'unknown'}. ` +
+								`Resume the QA gate pipeline — check your task pipeline steps for the next required action. ` +
+								`Do not stop here.`,
+						);
+					}
 				}
 				if (_dbg)
 					console.error(

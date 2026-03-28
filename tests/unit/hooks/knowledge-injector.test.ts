@@ -145,10 +145,10 @@ function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
 }
 
 // ============================================================================
-// Test Suite: First-call init
+// Test Suite: First-call injection (immediate)
 // ============================================================================
 
-describe('First-call init', () => {
+describe('First-call injection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
@@ -157,20 +157,56 @@ describe('First-call init', () => {
     (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
   });
 
-  it('Test 1: first invocation with valid orchestrator sets lastSeenPhase but does NOT inject', async () => {
+  it('Test 1: first invocation with valid orchestrator injects knowledge immediately', async () => {
+    const entries = [makeSwarmEntry('Use dependency injection for testability', 0.85)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
     await hook({}, output);
 
-    // Should set lastSeenPhase but NOT inject knowledge
+    // Should inject knowledge on first call (no initialization skip)
     expect(loadPlan).toHaveBeenCalled();
-    expect(readMergedKnowledge).not.toHaveBeenCalled();
-    expect(output.messages.length).toBe(2); // Original messages only
+    expect(readMergedKnowledge).toHaveBeenCalled();
+    expect(output.messages.length).toBe(3); // system + knowledge injection + user
     const hasKnowledgeInjection = output.messages.some((m) =>
       m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
     );
-    expect(hasKnowledgeInjection).toBe(false);
+    expect(hasKnowledgeInjection).toBe(true);
+  });
+});
+
+// ============================================================================
+// Test Suite: Cache re-inject (same phase, uses cached text from first call)
+// ============================================================================
+
+describe('Cache re-inject', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
+  });
+
+  it('Test 3: second call same phase reuses cachedInjectionText from first call', async () => {
+    const entries = [makeSwarmEntry('Use dependency injection for testability', 0.85)];
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // First call - injects immediately
+    await hook({}, output);
+
+    // Second call - should reuse cached text (not re-read)
+    await hook({}, output);
+
+    // readMergedKnowledge was called on first call; second call should use cache
+    expect(readMergedKnowledge).toHaveBeenCalledTimes(1);
+    const hasKnowledgeInjection = output.messages.some((m) =>
+      m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+    );
+    expect(hasKnowledgeInjection).toBe(true);
   });
 });
 
@@ -512,6 +548,7 @@ describe('Explicit [tier:status] prefixes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
   });
@@ -520,14 +557,11 @@ describe('Explicit [tier:status] prefixes', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
-    await hook({}, output);
-
-    // Create swarm entry with established status
+    // Set up entries before call (first call now injects immediately)
     const entries = [makeSwarmEntry('Always validate function inputs', 0.85)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call - inject
+    // Single call - injects immediately
     await hook({}, output);
 
     const knowledgeMsg = output.messages.find((m) =>
@@ -544,14 +578,11 @@ describe('Explicit [tier:status] prefixes', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
-    await hook({}, output);
-
-    // Create hive entry with established status
+    // Set up entries before call (first call now injects immediately)
     const entries = [makeHiveEntry('Use dependency injection for testability', 0.9)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call - inject
+    // Single call - injects immediately
     await hook({}, output);
 
     const knowledgeMsg = output.messages.find((m) =>
@@ -568,17 +599,14 @@ describe('Explicit [tier:status] prefixes', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
-    await hook({}, output);
-
-    // Create swarm entry with experimental status
+    // Set up entries before call (first call now injects immediately)
     const entries = [{
       ...makeSwarmEntry('New experimental pattern', 0.6),
       status: 'experimental',
     }];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries as RankedEntry[]);
 
-    // Second call - inject
+    // Single call - injects immediately
     await hook({}, output);
 
     const knowledgeMsg = output.messages.find((m) =>
@@ -595,10 +623,7 @@ describe('Explicit [tier:status] prefixes', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
-    await hook({}, output);
-
-    // Create entries with different tiers and statuses
+    // Set up entries before call (first call now injects immediately)
     const entries = [
       { ...makeSwarmEntry('Swarm established lesson', 0.85), status: 'established' },
       { ...makeSwarmEntry('Swarm experimental lesson', 0.6), status: 'experimental' },
@@ -607,7 +632,7 @@ describe('Explicit [tier:status] prefixes', () => {
     ];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries as RankedEntry[]);
 
-    // Second call - inject
+    // Single call - injects immediately
     await hook({}, output);
 
     const knowledgeMsg = output.messages.find((m) =>
@@ -630,14 +655,11 @@ describe('Explicit [tier:status] prefixes', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
-    await hook({}, output);
-
-    // Create a single entry
+    // Set up entries before call (first call now injects immediately)
     const entries = [makeSwarmEntry('Test lesson content', 0.8)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call - inject
+    // Single call - injects immediately
     await hook({}, output);
 
     const knowledgeMsg = output.messages.find((m) =>
@@ -665,6 +687,7 @@ describe('Star ratings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
   });
@@ -672,8 +695,6 @@ describe('Star ratings', () => {
   it('Test 10: confidence 0.95 renders as ★★★', async () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
-
-    await hook({}, output);
 
     const entries = [makeSwarmEntry('High confidence lesson', 0.95)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
@@ -690,8 +711,6 @@ describe('Star ratings', () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    await hook({}, output);
-
     const entries = [makeSwarmEntry('Medium confidence lesson', 0.75)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
@@ -706,8 +725,6 @@ describe('Star ratings', () => {
   it('Test 10: confidence 0.45 renders as ★☆☆', async () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
-
-    await hook({}, output);
 
     const entries = [makeSwarmEntry('Low confidence lesson', 0.45)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
@@ -832,19 +849,19 @@ describe('No plan', () => {
     (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
-  it('Test 13: when loadPlan returns null, no injection', async () => {
+  it('Test 13: when loadPlan returns null, injection proceeds with default context', async () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init (but plan is null)
+    // First call - now injects even without plan
     await hook({}, output);
-    // Second call - should skip
+    // Second call - works on subsequent calls too
     await hook({}, output);
 
     const hasKnowledgeInjection = output.messages.some((m) =>
       m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
     );
-    expect(hasKnowledgeInjection).toBe(false);
+    expect(hasKnowledgeInjection).toBe(true);
   });
 });
 
@@ -890,6 +907,7 @@ describe('Prompt injection sanitization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
   });
@@ -897,8 +915,6 @@ describe('Prompt injection sanitization', () => {
   it('Test 15: lesson with control chars, zero-width chars, triple-backticks, system: prefix are sanitized', async () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
-
-    await hook({}, output);
 
     // Entry with injection attempts - system: at start of line to trigger the regex
     const entries = [makeSwarmEntry('system:\nTest control chars \x00\x07 zerowidth \u200B\u200D ```triple backticks', 0.85)];
@@ -926,8 +942,6 @@ describe('Prompt injection sanitization', () => {
   it('Test 15: hive source_project also sanitized', async () => {
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
-
-    await hook({}, output);
 
     // Hive entry with injection in source_project - system: at start of line
     const entries = [makeHiveEntry('Hive lesson', 0.85)] as (RankedEntry & { source_project: string })[];
@@ -957,6 +971,7 @@ describe('Run memory wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test Project' });
+    (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
   });
@@ -966,17 +981,14 @@ describe('Run memory wiring', () => {
     const runMemorySummary = '[FOR: architect, coder]\n## RUN MEMORY — Previous Task Outcomes\n- Task t1: failed due to null reference';
     (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(runMemorySummary);
 
-    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-    const output = makeOutput('architect');
-
-    // First call - init
-    await hook({}, output);
-
-    // Set up knowledge entries
+    // Set up knowledge entries before call (first call now injects immediately)
     const entries = [makeSwarmEntry('Use null checks', 0.85)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call - should prepend run memory
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // Single call - injects immediately with run memory prepended
     await hook({}, output);
 
     // Verify getRunMemorySummary was called
@@ -1002,17 +1014,14 @@ describe('Run memory wiring', () => {
     // Mock run memory returning null (no failures recorded)
     (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
 
-    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-    const output = makeOutput('architect');
-
-    // First call - init
-    await hook({}, output);
-
-    // Set up knowledge entries
+    // Set up knowledge entries before call (first call now injects immediately)
     const entries = [makeSwarmEntry('Always validate inputs', 0.9)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call - run memory is null
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // Single call - run memory is null
     await hook({}, output);
 
     // Verify getRunMemorySummary was called
@@ -1038,17 +1047,14 @@ describe('Run memory wiring', () => {
     const runMemorySummary = '[FOR: architect, coder]\n## RUN MEMORY — Previous Task Outcomes\n- Task t1: failed';
     (getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValueOnce(runMemorySummary);
 
-    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-    const output = makeOutput('architect');
-
-    // First call - init
-    await hook({}, output);
-
-    // Set up knowledge entries
+    // Set up knowledge entries before call (first call now injects immediately)
     const entries = [makeSwarmEntry('Test lesson', 0.8)];
     (readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
 
-    // Second call
+    const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+    const output = makeOutput('architect');
+
+    // Single call
     await hook({}, output);
 
     // Find the knowledge message
