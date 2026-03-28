@@ -53,7 +53,10 @@ export async function handleDarkMatterCommand(
 				return `${output}\n\n[${entries.length} dark matter finding(s) saved to .swarm/knowledge.jsonl]`;
 			}
 		} catch (err) {
-			console.warn('dark-matter: failed to save knowledge entries:', err);
+			console.warn(
+				'dark-matter: failed to save knowledge entries:',
+				err instanceof Error ? err.message : String(err),
+			);
 			return output;
 		}
 	}

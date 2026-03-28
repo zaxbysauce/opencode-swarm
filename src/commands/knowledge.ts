@@ -32,7 +32,10 @@ export async function handleKnowledgeQuarantineCommand(
 		await quarantineEntry(directory, entryId, reason, 'user');
 		return `✅ Entry ${entryId} quarantined successfully.`;
 	} catch (error) {
-		console.warn('[knowledge-command] quarantineEntry error:', error);
+		console.warn(
+			'[knowledge-command] quarantineEntry error:',
+			error instanceof Error ? error.message : String(error),
+		);
 		return `❌ Failed to quarantine entry. Check the entry ID and try again.`;
 	}
 }
@@ -58,7 +61,10 @@ export async function handleKnowledgeRestoreCommand(
 		await restoreEntry(directory, entryId);
 		return `✅ Entry ${entryId} restored successfully.`;
 	} catch (error) {
-		console.warn('[knowledge-command] restoreEntry error:', error);
+		console.warn(
+			'[knowledge-command] restoreEntry error:',
+			error instanceof Error ? error.message : String(error),
+		);
 		return `❌ Failed to restore entry. Check the entry ID and try again.`;
 	}
 }
@@ -94,7 +100,10 @@ export async function handleKnowledgeMigrateCommand(
 
 		return `✅ Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
 	} catch (error) {
-		console.warn('[knowledge-command] migrateContextToKnowledge error:', error);
+		console.warn(
+			'[knowledge-command] migrateContextToKnowledge error:',
+			error instanceof Error ? error.message : String(error),
+		);
 		return '❌ Migration failed. Check .swarm/context.md is readable.';
 	}
 }
@@ -138,7 +147,10 @@ export async function handleKnowledgeListCommand(
 
 		return lines.join('\n');
 	} catch (error) {
-		console.warn('[knowledge-command] list error:', error);
+		console.warn(
+			'[knowledge-command] list error:',
+			error instanceof Error ? error.message : String(error),
+		);
 		return '❌ Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.';
 	}
 }
