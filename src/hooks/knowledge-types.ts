@@ -38,7 +38,7 @@ export interface KnowledgeEntryBase {
 	tags: string[];
 	scope: string; // 'global' or 'stack:<name>'
 	confidence: number; // 0.0–1.0
-	status: 'candidate' | 'established' | 'promoted' | 'archived';
+	status: 'candidate' | 'established' | 'promoted';
 	confirmed_by: PhaseConfirmationRecord[] | ProjectConfirmationRecord[];
 	retrieval_outcomes: RetrievalOutcome;
 	schema_version: number; // current: 1

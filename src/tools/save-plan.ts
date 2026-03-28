@@ -252,7 +252,7 @@ export async function executeSavePlan(
 			success: false,
 			message:
 				'Failed to save plan: retry with save_plan after resolving the error above',
-			errors: [error instanceof Error ? error.message : String(error)],
+			errors: [String(error)],
 			recovery_guidance:
 				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};

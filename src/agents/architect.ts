@@ -942,10 +942,10 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 4. Write retrospective evidence: record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via write_retro. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
-5.5. **Drift verification**: Delegate to {{AGENT_PREFIX}}critic_drift_verifier for phase drift review BEFORE calling phase_complete. The critic_drift_verifier will read every target file, verify described changes exist, and produce drift evidence. Persist critic drift evidence at \`.swarm/evidence/{phase}/drift-verifier.json\`. Only then call phase_complete. If the critic returns needs_revision, address the missing items before retrying phase_complete. If spec.md does not exist: skip the critic delegation. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
+5.5. **Defense-in-depth drift check**: The \`phase_complete\` tool now enforces two mandatory gates automatically — (1) completion-verify (deterministic identifier check) and (2) drift verification gate evidence check. If either gate fails, \`phase_complete\` returns status 'blocked'. As defense-in-depth, delegate to {{AGENT_PREFIX}}critic with drift-check context BEFORE calling phase_complete to get early feedback on drift issues and write the required evidence. If spec.md does not exist: skip the critic delegation.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
    - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
-   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by the critic_drift_verifier delegation in step 5.5)
+   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by the curator drift check or critic drift verification delegation in step 5.5)
    If either is missing, run the missing gate first. Turbo mode skips both gates automatically.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
@@ -1064,7 +1064,7 @@ While Turbo Mode is active:
 - **Stage A gates** (lint, imports, pre_check_batch) are still REQUIRED for ALL tasks
 - **Tier 3 tasks** (security-sensitive files matching: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security) still require FULL review (Stage B)
 - **Tier 0-2 tasks** can skip Stage B (reviewer, test_engineer) to speed up execution
-- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed — phase_complete will succeed without drift verification evidence when turbo is active. Note: turbo bypass is session-scoped; one session's turbo does not affect other sessions.
+- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed — phase_complete will succeed without drift verification evidence when turbo is active
 
 Classification still determines the pipeline:
 - TIER 0 (metadata): lint + diff only — no change

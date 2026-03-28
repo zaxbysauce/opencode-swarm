@@ -30,23 +30,7 @@ export function createSwarmTool<Args extends Record<string, unknown>>(
 		execute: async (args: ToolExecuteArgs, ctx?: ToolContext) => {
 			// process.cwd() fallback is intentional: used when tool is invoked directly (CLI) without plugin runtime context
 			const directory = ctx?.directory ?? process.cwd();
-			try {
-				return await opts.execute(args as Args, directory, ctx);
-			} catch (error) {
-				// Defense-in-depth: sanitize error to prevent stack trace leakage to TUI.
-				// Individual tools may also catch internally — this ensures nothing leaks
-				// through the centralized wrapper regardless.
-				const message = error instanceof Error ? error.message : String(error);
-				return JSON.stringify(
-					{
-						success: false,
-						message: 'Tool execution failed',
-						errors: [message],
-					},
-					null,
-					2,
-				);
-			}
+			return opts.execute(args as Args, directory, ctx);
 		},
 	});
 }

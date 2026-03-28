@@ -592,7 +592,7 @@ export function createDelegationGateHook(
 							? rawTaskId.trim()
 							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
-						const turbo = hasActiveTurboMode(input.sessionID);
+						const turbo = hasActiveTurboMode();
 						const gateAgents = [
 							'reviewer',
 							'test_engineer',
@@ -784,7 +784,7 @@ export function createDelegationGateHook(
 							? rawTaskId.trim()
 							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
-						const turbo = hasActiveTurboMode(input.sessionID);
+						const turbo = hasActiveTurboMode();
 						if (hasReviewer) {
 							const { recordGateEvidence } = await import('../gate-evidence');
 							await recordGateEvidence(

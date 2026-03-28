@@ -20,7 +20,7 @@ const mockApplyCuratorKnowledgeUpdates = mock(async () => ({
 	skipped: 0,
 }));
 
-const mockRunDeterministicDriftCheck = mock(async () => ({
+const mockRunCriticDriftCheck = mock(async () => ({
 	phase: 1,
 	report: {
 		schema_version: 1 as const,
@@ -47,8 +47,7 @@ mock.module('../../../src/hooks/curator', () => ({
 }));
 
 mock.module('../../../src/hooks/curator-drift', () => ({
-	runDeterministicDriftCheck: mockRunDeterministicDriftCheck,
-	readPriorDriftReports: mock(async () => []),
+	runCriticDriftCheck: mockRunCriticDriftCheck,
 }));
 
 // Also mock the knowledge-curator module to avoid interference from curateAndStoreSwarm
@@ -188,7 +187,7 @@ describe('phase_complete - curator pipeline', () => {
 		// Clear mock call history
 		mockRunCuratorPhase.mockClear();
 		mockApplyCuratorKnowledgeUpdates.mockClear();
-		mockRunDeterministicDriftCheck.mockClear();
+		mockRunCriticDriftCheck.mockClear();
 
 		// Create temp directory
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-curator-test-'));
@@ -239,7 +238,7 @@ describe('phase_complete - curator pipeline', () => {
 			// Curator functions should NOT have been called
 			expect(mockRunCuratorPhase).not.toHaveBeenCalled();
 			expect(mockApplyCuratorKnowledgeUpdates).not.toHaveBeenCalled();
-			expect(mockRunDeterministicDriftCheck).not.toHaveBeenCalled();
+			expect(mockRunCriticDriftCheck).not.toHaveBeenCalled();
 		});
 
 		test('curator pipeline skipped when curator.enabled explicitly set to false', async () => {
@@ -297,9 +296,21 @@ describe('phase_complete - curator pipeline', () => {
 				[], // knowledge_recommendations from mock
 				expect.any(Object),
 			);
+
+			expect(mockRunCriticDriftCheck).toHaveBeenCalledWith(
+				tempDir,
+				1,
+				expect.objectContaining({
+					phase: 1,
+				}),
+				expect.objectContaining({
+					enabled: true,
+					phase_enabled: true,
+				}),
+			);
 		});
 
-		test('calls curator functions in sequence: runCuratorPhase -> applyCuratorKnowledgeUpdates', async () => {
+		test('calls curator functions in sequence: runCuratorPhase -> applyCuratorKnowledgeUpdates -> runCriticDriftCheck', async () => {
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
 				createConfig({ enabled: true, phase_enabled: true }),
@@ -317,8 +328,8 @@ describe('phase_complete - curator pipeline', () => {
 			// applyCuratorKnowledgeUpdates should be called after runCuratorPhase
 			expect(mockApplyCuratorKnowledgeUpdates).toHaveBeenCalled();
 
-			// runDeterministicDriftCheck is no longer called from phase_complete
-			expect(mockRunDeterministicDriftCheck).not.toHaveBeenCalled();
+			// runCriticDriftCheck should be called after applyCuratorKnowledgeUpdates
+			expect(mockRunCriticDriftCheck).toHaveBeenCalled();
 		});
 	});
 
@@ -368,14 +379,14 @@ describe('phase_complete - curator pipeline', () => {
 			expect(parsed.status).toBe('success');
 		});
 
-		test('phase_complete returns success even when runDeterministicDriftCheck throws', async () => {
+		test('phase_complete returns success even when runCriticDriftCheck throws', async () => {
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
 				createConfig({ enabled: true, phase_enabled: true }),
 			);
 
-			// Make runDeterministicDriftCheck throw an error
-			mockRunDeterministicDriftCheck.mockRejectedValueOnce(
+			// Make runCriticDriftCheck throw an error
+			mockRunCriticDriftCheck.mockRejectedValueOnce(
 				new Error('Drift check failed'),
 			);
 
@@ -400,7 +411,7 @@ describe('phase_complete - curator pipeline', () => {
 			mockApplyCuratorKnowledgeUpdates.mockRejectedValueOnce(
 				new Error('Curator error 2'),
 			);
-			mockRunDeterministicDriftCheck.mockRejectedValueOnce(new Error('Curator error 3'));
+			mockRunCriticDriftCheck.mockRejectedValueOnce(new Error('Curator error 3'));
 
 			ensureAgentSession('sess1');
 
@@ -445,7 +456,7 @@ describe('phase_complete - curator pipeline', () => {
 			// Curator functions should NOT have been called
 			expect(mockRunCuratorPhase).not.toHaveBeenCalled();
 			expect(mockApplyCuratorKnowledgeUpdates).not.toHaveBeenCalled();
-			expect(mockRunDeterministicDriftCheck).not.toHaveBeenCalled();
+			expect(mockRunCriticDriftCheck).not.toHaveBeenCalled();
 		});
 	});
 
@@ -521,7 +532,7 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 		resetSwarmState();
 		mockRunCuratorPhase.mockClear();
 		mockApplyCuratorKnowledgeUpdates.mockClear();
-		mockRunDeterministicDriftCheck.mockClear();
+		mockRunCriticDriftCheck.mockClear();
 
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-compliance-test-'));
 		originalCwd = process.cwd();

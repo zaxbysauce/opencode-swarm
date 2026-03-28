@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { runDeterministicDriftCheck } from './curator-drift';
+import { runCriticDriftCheck } from './curator-drift';
 import type { CuratorConfig, CuratorPhaseResult } from './curator-types';
 
 // Test utilities
@@ -69,7 +69,7 @@ describe('curator-drift advisory injection', () => {
 
 	describe('backward compatibility', () => {
 		it('works normally when injectAdvisory is NOT provided', async () => {
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				defaultPhaseResult,
@@ -93,7 +93,7 @@ describe('curator-drift advisory injection', () => {
 			};
 
 			// No plan.md → alignment = MINOR_DRIFT, driftScore = 0.3
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				defaultPhaseResult,
@@ -147,7 +147,7 @@ describe('curator-drift advisory injection', () => {
 				'# Test Plan\nDo the thing.',
 			);
 
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				phaseResultWithWarnings,
@@ -176,7 +176,7 @@ describe('curator-drift advisory injection', () => {
 				'# Test Plan\nDo the thing.',
 			);
 
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				defaultPhaseResult,
@@ -223,7 +223,7 @@ describe('curator-drift advisory injection', () => {
 				],
 			};
 
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				phaseResultWithMinorCompliance,
@@ -243,7 +243,7 @@ describe('curator-drift advisory injection', () => {
 			};
 
 			// No plan.md → will trigger advisory call but it will throw
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				defaultPhaseResult,
@@ -267,7 +267,7 @@ describe('curator-drift advisory injection', () => {
 				}
 			};
 
-			const result = await runDeterministicDriftCheck(
+			const result = await runCriticDriftCheck(
 				tempDir,
 				1,
 				defaultPhaseResult,

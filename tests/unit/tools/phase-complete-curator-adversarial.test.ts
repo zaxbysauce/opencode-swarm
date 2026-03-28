@@ -20,7 +20,7 @@ const mockApplyCuratorKnowledgeUpdates = mock(async () => ({
 	skipped: 0,
 }));
 
-const mockRunDeterministicDriftCheck = mock(async () => ({
+const mockRunCriticDriftCheck = mock(async () => ({
 	phase: 1,
 	alignment: 'ALIGNED',
 	drift_score: 0,
@@ -35,8 +35,7 @@ mock.module('../../../src/hooks/curator', () => ({
 }));
 
 mock.module('../../../src/hooks/curator-drift', () => ({
-	runDeterministicDriftCheck: mockRunDeterministicDriftCheck,
-	readPriorDriftReports: mock(async () => []),
+	runCriticDriftCheck: mockRunCriticDriftCheck,
 }));
 
 // Also mock the knowledge-curator module to avoid interference from curateAndStoreSwarm
@@ -170,7 +169,7 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 		// Clear mock call history
 		mockRunCuratorPhase.mockClear();
 		mockApplyCuratorKnowledgeUpdates.mockClear();
-		mockRunDeterministicDriftCheck.mockClear();
+		mockRunCriticDriftCheck.mockClear();
 
 		// Reset mock implementations to default
 		mockRunCuratorPhase.mockImplementation(async () => ({
@@ -443,7 +442,7 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			// Make all curator functions fail
 			mockRunCuratorPhase.mockRejectedValue(new Error('Total failure'));
 			mockApplyCuratorKnowledgeUpdates.mockRejectedValue(new Error('Knowledge failure'));
-			mockRunDeterministicDriftCheck.mockRejectedValue(new Error('Drift failure'));
+			mockRunCriticDriftCheck.mockRejectedValue(new Error('Drift failure'));
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');

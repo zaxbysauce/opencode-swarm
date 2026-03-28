@@ -420,7 +420,7 @@ export async function loadEvidence(
 			const errors =
 				error instanceof ZodError
 					? error.issues.map((e) => `${e.path.join('.')}: ${e.message}`)
-					: [error instanceof Error ? error.message : String(error)];
+					: [String(error)];
 			return { status: 'invalid_schema', errors };
 		}
 	}
@@ -436,7 +436,7 @@ export async function loadEvidence(
 		const errors =
 			error instanceof ZodError
 				? error.issues.map((e) => `${e.path.join('.')}: ${e.message}`)
-				: [error instanceof Error ? error.message : String(error)];
+				: [String(error)];
 		return { status: 'invalid_schema', errors };
 	}
 }

@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin';
 import { validateSwarmPath } from '../hooks/utils';
-import { hasActiveTurboMode } from '../state';
+import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -96,6 +96,19 @@ interface PlanPhase {
  */
 interface Plan {
 	phases: PlanPhase[];
+}
+
+/**
+ * Check if ANY active session has Turbo Mode enabled.
+ * @returns true if any session has turboMode: true
+ */
+function hasActiveTurboMode(): boolean {
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.turboMode === true) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
@@ -240,7 +253,7 @@ export async function executeCompletionVerify(
 	}
 
 	// === Turbo Mode bypass ===
-	if (hasActiveTurboMode(args.sessionID)) {
+	if (hasActiveTurboMode()) {
 		const result: CompletionVerifyResult = {
 			success: true,
 			phase,

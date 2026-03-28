@@ -17,7 +17,6 @@ export const AGENT_CATEGORY: Readonly<Record<string, AgentCategory>> = {
 	reviewer: 'qa',
 	critic: 'qa',
 	critic_sounding_board: 'qa',
-	critic_drift_verifier: 'qa',
 
 	// Support agents (advise, document, design)
 	sme: 'support',

@@ -55,7 +55,7 @@ export async function handleCurateCommand(
 		if (error instanceof Error) {
 			return `❌ Curation failed: ${error.message}`;
 		}
-		return `❌ Curation failed: ${error instanceof Error ? error.message : String(error)}`;
+		return `❌ Curation failed: ${String(error)}`;
 	}
 }
 

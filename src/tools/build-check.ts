@@ -315,10 +315,7 @@ export const build_check: ReturnType<typeof tool> = createSwarmTool({
 		try {
 			await saveEvidence(workingDir, 'build', evidence);
 		} catch (error) {
-			console.error(
-				'Failed to save build evidence:',
-				error instanceof Error ? error.message : String(error),
-			);
+			console.error('Failed to save build evidence:', error);
 		}
 
 		// Return as JSON

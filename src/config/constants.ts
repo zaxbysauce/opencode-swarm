@@ -11,7 +11,6 @@ export const ALL_SUBAGENT_NAMES = [
 	'docs',
 	'designer',
 	'critic_sounding_board',
-	'critic_drift_verifier',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -118,13 +117,6 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'symbols',
 	],
-	critic_drift_verifier: [
-		'complexity_hotspots',
-		'detect_domains',
-		'imports',
-		'retrieve_summary',
-		'symbols',
-	],
 	docs: [
 		'detect_domains',
 		'extract_code_blocks',
@@ -167,7 +159,6 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	sme: 'opencode/trinity-large-preview-free',
 	critic: 'opencode/trinity-large-preview-free',
 	critic_sounding_board: 'opencode/trinity-large-preview-free',
-	critic_drift_verifier: 'opencode/trinity-large-preview-free',
 	docs: 'opencode/trinity-large-preview-free',
 	designer: 'opencode/trinity-large-preview-free',
 

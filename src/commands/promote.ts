@@ -72,7 +72,7 @@ export async function handlePromoteCommand(
 			if (error instanceof Error) {
 				return error.message;
 			}
-			return `Failed to promote lesson: ${error instanceof Error ? error.message : String(error)}`;
+			return `Failed to promote lesson: ${String(error)}`;
 		}
 	}
 
@@ -83,6 +83,6 @@ export async function handlePromoteCommand(
 		if (error instanceof Error) {
 			return error.message;
 		}
-		return `Failed to promote lesson: ${error instanceof Error ? error.message : String(error)}`;
+		return `Failed to promote lesson: ${String(error)}`;
 	}
 }

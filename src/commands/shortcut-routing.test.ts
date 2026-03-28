@@ -13,8 +13,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { swarmState } from '../state';
 import { createSwarmCommandHandler } from './index';
+import { swarmState } from '../state';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -87,10 +87,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'other', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'other', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(0);
 		});
@@ -99,10 +96,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'notswarm-status', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'notswarm-status', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(0);
 		});
@@ -113,10 +107,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm', arguments: 'agents', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm', arguments: 'agents', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
 			// With an empty agent map the agents command reports no agents
@@ -127,15 +118,10 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
-			expect((output.parts[0] as { text: string }).text).toContain(
-				'## Swarm Commands',
-			);
+			expect((output.parts[0] as { text: string }).text).toContain('## Swarm Commands');
 		});
 	});
 
@@ -144,10 +130,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm-agents', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-agents', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
 			// With an empty agent map the agents command reports no agents
@@ -158,10 +141,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm-config', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-config', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
 			// Config command returns a markdown section
@@ -175,15 +155,10 @@ describe('swarm-* shortcut command routing', () => {
 			const output = { parts: [] as unknown[] };
 
 			// Simulate user selecting the swarm-turbo shortcut and typing 'on'
-			await handler(
-				{ command: 'swarm-turbo', arguments: 'on', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-turbo', arguments: 'on', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
-			expect((output.parts[0] as { text: string }).text).toBe(
-				'Turbo Mode enabled',
-			);
+			expect((output.parts[0] as { text: string }).text).toBe('Turbo Mode enabled');
 			expect(swarmState.agentSessions.get(sessionId)?.turboMode).toBe(true);
 		});
 
@@ -192,25 +167,17 @@ describe('swarm-* shortcut command routing', () => {
 			const output = { parts: [] as unknown[] };
 
 			// turboMode starts false — toggle should enable it
-			await handler(
-				{ command: 'swarm-turbo', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-turbo', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
-			expect((output.parts[0] as { text: string }).text).toBe(
-				'Turbo Mode enabled',
-			);
+			expect((output.parts[0] as { text: string }).text).toBe('Turbo Mode enabled');
 		});
 
 		it('routes swarm-reset shortcut (no --confirm → shows safety prompt)', async () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm-reset', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-reset', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
 			const text = (output.parts[0] as { text: string }).text;
@@ -222,10 +189,7 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm-sync-plan', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-sync-plan', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
 			// sync-plan returns some output (may warn about missing files)
@@ -238,15 +202,10 @@ describe('swarm-* shortcut command routing', () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };
 
-			await handler(
-				{ command: 'swarm-unknowncmd', arguments: '', sessionID: sessionId },
-				output,
-			);
+			await handler({ command: 'swarm-unknowncmd', arguments: '', sessionID: sessionId }, output);
 
 			expect(output.parts).toHaveLength(1);
-			expect((output.parts[0] as { text: string }).text).toContain(
-				'## Swarm Commands',
-			);
+			expect((output.parts[0] as { text: string }).text).toContain('## Swarm Commands');
 		});
 	});
 });

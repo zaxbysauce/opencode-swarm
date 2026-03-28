@@ -11,12 +11,7 @@ import { stripKnownSwarmPrefix } from '../config/schema';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { updateTaskStatus } from '../plan/manager';
-import {
-	advanceTaskState,
-	getTaskState,
-	hasActiveTurboMode,
-	swarmState,
-} from '../state';
+import { advanceTaskState, getTaskState, swarmState } from '../state';
 import { telemetry } from '../telemetry.js';
 import { createSwarmTool } from './create-tool';
 
@@ -119,6 +114,19 @@ function matchesTier3Pattern(files: string[]): boolean {
 }
 
 /**
+ * Check if ANY active session has Turbo Mode enabled.
+ * @returns true if any session has turboMode: true
+ */
+function hasActiveTurboMode(): boolean {
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.turboMode === true) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Check if a task has passed required QA gates using the state machine.
  * Requires the task to be in 'tests_run' or 'complete' state, which means
  * both reviewer delegation and test_engineer runs have been recorded.
@@ -209,7 +217,7 @@ export function checkReviewerGate(
 			// Malformed JSON, permission error, or other non-ENOENT issue — BLOCK
 			console.warn(
 				`[gate-evidence] Evidence file for task ${taskId} is corrupt or unreadable:`,
-				error instanceof Error ? error.message : String(error),
+				error,
 			);
 			telemetry.gateFailed(
 				'',
@@ -669,7 +677,7 @@ export async function executeUpdateTaskStatus(
 		return {
 			success: false,
 			message: 'Failed to update task status',
-			errors: [error instanceof Error ? error.message : String(error)],
+			errors: [String(error)],
 		};
 	}
 }
