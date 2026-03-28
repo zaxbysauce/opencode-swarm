@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.35.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.3...v6.35.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* **knowledge:** register doc tools, fix injector no-plan and first-call skip, add scope filter, and prevent pipeline stall ([#306](https://github.com/zaxbysauce/opencode-swarm/issues/306)) ([6e423dc](https://github.com/zaxbysauce/opencode-swarm/commit/6e423dce16d266f5616634b1189b596ef383d683))
+
 ## [6.35.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.35.2...v6.35.3) (2026-03-27)
 
 
