@@ -180,10 +180,11 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
    Never silently consume LOW-confidence result as verified.
 6f-1. **DOCUMENTATION AWARENESS**
 Before implementation begins:
-1. Check if .swarm/doc-manifest.json exists. If not, delegate to explorer to run DOCUMENTATION DISCOVERY MODE.
+1. Check if .swarm/doc-manifest.json exists. If not, delegate to explorer to run DOCUMENTATION DISCOVERY MODE (or call doc_scan directly).
 2. The explorer indexes project documentation (CONTRIBUTING.md, architecture.md, README.md, etc.) and writes constraints to the knowledge system.
-3. Before starting each phase, call knowledge_recall with query "doc-constraints" to check if any project documentation constrains the current task.
-4. Key constraints from project docs (commit conventions, release process, test framework, platform requirements) take priority over your own assumptions.
+3. When beginning a new task, if .swarm/doc-manifest.json exists, call doc_extract with the task's file list and description to load relevant documentation constraints.
+4. Before starting each phase, call knowledge_recall with query "doc-constraints" to check if any project documentation constrains the current task.
+5. Key constraints from project docs (commit conventions, release process, test framework, platform requirements) take priority over your own assumptions.
        7. **TIERED QA GATE** — Execute AFTER every coder task. Pipeline determined by change tier:
 NOTE: These gates are enforced by runtime hooks. If you skip the {{AGENT_PREFIX}}reviewer delegation,
 the next coder delegation will be BLOCKED by the plugin. This is not a suggestion —

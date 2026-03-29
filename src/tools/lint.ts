@@ -49,13 +49,10 @@ export interface LintErrorResult {
 export type LintResult = LintSuccessResult | LintErrorResult;
 
 // ============ Validation ============
-export function containsPathTraversal(str: string): boolean {
-	return /\.\.[/\\]/.test(str);
-}
-
-export function containsControlChars(str: string): boolean {
-	return /[\0\t\r\n]/.test(str);
-}
+export {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 
 export function validateArgs(args: unknown): args is { mode: 'fix' | 'check' } {
 	if (typeof args !== 'object' || args === null) return false;

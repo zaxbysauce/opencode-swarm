@@ -53,9 +53,7 @@ interface ComplexityHotspotsError {
 }
 
 // ============ Validation ============
-function containsControlChars(str: string): boolean {
-	return /[\0\t\r\n]/.test(str);
-}
+import { containsControlChars } from '../utils/path-security';
 
 function validateDays(days: unknown): {
 	valid: boolean;

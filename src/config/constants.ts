@@ -26,11 +26,12 @@ export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];
 
-// Tool permissions by agent - architect gets all tools, others capped at 12
+// Tool permissions by agent - architect gets all tools, others capped at 15
 export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	architect: [
 		'checkpoint',
 		'check_gate_status',
+		'completion_verify',
 		'complexity_hotspots',
 		'detect_domains',
 		'evidence_check',
@@ -42,6 +43,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'diff',
 		'pkg_audit',
 		'pre_check_batch',
+		'quality_budget',
 		'retrieve_summary',
 		'save_plan',
 		'schema_drift',
@@ -52,6 +54,18 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'update_task_status',
 		'write_retro',
 		'declare_scope',
+		'sast_scan',
+		'sbom_generate',
+		'build_check',
+		'syntax_check',
+		'placeholder_scan',
+		'phase_complete',
+		'doc_scan',
+		'doc_extract',
+		'curator_analyze',
+		'knowledgeAdd',
+		'knowledgeRecall',
+		'knowledgeRemove',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -63,6 +77,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'schema_drift',
 		'symbols',
 		'todo_extract',
+		'doc_scan',
+		'knowledgeRecall',
 	],
 	coder: [
 		'diff',
@@ -71,6 +87,10 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'extract_code_blocks',
 		'retrieve_summary',
+		'build_check',
+		'syntax_check',
+		'knowledgeAdd',
+		'knowledgeRecall',
 	],
 	test_engineer: [
 		'test_runner',
@@ -81,6 +101,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'complexity_hotspots',
 		'pkg_audit',
+		'build_check',
+		'syntax_check',
 	],
 	sme: [
 		'complexity_hotspots',
@@ -90,6 +112,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'schema_drift',
 		'symbols',
+		'knowledgeRecall',
 	],
 	reviewer: [
 		'diff',
@@ -103,6 +126,9 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'extract_code_blocks',
 		'test_runner',
+		'sast_scan',
+		'placeholder_scan',
+		'knowledgeRecall',
 	],
 	critic: [
 		'complexity_hotspots',
@@ -110,6 +136,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
+		'knowledgeRecall',
 	],
 	critic_sounding_board: [
 		'complexity_hotspots',
@@ -117,6 +144,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
+		'knowledgeRecall',
 	],
 	critic_drift_verifier: [
 		'complexity_hotspots',
@@ -124,6 +152,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
+		'knowledgeRecall',
 	],
 	docs: [
 		'detect_domains',
@@ -134,8 +163,14 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'schema_drift',
 		'symbols',
 		'todo_extract',
+		'knowledgeRecall',
 	],
-	designer: ['extract_code_blocks', 'retrieve_summary', 'symbols'],
+	designer: [
+		'extract_code_blocks',
+		'retrieve_summary',
+		'symbols',
+		'knowledgeRecall',
+	],
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

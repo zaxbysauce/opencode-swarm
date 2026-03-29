@@ -8,27 +8,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
-
-/**
- * Validate directory parameter to prevent path traversal attacks
- *
- * @param directory - The directory to validate
- * @throws Error if directory is invalid
- */
-function validateDirectory(directory: string): void {
-	if (!directory || directory.trim() === '') {
-		throw new Error('Invalid directory: empty');
-	}
-	if (/\.\.[/\\]/.test(directory)) {
-		throw new Error('Invalid directory: path traversal detected');
-	}
-	if (directory.startsWith('/') || directory.startsWith('\\')) {
-		throw new Error('Invalid directory: absolute path');
-	}
-	if (/^[A-Za-z]:[\\/]/.test(directory)) {
-		throw new Error('Invalid directory: Windows absolute path');
-	}
-}
+import { validateDirectory } from '../utils/path-security';
 
 /**
  * Represents a single task execution outcome entry

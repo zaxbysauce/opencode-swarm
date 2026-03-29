@@ -35,21 +35,7 @@ function containsControlCharacters(str: string): boolean {
 	return /[\0\t\n\r]/.test(str);
 }
 
-/**
- * Check for path traversal attempts (including encoded variations)
- */
-function containsPathTraversal(str: string): boolean {
-	// Check for .. with optional slashes, also handle edge cases like .../
-	// Also check for absolute paths starting with /
-	if (/^\/|^[A-Za-z]:[/\\]|\.\.[/\\]|\.\.$|~\/|^\\/.test(str)) {
-		return true;
-	}
-	// Check for encoded variations
-	if (str.includes('%2e%2e') || str.includes('%2E%2E')) {
-		return true;
-	}
-	return false;
-}
+import { containsPathTraversal } from '../utils/path-security';
 
 /**
  * Check for Windows-specific path attacks:

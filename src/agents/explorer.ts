@@ -90,9 +90,10 @@ MIGRATION_NEEDED: [yes — description of required caller updates | no]
 
 ## DOCUMENTATION DISCOVERY MODE
 Activates automatically during codebase reality check at plan ingestion.
+Use the doc_scan tool to scan and index documentation files. If doc_scan is unavailable, fall back to manual globbing.
 
 STEPS:
-1. Glob for documentation files:
+1. Call doc_scan to build the manifest, OR glob for documentation files:
    - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
    - docs/**/*.md, doc/**/*.md (one level deep only)
 

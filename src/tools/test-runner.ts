@@ -2,6 +2,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -80,35 +84,6 @@ export interface TestErrorResult {
 export type TestResult = TestSuccessResult | TestErrorResult;
 
 // ============ Validation ============
-function containsPathTraversal(str: string): boolean {
-	// Check for basic path traversal patterns
-	if (/\.\.[/\\]/.test(str)) return true;
-
-	// Check for isolated double dots (at start or after separator)
-	if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(str)) return true;
-
-	// Check for URL-encoded traversal patterns
-	if (/%2e%2e/i.test(str)) return true; // .. URL encoded
-	if (/%2e\./i.test(str)) return true; // .%2e
-	if (/%2e/i.test(str) && /\.\./.test(str)) return true; // Mixed encoding
-	if (/%252e%252e/i.test(str)) return true; // Double encoded ..
-
-	// Check for Unicode/Unicode-like traversal attempts
-	// Fullwidth dot (U+FF0E) - looks like dot but isn't
-	if (/\uff0e/.test(str)) return true;
-	// Ideographic full stop (U+3002)
-	if (/\u3002/.test(str)) return true;
-	// Halfwidth katakana middle dot (U+FF65)
-	if (/\uff65/.test(str)) return true;
-
-	// Check for path separator variants
-	// Forward slash encoded as %2f
-	if (/%2f/i.test(str)) return true;
-	// Backslash encoded as %5c
-	if (/%5c/i.test(str)) return true;
-
-	return false;
-}
 
 function isAbsolutePath(str: string): boolean {
 	// Unix absolute path
@@ -124,15 +99,6 @@ function isAbsolutePath(str: string): boolean {
 	if (/^\\\\\.\\/.test(str)) return true;
 
 	return false;
-}
-
-function containsControlChars(str: string): boolean {
-	// Expanded control character check beyond \0, \t
-	// Includes all C0 control codes (0x00-0x1f) except tab which is checked separately
-	// Also includes DEL (0x7f), C1 control codes (0x80-0x9f), and explicitly LF/CR
-	// LF (\n, 0x0a) and CR (\r, 0x0d) must be explicitly rejected for security
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional security validation pattern
-	return /[\x00-\x08\x0a\x0b\x0c\x0d\x0e-\x1f\x7f\x80-\x9f]/.test(str);
 }
 
 // PowerShell metacharacters that could enable command injection
