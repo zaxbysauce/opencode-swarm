@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.39.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.38.0...v6.39.0) (2026-03-29)
+
+
+### Features
+
+* **swarm:** fix tool registry coherence — complete tool-names, AGENT_TOOL_MAP, doc_scan wiring, and path-security consolidation ([#317](https://github.com/zaxbysauce/opencode-swarm/issues/317)) ([aa30a93](https://github.com/zaxbysauce/opencode-swarm/commit/aa30a93b5b4f35832a073a6a54287ce7e2f62d8b))
+
 ## [6.38.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.37.0...v6.38.0) (2026-03-29)
 
 
