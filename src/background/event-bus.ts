@@ -33,7 +33,11 @@ export type AutomationEventType =
 	| 'evidence.summary.generated'
 	| 'evidence.summary.error'
 	| 'curator.init.completed'
+	| 'curator.init.llm_completed'
+	| 'curator.init.llm_fallback'
 	| 'curator.phase.completed'
+	| 'curator.phase.llm_completed'
+	| 'curator.phase.llm_fallback'
 	| 'curator.drift.completed'
 	| 'curator.error';
 

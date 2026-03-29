@@ -828,8 +828,8 @@ export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
 
 // Curator configuration (phase context consolidation and drift detection)
 export const CuratorConfigSchema = z.object({
-	/** Enable curator mode. Default: false */
-	enabled: z.boolean().default(false),
+	/** Enable curator mode. Default: true */
+	enabled: z.boolean().default(true),
 	/** Run CURATOR_INIT at session start. Default: true (when curator enabled) */
 	init_enabled: z.boolean().default(true),
 	/** Run CURATOR_PHASE at phase boundaries. Default: true (when curator enabled) */

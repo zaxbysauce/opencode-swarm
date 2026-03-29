@@ -10,6 +10,10 @@ import * as path from 'node:path';
 
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import {
+	routeReviewForChanges,
+	shouldParallelizeReview,
+} from '../parallel/review-router.js';
 import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
@@ -477,6 +481,33 @@ export function createDelegationGateHook(
 		if (typeof subagentType !== 'string') return;
 
 		const targetAgent = stripKnownSwarmPrefix(subagentType);
+
+		// Review routing: when delegating to reviewer, check if review should be parallelized
+		if (targetAgent === 'reviewer') {
+			try {
+				const reviewSession = swarmState.agentSessions.get(input.sessionID);
+				if (reviewSession) {
+					// Use modified files from the current coder task as changed files
+					const changedFiles = reviewSession.modifiedFilesThisCoderTask ?? [];
+					if (changedFiles.length > 0) {
+						const routing = await routeReviewForChanges(
+							directory,
+							changedFiles,
+						);
+						if (shouldParallelizeReview(routing)) {
+							reviewSession.pendingAdvisoryMessages ??= [];
+							reviewSession.pendingAdvisoryMessages.push(
+								`REVIEW ROUTING: High complexity detected (${routing.reason}). ` +
+									`Consider parallel review: ${routing.reviewerCount} reviewers, ${routing.testEngineerCount} test engineers recommended.`,
+							);
+						}
+					}
+				}
+			} catch {
+				// review routing errors must never block delegation
+			}
+		}
+
 		if (targetAgent !== 'coder') return;
 
 		// Only check for the architect session (the orchestrator)

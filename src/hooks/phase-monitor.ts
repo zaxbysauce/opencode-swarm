@@ -10,7 +10,10 @@ import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../background/trigger';
 import { CuratorConfigSchema } from '../config/schema';
 import { loadPlan } from '../plan/manager';
-import { runCuratorInit as defaultRunCuratorInit } from './curator';
+import {
+	type CuratorLLMDelegate,
+	runCuratorInit as defaultRunCuratorInit,
+} from './curator';
 import type { CuratorConfig, CuratorInitResult } from './curator-types';
 import { safeHook } from './utils';
 
@@ -18,6 +21,7 @@ import { safeHook } from './utils';
 export type CuratorInitRunner = (
 	directory: string,
 	config: CuratorConfig,
+	llmDelegate?: CuratorLLMDelegate,
 ) => Promise<CuratorInitResult>;
 
 /**
