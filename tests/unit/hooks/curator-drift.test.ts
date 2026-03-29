@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
@@ -630,17 +630,21 @@ describe('runDeterministicDriftCheck', () => {
 			expect(result.report.drift_score).toBe(0.3);
 		});
 
-		it('Empty string directory → returns MINOR_DRIFT (no plan found)', async () => {
+		it('Empty .swarm directory (no plan.md) → returns MINOR_DRIFT', async () => {
 			const curatorResult = makeCuratorResult({ phase: 1 });
 			const config = makeCuratorConfig();
 
-			// Empty string resolves to current working directory
-			// No plan.md in .swarm there, so returns MINOR_DRIFT
-			const result = await runDeterministicDriftCheck('', 1, curatorResult, config);
+			// Use a temp directory that has a .swarm/ dir but no plan.md inside it.
+			// This avoids environment dependence (CWD may or may not have plan.md).
+			const emptySwarmDir = path.join(tmpDir, 'no-plan-test');
+			mkdirSync(path.join(emptySwarmDir, '.swarm'), { recursive: true });
 
-			// Per implementation: empty string dir triggers catch block → returns safe default ALIGNED/0
-			expect(result.report.alignment).toBe('ALIGNED');
-			expect(result.report.drift_score).toBe(0);
+			const result = await runDeterministicDriftCheck(emptySwarmDir, 1, curatorResult, config);
+
+			// When planMd is null, the function returns MINOR_DRIFT with score 0.3
+			// ("cannot assess alignment without a plan").
+			expect(result.report.alignment).toBe('MINOR_DRIFT');
+			expect(result.report.drift_score).toBe(0.3);
 		});
 
 		it('config.drift_inject_max_chars = 0 → injection_summary is empty string, no crash', async () => {
