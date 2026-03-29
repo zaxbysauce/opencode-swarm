@@ -26,13 +26,10 @@ const BINARY_NULL_CHECK_BYTES = 8192; // Number of bytes to check for null bytes
 const BINARY_NULL_THRESHOLD = 0.1; // 10% null bytes threshold for binary detection
 
 // ============ Validation ============
-function containsPathTraversal(str: string): boolean {
-	return /\.\.[/\\]/.test(str);
-}
-
-function containsControlChars(str: string): boolean {
-	return /[\0\t\r\n]/.test(str);
-}
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 
 function validateFileInput(file: string): string | null {
 	if (!file || file.length === 0) {

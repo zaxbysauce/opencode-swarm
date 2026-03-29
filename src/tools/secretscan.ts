@@ -1,6 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -304,19 +308,6 @@ function isHighEntropyString(str: string): boolean {
 }
 
 // ============ Validation ============
-function containsPathTraversal(str: string): boolean {
-	// Check for explicit path traversal
-	if (/\.\.[/\\]/.test(str)) return true;
-	// Check trailing ".." segment (e.g., "foo/..")
-	if (/[/\\]\.\.$/.test(str) || str === '..') return true;
-	// Check for dot-segment that resolves to parent (after normalization)
-	// Note: do NOT use path.normalize on glob patterns - it collapses **/../etc to etc
-	if (/\.\.[/\\]/.test(path.normalize(str.replace(/\*/g, 'x')))) return true;
-	// Check for encoded traversal (double-encoded)
-	if (str.includes('%2e%2e') || str.includes('%2E%2E')) return true;
-	if (str.includes('..') && /%2e/i.test(str)) return true;
-	return false;
-}
 
 /**
  * Validate an exclude pattern for safety.
@@ -397,10 +388,6 @@ function isExcluded(
 		if (path.matchesGlob(relPath, pattern)) return true;
 	}
 	return false;
-}
-
-function containsControlChars(str: string): boolean {
-	return /[\0\t\r\n]/.test(str);
 }
 
 function validateDirectoryInput(dir: string): string | null {

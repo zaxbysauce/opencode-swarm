@@ -79,13 +79,10 @@ interface TodoExtractError {
 }
 
 // ============ Validation ============
-function containsPathTraversal(str: string): boolean {
-	return /\.\.[/\\]/.test(str);
-}
-
-function containsControlChars(str: string): boolean {
-	return /[\0\t\r\n]/.test(str);
-}
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 
 function validateTagsInput(tags: string): string | null {
 	if (!tags || tags.length === 0) {

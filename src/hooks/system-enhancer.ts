@@ -417,6 +417,20 @@ export function createSystemEnhancerHook(
 						'context.md',
 					);
 
+					// v6.39: Auto-trigger doc_scan to build/refresh doc manifest
+					// Non-blocking — failure does not prevent plan processing
+					try {
+						const { scanDocIndex } = await import('../tools/doc-scan.js');
+						const { manifest, cached } = await scanDocIndex(directory);
+						if (!cached) {
+							warn(
+								`[system-enhancer] Doc manifest generated: ${manifest.files.length} files indexed`,
+							);
+						}
+					} catch {
+						// Non-blocking — doc scan failure should not prevent plan processing
+					}
+
 					// Check if scoring is enabled
 					const scoringEnabled =
 						config.context_budget?.scoring?.enabled === true;

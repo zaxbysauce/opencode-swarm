@@ -5,10 +5,12 @@ import {
     ORCHESTRATOR_NAME,
     ALL_SUBAGENT_NAMES,
     ALL_AGENT_NAMES,
+    AGENT_TOOL_MAP,
     DEFAULT_MODELS,
     isQAAgent,
     isSubagent,
 } from '../../../src/config/constants';
+import { TOOL_NAMES } from '../../../src/tools/tool-names';
 
 describe('constants.ts', () => {
     describe('QA_AGENTS', () => {
@@ -127,6 +129,18 @@ describe('constants.ts', () => {
         it('has exactly 11 entries (10 subagents + default, no architect)', () => {
             // v6.14: architect removed - inherits OpenCode UI selection instead; v6.36.0: added critic_drift_verifier
             expect(Object.keys(DEFAULT_MODELS)).toHaveLength(11);
+        });
+    });
+
+    describe('AGENT_TOOL_MAP registry coherence', () => {
+        it('every tool in TOOL_NAMES is assigned to at least one agent in AGENT_TOOL_MAP', () => {
+            const assignedTools = new Set<string>();
+            for (const tools of Object.values(AGENT_TOOL_MAP)) {
+                for (const tool of tools) assignedTools.add(tool);
+            }
+            for (const tool of TOOL_NAMES) {
+                expect(assignedTools.has(tool)).toBe(true);
+            }
         });
     });
 });
