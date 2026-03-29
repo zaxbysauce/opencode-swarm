@@ -202,7 +202,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			expect(swarmState.toolAggregates.size).toBe(0);
 		});
 
-		it('should handle agentSessions with null session value (throws)', async () => {
+		it('should handle agentSessions with null session value gracefully (no throw)', async () => {
 			const snapshot: SnapshotData = {
 				version: 1,
 				writtenAt: Date.now(),
@@ -214,8 +214,11 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 				},
 			};
 
-			// This SHOULD throw - deserializeAgentSession doesn't handle null
-			await expect(rehydrateState(snapshot)).rejects.toThrow();
+			// v6.33.1 fix: malformed sessions are skipped with a warning, not thrown.
+			// rehydrateState should resolve without error and the null session is omitted.
+			await expect(rehydrateState(snapshot)).resolves.toBeUndefined();
+			// The null session should NOT appear in agentSessions
+			expect(swarmState.agentSessions.has('session1')).toBe(false);
 		});
 
 		it('should filter out NaN keys in reviewerCallCount', async () => {
@@ -557,6 +560,24 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 
 			const result = await readSnapshot(testDir);
 			expect(result).toBeNull();
+		});
+
+		it('quarantines stale state.json with incompatible version instead of re-reading it', async () => {
+			const statePath = path.join(sessionDir, 'state.json');
+			fs.writeFileSync(
+				statePath,
+				JSON.stringify({ version: 0, writtenAt: Date.now(), toolAggregates: {}, activeAgent: {}, delegationChains: {}, agentSessions: {} }),
+			);
+
+			const result = await readSnapshot(testDir);
+			// Must return null — incompatible version is not rehydrated
+			expect(result).toBeNull();
+			// The original file must have been renamed to .quarantine so it is not
+			// re-read on every subsequent process restart.
+			const quarantinePath = path.join(sessionDir, 'state.json.quarantine');
+			expect(fs.existsSync(quarantinePath)).toBe(true);
+			// The original state.json must no longer exist
+			expect(fs.existsSync(statePath)).toBe(false);
 		});
 	});
 });

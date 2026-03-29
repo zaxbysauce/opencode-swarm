@@ -80,7 +80,7 @@ describe('Snapshot Integration', () => {
 			const parsed = JSON.parse(content);
 
 			expect(parsed).toBeDefined();
-			expect(parsed.version).toBe(1);
+			expect(parsed.version).toBe(2);
 			expect(parsed.toolAggregates.read).toBeDefined();
 			expect(parsed.activeAgent['session-2']).toBe('reviewer');
 			expect(parsed.agentSessions[sessionId]).toBeDefined();
@@ -113,7 +113,9 @@ describe('Snapshot Integration', () => {
 			const loadedSession = swarmState.agentSessions.get(sessionId);
 			expect(loadedSession).toBeDefined();
 			expect(loadedSession?.agentName).toBe('coder');
-			expect(loadedSession?.architectWriteCount).toBe(3);
+			// architectWriteCount is a transient process-lifetime counter that is intentionally
+			// reset to 0 on restart (v6.33.1 fix) to prevent false self-coding warnings.
+			expect(loadedSession?.architectWriteCount).toBe(0);
 			expect(loadedSession?.currentTaskId).toBe('task-123');
 			expect(loadedSession?.qaSkipCount).toBe(2);
 			expect(loadedSession?.qaSkipTaskIds).toEqual(['task-1', 'task-2']);
@@ -258,7 +260,7 @@ describe('Snapshot Integration', () => {
 
 			const content = await file.text();
 			const parsed = JSON.parse(content);
-			expect(parsed.version).toBe(1);
+			expect(parsed.version).toBe(2);
 			expect(parsed.toolAggregates).toEqual({});
 			expect(parsed.activeAgent).toEqual({});
 			expect(parsed.delegationChains).toEqual({});
@@ -354,7 +356,7 @@ describe('Snapshot Integration', () => {
 			expect(await file.exists()).toBe(true);
 			const content = await file.text();
 			const parsed = JSON.parse(content);
-			expect(parsed.version).toBe(1);
+			expect(parsed.version).toBe(2);
 		});
 
 		it('should maintain valid JSON after multiple writes', async () => {

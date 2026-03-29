@@ -497,7 +497,7 @@ describe('Session Snapshot Integration - Adversarial Tests', () => {
 
 			// Parse and verify structure
 			const parsed = JSON.parse(content) as SnapshotData;
-			expect(parsed.version).toBe(1);
+			expect(parsed.version).toBe(2);
 			expect(parsed.toolAggregates).toBeDefined();
 			expect(parsed.activeAgent).toBeDefined();
 			expect(parsed.delegationChains).toBeDefined();
