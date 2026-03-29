@@ -98,15 +98,16 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 				'utf-8',
 			);
 
-			// Find the line with '[snapshot-writer] write failed' and check preceding lines
+			// PR #327 replaced process.env.DEBUG_SWARM && console.warn with log() from utils/logger.
+			// Verify that log() is used on or near the '[snapshot-writer]' diagnostic line.
 			const lines = snapshotWriterSource.split('\n');
 			let foundGatedWarn = false;
 
 			for (let i = 0; i < lines.length; i++) {
 				if (lines[i].includes("'[snapshot-writer]")) {
-					// Check if there's an process.env.DEBUG_SWARM within 5 lines before
-					for (let j = i; j >= Math.max(0, i - 5); j--) {
-						if (lines[j].includes('process.env.DEBUG_SWARM')) {
+					// Check if log( appears on the same line or within 2 lines before (log is gated by OPENCODE_SWARM_DEBUG)
+					for (let j = i; j >= Math.max(0, i - 2); j--) {
+						if (lines[j].includes('log(')) {
 							foundGatedWarn = true;
 							break;
 						}
@@ -231,8 +232,10 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			// Location 2: src/index.ts — console.debug('[session]...)
 			expect(isGated(indexSource, "console.debug", "[session]")).toBe(true);
 
-			// Location 3: src/session/snapshot-writer.ts — console.warn('[snapshot-writer]...)
-			expect(isGated(snapshotWriterSource, "console.warn", "[snapshot-writer]")).toBe(true);
+			// Location 3: src/session/snapshot-writer.ts — PR #327 replaced process.env.DEBUG_SWARM &&
+			// console.warn with log() from utils/logger (gated by OPENCODE_SWARM_DEBUG). No longer
+			// uses the DEBUG_SWARM pattern, so isGated() does not apply here.
+			// expect(isGated(snapshotWriterSource, "console.warn", "[snapshot-writer]")).toBe(true);
 
 			// Location 4: src/hooks/curator.ts — console.warn('Failed to parse curator-summary.json...)
 			expect(isGated(curatorSource, "console.warn", "Failed to parse curator-summary.json")).toBe(true);
@@ -260,9 +263,10 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			const bareDebugSwarm = /(?<!process\.env\.)DEBUG_SWARM/;
 			expect(allSources).not.toMatch(bareDebugSwarm);
 
-			// Count the DEBUG_SWARM env var checks - should be exactly 5 (one for each diagnostic)
+			// Count the DEBUG_SWARM env var checks - snapshot-writer now uses log() (PR #327),
+			// so the count is 10 (down from 11 before that change).
 			const debugSwarmChecks = allSources.match(/process\.env\.DEBUG_SWARM/g);
-			expect(debugSwarmChecks).toHaveLength(11);
+			expect(debugSwarmChecks).toHaveLength(10);
 		});
 	});
 
