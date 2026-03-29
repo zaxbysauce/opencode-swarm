@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.1...v6.40.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **session:** align writeSnapshot error logging with OPENCODE_SWARM_DEBUG flag ([#327](https://github.com/zaxbysauce/opencode-swarm/issues/327)) ([9458022](https://github.com/zaxbysauce/opencode-swarm/commit/945802203dbc596a914385abb96933048b86fca7))
+
 ## [6.40.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.0...v6.40.1) (2026-03-29)
 
 
