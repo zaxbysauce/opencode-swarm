@@ -219,10 +219,11 @@ function getTaskBlockers(
  * Build evidence summary for a single task
  */
 async function buildTaskSummary(
+	directory: string,
 	task: Task | undefined,
 	taskId: string,
 ): Promise<TaskEvidenceSummary> {
-	const result = await loadEvidence('.', taskId);
+	const result = await loadEvidence(directory, taskId);
 	const bundle = result.status === 'found' ? result.bundle : null;
 	const phase = task?.phase ?? 0;
 	const status = getTaskStatus(task, bundle);
@@ -265,8 +266,11 @@ async function buildTaskSummary(
 /**
  * Build evidence summary for a single phase
  */
-async function buildPhaseSummary(phase: Phase): Promise<PhaseEvidenceSummary> {
-	const taskIds = await listEvidenceTaskIds('.');
+async function buildPhaseSummary(
+	directory: string,
+	phase: Phase,
+): Promise<PhaseEvidenceSummary> {
+	const taskIds = await listEvidenceTaskIds(directory);
 	const phaseTaskIds = new Set(phase.tasks.map((t) => t.id));
 
 	// Build summaries for all tasks in phase (including those without evidence)
@@ -274,14 +278,14 @@ async function buildPhaseSummary(phase: Phase): Promise<PhaseEvidenceSummary> {
 	const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
 
 	for (const task of phase.tasks) {
-		const summary = await buildTaskSummary(task, task.id);
+		const summary = await buildTaskSummary(directory, task, task.id);
 		taskSummaries.push(summary);
 	}
 
 	// Also include tasks that have evidence but aren't in the plan
 	const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
 	for (const taskId of extraTaskIds) {
-		const summary = await buildTaskSummary(undefined, taskId);
+		const summary = await buildTaskSummary(directory, undefined, taskId);
 		if (summary.phase === phase.id) {
 			taskSummaries.push(summary);
 		}
@@ -443,7 +447,7 @@ export async function buildEvidenceSummary(
 
 	for (const phase of phasesToProcess) {
 		// Create a mock directory context for buildPhaseSummary
-		const summary = await buildPhaseSummary(phase);
+		const summary = await buildPhaseSummary(directory, phase);
 		phaseSummaries.push(summary);
 		totalTasks += summary.totalTasks;
 		completedTasks += summary.completedTasks;

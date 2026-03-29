@@ -133,12 +133,19 @@ async function writeBudgetState(
 	directory: string,
 	state: BudgetState,
 ): Promise<void> {
-	const resolvedPath = validateSwarmPath(
-		directory,
-		'session/budget-state.json',
-	);
-	const content = JSON.stringify(state, null, 2);
-	await Bun.write(resolvedPath, content);
+	try {
+		const resolvedPath = validateSwarmPath(
+			directory,
+			'session/budget-state.json',
+		);
+		const content = JSON.stringify(state, null, 2);
+		await Bun.write(resolvedPath, content);
+	} catch (error) {
+		console.warn(
+			'[context-budget] Failed to write budget state:',
+			error instanceof Error ? error.message : String(error),
+		);
+	}
 }
 
 /**

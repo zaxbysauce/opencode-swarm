@@ -53,7 +53,7 @@ export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
 export { handleTurboCommand } from './turbo';
-export { handleWriteRetroCommand } from './write_retro';
+export { handleWriteRetroCommand } from './write-retro';
 
 const HELP_TEXT = [
 	'## Swarm Commands',

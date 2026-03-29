@@ -6,6 +6,7 @@
  */
 
 import { renameSync, unlinkSync } from 'node:fs';
+import * as nodePath from 'node:path';
 import type { PluginConfig } from '../config/schema';
 import { swarmState } from '../state';
 import { warn } from '../utils';
@@ -68,7 +69,7 @@ export function createAgentActivityHooks(
 			const duration = Date.now() - entry.startTime;
 
 			// Determine success
-			const success = output.output != null; // non-null/undefined = success
+			const success = (output as Record<string, unknown>).success === true;
 
 			// Update toolAggregates
 			const key = entry.tool;
@@ -151,7 +152,7 @@ async function doFlush(directory: string): Promise<void> {
 		const flushedCount = swarmState.pendingEvents;
 
 		// Write back (atomic: write to temp then rename)
-		const path = `${directory}/.swarm/context.md`;
+		const path = nodePath.join(directory, '.swarm', 'context.md');
 		const tempPath = `${path}.tmp`;
 		try {
 			await Bun.write(tempPath, updated);

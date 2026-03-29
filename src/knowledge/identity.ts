@@ -54,7 +54,7 @@ function _deriveProjectHash(directory: string): string {
 			encoding: 'utf-8',
 			stdio: ['pipe', 'pipe', 'ignore'],
 		}).trim();
-		hashInput = remoteUrl;
+		hashInput = remoteUrl.length > 0 ? remoteUrl : absolutePath;
 	} catch {
 		// No git remote, fall back to absolute path
 		hashInput = absolutePath;
@@ -183,7 +183,7 @@ export async function writeProjectIdentity(
 	};
 
 	// Atomic write: write to temp file first, then rename
-	const tempPath = `${identityPath}.tmp.${Date.now()}`;
+	const tempPath = `${identityPath}.tmp.${Date.now()}.${process.pid}`;
 	await writeFile(tempPath, JSON.stringify(identity, null, 2), 'utf-8');
 
 	// Rename temp file to actual path (atomic on most filesystems)

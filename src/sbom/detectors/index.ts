@@ -204,7 +204,12 @@ export function detectComponents(
 			if (components.length > 0) {
 				return components;
 			}
-		} catch {}
+		} catch (error) {
+			console.warn(
+				`[sbom] Detector failed for ${filePath}:`,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
 	}
 
 	return [];

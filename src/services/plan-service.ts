@@ -45,9 +45,9 @@ export async function getPlanData(
 			return {
 				hasPlan: true,
 				fullMarkdown,
-				requestedPhase: NaN,
+				requestedPhase: null,
 				phaseMarkdown: null,
-				errorMessage: null,
+				errorMessage: `Invalid phase number: "${phaseArg}"`,
 				isLegacy: false,
 			};
 		}
@@ -109,9 +109,9 @@ export async function getPlanData(
 		return {
 			hasPlan: true,
 			fullMarkdown: planContent,
-			requestedPhase: NaN,
+			requestedPhase: null,
 			phaseMarkdown: null,
-			errorMessage: null,
+			errorMessage: `Invalid phase number: "${phaseArg}"`,
 			isLegacy: true,
 		};
 	}

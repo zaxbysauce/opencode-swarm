@@ -35,7 +35,7 @@ import { handleSpecifyCommand } from './specify.js';
 import { handleStatusCommand } from './status.js';
 import { handleSyncPlanCommand } from './sync-plan.js';
 import { handleTurboCommand } from './turbo.js';
-import { handleWriteRetroCommand } from './write_retro.js';
+import { handleWriteRetroCommand } from './write-retro.js';
 
 export type CommandContext = {
 	directory: string;

@@ -938,3 +938,58 @@ LANGUAGE_REGISTRY.register({
 		],
 	},
 });
+
+// PHP - Tier 3
+LANGUAGE_REGISTRY.register({
+	id: 'php',
+	displayName: 'PHP',
+	tier: 3,
+	extensions: ['.php', '.phtml'],
+	treeSitter: { grammarId: 'php', wasmFile: 'tree-sitter-php.wasm' },
+	build: {
+		detectFiles: ['composer.json'],
+		commands: [],
+	},
+	test: {
+		detectFiles: ['phpunit.xml', 'phpunit.xml.dist'],
+		frameworks: [
+			{
+				name: 'PHPUnit',
+				detect: 'phpunit.xml',
+				cmd: 'vendor/bin/phpunit',
+				priority: 1,
+			},
+		],
+	},
+	lint: {
+		detectFiles: ['.php-cs-fixer.php', 'phpcs.xml'],
+		linters: [
+			{
+				name: 'PHP-CS-Fixer',
+				detect: '.php-cs-fixer.php',
+				cmd: 'vendor/bin/php-cs-fixer fix --dry-run --diff',
+				priority: 1,
+			},
+		],
+	},
+	audit: {
+		detectFiles: ['composer.lock'],
+		command: 'composer audit --format=json',
+		outputFormat: 'json',
+	},
+	sast: { nativeRuleSet: 'php', semgrepSupport: 'ga' },
+	prompts: {
+		coderConstraints: [
+			'Follow PSR-12 coding standards',
+			'Use strict types declaration: declare(strict_types=1)',
+			'Prefer type hints and return type declarations on all functions',
+			'Use dependency injection over static methods and singletons',
+		],
+		reviewerChecklist: [
+			'Verify no user input reaches SQL queries without parameterised binding',
+			'Check for XSS — all output must be escaped with htmlspecialchars()',
+			'Confirm no eval(), exec(), or shell_exec() with user-controlled input',
+			'Validate proper error handling — no bare catch blocks that swallow errors',
+		],
+	},
+});

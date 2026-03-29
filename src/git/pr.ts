@@ -118,27 +118,24 @@ export async function createPullRequest(
 	body?: string,
 	baseBranch: string = 'main',
 ): Promise<{ url: string; number: number }> {
-	const branch = sanitizeInput(getCurrentBranch(cwd));
-	const baseBranchSanitized = sanitizeInput(baseBranch || 'main');
-
-	// Sanitize user-provided inputs to prevent command injection
-	const sanitizedTitle = sanitizeInput(title);
-	const sanitizedBody = sanitizeInput(body || '');
+	const branch = getCurrentBranch(cwd);
+	const baseBranchResolved = baseBranch || 'main';
 
 	// Generate body from evidence.md if not provided
-	const prBody = body ? sanitizedBody : generateEvidenceMd(cwd);
+	// Note: sanitizeInput removed — spawnSync with array args is already safe from injection
+	const prBody = body || generateEvidenceMd(cwd);
 
-	// Create PR using gh CLI
+	// Create PR using gh CLI (array-based spawnSync is shell-injection safe)
 	const output = ghExec(
 		[
 			'pr',
 			'create',
 			'--title',
-			sanitizedTitle,
+			title,
 			'--body',
 			prBody,
 			'--base',
-			baseBranchSanitized,
+			baseBranchResolved,
 			'--head',
 			branch,
 		],

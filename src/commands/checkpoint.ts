@@ -1,5 +1,28 @@
 import type { ToolContext } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { checkpoint } from '../tools/checkpoint.js';
+
+const CheckpointResultSchema = z
+	.object({
+		action: z.string().optional(),
+		success: z.boolean(),
+		error: z.string().optional(),
+		checkpoints: z.array(z.unknown()).optional(),
+	})
+	.passthrough();
+
+function safeParseResult(
+	result: string,
+): z.infer<typeof CheckpointResultSchema> {
+	const parsed = CheckpointResultSchema.safeParse(JSON.parse(result));
+	if (!parsed.success) {
+		return {
+			success: false,
+			error: `Invalid response: ${parsed.error.message}`,
+		};
+	}
+	return parsed.data;
+}
 
 /**
  * Handle /swarm checkpoint command
@@ -33,7 +56,7 @@ async function handleSave(directory: string, label?: string): Promise<string> {
 		const result = await checkpoint.execute({ action: 'save', label }, {
 			directory,
 		} as ToolContext);
-		const parsed = JSON.parse(result);
+		const parsed = safeParseResult(result);
 
 		if (parsed.success) {
 			return `✓ Checkpoint saved: "${label}"`;
@@ -58,7 +81,7 @@ async function handleRestore(
 		const result = await checkpoint.execute({ action: 'restore', label }, {
 			directory,
 		} as ToolContext);
-		const parsed = JSON.parse(result);
+		const parsed = safeParseResult(result);
 
 		if (parsed.success) {
 			return `✓ Restored to checkpoint: "${label}"`;
@@ -83,7 +106,7 @@ async function handleDelete(
 		const result = await checkpoint.execute({ action: 'delete', label }, {
 			directory,
 		} as ToolContext);
-		const parsed = JSON.parse(result);
+		const parsed = safeParseResult(result);
 
 		if (parsed.success) {
 			return `✓ Checkpoint deleted: "${label}"`;
@@ -101,7 +124,7 @@ async function handleList(directory: string): Promise<string> {
 		const result = await checkpoint.execute({ action: 'list' }, {
 			directory,
 		} as ToolContext);
-		const parsed = JSON.parse(result);
+		const parsed = safeParseResult(result);
 
 		if (!parsed.success) {
 			return `Error: ${parsed.error || 'Failed to list checkpoints'}`;

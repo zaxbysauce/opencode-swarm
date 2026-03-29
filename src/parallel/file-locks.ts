@@ -16,13 +16,18 @@ export interface FileLock {
  * Get lock file path for a file
  */
 function getLockFilePath(directory: string, filePath: string): string {
+	// Normalize path before validation to handle relative segments
+	const normalized = path.resolve(directory, filePath);
+
 	// Validate path to prevent traversal attacks
-	if (filePath.includes('..')) {
+	if (!normalized.startsWith(path.resolve(directory))) {
 		throw new Error('Invalid file path: path traversal not allowed');
 	}
 
-	// Hash the file path to create a safe lock filename
-	const hash = Buffer.from(filePath).toString('base64').replace(/[/+=]/g, '_');
+	// Hash the normalized file path to create a safe lock filename
+	const hash = Buffer.from(normalized)
+		.toString('base64')
+		.replace(/[/+=]/g, '_');
 	return path.join(directory, LOCKS_DIR, `${hash}.lock`);
 }
 

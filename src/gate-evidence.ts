@@ -98,7 +98,7 @@ export function expandRequiredGates(
 	newAgentType: string,
 ): string[] {
 	const newGates = deriveRequiredGates(newAgentType);
-	const combined = [...new Set([...existingGates, ...newGates])];
+	const combined = [...new Set([...(existingGates ?? []), ...newGates])];
 	return combined.sort();
 }
 

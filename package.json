@@ -8,6 +8,9 @@
 		"opencode-swarm": "./dist/cli/index.js"
 	},
 	"type": "module",
+	"engines": {
+		"bun": ">=1.0.0"
+	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",

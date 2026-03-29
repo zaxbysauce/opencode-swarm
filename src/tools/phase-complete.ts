@@ -683,13 +683,22 @@ export async function executePhaseComplete(
 			// Infer project name from directory
 			const projectName = path.basename(dir);
 
-			await curateAndStoreSwarm(
+			const curationResult = await curateAndStoreSwarm(
 				retroEntry.lessons_learned,
 				projectName,
 				{ phase_number: phase },
 				dir,
 				knowledgeConfig,
 			);
+			if (curationResult) {
+				const sessionState = swarmState.agentSessions.get(sessionID);
+				if (sessionState) {
+					sessionState.pendingAdvisoryMessages ??= [];
+					sessionState.pendingAdvisoryMessages.push(
+						`[CURATOR] Knowledge curation: ${curationResult.stored} stored, ${curationResult.skipped} skipped, ${curationResult.rejected} rejected.`,
+					);
+				}
+			}
 		} catch (error) {
 			// Log warning but don't block phase completion
 			safeWarn(
@@ -771,8 +780,23 @@ export async function executePhaseComplete(
 		);
 	}
 
-	// Build the effective required-agents list
-	const effectiveRequired: string[] = [...phaseCompleteConfig.required_agents];
+	// Build the effective required-agents list.
+	// If the phase defines its own required_agents, use those instead of the global config.
+	// This allows non-code phases (acceptance, docs) to skip coder/reviewer/test_engineer requirements.
+	let phaseRequiredAgents: string[] | undefined;
+	try {
+		const planPath = validateSwarmPath(dir, 'plan.json');
+		const planRaw = fs.readFileSync(planPath, 'utf-8');
+		const plan: { phases: Array<{ id: number; required_agents?: string[] }> } =
+			JSON.parse(planRaw);
+		const phaseObj = plan.phases.find((p) => p.id === phase);
+		phaseRequiredAgents = phaseObj?.required_agents;
+	} catch {
+		// plan.json missing or unreadable — fall through to config defaults
+	}
+	const effectiveRequired: string[] = [
+		...(phaseRequiredAgents ?? phaseCompleteConfig.required_agents),
+	];
 	if (phaseCompleteConfig.require_docs && !effectiveRequired.includes('docs')) {
 		effectiveRequired.push('docs');
 	}

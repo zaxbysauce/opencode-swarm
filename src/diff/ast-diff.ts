@@ -99,12 +99,18 @@ export async function computeASTDiff(
 
 	try {
 		// Load parser with timeout
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		const parser = await Promise.race([
 			loadGrammar(language.id),
-			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error('AST_TIMEOUT')), AST_TIMEOUT_MS),
-			),
-		]);
+			new Promise<never>((_, reject) => {
+				timeoutId = setTimeout(
+					() => reject(new Error('AST_TIMEOUT')),
+					AST_TIMEOUT_MS,
+				);
+			}),
+		]).finally(() => {
+			if (timeoutId) clearTimeout(timeoutId);
+		});
 
 		// Parse both versions
 		const oldTree = parser.parse(oldContent);

@@ -189,9 +189,10 @@ export function filterByRole(
 	}
 
 	if (!directory) {
-		throw new Error(
-			'[role-filter] No directory provided — ctx.directory is required',
+		console.warn(
+			'[role-filter] No directory provided — falling back to process.cwd()',
 		);
+		directory = process.cwd();
 	}
 	const projectDir = directory;
 

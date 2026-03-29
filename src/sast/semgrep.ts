@@ -3,13 +3,10 @@
  * Provides optional Semgrep detection and invocation for advanced static analysis
  */
 
-import { execFile, execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import type { SastFinding } from './rules/index.js';
-
-const _execFileAsync = promisify(execFile);
 
 /**
  * Semgrep CLI options
@@ -112,7 +109,12 @@ function parseSemgrepResults(semgrepOutput: string): SastFinding[] {
 		// Handle different Semgrep output formats
 		const results = parsed.results || parsed;
 
+		if (!Array.isArray(results)) {
+			return [];
+		}
+
 		for (const result of results) {
+			if (!result || typeof result !== 'object') continue;
 			const severity = mapSemgrepSeverity(
 				result.extra?.severity || result.severity,
 			);

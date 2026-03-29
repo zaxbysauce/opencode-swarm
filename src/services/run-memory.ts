@@ -285,7 +285,7 @@ export async function getRunMemorySummary(
 			// Calculate how many characters we can fit
 			const maxContentChars = Math.floor(availableContentTokens / 0.33);
 			// Truncate content
-			summaryText = summaryText.slice(-maxContentChars);
+			summaryText = summaryText.slice(0, maxContentChars);
 		} else {
 			// Not enough room - use minimal content
 			summaryText = '';
