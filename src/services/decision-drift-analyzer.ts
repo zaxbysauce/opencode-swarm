@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
+import { log } from '../utils';
 
 /**
  * Drift signal severity levels
@@ -342,8 +343,10 @@ export async function analyzeDecisionDrift(
 			if (fs.existsSync(contextPath)) {
 				contextContent = fs.readFileSync(contextPath, 'utf-8');
 			}
-		} catch {
-			// If we can't read context, return empty result
+		} catch (error) {
+			log('[DecisionDriftAnalyzer] context file read failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			return {
 				hasDrift: false,
 				signals: [],
@@ -425,8 +428,10 @@ export async function analyzeDecisionDrift(
 			summary,
 			analyzedAt,
 		};
-	} catch {
-		// On error, return empty result
+	} catch (error) {
+		log('[DecisionDriftAnalyzer] drift analysis failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 		return {
 			hasDrift: false,
 			signals: [],

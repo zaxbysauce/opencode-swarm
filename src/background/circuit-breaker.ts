@@ -169,7 +169,6 @@ export class CircuitBreaker {
 	 * Transition to a new state
 	 */
 	private transitionTo(newState: CircuitBreakerState): void {
-		// biome-ignore lint/correctness/noUnusedVariables: oldState useful for debugging/logging in future
 		const oldState = this.state;
 		this.state = newState;
 
@@ -179,16 +178,18 @@ export class CircuitBreaker {
 			this.onStateChange?.('closed', {
 				timestamp: Date.now(),
 				successCount: 0,
+				oldState,
 			});
 		} else if (newState === 'open') {
 			this.successCount = 0;
 			this.onStateChange?.('opened', {
 				timestamp: Date.now(),
 				failureCount: this.failureCount,
+				oldState,
 			});
 		} else if (newState === 'half-open') {
 			this.successCount = 0;
-			this.onStateChange?.('half-open', { timestamp: Date.now() });
+			this.onStateChange?.('half-open', { timestamp: Date.now(), oldState });
 		}
 	}
 

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
+import { estimateCyclomaticComplexity } from '../quality/metrics';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -199,59 +200,6 @@ async function getGitChurn(
 	return churnMap;
 }
 
-// ============ Complexity Estimation ============
-function estimateComplexity(content: string): number {
-	// Remove block comments /* ... */
-	let processed = content.replace(/\/\*[\s\S]*?\*\//g, '');
-
-	// Remove line comments //
-	processed = processed.replace(/\/\/.*/g, '');
-
-	// Remove Python comments #
-	processed = processed.replace(/#.*/g, '');
-
-	// Remove single-quoted strings
-	processed = processed.replace(/'[^']*'/g, '');
-
-	// Remove double-quoted strings
-	processed = processed.replace(/"[^"]*"/g, '');
-
-	// Remove template literals
-	processed = processed.replace(/`[^`]*`/g, '');
-
-	let complexity = 1; // Base complexity
-
-	// Count decision points
-	const decisionPatterns = [
-		/\bif\b/g, // if statements
-		/\belse\s+if\b/g, // else if
-		/\bfor\b/g, // for loops
-		/\bwhile\b/g, // while loops
-		/\bswitch\b/g, // switch
-		/\bcase\b/g, // case
-		/\bcatch\b/g, // catch blocks
-		/\?\./g, // optional chaining
-		/\?\?/g, // nullish coalescing
-		/&&/g, // logical AND
-		/\|\|/g, // logical OR
-	];
-
-	for (const pattern of decisionPatterns) {
-		const matches = processed.match(pattern);
-		if (matches) {
-			complexity += matches.length;
-		}
-	}
-
-	// Approximate ternary: ? followed by non-colon (simple heuristic)
-	const ternaryMatches = processed.match(/\?[^:]/g);
-	if (ternaryMatches) {
-		complexity += ternaryMatches.length;
-	}
-
-	return complexity;
-}
-
 function getComplexityForFile(filePath: string): number | null {
 	try {
 		const stat = fs.statSync(filePath);
@@ -262,7 +210,7 @@ function getComplexityForFile(filePath: string): number | null {
 		}
 
 		const content = fs.readFileSync(filePath, 'utf-8');
-		return estimateComplexity(content);
+		return estimateCyclomaticComplexity(content);
 	} catch {
 		return null;
 	}

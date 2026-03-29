@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { PluginConfig } from '../config/schema';
+import { log } from '../utils';
 
 /**
  * Valid config paths for opencode-swarm
@@ -184,8 +185,10 @@ export function createConfigBackup(directory: string): ConfigBackup | null {
 	if (fs.existsSync(projectConfigPath)) {
 		try {
 			content = fs.readFileSync(projectConfigPath, 'utf-8');
-		} catch {
-			// Failed to read, try user config
+		} catch (error) {
+			log('[ConfigDoctor] project config read failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
@@ -194,8 +197,10 @@ export function createConfigBackup(directory: string): ConfigBackup | null {
 		configPath = userConfigPath;
 		try {
 			content = fs.readFileSync(userConfigPath, 'utf-8');
-		} catch {
-			// Failed to read
+		} catch (error) {
+			log('[ConfigDoctor] user config read failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 

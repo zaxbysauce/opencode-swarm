@@ -27,15 +27,10 @@ const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 
 // ============ Validation ============
 
-/**
- * Check for control characters in path that could indicate injection
- */
-function containsControlCharacters(str: string): boolean {
-	// Check for null byte, tab, newline, carriage return
-	return /[\0\t\n\r]/.test(str);
-}
-
-import { containsPathTraversal } from '../utils/path-security';
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../utils/path-security';
 
 /**
  * Check for Windows-specific path attacks:
@@ -448,7 +443,7 @@ export const symbols: ToolDefinition = createSwarmTool({
 		const ext = path.extname(file);
 
 		// Validate path contains no control characters
-		if (containsControlCharacters(file)) {
+		if (containsControlChars(file)) {
 			return JSON.stringify(
 				{
 					file,

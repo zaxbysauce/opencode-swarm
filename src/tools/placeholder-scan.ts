@@ -139,23 +139,6 @@ const SCAFFOLD_FILENAME_PATTERNS = [
 	/\.template\./, // matches: something.template.ts
 ];
 
-// Additional content patterns that indicate a test file (more specific - only framework calls)
-const _TEST_CONTENT_PATTERNS = [
-	/\bdescribe\s*\(/,
-	/\bit\s*\(/,
-	/\btest\s*\(\s*['"`]/,
-	/\bexpect\s*\(/,
-	/\bassert\s*\(/,
-	/\bshould\s*\(/,
-	/\bmocha\s*\(/,
-	/\bjest\s*\(/,
-	/\bpytest\s*\(/,
-	/\bunittest\s*\(/,
-	/\bjunit\s*\(/,
-	/\bxunit\s*\(/,
-	/\btesting\s*\(/,
-];
-
 // Supported extensions for Tree-sitter parsing
 const SUPPORTED_PARSER_EXTENSIONS = new Set([
 	'.js',

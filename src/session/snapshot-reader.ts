@@ -3,6 +3,7 @@
  * Reads .swarm/session/state.json and rehydrates swarmState on plugin init.
  */
 
+import { renameSync } from 'node:fs';
 import { validateSwarmPath } from '../hooks/utils';
 import type { AgentSessionState, TaskWorkflowState } from '../state';
 import {
@@ -167,8 +168,20 @@ export async function readSnapshot(
 			return value;
 		}) as SnapshotData;
 
-		// Validate version
+		// Validate version — quarantine incompatible snapshots so they are not
+		// re-read on every subsequent restart.
 		if (parsed.version !== 1 && parsed.version !== 2) {
+			try {
+				const quarantinePath = validateSwarmPath(
+					directory,
+					'session/state.json.quarantine',
+				);
+				// Rename the stale file.  Errors are swallowed — the important
+				// thing is that we return null so the caller starts fresh.
+				renameSync(resolvedPath, quarantinePath);
+			} catch {
+				// Quarantine rename failed — not fatal, still return null below.
+			}
 			return null;
 		}
 

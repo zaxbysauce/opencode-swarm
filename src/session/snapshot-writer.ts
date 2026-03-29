@@ -14,12 +14,12 @@ import type {
 import { swarmState } from '../state';
 
 /**
- * v6.33.1: Debounce state for snapshot writes.
- * Coalesces rapid tool calls to reduce I/O pressure and prevent SSE drain
- * overwhelm (root cause amplifier for #270 session loss).
+ * v6.35.4: In-flight write guard.
+ * Prevents concurrent atomic renames from colliding when multiple tool.execute.after
+ * hooks fire simultaneously.  State is written immediately on each call; the guard
+ * ensures only one write is in flight at a time so the last writer wins.
  */
-let pendingWrite: ReturnType<typeof setTimeout> | null = null;
-let lastWritePromise: Promise<void> = Promise.resolve();
+let _writeInFlight: Promise<void> = Promise.resolve();
 
 /**
  * Serialized form of AgentSessionState with Map/Set fields converted to plain arrays/objects
@@ -239,31 +239,33 @@ export async function writeSnapshot(
 
 /**
  * Create a snapshot writer hook suitable for use in tool.execute.after.
- * Returns a hook function that writes the current swarmState to disk.
+ * Writes state immediately on every call.  Concurrent calls are serialised so
+ * the last writer wins without producing a corrupt interleaved file.
  */
 export function createSnapshotWriterHook(
 	directory: string,
 ): (input: unknown, output: unknown) => Promise<void> {
-	return async (_input: unknown, _output: unknown): Promise<void> => {
-		if (pendingWrite) clearTimeout(pendingWrite);
-		pendingWrite = setTimeout(() => {
-			pendingWrite = null;
-			lastWritePromise = writeSnapshot(directory, swarmState).catch(() => {});
-		}, 2000);
+	return (_input: unknown, _output: unknown): Promise<void> => {
+		// Chain writes so concurrent calls don't race on the temp-rename sequence.
+		// Each write sees the latest swarmState snapshot at the moment it runs.
+		_writeInFlight = _writeInFlight.then(
+			() => writeSnapshot(directory, swarmState),
+			() => writeSnapshot(directory, swarmState),
+		);
+		return _writeInFlight;
 	};
 }
 
 /**
- * v6.33.1: Flush any pending debounced snapshot write immediately.
- * Used by phase-complete and handoff to ensure critical state transitions
+ * v6.35.4: Flush any in-flight snapshot write.
+ * Called by phase-complete and handoff to ensure critical state transitions
  * are persisted before returning.
  */
 export async function flushPendingSnapshot(directory: string): Promise<void> {
-	if (pendingWrite) {
-		clearTimeout(pendingWrite);
-		pendingWrite = null;
-		await writeSnapshot(directory, swarmState).catch(() => {});
-	} else {
-		await lastWritePromise;
-	}
+	// Trigger a fresh write and wait for it (and any already-in-flight write) to finish.
+	_writeInFlight = _writeInFlight.then(
+		() => writeSnapshot(directory, swarmState),
+		() => writeSnapshot(directory, swarmState),
+	);
+	await _writeInFlight;
 }
