@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.39.0...v6.40.0) (2026-03-29)
+
+
+### Features
+
+* **swarm:** resolve remaining QA findings — service layer fixes, config wiring, test improvements, and hardening ([#320](https://github.com/zaxbysauce/opencode-swarm/issues/320)) ([93253b1](https://github.com/zaxbysauce/opencode-swarm/commit/93253b14a83f566f3109dceb981fb5d6001d9e2b))
+
 ## [6.39.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.38.0...v6.39.0) (2026-03-29)
 
 
