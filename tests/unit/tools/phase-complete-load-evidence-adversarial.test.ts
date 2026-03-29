@@ -85,68 +85,57 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 	});
 
 	describe('loadEvidence throwing (sync/async) — propagation vs swallow', () => {
-		test('should propagate sync Error thrown from loadEvidence', async () => {
-			// Arrange
+		test('should resolve with error result when loadEvidence throws sync Error', async () => {
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const syncError = new Error('Sync loadEvidence failure');
-
-			// Mock loadEvidence to throw synchronously
 			mockLoadEvidence.mockImplementation(() => {
-				throw syncError;
+				throw new Error('Sync loadEvidence failure');
 			});
 
-			// Act & Assert - should propagate the error
-			await expect(phase_complete.execute({ phase, sessionID: 'sess1' })).rejects.toThrow(syncError);
+			// The implementation catches errors and resolves with failure result
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
 		});
 
-		test('should propagate async Error thrown from loadEvidence', async () => {
-			// Arrange
+		test('should resolve with error result when loadEvidence rejects async', async () => {
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const asyncError = new Error('Async loadEvidence failure');
+			mockLoadEvidence.mockRejectedValue(new Error('Async loadEvidence failure'));
 
-			// Mock loadEvidence to return rejected promise
-			mockLoadEvidence.mockRejectedValue(asyncError);
-
-			// Act & Assert - should propagate the error
-			await expect(phase_complete.execute({ phase, sessionID: 'sess1' })).rejects.toThrow(asyncError);
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
 		});
 
-		test('should propagate non-Error thrown from loadEvidence', async () => {
-			// Arrange
+		test('should resolve with error result when loadEvidence throws non-Error', async () => {
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const nonErrorObj = { custom: 'error object' };
-
-			// Mock loadEvidence to throw non-Error
 			mockLoadEvidence.mockImplementation(() => {
-				throw nonErrorObj;
+				throw { custom: 'error object' };
 			});
 
-			// Act & Assert - should propagate the thrown value
-			await expect(phase_complete.execute({ phase, sessionID: 'sess1' })).rejects.toEqual(nonErrorObj);
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
 		});
 
-		test('should propagate Error from fallback loadEvidence calls', async () => {
-			// Arrange
+		test('should resolve with error result when fallback loadEvidence throws', async () => {
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const fallbackError = new Error('Fallback loadEvidence failure');
-
-			// Primary call returns not_found, fallback throws
 			mockLoadEvidence
 				.mockResolvedValueOnce({ status: 'not_found' })
-				.mockRejectedValue(fallbackError);
+				.mockRejectedValue(new Error('Fallback loadEvidence failure'));
 
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
-			// Act & Assert - should propagate the error from fallback
-			await expect(phase_complete.execute({ phase, sessionID: 'sess1' })).rejects.toThrow(fallbackError);
+			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
 		});
 	});
 

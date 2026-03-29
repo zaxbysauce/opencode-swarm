@@ -397,7 +397,7 @@ export const multiply = (x: number) => x * 2;
 			const result = await symbols.execute({ file: '/secrets/passwd' }, {} as any);
 			const parsed = parseResult(result);
 
-			expect(parsed.error).toContain('path traversal');
+			expect(parsed.error).toContain('Path is outside workspace');
 		});
 
 		it('should reject Windows ADS stream syntax', async () => {

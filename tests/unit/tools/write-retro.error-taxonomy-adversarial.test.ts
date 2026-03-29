@@ -29,7 +29,7 @@ interface WriteRetroArgs {
 	metadata?: Record<string, unknown>;
 }
 
-// Mock loadEvidence and saveEvidence from evidence/manager
+// Mock loadEvidence, saveEvidence, and listEvidenceTaskIds from evidence/manager
 const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
 	status: 'found';
 	bundle: {
@@ -41,10 +41,12 @@ const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
 	};
 } | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
 const mockSaveEvidence = vi.fn<(dir: string, taskId: string, entry: unknown) => Promise<void>>();
+const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
 
 vi.mock('../../../src/evidence/manager.js', () => ({
 	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
 	saveEvidence: (...args: unknown[]) => mockSaveEvidence(...args as [string, string, unknown]),
+	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
 }));
 
 // Import after mocking
@@ -79,6 +81,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+		// Default: return task IDs 3.1-3.5 for phase 3 (most tests use phase 3)
+		mockListEvidenceTaskIds.mockResolvedValue(['3.1', '3.2', '3.3', '3.4', '3.5']);
+		// Default loadEvidence to not_found (individual tests override as needed)
+		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 	});
 
 	afterEach(() => {

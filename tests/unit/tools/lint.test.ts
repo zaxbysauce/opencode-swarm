@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import * as path from 'node:path';
 import {
 	validateArgs,
 	getLinterCommand,
@@ -168,8 +169,13 @@ describe('lint tool', () => {
 			Bun.spawn = mockSpawn;
 			mockStdout = 'biome version 1.0.0';
 			mockExitCode = 0;
-			
-			const linter = await detectAvailableLinter(process.cwd());
+
+			// Use _detectAvailableLinter with a biomeBin path that actually exists on
+			// disk so the fs.existsSync(biomeBin) check inside the function passes.
+			// detectAvailableLinter computes the path internally and the binary may not
+			// be present in every test environment, making it unreliable here.
+			const existingFile = path.join(process.cwd(), 'package.json');
+			const linter = await _detectAvailableLinter(process.cwd(), existingFile, '/tmp/fake/eslint');
 			expect(linter).toBe('biome');
 		});
 		
@@ -212,7 +218,9 @@ describe('lint tool', () => {
 				} as unknown as ReturnType<typeof Bun.spawn>;
 			};
 			
-			const linter = await _detectAvailableLinter(process.cwd(), '/tmp/fake/biome', '/tmp/fake/eslint');
+			// Use an existing file as the eslint bin path so fs.existsSync passes
+			const existingFile = path.join(process.cwd(), 'package.json');
+			const linter = await _detectAvailableLinter(process.cwd(), '/tmp/fake/biome', existingFile);
 			expect(linter).toBe('eslint');
 			expect(callCount).toBe(2);
 		});

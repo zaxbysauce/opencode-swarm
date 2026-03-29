@@ -385,12 +385,12 @@ describe('ATTACK: Blocker Spoofing', () => {
 
 			mockLoadPlanJsonOnly.mockResolvedValue(plan);
 			mockListEvidenceTaskIds.mockResolvedValue([]);
-			mockLoadEvidence.mockResolvedValue(null);
+			mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 			const result = await buildEvidenceSummary(tempDir);
-			
+
 			expect(result).toBeDefined();
-			
+
 			// Verify XSS payload appears in output but is not executed
 			// (The payload should be in the blocker reason as plain text)
 			if (result && result.phaseSummaries[0]?.blockers.length > 0) {

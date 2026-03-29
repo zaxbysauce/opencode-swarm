@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
 import { createSwarmTool } from './create-tool';
@@ -144,14 +144,14 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				fullDiffArgs.push('--', ...typedArgs.paths);
 			}
 
-			const numstatOutput = execFileSync('git', numstatArgs, {
+			const numstatOutput = child_process.execFileSync('git', numstatArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
 				cwd: directory,
 			});
 
-			const fullDiffOutput = execFileSync('git', fullDiffArgs, {
+			const fullDiffOutput = child_process.execFileSync('git', fullDiffArgs, {
 				encoding: 'utf-8',
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
@@ -209,27 +209,43 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 					let oldContent: string;
 					let newContent: string;
 					if (base === 'staged') {
-						oldContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = execFileSync('git', ['show', `:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 					} else if (base === 'unstaged') {
-						oldContent = execFileSync('git', ['show', `:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 						// For unstaged: old = index, new = working tree (read from disk)
 						const fsModule = await import('node:fs');
 						const pathModule = await import('node:path');
@@ -238,16 +254,24 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 							'utf-8',
 						);
 					} else {
-						oldContent = execFileSync('git', ['show', `${base}:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `${base}:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 					}
 					const astResult = await computeASTDiff(
 						file.path,

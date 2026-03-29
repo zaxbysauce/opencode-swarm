@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 
-// Mock the node:child_process module
+// Mock only execFile while preserving every other export (#330).
 const mockExecFile = mock((cmd: string, args: string[], opts: unknown, cb: Function) => {
 	cb(null, { stdout: '' }, '');
 });
 
+const realChildProcess = await import('node:child_process');
 mock.module('node:child_process', () => ({
+	...realChildProcess,
 	execFile: mockExecFile,
 }));
 

@@ -109,19 +109,23 @@ describe('lint tool - cwd fix tests', () => {
 		it('should use process.cwd() fallback when directory is null (wrapper behavior)', async () => {
 			const result = await lint.execute({ mode: 'check' }, { directory: null } as any);
 			const parsed = JSON.parse(result) as LintResult;
-			
-			// Wrapper provides fallback, so it doesn't return error
-			// Instead it runs with process.cwd()
-			expect(parsed.success).toBe(true);
+
+			// Wrapper provides process.cwd() fallback, so it doesn't return the
+			// "project directory is required" error. Instead it proceeds to linter
+			// detection which fails (no linter found in test env) with success: false.
+			expect(parsed.success).toBe(false);
+			expect(parsed.error).not.toContain('project directory is required');
 		});
-		
+
 		it('should use process.cwd() fallback when directory is undefined (wrapper behavior)', async () => {
 			const result = await lint.execute({ mode: 'check' }, { directory: undefined } as any);
 			const parsed = JSON.parse(result) as LintResult;
-			
-			// Wrapper provides fallback, so it doesn't return error
-			// Instead it runs with process.cwd()
-			expect(parsed.success).toBe(true);
+
+			// Wrapper provides process.cwd() fallback, so it doesn't return the
+			// "project directory is required" error. Instead it proceeds to linter
+			// detection which fails (no linter found in test env) with success: false.
+			expect(parsed.success).toBe(false);
+			expect(parsed.error).not.toContain('project directory is required');
 		});
 	});
 

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -7,7 +7,10 @@ import { tool } from '@opencode-ai/plugin';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { createSwarmTool } from './create-tool.js';
 
-const execFileAsync = promisify(execFile);
+/** Lazy-bind so mock.module can intercept at call time (#330). */
+function getExecFileAsync() {
+	return promisify(child_process.execFile);
+}
 
 export interface CoChangeEntry {
 	fileA: string;
@@ -41,7 +44,7 @@ export async function parseGitLog(
 	const commitMap = new Map<string, Set<string>>();
 
 	try {
-		const { stdout } = await execFileAsync(
+		const { stdout } = await getExecFileAsync()(
 			'git',
 			[
 				'log',
@@ -364,7 +367,7 @@ export async function detectDarkMatter(
 
 	// Check total commits
 	try {
-		const { stdout } = await execFileAsync(
+		const { stdout } = await getExecFileAsync()(
 			'git',
 			['rev-list', '--count', 'HEAD'],
 			{

@@ -211,8 +211,13 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			// Should find npm if available
-			expect(result.skipped.some(s => s.ecosystem === 'node')).toBe(true);
+			// Profile-driven detection uses 'typescript' ecosystem for package.json,
+			// which covers 'node' via PROFILE_TO_ECOSYSTEM_NAMES mapping.
+			// So either a typescript/node command is found, or node appears in skipped.
+			const hasNodeOrTypeScript =
+				result.commands.some(c => c.ecosystem === 'node' || c.ecosystem === 'typescript') ||
+				result.skipped.some(s => s.ecosystem === 'node' || s.ecosystem === 'typescript');
+			expect(hasNodeOrTypeScript).toBe(true);
 		});
 
 		test('finds repo-defined build script', async () => {

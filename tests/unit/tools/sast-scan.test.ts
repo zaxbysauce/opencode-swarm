@@ -285,7 +285,7 @@ func main() {
 		});
 
 		it('should scan PHP files', async () => {
-			// Note: PHP is not in the language registry, so this tests skipped handling
+			// PHP is now in the language registry
 			const testFile = path.join(tempDir, 'test.php');
 			fs.writeFileSync(testFile, '<?php eval($userInput); ?>');
 
@@ -296,8 +296,8 @@ func main() {
 
 			const result = await sastScan(input, tempDir);
 
-			// PHP not supported - should skip file
-			expect(result.summary.files_scanned).toBe(0);
+			// PHP is supported - should scan file
+			expect(result.summary.files_scanned).toBe(1);
 		});
 
 		it('should scan C/C++ files', async () => {

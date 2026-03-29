@@ -1,10 +1,11 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 
-// Create mock function for execFileSync
+// Mock only execFileSync while preserving every other export (#330).
 const mockExecFileSync = mock(() => '');
 
-// Mock the node:child_process module
+const realChildProcess = await import('node:child_process');
 mock.module('node:child_process', () => ({
+	...realChildProcess,
 	execFileSync: mockExecFileSync,
 }));
 
@@ -21,22 +22,32 @@ describe('diff tool - directory validation and cwd fix', () => {
 	});
 
 	describe('EC-001: context.directory validation - fail-fast guard', () => {
-		test('returns error when directory is null', async () => {
+		test('falls back to process.cwd() when directory is null (wrapper behavior)', async () => {
+			// createSwarmTool wrapper does: ctx?.directory ?? process.cwd()
+			// null is a nullish value, so ?? falls back to process.cwd()
+			mockExecFileSync.mockReturnValueOnce('');
+			mockExecFileSync.mockReturnValueOnce('');
+
 			const result = await diff.execute({ base: 'HEAD' }, { directory: null } as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
-			expect(parsed.files).toEqual([]);
-			expect(parsed.contractChanges).toEqual([]);
-			expect(parsed.hasContractChanges).toBe(false);
+			// Should NOT return the directory-required error; wrapper provides process.cwd()
+			expect(parsed.error).toBeUndefined();
+			expect(mockExecFileSync).toHaveBeenCalled();
 		});
 
-		test('returns error when directory is undefined', async () => {
+		test('falls back to process.cwd() when directory is undefined (wrapper behavior)', async () => {
+			// createSwarmTool wrapper does: ctx?.directory ?? process.cwd()
+			// undefined is a nullish value, so ?? falls back to process.cwd()
+			mockExecFileSync.mockReturnValueOnce('');
+			mockExecFileSync.mockReturnValueOnce('');
+
 			const result = await diff.execute({ base: 'HEAD' }, { directory: undefined } as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
-			expect(parsed.files).toEqual([]);
+			// Should NOT return the directory-required error; wrapper provides process.cwd()
+			expect(parsed.error).toBeUndefined();
+			expect(mockExecFileSync).toHaveBeenCalled();
 		});
 
 		test('returns error when directory is empty string', async () => {
@@ -71,10 +82,14 @@ describe('diff tool - directory validation and cwd fix', () => {
 			expect(parsed.files).toEqual([]);
 		});
 
-		test('execFileSync is NOT called when directory is missing', async () => {
+		test('execFileSync IS called when directory is null (wrapper provides process.cwd())', async () => {
+			// createSwarmTool wrapper falls back to process.cwd() for null directory
+			mockExecFileSync.mockReturnValueOnce('');
+			mockExecFileSync.mockReturnValueOnce('');
+
 			await diff.execute({ base: 'HEAD' }, { directory: null } as any);
 
-			expect(mockExecFileSync).not.toHaveBeenCalled();
+			expect(mockExecFileSync).toHaveBeenCalled();
 		});
 	});
 

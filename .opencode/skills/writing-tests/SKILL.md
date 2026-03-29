@@ -30,13 +30,30 @@ Bun provides a vitest compatibility layer (`vi.mock`, `vi.fn`, `vi.spyOn`) that 
 
 **CRITICAL: Module-level mocks leak across test files within the same Bun process.**
 
-The CI pipeline runs test directories in groups. All files in a group share one Bun process and one module cache. A `vi.mock()` or `mock.module()` call in file A replaces the module for file B if they run in the same group.
+Bun's `--smol` mode shares the module cache between test files in the same worker process. A `mock.module()` call in file A replaces the module globally — file B gets the mock instead of the real module. This caused ~959 failures before per-file isolation was added (#330).
 
 ### Rules
 
-1. **Never mock a module that another test file in the same CI group imports directly.** If `tests/unit/cli/run-dispatch.test.ts` mocks `../../src/commands/agents.js`, then `tests/unit/commands/agents.test.ts` (in the same group) will get the mock instead of the real module.
+1. **Spread the real module when mocking.** Only override the specific export you need:
+```typescript
+import * as realChildProcess from 'node:child_process';
+const mockExecFileSync = mock(() => '');
+mock.module('node:child_process', () => ({
+  ...realChildProcess,          // preserve all other exports
+  execFileSync: mockExecFileSync, // override only what you test
+}));
+```
+This prevents tests from accidentally nullifying exports that other code depends on.
 
-2. **If you must use module-level mocks, isolate the test in its own CI step** or use dependency injection instead of module replacement.
+2. **Use lazy binding in source code.** Import the namespace, call methods at invocation time:
+```typescript
+// GOOD — mockable via mock.module
+import * as child_process from 'node:child_process';
+function run() { return child_process.execFileSync('git', ['status']); }
+
+// BAD — binds at module load, mock.module can't intercept
+import { execFileSync } from 'node:child_process';
+```
 
 3. **Never create circular mock imports.** This pattern deadlocks Bun:
 ```typescript
@@ -51,20 +68,30 @@ Instead, inline the function logic or extract the real functions into a separate
 
 4. **Prefer constructor/parameter injection over module mocking.** The swarm's hook factories (`createScopeGuardHook`, `createDelegationLedgerHook`, etc.) accept injected dependencies — test them by passing mock callbacks, not by replacing modules.
 
+5. **Mock `validateDirectory` when testing with Windows temp paths.** The `path-security.ts` validator rejects Windows absolute paths (`C:\...`). If your test uses `os.tmpdir()` and passes that path to a function that calls `validateDirectory`, mock it:
+```typescript
+mock.module('../../../src/utils/path-security', () => ({
+  validateDirectory: () => {},
+  validateSwarmPath: (p: string) => p,
+}));
+```
+
 ## CI Pipeline Structure
 
-The CI runs on three platforms (ubuntu, macos, windows). Tests are split into sequential steps within each platform's job. **Each step is a separate Bun process** — no module cache leaks between steps.
+The CI runs on three platforms (ubuntu, macos, windows). Tests are split into sequential steps within each platform's job.
 
 ```
-Step 1: hooks (Linux/macOS only, skipped on Windows)
-Step 2: cli
-Step 3: commands + config
-Step 4: tools
-Step 5: services + build + quality + sast + sbom + scripts
-Step 6: state + agents + knowledge + evidence + plan + misc
+Step 1: hooks (Linux/macOS only, skipped on Windows) — batch per-group
+Step 2: cli — batch
+Step 3: commands + config — batch
+Step 4: tools — per-file isolation loop
+Step 5: services + build + quality + sast + sbom + scripts — per-file isolation loop
+Step 6: state + agents + knowledge + evidence + plan + misc — per-file isolation loop
 ```
 
-When writing a test, know which step your file will run in. Do not assume isolation from other files in the same step.
+**Steps 4-6 use per-file isolation:** each `.test.ts` file runs in its own `bun --smol` process to prevent `mock.module()` cache poisoning (#330). Steps 1-3 run files in batch (one process per step) because they have fewer mock conflicts.
+
+When writing a test, know which step your file will run in. In batch steps, do not assume isolation from other files in the same step.
 
 **Job timeout: 15 minutes.** A single hanging test will kill the entire platform's test run.
 
@@ -130,20 +157,21 @@ if (isWindows) test.skip('reason', () => {});
 ## Running Tests
 
 ```bash
-# Full suite (all platforms)
-bun test
-
 # Single file
 bun test tests/unit/hooks/scope-guard.test.ts
 
-# Single directory
+# Batch directory (safe for dirs without mock conflicts)
 bun --smol test tests/unit/hooks --timeout 30000
 
-# CI-equivalent run (match a specific step)
+# Per-file loop (required for tools/services/agents — prevents mock poisoning)
+for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
+
+# CI-equivalent run for batch steps
 bun --smol test tests/unit/cli --timeout 120000
 bun --smol test tests/unit/commands tests/unit/config --timeout 120000
-bun --smol test tests/unit/tools --timeout 120000
 ```
+
+**Warning:** Running `bun --smol test tests/unit/tools` as a single batch will cause mock poisoning failures. Always use the per-file loop for directories in CI steps 4-6 (tools, services, agents, etc.).
 
 The `--smol` flag reduces Bun's memory footprint. Use it when running large directories (50+ files).
 

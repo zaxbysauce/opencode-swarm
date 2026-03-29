@@ -1054,6 +1054,10 @@ describe('phase_complete tool', () => {
 				})
 			);
 
+			// Create source file so completion-verify can find identifiers
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+
 			// Write plan.json with phase 1 status pending
 			const planJson = {
 				schema_version: '1.0.0',
@@ -1066,7 +1070,7 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Test task' }
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
 						]
 					}
 				]
@@ -1223,6 +1227,10 @@ describe('phase_complete tool', () => {
 				})
 			);
 
+			// Create source file so completion-verify can find identifiers
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+
 			// Write plan.json with phase 1 having ALL tasks completed
 			const planJson = {
 				schema_version: '1.0.0',
@@ -1235,8 +1243,8 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' },
-							{ id: '1.2', phase: 1, status: 'completed', description: 'Task 2' }
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' },
+							{ id: '1.2', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
 						]
 					}
 				]
@@ -1247,7 +1255,6 @@ describe('phase_complete tool', () => {
 			);
 
 			// Set up session with NO agents dispatched (agents missing)
-			// process.chdir(tempDir) already done in beforeEach
 			ensureAgentSession('sess1');
 			// No recordPhaseAgentDispatch call - simulating session restart
 
@@ -1274,7 +1281,8 @@ describe('phase_complete tool', () => {
 				})
 			);
 
-			// Write plan.json with phase 1 having one task with 'pending' status
+			// Write plan.json with phase 1 having all pending tasks
+			// No completed tasks avoids triggering completion-verify blocks
 			const planJson = {
 				schema_version: '1.0.0',
 				title: 'Test Plan',
@@ -1286,7 +1294,7 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' },
+							{ id: '1.1', phase: 1, status: 'pending', description: 'Task 1' },
 							{ id: '1.2', phase: 1, status: 'pending', description: 'Task 2' }
 						]
 					}
@@ -1375,6 +1383,10 @@ describe('phase_complete tool', () => {
 				})
 			);
 
+			// Create source file so completion-verify can find identifiers
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+
 			// Write plan.json with phase 1 having all tasks completed
 			const planJson = {
 				schema_version: '1.0.0',
@@ -1387,7 +1399,7 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' }
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
 						]
 					}
 				]
@@ -1550,6 +1562,10 @@ describe('phase_complete tool', () => {
 				})
 			);
 
+			// Create source file so completion-verify can find identifiers
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+
 			// Write plan.json with phase 1 having ALL tasks completed
 			const planJson = {
 				schema_version: '1.0.0',
@@ -1562,7 +1578,7 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task 1' }
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
 						]
 					}
 				]

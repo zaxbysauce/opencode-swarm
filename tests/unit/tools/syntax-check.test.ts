@@ -257,14 +257,14 @@ describe('syntax_check tool', () => {
 					{ path: pyFile, additions: 1 },
 				],
 				mode: 'changed',
-				languages: ['javascript'],
+				languages: ['typescript'],
 			};
 
 			const result = await syntaxCheck(input, tmpDir);
 
-			// Only JavaScript file should be checked
-			expect(result.files).toHaveLength(2);
-			expect(result.files[0]?.language).toBe('javascript');
+			// Only TypeScript-profile files should be checked (.js resolves to 'typescript' via profile)
+			expect(result.files).toHaveLength(1);
+			expect(result.files[0]?.language).toBe('typescript');
 		});
 	});
 
