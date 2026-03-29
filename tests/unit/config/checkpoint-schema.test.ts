@@ -116,15 +116,11 @@ describe('CheckpointConfigSchema', () => {
 			expect(result.success).toBe(false);
 		});
 
-		it('accepts non-integer: 3.5 (schema allows floats)', () => {
+		it('rejects non-integer: 3.5 (schema requires .int())', () => {
 			const result = CheckpointConfigSchema.safeParse({
 				auto_checkpoint_threshold: 3.5,
 			});
-			// Schema uses z.number() without .int(), so floats are accepted
-			expect(result.success).toBe(true);
-			if (result.success) {
-				expect(result.data.auto_checkpoint_threshold).toBe(3.5);
-			}
+			expect(result.success).toBe(false);
 		});
 
 		it('rejects non-number: "5"', () => {
@@ -146,12 +142,11 @@ describe('CheckpointConfigSchema', () => {
 			expect(result.success).toBe(false);
 		});
 
-		it('accepts unknown field (schema not strict)', () => {
+		it('rejects unknown field (schema is strict)', () => {
 			const result = CheckpointConfigSchema.safeParse({
 				unknown_field: 'value',
 			});
-			// Schema does not use .strict(), so unknown fields are ignored
-			expect(result.success).toBe(true);
+			expect(result.success).toBe(false);
 		});
 
 		it('accepts all valid combinations', () => {

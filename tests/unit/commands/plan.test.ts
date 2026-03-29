@@ -54,10 +54,10 @@ describe('handlePlanCommand', () => {
         expect(result).toBe(SAMPLE_PLAN);
     });
 
-    test('returns full plan when non-numeric arg given', async () => {
+    test('returns error message when non-numeric arg given', async () => {
         await writePlan(tempDir, SAMPLE_PLAN);
         const result = await handlePlanCommand(tempDir, ['abc']);
-        expect(result).toBe(SAMPLE_PLAN);
+        expect(result).toContain('Invalid phase number');
     });
 
     test('extracts specific phase correctly', async () => {
