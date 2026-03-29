@@ -27,7 +27,7 @@ import {
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
-import { warn } from '../utils';
+import { log, warn } from '../utils';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
@@ -501,186 +501,249 @@ export function createGuardrailsHooks(
 		}
 	}
 
-	return {
-		/**
-		 * Checks guardrail limits before allowing a tool call
-		 */
-		toolBefore: async (input, output) => {
-			// v6.12: Self-coding detection — MUST be first, before any exemptions
-			// ISSUE #17 FIX: tool.execute.before fires before chat.message updates activeAgent
-			// from "architect" to "coder". This causes false positives when a delegated coder
-			// uses edit/write tools. The delegationActive flag (maintained by delegation-tracker.ts)
-			// is deterministic and correctly indicates when a subagent is active. We check it FIRST
-			// to skip self-coding detection entirely for delegated tool calls.
-			const currentSession = swarmState.agentSessions.get(input.sessionID);
-			// v6.35.1: Runaway output detector — reset counter on any tool call
-			consecutiveNoToolTurns.set(input.sessionID, 0);
-			if (currentSession?.delegationActive) {
-				// A subagent is using this tool — not the architect
-				// Skip self-coding detection entirely for this tool call
-				// v6.21 Task 5.2: Track files modified by coder subagent
-				if (isWriteTool(input.tool)) {
-					const delegArgs = output.args as Record<string, unknown> | undefined;
-					const delegTargetPath = (delegArgs?.filePath ??
-						delegArgs?.path ??
-						delegArgs?.file ??
-						delegArgs?.target) as string | undefined;
-					if (
-						typeof delegTargetPath === 'string' &&
-						delegTargetPath.length > 0
-					) {
-						// v6.40: Zone-based write authority check
-						const agentName =
-							swarmState.activeAgent.get(input.sessionID) ?? 'unknown';
-						const cwd = directory ?? process.cwd();
-						const authorityCheck = checkFileAuthority(
-							agentName,
-							delegTargetPath,
-							cwd,
-						);
-						if (!authorityCheck.allowed) {
-							throw new Error(
-								`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${delegTargetPath}". Reason: ${authorityCheck.reason}`,
-							);
-						}
-
-						if (
-							!currentSession.modifiedFilesThisCoderTask.includes(
-								delegTargetPath,
-							)
-						) {
-							currentSession.modifiedFilesThisCoderTask.push(delegTargetPath);
-						}
-					}
-				}
-			} else if (isArchitect(input.sessionID)) {
-				// v6.21 Task 5.2: Reset modified files list when new coder delegation is dispatched
-				const coderDelegArgs = output.args as
-					| Record<string, unknown>
-					| undefined;
-				const rawSubagentType = coderDelegArgs?.subagent_type;
-				const coderDeleg = isAgentDelegation(input.tool, coderDelegArgs);
-				if (
-					coderDeleg.isDelegation &&
-					coderDeleg.targetAgent === 'coder' &&
-					typeof rawSubagentType === 'string' &&
-					(rawSubagentType === 'coder' || rawSubagentType.endsWith('_coder'))
-				) {
-					const coderSession = swarmState.agentSessions.get(input.sessionID);
-					if (coderSession) {
-						coderSession.modifiedFilesThisCoderTask = [];
-						// Reset coder revision tracking at the start of each new coder delegation
-						if (!coderSession.revisionLimitHit) {
-							coderSession.coderRevisions = 0;
-						}
-					}
-				}
-			}
-
-			// v6.29: Loop detection and circuit breaker for Task tool delegations
-			if (input.tool === 'Task') {
-				const loopArgs = output.args as Record<string, unknown> | undefined;
-				const loopResult = detectLoop(input.sessionID, input.tool, loopArgs);
-
-				if (loopResult.count >= 5) {
-					// Circuit breaker: hard block at 5 consecutive identical delegations
-					throw new Error(
-						`CIRCUIT BREAKER: Delegation loop detected (${loopResult.count} identical patterns). Session paused. Ask the user for guidance.`,
+	/**
+	 * Handles delegated write tracking and coder delegation reset.
+	 * MUST be called first — before any exemptions.
+	 */
+	function handleDelegatedWriteTracking(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): void {
+		const currentSession = swarmState.agentSessions.get(sessionID);
+		if (currentSession?.delegationActive) {
+			if (isWriteTool(tool)) {
+				const delegArgs = args as Record<string, unknown> | undefined;
+				const delegTargetPath = (delegArgs?.filePath ??
+					delegArgs?.path ??
+					delegArgs?.file ??
+					delegArgs?.target) as string | undefined;
+				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
+					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
+					const cwd = directory ?? process.cwd();
+					const authorityCheck = checkFileAuthority(
+						agentName,
+						delegTargetPath,
+						cwd,
 					);
-				} else if (loopResult.count >= 3 && loopResult.count < 5) {
-					// Soft warning at count 3 — set flag for messagesTransform to inject
-					const agentName =
-						typeof loopArgs?.subagent_type === 'string'
-							? loopArgs.subagent_type
-							: 'agent';
-					const loopSession = swarmState.agentSessions.get(input.sessionID);
-					if (loopSession) {
-						// Build structured escalation with: loop pattern + alternative suggestion + accomplishment
-						const loopPattern = loopResult.pattern; // e.g. "Task:coder:path"
-						const modifiedFiles = loopSession.modifiedFilesThisCoderTask ?? [];
-						const accomplishmentSummary =
-							modifiedFiles.length > 0
-								? `Modified ${modifiedFiles.length} file(s): ${modifiedFiles.slice(0, 3).join(', ')}${modifiedFiles.length > 3 ? '...' : ''}`
-								: 'No files modified yet';
-
-						const alternativeSuggestions: Record<string, string> = {
-							coder:
-								'Try a different task spec, simplify the constraint, or escalate to user',
-							reviewer: 'Try a different review dimension or escalate to user',
-							test_engineer: 'Run a specific test file with targeted scope',
-							explorer:
-								'Narrow the search scope or check a specific file directly',
-						};
-						const cleanAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
-						const suggestion =
-							alternativeSuggestions[cleanAgent] ??
-							'Try a different agent, different instructions, or escalate to the user';
-
-						loopSession.loopWarningPending = {
-							agent: agentName,
-							message: [
-								`LOOP DETECTED: Pattern "${loopPattern}" repeated 3 times.`,
-								`Agent: ${agentName}`,
-								`Accomplished: ${accomplishmentSummary}`,
-								`Suggested action: ${suggestion}`,
-								`If still stuck after trying alternatives, escalate to the user.`,
-							].join('\n'),
-							timestamp: Date.now(),
-						};
-					}
-				}
-			}
-
-			// Block full test suite execution without a specific file argument
-			// Agents must run targeted test files, not the entire suite
-			if (input.tool === 'bash' || input.tool === 'shell') {
-				const bashArgs = output.args as Record<string, unknown> | undefined;
-				const cmd = (
-					typeof bashArgs?.command === 'string' ? bashArgs.command : ''
-				).trim();
-				const testRunnerPrefixPattern =
-					/^(bun\s+test|npm\s+test|npx\s+vitest|bunx\s+vitest)\b/;
-				if (testRunnerPrefixPattern.test(cmd)) {
-					// Split command into tokens and check if any non-flag argument exists
-					// Non-flag args are tokens that don't start with '-'
-					const tokens = cmd.split(/\s+/);
-					// Skip the runner tokens (e.g. 'bun', 'test' or 'npm', 'test')
-					const runnerTokenCount =
-						tokens[0] === 'npx' || tokens[0] === 'bunx' ? 3 : 2;
-					const remainingTokens = tokens.slice(runnerTokenCount);
-					const hasFileArg = remainingTokens.some(
-						(token) =>
-							token.length > 0 &&
-							!token.startsWith('-') &&
-							(token.includes('/') ||
-								token.includes('\\') ||
-								token.endsWith('.ts') ||
-								token.endsWith('.js') ||
-								token.endsWith('.tsx') ||
-								token.endsWith('.jsx') ||
-								token.endsWith('.mts') ||
-								token.endsWith('.mjs')),
-					);
-					if (!hasFileArg) {
+					if (!authorityCheck.allowed) {
 						throw new Error(
-							'BLOCKED: Full test suite execution is not allowed in-session. Run a specific test file instead: bun test path/to/file.test.ts',
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${delegTargetPath}". Reason: ${authorityCheck.reason}`,
 						);
+					}
+
+					if (
+						!currentSession.modifiedFilesThisCoderTask.includes(delegTargetPath)
+					) {
+						currentSession.modifiedFilesThisCoderTask.push(delegTargetPath);
 					}
 				}
 			}
+		} else if (isArchitect(sessionID)) {
+			const coderDelegArgs = args as Record<string, unknown> | undefined;
+			const rawSubagentType = coderDelegArgs?.subagent_type;
+			const coderDeleg = isAgentDelegation(tool, coderDelegArgs);
+			if (
+				coderDeleg.isDelegation &&
+				coderDeleg.targetAgent === 'coder' &&
+				typeof rawSubagentType === 'string' &&
+				(rawSubagentType === 'coder' || rawSubagentType.endsWith('_coder'))
+			) {
+				const coderSession = swarmState.agentSessions.get(sessionID);
+				if (coderSession) {
+					coderSession.modifiedFilesThisCoderTask = [];
+					if (!coderSession.revisionLimitHit) {
+						coderSession.coderRevisions = 0;
+					}
+				}
+			}
+		}
+	}
 
-			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
-				const args = output.args as Record<string, unknown> | undefined;
-				const targetPath =
-					args?.filePath ?? args?.path ?? args?.file ?? args?.target;
+	/**
+	 * Detects and breaks delegation loops for Task tool calls.
+	 */
+	function handleLoopDetection(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): void {
+		if (tool !== 'Task') return;
 
-				// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
-				// plan.md is auto-regenerated from plan.json by PlanSyncWorker.
-				// Architects must use update_task_status(), phase_complete(), or save_plan instead.
-				if (typeof targetPath === 'string' && targetPath.length > 0) {
-					const resolvedTarget = path
-						.resolve(effectiveDirectory, targetPath)
-						.toLowerCase();
+		const loopArgs = args as Record<string, unknown> | undefined;
+		const loopResult = detectLoop(sessionID, tool, loopArgs);
+
+		if (loopResult.count >= 5) {
+			throw new Error(
+				`CIRCUIT BREAKER: Delegation loop detected (${loopResult.count} identical patterns). Session paused. Ask the user for guidance.`,
+			);
+		} else if (loopResult.count >= 3 && loopResult.count < 5) {
+			const agentName =
+				typeof loopArgs?.subagent_type === 'string'
+					? loopArgs.subagent_type
+					: 'agent';
+			const loopSession = swarmState.agentSessions.get(sessionID);
+			if (loopSession) {
+				const loopPattern = loopResult.pattern;
+				const modifiedFiles = loopSession.modifiedFilesThisCoderTask ?? [];
+				const accomplishmentSummary =
+					modifiedFiles.length > 0
+						? `Modified ${modifiedFiles.length} file(s): ${modifiedFiles.slice(0, 3).join(', ')}${modifiedFiles.length > 3 ? '...' : ''}`
+						: 'No files modified yet';
+
+				const alternativeSuggestions: Record<string, string> = {
+					coder:
+						'Try a different task spec, simplify the constraint, or escalate to user',
+					reviewer: 'Try a different review dimension or escalate to user',
+					test_engineer: 'Run a specific test file with targeted scope',
+					explorer: 'Narrow the search scope or check a specific file directly',
+				};
+				const cleanAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
+				const suggestion =
+					alternativeSuggestions[cleanAgent] ??
+					'Try a different agent, different instructions, or escalate to the user';
+
+				loopSession.loopWarningPending = {
+					agent: agentName,
+					message: [
+						`LOOP DETECTED: Pattern "${loopPattern}" repeated 3 times.`,
+						`Agent: ${agentName}`,
+						`Accomplished: ${accomplishmentSummary}`,
+						`Suggested action: ${suggestion}`,
+						`If still stuck after trying alternatives, escalate to the user.`,
+					].join('\n'),
+					timestamp: Date.now(),
+				};
+			}
+		}
+	}
+
+	/**
+	 * Blocks full test suite execution without a specific file argument.
+	 */
+	function handleTestSuiteBlocking(tool: string, args: unknown): void {
+		if (tool !== 'bash' && tool !== 'shell') return;
+
+		const bashArgs = args as Record<string, unknown> | undefined;
+		const cmd = (
+			typeof bashArgs?.command === 'string' ? bashArgs.command : ''
+		).trim();
+		const testRunnerPrefixPattern =
+			/^(bun\s+test|npm\s+test|npx\s+vitest|bunx\s+vitest)\b/;
+		if (testRunnerPrefixPattern.test(cmd)) {
+			const tokens = cmd.split(/\s+/);
+			const runnerTokenCount =
+				tokens[0] === 'npx' || tokens[0] === 'bunx' ? 3 : 2;
+			const remainingTokens = tokens.slice(runnerTokenCount);
+			const hasFileArg = remainingTokens.some(
+				(token) =>
+					token.length > 0 &&
+					!token.startsWith('-') &&
+					(token.includes('/') ||
+						token.includes('\\') ||
+						token.endsWith('.ts') ||
+						token.endsWith('.js') ||
+						token.endsWith('.tsx') ||
+						token.endsWith('.jsx') ||
+						token.endsWith('.mts') ||
+						token.endsWith('.mjs')),
+			);
+			if (!hasFileArg) {
+				throw new Error(
+					'BLOCKED: Full test suite execution is not allowed in-session. Run a specific test file instead: bun test path/to/file.test.ts',
+				);
+			}
+		}
+	}
+
+	/**
+	 * Protects plan state files and detects architect direct writes.
+	 * Handles both direct file writes and apply_patch/patch tool paths.
+	 */
+	function handlePlanAndScopeProtection(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): void {
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const targetPath =
+			toolArgs?.filePath ??
+			toolArgs?.path ??
+			toolArgs?.file ??
+			toolArgs?.target;
+
+		// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
+		if (typeof targetPath === 'string' && targetPath.length > 0) {
+			const resolvedTarget = path
+				.resolve(effectiveDirectory, targetPath)
+				.toLowerCase();
+			const planMdPath = path
+				.resolve(effectiveDirectory, '.swarm', 'plan.md')
+				.toLowerCase();
+			const planJsonPath = path
+				.resolve(effectiveDirectory, '.swarm', 'plan.json')
+				.toLowerCase();
+			if (resolvedTarget === planMdPath || resolvedTarget === planJsonPath) {
+				throw new Error(
+					'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
+						'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
+						'Use update_task_status() to mark tasks complete, ' +
+						'phase_complete() for phase transitions, or ' +
+						'save_plan to create/restructure plans.',
+				);
+			}
+		}
+
+		// Fallback: apply_patch / patch tools send args as a single diff string
+		if (!targetPath && (tool === 'apply_patch' || tool === 'patch')) {
+			const patchText = (toolArgs?.input ??
+				toolArgs?.patch ??
+				(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
+				| string
+				| undefined;
+
+			if (typeof patchText === 'string' && patchText.length <= 1_000_000) {
+				const patchPathPattern =
+					/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
+				const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
+				const paths = new Set<string>();
+
+				for (const match of patchText.matchAll(patchPathPattern)) {
+					paths.add(match[1].trim());
+				}
+				for (const match of patchText.matchAll(diffPathPattern)) {
+					const p = match[1].trim();
+					if (p !== '/dev/null') paths.add(p);
+				}
+				const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+				for (const match of patchText.matchAll(gitDiffPathPattern)) {
+					const aPath = match[1].trim();
+					const bPath = match[2].trim();
+					if (aPath !== '/dev/null') paths.add(aPath);
+					if (bPath !== '/dev/null') paths.add(bPath);
+				}
+				const minusPathPattern = /^---\s+a\/(.+)$/gm;
+				for (const match of patchText.matchAll(minusPathPattern)) {
+					const p = match[1].trim();
+					if (p !== '/dev/null') paths.add(p);
+				}
+				const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
+				const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
+				for (const match of patchText.matchAll(traditionalMinusPattern)) {
+					const p = match[1].trim();
+					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
+						paths.add(p);
+					}
+				}
+				for (const match of patchText.matchAll(traditionalPlusPattern)) {
+					const p = match[1].trim();
+					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
+						paths.add(p);
+					}
+				}
+
+				for (const p of paths) {
+					const resolvedP = path.resolve(effectiveDirectory, p);
 					const planMdPath = path
 						.resolve(effectiveDirectory, '.swarm', 'plan.md')
 						.toLowerCase();
@@ -688,8 +751,8 @@ export function createGuardrailsHooks(
 						.resolve(effectiveDirectory, '.swarm', 'plan.json')
 						.toLowerCase();
 					if (
-						resolvedTarget === planMdPath ||
-						resolvedTarget === planJsonPath
+						resolvedP.toLowerCase() === planMdPath ||
+						resolvedP.toLowerCase() === planJsonPath
 					) {
 						throw new Error(
 							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
@@ -699,264 +762,203 @@ export function createGuardrailsHooks(
 								'save_plan to create/restructure plans.',
 						);
 					}
-				}
-
-				// Fallback: apply_patch / patch tools send args as a single diff string
-				// Parse file paths from patch content
-				if (
-					!targetPath &&
-					(input.tool === 'apply_patch' || input.tool === 'patch')
-				) {
-					const patchText = (args?.input ??
-						args?.patch ??
-						(Array.isArray(args?.cmd) ? args.cmd[1] : undefined)) as
-						| string
-						| undefined;
-
-					if (typeof patchText === 'string' && patchText.length <= 1_000_000) {
-						// Match "*** Update File: <path>", "*** Add File: <path>", "*** Delete File: <path>"
-						const patchPathPattern =
-							/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
-						// Match "+++ b/<path>" (standard unified diff format)
-						const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
-						const paths = new Set<string>();
-
-						for (const match of patchText.matchAll(patchPathPattern)) {
-							paths.add(match[1].trim());
-						}
-						for (const match of patchText.matchAll(diffPathPattern)) {
-							const p = match[1].trim();
-							if (p !== '/dev/null') paths.add(p);
-						}
-						// Match "diff --git a/<path> b/<path>" (git diff format)
-						const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
-						for (const match of patchText.matchAll(gitDiffPathPattern)) {
-							const aPath = match[1].trim();
-							const bPath = match[2].trim();
-							if (aPath !== '/dev/null') paths.add(aPath);
-							if (bPath !== '/dev/null') paths.add(bPath);
-						}
-						// Match "--- a/<path>" (old-file path in unified diff)
-						const minusPathPattern = /^---\s+a\/(.+)$/gm;
-						for (const match of patchText.matchAll(minusPathPattern)) {
-							const p = match[1].trim();
-							if (p !== '/dev/null') paths.add(p);
-						}
-						// Match traditional unified diff "--- <path>" and "+++ <path>" (no a/b prefix)
-						// Strip trailing tab+timestamp that some diff tools append (e.g. "--- file\t2024-01-01")
-						const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
-						const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
-						for (const match of patchText.matchAll(traditionalMinusPattern)) {
-							const p = match[1].trim();
-							if (
-								p !== '/dev/null' &&
-								!p.startsWith('a/') &&
-								!p.startsWith('b/')
-							) {
-								paths.add(p);
-							}
-						}
-						for (const match of patchText.matchAll(traditionalPlusPattern)) {
-							const p = match[1].trim();
-							if (
-								p !== '/dev/null' &&
-								!p.startsWith('a/') &&
-								!p.startsWith('b/')
-							) {
-								paths.add(p);
-							}
-						}
-
-						for (const p of paths) {
-							const resolvedP = path.resolve(effectiveDirectory, p);
-							const planMdPath = path
-								.resolve(effectiveDirectory, '.swarm', 'plan.md')
-								.toLowerCase();
-							const planJsonPath = path
-								.resolve(effectiveDirectory, '.swarm', 'plan.json')
-								.toLowerCase();
-							if (
-								resolvedP.toLowerCase() === planMdPath ||
-								resolvedP.toLowerCase() === planJsonPath
-							) {
-								throw new Error(
-									'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
-										'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-										'Use update_task_status() to mark tasks complete, ' +
-										'phase_complete() for phase transitions, or ' +
-										'save_plan to create/restructure plans.',
-								);
-							}
-							if (
-								isOutsideSwarmDir(p, effectiveDirectory) &&
-								(isSourceCodePath(p) || hasTraversalSegments(p))
-							) {
-								const session = swarmState.agentSessions.get(input.sessionID);
-								if (session) {
-									session.architectWriteCount++;
-									warn('Architect direct code edit detected via apply_patch', {
-										tool: input.tool,
-										sessionID: input.sessionID,
-										targetPath: p,
-										writeCount: session.architectWriteCount,
-									});
-								}
-								break; // One increment per tool call is sufficient
-							}
-						}
-					}
-				}
-
-				if (
-					typeof targetPath === 'string' &&
-					targetPath.length > 0 &&
-					isOutsideSwarmDir(targetPath, effectiveDirectory) &&
-					isSourceCodePath(
-						path.relative(
-							effectiveDirectory,
-							path.resolve(effectiveDirectory, targetPath),
-						),
-					)
-				) {
-					const session = swarmState.agentSessions.get(input.sessionID);
-					if (session) {
-						session.architectWriteCount++;
-						warn('Architect direct code edit detected', {
-							tool: input.tool,
-							sessionID: input.sessionID,
-							targetPath,
-							writeCount: session.architectWriteCount,
-						});
-
-						// v6.12 Task 2.5: Self-fix detection
-						// Check if this write is happening shortly after a gate failure
-						if (
-							session.lastGateFailure &&
-							Date.now() - session.lastGateFailure.timestamp < 120_000 // 2 minutes
-						) {
-							const failedGate = session.lastGateFailure.tool;
-							const failedTaskId = session.lastGateFailure.taskId;
-							warn('Self-fix after gate failure detected', {
-								failedGate,
-								failedTaskId,
-								currentTool: input.tool,
-								sessionID: input.sessionID,
-							});
-							// Set flag so messagesTransform knows to inject warning
-							session.selfFixAttempted = true;
-							// The warning will be injected via messagesTransform based on lastGateFailure
-						}
-					}
-				}
-			}
-
-			// Architect is structurally exempt from guardrails — early return
-			// This prevents false circuit breaker trips from complex delegation state resolution
-			//
-			// Check 1: Use activeAgent map (may be stale up to 60s when delegation ends)
-			const rawActiveAgent = swarmState.activeAgent.get(input.sessionID);
-			const strippedAgent = rawActiveAgent
-				? stripKnownSwarmPrefix(rawActiveAgent)
-				: undefined;
-			if (strippedAgent === ORCHESTRATOR_NAME) {
-				return;
-			}
-
-			// Check 2: Fallback to session state if activeAgent is missing/undefined
-			const existingSession = swarmState.agentSessions.get(input.sessionID);
-			if (existingSession) {
-				const sessionAgent = stripKnownSwarmPrefix(existingSession.agentName);
-				if (sessionAgent === ORCHESTRATOR_NAME) {
-					return;
-				}
-			}
-
-			// Ensure session exists — uses activeAgent map as fallback for agent name.
-			// Fall back to ORCHESTRATOR_NAME (never undefined) to prevent seeding an
-			// "unknown" identity that would inherit base guardrails (30 min limit).
-			const agentName =
-				swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME;
-			const session = ensureAgentSession(input.sessionID, agentName);
-
-			// SECOND exemption check: after session resolution
-			const resolvedName = stripKnownSwarmPrefix(session.agentName);
-			if (resolvedName === ORCHESTRATOR_NAME) {
-				return;
-			}
-
-			// Resolve per-agent config using profile overrides
-			const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
-
-			// FOURTH exemption check: If resolved config shows 0 limits (architect-like), exempt
-			if (
-				agentConfig.max_duration_minutes === 0 &&
-				agentConfig.max_tool_calls === 0
-			) {
-				return;
-			}
-
-			// Fallback: If tool call arrives before delegation-tracker fires, start window
-			if (!getActiveWindow(input.sessionID)) {
-				const fallbackAgent =
-					swarmState.activeAgent.get(input.sessionID) ?? session.agentName;
-				const stripped = stripKnownSwarmPrefix(fallbackAgent);
-				if (stripped !== ORCHESTRATOR_NAME) {
-					beginInvocation(input.sessionID, fallbackAgent);
-				}
-			}
-
-			// Get active window (returns undefined for architect)
-			const window = getActiveWindow(input.sessionID);
-			if (!window) {
-				// Architect or window missing → exempt
-				return;
-			}
-
-			// Check if hard limit was already hit
-			if (window.hardLimitHit) {
-				throw new Error(
-					'🛑 CIRCUIT BREAKER: Agent blocked. Hard limit was previously triggered. Stop making tool calls and return your progress summary.',
-				);
-			}
-
-			// Increment tool call count
-			window.toolCalls++;
-
-			// Hash the tool args
-			const hash = hashArgs(output.args);
-
-			// Push to circular buffer (max 20)
-			window.recentToolCalls.push({
-				tool: input.tool,
-				argsHash: hash,
-				timestamp: Date.now(),
-			});
-			if (window.recentToolCalls.length > 20) {
-				window.recentToolCalls.shift();
-			}
-
-			// Count consecutive repetitions from the end
-			let repetitionCount = 0;
-			if (window.recentToolCalls.length > 0) {
-				const lastEntry =
-					window.recentToolCalls[window.recentToolCalls.length - 1];
-				for (let i = window.recentToolCalls.length - 1; i >= 0; i--) {
-					const entry = window.recentToolCalls[i];
 					if (
-						entry.tool === lastEntry.tool &&
-						entry.argsHash === lastEntry.argsHash
+						isOutsideSwarmDir(p, effectiveDirectory) &&
+						(isSourceCodePath(p) || hasTraversalSegments(p))
 					) {
-						repetitionCount++;
-					} else {
+						const session = swarmState.agentSessions.get(sessionID);
+						if (session) {
+							session.architectWriteCount++;
+							warn('Architect direct code edit detected via apply_patch', {
+								tool,
+								sessionID,
+								targetPath: p,
+								writeCount: session.architectWriteCount,
+							});
+						}
 						break;
 					}
 				}
 			}
+		}
 
-			// Compute elapsed minutes
-			const elapsedMinutes = (Date.now() - window.startedAtMs) / 60000;
+		// Direct write scope tracking
+		if (
+			typeof targetPath === 'string' &&
+			targetPath.length > 0 &&
+			isOutsideSwarmDir(targetPath, effectiveDirectory) &&
+			isSourceCodePath(
+				path.relative(
+					effectiveDirectory,
+					path.resolve(effectiveDirectory, targetPath),
+				),
+			)
+		) {
+			const session = swarmState.agentSessions.get(sessionID);
+			if (session) {
+				session.architectWriteCount++;
+				warn('Architect direct code edit detected', {
+					tool,
+					sessionID,
+					targetPath,
+					writeCount: session.architectWriteCount,
+				});
 
-			// Check gate limits (hard limits, idle timeout, soft warnings)
+				if (
+					session.lastGateFailure &&
+					Date.now() - session.lastGateFailure.timestamp < 120_000
+				) {
+					const failedGate = session.lastGateFailure.tool;
+					const failedTaskId = session.lastGateFailure.taskId;
+					warn('Self-fix after gate failure detected', {
+						failedGate,
+						failedTaskId,
+						currentTool: tool,
+						sessionID,
+					});
+					session.selfFixAttempted = true;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Resolves session, checks architect exemptions, initializes invocation window.
+	 * Returns null if the session is exempt from guardrails.
+	 */
+	function resolveSessionAndWindow(sessionID: string): {
+		agentConfig: GuardrailsConfig;
+		window: InvocationWindow;
+	} | null {
+		// Check 1: activeAgent map
+		const rawActiveAgent = swarmState.activeAgent.get(sessionID);
+		const strippedAgent = rawActiveAgent
+			? stripKnownSwarmPrefix(rawActiveAgent)
+			: undefined;
+		if (strippedAgent === ORCHESTRATOR_NAME) return null;
+
+		// Check 2: session state fallback
+		const existingSession = swarmState.agentSessions.get(sessionID);
+		if (existingSession) {
+			const sessionAgent = stripKnownSwarmPrefix(existingSession.agentName);
+			if (sessionAgent === ORCHESTRATOR_NAME) return null;
+		}
+
+		const agentName =
+			swarmState.activeAgent.get(sessionID) ?? ORCHESTRATOR_NAME;
+		const session = ensureAgentSession(sessionID, agentName);
+
+		// Check 3: after session resolution
+		const resolvedName = stripKnownSwarmPrefix(session.agentName);
+		if (resolvedName === ORCHESTRATOR_NAME) return null;
+
+		const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
+
+		// Check 4: zero-limit config (architect-like)
+		if (
+			agentConfig.max_duration_minutes === 0 &&
+			agentConfig.max_tool_calls === 0
+		) {
+			return null;
+		}
+
+		// Ensure invocation window exists
+		if (!getActiveWindow(sessionID)) {
+			const fallbackAgent =
+				swarmState.activeAgent.get(sessionID) ?? session.agentName;
+			const stripped = stripKnownSwarmPrefix(fallbackAgent);
+			if (stripped !== ORCHESTRATOR_NAME) {
+				beginInvocation(sessionID, fallbackAgent);
+			}
+		}
+
+		const window = getActiveWindow(sessionID);
+		if (!window) return null;
+
+		return { agentConfig, window };
+	}
+
+	/**
+	 * Tracks tool calls in the invocation window and computes repetition metrics.
+	 */
+	function trackToolCall(
+		window: InvocationWindow,
+		tool: string,
+		args: unknown,
+	): { repetitionCount: number; elapsedMinutes: number } {
+		if (window.hardLimitHit) {
+			throw new Error(
+				'🛑 CIRCUIT BREAKER: Agent blocked. Hard limit was previously triggered. Stop making tool calls and return your progress summary.',
+			);
+		}
+
+		window.toolCalls++;
+
+		const hash = hashArgs(args);
+		window.recentToolCalls.push({
+			tool,
+			argsHash: hash,
+			timestamp: Date.now(),
+		});
+		if (window.recentToolCalls.length > 20) {
+			window.recentToolCalls.shift();
+		}
+
+		let repetitionCount = 0;
+		if (window.recentToolCalls.length > 0) {
+			const lastEntry =
+				window.recentToolCalls[window.recentToolCalls.length - 1];
+			for (let i = window.recentToolCalls.length - 1; i >= 0; i--) {
+				const entry = window.recentToolCalls[i];
+				if (
+					entry.tool === lastEntry.tool &&
+					entry.argsHash === lastEntry.argsHash
+				) {
+					repetitionCount++;
+				} else {
+					break;
+				}
+			}
+		}
+
+		const elapsedMinutes = (Date.now() - window.startedAtMs) / 60000;
+		return { repetitionCount, elapsedMinutes };
+	}
+
+	return {
+		/**
+		 * Checks guardrail limits before allowing a tool call.
+		 * Orchestrates extracted sub-handlers for maintainability.
+		 */
+		toolBefore: async (input, output) => {
+			// v6.35.1: Runaway output detector — reset counter on any tool call
+			consecutiveNoToolTurns.set(input.sessionID, 0);
+
+			// v6.12: Self-coding detection — MUST be first, before any exemptions
+			handleDelegatedWriteTracking(input.sessionID, input.tool, output.args);
+
+			// v6.29: Loop detection for Task tool delegations
+			handleLoopDetection(input.sessionID, input.tool, output.args);
+
+			// Block full test suite execution without file argument
+			handleTestSuiteBlocking(input.tool, output.args);
+
+			// Plan state + scope protection for architect writes
+			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
+				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+			}
+
+			// Resolve session — returns null if architect-exempt
+			const resolved = resolveSessionAndWindow(input.sessionID);
+			if (!resolved) return;
+
+			const { agentConfig, window } = resolved;
+			const { repetitionCount, elapsedMinutes } = trackToolCall(
+				window,
+				input.tool,
+				output.args,
+			);
+
 			await checkGateLimits({
 				sessionID: input.sessionID,
 				window,
@@ -1011,7 +1013,10 @@ export function createGuardrailsHooks(
 							try {
 								const result = JSON.parse(successStr);
 								isPassed = result.gates_passed === true;
-							} catch {
+							} catch (error) {
+								log('[Guardrails] pre_check_batch JSON parse failed', {
+									error: error instanceof Error ? error.message : String(error),
+								});
 								isPassed = false;
 							}
 							if (isPassed && session.currentTaskId) {
@@ -1056,8 +1061,10 @@ export function createGuardrailsHooks(
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhase = extractPhaseNumber(phaseString);
 						}
-					} catch {
-						// Use default phase 1 if plan loading fails
+					} catch (error) {
+						log('[Guardrails] loadPlan failed during reviewer tracking', {
+							error: error instanceof Error ? error.message : String(error),
+						});
 					}
 					const count = session.reviewerCallCount.get(currentPhase) ?? 0;
 					session.reviewerCallCount.set(currentPhase, count + 1);
@@ -1284,7 +1291,11 @@ export function createGuardrailsHooks(
 									/<!--\s*BEHAVIORAL_GUIDANCE_START\s*-->[\s\S]*?<!--\s*BEHAVIORAL_GUIDANCE_END\s*-->/g,
 									'[Enforcement: programmatic gates active]',
 								);
-							} catch {}
+							} catch (error) {
+								log('[Guardrails] behavioral guidance replacement failed', {
+									error: error instanceof Error ? error.message : String(error),
+								});
+							}
 						}
 					}
 				}
@@ -1569,8 +1580,10 @@ export function createGuardrailsHooks(
 							const phaseString = extractCurrentPhaseFromPlan(plan);
 							currentPhaseForCheck = extractPhaseNumber(phaseString);
 						}
-					} catch {
-						// Use default phase 1 if plan loading fails
+					} catch (error) {
+						log('[Guardrails] loadPlan failed during phase check', {
+							error: error instanceof Error ? error.message : String(error),
+						});
 					}
 
 					const hasReviewerDelegation =
@@ -1719,8 +1732,10 @@ export function createGuardrailsHooks(
 							}
 						}
 					}
-				} catch {
-					// Silently skip if plan loading fails
+				} catch (error) {
+					log('[Guardrails] loadPlan failed during QA gate check', {
+						error: error instanceof Error ? error.message : String(error),
+					});
 				}
 			}
 
@@ -1772,7 +1787,10 @@ export function hashArgs(args: unknown): number {
 		}
 		const sortedKeys = Object.keys(args as Record<string, unknown>).sort();
 		return Number(Bun.hash(JSON.stringify(args, sortedKeys)));
-	} catch {
+	} catch (error) {
+		log('[Guardrails] hashArgs failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 		return 0;
 	}
 }

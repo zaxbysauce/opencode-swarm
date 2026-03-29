@@ -24,7 +24,6 @@ export interface QualityViolation {
 // ============ Constants ============
 
 const MAX_FILE_SIZE_BYTES = 256 * 1024; // 256KB per file
-const _N_GRAM_SIZE = 5; // n-gram size for duplication detection (reserved for future use)
 const MIN_DUPLICATION_LINES = 10; // Minimum lines to flag as duplication
 
 // ============ Complexity Calculation ============
@@ -33,7 +32,7 @@ const MIN_DUPLICATION_LINES = 10; // Minimum lines to flag as duplication
  * Estimate cyclomatic complexity from source code
  * Counts: if, for, while, switch, case, catch, &&, ||, ternary ?, optional chaining, nullish coalescing
  */
-function estimateCyclomaticComplexity(content: string): number {
+export function estimateCyclomaticComplexity(content: string): number {
 	// Remove block comments /* ... */
 	let processed = content.replace(/\/\*[\s\S]*?\*\//g, '');
 

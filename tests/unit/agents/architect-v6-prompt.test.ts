@@ -1,3 +1,15 @@
+/**
+ * PROMPT REGRESSION TESTS
+ *
+ * These tests verify that critical strings, keywords, and structural
+ * elements remain present in the architect agent's system prompt.
+ * They are NOT behavioral tests — they do not exercise runtime logic.
+ *
+ * Purpose: catch accidental prompt regressions when prompt text is
+ * edited. If a .toContain() assertion fails, a keyword or instruction
+ * was removed. Evaluate whether the removal was intentional before
+ * updating the test.
+ */
 import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 import { createCriticAgent } from '../../../src/agents/critic';

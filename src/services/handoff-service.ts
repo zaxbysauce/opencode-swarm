@@ -7,6 +7,7 @@
 
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { log } from '../utils';
 
 /**
  * RTL override character pattern for sanitization
@@ -268,7 +269,10 @@ function parseSessionState(content: string | null): {
 		}
 
 		return { activeAgent, delegationState, pendingQA };
-	} catch {
+	} catch (error) {
+		log('[HandoffService] state extraction failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 		return null;
 	}
 }

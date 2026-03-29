@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { parseDelegationEnvelope } from '../hooks/delegation-gate.js';
+import { log } from '../utils';
 
 /**
  * Context entry with role metadata
@@ -159,8 +160,10 @@ function logFilteringMetrics(
 		}
 
 		fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8');
-	} catch {
-		// Silently swallow errors - non-fatal operation
+	} catch (error) {
+		log('[RoleFilter] event append failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 }
 
