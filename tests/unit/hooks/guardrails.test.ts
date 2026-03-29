@@ -2170,10 +2170,10 @@ describe('guardrails circuit breaker', () => {
 				session.delegationActive = true;
 			}
 
-			// Fire: toolBefore with edit tool and filePath outside .swarm/
+			// Fire: toolBefore with edit tool and filePath inside allowed coder zone (src/)
 			await hooks.toolBefore(
 				makeInput('test-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }),
+				makeOutput({ filePath: 'src/test.ts' }),
 			);
 
 			// Verify: session.architectWriteCount does NOT increment
@@ -2192,10 +2192,10 @@ describe('guardrails circuit breaker', () => {
 				session.delegationActive = true;
 			}
 
-			// Fire: toolBefore with write tool and filePath outside .swarm/
+			// Fire: toolBefore with write tool and filePath inside allowed coder zone (src/)
 			await hooks.toolBefore(
 				makeInput('test-session', 'write', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }),
+				makeOutput({ filePath: 'src/test.ts' }),
 			);
 
 			// Verify: session.architectWriteCount does NOT increment

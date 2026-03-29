@@ -68,8 +68,9 @@ export function createAgentActivityHooks(
 			// Compute duration
 			const duration = Date.now() - entry.startTime;
 
-			// Determine success
-			const success = (output as Record<string, unknown>).success === true;
+			// Determine success: a non-null/undefined output field means the tool produced output
+			const rawOutput = (output as { output?: unknown }).output;
+			const success = rawOutput !== null && rawOutput !== undefined;
 
 			// Update toolAggregates
 			const key = entry.tool;

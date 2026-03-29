@@ -14,7 +14,7 @@ mock.module('../../../src/tools/write-retro.js', () => ({
 }));
 
 // Import AFTER mock setup
-const { handleWriteRetroCommand } = await import('../../../src/commands/write_retro.js');
+const { handleWriteRetroCommand } = await import('../../../src/commands/write-retro.js');
 
 describe('handleWriteRetroCommand adversarial', () => {
     beforeEach(() => {

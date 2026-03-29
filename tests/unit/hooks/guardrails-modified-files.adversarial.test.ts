@@ -158,7 +158,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('session-1');
 			session!.delegationActive = true;
 
-			const longPath = 'a'.repeat(15000);
+			const longPath = 'src/' + 'a'.repeat(14996);
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: longPath } };
 
@@ -179,7 +179,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 
 			// Add 100 large paths
 			for (let i = 0; i < 100; i++) {
-				const longPath = `path/to/file${i}.ts`.padEnd(5000, 'x');
+				const longPath = `src/file${i}.ts`.padEnd(5000, 'x');
 				await hooks.toolBefore(
 					makeInput('session-1', 'write', `call-${i}`),
 					{ args: { filePath: longPath } },
@@ -203,7 +203,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('session-1');
 			session!.delegationActive = true;
 
-			const pathWithNullByte = 'path/to/file\x00.ts';
+			const pathWithNullByte = 'src/file\x00.ts';
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: pathWithNullByte } };
 
@@ -222,7 +222,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('session-1');
 			session!.delegationActive = true;
 
-			const pathWithNulls = 'a\x00b\x00c\x00d.ts';
+			const pathWithNulls = 'src/a\x00b\x00c\x00d.ts';
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
 				{ args: { filePath: pathWithNulls } },
@@ -251,7 +251,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			for (let i = 0; i < 1000; i++) {
 				await hooks.toolBefore(
 					makeInput('session-1', 'write', `call-${i}`),
-					{ args: { filePath: `unique/path/file${i}.ts` } },
+					{ args: { filePath: `src/file${i}.ts` } },
 				);
 			}
 
@@ -275,7 +275,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			for (let i = 0; i < 500; i++) {
 				await hooks.toolBefore(
 					makeInput('session-1', 'write', `call-${i}`),
-					{ args: { filePath: `file${i}.ts` } },
+					{ args: { filePath: `src/file${i}.ts` } },
 				);
 			}
 
@@ -355,18 +355,18 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			// Add files to session 1
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { filePath: 'session1-file.ts' } },
+				{ args: { filePath: 'src/session1-file.ts' } },
 			);
 
 			// Add files to session 2
 			await hooks.toolBefore(
 				makeInput('session-2', 'write', 'call-2'),
-				{ args: { filePath: 'session2-file.ts' } },
+				{ args: { filePath: 'src/session2-file.ts' } },
 			);
 
 			// Each session should have its own files
-			expect(session1!.modifiedFilesThisCoderTask).toEqual(['session1-file.ts']);
-			expect(session2!.modifiedFilesThisCoderTask).toEqual(['session2-file.ts']);
+			expect(session1!.modifiedFilesThisCoderTask).toEqual(['src/session1-file.ts']);
+			expect(session2!.modifiedFilesThisCoderTask).toEqual(['src/session2-file.ts']);
 		});
 
 		it('should isolate reset operations between sessions', async () => {
@@ -632,12 +632,9 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '   ' } };
 
-			await hooks.toolBefore(input, output);
-
-			// The code checks: typeof delegTargetPath === 'string' && delegTargetPath.length > 0
-			// This passes for '   ' (length is 3). So it WILL be added.
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
-			expect(session!.modifiedFilesThisCoderTask[0]).toBe('   ');
+			// Whitespace-only paths don't match any allowed prefix — write is blocked
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow('WRITE BLOCKED');
+			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
 		});
 
 		it('should not add tab-only path', async () => {
@@ -651,10 +648,9 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '\t\t' } };
 
-			await hooks.toolBefore(input, output);
-
-			// Tab-only also passes length check
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
+			// Tab-only paths don't match any allowed prefix — write is blocked
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow('WRITE BLOCKED');
+			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
 		});
 
 		it('should not add newline-only path', async () => {
@@ -668,13 +664,12 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '\n\n' } };
 
-			await hooks.toolBefore(input, output);
-
-			// Newline-only also passes length check
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
+			// Newline-only paths don't match any allowed prefix — write is blocked
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow('WRITE BLOCKED');
+			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
 		});
 
-		it('should add valid path with surrounding whitespace', async () => {
+		it('should block path with surrounding whitespace (no allowed prefix match)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -685,10 +680,9 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '  valid/path.ts  ' } };
 
-			await hooks.toolBefore(input, output);
-
-			// Should add (has non-whitespace content)
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
+			// Leading spaces prevent an allowed-prefix match — write is blocked
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow('WRITE BLOCKED');
+			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
 		});
 	});
 
@@ -708,12 +702,12 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			for (let i = 0; i < 5; i++) {
 				await hooks.toolBefore(
 					makeInput('session-1', 'write', `call-${i}`),
-					{ args: { filePath: 'same-file.ts' } },
+					{ args: { filePath: 'src/same-file.ts' } },
 				);
 			}
 
 			// Should only have one entry
-			expect(session!.modifiedFilesThisCoderTask).toEqual(['same-file.ts']);
+			expect(session!.modifiedFilesThisCoderTask).toEqual(['src/same-file.ts']);
 		});
 
 		it('should handle duplicates with different casing', async () => {
@@ -727,11 +721,11 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			// Add same file with different casing (JavaScript is case-sensitive)
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { filePath: 'File.ts' } },
+				{ args: { filePath: 'src/File.ts' } },
 			);
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-2'),
-				{ args: { filePath: 'file.ts' } },
+				{ args: { filePath: 'src/file.ts' } },
 			);
 
 			// Both should be added (case-sensitive)
@@ -753,10 +747,10 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { filePath: 'from-filePath', path: 'from-path' } },
+				{ args: { filePath: 'src/from-filePath.ts', path: 'src/from-path.ts' } },
 			);
 
-			expect(session!.modifiedFilesThisCoderTask).toEqual(['from-filePath']);
+			expect(session!.modifiedFilesThisCoderTask).toEqual(['src/from-filePath.ts']);
 		});
 
 		it('should use path over file', async () => {
@@ -769,10 +763,10 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { path: 'from-path', file: 'from-file' } },
+				{ args: { path: 'src/from-path.ts', file: 'src/from-file.ts' } },
 			);
 
-			expect(session!.modifiedFilesThisCoderTask).toEqual(['from-path']);
+			expect(session!.modifiedFilesThisCoderTask).toEqual(['src/from-path.ts']);
 		});
 
 		it('should use file over target', async () => {
@@ -785,10 +779,10 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { file: 'from-file', target: 'from-target' } },
+				{ args: { file: 'src/from-file.ts', target: 'src/from-target.ts' } },
 			);
 
-			expect(session!.modifiedFilesThisCoderTask).toEqual(['from-file']);
+			expect(session!.modifiedFilesThisCoderTask).toEqual(['src/from-file.ts']);
 		});
 
 		it('should fall back to target when others missing', async () => {
@@ -801,10 +795,10 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 
 			await hooks.toolBefore(
 				makeInput('session-1', 'write', 'call-1'),
-				{ args: { target: 'from-target' } },
+				{ args: { target: 'src/from-target.ts' } },
 			);
 
-			expect(session!.modifiedFilesThisCoderTask).toEqual(['from-target']);
+			expect(session!.modifiedFilesThisCoderTask).toEqual(['src/from-target.ts']);
 		});
 	});
 });
