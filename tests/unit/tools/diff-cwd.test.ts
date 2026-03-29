@@ -1,10 +1,11 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 
-// Create mock function for execFileSync
+// Mock only execFileSync while preserving every other export (#330).
 const mockExecFileSync = mock(() => '');
 
-// Mock the node:child_process module
+const realChildProcess = await import('node:child_process');
 mock.module('node:child_process', () => ({
+	...realChildProcess,
 	execFileSync: mockExecFileSync,
 }));
 
