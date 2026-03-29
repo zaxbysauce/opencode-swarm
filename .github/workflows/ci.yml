@@ -92,7 +92,17 @@ jobs:
       - name: Unit tests (cli)
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (tools)
-        run: bun --smol test tests/unit/tools --timeout 120000
+        shell: bash
+        run: |
+          # Run each tools test file in its own process to prevent
+          # --smol module cache poisoning across files (#330).
+          failed=0
+          for f in tests/unit/tools/*.test.ts; do
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
         run: bun --smol test tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts --timeout 120000
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
