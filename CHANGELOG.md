@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.2...v6.40.3) (2026-03-29)
+
+
+### Bug Fixes
+
+* **ci:** isolate mock.module to prevent --smol cache poisoning ([#331](https://github.com/zaxbysauce/opencode-swarm/issues/331)) ([767a756](https://github.com/zaxbysauce/opencode-swarm/commit/767a75657f28764aa9ee38afdd16943a05cc4efc))
+
 ## [6.40.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.1...v6.40.2) (2026-03-29)
 
 
