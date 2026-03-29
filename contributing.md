@@ -35,7 +35,10 @@ bun run typecheck
 bunx biome ci .
 
 # Tier 2 — unit tests (all platforms in CI; run locally on yours)
-bun test tests/unit --timeout 120000
+# For directories with mock conflicts (tools, services, agents), use per-file loops:
+for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
+# For directories without mock conflicts (hooks, cli, commands), batch is fine:
+bun --smol test tests/unit/hooks tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
 
 # Tier 3 — integration tests
 bun test tests/integration ./test --timeout 120000
