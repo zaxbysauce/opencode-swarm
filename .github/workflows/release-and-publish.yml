@@ -118,8 +118,13 @@ jobs:
           fi
           NOTES_FILE="docs/releases/v${VERSION}.md"
           if [ -f "$NOTES_FILE" ]; then
-            echo "Found release notes at $NOTES_FILE — updating PR #$PR_NUMBER body"
-            gh pr edit "$PR_NUMBER" --body-file "$NOTES_FILE"
+            echo "Found release notes at $NOTES_FILE — prepending to PR #$PR_NUMBER body"
+            # Preserve the existing PR body (contains release-please markers needed for
+            # release creation). Prepend custom release notes above the markers.
+            EXISTING_BODY=$(gh pr view "$PR_NUMBER" --json body -q '.body')
+            NOTES_CONTENT=$(cat "$NOTES_FILE")
+            COMBINED=$(printf '%s\n\n---\n\n%s' "$NOTES_CONTENT" "$EXISTING_BODY")
+            echo "$COMBINED" | gh pr edit "$PR_NUMBER" --body-file -
           else
             echo "No release notes file found at $NOTES_FILE — skipping"
           fi

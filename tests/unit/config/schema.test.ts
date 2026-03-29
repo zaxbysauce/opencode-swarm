@@ -130,6 +130,7 @@ describe('PluginConfigSchema', () => {
         qa_retry_limit: 3,
         inject_phase_reminders: true,
         execution_mode: 'balanced',
+        turbo_mode: false,
         adversarial_testing: { enabled: true, scope: 'all' },
       });
     }
