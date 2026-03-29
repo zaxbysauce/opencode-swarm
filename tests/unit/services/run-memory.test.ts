@@ -3,10 +3,18 @@
  * Tests: append-only, getRunMemorySummary, token limits, fingerprint, filtering
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+
+// Mock validateDirectory to a no-op so Windows absolute temp paths work in tests.
+mock.module('../../../src/utils/path-security', () => ({
+	containsPathTraversal: () => false,
+	containsControlChars: () => false,
+	validateDirectory: () => {},
+}));
+
 import {
 	recordOutcome,
 	getRunMemorySummary,

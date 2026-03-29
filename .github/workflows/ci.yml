@@ -93,8 +93,6 @@ jobs:
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (tools)
         shell: bash
-        # continue-on-error until pre-existing tool test bugs are fixed
-        continue-on-error: true
         run: |
           # Run each tools test file in its own process to prevent
           # --smol module cache poisoning across files (#330).
@@ -106,13 +104,44 @@ jobs:
           done
           exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
-        # continue-on-error until pre-existing test bugs are fixed
+        shell: bash
+        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
         continue-on-error: true
-        run: bun --smol test tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts --timeout 120000
+        run: |
+          # Per-file isolation to prevent --smol cache poisoning (#330).
+          failed=0
+          for dir in tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts; do
+            for f in "$dir"/*.test.ts; do
+              [ -f "$f" ] || continue
+              if ! bun --smol test "$f" --timeout 120000; then
+                failed=1
+              fi
+            done
+          done
+          exit $failed
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
-        # continue-on-error until pre-existing test bugs are fixed
+        shell: bash
+        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
         continue-on-error: true
-        run: bun --smol test tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils tests/unit/cli-dispatch.test.ts tests/unit/index-commands.test.ts tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts --timeout 120000
+        run: |
+          # Per-file isolation to prevent --smol cache poisoning (#330).
+          failed=0
+          for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
+            for f in "$dir"/*.test.ts; do
+              [ -f "$f" ] || continue
+              if ! bun --smol test "$f" --timeout 120000; then
+                failed=1
+              fi
+            done
+          done
+          # Standalone test files
+          for f in tests/unit/cli-dispatch.test.ts tests/unit/index-commands.test.ts tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
 
   integration:
     needs: unit

@@ -806,12 +806,11 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 		test('scope:"all" with allow_full_suite:true and files:[] passes through zero-test-files guard', async () => {
 			// This test verifies that scope:"all" with allow_full_suite:true does NOT get rejected
 			// by the zero-test-files guard when files is an empty array.
-			// The zero-test-files guard is at line ~1501 and checks:
-			//   if (scope !== 'all' && testFiles.length === 0)
-			// Since scope IS 'all', this guard is skipped.
-			// The result will contain "No test framework detected" since there's no test framework
-			// in the temp dir, but that proves the code passed through to framework detection
-			// rather than being rejected early by the zero-test-files guard.
+			// Uses a temp dir with no framework so we get "No test framework detected"
+			// rather than actually running the project's test suite.
+			const noFrameworkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allfiles-'));
+			const savedCwd = process.cwd();
+			process.chdir(noFrameworkDir);
 
 			const result = await test_runner.execute(
 				{ scope: 'all', allow_full_suite: true, files: [] },
@@ -826,15 +825,20 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// Will have "No test framework detected" since there's no framework in temp dir
 			// This proves the code passed through the scope dispatch and reached framework detection
 			expect(parsed.error).toContain('No test framework detected');
+
+			process.chdir(savedCwd);
+			setTimeout(() => {
+				try { fs.rmSync(noFrameworkDir, { recursive: true, force: true }); } catch { /* ignore */ }
+			}, 100);
 		});
 
 		test('scope:"all" with allow_full_suite:true passes through zero-test-files guard', async () => {
 			// Codex Bug 1 fix verification: scope:"all" with allow_full_suite:true and NO files argument
-			// Before the fix, this would return "Provided source files resolved to zero test files"
-			// because scope:"all" fell through to the convention/graph branches and hit the zero-files guard.
-			// After the fix, the scope:"all" branch skips that guard entirely.
-			// The execute call should either succeed (if a framework is detected) or fail with
-			// "No test framework detected" — but it must NOT fail with "zero test files" error.
+			// Uses a temp dir with no framework so we get "No test framework detected"
+			// rather than actually running the project's test suite.
+			const noFrameworkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allnofiles-'));
+			const savedCwd = process.cwd();
+			process.chdir(noFrameworkDir);
 
 			const result = await test_runner.execute(
 				{ scope: 'all', allow_full_suite: true },
@@ -848,6 +852,11 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			expect(parsed.error).not.toContain('allow_full_suite');
 			// Result should be "No test framework detected" (proving it passed through to framework detection)
 			expect(parsed.error).toContain('No test framework detected');
+
+			process.chdir(savedCwd);
+			setTimeout(() => {
+				try { fs.rmSync(noFrameworkDir, { recursive: true, force: true }); } catch { /* ignore */ }
+			}, 100);
 		});
 
 		test('scope:"all" with allow_full_suite:false returns error', async () => {

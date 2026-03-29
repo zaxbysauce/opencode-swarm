@@ -548,3 +548,53 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 
 	return lines.join('\n');
 }
+
+/**
+ * Format handoff data as a continuation prompt for new agent sessions.
+ * Returns a terse markdown code block with essential context.
+ */
+export function formatContinuationPrompt(data: HandoffData): string {
+	const lines: string[] = [];
+
+	// Current state
+	if (data.currentPhase) {
+		lines.push(`**Phase**: ${data.currentPhase}`);
+	}
+	if (data.currentTask) {
+		lines.push(`**Current Task**: ${data.currentTask}`);
+	}
+
+	// Next task: first incomplete task that isn't the current task
+	if (data.incompleteTasks.length > 0) {
+		const nextTask = data.incompleteTasks.find((t) => t !== data.currentTask);
+		if (nextTask) {
+			lines.push(`**Next Task**: ${nextTask}`);
+		}
+	}
+
+	// Pending QA
+	if (data.pendingQA) {
+		lines.push(`**Pending QA**: ${data.pendingQA.taskId}`);
+		if (data.pendingQA.lastFailure) {
+			lines.push(`  - Last failure: ${data.pendingQA.lastFailure}`);
+		}
+	}
+
+	// Recent decisions (last 3)
+	if (data.recentDecisions.length > 0) {
+		const last3 = data.recentDecisions.slice(-3);
+		lines.push('**Recent Decisions**:');
+		for (const decision of last3) {
+			lines.push(`- ${decision}`);
+		}
+	}
+
+	// Reminders (always shown)
+	lines.push('**Reminders**:');
+	lines.push('- Read `.swarm/handoff.md` for full context');
+	lines.push(
+		'- Use `knowledge_recall` to recall relevant lessons before starting',
+	);
+
+	return `\`\`\`markdown\n${lines.join('\n')}\n\`\`\``;
+}

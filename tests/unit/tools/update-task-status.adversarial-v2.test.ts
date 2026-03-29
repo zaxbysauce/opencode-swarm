@@ -143,63 +143,39 @@ describe('ADVERSARIAL: checkReviewerGate with undefined workingDirectory', () =>
 
 describe('ADVERSARIAL: executeUpdateTaskStatus with undefined fallbackDir', () => {
 	it('should NOT crash when fallbackDir is undefined (line 596 type assertion)', async () => {
-		// Line 596: directory = fallbackDir as string;
-		// If fallbackDir is undefined, this becomes directory = "undefined"
-		// Then path.join("undefined", '.swarm', 'plan.json') = "undefined/.swarm/plan.json"
-		// fs.existsSync would return false, causing an error - but NOT a crash
+		// When fallbackDir is undefined and no working_directory is provided,
+		// the source returns a structured error result without emitting console.warn.
 
-		const warns: string[] = [];
-		const originalWarn = console.warn;
-		console.warn = (...args: unknown[]) => {
-			warns.push(args[0] as string);
-		};
+		const result = await executeUpdateTaskStatus(
+			{
+				task_id: '1.1',
+				status: 'pending',
+				// No working_directory
+			},
+			undefined, // fallbackDir is undefined
+		);
 
-		try {
-			const result = await executeUpdateTaskStatus(
-				{
-					task_id: '1.1',
-					status: 'pending',
-					// No working_directory
-				},
-				undefined, // fallbackDir is undefined
-			);
-
-			// Should fail safely with a warning, not crash
-			expect(result.success).toBe(false);
-			expect(warns.some((w) => w.includes('fallbackDir'))).toBe(true);
-		} finally {
-			console.warn = originalWarn;
-		}
+		// Should fail safely with an error message, not crash
+		expect(result.success).toBe(false);
+		expect(result.message).toContain('fallbackDir');
 	});
 
 	it('should NOT silently use "undefined" string as directory path', async () => {
-		// If fallbackDir is undefined and we use "fallbackDir as string",
-		// directory becomes the STRING "undefined", not undefined
-		// This causes path.join("undefined", '.swarm', 'plan.json')
-		// which is "undefined/.swarm/plan.json" - should fail gracefully
+		// When fallbackDir is undefined and no working_directory is provided,
+		// the source guards against this explicitly and returns a structured error.
 
-		const warns: string[] = [];
-		const originalWarn = console.warn;
-		console.warn = (...args: unknown[]) => {
-			warns.push(args[0] as string);
-		};
+		const result = await executeUpdateTaskStatus(
+			{
+				task_id: '1.1',
+				status: 'pending',
+			},
+			undefined,
+		);
 
-		try {
-			const result = await executeUpdateTaskStatus(
-				{
-					task_id: '1.1',
-					status: 'pending',
-				},
-				undefined,
-			);
-
-			// Must fail safely - should NOT succeed
-			expect(result.success).toBe(false);
-			// Warning should be emitted about fallbackDir
-			expect(warns.some((w) => w.includes('fallbackDir'))).toBe(true);
-		} finally {
-			console.warn = originalWarn;
-		}
+		// Must fail safely - should NOT succeed
+		expect(result.success).toBe(false);
+		// Error message should mention fallbackDir
+		expect(result.message).toContain('fallbackDir');
 	});
 });
 

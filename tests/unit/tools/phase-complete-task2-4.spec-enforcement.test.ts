@@ -225,6 +225,7 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 	describe('1. Missing spec.md + missing drift evidence + plan.json with incomplete tasks', () => {
 		test('warning mentions "incomplete task(s)" and "consider running critic_drift_verifier", phase succeeds', async () => {
 			// Write plan.json with phase 1 having incomplete tasks
+			// No tasks are 'completed' to avoid triggering completion-verify blocks
 			const planJson = {
 				schema_version: '1.0.0',
 				title: 'Test Plan',
@@ -239,8 +240,8 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 							{
 								id: '1.1',
 								phase: 1,
-								status: 'completed',
-								description: 'Completed task',
+								status: 'pending',
+								description: 'done',
 							},
 							{
 								id: '1.2',
@@ -281,10 +282,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 			expect(warning).toBeDefined();
 			expect(warning).toContain('incomplete task(s)');
 			expect(warning).toContain('consider running critic_drift_verifier');
-			expect(warning).toContain('2 incomplete task(s)'); // 2 incomplete tasks
+			expect(warning).toContain('3 incomplete task(s)'); // all 3 tasks are non-completed
 		});
 
-		test('phase with exactly 1 incomplete task shows correct count', async () => {
+		test('phase with incomplete tasks shows correct count', async () => {
 			const planJson = {
 				schema_version: '1.0.0',
 				title: 'Test Plan',
@@ -298,12 +299,6 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 						tasks: [
 							{
 								id: '1.1',
-								phase: 1,
-								status: 'completed',
-								description: 'Completed task',
-							},
-							{
-								id: '1.2',
 								phase: 1,
 								status: 'in_progress',
 								description: 'One incomplete task',
@@ -332,6 +327,13 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 	describe('2. Missing spec.md + missing drift evidence + plan.json with all tasks completed', () => {
 		test('warning includes "Drift verification was skipped", phase succeeds', async () => {
 			// Write plan.json with phase 1 having all tasks completed
+			// Create a source file so completion-verify can find identifiers
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() { return true; }\n',
+			);
+
 			const planJson = {
 				schema_version: '1.0.0',
 				title: 'Test Plan',
@@ -347,13 +349,13 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 								id: '1.1',
 								phase: 1,
 								status: 'completed',
-								description: 'Task 1',
+								description: 'Implement `setupProject` in src/setup.ts',
 							},
 							{
 								id: '1.2',
 								phase: 1,
 								status: 'completed',
-								description: 'Task 2',
+								description: 'Implement `setupProject` in src/setup.ts',
 							},
 						],
 					},
@@ -481,6 +483,13 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				'# Test Spec\nSome requirements.',
 			);
 
+			// Create a source file so completion-verify passes
+			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() { return true; }\n',
+			);
+
 			// Write plan.json with all tasks completed
 			const planJson = {
 				schema_version: '1.0.0',
@@ -497,7 +506,7 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 								id: '1.1',
 								phase: 1,
 								status: 'completed',
-								description: 'Task 1',
+								description: 'Implement `setupProject` in src/setup.ts',
 							},
 						],
 					},
@@ -511,7 +520,7 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			const parsed = JSON.parse(result);
 
-			// Should still be blocked because spec.md exists
+			// Should still be blocked because spec.md exists and drift evidence is missing
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');

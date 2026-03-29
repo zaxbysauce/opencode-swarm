@@ -564,8 +564,17 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const eventsContent = fs.readFileSync(eventsPath, 'utf-8');
 			const lines = eventsContent.trim().split('\n');
 
-			// Should only be one line (one event)
-			expect(lines.length).toBe(1);
+			// Each line should be valid JSON (newlines in summary are properly escaped).
+			// Multiple lines may exist due to curator compliance events.
+			expect(lines.length).toBeGreaterThanOrEqual(1);
+			lines.forEach(line => {
+				expect(() => JSON.parse(line)).not.toThrow();
+			});
+
+			// Verify the phase_complete event has the correct summary
+			const phaseEvent = lines.map(l => JSON.parse(l)).find((e: Record<string, unknown>) => e.event === 'phase_complete');
+			expect(phaseEvent).toBeDefined();
+			expect(phaseEvent.summary).toBe(summaryWithNewline);
 		});
 	});
 

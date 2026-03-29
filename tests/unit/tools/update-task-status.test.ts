@@ -631,29 +631,29 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 					status: 'in_progress',
 					tasks: [
 						{
-							id: 'p2.1',
+							id: '2.1',
 							phase: 1,
 							status: 'pending',
 							size: 'small',
-							description: 'Test task p2.1',
+							description: 'Test task 2.1',
 							depends: [],
 							files_touched: [],
 						},
 						{
-							id: 'p2.2',
+							id: '2.2',
 							phase: 1,
 							status: 'pending',
 							size: 'small',
-							description: 'Test task p2.2',
+							description: 'Test task 2.2',
 							depends: [],
 							files_touched: [],
 						},
 						{
-							id: 'p2.3',
+							id: '2.3',
 							phase: 1,
 							status: 'pending',
 							size: 'small',
-							description: 'Test task p2.3',
+							description: 'Test task 2.3',
 							depends: [],
 							files_touched: [],
 						},
@@ -685,28 +685,28 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 		const session = ensureAgentSession(sessionId, 'test-agent');
 
 		// Set up three tasks at coder_delegated state
-		advanceTaskState(session, 'p2.1', 'coder_delegated');
-		advanceTaskState(session, 'p2.2', 'coder_delegated');
-		advanceTaskState(session, 'p2.3', 'coder_delegated');
+		advanceTaskState(session, '2.1', 'coder_delegated');
+		advanceTaskState(session, '2.2', 'coder_delegated');
+		advanceTaskState(session, '2.3', 'coder_delegated');
 
 		// Pass 1: for each task at coder_delegated (or pre_check_passed), advance to reviewer_run
 		// The actual taskWorkflowStates passes through pre_check_passed before reaching reviewer_run
-		advanceTaskState(session, 'p2.1', 'pre_check_passed');
-		advanceTaskState(session, 'p2.1', 'reviewer_run');
-		advanceTaskState(session, 'p2.2', 'pre_check_passed');
-		advanceTaskState(session, 'p2.2', 'reviewer_run');
-		advanceTaskState(session, 'p2.3', 'pre_check_passed');
-		advanceTaskState(session, 'p2.3', 'reviewer_run');
+		advanceTaskState(session, '2.1', 'pre_check_passed');
+		advanceTaskState(session, '2.1', 'reviewer_run');
+		advanceTaskState(session, '2.2', 'pre_check_passed');
+		advanceTaskState(session, '2.2', 'reviewer_run');
+		advanceTaskState(session, '2.3', 'pre_check_passed');
+		advanceTaskState(session, '2.3', 'reviewer_run');
 
 		// Pass 2: for each task now at reviewer_run, advance to tests_run
-		advanceTaskState(session, 'p2.1', 'tests_run');
-		advanceTaskState(session, 'p2.2', 'tests_run');
-		advanceTaskState(session, 'p2.3', 'tests_run');
+		advanceTaskState(session, '2.1', 'tests_run');
+		advanceTaskState(session, '2.2', 'tests_run');
+		advanceTaskState(session, '2.3', 'tests_run');
 
 		// Verify that checkReviewerGate now passes - meaning update_task_status("completed") would succeed
-		const result1 = checkReviewerGate('p2.1', process.cwd());
-		const result2 = checkReviewerGate('p2.2', process.cwd());
-		const result3 = checkReviewerGate('p2.3', process.cwd());
+		const result1 = checkReviewerGate('2.1', process.cwd());
+		const result2 = checkReviewerGate('2.2', process.cwd());
+		const result3 = checkReviewerGate('2.3', process.cwd());
 
 		expect(result1.blocked).toBe(false);
 		expect(result1.reason).toBe('');

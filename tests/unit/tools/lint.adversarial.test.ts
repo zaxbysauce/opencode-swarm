@@ -337,7 +337,7 @@ describe('lint tool - ADVERSARIAL SECURITY TESTS', () => {
 		it('SEC-029: should handle edge cases', () => {
 			expect(containsPathTraversal('')).toBe(false);
 			expect(containsPathTraversal('.')).toBe(false);
-			expect(containsPathTraversal('..')).toBe(false);
+			expect(containsPathTraversal('..')).toBe(true);
 			expect(containsPathTraversal('../')).toBe(true);
 			expect(containsPathTraversal('..\\')).toBe(true);
 		});

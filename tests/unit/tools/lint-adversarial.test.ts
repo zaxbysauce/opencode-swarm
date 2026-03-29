@@ -107,9 +107,9 @@ describe('ADVERSARIAL: containsPathTraversal - Path Traversal Attacks', () => {
 		expect(containsPathTraversal('foo..bar')).toBe(false);
 	});
 
-	it('accepts URL-encoded traversal (literal check, not decoded)', () => {
-		// The function checks literal string, not decoded - this is expected behavior
-		expect(containsPathTraversal('..%2F..%2Fetc')).toBe(false);
+	it('detects URL-encoded traversal', () => {
+		// The function now detects URL-encoded path traversal patterns
+		expect(containsPathTraversal('..%2F..%2Fetc')).toBe(true);
 	});
 
 	it('accepts normal path without traversal', () => {

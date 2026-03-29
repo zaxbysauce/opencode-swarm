@@ -1,5 +1,12 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 
+// Mock validateDirectory to a no-op so empty-string directory works in tests.
+mock.module('../../../src/utils/path-security', () => ({
+	containsPathTraversal: () => false,
+	containsControlChars: () => false,
+	validateDirectory: () => {},
+}));
+
 // Re-import for each test to get fresh module state
 describe('context-budget-service', () => {
 	describe('estimateTokens', () => {

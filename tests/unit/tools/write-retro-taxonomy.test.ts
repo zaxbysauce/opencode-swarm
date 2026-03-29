@@ -495,8 +495,9 @@ describe('write-retro error taxonomy classification', () => {
 			expect(entry.error_taxonomy).toContain('scope_creep');
 		});
 
-		test('only tasks 1-5 are checked (task 6 not checked)', async () => {
-			// Create evidence for task 6 - should NOT be read
+		test('all tasks for phase are checked dynamically (including task 6)', async () => {
+			// Evidence discovery now uses listEvidenceTaskIds which finds ALL task IDs
+			// matching the phase prefix, not just a hardcoded 1-5 range
 			createEvidenceBundle(tempDir, '3.6', [
 				makeScopeGuardEntry('3.6')
 			]);
@@ -512,9 +513,8 @@ describe('write-retro error taxonomy classification', () => {
 			if (loaded.status !== 'found') return;
 
 			const entry = loaded.bundle.entries[0] as RetrospectiveEvidence;
-			// Task 3.6 should NOT contribute to taxonomy
-			expect(entry.error_taxonomy).not.toContain('scope_creep');
-			expect(entry.error_taxonomy).toEqual([]);
+			// Task 3.6 IS now discovered and contributes to taxonomy
+			expect(entry.error_taxonomy).toContain('scope_creep');
 		});
 	});
 
