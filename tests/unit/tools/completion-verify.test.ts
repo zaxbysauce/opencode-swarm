@@ -193,8 +193,8 @@ describe('completion-verify unit tests', () => {
 		});
 	});
 
-	describe('4. Skip path - no parseable file paths', () => {
-		test('skips task with no file paths in description', async () => {
+	describe('4. Fail-closed path - no parseable file paths', () => {
+		test('blocks task with no file paths in description (fail-closed: cannot verify without files)', async () => {
 			const plan = {
 				phases: [{
 					id: 1,
@@ -213,16 +213,16 @@ describe('completion-verify unit tests', () => {
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
 
-			// Task is still counted as checked (completed tasks are always checked)
-			// but since it has no file targets, it's also marked as skipped
-			expect(parsed.status).toBe('passed');
-			expect(parsed.tasksSkipped).toBe(1);
+			// PR #326: fail-closed policy — tasks without file targets are blocked, not skipped,
+			// because completion cannot be verified without knowing which files were modified.
+			expect(parsed.status).toBe('blocked');
+			expect(parsed.tasksBlocked).toBe(1);
 			expect(parsed.tasksChecked).toBe(1);
 		});
 	});
 
-	describe('5. Skip path - no identifiers AND no file paths', () => {
-		test('skips task with no identifiers and no file paths', async () => {
+	describe('5. Fail-closed path - no identifiers AND no file paths', () => {
+		test('blocks task with no identifiers and no file paths (fail-closed)', async () => {
 			const plan = {
 				phases: [{
 					id: 1,
@@ -241,8 +241,9 @@ describe('completion-verify unit tests', () => {
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.status).toBe('passed');
-			expect(parsed.tasksSkipped).toBe(1);
+			// PR #326: fail-closed policy — tasks without file targets are blocked, not skipped.
+			expect(parsed.status).toBe('blocked');
+			expect(parsed.tasksBlocked).toBe(1);
 		});
 	});
 

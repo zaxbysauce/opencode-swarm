@@ -137,13 +137,17 @@ describe('Drift injection: reports exist and cachedInjectionText populated', () 
     const driftReports = [
       { phase: 1, alignment: 'ALIGNED', drift_score: 0.05, injection_summary: 'Phase 1: aligned' },
     ];
-    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue(driftReports);
+    // First call must return empty reports so it doesn't inject drift-only text (which would
+    // trigger the idempotency guard and block the second call's knowledge injection).
+    (readPriorDriftReports as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // first call: no reports → hook returns early without injecting
+      .mockResolvedValue(driftReports); // second call: reports trigger drift injection
     (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue('<drift_report>Phase 1: ALIGNED</drift_report>');
 
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init with phase 1
+    // First call - init with phase 1 (no drift reports yet, no injection)
     await hook({}, output);
 
     // Set up knowledge entries for the phase change trigger
@@ -401,7 +405,11 @@ describe('Drift injection: multiple reports use last one', () => {
       { phase: 2, alignment: 'MINOR_DRIFT', drift_score: 0.25, injection_summary: 'Phase 2: minor drift' },
       { phase: 3, alignment: 'MAJOR_DRIFT', drift_score: 0.75, injection_summary: 'Phase 3: major drift' },
     ];
-    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue(driftReports);
+    // First call must return empty reports so it doesn't inject drift-only text (which would
+    // trigger the idempotency guard and block the second call's knowledge injection).
+    (readPriorDriftReports as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // first call: no reports → hook returns early without injecting
+      .mockResolvedValue(driftReports); // second call: last report (phase 3) is used
 
     // Track which report is passed to buildDriftInjectionText
     let capturedReport: any = null;
@@ -508,15 +516,19 @@ describe('Drift injection: drift text format', () => {
   });
 
   it('Drift text appears at the START of the injection text (prepended)', async () => {
-    (readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { phase: 1, alignment: 'MINOR_DRIFT', drift_score: 0.3, injection_summary: 'Phase 1: minor drift', first_deviation: { phase: 1, task: 'task1', description: 'Missing test coverage' }, corrections: ['Add more tests'] },
-    ]);
+    // First call must return empty reports so it doesn't inject drift-only text (which would
+    // trigger the idempotency guard and block the second call's knowledge injection).
+    (readPriorDriftReports as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // first call: no reports → hook returns early without injecting
+      .mockResolvedValue([
+        { phase: 1, alignment: 'MINOR_DRIFT', drift_score: 0.3, injection_summary: 'Phase 1: minor drift', first_deviation: { phase: 1, task: 'task1', description: 'Missing test coverage' }, corrections: ['Add more tests'] },
+      ]);
     (buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue('<drift_report>Phase 1: MINOR_DRIFT (0.30) — Missing test coverage. Add more tests.</drift_report>');
 
     const hook = createKnowledgeInjectorHook('/proj', makeConfig());
     const output = makeOutput('architect');
 
-    // First call - init
+    // First call - init (no drift reports, no injection)
     await hook({}, output);
 
     // Set up knowledge entries
