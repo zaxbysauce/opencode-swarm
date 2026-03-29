@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.0...v6.40.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* **ci:** preserve release-please markers when updating PR body ([#323](https://github.com/zaxbysauce/opencode-swarm/issues/323)) ([7c4309d](https://github.com/zaxbysauce/opencode-swarm/commit/7c4309dd249c3c54ff5ff8ee4700a4efe103d182))
+
 ## [6.40.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.39.0...v6.40.0) (2026-03-29)
 
 
