@@ -12,6 +12,7 @@ import type {
 	ToolAggregate,
 } from '../state';
 import { swarmState } from '../state';
+import { log } from '../utils';
 
 /**
  * v6.35.4: In-flight write guard.
@@ -228,12 +229,9 @@ export async function writeSnapshot(
 		await Bun.write(tempPath, content);
 		renameSync(tempPath, resolvedPath);
 	} catch (error) {
-		if (process.env.DEBUG_SWARM) {
-			console.warn(
-				'[snapshot-writer] write failed:',
-				error instanceof Error ? error.message : String(error),
-			);
-		}
+		log('[snapshot-writer] write failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 }
 
