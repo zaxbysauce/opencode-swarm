@@ -209,27 +209,43 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 					let oldContent: string;
 					let newContent: string;
 					if (base === 'staged') {
-						oldContent = child_process.execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = child_process.execFileSync('git', ['show', `:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 					} else if (base === 'unstaged') {
-						oldContent = child_process.execFileSync('git', ['show', `:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = child_process.execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 						// For unstaged: old = index, new = working tree (read from disk)
 						const fsModule = await import('node:fs');
 						const pathModule = await import('node:path');
@@ -238,16 +254,24 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 							'utf-8',
 						);
 					} else {
-						oldContent = child_process.execFileSync('git', ['show', `${base}:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
-						newContent = child_process.execFileSync('git', ['show', `HEAD:${file.path}`], {
-							encoding: 'utf-8',
-							timeout: 5000,
-							cwd: directory,
-						});
+						oldContent = child_process.execFileSync(
+							'git',
+							['show', `${base}:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
+						newContent = child_process.execFileSync(
+							'git',
+							['show', `HEAD:${file.path}`],
+							{
+								encoding: 'utf-8',
+								timeout: 5000,
+								cwd: directory,
+							},
+						);
 					}
 					const astResult = await computeASTDiff(
 						file.path,
