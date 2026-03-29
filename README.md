@@ -27,7 +27,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 ### Key Features
 
 - 🏗️ **11 specialized agents** — architect, coder, reviewer, test engineer, critic, critic_sounding_board, critic_drift_verifier, explorer, SME, docs, designer
-- 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
+- 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval (bypassed in turbo mode)
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
 - 🌐 **11 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby

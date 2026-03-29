@@ -117,7 +117,9 @@ async function extractFromLegacy(directory: string): Promise<HistoryData> {
 		else if (status === 'IN PROGRESS') mappedStatus = 'in_progress';
 
 		// Count tasks for this phase: scan lines from this header until next ## Phase or ---
-		const headerLineIndex = lines.indexOf(match[0]);
+		// Compute line index from character offset to avoid indexOf collision with duplicate text
+		const headerLineIndex =
+			planContent.substring(0, match.index).split('\n').length - 1;
 		let completed = 0;
 		let total = 0;
 

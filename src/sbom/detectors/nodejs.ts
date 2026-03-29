@@ -91,7 +91,7 @@ function parseYarnLock(content: string): SbomComponent[] {
 	const blocks = content.split(/^(?=@?[\w-]+@)/m);
 
 	for (const block of blocks) {
-		const pkgMatch = block.match(/^(@?[\w-]+)@([\d.]+)/m);
+		const pkgMatch = block.match(/^(@?[\w-]+)@(\d+\.\d+\.\d+(?:-[\w.]+)?)/m);
 		if (!pkgMatch) continue;
 
 		const name = pkgMatch[1];

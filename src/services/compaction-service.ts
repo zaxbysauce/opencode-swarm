@@ -41,20 +41,18 @@ function makeInitialState(): CompactionState {
 	};
 }
 
-// KNOWN LIMITATION: CompactionState is a single module-level instance shared across
-// ALL active sessions in the plugin process. This means concurrent sessions share
-// compaction hysteresis thresholds (lastObservationAt, lastReflectionAt, lastEmergencyAt).
-//
-// Incorrect suppression scenario: session A triggers observation at 42% budget.
-// Session B then crosses 45%, but the shared lastObservationAt (42%) + 5% hysteresis
-// means session B's observation is suppressed even though it hasn't run for session B.
-//
-// This is acceptable for the common case (single active architect session) but may cause
-// missed compaction advisories when two architect sessions run concurrently.
-//
-// TODO: key CompactionState by sessionId (Map<string, CompactionState>) to isolate
-// per-session hysteresis. Requires threading sessionId through checkCompaction and callers.
-const state = makeInitialState();
+// Per-session compaction state keyed by sessionId.
+// Isolates hysteresis thresholds so concurrent sessions don't suppress each other's compaction.
+const sessionStates = new Map<string, CompactionState>();
+
+function getSessionState(sessionId: string): CompactionState {
+	let state = sessionStates.get(sessionId);
+	if (!state) {
+		state = makeInitialState();
+		sessionStates.set(sessionId, state);
+	}
+	return state;
+}
 
 // ── Snapshot writer ────────────────────────────────────────────────────────────
 
@@ -135,6 +133,7 @@ export function createCompactionService(
 			if (budgetPct <= 0) return; // No budget data yet
 
 			const sessionId = _input.sessionID;
+			const state = getSessionState(sessionId);
 
 			try {
 				// Emergency tier — highest priority
@@ -187,23 +186,38 @@ export function createCompactionService(
 	};
 }
 
-export function getCompactionMetrics(): {
+export function getCompactionMetrics(sessionId?: string): {
 	compactionCount: number;
 	lastSnapshotAt: string | null;
 } {
-	return {
-		compactionCount:
-			state.observationCount + state.reflectionCount + state.emergencyCount,
-		lastSnapshotAt: state.lastSnapshotAt,
-	};
+	if (sessionId) {
+		const state = getSessionState(sessionId);
+		return {
+			compactionCount:
+				state.observationCount + state.reflectionCount + state.emergencyCount,
+			lastSnapshotAt: state.lastSnapshotAt,
+		};
+	}
+	// Aggregate across all sessions for backward compatibility
+	let total = 0;
+	let lastSnapshot: string | null = null;
+	for (const state of sessionStates.values()) {
+		total +=
+			state.observationCount + state.reflectionCount + state.emergencyCount;
+		if (
+			state.lastSnapshotAt &&
+			(!lastSnapshot || state.lastSnapshotAt > lastSnapshot)
+		) {
+			lastSnapshot = state.lastSnapshotAt;
+		}
+	}
+	return { compactionCount: total, lastSnapshotAt: lastSnapshot };
 }
 
-export function resetCompactionState(): void {
-	state.lastObservationAt = 0;
-	state.lastReflectionAt = 0;
-	state.lastEmergencyAt = 0;
-	state.observationCount = 0;
-	state.reflectionCount = 0;
-	state.emergencyCount = 0;
-	state.lastSnapshotAt = null;
+export function resetCompactionState(sessionId?: string): void {
+	if (sessionId) {
+		sessionStates.delete(sessionId);
+	} else {
+		sessionStates.clear();
+	}
 }

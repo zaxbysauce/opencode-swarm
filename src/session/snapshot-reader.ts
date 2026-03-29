@@ -12,6 +12,27 @@ import {
 } from '../state';
 import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
 
+/**
+ * Transient session fields that must be reset on rehydration.
+ * Centralised here to keep the reset logic DRY and auditable.
+ */
+export const TRANSIENT_SESSION_FIELDS: ReadonlyArray<{
+	name: string;
+	resetValue: unknown;
+}> = [
+	{ name: 'revisionLimitHit', resetValue: false },
+	{ name: 'coderRevisions', resetValue: 0 },
+	{ name: 'selfFixAttempted', resetValue: false },
+	{ name: 'lastGateFailure', resetValue: null },
+	{ name: 'architectWriteCount', resetValue: 0 },
+	{ name: 'selfCodingWarnedAtCount', resetValue: 0 },
+	{ name: 'pendingAdvisoryMessages', resetValue: [] },
+	{ name: 'model_fallback_index', resetValue: 0 },
+	{ name: 'modelFallbackExhausted', resetValue: false },
+	{ name: 'scopeViolationDetected', resetValue: false },
+	{ name: 'delegationActive', resetValue: false },
+] as const;
+
 const VALID_TASK_WORKFLOW_STATES: TaskWorkflowState[] = [
 	'idle',
 	'coder_delegated',
@@ -255,17 +276,10 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 			//   - model_fallback_index/modelFallbackExhausted: stuck fallback state
 			//   - scopeViolationDetected: false scope violation warnings
 			//   - delegationActive: prevents clean delegation lifecycle on restart
-			session.revisionLimitHit = false;
-			session.coderRevisions = 0;
-			session.selfFixAttempted = false;
-			session.lastGateFailure = null;
-			session.architectWriteCount = 0;
-			session.selfCodingWarnedAtCount = 0;
-			session.pendingAdvisoryMessages = [];
-			session.model_fallback_index = 0;
-			session.modelFallbackExhausted = false;
-			session.scopeViolationDetected = false;
-			session.delegationActive = false;
+			for (const field of TRANSIENT_SESSION_FIELDS) {
+				(session as unknown as Record<string, unknown>)[field.name] =
+					field.resetValue;
+			}
 
 			swarmState.agentSessions.set(sessionId, session);
 		}

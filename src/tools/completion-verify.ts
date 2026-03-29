@@ -293,7 +293,7 @@ export async function executeCompletionVerify(
 
 	// Track verification results
 	let tasksChecked = 0;
-	let tasksSkipped = 0;
+	const tasksSkipped = 0;
 	let tasksBlocked = 0;
 	const blockedTasks: BlockedTask[] = [];
 
@@ -311,27 +311,42 @@ export async function executeCompletionVerify(
 		// Get identifiers to look for
 		const identifiers = parseIdentifiers(task.description);
 
-		// If no file targets, skip this task (can't verify without files)
+		// If no file targets, block this task (fail closed — can't verify without files)
 		if (fileTargets.length === 0) {
-			tasksSkipped++;
+			blockedTasks.push({
+				task_id: task.id,
+				identifier: '',
+				file_path: '',
+				reason:
+					'No file targets — cannot verify completion without files_touched',
+			});
+			tasksBlocked++;
 			continue;
 		}
 
-		// If no identifiers parsed, skip this task (per spec: can't verify without identifiers)
+		// If no identifiers parsed, block this task (fail closed — can't verify without identifiers)
 		if (identifiers.length === 0) {
-			tasksSkipped++;
+			blockedTasks.push({
+				task_id: task.id,
+				identifier: '',
+				file_path: '',
+				reason: 'No identifiers — cannot verify completion without identifiers',
+			});
+			tasksBlocked++;
 			continue;
 		}
 
-		// Track how many identifiers were found in at least one file
-		let foundCount = 0;
+		// Track which identifiers were found across all files (using Set for dedup)
+		const foundIdentifiers = new Set<string>();
 		// Track if any file failed to read (missing file is obvious incompleteness)
 		let hasFileReadFailure = false;
 
 		// Check each file for the identifiers
 		for (const filePath of fileTargets) {
+			// Normalize path separators to forward slashes for cross-platform consistency
+			const normalizedPath = filePath.replace(/\\/g, '/');
 			// Resolve file path relative to project root
-			const resolvedPath = path.resolve(directory, filePath);
+			const resolvedPath = path.resolve(directory, normalizedPath);
 
 			// Try to read the file
 			let fileContent: string;
@@ -349,15 +364,14 @@ export async function executeCompletionVerify(
 				continue;
 			}
 
-			// Check each identifier - count it once if found in any file
+			// Check each identifier across this file, tracking found ones in the Set
 			for (const identifier of identifiers) {
 				if (fileContent.includes(identifier)) {
-					foundCount++;
-					// Only count each identifier once (could be in multiple files)
-					break;
+					foundIdentifiers.add(identifier);
 				}
 			}
 		}
+		const foundCount = foundIdentifiers.size;
 
 		// Block if file read failed OR if NO identifier was found across all target files
 		if (hasFileReadFailure || foundCount === 0) {

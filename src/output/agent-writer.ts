@@ -41,8 +41,7 @@ export async function writeAgentOutput(
 	// Construct path
 	const { phase, taskId, agent, type, timestamp } = metadata;
 
-	// Parse task ID to get task number (e.g., "1.1" -> "1.1")
-	const taskNum = taskId.replace('.', '.'); // Keep the dot
+	const taskNum = taskId;
 
 	const outputDir = path.join(
 		directory,
@@ -86,7 +85,7 @@ export async function readAgentOutput(
 	phase: number,
 	taskId: string,
 ): Promise<{ metadata: AgentOutputMetadata; content: string }[]> {
-	const taskNum = taskId.replace('.', '.');
+	const taskNum = taskId;
 	const outputDir = path.join(
 		directory,
 		'.swarm',
@@ -190,7 +189,7 @@ export async function listAgentOutputs(
 				outputs.push({
 					agent: match[1] as AgentType,
 					type: match[2] as OutputType,
-					taskId: taskDir.replace('task-', '').replace('.', '.'),
+					taskId: taskDir.replace('task-', ''),
 					phase: parseInt(phaseDir.replace('phase-', ''), 10),
 					timestamp: match[3].replace(/-/g, ':'),
 				});

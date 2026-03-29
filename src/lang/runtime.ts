@@ -49,8 +49,6 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
 	c: 'tree-sitter-cpp.wasm',
 	csharp: 'tree-sitter-c-sharp.wasm',
 	css: 'tree-sitter-css.wasm',
-	html: 'tree-sitter-html.wasm',
-	json: 'tree-sitter-json.wasm',
 	bash: 'tree-sitter-bash.wasm',
 	ruby: 'tree-sitter-ruby.wasm',
 	php: 'tree-sitter-php.wasm',

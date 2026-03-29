@@ -4,6 +4,7 @@
 
 import { existsSync } from 'node:fs';
 import { tool } from '@opencode-ai/plugin';
+import { loadPluginConfigWithMeta } from '../config';
 import {
 	readKnowledge,
 	resolveHiveKnowledgePath,
@@ -141,6 +142,7 @@ interface FilterOptions {
 function filterSwarmEntries(
 	entries: SwarmKnowledgeEntry[],
 	filters: FilterOptions,
+	scopeFilter?: string[],
 ): SwarmKnowledgeEntry[] {
 	return entries.filter((entry) => {
 		if (filters.status && entry.status !== filters.status) {
@@ -151,6 +153,13 @@ function filterSwarmEntries(
 		}
 		if (filters.minScore !== undefined && entry.confidence < filters.minScore) {
 			return false;
+		}
+		// Apply scope_filter (same logic as knowledge-reader.ts)
+		if (scopeFilter && scopeFilter.length > 0) {
+			const entryScope = entry.scope ?? 'global';
+			if (!scopeFilter.some((pattern) => entryScope === pattern)) {
+				return false;
+			}
 		}
 		return true;
 	});
@@ -285,10 +294,19 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 			tier: 'swarm' | 'hive';
 		}[] = [];
 
+		// Read scope_filter from config (same as knowledge-reader.ts)
+		let scopeFilter: string[] | undefined;
+		try {
+			const { config } = loadPluginConfigWithMeta(directory);
+			scopeFilter = config.knowledge?.scope_filter;
+		} catch {
+			// Config load failure — skip scope filtering
+		}
+
 		// Read swarm knowledge if requested
 		if (tier === 'swarm' || tier === 'all') {
 			const swarmEntries = await readSwarmKnowledge(directory);
-			const filtered = filterSwarmEntries(swarmEntries, filters);
+			const filtered = filterSwarmEntries(swarmEntries, filters, scopeFilter);
 			for (const entry of filtered) {
 				results.push({ entry, tier: 'swarm' });
 			}

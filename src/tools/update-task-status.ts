@@ -604,10 +604,13 @@ export async function executeUpdateTaskStatus(
 	} else {
 		// No working_directory provided, use fallbackDir from createSwarmTool
 		if (!fallbackDir) {
-			// fallbackDir should always be provided by createSwarmTool; this guard prevents silent failures
-			console.warn('[update-task-status] fallbackDir is undefined');
+			return {
+				success: false,
+				message: 'No working_directory provided and fallbackDir is undefined',
+				errors: ['Cannot resolve directory for task status update'],
+			};
 		}
-		directory = fallbackDir as string;
+		directory = fallbackDir;
 	}
 
 	// State machine check: task must have reached tests_run or complete state
@@ -619,17 +622,44 @@ export async function executeUpdateTaskStatus(
 		// verification tasks without coder delegation, etc.).
 		recoverTaskStateFromDelegations(args.task_id);
 
-		const reviewerCheck = await checkReviewerGateWithScope(
-			args.task_id,
-			directory,
-		);
-		if (reviewerCheck.blocked) {
-			return {
-				success: false,
-				message:
-					'Gate check failed: reviewer delegation required before marking task as completed',
-				errors: [reviewerCheck.reason],
-			};
+		// Check if the phase requires reviewer — non-code phases (acceptance, docs) may not
+		let phaseRequiresReviewer = true;
+		try {
+			const planPath = path.join(directory, '.swarm', 'plan.json');
+			const planRaw = fs.readFileSync(planPath, 'utf-8');
+			const plan: {
+				phases: Array<{
+					id: number;
+					tasks: Array<{ id: string }>;
+					required_agents?: string[];
+				}>;
+			} = JSON.parse(planRaw);
+			const taskPhase = plan.phases.find((p) =>
+				p.tasks.some((t) => t.id === args.task_id),
+			);
+			if (
+				taskPhase?.required_agents &&
+				!taskPhase.required_agents.includes('reviewer')
+			) {
+				phaseRequiresReviewer = false;
+			}
+		} catch {
+			// plan.json missing or unreadable — default to requiring reviewer
+		}
+
+		if (phaseRequiresReviewer) {
+			const reviewerCheck = await checkReviewerGateWithScope(
+				args.task_id,
+				directory,
+			);
+			if (reviewerCheck.blocked) {
+				return {
+					success: false,
+					message:
+						'Gate check failed: reviewer delegation required before marking task as completed',
+					errors: [reviewerCheck.reason],
+				};
+			}
 		}
 	}
 

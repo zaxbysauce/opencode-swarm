@@ -40,7 +40,7 @@ export const javascriptRules: SastRule[] = [
 			'Potential command injection via child_process.exec() with unsanitized input',
 		remediation:
 			'Never pass user input directly to exec(). Use execFile() with arguments array or sanitize input thoroughly.',
-		pattern: /exec\s*\(\s*[`'"]/,
+		pattern: /exec\s*\(\s*(?:[`'"]|\w)/,
 		validate: (_match, _context) => {
 			// Skip validation for now - we detect the pattern first
 			return true;

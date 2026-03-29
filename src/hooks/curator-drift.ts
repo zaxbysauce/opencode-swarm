@@ -41,7 +41,11 @@ export async function readPriorDriftReports(
 			// Basic schema validation
 			if (
 				typeof report.phase !== 'number' ||
-				typeof report.alignment !== 'string'
+				typeof report.alignment !== 'string' ||
+				typeof report.timestamp !== 'string' ||
+				typeof report.drift_score !== 'number' ||
+				typeof report.schema_version !== 'number' ||
+				!Array.isArray(report.compounding_effects)
 			) {
 				console.warn(
 					`[curator-drift] Skipping corrupt drift report: ${filename}`,

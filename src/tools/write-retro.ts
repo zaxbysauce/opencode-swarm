@@ -6,8 +6,15 @@
  */
 
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import type { RetrospectiveEvidence } from '../config/evidence-schema';
-import { loadEvidence, saveEvidence } from '../evidence/manager';
+import {
+	type RetrospectiveEvidence,
+	RetrospectiveEvidenceSchema,
+} from '../config/evidence-schema';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+	saveEvidence,
+} from '../evidence/manager';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -464,10 +471,10 @@ export async function executeWriteRetro(
 		| 'gate_evasion'
 	)[] = [];
 	try {
-		// Read evidence for tasks belonging to this phase
-		// Phase N tasks are N.1, N.2, N.3, etc. — check evidence bundles
-		for (const taskSuffix of ['1', '2', '3', '4', '5']) {
-			const phaseTaskId = `${phase}.${taskSuffix}`;
+		// Dynamically discover task IDs from evidence store instead of hardcoded suffixes
+		const allTaskIds = await listEvidenceTaskIds(directory);
+		const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
+		for (const phaseTaskId of phaseTaskIds) {
 			const result = await loadEvidence(directory, phaseTaskId);
 			if (result.status !== 'found') continue;
 			const bundle = result.bundle;
@@ -512,6 +519,19 @@ export async function executeWriteRetro(
 	}
 	// Deduplicate and assign
 	retroEntry.error_taxonomy = [...new Set(taxonomy)];
+
+	// Validate retroEntry against Zod schema before saving
+	const validationResult = RetrospectiveEvidenceSchema.safeParse(retroEntry);
+	if (!validationResult.success) {
+		return JSON.stringify(
+			{
+				success: false,
+				error: `Retrospective entry failed validation: ${validationResult.error.message}`,
+			},
+			null,
+			2,
+		);
+	}
 
 	// Call saveEvidence to handle wrapping in EvidenceBundle + atomic write
 	try {

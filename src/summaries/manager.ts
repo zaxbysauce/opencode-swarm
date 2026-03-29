@@ -75,11 +75,22 @@ export async function storeSummary(
 	// Validate summary ID
 	const sanitizedId = sanitizeSummaryId(id);
 
-	// Check size limit using Buffer.byteLength for accurate byte count
-	const outputBytes = Buffer.byteLength(fullOutput, 'utf8');
-	if (outputBytes > maxStoredBytes) {
+	// Check size limit against the serialized JSON entry (not just raw input)
+	// to ensure the wrapper doesn't push the total beyond maxStoredBytes
+	const preCheckEntry: SummaryEntry = {
+		id: sanitizedId,
+		summaryText,
+		fullOutput,
+		timestamp: Date.now(),
+		originalBytes: Buffer.byteLength(fullOutput, 'utf8'),
+	};
+	const serializedSize = Buffer.byteLength(
+		JSON.stringify(preCheckEntry),
+		'utf8',
+	);
+	if (serializedSize > maxStoredBytes) {
 		throw new Error(
-			`Summary fullOutput size (${outputBytes} bytes) exceeds maximum (${maxStoredBytes} bytes)`,
+			`Summary entry size (${serializedSize} bytes) exceeds maximum (${maxStoredBytes} bytes)`,
 		);
 	}
 
@@ -94,7 +105,7 @@ export async function storeSummary(
 		summaryText,
 		fullOutput,
 		timestamp: Date.now(),
-		originalBytes: outputBytes,
+		originalBytes: Buffer.byteLength(fullOutput, 'utf8'),
 	};
 
 	// Serialize to JSON

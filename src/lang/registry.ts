@@ -33,6 +33,11 @@ export const languageDefinitions: LanguageDefinition[] = [
 		extensions: ['.rs'],
 		commentNodes: ['line_comment', 'block_comment'],
 	},
+	{
+		id: 'php',
+		extensions: ['.php', '.phtml'],
+		commentNodes: ['comment'],
+	},
 ];
 
 const extensionMap = new Map<string, LanguageDefinition>();

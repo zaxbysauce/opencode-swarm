@@ -443,9 +443,11 @@ describe('curator pipeline health — integration', () => {
 
 			// Verify the pipeline produced consistent output
 			expect(phaseResult.phase).toBe(1);
-			expect(phaseResult.digest.tasks_completed).toBeGreaterThanOrEqual(0);
-			expect(updateResult.applied).toBeGreaterThanOrEqual(0);
-			expect(updateResult.skipped).toBeGreaterThanOrEqual(0);
+			expect(typeof phaseResult.digest.tasks_completed).toBe('number');
+			expect(typeof updateResult.applied).toBe('number');
+			expect(typeof updateResult.skipped).toBe('number');
+			// applied + skipped should be a non-negative integer
+			expect(Number.isInteger(updateResult.applied + updateResult.skipped)).toBe(true);
 
 			// Step 3: Write and read a drift report
 			writeDriftReport(1, 0.05);

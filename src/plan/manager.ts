@@ -433,7 +433,7 @@ export async function updateTaskStatus(
 	}
 
 	const updatedPlan: Plan = { ...plan, phases: updatedPhases };
-	await savePlan(directory, updatedPlan, { preserveCompletedStatuses: false });
+	await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
 	return updatedPlan;
 }
 

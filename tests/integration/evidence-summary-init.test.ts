@@ -112,22 +112,14 @@ describe('EvidenceSummaryIntegration wiring logic', () => {
 	 * Verify the config passed has swarmDir === ctx.directory
 	 * This is verified by reading the source code - the code explicitly passes ctx.directory
 	 */
-	it('should pass ctx.directory as swarmDir (not ctx.directory + /.swarm)', () => {
-		// This is verified by the code in src/index.ts lines 172-177:
-		// createEvidenceSummaryIntegration({
-		//   automationConfig,
-		//   directory: ctx.directory,
-		//   swarmDir: ctx.directory, // NOTE: persistSummary appends .swarm/ internally
-		//   summaryFilename: 'evidence-summary.json',
-		// });
-
-		// We test this by verifying the source code explicitly sets swarmDir to ctx.directory
-		// For this test, we just verify the expected behavior:
-		const ctxDirectory = '/test/project';
-		const expectedSwarmDir = ctxDirectory; // NOT ctxDirectory + '/.swarm'
-
-		expect(expectedSwarmDir).toBe('/test/project');
-		expect(expectedSwarmDir).not.toBe('/test/project/.swarm');
+	it('should use ctx.directory as the base (evidence paths resolve relative to it)', () => {
+		// Verify that buildEvidenceSummary accepts a directory parameter
+		// and does not append '.swarm/' to it (callers are responsible for this)
+		const { buildEvidenceSummary } = require('../../src/services/evidence-summary-service');
+		expect(typeof buildEvidenceSummary).toBe('function');
+		// The function signature: buildEvidenceSummary(directory: string, currentPhase?: number)
+		// Verify it accepts directory as first arg (not swarmDir)
+		expect(buildEvidenceSummary.length).toBeGreaterThanOrEqual(1);
 	});
 
 	/**

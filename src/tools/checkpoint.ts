@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { loadPluginConfigWithMeta } from '../config';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -188,6 +189,16 @@ function isGitRepo(): boolean {
  */
 function handleSave(label: string, directory: string): string {
 	try {
+		// Read checkpoint config for limits
+		let maxCheckpoints = 20; // sensible default
+		try {
+			const { config } = loadPluginConfigWithMeta(directory);
+			maxCheckpoints =
+				config.checkpoint?.auto_checkpoint_threshold ?? maxCheckpoints;
+		} catch {
+			// Config load failure — use defaults
+		}
+
 		// Check for duplicate label before saving
 		const log = readCheckpointLog(directory);
 		const existingCheckpoint = log.checkpoints.find((c) => c.label === label);
@@ -413,7 +424,10 @@ export const checkpoint: ToolDefinition = createSwarmTool({
 		let label: string | undefined;
 		try {
 			action = String(args.action);
-			label = args.label !== undefined ? String(args.label) : undefined;
+			label =
+				args.label !== undefined && args.label !== null
+					? String(args.label)
+					: undefined;
 		} catch {
 			return JSON.stringify(
 				{

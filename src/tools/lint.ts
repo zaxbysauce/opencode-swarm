@@ -375,7 +375,7 @@ export async function _detectAvailableLinter(
 
 	// Try biome first (fastest, recommended)
 	try {
-		const biomeProc = Bun.spawn(['npx', 'biome', '--version'], {
+		const biomeProc = Bun.spawn([biomeBin, '--version'], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});
@@ -399,7 +399,7 @@ export async function _detectAvailableLinter(
 
 	// Try eslint
 	try {
-		const eslintProc = Bun.spawn(['npx', 'eslint', '--version'], {
+		const eslintProc = Bun.spawn([eslintBin, '--version'], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});

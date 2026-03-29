@@ -71,6 +71,11 @@ export function parseDelegationEnvelope(
 				} catch {
 					return null;
 				}
+				// Verify referenced files actually exist
+				const resolvedPath = path.resolve(directory, filePath);
+				if (!fs.existsSync(resolvedPath)) {
+					return null;
+				}
 			}
 		}
 		return envelope;

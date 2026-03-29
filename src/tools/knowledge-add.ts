@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { tool } from '@opencode-ai/plugin';
+import { loadPluginConfigWithMeta } from '../config';
 import {
 	appendKnowledge,
 	resolveSwarmKnowledgePath,
@@ -7,6 +9,7 @@ import type {
 	KnowledgeCategory,
 	SwarmKnowledgeEntry,
 } from '../hooks/knowledge-types.js';
+import { validateLesson } from '../hooks/knowledge-validator.js';
 import { loadPlan } from '../plan/manager.js';
 import { createSwarmTool } from './create-tool.js';
 
@@ -120,7 +123,7 @@ export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
 
 			// Construct the entry
 			const entry: SwarmKnowledgeEntry = {
-				id: crypto.randomUUID(),
+				id: randomUUID(),
 				tier: 'swarm',
 				lesson,
 				category,
@@ -141,6 +144,26 @@ export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
 				auto_generated: true,
 				hive_eligible: false,
 			};
+
+			// Validate lesson if validation_enabled is set in config
+			try {
+				const { config } = loadPluginConfigWithMeta(directory);
+				if (config.knowledge?.validation_enabled !== false) {
+					const validation = validateLesson(lesson, [], {
+						category,
+						scope,
+						confidence: 0.5,
+					});
+					if (!validation.valid) {
+						return JSON.stringify({
+							success: false,
+							error: `Validation failed: ${validation.reason}`,
+						});
+					}
+				}
+			} catch {
+				// Config load failure should not block knowledge storage
+			}
 
 			// Append to knowledge store
 			try {

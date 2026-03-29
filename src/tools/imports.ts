@@ -391,7 +391,7 @@ function findSourceFiles(
  */
 export const imports: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
-		'Find all consumers that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Useful for understanding dependency relationships.',
+		'Find all reverse dependencies (consumers) that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Use this to understand who depends on a module before refactoring.',
 	args: {
 		file: tool.schema
 			.string()

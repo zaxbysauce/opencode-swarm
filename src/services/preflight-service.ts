@@ -286,13 +286,16 @@ async function runLintCheck(
 	try {
 		// Race the lint execution with a timeout
 		const lintPromise = runLint(linter, 'check', dir);
+		let timeoutId: ReturnType<typeof setTimeout>;
 		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => {
+			timeoutId = setTimeout(() => {
 				reject(new Error(`Lint check timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
 		});
 
-		const result = await Promise.race([lintPromise, timeoutPromise]);
+		const result = await Promise.race([lintPromise, timeoutPromise]).finally(
+			() => clearTimeout(timeoutId),
+		);
 
 		// Determine status based on result
 		if (!result.success) {

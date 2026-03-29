@@ -529,6 +529,21 @@ export function createGuardrailsHooks(
 						typeof delegTargetPath === 'string' &&
 						delegTargetPath.length > 0
 					) {
+						// v6.40: Zone-based write authority check
+						const agentName =
+							swarmState.activeAgent.get(input.sessionID) ?? 'unknown';
+						const cwd = directory ?? process.cwd();
+						const authorityCheck = checkFileAuthority(
+							agentName,
+							delegTargetPath,
+							cwd,
+						);
+						if (!authorityCheck.allowed) {
+							throw new Error(
+								`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${delegTargetPath}". Reason: ${authorityCheck.reason}`,
+							);
+						}
+
 						if (
 							!currentSession.modifiedFilesThisCoderTask.includes(
 								delegTargetPath,
@@ -1086,7 +1101,7 @@ export function createGuardrailsHooks(
 							.filter(
 								(f) => !isInDeclaredScope(f, session.declaredCoderScope!),
 							);
-						if (undeclaredFiles.length > 2) {
+						if (undeclaredFiles.length >= 1) {
 							const safeTaskId = String(session.currentTaskId ?? '').replace(
 								/[\r\n\t]/g,
 								'_',
@@ -1878,7 +1893,7 @@ const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		readOnly: true,
 	},
 	test_engineer: {
-		blockedExact: ['.swarm/plan.md'],
+		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedPrefix: ['src/'],
 		allowedPrefix: ['tests/', '.swarm/evidence/'],
 		blockedZones: ['generated'],

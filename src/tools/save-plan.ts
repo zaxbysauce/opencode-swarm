@@ -9,6 +9,7 @@ import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
 import { releaseLock, tryAcquireLock } from '../parallel/file-locks.js';
 import { savePlan } from '../plan/manager';
+import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -41,6 +42,7 @@ export interface SavePlanResult {
 	phases_count?: number;
 	tasks_count?: number;
 	errors?: string[];
+	warnings?: string[];
 	recovery_guidance?: string;
 }
 
@@ -262,12 +264,31 @@ export async function executeSavePlan(
 			} catch {
 				// Advisory only - marker write failure does not affect plan save
 			}
+			// Advisory: check if critic review has occurred in any session
+			const warnings: string[] = [];
+			let criticReviewFound = false;
+			for (const [, session] of swarmState.agentSessions) {
+				if (
+					session.phaseAgentsDispatched?.has('critic') ||
+					session.lastCompletedPhaseAgentsDispatched?.has('critic')
+				) {
+					criticReviewFound = true;
+					break;
+				}
+			}
+			if (!criticReviewFound) {
+				warnings.push(
+					'No critic review detected before plan save. Consider delegating to critic for plan validation.',
+				);
+			}
+
 			return {
 				success: true,
 				message: 'Plan saved successfully',
 				plan_path: path.join(dir, '.swarm', 'plan.json'),
 				phases_count: plan.phases.length,
 				tasks_count: tasksCount,
+				...(warnings.length > 0 ? { warnings } : {}),
 			};
 		} finally {
 			releaseLock(dir, planFilePath, lockTaskId);

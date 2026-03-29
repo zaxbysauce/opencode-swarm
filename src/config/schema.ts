@@ -721,10 +721,12 @@ export const PlanCursorConfigSchema = z.object({
 export type PlanCursorConfig = z.infer<typeof PlanCursorConfigSchema>;
 
 // Checkpoint configuration
-export const CheckpointConfigSchema = z.object({
-	enabled: z.boolean().default(true),
-	auto_checkpoint_threshold: z.number().min(1).max(20).default(3),
-});
+export const CheckpointConfigSchema = z
+	.object({
+		enabled: z.boolean().default(true),
+		auto_checkpoint_threshold: z.number().int().min(1).max(20).default(3),
+	})
+	.strict();
 
 export type CheckpointConfig = z.infer<typeof CheckpointConfigSchema>;
 
@@ -1025,6 +1027,9 @@ export const PluginConfigSchema = z.object({
 
 	// Compaction service configuration (v6.29)
 	compaction_service: CompactionConfigSchema.optional(),
+
+	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
+	turbo_mode: z.boolean().default(false).optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

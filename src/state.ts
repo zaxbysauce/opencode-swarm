@@ -347,8 +347,11 @@ export function startAgentSession(
 	if (directory) {
 		let rehydrationPromise: Promise<void>;
 		rehydrationPromise = rehydrateSessionFromDisk(directory, sessionState)
-			.catch(() => {
-				// Swallow rehydration errors - fallback to current pre-rehydration path
+			.catch((err) => {
+				console.warn(
+					'[state] Rehydration failed:',
+					err instanceof Error ? err.message : String(err),
+				);
 			})
 			.finally(() => {
 				swarmState.pendingRehydrations.delete(rehydrationPromise);
