@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.38.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.37.0...v6.38.0) (2026-03-29)
+
+
+### Features
+
+* **swarm:** wire dead infrastructure — curator LLM delegation, automation manager, AST diff, adversarial detector, compaction service, parallel framework ([#315](https://github.com/zaxbysauce/opencode-swarm/issues/315)) ([d043c76](https://github.com/zaxbysauce/opencode-swarm/commit/d043c76d080223eeb035c8c73846612910716a36))
+
 ## [6.37.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.36.0...v6.37.0) (2026-03-28)
 
 
