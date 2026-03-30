@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.4...v6.40.5) (2026-03-30)
+
+
+### Bug Fixes
+
+* **sast:** skip coder rejection for pre-existing SAST findings on unchanged lines ([#335](https://github.com/zaxbysauce/opencode-swarm/issues/335)) ([7a7f68a](https://github.com/zaxbysauce/opencode-swarm/commit/7a7f68a36d7f188a5bd1c372553489ba59dc42af))
+
 ## [6.40.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.3...v6.40.4) (2026-03-30)
 
 
