@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "IMPORTANT: First check if the environment variable or session flag 'stop_hook_active' is set — if so, return {\"ok\": true} immediately to prevent an infinite loop. Otherwise: Review everything completed in this session. Ask yourself: (1) Was all originally planned work actually implemented? (2) Were parallel sub-agents used for implementation? (3) Was an independent adversarial review done by a fresh sub-agent that assumed all work was wrong? (4) Was a completeness verification done? (5) Are you genuinely ≥95% confident all issues, related issues, and edge cases are covered? If ANY of these are false or confidence is below 95%, return {\"ok\": false, \"reason\": \"<specific description of what still needs to be done>\"} to force continuation. Only return {\"ok\": true} if all five criteria are genuinely met."
+          }
+        ]
+      }
+    ]
+  }
+}
