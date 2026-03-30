@@ -7,6 +7,7 @@ import {
 	containsPathTraversal,
 } from '../utils/path-security';
 import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
 
 // ============ Constants ============
 export const MAX_OUTPUT_BYTES = 512_000; // 512KB max output
@@ -990,6 +991,62 @@ function parseTestOutput(
 }
 
 // ============ Test Execution ============
+/**
+ * Read a ReadableStream with a hard byte limit.
+ * Stops reading once maxBytes is reached to prevent unbounded memory allocation.
+ * This is critical for scope "all" where test output can be many MB/GB.
+ */
+async function readBoundedStream(
+	stream: ReadableStream<Uint8Array>,
+	maxBytes: number,
+): Promise<{ text: string; truncated: boolean }> {
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	let totalBytes = 0;
+	let truncated = false;
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			if (totalBytes + value.length > maxBytes) {
+				// Take only what fits within the limit
+				const remaining = maxBytes - totalBytes;
+				if (remaining > 0) {
+					chunks.push(value.slice(0, remaining));
+				}
+				totalBytes = maxBytes;
+				truncated = true;
+				// Cancel the rest of the stream to release backpressure
+				reader.cancel().catch(() => {});
+				break;
+			}
+
+			chunks.push(value);
+			totalBytes += value.length;
+		}
+	} catch {
+		// Stream error (process killed, pipe closed) — return what we have
+	} finally {
+		try {
+			reader.releaseLock();
+		} catch {
+			// Already released
+		}
+	}
+
+	const decoder = new TextDecoder('utf-8', { fatal: false });
+	const combined = new Uint8Array(totalBytes);
+	let offset = 0;
+	for (const chunk of chunks) {
+		combined.set(chunk, offset);
+		offset += chunk.length;
+	}
+
+	return { text: decoder.decode(combined), truncated };
+}
+
 export async function runTests(
 	framework: TestFramework,
 	scope: 'all' | 'convention' | 'graph',
@@ -1032,8 +1089,15 @@ export async function runTests(
 			cwd: cwd,
 		});
 
-		// Race with timeout
-		const exitPromise = proc.exited;
+		// Race with timeout — but read streams CONCURRENTLY with waiting for exit.
+		// Previous code awaited proc.exited first, then read streams. This caused a
+		// pipe deadlock: if child output exceeded the OS pipe buffer (~64KB), the child
+		// blocked on write, proc.exited never resolved, and the session froze for up
+		// to timeout_ms (60s default).
+		//
+		// Fix: read bounded streams in parallel with exit/timeout, so the pipe is
+		// always being drained. readBoundedStream caps memory at MAX_OUTPUT_BYTES
+		// per stream, preventing OOM from unbounded test output.
 		const timeoutPromise = new Promise<number>((resolve) =>
 			setTimeout(() => {
 				proc.kill();
@@ -1041,34 +1105,23 @@ export async function runTests(
 			}, timeout_ms),
 		);
 
-		const exitCode = await Promise.race([exitPromise, timeoutPromise]);
+		const [exitCode, stdoutResult, stderrResult] = await Promise.all([
+			Promise.race([proc.exited, timeoutPromise]),
+			readBoundedStream(proc.stdout as ReadableStream<Uint8Array>, MAX_OUTPUT_BYTES),
+			readBoundedStream(proc.stderr as ReadableStream<Uint8Array>, MAX_OUTPUT_BYTES),
+		]);
 
 		const duration_ms = Date.now() - startTime;
 
-		const [stdout, stderr] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
-		]);
-
 		// Combine stdout and stderr
-		let output = stdout;
-		if (stderr) {
-			output += (output ? '\n' : '') + stderr;
+		let output = stdoutResult.text;
+		if (stderrResult.text) {
+			output += (output ? '\n' : '') + stderrResult.text;
 		}
 
-		// Truncate output if too large (byte-aware to avoid corrupting UTF-8)
-		const outputBytes = Buffer.byteLength(output, 'utf-8');
-		if (outputBytes > MAX_OUTPUT_BYTES) {
-			// Find the truncation point that doesn't split a multi-byte character
-			let truncIndex = MAX_OUTPUT_BYTES;
-			while (truncIndex > 0) {
-				const truncated = output.slice(0, truncIndex);
-				if (Buffer.byteLength(truncated, 'utf-8') <= MAX_OUTPUT_BYTES) {
-					break;
-				}
-				truncIndex--;
-			}
-			output = `${output.slice(0, truncIndex)}\n... (output truncated)`;
+		// Add truncation notice if either stream was capped
+		if (stdoutResult.truncated || stderrResult.truncated) {
+			output += '\n... (output truncated at stream read limit)';
 		}
 
 		// Parse the output
@@ -1264,10 +1317,35 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			.describe(
 				'Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.',
 			),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe(
+				'Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.',
+			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
+		// Resolve effective directory: explicit working_directory > injected directory
+		let workingDirInput: string | undefined;
+		if (args && typeof args === 'object') {
+			const obj = args as Record<string, unknown>;
+			workingDirInput =
+				typeof obj.working_directory === 'string'
+					? obj.working_directory
+					: undefined;
+		}
+		const dirResult = resolveWorkingDirectory(workingDirInput, directory);
+		if (!dirResult.success) {
+			const errorResult: TestErrorResult = {
+				success: false,
+				framework: 'none',
+				scope: 'all',
+				error: dirResult.message,
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
 		// Normalize whitespace-only strings back to empty string (will use directory param)
-		const workingDir = directory.trim() || directory;
+		const workingDir = dirResult.directory.trim() || dirResult.directory;
 		// Validate workingDir to prevent path traversal, injection, and abuse
 		// Length check FIRST — before any regex operations (defense against ReDoS)
 		if (workingDir.length > 4096) {
@@ -1327,6 +1405,9 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		// Opencode's SSE pipeline has known issues with large payloads causing session wedge,
 		// memory leaks, and OOM crashes (anomalyco/opencode #17977, #15645, #17908).
 		// This guard ensures full-suite runs are a deliberate architect decision, not accidental.
+		//
+		// IMPORTANT: The error message must NOT instruct the caller to add allow_full_suite.
+		// LLMs follow such instructions literally, defeating the guard entirely.
 		if (scope === 'all') {
 			if (!args.allow_full_suite) {
 				const errorResult: TestErrorResult = {
@@ -1334,9 +1415,9 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 					framework: 'none',
 					scope: 'all',
 					error:
-						'Full-suite test execution (scope: "all") requires allow_full_suite: true',
+						'scope "all" is not allowed without explicit files. Use scope "convention" or "graph" with a files array to run targeted tests.',
 					message:
-						'Set allow_full_suite: true to confirm intentional full-suite execution. Use scope "convention" or "graph" for targeted tests. Full-suite output is large and may destabilize SSE streaming on some opencode versions.',
+						'Running the full test suite without file targeting is blocked. Provide scope "convention" or "graph" with specific source files in the files array. Example: { scope: "convention", files: ["src/tools/test-runner.ts"] }',
 				};
 				return JSON.stringify(errorResult, null, 2);
 			}
