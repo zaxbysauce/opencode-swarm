@@ -57676,6 +57676,19 @@ function parseFilePaths(description, filesTouched) {
   }
   return filePaths;
 }
+function buildVerifySummary(tasksChecked, tasksSkipped, tasksBlocked) {
+  if (tasksBlocked > 0) {
+    return `Blocked: ${tasksBlocked} task(s) with missing identifiers`;
+  }
+  const verified = tasksChecked - tasksSkipped;
+  if (tasksSkipped === tasksChecked) {
+    return `All ${tasksChecked} completed task(s) skipped \u2014 research/inventory tasks`;
+  }
+  if (tasksSkipped > 0) {
+    return `${verified} task(s) verified, ${tasksSkipped} skipped (research tasks)`;
+  }
+  return `All ${tasksChecked} completed tasks verified successfully`;
+}
 async function executeCompletionVerify(args2, directory) {
   const phase = Number(args2.phase);
   if (Number.isNaN(phase) || phase < 1 || !Number.isFinite(phase)) {
@@ -57767,7 +57780,8 @@ async function executeCompletionVerify(args2, directory) {
       const normalizedPath = filePath.replace(/\\/g, "/");
       const resolvedPath = path45.resolve(directory, normalizedPath);
       const projectRoot = path45.resolve(directory);
-      const withinProject = resolvedPath === projectRoot || resolvedPath.startsWith(projectRoot + path45.sep);
+      const relative6 = path45.relative(projectRoot, resolvedPath);
+      const withinProject = relative6 === "" || !relative6.startsWith("..") && !path45.isAbsolute(relative6);
       if (!withinProject) {
         blockedTasks.push({
           task_id: task.id,
@@ -57836,7 +57850,7 @@ async function executeCompletionVerify(args2, directory) {
           timestamp: now,
           agent: "completion_verify",
           verdict: tasksBlocked === 0 ? "pass" : "fail",
-          summary: tasksBlocked === 0 ? tasksSkipped === tasksChecked ? `All ${tasksChecked} completed task(s) skipped \u2014 research/inventory tasks` : tasksSkipped > 0 ? `${tasksChecked - tasksSkipped} task(s) verified, ${tasksSkipped} skipped (research tasks)` : `All ${tasksChecked} completed tasks verified successfully` : `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
+          summary: buildVerifySummary(tasksChecked, tasksSkipped, tasksBlocked),
           phase,
           tasks_checked: tasksChecked,
           tasks_skipped: tasksSkipped,
@@ -64053,13 +64067,13 @@ function validatePath(inputPath, baseDir, workspaceDir) {
     resolved = path56.resolve(baseDir, inputPath);
   }
   const workspaceResolved = path56.resolve(workspaceDir);
-  let relative7;
+  let relative8;
   if (isWinAbs) {
-    relative7 = path56.win32.relative(workspaceResolved, resolved);
+    relative8 = path56.win32.relative(workspaceResolved, resolved);
   } else {
-    relative7 = path56.relative(workspaceResolved, resolved);
+    relative8 = path56.relative(workspaceResolved, resolved);
   }
-  if (relative7.startsWith("..")) {
+  if (relative8.startsWith("..")) {
     return "path traversal detected";
   }
   return null;

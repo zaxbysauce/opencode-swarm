@@ -216,6 +216,28 @@ function parseFilePaths(
 }
 
 /**
+ * Build a human-readable evidence summary for the completion verify result.
+ * Kept as a named function to avoid deeply nested ternary operators.
+ */
+function buildVerifySummary(
+	tasksChecked: number,
+	tasksSkipped: number,
+	tasksBlocked: number,
+): string {
+	if (tasksBlocked > 0) {
+		return `Blocked: ${tasksBlocked} task(s) with missing identifiers`;
+	}
+	const verified = tasksChecked - tasksSkipped;
+	if (tasksSkipped === tasksChecked) {
+		return `All ${tasksChecked} completed task(s) skipped — research/inventory tasks`;
+	}
+	if (tasksSkipped > 0) {
+		return `${verified} task(s) verified, ${tasksSkipped} skipped (research tasks)`;
+	}
+	return `All ${tasksChecked} completed tasks verified successfully`;
+}
+
+/**
  * Execute the completion verification check
  */
 export async function executeCompletionVerify(
@@ -353,10 +375,12 @@ export async function executeCompletionVerify(
 			// files_touched is LLM-controlled; an absolute or traversal path could
 			// exfiltrate arbitrary files. Block and count as a real failure so the
 			// phase cannot complete until the plan is corrected.
+			// Use path.relative() to detect escape: a relative path starting with '..'
+			// means the resolved path is outside the project root.
 			const projectRoot = path.resolve(directory);
+			const relative = path.relative(projectRoot, resolvedPath);
 			const withinProject =
-				resolvedPath === projectRoot ||
-				resolvedPath.startsWith(projectRoot + path.sep);
+				relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 			if (!withinProject) {
 				blockedTasks.push({
 					task_id: task.id,
@@ -443,14 +467,7 @@ export async function executeCompletionVerify(
 					timestamp: now,
 					agent: 'completion_verify',
 					verdict: tasksBlocked === 0 ? 'pass' : 'fail',
-					summary:
-						tasksBlocked === 0
-							? tasksSkipped === tasksChecked
-								? `All ${tasksChecked} completed task(s) skipped — research/inventory tasks`
-								: tasksSkipped > 0
-									? `${tasksChecked - tasksSkipped} task(s) verified, ${tasksSkipped} skipped (research tasks)`
-									: `All ${tasksChecked} completed tasks verified successfully`
-							: `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
+					summary: buildVerifySummary(tasksChecked, tasksSkipped, tasksBlocked),
 					phase,
 					tasks_checked: tasksChecked,
 					tasks_skipped: tasksSkipped,
