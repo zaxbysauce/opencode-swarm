@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.5...v6.40.6) (2026-03-30)
+
+
+### Bug Fixes
+
+* **lang:** resolve WASM asset path resolution for bundled npm installs ([#337](https://github.com/zaxbysauce/opencode-swarm/issues/337)) ([05c0135](https://github.com/zaxbysauce/opencode-swarm/commit/05c01352c3b155a1f7793dfae633d07abcb4387e))
+
 ## [6.40.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.4...v6.40.5) (2026-03-30)
 
 
