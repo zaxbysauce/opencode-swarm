@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.6...v6.40.7) (2026-03-30)
+
+
+### Bug Fixes
+
+* **lang:** use web-tree-sitter WASM binary instead of @vscode/tree-sitter-wasm ([#339](https://github.com/zaxbysauce/opencode-swarm/issues/339)) ([a844bf2](https://github.com/zaxbysauce/opencode-swarm/commit/a844bf2529b38e643a0c5e6155d54334547c233b))
+
 ## [6.40.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.5...v6.40.6) (2026-03-30)
 
 
