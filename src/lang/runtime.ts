@@ -59,6 +59,7 @@ async function initTreeSitter(): Promise<void> {
 const LANGUAGE_WASM_MAP: Record<string, string> = {
 	javascript: 'tree-sitter-javascript.wasm',
 	typescript: 'tree-sitter-typescript.wasm',
+	tsx: 'tree-sitter-tsx.wasm',
 	python: 'tree-sitter-python.wasm',
 	go: 'tree-sitter-go.wasm',
 	rust: 'tree-sitter-rust.wasm',
@@ -73,6 +74,9 @@ const LANGUAGE_WASM_MAP: Record<string, string> = {
 	kotlin: 'tree-sitter-kotlin.wasm',
 	swift: 'tree-sitter-swift.wasm',
 	dart: 'tree-sitter-dart.wasm',
+	powershell: 'tree-sitter-powershell.wasm',
+	ini: 'tree-sitter-ini.wasm',
+	regex: 'tree-sitter-regex.wasm',
 };
 
 /**
@@ -219,6 +223,7 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 export function clearParserCache(): void {
 	parserCache.clear();
 	initializedLanguages.clear();
+	treeSitterInitialized = false;
 }
 
 /**
