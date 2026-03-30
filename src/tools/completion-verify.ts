@@ -349,6 +349,25 @@ export async function executeCompletionVerify(
 			// Resolve file path relative to project root
 			const resolvedPath = path.resolve(directory, normalizedPath);
 
+			// Security: reject file paths that escape the project directory.
+			// files_touched is LLM-controlled; an absolute or traversal path could
+			// exfiltrate arbitrary files. Block and count as a real failure so the
+			// phase cannot complete until the plan is corrected.
+			const projectRoot = path.resolve(directory);
+			const withinProject =
+				resolvedPath === projectRoot ||
+				resolvedPath.startsWith(projectRoot + path.sep);
+			if (!withinProject) {
+				blockedTasks.push({
+					task_id: task.id,
+					identifier: '',
+					file_path: filePath,
+					reason: `File path '${filePath}' escapes the project directory — cannot verify completion`,
+				});
+				hasFileReadFailure = true;
+				continue;
+			}
+
 			// Try to read the file
 			let fileContent: string;
 			try {
@@ -426,7 +445,11 @@ export async function executeCompletionVerify(
 					verdict: tasksBlocked === 0 ? 'pass' : 'fail',
 					summary:
 						tasksBlocked === 0
-							? `All ${tasksChecked} completed tasks verified successfully`
+							? tasksSkipped === tasksChecked
+								? `All ${tasksChecked} completed task(s) skipped — research/inventory tasks`
+								: tasksSkipped > 0
+									? `${tasksChecked - tasksSkipped} task(s) verified, ${tasksSkipped} skipped (research tasks)`
+									: `All ${tasksChecked} completed tasks verified successfully`
 							: `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
 					phase,
 					tasks_checked: tasksChecked,

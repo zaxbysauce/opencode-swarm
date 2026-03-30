@@ -4,25 +4,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name2, newValue) {
+  this[name2] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name2] = () => newValue
+      set: __exportSetter.bind(all, name2)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -57748,6 +57766,18 @@ async function executeCompletionVerify(args2, directory) {
     for (const filePath of fileTargets) {
       const normalizedPath = filePath.replace(/\\/g, "/");
       const resolvedPath = path45.resolve(directory, normalizedPath);
+      const projectRoot = path45.resolve(directory);
+      const withinProject = resolvedPath === projectRoot || resolvedPath.startsWith(projectRoot + path45.sep);
+      if (!withinProject) {
+        blockedTasks.push({
+          task_id: task.id,
+          identifier: "",
+          file_path: filePath,
+          reason: `File path '${filePath}' escapes the project directory \u2014 cannot verify completion`
+        });
+        hasFileReadFailure = true;
+        continue;
+      }
       let fileContent;
       try {
         fileContent = fs33.readFileSync(resolvedPath, "utf-8");
@@ -57806,7 +57836,7 @@ async function executeCompletionVerify(args2, directory) {
           timestamp: now,
           agent: "completion_verify",
           verdict: tasksBlocked === 0 ? "pass" : "fail",
-          summary: tasksBlocked === 0 ? `All ${tasksChecked} completed tasks verified successfully` : `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
+          summary: tasksBlocked === 0 ? tasksSkipped === tasksChecked ? `All ${tasksChecked} completed task(s) skipped \u2014 research/inventory tasks` : tasksSkipped > 0 ? `${tasksChecked - tasksSkipped} task(s) verified, ${tasksSkipped} skipped (research tasks)` : `All ${tasksChecked} completed tasks verified successfully` : `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
           phase,
           tasks_checked: tasksChecked,
           tasks_skipped: tasksSkipped,

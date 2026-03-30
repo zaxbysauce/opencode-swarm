@@ -45,19 +45,14 @@ describe('path traversal attacks', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	it('should NOT prevent path traversal via files_touched (file targets bypass validateSwarmPath)', async () => {
-		// CRITICAL: The code uses path.resolve(directory, filePath) directly for file targets
-		// It does NOT call validateSwarmPath. This means files_touched can read ANY file
-		// accessible to the process, not just files under the project directory.
-		//
-		// We create a "secret" file outside the project directory and try to access it
+	it('should prevent path traversal via files_touched (absolute path outside project)', async () => {
+		// Security fix: completion_verify now checks that resolved file paths stay within
+		// the project directory. An absolute path in files_touched must be rejected.
 		const secretDir = path.join(os.tmpdir(), 'completion-verify-secret-' + Date.now());
 		fs.mkdirSync(secretDir, { recursive: true });
 		const secretPath = path.join(secretDir, 'secret.txt');
-		const secretContent = 'SUPER_SECRET_DATA_12345';
-		fs.writeFileSync(secretPath, secretContent, 'utf-8');
+		fs.writeFileSync(secretPath, 'SUPER_SECRET_DATA_12345', 'utf-8');
 
-		// Now create a plan that references this secret file via path traversal
 		const plan = {
 			phases: [{
 				id: 1,
@@ -66,29 +61,27 @@ describe('path traversal attacks', () => {
 					id: '1.1',
 					description: 'Update configuration',
 					status: 'completed',
-					files_touched: [secretPath] // Absolute path to secret file
+					files_touched: [secretPath] // Absolute path outside project
 				}]
 			}]
 		};
 		createPlanFile(tempDir, plan);
 
-		// The tool should block (because secret.txt doesn't contain any identifiers
-		// and we're looking for identifiers in the secret file content)
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
 		const parsed = JSON.parse(result);
 
-		// The key security issue: the tool successfully READ the secret file
-		// We can verify this because it found no identifiers (blocked) rather than
-		// failing to read the file (which would have a different error message)
+		// The path escapes the project directory — tool must block with a boundary error,
+		// not read the file and then fail on identifiers.
 		expect(parsed.status).toBe('blocked');
-		expect(parsed.blockedTasks[0].reason).toContain('No identifiers found');
+		expect(parsed.blockedTasks[0].reason).toContain('escapes the project directory');
 
 		// Cleanup
 		fs.rmSync(secretDir, { recursive: true, force: true });
 	});
 
-	it('should handle relative path traversal via files_touched', async () => {
-		// Try ../../../tmp style traversal
+	it('should prevent relative path traversal via files_touched (../../ escape)', async () => {
+		// Security fix: relative traversal sequences that resolve outside the project
+		// root must also be blocked before file I/O is attempted.
 		const plan = {
 			phases: [{
 				id: 1,
@@ -103,13 +96,13 @@ describe('path traversal attacks', () => {
 		};
 		createPlanFile(tempDir, plan);
 
-		// The tool should attempt to read the path (even if it doesn't exist)
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
 		const parsed = JSON.parse(result);
 
-		// Should block because file-not-found triggers blocking
+		// Should block because the path escapes the project directory
 		expect(parsed.status).toBe('blocked');
 		expect(parsed.tasksBlocked).toBe(1);
+		expect(parsed.blockedTasks[0].reason).toContain('escapes the project directory');
 	});
 
 	it('should handle null byte in file path from files_touched', async () => {
