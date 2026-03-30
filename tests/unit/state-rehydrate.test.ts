@@ -25,7 +25,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 	// Default plan template with required schema fields
 	const defaultPlanBase = {
-		schema_version: '1.0' as const,
+		schema_version: '1.0.0' as const,
 		swarm: 'test-swarm',
 		title: 'Test',
 	};
