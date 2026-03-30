@@ -456,8 +456,6 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		'tree-sitter-cpp.wasm',
 		'tree-sitter-c-sharp.wasm',
 		'tree-sitter-css.wasm',
-		'tree-sitter-html.wasm',
-		'tree-sitter-json.wasm',
 		'tree-sitter-bash.wasm',
 		'tree-sitter-ruby.wasm',
 		'tree-sitter-php.wasm',
@@ -485,7 +483,7 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		return {
 			name: 'Grammar WASM Files',
 			status: '✅',
-			detail: 'All 17 grammar WASM files present',
+			detail: `All ${grammarFiles.length} grammar WASM files present`,
 		};
 	}
 

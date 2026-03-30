@@ -219,6 +219,7 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 export function clearParserCache(): void {
 	parserCache.clear();
 	initializedLanguages.clear();
+	treeSitterInitialized = false;
 }
 
 /**

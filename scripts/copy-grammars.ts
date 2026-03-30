@@ -10,16 +10,20 @@
 
 import { existsSync, mkdirSync, copyFileSync, readdirSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(SCRIPT_DIR, '..');
 
 const SOURCE_DIR = join(
-	process.cwd(),
+	PROJECT_ROOT,
 	'node_modules',
 	'@vscode',
 	'tree-sitter-wasm',
 	'wasm',
 );
-const TARGET_DIR = join(process.cwd(), 'src', 'lang', 'grammars');
-const DIST_TARGET_DIR = join(process.cwd(), 'dist', 'lang', 'grammars');
+const TARGET_DIR = join(PROJECT_ROOT, 'src', 'lang', 'grammars');
+const DIST_TARGET_DIR = join(PROJECT_ROOT, 'dist', 'lang', 'grammars');
 
 /**
  * Vendored grammar WASM files committed directly to src/lang/grammars/.
@@ -61,7 +65,7 @@ function copyGrammars(): void {
 	// Copy core tree-sitter.wasm from web-tree-sitter (NOT @vscode/tree-sitter-wasm).
 	// The core WASM must match the web-tree-sitter JS runtime ABI — using the
 	// @vscode version causes LinkError: _emscripten_memcpy_js must be callable.
-	const webTreeSitterDir = join(process.cwd(), 'node_modules', 'web-tree-sitter');
+	const webTreeSitterDir = join(PROJECT_ROOT, 'node_modules', 'web-tree-sitter');
 	const coreSource = join(webTreeSitterDir, 'tree-sitter.wasm');
 	const coreTarget = join(TARGET_DIR, 'tree-sitter.wasm');
 
@@ -134,8 +138,8 @@ function copyGrammarsToDist(): void {
 	}
 
 	// Ensure target parent directory exists
-	if (!existsSync(join(process.cwd(), 'dist', 'lang'))) {
-		mkdirSync(join(process.cwd(), 'dist', 'lang'), { recursive: true });
+	if (!existsSync(join(PROJECT_ROOT, 'dist', 'lang'))) {
+		mkdirSync(join(PROJECT_ROOT, 'dist', 'lang'), { recursive: true });
 	}
 
 	// Copy all files
