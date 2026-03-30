@@ -34,6 +34,7 @@ function createMinimalSession(overrides?: Partial<AgentSessionState>): AgentSess
 		lastScopeViolation: null,
 		scopeViolationDetected: false,
 		modifiedFilesThisCoderTask: [],
+		sessionRehydratedAt: 0,
 		...overrides,
 	} as AgentSessionState;
 }

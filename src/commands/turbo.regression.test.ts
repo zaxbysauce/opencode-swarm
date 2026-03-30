@@ -65,6 +65,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			revisionLimitHit: false,
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
+			sessionRehydratedAt: 0,
 		});
 
 		// Create temp directory for plan.json

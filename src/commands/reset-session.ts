@@ -32,6 +32,11 @@ export async function handleResetSessionCommand(
 	swarmState.agentSessions.clear();
 	results.push(`✅ Cleared ${sessionCount} in-memory agent session(s)`);
 
+	// Clear delegation chains to prevent stale coder_delegated detection
+	const chainCount = swarmState.delegationChains.size;
+	swarmState.delegationChains.clear();
+	results.push(`✅ Cleared ${chainCount} delegation chain(s)`);
+
 	return [
 		'## Session State Reset',
 		'',

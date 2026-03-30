@@ -63,6 +63,8 @@ export interface SerializedAgentSession {
 	coderRevisions: number;
 	/** Flag set when coder revisions hit the configured ceiling (v6.33) */
 	revisionLimitHit: boolean;
+	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
+	sessionRehydratedAt?: number;
 }
 
 /**
@@ -187,6 +189,7 @@ export function serializeAgentSession(
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
 		coderRevisions: s.coderRevisions ?? 0,
 		revisionLimitHit: s.revisionLimitHit ?? false,
+		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 	};
 }
 
