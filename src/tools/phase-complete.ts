@@ -24,7 +24,12 @@ import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
-import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
+import {
+	endAgentSession,
+	ensureAgentSession,
+	hasActiveTurboMode,
+	swarmState,
+} from '../state';
 import { telemetry } from '../telemetry';
 import { executeCompletionVerify } from './completion-verify';
 import { createSwarmTool } from './create-tool';
@@ -961,6 +966,10 @@ export async function executePhaseComplete(
 				const oldPhase = contributorSession.lastPhaseCompletePhase;
 				contributorSession.lastPhaseCompletePhase = phase;
 				telemetry.phaseChanged(contributorSessionId, oldPhase ?? 0, phase);
+				// Only end non-caller sessions
+				if (contributorSessionId !== sessionID) {
+					endAgentSession(contributorSessionId);
+				}
 			}
 		}
 

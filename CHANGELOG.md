@@ -1,5 +1,37 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+- **dark-matter:** Add dark matter detection pipeline during DISCOVER mode
+  - `co_change_analyzer` tool registered for co-change analysis
+  - Automatic scan during system enhancement with git history analysis
+  - Auto-generates knowledge entries from dark matter results (category: architecture)
+  - Architect guidance to check co-change partners after declare_scope
+
+- **commands:** Add `/swarm close` command for idempotent project close
+  - Writes retrospectives for in-progress phases
+  - Curates lessons via curateAndStoreSwarm
+  - Sets closed status on non-completed phases/tasks
+  - Archives evidence and writes close-summary.md
+  - Clears agentSessions and delegationChains
+
+- **session:** Reset-session now cleans session directory contents
+  - After deleting state.json, cleans all files in .swarm/session/ except state.json
+
+- **phase:** Wire endAgentSession at phase boundaries
+  - Calls endAgentSession for sessions no longer active after phase transition
+
+- **commands:** Add 8 missing commands to /swarm help text
+  - turbo, write-retro, reset-session, simulate, promote, checkpoint, config-doctor, evidence-summary
+
+- **tools:** Add `write_drift_evidence` tool for persisting drift verification evidence
+  - Accepts phase number, verdict (APPROVED/NEEDS_REVISION), and summary from architect
+  - Normalizes verdict: APPROVED → approved, NEEDS_REVISION → rejected
+  - Writes gate-contract formatted evidence to `.swarm/evidence/{phase}/drift-verifier.json`
+  - Called after critic_drift_verifier delegation to persist verification results
+
 ## [6.40.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.7...v6.40.8) (2026-03-30)
 
 

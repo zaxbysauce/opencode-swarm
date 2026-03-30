@@ -63,6 +63,7 @@ import { initTelemetry, telemetry } from './telemetry';
 import {
 	check_gate_status,
 	checkpoint,
+	co_change_analyzer,
 	completion_verify,
 	complexity_hotspots,
 	curator_analyze,
@@ -91,6 +92,7 @@ import {
 	test_runner,
 	todo_extract,
 	update_task_status,
+	write_drift_evidence,
 	write_retro,
 } from './tools';
 import { log } from './utils';
@@ -478,6 +480,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			knowledgeAdd,
 			knowledgeRecall,
 			knowledgeRemove,
+			co_change_analyzer,
 			detect_domains,
 			doc_extract,
 			doc_scan,
@@ -500,6 +503,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			todo_extract,
 			update_task_status,
 			write_retro,
+			write_drift_evidence,
 			declare_scope,
 		},
 
@@ -521,7 +525,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate]',
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -625,6 +629,45 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm curate',
 					description:
 						'Use /swarm curate to curate knowledge artifacts and entries',
+				},
+				'swarm-turbo': {
+					template: '/swarm turbo',
+					description:
+						'Use /swarm turbo to enable turbo mode for faster execution',
+				},
+				'swarm-write-retro': {
+					template: '/swarm write-retro $ARGUMENTS',
+					description:
+						'Use /swarm write-retro to manually write a phase retrospective',
+				},
+				'swarm-reset-session': {
+					template: '/swarm reset-session',
+					description:
+						'Use /swarm reset-session to clear session state and delegation chains',
+				},
+				'swarm-simulate': {
+					template: '/swarm simulate $ARGUMENTS',
+					description: 'Use /swarm simulate to run a simulated agent session',
+				},
+				'swarm-promote': {
+					template: '/swarm promote $ARGUMENTS',
+					description:
+						'Use /swarm promote to promote knowledge entries to production',
+				},
+				'swarm-checkpoint': {
+					template: '/swarm checkpoint $ARGUMENTS',
+					description:
+						'Use /swarm checkpoint to save or restore git checkpoints',
+				},
+				'swarm-config-doctor': {
+					template: '/swarm config doctor',
+					description:
+						'Use /swarm config doctor to diagnose configuration issues',
+				},
+				'swarm-evidence-summary': {
+					template: '/swarm evidence summary',
+					description:
+						'Use /swarm evidence summary to generate evidence summaries',
 				},
 			};
 

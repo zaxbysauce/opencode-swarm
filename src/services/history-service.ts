@@ -8,7 +8,7 @@ import { loadPlanJsonOnly } from '../plan/manager';
 export interface PhaseHistoryData {
 	id: number;
 	name: string;
-	status: 'complete' | 'in_progress' | 'pending' | 'blocked';
+	status: 'complete' | 'in_progress' | 'pending' | 'blocked' | 'closed';
 	statusText: string;
 	statusIcon: string;
 	completedTasks: number;
@@ -34,6 +34,7 @@ function getStatusText(status: string): string {
 		in_progress: 'IN PROGRESS',
 		pending: 'PENDING',
 		blocked: 'BLOCKED',
+		closed: 'CLOSED',
 	};
 	return statusMap[status] || 'PENDING';
 }
@@ -49,6 +50,8 @@ function getStatusIcon(status: string): string {
 			return '🔄';
 		case 'blocked':
 			return '🚫';
+		case 'closed':
+			return '🔒';
 		default:
 			return '⏳';
 	}

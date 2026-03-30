@@ -5,6 +5,7 @@ import { handleArchiveCommand } from './archive.js';
 import { handleBenchmarkCommand } from './benchmark.js';
 import { handleCheckpointCommand } from './checkpoint.js';
 import { handleClarifyCommand } from './clarify.js';
+import { handleCloseCommand } from './close.js';
 import { handleConfigCommand } from './config.js';
 import { handleCurateCommand } from './curate.js';
 import { handleDarkMatterCommand } from './dark-matter.js';
@@ -125,6 +126,11 @@ export const COMMAND_REGISTRY = {
 	'dark-matter': {
 		handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
 		description: 'Detect hidden file couplings via co-change NPMI analysis',
+	},
+	close: {
+		handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+		description:
+			'Use /swarm close to close the swarm project and archive evidence',
 	},
 	simulate: {
 		handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),

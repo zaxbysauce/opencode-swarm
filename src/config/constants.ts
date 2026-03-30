@@ -53,6 +53,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'todo_extract',
 		'update_task_status',
 		'write_retro',
+		'write_drift_evidence',
 		'declare_scope',
 		'sast_scan',
 		'sbom_generate',
@@ -66,6 +67,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledgeAdd',
 		'knowledgeRecall',
 		'knowledgeRemove',
+		'co_change_analyzer',
 	],
 	explorer: [
 		'complexity_hotspots',

@@ -1,0 +1,210 @@
+/**
+ * Write drift evidence tool for persisting drift verification results.
+ * Accepts phase, verdict, and summary from the Architect and writes
+ * a gate-contract formatted evidence file.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { validateSwarmPath } from '../hooks/utils';
+import { createSwarmTool } from './create-tool';
+
+/**
+ * Arguments for the write_drift_evidence tool
+ */
+export interface WriteDriftEvidenceArgs {
+	/** The phase number for the drift verification */
+	phase: number;
+	/** Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION' */
+	verdict: 'APPROVED' | 'NEEDS_REVISION';
+	/** Human-readable summary of the drift verification */
+	summary: string;
+}
+
+/**
+ * Normalize verdict string to lowercase format
+ * @param verdict - Raw verdict from caller
+ * @returns Normalized verdict: 'approved' | 'rejected'
+ */
+function normalizeVerdict(verdict: string): 'approved' | 'rejected' {
+	switch (verdict) {
+		case 'APPROVED':
+			return 'approved';
+		case 'NEEDS_REVISION':
+			return 'rejected';
+		default:
+			throw new Error(
+				`Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION', got '${verdict}'`,
+			);
+	}
+}
+
+/**
+ * Execute the write_drift_evidence tool.
+ * Validates input, builds a gate-contract entry, and writes to disk.
+ * @param args - The write drift evidence arguments
+ * @param directory - Working directory
+ * @returns JSON string with success status and details
+ */
+export async function executeWriteDriftEvidence(
+	args: WriteDriftEvidenceArgs,
+	directory: string,
+): Promise<string> {
+	// Validate phase is a positive integer
+	const phase = args.phase;
+	if (!Number.isInteger(phase) || phase < 1) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid phase: must be a positive integer',
+			},
+			null,
+			2,
+		);
+	}
+
+	// Validate verdict is one of the allowed values
+	const validVerdicts = ['APPROVED', 'NEEDS_REVISION'] as const;
+	if (!validVerdicts.includes(args.verdict)) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: "Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION'",
+			},
+			null,
+			2,
+		);
+	}
+
+	// Validate summary is non-empty string
+	const summary = args.summary;
+	if (typeof summary !== 'string' || summary.trim().length === 0) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: 'Invalid summary: must be a non-empty string',
+			},
+			null,
+			2,
+		);
+	}
+
+	// Normalize verdict
+	const normalizedVerdict = normalizeVerdict(args.verdict);
+
+	// Build the evidence entry
+	const evidenceEntry = {
+		type: 'drift-verification',
+		verdict: normalizedVerdict,
+		summary: summary.trim(),
+		timestamp: new Date().toISOString(),
+	};
+
+	// Build the gate-contract format
+	const evidenceContent = {
+		entries: [evidenceEntry],
+	};
+
+	// Validate and construct the file path using validateSwarmPath
+	const filename = `drift-verifier.json`;
+	try {
+		validateSwarmPath(directory, filename);
+	} catch (error) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message:
+					error instanceof Error ? error.message : 'Failed to validate path',
+			},
+			null,
+			2,
+		);
+	}
+
+	// Construct the full directory path for evidence/{phase}/
+	const evidenceDir = path.join(directory, '.swarm', 'evidence', String(phase));
+
+	// Write the evidence file
+	try {
+		// Ensure the directory exists
+		await fs.promises.mkdir(evidenceDir, { recursive: true });
+
+		// Write the file atomically by writing to a temp file then renaming
+		const tempPath = path.join(evidenceDir, `.${filename}.tmp`);
+		await fs.promises.writeFile(
+			tempPath,
+			JSON.stringify(evidenceContent, null, 2),
+			'utf-8',
+		);
+		await fs.promises.rename(tempPath, path.join(evidenceDir, filename));
+
+		return JSON.stringify(
+			{
+				success: true,
+				phase: phase,
+				verdict: normalizedVerdict,
+				message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`,
+			},
+			null,
+			2,
+		);
+	} catch (error) {
+		return JSON.stringify(
+			{
+				success: false,
+				phase: phase,
+				message: error instanceof Error ? error.message : String(error),
+			},
+			null,
+			2,
+		);
+	}
+}
+
+/**
+ * Tool definition for write_drift_evidence
+ */
+export const write_drift_evidence: ToolDefinition = createSwarmTool({
+	description:
+		'Write drift verification evidence for a completed phase. ' +
+		'Normalizes verdict (APPROVED->approved, NEEDS_REVISION->rejected) and writes ' +
+		'a gate-contract formatted EvidenceBundle to .swarm/evidence/{phase}/drift-verifier.json. ' +
+		'Use this after critic_drift_verifier delegation to persist the verification result.',
+	args: {
+		phase: tool.schema
+			.number()
+			.int()
+			.positive()
+			.describe('The phase number for the drift verification'),
+		verdict: tool.schema
+			.enum(['APPROVED', 'NEEDS_REVISION'])
+			.describe(
+				"Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION'",
+			),
+		summary: tool.schema
+			.string()
+			.describe('Human-readable summary of the drift verification'),
+	},
+	execute: async (args, directory) => {
+		const rawPhase = args.phase !== undefined ? Number(args.phase) : 0;
+		try {
+			const writeDriftEvidenceArgs: WriteDriftEvidenceArgs = {
+				phase: Number(args.phase),
+				verdict: args.verdict as unknown as 'APPROVED' | 'NEEDS_REVISION',
+				summary: String(args.summary ?? ''),
+			};
+			return await executeWriteDriftEvidence(writeDriftEvidenceArgs, directory);
+		} catch {
+			return JSON.stringify(
+				{ success: false, phase: rawPhase, message: 'Invalid arguments' },
+				null,
+				2,
+			);
+		}
+	},
+});

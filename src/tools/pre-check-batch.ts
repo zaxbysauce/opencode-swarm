@@ -762,7 +762,12 @@ export async function getChangedLineRanges(
 	try {
 		// Strategy 1: diff against merge-base with main branch
 		// This captures all changes in the feature branch, even after multiple commits
-		for (const baseBranch of ['origin/main', 'origin/master', 'main', 'master']) {
+		for (const baseBranch of [
+			'origin/main',
+			'origin/master',
+			'main',
+			'master',
+		]) {
 			const mergeBaseProc = Bun.spawn(
 				['git', 'merge-base', baseBranch, 'HEAD'],
 				{ cwd: directory, stdout: 'pipe', stderr: 'pipe' },
@@ -773,7 +778,10 @@ export async function getChangedLineRanges(
 			]);
 			if (mbExit === 0 && mbOut.trim()) {
 				const mergeBase = mbOut.trim();
-				const diffOut = await runGitDiff(['-U0', `${mergeBase}..HEAD`], directory);
+				const diffOut = await runGitDiff(
+					['-U0', `${mergeBase}..HEAD`],
+					directory,
+				);
 				if (diffOut) {
 					return parseDiffLineRanges(diffOut);
 				}
@@ -819,9 +827,7 @@ export function classifySastFindings(
 	for (const finding of findings) {
 		const filePath = finding.location.file;
 		// Normalise to forward-slash relative path for comparison
-		const normalised = path
-			.relative(directory, filePath)
-			.replace(/\\/g, '/');
+		const normalised = path.relative(directory, filePath).replace(/\\/g, '/');
 
 		const changedLines = changedLineRanges.get(normalised);
 		if (changedLines && changedLines.has(finding.location.line)) {
