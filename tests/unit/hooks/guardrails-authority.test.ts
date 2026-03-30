@@ -287,6 +287,50 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 	});
 
+	describe('Absolute path normalization (issue #259)', () => {
+		it('allows coder to write to src/ via absolute path', () => {
+			const absolutePath = path.join(tempDir, 'src', 'services', 'price-calculator.ts');
+			const result = checkFileAuthority('coder', absolutePath, tempDir);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows coder to write to tests/ via absolute path', () => {
+			const absolutePath = path.join(tempDir, 'tests', 'unit', 'test.ts');
+			const result = checkFileAuthority('coder', absolutePath, tempDir);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('blocks coder from writing outside allowed paths via absolute path', () => {
+			const absolutePath = path.join(tempDir, 'README.md');
+			const result = checkFileAuthority('coder', absolutePath, tempDir);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('not in allowed list');
+			}
+		});
+
+		it('blocks coder from .swarm/ via absolute path', () => {
+			const absolutePath = path.join(tempDir, '.swarm', 'config.json');
+			const result = checkFileAuthority('coder', absolutePath, tempDir);
+			expect(result.allowed).toBe(false);
+		});
+
+		it('blocks architect from .swarm/plan.md via absolute path', () => {
+			const absolutePath = path.join(tempDir, '.swarm', 'plan.md');
+			const result = checkFileAuthority('architect', absolutePath, tempDir);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('Path blocked');
+			}
+		});
+
+		it('handles forward-slash absolute paths (Unix-style)', () => {
+			const absolutePath = tempDir + '/src/utils/helper.ts';
+			const result = checkFileAuthority('coder', absolutePath, tempDir);
+			expect(result.allowed).toBe(true);
+		});
+	});
+
 	describe('Edge cases', () => {
 		it('handles empty file path', () => {
 			const result = checkFileAuthority('coder', '', tempDir);

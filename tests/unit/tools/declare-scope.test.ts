@@ -402,4 +402,81 @@ describe('executeDeclareScope', () => {
 		expect(result.success).toBe(true);
 		expect(result.taskId).toBe('1.1');
 	});
+
+	// Issue #259: Absolute path normalization
+	test('normalizes absolute paths to relative and returns warnings', async () => {
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const absolutePath = path.join(tempDir, 'src', 'services', 'price-calculator.ts');
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: [absolutePath],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(true);
+		expect(result.warnings).toBeDefined();
+		expect(result.warnings!.length).toBe(1);
+		expect(result.warnings![0]).toContain('Absolute path normalized to relative');
+		expect(result.warnings![0]).toContain('src/services/price-calculator.ts');
+
+		// Verify the stored scope is relative, not absolute
+		const updatedSession = swarmState.agentSessions.get('test-session');
+		expect(updatedSession?.declaredCoderScope).toBeDefined();
+		expect(updatedSession!.declaredCoderScope![0]).toBe('src/services/price-calculator.ts');
+	});
+
+	test('relative paths produce no warnings', async () => {
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts', 'tests/unit/test.ts'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(true);
+		expect(result.warnings).toBeUndefined();
+	});
+
+	test('mixed absolute and relative paths normalizes only absolute ones', async () => {
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const absolutePath = path.join(tempDir, 'src', 'auth.ts');
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['src/index.ts', absolutePath],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(true);
+		expect(result.warnings).toBeDefined();
+		expect(result.warnings!.length).toBe(1);
+		expect(result.fileCount).toBe(2);
+
+		const updatedSession = swarmState.agentSessions.get('test-session');
+		expect(updatedSession?.declaredCoderScope).toEqual(['src/index.ts', 'src/auth.ts']);
+	});
+
+	test('rejects absolute paths that resolve outside the project directory', async () => {
+		const session = createWorkflowTestSession();
+		swarmState.agentSessions.set('test-session', session);
+
+		const args: DeclareScopeArgs = {
+			taskId: '1.1',
+			files: ['/etc/passwd'],
+		};
+
+		const result = await executeDeclareScope(args, tempDir);
+
+		expect(result.success).toBe(false);
+		expect(result.errors).toBeDefined();
+		expect(result.errors![0]).toContain('resolves outside the project directory');
+	});
 });

@@ -29,6 +29,7 @@ export interface DeclareScopeResult {
 	taskId?: string;
 	fileCount?: number;
 	errors?: string[];
+	warnings?: string[];
 }
 
 /**
@@ -255,7 +256,39 @@ export async function executeDeclareScope(
 	}
 
 	// Step 7: Merge files and whitelist (if provided)
-	const mergedFiles = [...args.files, ...(args.whitelist ?? [])];
+	const rawMergedFiles = [...args.files, ...(args.whitelist ?? [])];
+
+	// Step 7b: Normalize absolute paths to relative and collect warnings (Fix for #259)
+	// Absolute paths silently fail in checkFileAuthority's prefix matching, so we normalize
+	// them here and warn the caller to prevent confusing downstream WRITE BLOCKED errors.
+	const warnings: string[] = [];
+	const normalizeErrors: string[] = [];
+	const dir = normalizedDir || fallbackDir || process.cwd();
+	const mergedFiles = rawMergedFiles.map((file) => {
+		if (path.isAbsolute(file)) {
+			const relativePath = path.relative(dir, file).replace(/\\/g, '/');
+			// Reject paths that resolve outside the project directory
+			if (relativePath.startsWith('..')) {
+				normalizeErrors.push(
+					`Path '${file}' resolves outside the project directory`,
+				);
+				return file; // Return unchanged; will be rejected below
+			}
+			warnings.push(
+				`Absolute path normalized to relative: '${relativePath}' (was '${file}')`,
+			);
+			return relativePath;
+		}
+		return file;
+	});
+
+	if (normalizeErrors.length > 0) {
+		return {
+			success: false,
+			message: 'Validation failed',
+			errors: normalizeErrors,
+		};
+	}
 
 	// Step 8: Set declaredCoderScope on ALL active architect sessions
 	// Also clear lastScopeViolation for fresh start
@@ -269,6 +302,7 @@ export async function executeDeclareScope(
 		message: 'Scope declared successfully',
 		taskId: args.taskId,
 		fileCount: mergedFiles.length,
+		...(warnings.length > 0 ? { warnings } : {}),
 	};
 }
 
