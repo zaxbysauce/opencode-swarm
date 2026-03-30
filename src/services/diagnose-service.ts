@@ -450,14 +450,13 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 	const grammarFiles = [
 		'tree-sitter-javascript.wasm',
 		'tree-sitter-typescript.wasm',
+		'tree-sitter-tsx.wasm',
 		'tree-sitter-python.wasm',
 		'tree-sitter-go.wasm',
 		'tree-sitter-rust.wasm',
 		'tree-sitter-cpp.wasm',
 		'tree-sitter-c-sharp.wasm',
 		'tree-sitter-css.wasm',
-		'tree-sitter-html.wasm',
-		'tree-sitter-json.wasm',
 		'tree-sitter-bash.wasm',
 		'tree-sitter-ruby.wasm',
 		'tree-sitter-php.wasm',
@@ -465,6 +464,9 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		'tree-sitter-kotlin.wasm',
 		'tree-sitter-swift.wasm',
 		'tree-sitter-dart.wasm',
+		'tree-sitter-powershell.wasm',
+		'tree-sitter-ini.wasm',
+		'tree-sitter-regex.wasm',
 	];
 
 	// Determine dev vs production path using import.meta.url (cross-platform)
@@ -475,6 +477,12 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		: path.join(thisDir, 'lang', 'grammars');
 
 	const missing: string[] = [];
+
+	// Check core tree-sitter runtime WASM (must match web-tree-sitter JS runtime)
+	if (!existsSync(path.join(grammarDir, 'tree-sitter.wasm'))) {
+		missing.push('tree-sitter.wasm (core runtime)');
+	}
+
 	for (const file of grammarFiles) {
 		if (!existsSync(path.join(grammarDir, file))) {
 			missing.push(file);
@@ -485,14 +493,14 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		return {
 			name: 'Grammar WASM Files',
 			status: '✅',
-			detail: 'All 17 grammar WASM files present',
+			detail: `Core runtime + all ${grammarFiles.length} grammar WASM files present`,
 		};
 	}
 
 	return {
 		name: 'Grammar WASM Files',
 		status: '❌',
-		detail: `${missing.length} grammar WASM file(s) missing: ${missing.join(', ')}`,
+		detail: `${missing.length} WASM file(s) missing: ${missing.join(', ')}`,
 	};
 }
 
