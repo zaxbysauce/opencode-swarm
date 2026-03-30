@@ -58,18 +58,21 @@ function copyGrammars(): void {
 		process.exit(1);
 	}
 
-	// Copy core tree-sitter.wasm
-	const coreSource = join(SOURCE_DIR, 'tree-sitter.wasm');
+	// Copy core tree-sitter.wasm from web-tree-sitter (NOT @vscode/tree-sitter-wasm).
+	// The core WASM must match the web-tree-sitter JS runtime ABI — using the
+	// @vscode version causes LinkError: _emscripten_memcpy_js must be callable.
+	const webTreeSitterDir = join(process.cwd(), 'node_modules', 'web-tree-sitter');
+	const coreSource = join(webTreeSitterDir, 'tree-sitter.wasm');
 	const coreTarget = join(TARGET_DIR, 'tree-sitter.wasm');
 
 	if (!existsSync(coreSource)) {
-		console.error('Error: tree-sitter.wasm not found in @vscode/tree-sitter-wasm');
+		console.error('Error: tree-sitter.wasm not found in web-tree-sitter');
 		console.error('Expected at:', coreSource);
 		process.exit(1);
 	}
 
 	copyFileSync(coreSource, coreTarget);
-	console.log(`Copied: tree-sitter.wasm`);
+	console.log(`Copied: tree-sitter.wasm (from web-tree-sitter)`);
 
 	// Copy all language grammar WASM files from source directory
 	let copied = 0;
