@@ -22,6 +22,7 @@ export interface DeclareScopeResult {
     taskId?: string;
     fileCount?: number;
     errors?: string[];
+    warnings?: string[];
 }
 /**
  * Validate that taskId matches the required format (N.M or N.M.P).

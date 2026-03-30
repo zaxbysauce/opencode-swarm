@@ -106,7 +106,7 @@ export declare function validateAndRecordAttestation(dir: string, findingId: str
 /**
  * Checks whether the given agent is authorised to write to the given file path.
  */
-export declare function checkFileAuthority(agentName: string, filePath: string, _cwd: string): {
+export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string): {
     allowed: true;
 } | {
     allowed: false;

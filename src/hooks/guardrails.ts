@@ -250,10 +250,15 @@ function getCurrentTaskId(sessionId: string): string {
  * v6.21 Task 5.4: Check if a file path is within declared scope entries.
  * Handles both exact matches and directory containment.
  */
-function isInDeclaredScope(filePath: string, scopeEntries: string[]): boolean {
-	const resolvedFile = path.resolve(filePath);
+function isInDeclaredScope(
+	filePath: string,
+	scopeEntries: string[],
+	cwd?: string,
+): boolean {
+	const dir = cwd ?? process.cwd();
+	const resolvedFile = path.resolve(dir, filePath);
 	return scopeEntries.some((scope) => {
-		const resolvedScope = path.resolve(scope);
+		const resolvedScope = path.resolve(dir, scope);
 		// Exact match: file IS the scope entry
 		if (resolvedFile === resolvedScope) return true;
 		// Directory containment: file is inside a scope directory
@@ -1106,7 +1111,8 @@ export function createGuardrailsHooks(
 						const undeclaredFiles = session.modifiedFilesThisCoderTask
 							.map((f) => f.replace(/[\r\n\t]/g, '_'))
 							.filter(
-								(f) => !isInDeclaredScope(f, session.declaredCoderScope!),
+								(f) =>
+									!isInDeclaredScope(f, session.declaredCoderScope!, directory),
 							);
 						if (undeclaredFiles.length >= 1) {
 							const safeTaskId = String(session.currentTaskId ?? '').replace(
