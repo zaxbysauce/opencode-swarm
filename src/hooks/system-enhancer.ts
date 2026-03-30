@@ -440,63 +440,70 @@ export function createSystemEnhancerHook(
 
 					// Dark matter scan: detect co-change patterns in git history
 					// Non-blocking — skip silently on repos without git history, shallow clones, or errors
+					// Cached: skip if dark-matter.md already exists (matches doc_scan caching pattern)
 					try {
-						const {
-							detectDarkMatter,
-							formatDarkMatterOutput,
-							darkMatterToKnowledgeEntries,
-						} = await import('../tools/co-change-analyzer.js');
-						const darkMatter = await detectDarkMatter(directory, {
-							minCommits: 20,
-							minCoChanges: 3,
-							npmiThreshold: 0.3,
-						});
-						if (darkMatter && darkMatter.length > 0) {
-							const darkMatterReport = formatDarkMatterOutput(darkMatter);
-							const darkMatterPath = validateSwarmPath(
-								directory,
-								'dark-matter.md',
-							);
-							await Bun.write(darkMatterPath, darkMatterReport);
-							warn(
-								`[system-enhancer] Dark matter scan complete: ${darkMatter.length} co-change patterns found`,
-							);
-							// Generate knowledge entries from dark matter results
-							try {
-								const projectName = path.basename(path.resolve(directory));
-								const knowledgeEntries = darkMatterToKnowledgeEntries(
-									darkMatter,
-									projectName,
+						const darkMatterPath = validateSwarmPath(
+							directory,
+							'dark-matter.md',
+						);
+						if (!fs.existsSync(darkMatterPath)) {
+							const {
+								detectDarkMatter,
+								formatDarkMatterOutput,
+								darkMatterToKnowledgeEntries,
+							} = await import('../tools/co-change-analyzer.js');
+							const darkMatter = await detectDarkMatter(directory, {
+								minCommits: 20,
+								minCoChanges: 3,
+								npmiThreshold: 0.3,
+							});
+							if (darkMatter && darkMatter.length > 0) {
+								const darkMatterReport = formatDarkMatterOutput(darkMatter);
+								await fs.promises.writeFile(
+									darkMatterPath,
+									darkMatterReport,
+									'utf-8',
 								);
-								const knowledgePath = resolveSwarmKnowledgePath(directory);
-								// Deduplicate: skip entries already in knowledge
-								const existingEntries =
-									await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
-								const existingLessons = new Set(
-									existingEntries.map((e) => e.lesson),
+								warn(
+									`[system-enhancer] Dark matter scan complete: ${darkMatter.length} co-change patterns found`,
 								);
-								const newEntries = knowledgeEntries.filter(
-									(e) => !existingLessons.has(e.lesson),
-								);
-								if (newEntries.length === 0) {
-									console.warn(
-										`[system-enhancer] No new knowledge entries (all duplicates)`,
+								// Generate knowledge entries from dark matter results
+								try {
+									const projectName = path.basename(path.resolve(directory));
+									const knowledgeEntries = darkMatterToKnowledgeEntries(
+										darkMatter,
+										projectName,
 									);
-								} else {
-									for (const entry of newEntries) {
-										await appendKnowledge(knowledgePath, entry);
+									const knowledgePath = resolveSwarmKnowledgePath(directory);
+									// Deduplicate: skip entries already in knowledge
+									const existingEntries =
+										await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+									const existingLessons = new Set(
+										existingEntries.map((e) => e.lesson),
+									);
+									const newEntries = knowledgeEntries.filter(
+										(e) => !existingLessons.has(e.lesson),
+									);
+									if (newEntries.length === 0) {
+										console.warn(
+											`[system-enhancer] No new knowledge entries (all duplicates)`,
+										);
+									} else {
+										for (const entry of newEntries) {
+											await appendKnowledge(knowledgePath, entry);
+										}
+										console.warn(
+											`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`,
+										);
 									}
+								} catch (e) {
+									// Non-blocking: knowledge is supplementary
 									console.warn(
-										`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`,
+										`[system-enhancer] Failed to create knowledge entries: ${e}`,
 									);
 								}
-							} catch (e) {
-								// Non-blocking: knowledge is supplementary
-								console.warn(
-									`[system-enhancer] Failed to create knowledge entries: ${e}`,
-								);
 							}
-						}
+						} // end if (!fs.existsSync(darkMatterPath))
 					} catch {
 						// Non-blocking — skip silently on repos without git history, shallow clones, or errors
 					}

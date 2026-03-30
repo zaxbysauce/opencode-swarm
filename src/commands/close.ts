@@ -1,5 +1,4 @@
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { KnowledgeConfigSchema } from '../config/schema';
 import { archiveEvidence } from '../evidence/manager';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
@@ -30,7 +29,7 @@ interface PlanData {
  */
 export async function handleCloseCommand(
 	directory: string,
-	args: string[],
+	_args: string[],
 ): Promise<string> {
 	const planPath = validateSwarmPath(directory, 'plan.json');
 
@@ -47,14 +46,17 @@ export async function handleCloseCommand(
 	const allDone = phases.every(
 		(p) =>
 			p.status === 'complete' ||
+			p.status === 'completed' ||
 			p.status === 'blocked' ||
 			p.status === 'closed',
 	);
 
-	if (inProgressPhases.length === 0 || allDone) {
+	if (allDone) {
 		const closedCount = phases.filter((p) => p.status === 'closed').length;
 		const blockedCount = phases.filter((p) => p.status === 'blocked').length;
-		const completeCount = phases.filter((p) => p.status === 'complete').length;
+		const completeCount = phases.filter(
+			(p) => p.status === 'complete' || p.status === 'completed',
+		).length;
 		return `ℹ️ Swarm already closed. ${completeCount} phases complete, ${closedCount} phases closed, ${blockedCount} phases blocked. No action taken.`;
 	}
 
@@ -94,27 +96,37 @@ export async function handleCloseCommand(
 		}
 
 		for (const task of phase.tasks ?? []) {
-			if (task.status !== 'complete') {
+			if (task.status !== 'completed' && task.status !== 'complete') {
 				closedTasks.push(task.id);
 			}
 		}
 	}
 
-	await curateAndStoreSwarm(
-		[],
-		projectName,
-		{ phase_number: 0 },
-		directory,
-		config,
-	);
+	try {
+		await curateAndStoreSwarm(
+			[],
+			projectName,
+			{ phase_number: 0 },
+			directory,
+			config,
+		);
+	} catch (error) {
+		console.warn('[close-command] curateAndStoreSwarm error:', error);
+	}
 
 	for (const phase of phases) {
-		if (phase.status !== 'complete') {
+		if (phase.status !== 'complete' && phase.status !== 'completed') {
 			phase.status = 'closed';
+			if (!closedPhases.includes(phase.id)) {
+				closedPhases.push(phase.id);
+			}
 		}
 		for (const task of phase.tasks ?? []) {
-			if (task.status !== 'complete') {
+			if (task.status !== 'completed' && task.status !== 'complete') {
 				task.status = 'closed';
+				if (!closedTasks.includes(task.id)) {
+					closedTasks.push(task.id);
+				}
 			}
 		}
 	}
@@ -131,7 +143,7 @@ export async function handleCloseCommand(
 		console.warn('[close-command] archiveEvidence error:', error);
 	}
 
-	const closeSummaryPath = path.join(directory, '.swarm', 'close-summary.md');
+	const closeSummaryPath = validateSwarmPath(directory, 'close-summary.md');
 	const summaryContent = [
 		'# Swarm Close Summary',
 		'',

@@ -110,9 +110,11 @@ export async function executeWriteDriftEvidence(
 	};
 
 	// Validate and construct the file path using validateSwarmPath
-	const filename = `drift-verifier.json`;
+	const filename = 'drift-verifier.json';
+	const relativePath = path.join('evidence', String(phase), filename);
+	let validatedPath: string;
 	try {
-		validateSwarmPath(directory, filename);
+		validatedPath = validateSwarmPath(directory, relativePath);
 	} catch (error) {
 		return JSON.stringify(
 			{
@@ -126,8 +128,7 @@ export async function executeWriteDriftEvidence(
 		);
 	}
 
-	// Construct the full directory path for evidence/{phase}/
-	const evidenceDir = path.join(directory, '.swarm', 'evidence', String(phase));
+	const evidenceDir = path.dirname(validatedPath);
 
 	// Write the evidence file
 	try {
@@ -141,7 +142,7 @@ export async function executeWriteDriftEvidence(
 			JSON.stringify(evidenceContent, null, 2),
 			'utf-8',
 		);
-		await fs.promises.rename(tempPath, path.join(evidenceDir, filename));
+		await fs.promises.rename(tempPath, validatedPath);
 
 		return JSON.stringify(
 			{
@@ -195,13 +196,17 @@ export const write_drift_evidence: ToolDefinition = createSwarmTool({
 		try {
 			const writeDriftEvidenceArgs: WriteDriftEvidenceArgs = {
 				phase: Number(args.phase),
-				verdict: args.verdict as unknown as 'APPROVED' | 'NEEDS_REVISION',
+				verdict: String(args.verdict) as 'APPROVED' | 'NEEDS_REVISION',
 				summary: String(args.summary ?? ''),
 			};
 			return await executeWriteDriftEvidence(writeDriftEvidenceArgs, directory);
-		} catch {
+		} catch (error) {
 			return JSON.stringify(
-				{ success: false, phase: rawPhase, message: 'Invalid arguments' },
+				{
+					success: false,
+					phase: rawPhase,
+					message: error instanceof Error ? error.message : 'Unknown error',
+				},
 				null,
 				2,
 			);
