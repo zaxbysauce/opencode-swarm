@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.41.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.0...v6.41.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* **guardrails:** normalize absolute paths in file authority and scope checks ([#259](https://github.com/zaxbysauce/opencode-swarm/issues/259)) ([#348](https://github.com/zaxbysauce/opencode-swarm/issues/348)) ([94b06d1](https://github.com/zaxbysauce/opencode-swarm/commit/94b06d1aaf6220f30d74b35c512eff6f14cb95a1))
+* **tests:** resolve 6 pre-existing tech debt test failures from v6.23-v6.40 ([#346](https://github.com/zaxbysauce/opencode-swarm/issues/346)) ([c93c24c](https://github.com/zaxbysauce/opencode-swarm/commit/c93c24c0b0f20d7e2d7ad349e904f5deb2c1cb28))
+
 ## [6.41.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.8...v6.41.0) (2026-03-30)
 
 
