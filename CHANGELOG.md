@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.3...v6.40.4) (2026-03-30)
+
+
+### Bug Fixes
+
+* **state:** prevent evidence rehydration from downgrading workflow state ([#333](https://github.com/zaxbysauce/opencode-swarm/issues/333)) ([d879aeb](https://github.com/zaxbysauce/opencode-swarm/commit/d879aebf3e5d5d4a98788a5473f78fd3b0f00752))
+
 ## [6.40.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.2...v6.40.3) (2026-03-29)
 
 
