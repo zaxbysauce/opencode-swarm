@@ -48,6 +48,7 @@ describe('handleTurboCommand', () => {
 			revisionLimitHit: false,
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
+			sessionRehydratedAt: 0,
 		});
 	});
 

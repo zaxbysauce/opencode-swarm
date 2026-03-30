@@ -48,6 +48,7 @@ describe('handleTurboCommand - Empty SessionID Handling (Task 3.13)', () => {
 			revisionLimitHit: false,
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
+			sessionRehydratedAt: 0,
 		});
 	});
 

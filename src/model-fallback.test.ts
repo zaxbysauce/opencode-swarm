@@ -256,6 +256,7 @@ describe('deserializeAgentSession applies defaults for missing fields', () => {
 			pendingAdvisoryMessages: [],
 			// model_fallback_index intentionally omitted
 			modelFallbackExhausted: false,
+			sessionRehydratedAt: 0,
 		} as unknown as Parameters<typeof deserializeAgentSession>[0];
 
 		const deserialized = deserializeAgentSession(serializedSession);
@@ -292,6 +293,7 @@ describe('deserializeAgentSession applies defaults for missing fields', () => {
 			qaSkipTaskIds: [],
 			pendingAdvisoryMessages: [],
 			model_fallback_index: 2,
+			sessionRehydratedAt: 0,
 			// modelFallbackExhausted intentionally omitted
 		} as unknown as Parameters<typeof deserializeAgentSession>[0];
 

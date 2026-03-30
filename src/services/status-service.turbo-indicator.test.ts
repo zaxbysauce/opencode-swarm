@@ -82,6 +82,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			revisionLimitHit: false,
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
+			sessionRehydratedAt: 0,
 		});
 	});
 

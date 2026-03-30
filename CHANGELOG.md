@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.40.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.7...v6.40.8) (2026-03-30)
+
+
+### Bug Fixes
+
+* **delegation-gate:** detect and reset stale coder_delegated state from prior sessions ([#341](https://github.com/zaxbysauce/opencode-swarm/issues/341)) ([bfe1303](https://github.com/zaxbysauce/opencode-swarm/commit/bfe130305385047306f013921124a57d3e67c170))
+
 ## [6.40.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.6...v6.40.7) (2026-03-30)
 
 

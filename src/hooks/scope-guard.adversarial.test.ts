@@ -12,6 +12,7 @@ beforeEach(() => {
 		currentTaskId: '1.1',
 		pendingAdvisoryMessages: [],
 		modifiedFilesThisCoderTask: [],
+		sessionRehydratedAt: 0,
 	} as unknown as AgentSessionState);
 	swarmState.activeAgent.set(SID, 'mega_coder');
 });

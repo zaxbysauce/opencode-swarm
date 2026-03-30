@@ -523,6 +523,33 @@ export function createDelegationGateHook(
 		for (const [taskId, state] of session.taskWorkflowStates) {
 			if (state !== 'coder_delegated') continue;
 
+			// Before blocking, verify this coder_delegated state is from the CURRENT session.
+			// If there's no evidence of a coder delegation for this task in the current
+			// session's delegation chains, the state is inherited from a prior session — reset it.
+			// We use sessionRehydratedAt as the freshness threshold: any delegation chain
+			// entry older than rehydration time is from the prior session. For non-rehydrated
+			// sessions (sessionRehydratedAt=0), we fall back to lastPhaseCompleteTimestamp.
+			const freshnessThreshold =
+				session.sessionRehydratedAt > 0
+					? session.sessionRehydratedAt
+					: (session.lastPhaseCompleteTimestamp ?? 0);
+			const delegationChains =
+				swarmState.delegationChains.get(input.sessionID) ?? [];
+			const hasCurrentSessionCoderDelegation = delegationChains.some(
+				(d) =>
+					stripKnownSwarmPrefix(d.to) === 'coder' &&
+					d.timestamp > freshnessThreshold,
+			);
+			if (!hasCurrentSessionCoderDelegation) {
+				// Stale state from prior session — reset to idle and allow the delegation
+				session.taskWorkflowStates.set(taskId, 'idle');
+				console.warn(
+					`[delegation-gate] Reset stale coder_delegated state for task ${taskId} — ` +
+						`no coder delegation found in current session.`,
+				);
+				continue; // Skip this task, don't block
+			}
+
 			// Turbo mode bypasses the block — but Tier 3 tasks are never bypassed
 			const turbo = hasActiveTurboMode(input.sessionID);
 			if (turbo) {
@@ -534,7 +561,8 @@ export function createDelegationGateHook(
 
 			throw new Error(
 				`REVIEWER_GATE_VIOLATION: Cannot re-delegate to coder without reviewer delegation. ` +
-					`Task ${taskId} state: coder_delegated. Delegate to reviewer first.`,
+					`Task ${taskId} state: coder_delegated. Delegate to reviewer first. ` +
+					`If this is stale state from a prior session, run /swarm reset-session to clear workflow state.`,
 			);
 		}
 	};
