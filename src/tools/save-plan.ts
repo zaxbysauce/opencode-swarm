@@ -334,7 +334,9 @@ export const save_plan: ToolDefinition = createSwarmTool({
 						.number()
 						.int()
 						.min(1)
-						.describe('Phase number — a positive integer starting at 1. Use 1, 2, 3, etc.'),
+						.describe(
+							'Phase number — a positive integer starting at 1. Use 1, 2, 3, etc.',
+						),
 					name: tool.schema
 						.string()
 						.min(1)
