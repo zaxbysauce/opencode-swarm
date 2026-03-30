@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.41.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.1...v6.41.2) (2026-03-30)
+
+
+### Bug Fixes
+
+* **swarm:** resolve Kimi K2 save_plan loop, completion_verify research task blocking, and files_touched path traversal ([#350](https://github.com/zaxbysauce/opencode-swarm/issues/350)) ([e093792](https://github.com/zaxbysauce/opencode-swarm/commit/e093792b8cd3a209110051a677f6a71d6d5bdaa9))
+
 ## [6.41.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.0...v6.41.1) (2026-03-30)
 
 
