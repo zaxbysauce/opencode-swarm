@@ -5,6 +5,14 @@
 import type { AgentSessionState } from '../state';
 import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
 /**
+ * Transient session fields that must be reset on rehydration.
+ * Centralised here to keep the reset logic DRY and auditable.
+ */
+export declare const TRANSIENT_SESSION_FIELDS: ReadonlyArray<{
+    name: string;
+    resetValue: unknown;
+}>;
+/**
  * Deserialize a SerializedAgentSession back to AgentSessionState.
  * Handles Map/Set conversion and migration safety defaults.
  */

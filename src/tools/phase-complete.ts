@@ -1037,7 +1037,11 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 	args: {
 		phase: tool.schema
 			.number()
-			.describe('The phase number being completed (e.g., 1, 2, 3)'),
+			.int()
+			.min(1)
+			.describe(
+				'The phase number being completed — a positive integer (e.g., 1, 2, 3)',
+			),
 		summary: tool.schema
 			.string()
 			.optional()

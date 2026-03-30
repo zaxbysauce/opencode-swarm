@@ -317,6 +317,7 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
     idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
     no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
     max_coder_revisions: z.ZodDefault<z.ZodNumber>;
+    runaway_output_max_turns: z.ZodDefault<z.ZodNumber>;
     qa_gates: z.ZodOptional<z.ZodObject<{
         required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
         require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
@@ -374,7 +375,7 @@ export type PlanCursorConfig = z.infer<typeof PlanCursorConfigSchema>;
 export declare const CheckpointConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     auto_checkpoint_threshold: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, z.core.$strict>;
 export type CheckpointConfig = z.infer<typeof CheckpointConfigSchema>;
 export declare const AutomationModeSchema: z.ZodEnum<{
     auto: "auto";
@@ -598,6 +599,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
         no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
         max_coder_revisions: z.ZodDefault<z.ZodNumber>;
+        runaway_output_max_turns: z.ZodDefault<z.ZodNumber>;
         qa_gates: z.ZodOptional<z.ZodObject<{
             required_tools: z.ZodDefault<z.ZodArray<z.ZodString>>;
             require_reviewer_test_engineer: z.ZodDefault<z.ZodBoolean>;
@@ -697,7 +699,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     checkpoint: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         auto_checkpoint_threshold: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>>;
+    }, z.core.$strict>>;
     automation: z.ZodOptional<z.ZodType<{
         mode: "auto" | "manual" | "hybrid";
         capabilities: {
@@ -783,6 +785,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         emergencyThreshold: z.ZodDefault<z.ZodNumber>;
         preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
+    turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 export type { AgentName, PipelineAgentName, QAAgentName, } from './constants';

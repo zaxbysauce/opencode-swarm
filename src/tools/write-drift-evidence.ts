@@ -180,8 +180,8 @@ export const write_drift_evidence: ToolDefinition = createSwarmTool({
 		phase: tool.schema
 			.number()
 			.int()
-			.positive()
-			.describe('The phase number for the drift verification'),
+			.min(1)
+			.describe('The phase number for the drift verification (e.g., 1, 2, 3)'),
 		verdict: tool.schema
 			.enum(['APPROVED', 'NEEDS_REVISION'])
 			.describe(

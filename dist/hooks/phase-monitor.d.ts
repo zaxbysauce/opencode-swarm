@@ -6,9 +6,10 @@
  * Wrapped in safeHook — errors must never propagate.
  */
 import type { PreflightTriggerManager } from '../background/trigger';
+import { type CuratorLLMDelegate } from './curator';
 import type { CuratorConfig, CuratorInitResult } from './curator-types';
 /** Injectable curator runner type — allows test injection without module mocking. */
-export type CuratorInitRunner = (directory: string, config: CuratorConfig) => Promise<CuratorInitResult>;
+export type CuratorInitRunner = (directory: string, config: CuratorConfig, llmDelegate?: CuratorLLMDelegate) => Promise<CuratorInitResult>;
 /**
  * Creates a hook that monitors plan phase transitions and triggers preflight.
  *

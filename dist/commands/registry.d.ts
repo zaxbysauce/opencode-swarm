@@ -80,6 +80,10 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Detect hidden file couplings via co-change NPMI analysis";
     };
+    readonly close: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Use /swarm close to close the swarm project and archive evidence";
+    };
     readonly simulate: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Dry-run impact analysis of proposed changes [--target <glob>]";

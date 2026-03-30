@@ -12,14 +12,14 @@ export declare function readPriorDriftReports(directory: string): Promise<DriftR
  */
 export declare function writeDriftReport(directory: string, report: DriftReport): Promise<string>;
 /**
- * Run the critic drift check for the given phase.
+ * Deterministic drift check for the given phase.
  * Builds a structured DriftReport from curator data, plan, spec, and prior reports.
  * Writes the report to .swarm/drift-report-phase-N.json.
  * Emits 'curator.drift.completed' event on success.
  * On any error: emits 'curator.error' event and returns a safe default result.
  * NEVER throws — drift failures must not block phase_complete.
  */
-export declare function runCriticDriftCheck(directory: string, phase: number, curatorResult: CuratorPhaseResult, config: CuratorConfig, injectAdvisory?: (message: string) => void): Promise<CriticDriftResult>;
+export declare function runDeterministicDriftCheck(directory: string, phase: number, curatorResult: CuratorPhaseResult, config: CuratorConfig, injectAdvisory?: (message: string) => void): Promise<CriticDriftResult>;
 /**
  * Build a truncated summary suitable for architect context injection.
  * Format: "<drift_report>Phase N: {alignment} ({drift_score}) — {key finding}. {correction if any}.</drift_report>"

@@ -4,7 +4,7 @@
 export interface PhaseHistoryData {
     id: number;
     name: string;
-    status: 'complete' | 'in_progress' | 'pending' | 'blocked';
+    status: 'complete' | 'in_progress' | 'pending' | 'blocked' | 'closed';
     statusText: string;
     statusIcon: string;
     completedTasks: number;

@@ -59,3 +59,8 @@ export declare function getHandoffData(directory: string): Promise<HandoffData>;
  * Targets under 2K tokens for efficient context injection.
  */
 export declare function formatHandoffMarkdown(data: HandoffData): string;
+/**
+ * Format handoff data as a continuation prompt for new agent sessions.
+ * Returns a terse markdown code block with essential context.
+ */
+export declare function formatContinuationPrompt(data: HandoffData): string;

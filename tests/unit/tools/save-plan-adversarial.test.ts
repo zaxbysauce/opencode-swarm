@@ -879,4 +879,49 @@ describe('save-plan adversarial tests', () => {
 			expect(result.success).toBe(false);
 		});
 	});
+
+	describe('Recovery guidance clarity for invalid phase IDs (Kimi K2 regression)', () => {
+		it('recovery_guidance for negative phase ID explicitly mentions valid examples (1, 2, 3)', async () => {
+			// Regression: Kimi K2.5 entered infinite loop because recovery_guidance was too vague.
+			// The guidance must now explicitly state valid phase ID format to break the loop.
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [{ id: -1, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				working_directory: tempDir,
+			};
+			await fs.mkdir(`${tempDir}/.swarm`, { recursive: true });
+			const result = await executeSavePlan(args, tempDir);
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toBeDefined();
+			// Must explicitly name valid values so model can correct itself
+			expect(result.recovery_guidance).toContain('1, 2, 3');
+		});
+
+		it('recovery_guidance for phase ID = 0 explicitly mentions valid examples', async () => {
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				working_directory: tempDir,
+			};
+			await fs.mkdir(`${tempDir}/.swarm`, { recursive: true });
+			const result = await executeSavePlan(args, tempDir);
+			expect(result.success).toBe(false);
+			expect(result.recovery_guidance).toContain('1, 2, 3');
+		});
+
+		it('valid phase ID = 1 succeeds after previous negative ID rejection', async () => {
+			// Ensures valid input succeeds immediately after the corrected guidance is followed
+			await fs.mkdir(`${tempDir}/.swarm`, { recursive: true });
+			const args: SavePlanArgs = {
+				title: 'Test Plan',
+				swarm_id: 'test',
+				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				working_directory: tempDir,
+			};
+			const result = await executeSavePlan(args, tempDir);
+			expect(result.success).toBe(true);
+		});
+	});
 });

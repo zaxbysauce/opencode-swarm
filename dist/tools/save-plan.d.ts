@@ -32,6 +32,7 @@ export interface SavePlanResult {
     phases_count?: number;
     tasks_count?: number;
     errors?: string[];
+    warnings?: string[];
     recovery_guidance?: string;
 }
 /**

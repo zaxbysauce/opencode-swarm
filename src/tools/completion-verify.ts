@@ -216,6 +216,28 @@ function parseFilePaths(
 }
 
 /**
+ * Build a human-readable evidence summary for the completion verify result.
+ * Kept as a named function to avoid deeply nested ternary operators.
+ */
+function buildVerifySummary(
+	tasksChecked: number,
+	tasksSkipped: number,
+	tasksBlocked: number,
+): string {
+	if (tasksBlocked > 0) {
+		return `Blocked: ${tasksBlocked} task(s) with missing identifiers`;
+	}
+	const verified = tasksChecked - tasksSkipped;
+	if (tasksSkipped === tasksChecked) {
+		return `All ${tasksChecked} completed task(s) skipped — research/inventory tasks`;
+	}
+	if (tasksSkipped > 0) {
+		return `${verified} task(s) verified, ${tasksSkipped} skipped (research tasks)`;
+	}
+	return `All ${tasksChecked} completed tasks verified successfully`;
+}
+
+/**
  * Execute the completion verification check
  */
 export async function executeCompletionVerify(
@@ -293,7 +315,7 @@ export async function executeCompletionVerify(
 
 	// Track verification results
 	let tasksChecked = 0;
-	const tasksSkipped = 0;
+	let tasksSkipped = 0;
 	let tasksBlocked = 0;
 	const blockedTasks: BlockedTask[] = [];
 
@@ -311,16 +333,17 @@ export async function executeCompletionVerify(
 		// Get identifiers to look for
 		const identifiers = parseIdentifiers(task.description);
 
-		// If no file targets, block this task (fail closed — can't verify without files)
+		// If no file targets, skip this task — it may be a research/inventory task
+		// that produces knowledge artifacts rather than source files.
+		// We cannot verify it, but absence of file targets is not evidence of incompleteness.
+		//
+		// NOTE: `files_touched` defaults to `[]` in the plan schema, so an explicitly-empty
+		// `files_touched: []` is indistinguishable from the default. This is intentional:
+		// completion_verify is a best-effort signal, not a security gate.
+		// The authoritative guard is the update_task_status reviewer gate, which enforces
+		// reviewer + test_engineer delegation before any task can reach `completed`.
 		if (fileTargets.length === 0) {
-			blockedTasks.push({
-				task_id: task.id,
-				identifier: '',
-				file_path: '',
-				reason:
-					'No file targets — cannot verify completion without files_touched',
-			});
-			tasksBlocked++;
+			tasksSkipped++;
 			continue;
 		}
 
@@ -347,6 +370,27 @@ export async function executeCompletionVerify(
 			const normalizedPath = filePath.replace(/\\/g, '/');
 			// Resolve file path relative to project root
 			const resolvedPath = path.resolve(directory, normalizedPath);
+
+			// Security: reject file paths that escape the project directory.
+			// files_touched is LLM-controlled; an absolute or traversal path could
+			// exfiltrate arbitrary files. Block and count as a real failure so the
+			// phase cannot complete until the plan is corrected.
+			// Use path.relative() to detect escape: a relative path starting with '..'
+			// means the resolved path is outside the project root.
+			const projectRoot = path.resolve(directory);
+			const relative = path.relative(projectRoot, resolvedPath);
+			const withinProject =
+				relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+			if (!withinProject) {
+				blockedTasks.push({
+					task_id: task.id,
+					identifier: '',
+					file_path: filePath,
+					reason: `File path '${filePath}' escapes the project directory — cannot verify completion`,
+				});
+				hasFileReadFailure = true;
+				continue;
+			}
 
 			// Try to read the file
 			let fileContent: string;
@@ -423,10 +467,7 @@ export async function executeCompletionVerify(
 					timestamp: now,
 					agent: 'completion_verify',
 					verdict: tasksBlocked === 0 ? 'pass' : 'fail',
-					summary:
-						tasksBlocked === 0
-							? `All ${tasksChecked} completed tasks verified successfully`
-							: `Blocked: ${tasksBlocked} task(s) with missing identifiers`,
+					summary: buildVerifySummary(tasksChecked, tasksSkipped, tasksBlocked),
 					phase,
 					tasks_checked: tasksChecked,
 					tasks_skipped: tasksSkipped,

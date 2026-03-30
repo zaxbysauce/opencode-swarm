@@ -1,6 +1,7 @@
 export { build_check } from './build-check';
 export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
+export { co_change_analyzer } from './co-change-analyzer';
 export { completion_verify } from './completion-verify';
 export { complexity_hotspots } from './complexity-hotspots';
 export { curator_analyze } from './curator-analyze';
@@ -34,4 +35,5 @@ export { type SyntaxCheckFileResult, type SyntaxCheckInput, type SyntaxCheckResu
 export { test_runner } from './test-runner';
 export { todo_extract } from './todo-extract';
 export { executeUpdateTaskStatus, type UpdateTaskStatusArgs, type UpdateTaskStatusResult, update_task_status, } from './update-task-status';
+export { write_drift_evidence } from './write-drift-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

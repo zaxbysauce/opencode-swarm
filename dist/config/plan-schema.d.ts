@@ -4,6 +4,7 @@ export declare const TaskStatusSchema: z.ZodEnum<{
     in_progress: "in_progress";
     completed: "completed";
     blocked: "blocked";
+    closed: "closed";
 }>;
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export declare const TaskSizeSchema: z.ZodEnum<{
@@ -17,6 +18,7 @@ export declare const PhaseStatusSchema: z.ZodEnum<{
     in_progress: "in_progress";
     completed: "completed";
     blocked: "blocked";
+    closed: "closed";
     complete: "complete";
 }>;
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
@@ -46,6 +48,7 @@ export declare const TaskSchema: z.ZodObject<{
         in_progress: "in_progress";
         completed: "completed";
         blocked: "blocked";
+        closed: "closed";
     }>>;
     size: z.ZodDefault<z.ZodEnum<{
         small: "small";
@@ -68,6 +71,7 @@ export declare const PhaseSchema: z.ZodObject<{
         in_progress: "in_progress";
         completed: "completed";
         blocked: "blocked";
+        closed: "closed";
         complete: "complete";
     }>>;
     tasks: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -78,6 +82,7 @@ export declare const PhaseSchema: z.ZodObject<{
             in_progress: "in_progress";
             completed: "completed";
             blocked: "blocked";
+            closed: "closed";
         }>>;
         size: z.ZodDefault<z.ZodEnum<{
             small: "small";
@@ -91,6 +96,7 @@ export declare const PhaseSchema: z.ZodObject<{
         evidence_path: z.ZodOptional<z.ZodString>;
         blocked_reason: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
+    required_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type Phase = z.infer<typeof PhaseSchema>;
 export declare const PlanSchema: z.ZodObject<{
@@ -106,6 +112,7 @@ export declare const PlanSchema: z.ZodObject<{
             in_progress: "in_progress";
             completed: "completed";
             blocked: "blocked";
+            closed: "closed";
             complete: "complete";
         }>>;
         tasks: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -116,6 +123,7 @@ export declare const PlanSchema: z.ZodObject<{
                 in_progress: "in_progress";
                 completed: "completed";
                 blocked: "blocked";
+                closed: "closed";
             }>>;
             size: z.ZodDefault<z.ZodEnum<{
                 small: "small";
@@ -129,6 +137,7 @@ export declare const PlanSchema: z.ZodObject<{
             evidence_path: z.ZodOptional<z.ZodString>;
             blocked_reason: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>>;
+        required_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     migration_status: z.ZodOptional<z.ZodEnum<{
         native: "native";
