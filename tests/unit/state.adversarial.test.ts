@@ -15,33 +15,33 @@ describe('state machine adversarial tests', () => {
 	});
 
 	describe('advanceTaskState with invalid taskId', () => {
-		it('should handle null taskId (Map uses null as key, not coerced to string)', () => {
-			// null is used as Map key directly, not coerced to string "null"
+		it('should handle null taskId (silently rejected by isValidTaskId)', () => {
+			// null is rejected — advanceTaskState silently returns without mutating state
 			expect(() => {
 				advanceTaskState(session, null as any, 'coder_delegated');
 			}).not.toThrow();
-			
-			// Verify it was set with null key
-			expect(session.taskWorkflowStates.get(null as any)).toBe('coder_delegated');
+
+			// State was never set for null key
+			expect(session.taskWorkflowStates.get(null as any)).toBeUndefined();
 		});
 
-		it('should handle undefined taskId (Map uses undefined as key)', () => {
-			// undefined is used as Map key directly, not coerced to string "undefined"
+		it('should handle undefined taskId (silently rejected by isValidTaskId)', () => {
+			// undefined is rejected — advanceTaskState silently returns without mutating state
 			expect(() => {
 				advanceTaskState(session, undefined as any, 'coder_delegated');
 			}).not.toThrow();
-			
-			// Verify it was set with undefined key
-			expect(session.taskWorkflowStates.get(undefined as any)).toBe('coder_delegated');
+
+			// State was never set for undefined key
+			expect(session.taskWorkflowStates.get(undefined as any)).toBeUndefined();
 		});
 
-		it('should handle empty string taskId (valid Map key)', () => {
-			// Empty string is a valid Map key - this is expected behavior
+		it('should handle empty string taskId (rejected by isValidTaskId)', () => {
+			// Empty string is rejected — trimmed length is 0
 			expect(() => {
 				advanceTaskState(session, '', 'coder_delegated');
 			}).not.toThrow();
-			
-			expect(session.taskWorkflowStates.get('')).toBe('coder_delegated');
+
+			expect(session.taskWorkflowStates.get('')).toBeUndefined();
 		});
 
 		it('should handle very long taskId (10,000 chars) without crashing', () => {
@@ -72,10 +72,13 @@ describe('state machine adversarial tests', () => {
 			}).not.toThrow();
 		});
 
-		it('should handle taskId that is a number', () => {
+		it('should handle taskId that is a number (rejected by typeof guard)', () => {
 			expect(() => {
 				advanceTaskState(session, 123 as any, 'coder_delegated');
 			}).not.toThrow();
+
+			// No state was set for the numeric key
+			expect(session.taskWorkflowStates.size).toBe(0);
 		});
 	});
 
@@ -207,9 +210,9 @@ describe('state machine adversarial tests', () => {
 			}).not.toThrow();
 		});
 
-		it('should handle empty string taskId', () => {
+		it('should handle empty string taskId (returns idle for invalid taskId)', () => {
 			advanceTaskState(session, '', 'coder_delegated');
-			expect(getTaskState(session, '')).toBe('coder_delegated');
+			expect(getTaskState(session, '')).toBe('idle');
 		});
 
 		it('should return idle for non-existent taskId', () => {

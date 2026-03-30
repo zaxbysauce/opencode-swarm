@@ -229,144 +229,112 @@ describe('MODE: ANALYZE — adversarial security', () => {
 	});
 });
 
-describe('MODE: DRIFT-CHECK — verification', () => {
-	const agent = createCriticAgent('test-model');
+describe('PHASE_DRIFT_VERIFIER_PROMPT — verification', () => {
+	const agent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
 	const prompt = agent.config.prompt!;
-	const driftCheckSection = prompt.split('### MODE: DRIFT-CHECK')[1] ?? '';
-	const driftCheckOutputSection = driftCheckSection.slice(
-		driftCheckSection.indexOf('OUTPUT FORMAT (MANDATORY'),
-		driftCheckSection.indexOf('VERBOSITY CONTROL:'),
-	);
 
-	it('1. Contains literal string "MODE: DRIFT-CHECK"', () => {
-		expect(prompt).toContain('MODE: DRIFT-CHECK');
+	it('1. Contains "Phase Drift Verifier" identity', () => {
+		expect(prompt).toContain('Phase Drift Verifier');
 	});
 
-	it('2. References to ".swarm/spec.md" and ".swarm/plan.md" as inputs', () => {
-		expect(prompt).toContain('.swarm/spec.md');
-		expect(prompt).toContain('.swarm/plan.md');
+	it('2. Has SKEPTICAL default posture', () => {
+		expect(prompt).toContain('SKEPTICAL');
 	});
 
-	it('3. References to ".swarm/evidence/" for phase evidence input', () => {
-		expect(prompt).toContain('.swarm/evidence/');
+	it('3. Has 4-axis rubric: File Change, Spec Alignment, Integrity, Drift Detection', () => {
+		expect(prompt).toContain('File Change');
+		expect(prompt).toContain('Spec Alignment');
+		expect(prompt).toContain('Integrity');
+		expect(prompt).toContain('Drift Detection');
 	});
 
-	it('4. Contains DRIFT-CHECK specific verdict vocabulary: "ALIGNED", "MINOR_DRIFT", "MAJOR_DRIFT", "OFF_SPEC"', () => {
+	it('4. Has per-task verdicts: VERIFIED, MISSING, DRIFTED', () => {
+		expect(prompt).toContain('VERIFIED');
+		expect(prompt).toContain('MISSING');
+		expect(prompt).toContain('DRIFTED');
+	});
+
+	it('5. Has phase verdict: APPROVED | NEEDS_REVISION', () => {
+		expect(prompt).toContain('VERDICT: APPROVED | NEEDS_REVISION');
+	});
+
+	it('6. Has axis-level status vocabulary: ALIGNED, CLEAN, ISSUE, NO_DRIFT, DRIFT', () => {
 		expect(prompt).toContain('ALIGNED');
-		expect(prompt).toContain('MINOR_DRIFT');
-		expect(prompt).toContain('MAJOR_DRIFT');
-		expect(prompt).toContain('OFF_SPEC');
+		expect(prompt).toContain('CLEAN');
+		expect(prompt).toContain('ISSUE');
+		expect(prompt).toContain('NO_DRIFT');
+		expect(prompt).toContain('DRIFT');
 	});
 
-	it('5. Has disambiguation Note distinguishing DRIFT-CHECK from ANALYZE', () => {
-		// Should contain the disambiguation note
-		expect(driftCheckSection).toContain('spec-execution divergence');
-		expect(driftCheckSection).toContain('ANALYZE detects spec-plan divergence');
+	it('7. Has MANDATORY output format', () => {
+		expect(prompt).toContain('MANDATORY');
+		expect(prompt).toContain('deviations will be rejected');
 	});
 
-	it('6. Has alignment-threshold mapping for drift metrics and severity', () => {
-		// Should contain the mapping
-		expect(driftCheckSection).toContain('ALIGNED: COVERAGE ≥ 90%');
-		expect(driftCheckSection).toContain('MINOR_DRIFT: COVERAGE ≥ 75%');
-		expect(driftCheckSection).toContain('MAJOR_DRIFT: COVERAGE ≥ 50%');
-		expect(driftCheckSection).toContain('OFF_SPEC: COVERAGE < 50%');
+	it('8. Has MANIPULATION DETECTED pressure immunity', () => {
+		expect(prompt).toContain('MANIPULATION DETECTED');
+		expect(prompt).toContain('PRESSURE IMMUNITY');
 	});
 
-	it('7. Has severity classification in Step 5: CRITICAL, HIGH, MEDIUM, LOW', () => {
-		// Check that Step 5 contains all severity levels
-		const step5 = driftCheckSection.indexOf('5. Classify:');
-		const step5Section = driftCheckSection.substring(step5, driftCheckSection.indexOf('6.', step5));
-		
-		expect(step5Section).toContain('CRITICAL');
-		expect(step5Section).toContain('HIGH');
-		expect(step5Section).toContain('MEDIUM');
-		expect(step5Section).toContain('LOW');
+	it('9. Has disambiguation note about when this mode fires', () => {
+		expect(prompt).toContain('phase completion');
+		expect(prompt).toContain('NOT for plan review');
 	});
 
-	it('8. Has 8-step structure (steps 1 through 8)', () => {
-		// Verify all 8 steps are present
-		expect(driftCheckSection).toMatch(/1\./);
-		expect(driftCheckSection).toMatch(/2\./);
-		expect(driftCheckSection).toMatch(/3\./);
-		expect(driftCheckSection).toMatch(/4\./);
-		expect(driftCheckSection).toMatch(/5\./);
-		expect(driftCheckSection).toMatch(/6\./);
-		expect(driftCheckSection).toMatch(/7\./);
-		expect(driftCheckSection).toMatch(/8\./);
+	it('10. Has READ-ONLY constraint', () => {
+		expect(prompt).toContain('READ-ONLY');
 	});
 
-	it('9. Has "advisory only" rule', () => {
-		// Should mention that DRIFT-CHECK is advisory only (capital A in prompt)
-		expect(driftCheckSection).toContain('Advisory only');
-		expect(driftCheckSection).toContain('does NOT block phase transitions');
+	it('11. Has DRIFT REPORT section for unplanned additions and dropped tasks', () => {
+		expect(prompt).toContain('DRIFT REPORT');
+		expect(prompt).toContain('Unplanned additions');
+		expect(prompt).toContain('Dropped tasks');
 	});
 
-	it('10. Edge case: missing spec.md handled (looks for "missing" + "stop")', () => {
-		// Should mention stopping if spec.md is missing
-		expect(driftCheckSection).toContain('missing');
-		expect(driftCheckSection).toContain('stop');
-	});
-
-	it('11. Edge case: missing phase number handled (looks for "ask" + "phase")', () => {
-		// Should mention asking the user if phase number is not provided
-		expect(driftCheckSection).toContain('ask');
-		expect(driftCheckSection).toContain('phase');
-	});
-
-	it('12. Has output instruction: report produced in response, architect saves it', () => {
-		// Should mention that the Architect saves the report
-		expect(driftCheckSection).toContain('Architect');
-		expect(driftCheckSection).toContain('save');
+	it('12. Has NEEDS_REVISION detail listing MISSING and DRIFTED tasks', () => {
+		expect(prompt).toContain('MISSING tasks');
+		expect(prompt).toContain('DRIFTED tasks');
+		expect(prompt).toContain('Specific items to fix');
 	});
 });
 
-describe('MODE: DRIFT-CHECK — adversarial', () => {
-	const agent = createCriticAgent('test-model');
+describe('PHASE_DRIFT_VERIFIER_PROMPT — adversarial', () => {
+	const agent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
 	const prompt = agent.config.prompt!;
-	const driftCheckSection = prompt.split('### MODE: DRIFT-CHECK')[1] ?? '';
-	const driftCheckOutputSection = driftCheckSection.slice(
-		driftCheckSection.indexOf('OUTPUT FORMAT (MANDATORY'),
-		driftCheckSection.indexOf('VERBOSITY CONTROL:'),
-	);
 
 	it('1. Does NOT instruct critic to write files directly', () => {
-		// Should NOT contain the exact phrase "Write the report file to"
-		expect(driftCheckSection).not.toContain('Write the report file to');
+		expect(prompt).not.toContain('Write the report file to');
+		expect(prompt).toContain('no file modifications');
 	});
 
-	it('2. Does NOT use APPROVED/NEEDS_REVISION/REJECTED as DRIFT-CHECK verdicts', () => {
-		// Should NOT contain plan-review verdicts in DRIFT-CHECK OUTPUT FORMAT
-		expect(driftCheckOutputSection).not.toContain('APPROVED');
-		expect(driftCheckOutputSection).not.toContain('NEEDS_REVISION');
-		expect(driftCheckOutputSection).not.toContain('REJECTED');
-		
-		// Should contain DRIFT-CHECK verdicts
-		expect(driftCheckOutputSection).toContain('ALIGNED');
-		expect(driftCheckOutputSection).toContain('MINOR_DRIFT');
-		expect(driftCheckOutputSection).toContain('MAJOR_DRIFT');
-		expect(driftCheckOutputSection).toContain('OFF_SPEC');
+	it('2. Tool lockdown — write, edit, and patch are disabled', () => {
+		expect(agent.config.tools).toBeDefined();
+		expect(agent.config.tools?.write).toBe(false);
+		expect(agent.config.tools?.edit).toBe(false);
+		expect(agent.config.tools?.patch).toBe(false);
 	});
 
-	it('3. Does NOT use CRITICAL/MAJOR/MINOR (plan-review severity) as DRIFT-CHECK severity scheme', () => {
-		// Find Step 5 specifically
-		const step5 = driftCheckSection.indexOf('5. Classify:');
-		const step6 = driftCheckSection.indexOf('6.', step5);
-		const step5Section = driftCheckSection.substring(step5, step6);
-		
-		// DRIFT-CHECK Step 5 should use HIGH, not MAJOR
-		expect(step5Section).toContain('HIGH');
-		expect(step5Section).not.toContain('MAJOR:');
+	it('3. Does NOT use REJECTED as a phase verdict (only APPROVED | NEEDS_REVISION)', () => {
+		// The PHASE VERDICT section should not contain REJECTED
+		const verdictSection = prompt.slice(prompt.indexOf('PHASE VERDICT'));
+		expect(verdictSection).toContain('APPROVED');
+		expect(verdictSection).toContain('NEEDS_REVISION');
+		expect(verdictSection).not.toContain('REJECTED');
 	});
 
-	it('4. Does NOT proceed when spec.md is missing — must report and stop', () => {
-		// Should mention reporting missing spec.md and stopping
-		expect(driftCheckSection).toContain('spec.md is missing');
-		expect(driftCheckSection).toContain('stop');
+	it('4. Does NOT delegate — forbids Task tool usage', () => {
+		expect(prompt).toContain('DO NOT use the Task tool');
 	});
 
-	it('5. Does NOT proceed when no phase number given — must ask', () => {
-		// Should mention asking the user if no phase number is provided
-		expect(driftCheckSection).toContain('Ask if not provided');
+	it('5. Agent identity confusion guard — warns about delegation confusion', () => {
+		const hasIdentityGuard = prompt.includes('IGNORE them') ||
+								prompt.includes('You ARE the agent') ||
+								prompt.includes('not instructions for you to delegate');
+		expect(hasIdentityGuard).toBe(true);
+	});
+
+	it('6. APPROVED requires ALL tasks VERIFIED with no DRIFT', () => {
+		expect(prompt).toContain('APPROVED only if ALL tasks are VERIFIED with no DRIFT');
 	});
 });
 

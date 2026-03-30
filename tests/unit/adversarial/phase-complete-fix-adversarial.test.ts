@@ -31,19 +31,11 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 		fs.mkdirSync(swarmDir, { recursive: true });
 		fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{ invalid json }', 'utf-8');
 
-		// Save original cwd and change to temp dir
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
+		// The checkReviewerGate should NOT throw, should fall through to blocked
+		const result = checkReviewerGate('1.1', tempDir);
 
-			// The checkReviewerGate should NOT throw, should fall through to blocked
-			const result = checkReviewerGate('1.1');
-			
-			// Should return blocked because no valid completed task found
-			expect(result.blocked).toBe(true);
-		} finally {
-			process.chdir(originalCwd);
-		}
+		// Should return blocked because no valid completed task found
+		expect(result.blocked).toBe(true);
 	});
 
 	it('ATTACK: plan.json with no phases array should not crash', () => {
@@ -52,16 +44,9 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 		fs.mkdirSync(swarmDir, { recursive: true });
 		fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify({ title: 'test' }), 'utf-8');
 
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
-
-			// Should not throw
-			const result = checkReviewerGate('1.1');
-			expect(result.blocked).toBe(true); // No completed task found
-		} finally {
-			process.chdir(originalCwd);
-		}
+		// Should not throw
+		const result = checkReviewerGate('1.1', tempDir);
+		expect(result.blocked).toBe(true); // No completed task found
 	});
 
 	it('ATTACK: plan.json with null tasks in array should not crash', () => {
@@ -85,17 +70,10 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 			'utf-8'
 		);
 
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
-
-			// Should not throw - should handle nulls gracefully
-			const result = checkReviewerGate('1.1');
-			// Should find the completed task despite nulls in array
-			expect(result.blocked).toBe(false);
-		} finally {
-			process.chdir(originalCwd);
-		}
+		// Should not throw - should handle nulls gracefully
+		const result = checkReviewerGate('1.1', tempDir);
+		// Should find the completed task despite nulls in array
+		expect(result.blocked).toBe(false);
 	});
 
 	it('ATTACK: taskId with path traversal characters should be safely handled as string comparison', () => {
@@ -110,34 +88,20 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 			'utf-8'
 		);
 
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
+		// taskId is used ONLY for string equality comparison, not as file path
+		// This should safely return blocked (no match for the malicious taskId)
+		const result = checkReviewerGate('../../etc/passwd', tempDir);
+		expect(result.blocked).toBe(true); // No match found
 
-			// taskId is used ONLY for string equality comparison, not as file path
-			// This should safely return blocked (no match for the malicious taskId)
-			const result = checkReviewerGate('../../etc/passwd');
-			expect(result.blocked).toBe(true); // No match found
-			
-			const result2 = checkReviewerGuard('1.1/../../../etc/passwd');
-			expect(result2.blocked).toBe(true); // No match found
-		} finally {
-			process.chdir(originalCwd);
-		}
+		const result2 = checkReviewerGuard('1.1/../../../etc/passwd');
+		expect(result2.blocked).toBe(true); // No match found
 	});
 
 	it('ATTACK: plan.json missing entirely should fall through to blocked', () => {
 		// Don't create .swarm directory at all - file doesn't exist
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
-
-			// Should not throw - should fall through to blocked
-			const result = checkReviewerGate('1.1');
-			expect(result.blocked).toBe(true);
-		} finally {
-			process.chdir(originalCwd);
-		}
+		// Should not throw - should fall through to blocked
+		const result = checkReviewerGate('1.1', tempDir);
+		expect(result.blocked).toBe(true);
 	});
 
 	it('ATTACK: plan.json with missing id field in task should not crash', () => {
@@ -160,24 +124,17 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 			'utf-8'
 		);
 
-		const originalCwd = process.cwd();
-		try {
-			process.chdir(tempDir);
+		// Should not throw - should handle missing id gracefully
+		const result = checkReviewerGate('1.1', tempDir);
+		expect(result.blocked).toBe(true); // No matching completed task
 
-			// Should not throw - should handle missing id gracefully
-			const result = checkReviewerGate('1.1');
-			expect(result.blocked).toBe(true); // No matching completed task
-			
-			const result2 = checkReviewerGuard('1.2');
-			expect(result2.blocked).toBe(true); // Task exists but not completed
-		} finally {
-			process.chdir(originalCwd);
-		}
+		const result2 = checkReviewerGuard('1.2');
+		expect(result2.blocked).toBe(true); // Task exists but not completed
 	});
 
 	// Helper to call the internal function
 	function checkReviewerGuard(taskId: string) {
-		return checkReviewerGate(taskId);
+		return checkReviewerGate(taskId, tempDir);
 	}
 });
 

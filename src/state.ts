@@ -706,6 +706,9 @@ function isValidTaskId(taskId: string | null | undefined): boolean {
 	if (taskId === null || taskId === undefined) {
 		return false;
 	}
+	if (typeof taskId !== 'string') {
+		return false;
+	}
 	const trimmed = taskId.trim();
 	return trimmed.length > 0;
 }

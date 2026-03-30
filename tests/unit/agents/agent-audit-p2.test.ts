@@ -25,15 +25,14 @@ describe('X3: Critic structured output enforcement', () => {
 
 	it('ANALYZE OUTPUT FORMAT is marked MANDATORY', () => {
 		const analyzeStart = prompt.indexOf('### MODE: ANALYZE');
-		const driftStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const analyzeSection = prompt.substring(analyzeStart, driftStart);
+		const analyzeSection = prompt.substring(analyzeStart);
 		expect(analyzeSection).toContain('MANDATORY');
 	});
 
-	it('DRIFT-CHECK OUTPUT FORMAT is marked MANDATORY', () => {
-		const driftStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-		const driftSection = prompt.substring(driftStart);
-		expect(driftSection).toContain('MANDATORY');
+	it('PHASE_DRIFT_VERIFIER OUTPUT FORMAT is marked MANDATORY', () => {
+		const driftVerifierAgent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+		const driftPrompt = driftVerifierAgent.config.prompt!;
+		expect(driftPrompt).toContain('MANDATORY');
 	});
 
 	it('plan review output forbids conversational preamble', () => {
@@ -91,30 +90,32 @@ describe('CR1: Plan assessment dimensions', () => {
 	});
 });
 
-// ─── CR2: Drift-check quantitative metrics ────────────────────────────────────
+// ─── CR2: Phase drift verifier metrics ────────────────────────────────────────
 
-describe('CR2: Drift-check quantitative metrics', () => {
-	const prompt = createCriticAgent('test-model').config.prompt!;
-	const driftStart = prompt.indexOf('### MODE: DRIFT-CHECK');
-	const driftSection = prompt.substring(driftStart);
+describe('CR2: Phase drift verifier metrics', () => {
+	const driftVerifierAgent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+	const prompt = driftVerifierAgent.config.prompt!;
 
-	it('defines COVERAGE % formula', () => {
-		expect(driftSection).toContain('COVERAGE');
-		expect(driftSection).toContain('COVERAGE %');
+	it('defines per-task verdict categories', () => {
+		expect(prompt).toContain('VERIFIED');
+		expect(prompt).toContain('MISSING');
+		expect(prompt).toContain('DRIFTED');
 	});
 
-	it('defines GOLD-PLATING % formula', () => {
-		expect(driftSection).toContain('GOLD-PLATING %');
+	it('defines phase-level verdict', () => {
+		expect(prompt).toContain('APPROVED');
+		expect(prompt).toContain('NEEDS_REVISION');
 	});
 
-	it('defines ALIGNED threshold', () => {
-		expect(driftSection).toContain('ALIGNED');
+	it('defines 4-axis rubric', () => {
+		expect(prompt).toContain('File Change');
+		expect(prompt).toContain('Spec Alignment');
+		expect(prompt).toContain('Integrity');
+		expect(prompt).toContain('Drift Detection');
 	});
 
-	it('defines MINOR_DRIFT, MAJOR_DRIFT, and OFF_SPEC thresholds', () => {
-		expect(driftSection).toContain('MINOR_DRIFT');
-		expect(driftSection).toContain('MAJOR_DRIFT');
-		expect(driftSection).toContain('OFF_SPEC');
+	it('defines ALIGNED verdict for spec alignment', () => {
+		expect(prompt).toContain('ALIGNED');
 	});
 });
 

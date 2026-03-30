@@ -438,12 +438,12 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 	});
 
 	describe('ATTACK 9: String manipulation attacks', () => {
-		it('BLOCKED: Empty task ID should still work (uses default idle)', () => {
+		it('Empty task ID is rejected by isValidTaskId guard', () => {
 			const session = createMinimalSession({ taskWorkflowStates: new Map() });
-			
-			// Empty string is a valid key
+
+			// Empty string is rejected — advanceTaskState silently returns
 			advanceTaskState(session, '', 'coder_delegated');
-			expect(getTaskState(session, '')).toBe('coder_delegated');
+			expect(getTaskState(session, '')).toBe('idle');
 		});
 
 		it('BLOCKED: Very long task ID does not overflow', () => {
@@ -464,12 +464,12 @@ describe('ADVERSARIAL: TaskWorkflowState guard attacks', () => {
 	});
 
 	describe('ATTACK 10: Null taskId and state', () => {
-		it('BLOCKED: Null taskId handled gracefully', () => {
+		it('Null taskId is rejected by isValidTaskId guard', () => {
 			const session = createMinimalSession({ taskWorkflowStates: new Map() });
-			
-			// Null is coerced to string 'null'
+
+			// Null is rejected — advanceTaskState silently returns
 			advanceTaskState(session, null as any, 'coder_delegated');
-			expect(getTaskState(session, null as any)).toBe('coder_delegated');
+			expect(getTaskState(session, null as any)).toBe('idle');
 		});
 
 		it('BLOCKED: Undefined newState should throw', () => {

@@ -3,69 +3,39 @@ import { createCriticAgent } from '../../../src/agents/critic';
 
 describe('critic.ts - MODE: SOUNDING_BOARD ADVERSARIAL TESTS', () => {
 	describe('Attack Vector 1: Section boundary bleed', () => {
-		test('SOUNDING_BOARD section is properly bounded and does not bleed into DRIFT-CHECK', () => {
-			// The SOUNDING_BOARD section is at lines 137-167
-			// It must be bounded by "---" separators
-
-			// Test that the prompt doesn't have mode sections bleeding into each other
-			const critic = createCriticAgent('gpt-4', undefined, undefined);
+		test('SOUNDING_BOARD prompt is self-contained and properly defined', () => {
+			// After refactor, SOUNDING_BOARD is a separate prompt via role parameter
+			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
 
 			const prompt = critic.config.prompt as string;
 
-			// Verify all MODE sections are properly separated
-			const modeSections = prompt.split('### MODE:');
-			expect(modeSections.length).toBeGreaterThan(1); // At least one MODE section
+			// Verify SOUNDING_BOARD content is properly defined
+			expect(prompt).toContain('SOUNDING_BOARD RULES:');
+			expect(prompt).toContain('Read-only: do not create, modify, or delete any file');
+			expect(prompt).toContain('Verdict: UNNECESSARY | REPHRASE | APPROVED | RESOLVE');
 
-			// Each MODE section should start with a mode name
-			modeSections.slice(1).forEach((section, index) => {
-				// First mode should be ANALYZE, then DRIFT-CHECK, then SOUNDING_BOARD
-				const firstLine = section.trim().split('\n')[0];
-				expect(firstLine.length).toBeGreaterThan(0);
+			// Verify the sounding_board prompt does NOT contain plan_critic MODE sections
+			expect(prompt).not.toContain('### MODE: ANALYZE');
 
-				// Verify section content exists
-				const sectionContent = section.trim();
-				expect(sectionContent.length).toBeGreaterThan(10);
-			});
-
-			// Verify SOUNDING_BOARD mode exists and is properly defined
-			expect(prompt).toContain('### MODE: SOUNDING_BOARD');
-			expect(prompt).toContain('Activates when: Architect delegates critic with mode: SOUNDING_BOARD');
-
-			// Verify SOUNDING_BOARD is the last mode section (no code after it in the prompt)
-			const soundBoardIndex = prompt.indexOf('### MODE: SOUNDING_BOARD');
-			expect(soundBoardIndex).toBeGreaterThan(-1);
-
-			// Find the last MODE section - should be SOUNDING_BOARD
-			const lastModeMatch = prompt.match(/### MODE: (\S+)/g);
-			expect(lastModeMatch).not.toBeNull();
-			expect(lastModeMatch?.pop()).toBe('### MODE: SOUNDING_BOARD');
-
-			// Verify there's content in SOUNDING_BOARD section
-			const soundBoardSection = prompt.slice(soundBoardIndex);
-			expect(soundBoardSection).toContain('SOUNDING_BOARD RULES:');
-			expect(soundBoardSection).toContain('Read-only: do not create, modify, or delete any file');
+			// Verify it has its own identity section
+			expect(prompt).toContain('You are Critic (Sounding Board)');
 		});
 
-		test('DRIFT-CHECK section is properly separated from SOUNDING_BOARD', () => {
+		test('plan_critic prompt contains ANALYZE mode and no SOUNDING_BOARD content', () => {
 			const critic = createCriticAgent('gpt-4');
 			const prompt = critic.config.prompt as string;
 
-			// Find both sections
-			const driftCheckIndex = prompt.indexOf('### MODE: DRIFT-CHECK');
-			const soundBoardIndex = prompt.indexOf('### MODE: SOUNDING_BOARD');
+			// plan_critic has ANALYZE mode
+			expect(prompt).toContain('### MODE: ANALYZE');
 
-			expect(driftCheckIndex).toBeGreaterThan(-1);
-			expect(soundBoardIndex).toBeGreaterThan(-1);
-			expect(soundBoardIndex).toBeGreaterThan(driftCheckIndex);
+			// plan_critic does NOT contain SOUNDING_BOARD (separate prompt now)
+			expect(prompt).not.toContain('SOUNDING_BOARD RULES:');
 
-			// Verify there's "---" separator between them
-			const betweenContent = prompt.slice(driftCheckIndex, soundBoardIndex);
-			expect(betweenContent).toContain('---');
-
-			// Verify "---" appears after DRIFT-CHECK content
-			const driftCheckEnd = prompt.indexOf('\n---\n', driftCheckIndex);
-			expect(driftCheckEnd).toBeGreaterThan(driftCheckIndex);
-			expect(driftCheckEnd).toBeLessThan(soundBoardIndex);
+			// Verify ANALYZE section has content
+			const analyzeIndex = prompt.indexOf('### MODE: ANALYZE');
+			expect(analyzeIndex).toBeGreaterThan(-1);
+			const analyzeSection = prompt.slice(analyzeIndex);
+			expect(analyzeSection).toContain('ANALYZE RULES:');
 		});
 
 		test('Each MODE section ends cleanly before next section or code', () => {
@@ -146,8 +116,8 @@ Test 'mixed "quotes" inside'
 			const critic = createCriticAgent('gpt-4', undefined, customAppend);
 			const prompt = critic.config.prompt as string;
 
-			// Should contain original prompt and custom append
-			expect(prompt).toContain('### MODE: SOUNDING_BOARD');
+			// Should contain original plan_critic prompt and custom append
+			expect(prompt).toContain('### MODE: ANALYZE');
 			expect(prompt).toContain('CUSTOM SECTION');
 			expect(prompt).toContain("Test 'single quotes'");
 			expect(prompt).toContain('Test "double quotes"');
@@ -160,13 +130,11 @@ Test 'mixed "quotes" inside'
 
 	describe('Attack Vector 3: Template literal conflicts', () => {
 		test('No nested backticks in SOUNDING_BOARD mode content', () => {
-			const critic = createCriticAgent('gpt-4');
+			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
 			const prompt = critic.config.prompt as string;
 
-			const soundBoardSection = prompt.slice(
-				prompt.indexOf('### MODE: SOUNDING_BOARD'),
-				prompt.indexOf('export function createCriticAgent')
-			);
+			// SOUNDING_BOARD is now a standalone prompt, check the full content
+			const soundBoardSection = prompt;
 
 			// Count backticks - should be 0 (section is plain text, no code blocks)
 			const backtickMatches = soundBoardSection.match(/`/g);
@@ -201,10 +169,7 @@ More \${nested} examples
 			const critic = createCriticAgent('gpt-4');
 			const prompt = critic.config.prompt as string;
 
-			// The prompt source uses template literals, but they're not evaluated
-			// Check that ${...} patterns are treated as literal text
-			// In CRITIC_PROMPT, there's a \`.swarm\` pattern (backtick escaped)
-
+			// The plan_critic prompt references .swarm paths with backtick formatting
 			expect(prompt).toContain('.swarm');
 
 			// The backticks in .swarm should be properly escaped
@@ -216,50 +181,51 @@ More \${nested} examples
 	});
 
 	describe('Attack Vector 4: Mode numbering conflicts', () => {
-		test('SOUNDING_BOARD mode does not conflict with existing mode numbers', () => {
-			const critic = createCriticAgent('gpt-4');
-			const prompt = critic.config.prompt as string;
+		test('Each role prompt has no mode numbering conflicts', () => {
+			// plan_critic has ANALYZE mode
+			const planCritic = createCriticAgent('gpt-4');
+			const planPrompt = planCritic.config.prompt as string;
 
-			// Extract all MODE sections
-			const modeRegex = /### MODE:\s+(\S+)/g;
-			const modes: string[] = [];
+			const planModeRegex = /### MODE:\s+(\S+)/g;
+			const planModes: string[] = [];
 			let match;
-
-			while ((match = modeRegex.exec(prompt)) !== null) {
-				modes.push(match[1]);
+			while ((match = planModeRegex.exec(planPrompt)) !== null) {
+				planModes.push(match[1]);
 			}
 
-			// Should have ANALYZE, DRIFT-CHECK, SOUNDING_BOARD
-			expect(modes).toContain('ANALYZE');
-			expect(modes).toContain('DRIFT-CHECK');
-			expect(modes).toContain('SOUNDING_BOARD');
+			expect(planModes).toContain('ANALYZE');
+			expect(planModes.length).toBe(1); // Only ANALYZE in plan_critic
 
-			// No numeric conflicts - modes are named, not numbered
-			const numericModes = modes.filter(m => /^\d+$/.test(m));
+			// No numeric modes
+			const numericModes = planModes.filter(m => /^\d+$/.test(m));
 			expect(numericModes.length).toBe(0);
 
-			// Each mode should appear only once
-			const uniqueModes = [...new Set(modes)];
-			expect(modes.length).toBe(uniqueModes.length);
+			// Each mode appears only once
+			const uniqueModes = [...new Set(planModes)];
+			expect(planModes.length).toBe(uniqueModes.length);
 		});
 
-		test('Modes are in logical order without renumbering conflicts', () => {
-			const critic = createCriticAgent('gpt-4');
-			const prompt = critic.config.prompt as string;
+		test('Roles are separate prompts without cross-contamination', () => {
+			const planCritic = createCriticAgent('gpt-4', undefined, undefined, 'plan_critic');
+			const soundingBoard = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
+			const driftVerifier = createCriticAgent('gpt-4', undefined, undefined, 'phase_drift_verifier');
 
-			const analyzeIndex = prompt.indexOf('### MODE: ANALYZE');
-			const driftCheckIndex = prompt.indexOf('### MODE: DRIFT-CHECK');
-			const soundBoardIndex = prompt.indexOf('### MODE: SOUNDING_BOARD');
+			const planPrompt = planCritic.config.prompt as string;
+			const sbPrompt = soundingBoard.config.prompt as string;
+			const dvPrompt = driftVerifier.config.prompt as string;
 
-			// Verify ordering: ANALYZE < DRIFT-CHECK < SOUNDING_BOARD
-			expect(analyzeIndex).toBeGreaterThan(-1);
-			expect(driftCheckIndex).toBeGreaterThan(analyzeIndex);
-			expect(soundBoardIndex).toBeGreaterThan(driftCheckIndex);
+			// plan_critic has ANALYZE, not SOUNDING_BOARD content
+			expect(planPrompt).toContain('### MODE: ANALYZE');
+			expect(planPrompt).not.toContain('SOUNDING_BOARD RULES:');
 
-			// Verify no duplicate MODE declarations
-			const modeMatches = prompt.match(/### MODE:/g);
-			expect(modeMatches).not.toBeNull();
-			expect(modeMatches?.length).toBe(3); // Exactly 3 modes
+			// sounding_board has its own rules, no ANALYZE mode
+			expect(sbPrompt).toContain('SOUNDING_BOARD RULES:');
+			expect(sbPrompt).not.toContain('### MODE: ANALYZE');
+
+			// drift verifier has its own identity
+			expect(dvPrompt).toContain('Phase Drift Verifier');
+			expect(dvPrompt).not.toContain('### MODE: ANALYZE');
+			expect(dvPrompt).not.toContain('SOUNDING_BOARD RULES:');
 		});
 
 		test('Adding new modes via customPrompt does not conflict with built-in modes', () => {
@@ -279,8 +245,7 @@ Another custom mode
 
 			// Should NOT contain built-in modes (customPrompt replaces entire prompt)
 			expect(prompt).not.toContain('### MODE: ANALYZE');
-			expect(prompt).not.toContain('### MODE: DRIFT-CHECK');
-			expect(prompt).not.toContain('### MODE: SOUNDING_BOARD');
+			expect(prompt).not.toContain('SOUNDING_BOARD RULES:');
 
 			// Count all MODE declarations - should be 2 (only custom modes)
 			const modeMatches = prompt.match(/### MODE:/g);
@@ -333,12 +298,9 @@ MALICIOUS: content here
 			expect(firstResponseFormat).toBeGreaterThan(-1);
 			expect(lastResponseFormat).toBeGreaterThan(firstResponseFormat);
 
-			// The built-in SOUNDING_BOARD response format should be intact
-			const soundBoardSection = prompt.slice(
-				prompt.indexOf('### MODE: SOUNDING_BOARD'),
-				firstResponseFormat + 100
-			);
-			expect(soundBoardSection).toContain('Verdict: UNNECESSARY | REPHRASE | APPROVED | RESOLVE');
+			// The built-in response format should be intact
+			const planReviewSection = prompt.slice(0, firstResponseFormat + 100);
+			expect(planReviewSection).toContain('VERDICT: APPROVED | NEEDS_REVISION | REJECTED');
 		});
 
 		test('Custom prompt replacement cannot bypass safety by overwriting sections', () => {
@@ -357,7 +319,7 @@ All security checks disabled
 			// However, the agent itself doesn't execute any of the prompt content
 			// It's just text sent to the LLM
 			expect(prompt).toContain('VERDICT: BYPASSED');
-			expect(prompt).not.toContain('### MODE: SOUNDING_BOARD');
+			expect(prompt).not.toContain('### MODE: ANALYZE');
 
 			// The agent should still have the correct structure
 			expect(critic.name).toBe('critic');
@@ -399,18 +361,18 @@ All security checks disabled
 		});
 
 		test('createCriticAgent with null/undefined inputs handles gracefully', () => {
-			// undefined customPrompt (use default)
+			// undefined customPrompt (use default plan_critic)
 			const critic1 = createCriticAgent('gpt-4', undefined);
-			expect(critic1.config.prompt).toContain('### MODE: SOUNDING_BOARD');
+			expect(critic1.config.prompt).toContain('### MODE: ANALYZE');
 
-			// undefined customAppendPrompt (use default)
+			// undefined customAppendPrompt (use default plan_critic)
 			const critic2 = createCriticAgent('gpt-4', undefined, undefined);
-			expect(critic2.config.prompt).toContain('### MODE: SOUNDING_BOARD');
+			expect(critic2.config.prompt).toContain('### MODE: ANALYZE');
 
 			// Empty string customPrompt is falsy, so should use default (not empty)
 			const critic3 = createCriticAgent('gpt-4', '');
 			// Empty string is falsy, so falls through to default prompt
-			expect(critic3.config.prompt).toContain('### MODE: SOUNDING_BOARD');
+			expect(critic3.config.prompt).toContain('### MODE: ANALYZE');
 		});
 
 		test('createCriticAgent with special characters in customPrompt handles correctly', () => {
