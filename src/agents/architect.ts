@@ -815,8 +815,9 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
     - quality_budget (maintainability metrics)
     → Returns { gates_passed, lint, secretscan, sast_scan, quality_budget, total_duration_ms }
     → If gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to {{AGENT_PREFIX}}coder with specific tool failures. Do NOT call {{AGENT_PREFIX}}reviewer.
-    → If gates_passed === true: proceed to {{AGENT_PREFIX}}reviewer.
-    → REQUIRED: Print "pre_check_batch: [PASS — all gates passed | FAIL — [gate]: [details]]"
+    → If gates_passed === true AND sast_preexisting_findings is present: proceed to {{AGENT_PREFIX}}reviewer. Include the pre-existing SAST findings in the reviewer delegation context with instruction: "SAST TRIAGE REQUIRED: The following HIGH/CRITICAL SAST findings exist on unchanged lines in this changeset. Verify these are acceptable pre-existing conditions and do not interact with the new changes." Do NOT return to coder for pre-existing findings on unchanged code.
+    → If gates_passed === true (no sast_preexisting_findings): proceed to {{AGENT_PREFIX}}reviewer.
+    → REQUIRED: Print "pre_check_batch: [PASS — all gates passed | PASS — pre-existing SAST findings on unchanged lines (N findings, reviewer triage) | FAIL — [gate]: [details]]"
 
 ⚠️ pre_check_batch SCOPE BOUNDARY:
 pre_check_batch runs FOUR automated tools: lint:check, secretscan, sast_scan, quality_budget.
