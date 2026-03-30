@@ -196,11 +196,6 @@ describe('rehydrateSessionFromDisk', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: {
-					sessionId: 'sess-1',
-					timestamp: '2024-01-01T00:00:00Z',
-					agent: 'mega_reviewer',
-				},
 				test_engineer: {
 					sessionId: 'sess-2',
 					timestamp: '2024-01-01T01:00:00Z',
@@ -211,7 +206,7 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await rehydrateSessionFromDisk(testDir, session);
 
-		// Evidence with test_engineer passed should result in tests_run state
+		// Evidence with only test_engineer passed (reviewer still pending) should result in tests_run state
 		expect(session.taskWorkflowStates?.get('1.1')).toBe('tests_run');
 	});
 
@@ -621,7 +616,7 @@ describe('rehydrateSessionFromDisk', () => {
 			],
 		});
 
-		// Evidence shows test_engineer passed (tests_run)
+		// Evidence shows all gates passed (complete)
 		await writeEvidence('1.1', {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
@@ -641,8 +636,8 @@ describe('rehydrateSessionFromDisk', () => {
 
 		await rehydrateSessionFromDisk(testDir, session);
 
-		// Evidence should win - tests_run is strongest
-		expect(session.taskWorkflowStates?.get('1.1')).toBe('tests_run');
+		// Evidence should win - all gates passed means complete
+		expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
 	});
 
 	// Edge case: taskWorkflowStates is undefined in session
