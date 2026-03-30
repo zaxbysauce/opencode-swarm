@@ -36,15 +36,15 @@ export async function handleResetSessionCommand(
 		if (fs.existsSync(sessionDir)) {
 			const files = fs.readdirSync(sessionDir);
 			const otherFiles = files.filter((f) => f !== 'state.json');
+			let deletedCount = 0;
 			for (const file of otherFiles) {
 				const filePath = path.join(sessionDir, file);
-				if (fs.statSync(filePath).isFile()) {
+				if (fs.lstatSync(filePath).isFile()) {
 					fs.unlinkSync(filePath);
+					deletedCount++;
 				}
 			}
-			results.push(
-				`✅ Cleaned ${otherFiles.length} additional session file(s)`,
-			);
+			results.push(`✅ Cleaned ${deletedCount} additional session file(s)`);
 		}
 	} catch {
 		// Non-blocking - session directory cleanup is best effort

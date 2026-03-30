@@ -36,9 +36,17 @@ mock.module('../../../src/session/snapshot-writer.js', () => ({
 
 mock.module('../../../src/state.js', () => ({
 	swarmState: {
-		agentSessions: new Map(),
+		activeToolCalls: new Map(),
+		toolAggregates: new Map(),
+		activeAgent: new Map(),
 		delegationChains: new Map(),
+		pendingEvents: 0,
+		lastBudgetPct: 0,
+		agentSessions: new Map(),
+		pendingRehydrations: new Set(),
 	},
+	endAgentSession: () => {},
+	resetSwarmState: () => {},
 }));
 
 // Import after mock setup
@@ -199,6 +207,78 @@ describe('handleCloseCommand', () => {
 			expect(updatedPlan.phases[0].status).toBe('closed');
 			expect(updatedPlan.phases[0].tasks[0].status).toBe('complete');
 			expect(updatedPlan.phases[0].tasks[1].status).toBe('closed');
+		});
+
+		it('should close pending phases that were never started', async () => {
+			const planData = {
+				title: 'Test Project',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'complete',
+						tasks: [{ id: '1.1', status: 'completed' }],
+					},
+					{
+						id: 2,
+						name: 'Phase 2',
+						status: 'pending',
+						tasks: [{ id: '2.1', status: 'pending' }],
+					},
+				],
+			};
+			writeFileSync(
+				path.join(testDir, '.swarm', 'plan.json'),
+				JSON.stringify(planData)
+			);
+
+			const result = await handleCloseCommand(testDir, []);
+
+			expect(result).toContain('closed successfully');
+			const updatedPlan = JSON.parse(
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+			);
+			expect(updatedPlan.phases[0].status).toBe('complete');
+			expect(updatedPlan.phases[1].status).toBe('closed');
+			expect(updatedPlan.phases[1].tasks[0].status).toBe('closed');
+			// No retros for pending phases (never started)
+			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			// Pending phase and task should be counted in close summary
+			expect(result).toContain('1 phase(s) closed');
+			expect(result).toContain('1 incomplete task(s) marked closed');
+		});
+
+		it('should preserve completed (alias) phase status', async () => {
+			const planData = {
+				title: 'Test Project',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'completed',
+						tasks: [{ id: '1.1', status: 'completed' }],
+					},
+					{
+						id: 2,
+						name: 'Phase 2',
+						status: 'in_progress',
+						tasks: [{ id: '2.1', status: 'in_progress' }],
+					},
+				],
+			};
+			writeFileSync(
+				path.join(testDir, '.swarm', 'plan.json'),
+				JSON.stringify(planData)
+			);
+
+			await handleCloseCommand(testDir, []);
+
+			const updatedPlan = JSON.parse(
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+			);
+			expect(updatedPlan.phases[0].status).toBe('completed');
+			expect(updatedPlan.phases[0].tasks[0].status).toBe('completed');
+			expect(updatedPlan.phases[1].status).toBe('closed');
 		});
 
 		it('should set complete phases to closed status', async () => {

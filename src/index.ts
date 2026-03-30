@@ -669,6 +669,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					description:
 						'Use /swarm evidence summary to generate evidence summaries',
 				},
+				'swarm-close': {
+					template: '/swarm close',
+					description:
+						'Use /swarm close to close the swarm project and archive state',
+				},
 			};
 
 			log('Config applied', {

@@ -1059,7 +1059,7 @@ The following tools can be assigned to agents via overrides:
 
 > For the complete version history, see [CHANGELOG.md](CHANGELOG.md) or [docs/releases/](docs/releases/).
 
-### v6.33.5 — Drift Evidence Tool
+### v6.41.0 — Drift Evidence Tool
 
 - **`write_drift_evidence` tool**: New architect tool for persisting drift verification evidence after critic_drift_verifier delegation
   - Accepts phase number, verdict (APPROVED/NEEDS_REVISION), and summary

@@ -259,35 +259,15 @@ describe('repos without git skip silently', () => {
 		rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('detectDarkMatter returns empty array for non-git directory', async () => {
-		// Directory with no git history should return empty without throwing
-		// Use mockDetectDarkMatter directly to verify the mock tracks calls
-		// Set mockImplementation to ensure it returns [] when called directly
-		mockDetectDarkMatter.mockImplementation(async () => []);
-		const result = await mockDetectDarkMatter(tempDir, { minCommits: 20 });
-
-		expect(Array.isArray(result)).toBe(true);
-		expect(result).toEqual([]);
-	});
-
-	test('detectDarkMatter returns empty array for shallow git history', async () => {
-		// Even if git exists, not enough commits should return empty
-		// This is handled by the minCommits check in detectDarkMatter
-		// Set mockImplementation to ensure it returns [] when called directly
-		mockDetectDarkMatter.mockImplementation(async () => []);
-		const result = await mockDetectDarkMatter(tempDir, { minCommits: 20 });
-
-		expect(result).toEqual([]);
-	});
-
-	test('system-enhancer does not write dark-matter.md when detectDarkMatter returns empty', async () => {
+	test('system-enhancer skips dark-matter.md when detectDarkMatter returns empty', async () => {
 		// When detectDarkMatter returns empty, system-enhancer skips writing dark-matter.md
 		const darkMatterPath = path.join(tempDir, '.swarm', 'dark-matter.md');
 
 		// Create .swarm directory
 		mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 
-		// Default mock returns empty array, so dark-matter.md should not be written
+		// Explicitly set mock to return empty array (mockClear only clears calls, not implementation)
+		mockDetectDarkMatter.mockImplementation(async () => []);
 		const hook = createSystemEnhancerHook({} as PluginConfig, tempDir);
 		const transform = hook['experimental.chat.system.transform'] as (
 			input: { sessionID?: string; model?: unknown },

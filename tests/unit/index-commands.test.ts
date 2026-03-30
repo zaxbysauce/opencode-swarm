@@ -21,7 +21,7 @@ describe('Swarm subcommand registration', () => {
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 30 individual subcommands plus catch-all', async () => {
+	it('should register 31 individual subcommands plus catch-all', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -31,8 +31,8 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 30 subcommands = 31 total
-		expect(commandKeys.length).toBe(31);
+		// Should have catch-all + 31 subcommands = 32 total
+		expect(commandKeys.length).toBe(32);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
@@ -50,7 +50,7 @@ describe('Swarm subcommand registration', () => {
 		expect(commands.swarm.description).toBe('Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|close]');
 	});
 
-	it('should register all 30 individual subcommands with correct keys', async () => {
+	it('should register all 31 individual subcommands with correct keys', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -88,6 +88,7 @@ describe('Swarm subcommand registration', () => {
 			'swarm-checkpoint',
 			'swarm-config-doctor',
 			'swarm-evidence-summary',
+			'swarm-close',
 		];
 
 		// Verify all expected subcommands exist
