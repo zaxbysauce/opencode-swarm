@@ -151,6 +151,7 @@ function createMockSession(
 		lastScopeViolation: null,
 		scopeViolationDetected: undefined,
 		modifiedFilesThisCoderTask: [],
+		sessionRehydratedAt: 0,
 		...overrides,
 	} as AgentSessionState;
 }

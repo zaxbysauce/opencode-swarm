@@ -178,6 +178,10 @@ export interface AgentSessionState {
 	contextPressureWarningSent?: boolean;
 	/** Queue of advisory messages (e.g., SLOP, context pressure) pending injection into next messagesTransform */
 	pendingAdvisoryMessages?: string[];
+
+	// Stale state detection (Bug B)
+	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
+	sessionRehydratedAt: number;
 }
 
 /**
@@ -328,6 +332,7 @@ export function startAgentSession(
 		revisionLimitHit: false,
 		loopDetectionWindow: [],
 		pendingAdvisoryMessages: [],
+		sessionRehydratedAt: 0,
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -521,6 +526,10 @@ export function ensureAgentSession(
 		}
 		if (session.revisionLimitHit === undefined) {
 			session.revisionLimitHit = false;
+		}
+		// Stale state detection migration safety (Bug B)
+		if (session.sessionRehydratedAt === undefined) {
+			session.sessionRehydratedAt = 0;
 		}
 
 		session.lastToolCallTime = now;

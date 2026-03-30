@@ -526,12 +526,19 @@ export function createDelegationGateHook(
 			// Before blocking, verify this coder_delegated state is from the CURRENT session.
 			// If there's no evidence of a coder delegation for this task in the current
 			// session's delegation chains, the state is inherited from a prior session — reset it.
+			// We use sessionRehydratedAt as the freshness threshold: any delegation chain
+			// entry older than rehydration time is from the prior session. For non-rehydrated
+			// sessions (sessionRehydratedAt=0), we fall back to lastPhaseCompleteTimestamp.
+			const freshnessThreshold =
+				session.sessionRehydratedAt > 0
+					? session.sessionRehydratedAt
+					: (session.lastPhaseCompleteTimestamp ?? 0);
 			const delegationChains =
 				swarmState.delegationChains.get(input.sessionID) ?? [];
 			const hasCurrentSessionCoderDelegation = delegationChains.some(
 				(d) =>
 					stripKnownSwarmPrefix(d.to) === 'coder' &&
-					d.timestamp > (session.lastPhaseCompleteTimestamp ?? 0),
+					d.timestamp > freshnessThreshold,
 			);
 			if (!hasCurrentSessionCoderDelegation) {
 				// Stale state from prior session — reset to idle and allow the delegation

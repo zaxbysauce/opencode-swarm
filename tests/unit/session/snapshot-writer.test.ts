@@ -597,6 +597,7 @@ describe('writeSnapshot', () => {
 			modelFallbackExhausted: false,
 			coderRevisions: 0,
 			revisionLimitHit: false,
+			sessionRehydratedAt: 0,
 		});
 	});
 });

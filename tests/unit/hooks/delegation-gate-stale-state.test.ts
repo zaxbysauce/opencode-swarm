@@ -216,4 +216,73 @@ describe('delegation-gate: stale coder_delegated detection (Bug B)', () => {
 			hook.toolBefore(...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-8')),
 		).rejects.toThrow('REVIEWER_GATE_VIOLATION');
 	});
+
+	it('detects stale state after rehydration even when delegation chains are restored', async () => {
+		const config = makeConfig();
+		const hook = createDelegationGateHook(config, process.cwd());
+
+		// Simulate a rehydrated session: session was restored from snapshot
+		// with both stale coder_delegated state AND old delegation chains
+		const session = ensureAgentSession(SESSION_ID);
+		session.taskWorkflowStates.set('1.5', 'coder_delegated');
+		session.lastPhaseCompleteTimestamp = 3000;
+		// sessionRehydratedAt is set to "now" by snapshot-reader on rehydration
+		session.sessionRehydratedAt = 10000;
+
+		// Old delegation chain from prior session (timestamp < sessionRehydratedAt)
+		// This would have fooled the old check (5000 > lastPhaseCompleteTimestamp 3000)
+		// but should now be detected as stale (5000 < sessionRehydratedAt 10000)
+		swarmState.delegationChains.set(SESSION_ID, [
+			{ from: 'architect', to: 'coder', timestamp: 5000 },
+		]);
+
+		await expect(
+			hook.toolBefore(...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-9')),
+		).resolves.toBeUndefined();
+
+		// State should be reset to idle
+		expect(session.taskWorkflowStates.get('1.5')).toBe('idle');
+	});
+
+	it('blocks after rehydration when a NEW coder delegation is made post-rehydration', async () => {
+		const config = makeConfig();
+		const hook = createDelegationGateHook(config, process.cwd());
+
+		const session = ensureAgentSession(SESSION_ID);
+		session.taskWorkflowStates.set('3.1', 'coder_delegated');
+		session.sessionRehydratedAt = 10000;
+
+		// New delegation made AFTER rehydration (timestamp > sessionRehydratedAt)
+		swarmState.delegationChains.set(SESSION_ID, [
+			{ from: 'architect', to: 'coder', timestamp: 15000 },
+		]);
+
+		// Tier 3 task — should block (legitimate current delegation)
+		await expect(
+			hook.toolBefore(...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-10')),
+		).rejects.toThrow('REVIEWER_GATE_VIOLATION');
+
+		expect(session.taskWorkflowStates.get('3.1')).toBe('coder_delegated');
+	});
+
+	it('uses lastPhaseCompleteTimestamp for non-rehydrated sessions (sessionRehydratedAt=0)', async () => {
+		const config = makeConfig();
+		const hook = createDelegationGateHook(config, process.cwd());
+
+		const session = ensureAgentSession(SESSION_ID);
+		session.taskWorkflowStates.set('2.1', 'coder_delegated');
+		session.sessionRehydratedAt = 0; // Not rehydrated
+		session.lastPhaseCompleteTimestamp = 3000;
+
+		// Delegation older than lastPhaseCompleteTimestamp — stale
+		swarmState.delegationChains.set(SESSION_ID, [
+			{ from: 'architect', to: 'coder', timestamp: 2000 },
+		]);
+
+		await expect(
+			hook.toolBefore(...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-11')),
+		).resolves.toBeUndefined();
+
+		expect(session.taskWorkflowStates.get('2.1')).toBe('idle');
+	});
 });

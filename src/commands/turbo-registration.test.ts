@@ -114,6 +114,7 @@ describe('Task 3.12: Turbo Command Registration', () => {
 				revisionLimitHit: false,
 				model_fallback_index: 0,
 				modelFallbackExhausted: false,
+				sessionRehydratedAt: 0,
 			});
 		});
 

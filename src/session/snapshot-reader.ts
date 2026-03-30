@@ -142,6 +142,7 @@ export function deserializeAgentSession(
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
 		coderRevisions: s.coderRevisions ?? 0,
 		revisionLimitHit: s.revisionLimitHit ?? false,
+		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 	};
 }
 
@@ -262,6 +263,10 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 			// (now - lastToolCallTime > 2h) does not delete rehydrated sessions.
 			session.lastToolCallTime = now;
 			session.lastAgentEventTime = now;
+
+			// Mark this session as rehydrated so delegation-gate can detect stale
+			// coder_delegated state that was persisted from a prior session (Bug B).
+			session.sessionRehydratedAt = now;
 
 			// ── InvocationWindows ─────────────────────────────────────────
 			// A process restart means OpenCode will resume the agent from scratch,
