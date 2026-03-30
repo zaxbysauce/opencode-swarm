@@ -158,7 +158,10 @@ export async function executeSavePlan(
 			message: 'Plan rejected: invalid phase or task IDs',
 			errors: validationErrors,
 			recovery_guidance:
-				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
+				'Phase IDs must be positive integers: 1, 2, 3 (not 0, -1, or decimals). ' +
+				'Task IDs must use N.M format: "1.1", "2.3", "3.1". ' +
+				'Call save_plan again with corrected ids. ' +
+				'Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};
 	}
 
@@ -330,8 +333,8 @@ export const save_plan: ToolDefinition = createSwarmTool({
 					id: tool.schema
 						.number()
 						.int()
-						.positive()
-						.describe('Phase number, starting at 1'),
+						.min(1)
+						.describe('Phase number — a positive integer starting at 1. Use 1, 2, 3, etc.'),
 					name: tool.schema
 						.string()
 						.min(1)

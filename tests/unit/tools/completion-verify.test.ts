@@ -193,8 +193,8 @@ describe('completion-verify unit tests', () => {
 		});
 	});
 
-	describe('4. Fail-closed path - no parseable file paths', () => {
-		test('blocks task with no file paths in description (fail-closed: cannot verify without files)', async () => {
+	describe('4. Skip path - no parseable file paths (research/inventory tasks)', () => {
+		test('skips task with no file paths in description — research tasks are unverifiable, not incomplete', async () => {
 			const plan = {
 				phases: [{
 					id: 1,
@@ -213,16 +213,17 @@ describe('completion-verify unit tests', () => {
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
 
-			// PR #326: fail-closed policy — tasks without file targets are blocked, not skipped,
-			// because completion cannot be verified without knowing which files were modified.
-			expect(parsed.status).toBe('blocked');
-			expect(parsed.tasksBlocked).toBe(1);
+			// Research/inventory tasks have no file targets — they are skipped, not blocked.
+			// Absence of file targets is not evidence of incompleteness.
+			expect(parsed.status).toBe('passed');
+			expect(parsed.tasksBlocked).toBe(0);
+			expect(parsed.tasksSkipped).toBe(1);
 			expect(parsed.tasksChecked).toBe(1);
 		});
 	});
 
-	describe('5. Fail-closed path - no identifiers AND no file paths', () => {
-		test('blocks task with no identifiers and no file paths (fail-closed)', async () => {
+	describe('5. Skip path - no identifiers AND no file paths', () => {
+		test('skips task with no identifiers and no file paths (unverifiable research task)', async () => {
 			const plan = {
 				phases: [{
 					id: 1,
@@ -241,9 +242,10 @@ describe('completion-verify unit tests', () => {
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
 
-			// PR #326: fail-closed policy — tasks without file targets are blocked, not skipped.
-			expect(parsed.status).toBe('blocked');
-			expect(parsed.tasksBlocked).toBe(1);
+			// No file targets → skipped, not blocked. Phase can proceed.
+			expect(parsed.status).toBe('passed');
+			expect(parsed.tasksBlocked).toBe(0);
+			expect(parsed.tasksSkipped).toBe(1);
 		});
 	});
 

@@ -293,7 +293,7 @@ export async function executeCompletionVerify(
 
 	// Track verification results
 	let tasksChecked = 0;
-	const tasksSkipped = 0;
+	let tasksSkipped = 0;
 	let tasksBlocked = 0;
 	const blockedTasks: BlockedTask[] = [];
 
@@ -311,16 +311,11 @@ export async function executeCompletionVerify(
 		// Get identifiers to look for
 		const identifiers = parseIdentifiers(task.description);
 
-		// If no file targets, block this task (fail closed — can't verify without files)
+		// If no file targets, skip this task — it may be a research/inventory task
+		// that produces knowledge artifacts rather than source files.
+		// We cannot verify it, but absence of file targets is not evidence of incompleteness.
 		if (fileTargets.length === 0) {
-			blockedTasks.push({
-				task_id: task.id,
-				identifier: '',
-				file_path: '',
-				reason:
-					'No file targets — cannot verify completion without files_touched',
-			});
-			tasksBlocked++;
+			tasksSkipped++;
 			continue;
 		}
 

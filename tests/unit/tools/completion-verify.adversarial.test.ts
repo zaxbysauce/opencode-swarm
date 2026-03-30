@@ -1216,3 +1216,75 @@ describe('injection attacks in task descriptions', () => {
 		expect(parsed.tasksBlocked).toBe(0);
 	});
 });
+
+describe('Research/inventory task skip behavior (Kimi K2 regression)', () => {
+	let tempDir: string;
+
+	beforeEach(() => {
+		tempDir = createTempDir();
+	});
+
+	afterEach(() => {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	it('phase with only research tasks (no files_touched, no file paths) passes verification', () => {
+		// Regression: Kimi K2.5 could not complete Phase 1 because completion_verify blocked
+		// all research/inventory tasks. These tasks produce knowledge artifacts, not source files.
+		const plan = {
+			phases: [{
+				id: 1,
+				name: 'Research & Inventory',
+				tasks: [
+					{ id: '1.1', description: 'Inventory all Python files and identify test coverage gaps', status: 'completed' },
+					{ id: '1.2', description: 'Review CI/CD pipeline configuration for gaps', status: 'completed' },
+					{ id: '1.3', description: 'Analyze dependency security posture', status: 'completed' },
+				]
+			}]
+		};
+		createPlanFile(tempDir, plan);
+
+		return executeCompletionVerify({ phase: 1 }, tempDir).then((raw) => {
+			const parsed = JSON.parse(raw);
+			// All 3 tasks are research tasks with no files → all skipped, none blocked
+			expect(parsed.status).toBe('passed');
+			expect(parsed.tasksBlocked).toBe(0);
+			expect(parsed.tasksSkipped).toBe(3);
+			expect(parsed.tasksChecked).toBe(3);
+		});
+	});
+
+	it('mixed phase: research tasks skipped, implementation tasks verified normally', () => {
+		// Research task + implementation task in same phase:
+		// Research task should skip, implementation task should be verified against its file.
+		const plan = {
+			phases: [{
+				id: 1,
+				name: 'Phase 1',
+				tasks: [
+					{
+						id: '1.1',
+						description: 'Inventory codebase and document gaps',
+						status: 'completed'
+					},
+					{
+						id: '1.2',
+						description: 'Create `setupAuth` in src/auth/setup.ts',
+						status: 'completed'
+					}
+				]
+			}]
+		};
+		createPlanFile(tempDir, plan);
+		createSourceFile(tempDir, 'src/auth/setup.ts', 'export function setupAuth() {}');
+
+		return executeCompletionVerify({ phase: 1 }, tempDir).then((raw) => {
+			const parsed = JSON.parse(raw);
+			// 1.1: skipped (no file targets), 1.2: passed (identifier found in file)
+			expect(parsed.status).toBe('passed');
+			expect(parsed.tasksBlocked).toBe(0);
+			expect(parsed.tasksSkipped).toBe(1);
+			expect(parsed.tasksChecked).toBe(2);
+		});
+	});
+});
