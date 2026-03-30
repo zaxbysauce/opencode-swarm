@@ -12,6 +12,8 @@ export interface CompletionVerifyArgs {
     phase: number;
     /** Session ID (optional, auto-provided by plugin context) */
     sessionID?: string;
+    /** Explicit project root directory override */
+    working_directory?: string;
 }
 /**
  * Execute the completion verification check
