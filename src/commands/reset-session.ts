@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
 import { swarmState } from '../state';
 
@@ -25,6 +26,28 @@ export async function handleResetSessionCommand(
 		}
 	} catch {
 		results.push('❌ Failed to delete state.json');
+	}
+
+	// Clean all files in .swarm/session/ except state.json
+	try {
+		const sessionDir = path.dirname(
+			validateSwarmPath(directory, 'session/state.json'),
+		);
+		if (fs.existsSync(sessionDir)) {
+			const files = fs.readdirSync(sessionDir);
+			const otherFiles = files.filter((f) => f !== 'state.json');
+			for (const file of otherFiles) {
+				const filePath = path.join(sessionDir, file);
+				if (fs.statSync(filePath).isFile()) {
+					fs.unlinkSync(filePath);
+				}
+			}
+			results.push(
+				`✅ Cleaned ${otherFiles.length} additional session file(s)`,
+			);
+		}
+	} catch {
+		// Non-blocking - session directory cleanup is best effort
 	}
 
 	// Clear in-memory agent sessions

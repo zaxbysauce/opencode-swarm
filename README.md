@@ -1050,13 +1050,21 @@ The following tools can be assigned to agents via overrides:
 | `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
+| `write_drift_evidence` | Write drift verification evidence after critic_drift_verifier completes |
 
 ---
 
 <details>
-<summary><strong>Recent Changes (v6.12 – v6.31)</strong></summary>
+<summary><strong>Recent Changes (v6.12 – v6.31+)</strong></summary>
 
 > For the complete version history, see [CHANGELOG.md](CHANGELOG.md) or [docs/releases/](docs/releases/).
+
+### v6.33.5 — Drift Evidence Tool
+
+- **`write_drift_evidence` tool**: New architect tool for persisting drift verification evidence after critic_drift_verifier delegation
+  - Accepts phase number, verdict (APPROVED/NEEDS_REVISION), and summary
+  - Normalizes verdict automatically (APPROVED → approved, NEEDS_REVISION → rejected)
+  - Writes gate-contract formatted evidence to `.swarm/evidence/{phase}/drift-verifier.json`
 
 ### v6.31.0 — process.cwd() Cleanup + Watchdog + Knowledge Tools
 

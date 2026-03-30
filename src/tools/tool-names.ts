@@ -34,6 +34,7 @@ export type ToolName =
 	| 'save_plan'
 	| 'update_task_status'
 	| 'write_retro'
+	| 'write_drift_evidence'
 	| 'declare_scope'
 	| 'knowledge_query'
 	| 'doc_scan'
@@ -41,7 +42,8 @@ export type ToolName =
 	| 'curator_analyze'
 	| 'knowledgeAdd'
 	| 'knowledgeRecall'
-	| 'knowledgeRemove';
+	| 'knowledgeRemove'
+	| 'co_change_analyzer';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -74,6 +76,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'save_plan',
 	'update_task_status',
 	'write_retro',
+	'write_drift_evidence',
 	'declare_scope',
 	'knowledge_query',
 	'doc_scan',
@@ -82,6 +85,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'knowledgeAdd',
 	'knowledgeRecall',
 	'knowledgeRemove',
+	'co_change_analyzer',
 ] as const;
 
 /** Set for O(1) tool name validation */

@@ -12,6 +12,7 @@ export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
 export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
+export { handleCloseCommand } from './close';
 export { handleConfigCommand } from './config';
 export { handleCurateCommand } from './curate';
 export { handleDarkMatterCommand } from './dark-matter';

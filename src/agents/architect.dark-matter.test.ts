@@ -21,7 +21,7 @@ describe('createArchitectAgent - DARK MATTER CO-CHANGE DETECTION', () => {
 	it('2. instruction calls knowledge_recall with hidden-coupling query format', () => {
 		const agent = createArchitectAgent('test-model');
 		expect(agent.config.prompt).toContain('knowledge_recall');
-		expect(agent.config.prompt).toContain("'hidden-coupling [primaryFile]'");
+		expect(agent.config.prompt).toContain('hidden-coupling primaryFile');
 	});
 
 	// TEST 3: PrimaryFile extraction is mentioned (first file in FILE list)

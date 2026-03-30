@@ -262,9 +262,11 @@ All tasks in phase done
 ├── 4.5. Run evidence_check to verify all completed tasks have required evidence
 ├── 5. Run sbom_generate with scope='changed' for dependency snapshot
 ├── 5.5. Defense-in-depth drift check: Delegate to @critic_drift_verifier BEFORE phase_complete
-│         - Returns early feedback on plan drift
-│         - Writes drift verification evidence to .swarm/evidence/{phase}/drift-verifier.json
-│         - Skip this step if spec.md does not exist
+│ - Returns early feedback on plan drift
+│ - Architect calls `write_drift_evidence(phase, verdict, summary)` tool after critic_drift_verifier returns
+│ - Writes drift verification evidence to .swarm/evidence/{phase}/drift-verifier.json
+│ - Verdict automatically normalized: APPROVED → approved, NEEDS_REVISION → rejected
+│ - Skip this step if spec.md does not exist
 ├── 5.6. Verify mandatory gate evidence exists:
 │         - .swarm/evidence/{phase}/completion-verify.json (auto-written by completion-verify gate)
 │         - .swarm/evidence/{phase}/drift-verifier.json (written by @critic_drift_verifier)
@@ -297,6 +299,7 @@ The `phase_complete` tool enforces two mandatory gates before marking a phase co
 - Checks for entry with `type` containing 'drift' and `verdict` of 'approved'
 - Blocks if evidence missing or verdict is 'rejected'
 - Defense-in-depth: architect should delegate to `@critic_drift_verifier` BEFORE calling `phase_complete` for early feedback
+- Uses `write_drift_evidence` tool to persist verification results (verdict is normalized automatically)
 
 **Turbo Mode Behavior:**
 When `hasActiveTurboMode()` returns true, both gates are automatically bypassed. The `phase_complete` tool logs a warning and proceeds without enforcement.

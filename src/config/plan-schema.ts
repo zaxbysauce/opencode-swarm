@@ -6,6 +6,7 @@ export const TaskStatusSchema = z.enum([
 	'in_progress',
 	'completed',
 	'blocked',
+	'closed',
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 
@@ -20,6 +21,7 @@ export const PhaseStatusSchema = z.enum([
 	'complete',
 	'completed', // Alias for 'complete' - both accepted
 	'blocked',
+	'closed',
 ]);
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
 

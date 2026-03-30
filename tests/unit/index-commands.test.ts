@@ -21,7 +21,7 @@ describe('Swarm subcommand registration', () => {
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 22 individual subcommands plus catch-all', async () => {
+	it('should register 30 individual subcommands plus catch-all', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -31,8 +31,8 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 22 subcommands = 23 total
-		expect(commandKeys.length).toBe(23);
+		// Should have catch-all + 30 subcommands = 31 total
+		expect(commandKeys.length).toBe(31);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
@@ -47,10 +47,10 @@ describe('Swarm subcommand registration', () => {
 
 		expect(commands.swarm).toBeDefined();
 		expect(commands.swarm.template).toBe('/swarm $ARGUMENTS');
-		expect(commands.swarm.description).toBe('Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate]');
+		expect(commands.swarm.description).toBe('Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|close]');
 	});
 
-	it('should register all 22 individual subcommands with correct keys', async () => {
+	it('should register all 30 individual subcommands with correct keys', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -80,6 +80,14 @@ describe('Swarm subcommand registration', () => {
 			'swarm-dark-matter',
 			'swarm-knowledge',
 			'swarm-curate',
+			'swarm-turbo',
+			'swarm-write-retro',
+			'swarm-reset-session',
+			'swarm-simulate',
+			'swarm-promote',
+			'swarm-checkpoint',
+			'swarm-config-doctor',
+			'swarm-evidence-summary',
 		];
 
 		// Verify all expected subcommands exist
@@ -144,15 +152,15 @@ describe('Swarm subcommand registration', () => {
 		}
 	});
 
-	it('should not register simulate commands (Phase 3)', async () => {
+	it('should register simulate command', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
 		const commands = mockConfig.command as Record<string, { template: string; description: string }>;
 
-		// This command should NOT exist yet
-		expect(commands['swarm-simulate']).toBeUndefined();
+		// This command should be registered
+		expect(commands['swarm-simulate']).toBeDefined();
 	});
 
 	it('should have correct templates for specific subcommands', async () => {

@@ -455,7 +455,7 @@ export function darkMatterToKnowledgeEntries(
 			lesson,
 			category: 'architecture',
 			tags: ['hidden-coupling', 'co-change', 'dark-matter'],
-			scope: 'global',
+			scope: 'project',
 			confidence,
 			status: 'candidate',
 			confirmed_by: [],
