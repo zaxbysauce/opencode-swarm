@@ -36381,7 +36381,7 @@ var init_test_runner = __esm(() => {
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const workingDir = dirResult.directory.trim() || dirResult.directory;
+      const workingDir = dirResult.directory;
       if (workingDir.length > 4096) {
         const errorResult = {
           success: false,
@@ -57398,21 +57398,24 @@ async function executeCommand(command) {
     cmd = ["/bin/sh"];
     args2 = ["-c", command.command];
   }
-  const result = await Bun.spawn({
+  const result = Bun.spawn({
     cmd: [...cmd, ...args2],
     cwd: command.cwd,
     stdout: "pipe",
     stderr: "pipe",
     timeout: DEFAULT_TIMEOUT_MS2
   });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    result.exited,
+    new Response(result.stdout).text(),
+    new Response(result.stderr).text()
+  ]);
   const duration_ms = Date.now() - startTime;
-  const stdout = await new Response(result.stdout).text();
-  const stderr = await new Response(result.stderr).text();
   return {
     kind,
     command: command.command,
     cwd: command.cwd,
-    exit_code: result.exitCode ?? -1,
+    exit_code: exitCode ?? -1,
     duration_ms,
     stdout_tail: truncateOutput(stdout),
     stderr_tail: truncateOutput(stderr)
@@ -58687,8 +58690,10 @@ async function getGitChurn(days, directory) {
     stderr: "pipe",
     cwd: directory
   });
-  const stdout = await new Response(proc.stdout).text();
-  await proc.exited;
+  const [stdout] = await Promise.all([
+    new Response(proc.stdout).text(),
+    proc.exited
+  ]);
   const lines = stdout.split(/\r?\n/);
   for (const line of lines) {
     const normalizedPath = line.replace(/\\/g, "/");

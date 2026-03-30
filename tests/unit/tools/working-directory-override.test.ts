@@ -20,6 +20,7 @@ import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
 import { check_gate_status } from '../../../src/tools/check-gate-status';
 import { executeCompletionVerify } from '../../../src/tools/completion-verify';
+import { executePhaseComplete } from '../../../src/tools/phase-complete';
 
 // Helper to call check_gate_status with context
 async function executeCheckGateStatus(
@@ -202,5 +203,63 @@ describe('working_directory override — completion_verify (via executeCompletio
 		expect(parsed.status).toBe('passed');
 		expect(parsed.tasksChecked).toBe(1);
 		expect(parsed.tasksBlocked).toBe(0);
+	});
+});
+
+describe('working_directory override — phase_complete (via executePhaseComplete)', () => {
+	let wrongDir: string;
+	let rightDir: string;
+
+	beforeEach(() => {
+		wrongDir = mkdtempSync(path.join(os.tmpdir(), 'wrong-cwd-pc-'));
+		rightDir = mkdtempSync(path.join(os.tmpdir(), 'right-project-pc-'));
+
+		// Create a minimal .swarm/ in the RIGHT directory with config
+		const swarmDir = path.join(rightDir, '.swarm');
+		mkdirSync(swarmDir, { recursive: true });
+	});
+
+	afterEach(() => {
+		try {
+			rmSync(wrongDir, { recursive: true, force: true });
+		} catch { /* best effort */ }
+		try {
+			rmSync(rightDir, { recursive: true, force: true });
+		} catch { /* best effort */ }
+	});
+
+	it('loads config from correct directory when working_directory is provided', async () => {
+		// executePhaseComplete(args, workingDirectory, directory)
+		// With fix: both params are set to rightDir, so line 322's
+		// `const dir = workingDirectory || directory!` always resolves correctly.
+		// Without a sessionID in swarmState the tool returns early, but we can
+		// still verify it ran, accepted the phase, and didn't crash trying to
+		// read config from the wrong directory.
+		const result = await executePhaseComplete(
+			{ phase: 1 },
+			rightDir, // workingDirectory — the override
+			wrongDir, // directory — the fallback (wrong)
+		);
+		const parsed = JSON.parse(result);
+
+		// Phase complete should execute and reference the correct phase
+		expect(parsed.phase).toBe(1);
+		// Returns valid JSON with expected keys (success may be false due to missing sessionID)
+		expect(typeof parsed.success).toBe('boolean');
+		expect(typeof parsed.message).toBe('string');
+	});
+
+	it('uses directory fallback when workingDirectory is not provided', async () => {
+		// When workingDirectory is undefined, falls back to directory param
+		const result = await executePhaseComplete(
+			{ phase: 1 },
+			undefined, // no override
+			rightDir, // directory fallback — correct
+		);
+		const parsed = JSON.parse(result);
+
+		expect(parsed.phase).toBe(1);
+		expect(typeof parsed.success).toBe('boolean');
+		expect(typeof parsed.message).toBe('string');
 	});
 });

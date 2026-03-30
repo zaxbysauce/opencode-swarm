@@ -52,8 +52,10 @@ describe('resolveWorkingDirectory', () => {
 		const result = resolveWorkingDirectory(testDir, '/some/fallback');
 		expect(result.success).toBe(true);
 		if (result.success) {
-			// Should resolve to the real path
-			expect(result.directory).toBeTruthy();
+			// realpathSync resolves to the canonical path — must contain testDir's basename
+			const fs = require('node:fs');
+			const expectedPath = fs.realpathSync(testDir);
+			expect(result.directory).toBe(expectedPath);
 		}
 	});
 

@@ -1344,8 +1344,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
-		// Normalize whitespace-only strings back to empty string (will use directory param)
-		const workingDir = dirResult.directory.trim() || dirResult.directory;
+		// resolveWorkingDirectory already validated via realpathSync — use directly
+		const workingDir = dirResult.directory;
 		// Validate workingDir to prevent path traversal, injection, and abuse
 		// Length check FIRST — before any regex operations (defense against ReDoS)
 		if (workingDir.length > 4096) {

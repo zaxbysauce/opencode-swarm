@@ -38718,7 +38718,7 @@ var test_runner = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const workingDir = dirResult.directory.trim() || dirResult.directory;
+    const workingDir = dirResult.directory;
     if (workingDir.length > 4096) {
       const errorResult = {
         success: false,

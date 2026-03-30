@@ -185,7 +185,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(errorResult, null, 2);
 		}
 
-		// Use trusted workspace root from tool context (never caller-controlled)
+		// Resolve evidence path from effective directory (may be caller-provided via working_directory)
 		const evidencePath = path.join(
 			directory,
 			EVIDENCE_DIR,
