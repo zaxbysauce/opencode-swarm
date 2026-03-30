@@ -5,6 +5,7 @@ export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
 export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
+export { handleCloseCommand } from './close';
 export { handleConfigCommand } from './config';
 export { handleCurateCommand } from './curate';
 export { handleDarkMatterCommand } from './dark-matter';
@@ -29,7 +30,7 @@ export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
 export { handleTurboCommand } from './turbo';
-export { handleWriteRetroCommand } from './write_retro';
+export { handleWriteRetroCommand } from './write-retro';
 /**
  * Creates a command.execute.before handler for /swarm commands.
  * Uses factory pattern to close over directory and agents.

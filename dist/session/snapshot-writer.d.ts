@@ -49,6 +49,8 @@ export interface SerializedAgentSession {
     coderRevisions: number;
     /** Flag set when coder revisions hit the configured ceiling (v6.33) */
     revisionLimitHit: boolean;
+    /** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
+    sessionRehydratedAt?: number;
 }
 /**
  * Minimal interface for serialized InvocationWindow
@@ -92,12 +94,13 @@ export declare function serializeAgentSession(s: AgentSessionState): SerializedA
 export declare function writeSnapshot(directory: string, state: typeof swarmState): Promise<void>;
 /**
  * Create a snapshot writer hook suitable for use in tool.execute.after.
- * Returns a hook function that writes the current swarmState to disk.
+ * Writes state immediately on every call.  Concurrent calls are serialised so
+ * the last writer wins without producing a corrupt interleaved file.
  */
 export declare function createSnapshotWriterHook(directory: string): (input: unknown, output: unknown) => Promise<void>;
 /**
- * v6.33.1: Flush any pending debounced snapshot write immediately.
- * Used by phase-complete and handoff to ensure critical state transitions
+ * v6.35.4: Flush any in-flight snapshot write.
+ * Called by phase-complete and handoff to ensure critical state transitions
  * are persisted before returning.
  */
 export declare function flushPendingSnapshot(directory: string): Promise<void>;

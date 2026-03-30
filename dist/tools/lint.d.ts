@@ -24,8 +24,7 @@ export interface LintErrorResult {
     message?: string;
 }
 export type LintResult = LintSuccessResult | LintErrorResult;
-export declare function containsPathTraversal(str: string): boolean;
-export declare function containsControlChars(str: string): boolean;
+export { containsControlChars, containsPathTraversal, } from '../utils/path-security';
 export declare function validateArgs(args: unknown): args is {
     mode: 'fix' | 'check';
 };

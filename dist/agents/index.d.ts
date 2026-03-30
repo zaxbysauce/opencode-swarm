@@ -9,6 +9,24 @@ export type { AgentDefinition } from './architect';
  */
 export declare function stripSwarmPrefix(agentName: string, swarmPrefix?: string): string;
 /**
+ * Resolve the fallback model for an agent based on its config and fallback index.
+ * Called by guardrails at runtime when a transient model error is detected.
+ */
+export declare function resolveFallbackModel(agentBaseName: string, fallbackIndex: number, swarmAgents?: Record<string, {
+    model?: string;
+    temperature?: number;
+    disabled?: boolean;
+    fallback_models?: string[];
+}>): string | null;
+/**
+ * Get the swarm agents config (for runtime fallback resolution by guardrails).
+ */
+export declare function getSwarmAgents(): Record<string, {
+    model?: string;
+    fallback_models?: string[];
+    disabled?: boolean;
+}> | undefined;
+/**
  * Create all agent definitions with configuration applied
  */
 export declare function createAgents(config?: PluginConfig): AgentDefinition[];

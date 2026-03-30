@@ -24,7 +24,7 @@ export interface KnowledgeEntryBase {
     tags: string[];
     scope: string;
     confidence: number;
-    status: 'candidate' | 'established' | 'promoted';
+    status: 'candidate' | 'established' | 'promoted' | 'archived';
     confirmed_by: PhaseConfirmationRecord[] | ProjectConfirmationRecord[];
     retrieval_outcomes: RetrievalOutcome;
     schema_version: number;

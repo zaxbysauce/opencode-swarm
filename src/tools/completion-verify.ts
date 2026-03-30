@@ -314,6 +314,12 @@ export async function executeCompletionVerify(
 		// If no file targets, skip this task — it may be a research/inventory task
 		// that produces knowledge artifacts rather than source files.
 		// We cannot verify it, but absence of file targets is not evidence of incompleteness.
+		//
+		// NOTE: `files_touched` defaults to `[]` in the plan schema, so an explicitly-empty
+		// `files_touched: []` is indistinguishable from the default. This is intentional:
+		// completion_verify is a best-effort signal, not a security gate.
+		// The authoritative guard is the update_task_status reviewer gate, which enforces
+		// reviewer + test_engineer delegation before any task can reach `completed`.
 		if (fileTargets.length === 0) {
 			tasksSkipped++;
 			continue;

@@ -139,6 +139,8 @@ export interface AgentSessionState {
     contextPressureWarningSent?: boolean;
     /** Queue of advisory messages (e.g., SLOP, context pressure) pending injection into next messagesTransform */
     pendingAdvisoryMessages?: string[];
+    /** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
+    sessionRehydratedAt: number;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
@@ -319,7 +321,7 @@ export declare function buildRehydrationCache(directory: string): Promise<void>;
 /**
  * Synchronously applies the cached plan+evidence data to a session.
  * Merge rules:
- *   - evidence-derived state: always applied (replaces snapshot state, even if lower)
+ *   - evidence-derived state: only applied if it advances past existing state
  *   - plan-only derived state: only applied if it advances past existing state
  * No-op when the cache has not been built yet.
  */

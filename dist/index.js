@@ -47056,7 +47056,7 @@ async function executeWriteRetro(args2, directory) {
 var write_retro = createSwarmTool({
   description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
   args: {
-    phase: tool.schema.number().int().positive().max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+    phase: tool.schema.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
     summary: tool.schema.string().describe("Human-readable summary of the phase"),
     task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
     task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
@@ -61485,7 +61485,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
 var phase_complete = createSwarmTool({
   description: "Mark a phase as complete and track which agents were dispatched. Used for phase completion gating and tracking. Accepts phase number and optional summary. Returns list of agents that were dispatched.",
   args: {
-    phase: tool.schema.number().describe("The phase number being completed (e.g., 1, 2, 3)"),
+    phase: tool.schema.number().int().min(1).describe("The phase number being completed \u2014 a positive integer (e.g., 1, 2, 3)"),
     summary: tool.schema.string().optional().describe("Optional summary of what was accomplished in this phase"),
     sessionID: tool.schema.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)")
   },
@@ -67634,7 +67634,7 @@ async function executeWriteDriftEvidence(args2, directory) {
 var write_drift_evidence = createSwarmTool({
   description: "Write drift verification evidence for a completed phase. " + "Normalizes verdict (APPROVED->approved, NEEDS_REVISION->rejected) and writes " + "a gate-contract formatted EvidenceBundle to .swarm/evidence/{phase}/drift-verifier.json. " + "Use this after critic_drift_verifier delegation to persist the verification result.",
   args: {
-    phase: tool.schema.number().int().positive().describe("The phase number for the drift verification"),
+    phase: tool.schema.number().int().min(1).describe("The phase number for the drift verification (e.g., 1, 2, 3)"),
     verdict: tool.schema.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION'"),
     summary: tool.schema.string().describe("Human-readable summary of the drift verification")
   },

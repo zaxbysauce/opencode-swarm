@@ -7,10 +7,15 @@ import type { KnowledgeConfig } from './knowledge-types.js';
 export declare function isWriteToEvidenceFile(input: unknown): boolean;
 /**
  * Curate and store swarm knowledge entries from lessons.
+ * @returns Promise resolving to an object with counts of stored, skipped, and rejected lessons.
  */
 export declare function curateAndStoreSwarm(lessons: string[], projectName: string, phaseInfo: {
     phase_number: number;
-}, directory: string, config: KnowledgeConfig): Promise<void>;
+}, directory: string, config: KnowledgeConfig): Promise<{
+    stored: number;
+    skipped: number;
+    rejected: number;
+}>;
 /**
  * Auto-promote swarm entries based on phase confirmations and age.
  */

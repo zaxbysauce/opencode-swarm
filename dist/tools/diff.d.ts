@@ -1,3 +1,4 @@
+import { type ASTDiffResult } from '../diff/ast-diff.js';
 import { createSwarmTool } from './create-tool';
 export interface DiffResult {
     files: Array<{
@@ -8,6 +9,7 @@ export interface DiffResult {
     contractChanges: string[];
     hasContractChanges: boolean;
     summary: string;
+    astDiffs?: ASTDiffResult[];
 }
 export interface DiffErrorResult {
     error: string;
