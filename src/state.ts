@@ -945,7 +945,7 @@ export async function buildRehydrationCache(directory: string): Promise<void> {
 /**
  * Synchronously applies the cached plan+evidence data to a session.
  * Merge rules:
- *   - evidence-derived state: always applied (replaces snapshot state, even if lower)
+ *   - evidence-derived state: only applied if it advances past existing state
  *   - plan-only derived state: only applied if it advances past existing state
  * No-op when the cache has not been built yet.
  */
@@ -974,11 +974,18 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 		const evidence = evidenceMap.get(taskId);
 
 		if (evidence) {
-			// Evidence provides the strongest signal and always wins.
-			// Apply unconditionally — evidence reflects actual gate completion on disk
-			// and must override any stale value recorded in the snapshot.
+			// Evidence provides the strongest signal for completed gates.
+			// But evidence files lag behind in-memory state (evidence recording
+			// is async and only captures completed gates). Only upgrade state,
+			// never downgrade — same guard as the plan-only branch below.
 			const derivedState = evidenceToWorkflowState(evidence);
-			session.taskWorkflowStates.set(taskId, derivedState);
+			const existingIndex = existingState
+				? STATE_ORDER.indexOf(existingState)
+				: -1;
+			const derivedIndex = STATE_ORDER.indexOf(derivedState);
+			if (derivedIndex > existingIndex) {
+				session.taskWorkflowStates.set(taskId, derivedState);
+			}
 		} else {
 			// Plan-only: only advance past existing state, never downgrade.
 			// A snapshot state that is ahead of the plan is valid (e.g. gates passed
