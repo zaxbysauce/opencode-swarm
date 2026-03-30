@@ -1936,10 +1936,15 @@ const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 export function checkFileAuthority(
 	agentName: string,
 	filePath: string,
-	_cwd: string,
+	cwd: string,
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
-	const normalizedPath = filePath.replace(/\\/g, '/');
+	// Resolve absolute-or-relative to absolute, then convert to relative for prefix matching.
+	// This ensures absolute paths like "C:/Users/.../src/file.ts" or "/home/.../src/file.ts"
+	// are correctly matched against relative prefixes like "src/". (Fix for #259)
+	const dir = cwd || process.cwd();
+	const resolved = path.resolve(dir, filePath);
+	const normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 
 	const rules = AGENT_AUTHORITY_RULES[normalizedAgent];
 	if (!rules) {
