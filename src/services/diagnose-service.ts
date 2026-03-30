@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
@@ -466,14 +467,12 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 		'tree-sitter-dart.wasm',
 	];
 
-	// Determine dev vs production path
-	// Check for src/services in the path (more specific than just 'src')
-	const isDev =
-		import.meta.dir.includes('src/services') ||
-		import.meta.dir.includes('src\\services');
-	const grammarDir = isDev
-		? path.join(import.meta.dir, '../../dist/lang/grammars/')
-		: path.join(import.meta.dir, '../lang/grammars/');
+	// Determine dev vs production path using import.meta.url (cross-platform)
+	const thisDir = path.dirname(fileURLToPath(import.meta.url));
+	const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/services');
+	const grammarDir = isSource
+		? path.join(thisDir, '..', 'lang', 'grammars')
+		: path.join(thisDir, 'lang', 'grammars');
 
 	const missing: string[] = [];
 	for (const file of grammarFiles) {

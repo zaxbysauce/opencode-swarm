@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Parser as ParserType } from 'web-tree-sitter';
 // Note: Language must be imported as both type and value for runtime loading
@@ -32,7 +33,23 @@ async function initTreeSitter(): Promise<void> {
 		return;
 	}
 
-	await TreeSitterParser.init();
+	const thisDir = path.dirname(fileURLToPath(import.meta.url));
+	const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/lang');
+
+	if (isSource) {
+		// In dev, web-tree-sitter's own import.meta.url resolves tree-sitter.wasm
+		// correctly from node_modules/web-tree-sitter/
+		await TreeSitterParser.init();
+	} else {
+		// In bundle, import.meta.url points to dist/index.js so web-tree-sitter
+		// looks for dist/tree-sitter.wasm — redirect to dist/lang/grammars/
+		const grammarsDir = getGrammarsDirAbsolute();
+		await TreeSitterParser.init({
+			locateFile(scriptName: string) {
+				return path.join(grammarsDir, scriptName);
+			},
+		});
+	}
 	treeSitterInitialized = true;
 }
 
@@ -83,22 +100,18 @@ function getWasmFileName(languageId: string): string {
 }
 
 /**
- * Get the path to the grammars directory
- * Works in both development and production (bundled) environments
+ * Get the absolute path to the grammars directory.
+ * Works in dev (src/lang/runtime.ts) and bundled (dist/index.js) environments,
+ * across Windows, macOS, and Linux.
  */
-function getGrammarsPath(): string {
-	// In production (bundled), files are in dist/lang/grammars/
-	// The runtime.ts is in dist/lang/, so we use ./grammars/
-	// In development, import.meta.url points to the source file
-	const isProduction =
-		process.env.NODE_ENV === 'production' || !import.meta.url.includes('src/');
-
-	if (isProduction) {
-		return './lang/grammars/';
-	}
-
-	// Development: relative to src/lang/runtime.ts
-	return '../../dist/lang/grammars/';
+function getGrammarsDirAbsolute(): string {
+	const thisDir = path.dirname(fileURLToPath(import.meta.url));
+	// In dev: thisDir = .../src/lang/ → grammars at src/lang/grammars/
+	// In bundle: thisDir = .../dist/ → grammars at dist/lang/grammars/
+	const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/lang');
+	return isSource
+		? path.join(thisDir, 'grammars')
+		: path.join(thisDir, 'lang', 'grammars');
 }
 
 /**
@@ -133,10 +146,7 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 
 	// Get WASM file name and construct path
 	const wasmFileName = getWasmFileName(normalizedId);
-	const grammarsPath = getGrammarsPath();
-	const wasmPath = fileURLToPath(
-		new URL(`${grammarsPath}${wasmFileName}`, import.meta.url),
-	);
+	const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
 
 	// Check if file exists before attempting to load
 	const { existsSync } = await import('node:fs');
@@ -193,10 +203,7 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 	// Try to check if WASM file exists
 	try {
 		const wasmFileName = getWasmFileName(normalizedId);
-		const grammarsPath = getGrammarsPath();
-		const wasmPath = fileURLToPath(
-			new URL(`${grammarsPath}${wasmFileName}`, import.meta.url),
-		);
+		const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
 
 		const { statSync } = await import('node:fs');
 		statSync(wasmPath);
