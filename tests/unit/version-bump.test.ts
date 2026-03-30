@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'bun:test'
 import pkg from '../../package.json'
 
 describe('Version Bump Verification', () => {
