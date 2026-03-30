@@ -17,7 +17,7 @@ import type { LintResult, LintSuccessResult, SupportedLinter } from './lint';
 import { detectAvailableLinter, runLint } from './lint';
 import type { QualityBudgetResult } from './quality-budget';
 import { qualityBudget } from './quality-budget';
-import type { SastScanResult } from './sast-scan';
+import type { SastScanFinding, SastScanResult } from './sast-scan';
 import { sastScan } from './sast-scan';
 import type {
 	SecretFinding,
@@ -68,6 +68,8 @@ export interface PreCheckBatchResult {
 	quality_budget: ToolResult<QualityBudgetResult>;
 	/** Total duration in milliseconds */
 	total_duration_ms: number;
+	/** Pre-existing SAST findings on unchanged lines, requiring reviewer triage */
+	sast_preexisting_findings?: SastScanFinding[];
 }
 
 // ============ Security Validation ============
@@ -678,6 +680,160 @@ async function runQualityBudgetWrapped(
 	}
 }
 
+// ============ Changed-Line Detection ============
+
+/** Severity levels that trigger the gate */
+const GATE_SEVERITIES = new Set(['high', 'critical']);
+
+/**
+ * Run a git diff command and return stdout, or null on failure.
+ */
+async function runGitDiff(
+	args: string[],
+	directory: string,
+): Promise<string | null> {
+	try {
+		const proc = Bun.spawn(['git', 'diff', ...args], {
+			cwd: directory,
+			stdout: 'pipe',
+			stderr: 'pipe',
+		});
+
+		const [exitCode, stdout] = await Promise.all([
+			proc.exited,
+			new Response(proc.stdout).text(),
+		]);
+
+		if (exitCode !== 0) return null;
+		const trimmed = stdout.trim();
+		return trimmed.length > 0 ? trimmed : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Parse unified diff output (with -U0) to extract added/modified line numbers per file.
+ * Returns a Map from normalised file path → Set of changed line numbers.
+ */
+export function parseDiffLineRanges(
+	diffOutput: string,
+): Map<string, Set<number>> {
+	const result = new Map<string, Set<number>>();
+	let currentFile: string | null = null;
+
+	for (const line of diffOutput.split('\n')) {
+		// +++ b/src/foo.ts
+		if (line.startsWith('+++ b/')) {
+			currentFile = line.slice(6).trim();
+			if (!result.has(currentFile)) {
+				result.set(currentFile, new Set());
+			}
+			continue;
+		}
+		// @@ -old,count +new,count @@ — anchor regex to hunk header structure
+		if (line.startsWith('@@') && currentFile) {
+			const match = line.match(/^@@ [^+]*\+(\d+)(?:,(\d+))? @@/);
+			if (match) {
+				const start = parseInt(match[1], 10);
+				const count = match[2] !== undefined ? parseInt(match[2], 10) : 1;
+				const lines = result.get(currentFile)!;
+				for (let i = start; i < start + count; i++) {
+					lines.add(i);
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Get changed line ranges for the current branch vs its base.
+ * Tries three strategies in order:
+ * 1. merge-base diff against main/master (captures all branch changes, works after commit)
+ * 2. HEAD~1 (single-commit diff, works after commit)
+ * 3. HEAD (unstaged/staged changes, works before commit)
+ * Returns null if git is unavailable or no changes found.
+ */
+export async function getChangedLineRanges(
+	directory: string,
+): Promise<Map<string, Set<number>> | null> {
+	try {
+		// Strategy 1: diff against merge-base with main branch
+		// This captures all changes in the feature branch, even after multiple commits
+		for (const baseBranch of ['origin/main', 'origin/master', 'main', 'master']) {
+			const mergeBaseProc = Bun.spawn(
+				['git', 'merge-base', baseBranch, 'HEAD'],
+				{ cwd: directory, stdout: 'pipe', stderr: 'pipe' },
+			);
+			const [mbExit, mbOut] = await Promise.all([
+				mergeBaseProc.exited,
+				new Response(mergeBaseProc.stdout).text(),
+			]);
+			if (mbExit === 0 && mbOut.trim()) {
+				const mergeBase = mbOut.trim();
+				const diffOut = await runGitDiff(['-U0', `${mergeBase}..HEAD`], directory);
+				if (diffOut) {
+					return parseDiffLineRanges(diffOut);
+				}
+			}
+		}
+
+		// Strategy 2: diff HEAD~1 (last commit)
+		const diffHead1 = await runGitDiff(['-U0', 'HEAD~1'], directory);
+		if (diffHead1) {
+			return parseDiffLineRanges(diffHead1);
+		}
+
+		// Strategy 3: unstaged/staged changes vs HEAD
+		const diffHead = await runGitDiff(['-U0', 'HEAD'], directory);
+		if (diffHead) {
+			return parseDiffLineRanges(diffHead);
+		}
+
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Classify SAST findings as "new" (on changed lines) or "pre-existing" (unchanged lines).
+ * A finding is "new" if its file+line intersects the changed line ranges from git diff.
+ * If line ranges cannot be determined (git unavailable), all findings are treated as new (fail-closed).
+ */
+export function classifySastFindings(
+	findings: SastScanFinding[],
+	changedLineRanges: Map<string, Set<number>> | null,
+	directory: string,
+): { newFindings: SastScanFinding[]; preexistingFindings: SastScanFinding[] } {
+	// Fail-closed: if we can't determine changed lines, treat all as new
+	if (!changedLineRanges || changedLineRanges.size === 0) {
+		return { newFindings: findings, preexistingFindings: [] };
+	}
+
+	const newFindings: SastScanFinding[] = [];
+	const preexistingFindings: SastScanFinding[] = [];
+
+	for (const finding of findings) {
+		const filePath = finding.location.file;
+		// Normalise to forward-slash relative path for comparison
+		const normalised = path
+			.relative(directory, filePath)
+			.replace(/\\/g, '/');
+
+		const changedLines = changedLineRanges.get(normalised);
+		if (changedLines && changedLines.has(finding.location.line)) {
+			newFindings.push(finding);
+		} else {
+			preexistingFindings.push(finding);
+		}
+	}
+
+	return { newFindings, preexistingFindings };
+}
+
 // ============ Main Function ============
 
 /**
@@ -851,11 +1007,43 @@ export async function runPreCheckBatch(
 		}
 	}
 
-	// Check SAST scan (hard gate)
+	// Check SAST scan (hard gate with pre-existing finding classification)
+	let sastPreexistingFindings: SastScanFinding[] | undefined;
 	if (sastScanResult.ran && sastScanResult.result) {
 		if (sastScanResult.result.verdict === 'fail') {
-			gatesPassed = false;
-			warn('pre_check_batch: SAST scan found vulnerabilities - GATE FAILED');
+			// Classify HIGH/CRITICAL findings as new vs pre-existing
+			const gateFindings = sastScanResult.result.findings.filter((f) =>
+				GATE_SEVERITIES.has(f.severity),
+			);
+
+			if (gateFindings.length > 0) {
+				const changedLineRanges = await getChangedLineRanges(directory);
+				const { newFindings, preexistingFindings } = classifySastFindings(
+					gateFindings,
+					changedLineRanges,
+					directory,
+				);
+
+				if (newFindings.length > 0) {
+					// New findings on changed lines → hard block
+					gatesPassed = false;
+					warn(
+						`pre_check_batch: SAST scan found ${newFindings.length} new HIGH/CRITICAL finding(s) on changed lines - GATE FAILED`,
+					);
+				} else if (preexistingFindings.length > 0) {
+					// All HIGH/CRITICAL findings are pre-existing on unchanged lines
+					// Do NOT block coder — carry findings forward for reviewer triage
+					sastPreexistingFindings = preexistingFindings;
+					warn(
+						`pre_check_batch: SAST scan found ${preexistingFindings.length} pre-existing HIGH/CRITICAL finding(s) on unchanged lines - passing to reviewer for triage`,
+					);
+				}
+			} else {
+				// SAST failed but no HIGH/CRITICAL findings (lower severity only)
+				// Original behavior: fail the gate
+				gatesPassed = false;
+				warn('pre_check_batch: SAST scan found vulnerabilities - GATE FAILED');
+			}
 		}
 	} else if (sastScanResult.error) {
 		// Error in SAST - fail closed
@@ -884,6 +1072,10 @@ export async function runPreCheckBatch(
 		sast_scan: sastScanResult,
 		quality_budget: qualityBudgetResult,
 		total_duration_ms: Math.round(totalDuration),
+		...(sastPreexistingFindings &&
+			sastPreexistingFindings.length > 0 && {
+				sast_preexisting_findings: sastPreexistingFindings,
+			}),
 	};
 
 	// Log warning if output is large
