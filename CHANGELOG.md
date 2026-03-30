@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.41.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.40.8...v6.41.0) (2026-03-30)
+
+
+### Features
+
+* **swarm:** v6.41.0 dark matter pipeline, /swarm close, writeDriftEvidence tool ([#343](https://github.com/zaxbysauce/opencode-swarm/issues/343)) ([b324ce1](https://github.com/zaxbysauce/opencode-swarm/commit/b324ce176b172eb5920d1008b1ebfa2f8b8da0d3))
+
+
+### Bug Fixes
+
+* **swarm:** address 16 QA findings in v6.41.0 ([#345](https://github.com/zaxbysauce/opencode-swarm/issues/345)) ([628624f](https://github.com/zaxbysauce/opencode-swarm/commit/628624f57b5caad7db1551faaebe62dae4307da2))
+
 ## [Unreleased]
 
 ### Features
