@@ -280,12 +280,8 @@ var init_constants = __esm(() => {
       "symbols",
       "knowledgeRecall"
     ],
-    curator_init: [
-      "knowledgeRecall"
-    ],
-    curator_phase: [
-      "knowledgeRecall"
-    ]
+    curator_init: ["knowledgeRecall"],
+    curator_phase: ["knowledgeRecall"]
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
     const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -52425,6 +52421,9 @@ function resolveCuratorAgentName(mode, sessionId) {
       const match = matchForAgent(callingAgent);
       if (match)
         return match;
+      const defaultCurator = prefixMap.get("");
+      if (defaultCurator)
+        return defaultCurator;
     }
   }
   for (const activeAgentName of swarmState.activeAgent.values()) {
@@ -52438,7 +52437,7 @@ function createCuratorLLMDelegate(directory, mode = "init", sessionId) {
   const client = swarmState.opencodeClient;
   if (!client)
     return;
-  return async (systemPrompt, userInput) => {
+  return async (_systemPrompt, userInput) => {
     let ephemeralSessionId;
     try {
       const createResult = await client.session.create({
@@ -52453,7 +52452,6 @@ function createCuratorLLMDelegate(directory, mode = "init", sessionId) {
         path: { id: ephemeralSessionId },
         body: {
           agent: agentName,
-          system: systemPrompt,
           tools: { write: false, edit: false, patch: false },
           parts: [{ type: "text", text: userInput }]
         }
@@ -54495,10 +54493,11 @@ init_schema();
 init_manager2();
 import * as path37 from "path";
 init_utils2();
-function createPhaseMonitorHook(directory, preflightManager, curatorRunner, llmDelegate) {
+function createPhaseMonitorHook(directory, preflightManager, curatorRunner, delegateFactory) {
   let lastKnownPhase = null;
-  const handler = async (_input, _output) => {
+  const handler = async (input, _output) => {
     const runner = curatorRunner ?? runCuratorInit;
+    const sessionId = typeof input === "object" && input !== null ? input.sessionID : undefined;
     const plan = await loadPlan(directory);
     if (!plan)
       return;
@@ -54510,6 +54509,7 @@ function createPhaseMonitorHook(directory, preflightManager, curatorRunner, llmD
         const { config: config3 } = loadPluginConfigWithMeta2(directory);
         const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
         if (curatorConfig.enabled && curatorConfig.init_enabled) {
+          const llmDelegate = delegateFactory?.(sessionId);
           const initResult = await runner(directory, curatorConfig, llmDelegate);
           if (initResult.briefing) {
             const briefingPath = path37.join(directory, ".swarm", "curator-briefing.md");
@@ -68689,7 +68689,7 @@ var OpenCodeSwarm = async (ctx) => {
         } catch {}
         return Promise.resolve();
       },
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, createCuratorLLMDelegate(ctx.directory, "init")) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, createCuratorLLMDelegate(ctx.directory, "init")) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : undefined
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),

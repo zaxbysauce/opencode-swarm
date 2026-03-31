@@ -773,14 +773,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 							ctx.directory,
 							preflightTriggerManager,
 							undefined,
-							createCuratorLLMDelegate(ctx.directory, 'init'),
+							(sessionId) =>
+								createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 						)
 					: knowledgeConfig.enabled
 						? createPhaseMonitorHook(
 								ctx.directory,
 								undefined,
 								undefined,
-								createCuratorLLMDelegate(ctx.directory, 'init'),
+								(sessionId) =>
+									createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 							)
 						: undefined,
 			].filter(Boolean) as Array<

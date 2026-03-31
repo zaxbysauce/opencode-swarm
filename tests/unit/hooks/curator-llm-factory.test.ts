@@ -252,6 +252,38 @@ describe('createCuratorLLMDelegate', () => {
         });
     });
 
+    // ─── Finding 1 fix: default-swarm sessionId hole ─────────────────────────
+
+    test('default-swarm session uses curator_init even when named swarms also registered', async () => {
+        // Finding 1 fix: direct lookup must return default-swarm curator (empty prefix)
+        // for a session whose agent has no named-swarm prefix, rather than falling through
+        // to heuristic scan which could pick a named-swarm curator.
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'curator_init',         // default swarm (empty prefix)
+            'local_curator_init',   // named swarm
+            'prod_curator_init',    // named swarm
+        ];
+        // Default-swarm architect and named-swarm architect both active
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-default', 'architect'],      // default swarm — no prefix
+            ['sess-local', 'local_architect'],  // named swarm
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-x' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        // Default-swarm session calls — must get curator_init, NOT local_curator_init
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init', 'sess-default')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-x' },
+            body: expect.objectContaining({ agent: 'curator_init' }),
+        });
+    });
+
     // ─── Prefix collision (longest-match) ────────────────────────────────────
 
     test('prefix collision: alpha_extended_ beats alpha_ for alpha_extended_architect', async () => {
@@ -304,7 +336,8 @@ describe('createCuratorLLMDelegate', () => {
 
     // ─── Session lifecycle ────────────────────────────────────────────────────
 
-    test('system prompt is passed as system: override', async () => {
+    test('system prompt parameter is NOT forwarded — registered agent uses its own baked-in prompt', async () => {
+        // Finding 3 fix: removing system: override allows registered custom prompts to take effect.
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
         (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
         mockCreate.mockResolvedValue({ data: { id: 'sess-sys' } });
@@ -319,7 +352,7 @@ describe('createCuratorLLMDelegate', () => {
             path: { id: 'sess-sys' },
             body: {
                 agent: 'curator_init',
-                system: 'MY_SYSTEM_PROMPT',
+                // No system: field — registered agent baked-in prompt is used instead
                 tools: { write: false, edit: false, patch: false },
                 parts: [{ type: 'text', text: 'user input' }],
             },

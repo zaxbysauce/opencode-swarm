@@ -24,6 +24,11 @@ export type CuratorInitRunner = (
 	llmDelegate?: CuratorLLMDelegate,
 ) => Promise<CuratorInitResult>;
 
+/** Factory that creates a CuratorLLMDelegate for a given session — enables session-aware resolution. */
+export type CuratorDelegateFactory = (
+	sessionId?: string,
+) => CuratorLLMDelegate | undefined;
+
 /**
  * Creates a hook that monitors plan phase transitions and triggers preflight.
  *
@@ -32,18 +37,27 @@ export type CuratorInitRunner = (
  *   When undefined, preflight checks are skipped but curator initialization still runs
  *   at session start (useful when knowledge.enabled but phase_preflight is disabled).
  * @param curatorRunner - Optional curator init runner (defaults to runCuratorInit; injectable for tests)
+ * @param delegateFactory - Optional factory that creates a CuratorLLMDelegate for the calling session.
+ *   Called lazily at hook invocation time with the session ID extracted from the hook input,
+ *   enabling correct multi-swarm curator resolution. For test injection of a pre-built delegate,
+ *   pass `() => myDelegate`.
  * @returns A safeHook-wrapped system.transform handler
  */
 export function createPhaseMonitorHook(
 	directory: string,
 	preflightManager?: PreflightTriggerManager,
 	curatorRunner?: CuratorInitRunner,
-	llmDelegate?: CuratorLLMDelegate,
+	delegateFactory?: CuratorDelegateFactory,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
 
-	const handler = async (_input: unknown, _output: unknown): Promise<void> => {
+	const handler = async (input: unknown, _output: unknown): Promise<void> => {
 		const runner = curatorRunner ?? defaultRunCuratorInit;
+		// Extract sessionID from hook input for session-aware curator resolution
+		const sessionId =
+			typeof input === 'object' && input !== null
+				? (input as { sessionID?: string }).sessionID
+				: undefined;
 		const plan = await loadPlan(directory);
 		if (!plan) return;
 
@@ -57,6 +71,7 @@ export function createPhaseMonitorHook(
 				const { config } = loadPluginConfigWithMeta(directory);
 				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
+					const llmDelegate = delegateFactory?.(sessionId);
 					const initResult = await runner(
 						directory,
 						curatorConfig,

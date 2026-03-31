@@ -176,12 +176,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledgeRecall',
 	],
 	// Curator agents are read-only analysis roles — knowledge recall only
-	curator_init: [
-		'knowledgeRecall',
-	],
-	curator_phase: [
-		'knowledgeRecall',
-	],
+	curator_init: ['knowledgeRecall'],
+	curator_phase: ['knowledgeRecall'],
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

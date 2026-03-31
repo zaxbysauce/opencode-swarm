@@ -71,6 +71,11 @@ function resolveCuratorAgentName(
 		if (callingAgent) {
 			const match = matchForAgent(callingAgent);
 			if (match) return match;
+			// No named-swarm prefix matched → calling agent is on the default swarm.
+			// Return the default-swarm curator (empty prefix) explicitly rather than
+			// falling through to heuristic scan, which could pick a named-swarm curator.
+			const defaultCurator = prefixMap.get('');
+			if (defaultCurator) return defaultCurator;
 		}
 	}
 
@@ -110,7 +115,7 @@ export function createCuratorLLMDelegate(
 	const client = swarmState.opencodeClient;
 	if (!client) return undefined;
 
-	return async (systemPrompt: string, userInput: string): Promise<string> => {
+	return async (_systemPrompt: string, userInput: string): Promise<string> => {
 		let ephemeralSessionId: string | undefined;
 		try {
 			// 1. Create ephemeral session scoped to project directory
@@ -129,13 +134,14 @@ export function createCuratorLLMDelegate(
 			const agentName = resolveCuratorAgentName(mode, sessionId);
 
 			// 3. Prompt using the registered curator agent.
-			// The system: field overrides the agent's baked-in prompt with the
-			// mode-specific context assembled by runCuratorInit / runCuratorPhase.
+			// The agent's own baked-in system prompt is used (no system: override),
+			// so any user-configured custom prompts registered for curator_init /
+			// curator_phase are honored. The _systemPrompt parameter is intentionally
+			// unused here — the caller's systemPrompt stays within the curator pipeline.
 			const promptResult = await client.session.prompt({
 				path: { id: ephemeralSessionId },
 				body: {
 					agent: agentName,
-					system: systemPrompt,
 					tools: { write: false, edit: false, patch: false },
 					parts: [{ type: 'text', text: userInput }],
 				},

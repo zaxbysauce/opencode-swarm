@@ -14,7 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../../../src/background/trigger';
 import type { CuratorConfig, CuratorInitResult } from '../../../src/hooks/curator-types';
-import type { CuratorLLMDelegate } from '../../../src/hooks/curator';
+import type { CuratorDelegateFactory } from '../../../src/hooks/phase-monitor';
 import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
 
 // Injected curator runner mock — does NOT use mock.module to avoid leakage
@@ -123,11 +123,12 @@ init_enabled: true,
 }), undefined);
 });
 
-it('2b. llmDelegate is threaded through createPhaseMonitorHook to curatorRunner', async () => {
+it('2b. delegateFactory is invoked with sessionID and result threaded to curatorRunner', async () => {
 writeConfigFile(tempDir, { curator: { enabled: true } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
-const mockDelegate = jest.fn<CuratorLLMDelegate>();
+const mockDelegate = jest.fn();
+const mockFactory = jest.fn<CuratorDelegateFactory>().mockReturnValue(mockDelegate as any);
 
 mockRunCuratorInit.mockResolvedValue({
 briefing: 'Test briefing',
@@ -136,11 +137,14 @@ knowledge_entries_reviewed: 0,
 prior_phases_covered: 0,
 });
 
-// Pass real delegate as 4th arg
-const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit, mockDelegate);
-await hook({}, {});
+// Pass factory as 4th arg; input carries sessionID
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit, mockFactory);
+await hook({ sessionID: 'sess-abc' }, {});
 
-// Verify delegate was forwarded to curatorRunner as 3rd positional arg
+// Factory was called with the sessionID from input
+expect(mockFactory).toHaveBeenCalledWith('sess-abc');
+
+// Delegate returned by factory was forwarded to curatorRunner as 3rd positional arg
 expect(mockRunCuratorInit).toHaveBeenCalledWith(
 tempDir,
 expect.objectContaining({ enabled: true }),

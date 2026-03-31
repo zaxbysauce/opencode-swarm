@@ -17791,12 +17791,8 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "knowledgeRecall"
   ],
-  curator_init: [
-    "knowledgeRecall"
-  ],
-  curator_phase: [
-    "knowledgeRecall"
-  ]
+  curator_init: ["knowledgeRecall"],
+  curator_phase: ["knowledgeRecall"]
 };
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));

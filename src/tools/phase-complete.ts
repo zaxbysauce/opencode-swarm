@@ -712,7 +712,11 @@ export async function executePhaseComplete(
 	try {
 		const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 		if (curatorConfig.enabled && curatorConfig.phase_enabled) {
-			const llmDelegate = createCuratorLLMDelegate(dir, 'phase', sessionID ?? undefined);
+			const llmDelegate = createCuratorLLMDelegate(
+				dir,
+				'phase',
+				sessionID ?? undefined,
+			);
 			const curatorResult = await runCuratorPhase(
 				dir,
 				phase,
