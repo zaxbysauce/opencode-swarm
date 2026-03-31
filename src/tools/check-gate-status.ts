@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isSecretscanEvidence, loadEvidence } from '../evidence/manager.js';
 import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
 
 // ============ Constants ============
 const EVIDENCE_DIR = '.swarm/evidence';
@@ -112,19 +113,47 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 				'Task ID must be in N.M or N.M.P format (e.g., "1.1", "1.2.3", "1.2.3.4")',
 			)
 			.describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")'),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe(
+				'Explicit project root directory. When provided, .swarm/evidence/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.',
+			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
-		// Safe args extraction - only task_id accepted, no caller-controlled paths
+		// Safe args extraction
 		let taskIdInput: string | undefined;
+		let workingDirInput: string | undefined;
 
 		try {
 			if (args && typeof args === 'object') {
 				const obj = args as Record<string, unknown>;
 				taskIdInput = typeof obj.task_id === 'string' ? obj.task_id : undefined;
+				workingDirInput =
+					typeof obj.working_directory === 'string'
+						? obj.working_directory
+						: undefined;
 			}
 		} catch {
 			// Malicious getter threw
 		}
+
+		// Resolve effective directory: explicit working_directory > injected directory
+		const dirResult = resolveWorkingDirectory(workingDirInput, directory);
+		if (!dirResult.success) {
+			const errorResult: GateStatusResult = {
+				taskId: taskIdInput ?? '',
+				status: 'no_evidence',
+				required_gates: [],
+				passed_gates: [],
+				missing_gates: [],
+				gates: {},
+				message: dirResult.message,
+				todo_scan: null,
+			};
+			return JSON.stringify(errorResult, null, 2);
+		}
+		directory = dirResult.directory;
 
 		// Validate task_id
 		if (!taskIdInput) {
@@ -156,7 +185,7 @@ export const check_gate_status: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(errorResult, null, 2);
 		}
 
-		// Use trusted workspace root from tool context (never caller-controlled)
+		// Resolve evidence path from effective directory (may be caller-provided via working_directory)
 		const evidencePath = path.join(
 			directory,
 			EVIDENCE_DIR,

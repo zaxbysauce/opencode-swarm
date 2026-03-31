@@ -110,9 +110,9 @@ describe('check_gate_status', () => {
 		);
 		const parsed = JSON.parse(result);
 
-		// Tool safely returns no_evidence - no sensitive data leaked
+		// Tool safely rejects traversal in working_directory — no data leaked
 		expect(parsed.status).toBe('no_evidence');
-		expect(parsed.message).toContain('No evidence file found');
+		expect(parsed.message).toContain('path traversal');
 	});
 
 	it('returns no_evidence for absolute path attempt (no data leaked)', async () => {

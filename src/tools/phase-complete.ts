@@ -33,6 +33,7 @@ import {
 import { telemetry } from '../telemetry';
 import { executeCompletionVerify } from './completion-verify';
 import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
 
 /**
  * Arguments for the phase_complete tool
@@ -1052,10 +1053,17 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 			.describe(
 				'Session ID for tracking state (auto-provided by plugin context)',
 			),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe(
+				'Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.',
+			),
 	},
 	execute: async (args, directory, ctx) => {
 		// Parse and validate arguments
 		let phaseCompleteArgs: PhaseCompleteArgs;
+		let workingDirInput: string | undefined;
 
 		try {
 			phaseCompleteArgs = {
@@ -1065,6 +1073,10 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 					ctx?.sessionID ??
 					(args.sessionID !== undefined ? String(args.sessionID) : undefined),
 			};
+			workingDirInput =
+				args.working_directory !== undefined
+					? String(args.working_directory)
+					: undefined;
 		} catch {
 			return JSON.stringify(
 				{
@@ -1079,6 +1091,26 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 			);
 		}
 
-		return executePhaseComplete(phaseCompleteArgs, undefined, directory);
+		// Resolve effective directory: explicit working_directory > injected directory
+		const dirResult = resolveWorkingDirectory(workingDirInput, directory);
+		if (!dirResult.success) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: phaseCompleteArgs.phase,
+					message: dirResult.message,
+					agentsDispatched: [],
+					warnings: [dirResult.message],
+				},
+				null,
+				2,
+			);
+		}
+
+		return executePhaseComplete(
+			phaseCompleteArgs,
+			dirResult.directory,
+			dirResult.directory,
+		);
 	},
 });

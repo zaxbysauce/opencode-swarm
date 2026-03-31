@@ -152,7 +152,7 @@ async function executeCommand(command: BuildCommand): Promise<BuildRun> {
 		args = ['-c', command.command];
 	}
 
-	const result = await Bun.spawn({
+	const result = Bun.spawn({
 		cmd: [...cmd, ...args],
 		cwd: command.cwd,
 		stdout: 'pipe',
@@ -160,17 +160,23 @@ async function executeCommand(command: BuildCommand): Promise<BuildRun> {
 		timeout: DEFAULT_TIMEOUT_MS,
 	});
 
-	const duration_ms = Date.now() - startTime;
+	// Read streams concurrently with process exit to avoid pipe deadlock.
+	// Previous code awaited exit implicitly then read streams — if output
+	// exceeded the OS pipe buffer (~64KB), the child blocked on write and
+	// the process never exited.
+	const [exitCode, stdout, stderr] = await Promise.all([
+		result.exited,
+		new Response(result.stdout).text(),
+		new Response(result.stderr).text(),
+	]);
 
-	// Convert output to string
-	const stdout = await new Response(result.stdout).text();
-	const stderr = await new Response(result.stderr).text();
+	const duration_ms = Date.now() - startTime;
 
 	return {
 		kind,
 		command: command.command,
 		cwd: command.cwd,
-		exit_code: result.exitCode ?? -1,
+		exit_code: exitCode ?? -1,
 		duration_ms,
 		stdout_tail: truncateOutput(stdout),
 		stderr_tail: truncateOutput(stderr),

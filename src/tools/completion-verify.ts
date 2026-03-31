@@ -10,6 +10,7 @@ import { type ToolDefinition, tool } from '@opencode-ai/plugin';
 import { validateSwarmPath } from '../hooks/utils';
 import { hasActiveTurboMode } from '../state';
 import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
 
 /**
  * Arguments for the completion_verify tool
@@ -19,6 +20,8 @@ export interface CompletionVerifyArgs {
 	phase: number;
 	/** Session ID (optional, auto-provided by plugin context) */
 	sessionID?: string;
+	/** Explicit project root directory override */
+	working_directory?: string;
 }
 
 /**
@@ -380,7 +383,8 @@ export async function executeCompletionVerify(
 			const projectRoot = path.resolve(directory);
 			const relative = path.relative(projectRoot, resolvedPath);
 			const withinProject =
-				relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+				relative === '' ||
+				(!relative.startsWith('..') && !path.isAbsolute(relative));
 			if (!withinProject) {
 				blockedTasks.push({
 					task_id: task.id,
@@ -503,6 +507,12 @@ export const completion_verify: ToolDefinition = createSwarmTool({
 			.describe(
 				'Session ID for tracking state (auto-provided by plugin context)',
 			),
+		working_directory: tool.schema
+			.string()
+			.optional()
+			.describe(
+				'Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.',
+			),
 	},
 	execute: async (args: unknown, directory: string): Promise<string> => {
 		let parsedArgs: CompletionVerifyArgs;
@@ -519,6 +529,10 @@ export const completion_verify: ToolDefinition = createSwarmTool({
 								: 0,
 					sessionID:
 						typeof obj.sessionID === 'string' ? obj.sessionID : undefined,
+					working_directory:
+						typeof obj.working_directory === 'string'
+							? obj.working_directory
+							: undefined,
 				};
 			} else {
 				parsedArgs = { phase: 0 };
@@ -540,6 +554,28 @@ export const completion_verify: ToolDefinition = createSwarmTool({
 			);
 		}
 
-		return executeCompletionVerify(parsedArgs, directory);
+		// Resolve effective directory: explicit working_directory > injected directory
+		const dirResult = resolveWorkingDirectory(
+			parsedArgs.working_directory,
+			directory,
+		);
+		if (!dirResult.success) {
+			return JSON.stringify(
+				{
+					success: false,
+					phase: parsedArgs.phase,
+					status: 'blocked',
+					reason: dirResult.message,
+					tasksChecked: 0,
+					tasksSkipped: 0,
+					tasksBlocked: 0,
+					blockedTasks: [],
+				},
+				null,
+				2,
+			);
+		}
+
+		return executeCompletionVerify(parsedArgs, dirResult.directory);
 	},
 });

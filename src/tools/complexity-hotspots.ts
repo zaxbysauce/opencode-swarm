@@ -160,8 +160,12 @@ async function getGitChurn(
 		},
 	);
 
-	const stdout = await new Response(proc.stdout).text();
-	await proc.exited;
+	// Read stdout concurrently with process exit to avoid pipe deadlock.
+	// git log output can be very large for repos with extensive history.
+	const [stdout] = await Promise.all([
+		new Response(proc.stdout).text(),
+		proc.exited,
+	]);
 
 	// Split on CRLF for cross-platform handling
 	const lines = stdout.split(/\r?\n/);

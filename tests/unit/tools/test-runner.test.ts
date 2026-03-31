@@ -602,8 +602,7 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('all');
-		expect(parsed.error).toContain('Full-suite test execution');
-		expect(parsed.error).toContain('allow_full_suite');
+		expect(parsed.error).toContain('scope "all" is not allowed');
 		expect(parsed.message).toContain('scope "convention" or "graph"');
 	});
 
@@ -758,8 +757,7 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.scope).toBe('all');
-			expect(parsed.error).toContain('allow_full_suite');
-			expect(parsed.error).toContain('Full-suite test execution');
+			expect(parsed.error).toContain('scope "all" is not allowed');
 		});
 
 		test('scope:"all" with allow_full_suite:true does NOT return the guard error', async () => {
@@ -867,7 +865,7 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.scope).toBe('all');
-			expect(parsed.error).toContain('allow_full_suite');
+			expect(parsed.error).toContain('scope "all" is not allowed');
 		});
 
 		test('scope:"all" with allow_full_suite:undefined returns error (same as missing)', async () => {
@@ -878,7 +876,7 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.scope).toBe('all');
-			expect(parsed.error).toContain('allow_full_suite');
+			expect(parsed.error).toContain('scope "all" is not allowed');
 		});
 	});
 
