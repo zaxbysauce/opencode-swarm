@@ -2,27 +2,27 @@ import { swarmState } from '../state.js';
 import type { CuratorLLMDelegate } from './curator.js';
 
 /**
- * Resolve the registered curator agent name for the currently active swarm.
+ * Resolve the registered curator agent name for a given swarm session.
  *
- * Works for any number of swarms — default, single named, or 5+ named swarms.
+ * Resolution priority:
+ *   1. **Direct lookup** (preferred): if `sessionId` is provided, look up the
+ *      calling agent in `swarmState.activeAgent` and match its swarm prefix
+ *      against registered curator names. Deterministic — never affected by
+ *      unrelated sessions running in parallel.
+ *   2. **Heuristic scan** (fallback when no sessionId): iterate activeAgent
+ *      and find the registered curator whose prefix best matches any active
+ *      agent, preferring the longest prefix. Correct for single-swarm
+ *      deployments and for calls at session init time (only one swarm active).
+ *   3. **Static fallback**: default-swarm curator (empty prefix), then first
+ *      registered name, then bare suffix string.
  *
- * Algorithm:
- *   1. For each registered curator name, derive its swarm prefix by stripping
- *      the known base suffix ('curator_init' or 'curator_phase'). e.g.
- *        'swarm1_curator_init' → prefix = 'swarm1_'
- *        'curator_init'        → prefix = '' (default swarm)
- *   2. Scan swarmState.activeAgent for any currently active agent. For each,
- *      find the registered curator whose prefix is a prefix of the active agent
- *      name (e.g. 'swarm1_' is a prefix of 'swarm1_architect'). Prefer the
- *      longest match to avoid the empty-prefix default swarm false-matching.
- *   3. If no active-agent match: fall back to the default-swarm curator (empty
- *      prefix) if registered, otherwise the first registered name.
- *
- * This is called lazily at delegate invocation time — not at factory creation
- * time — so the active session map is populated by the time we resolve.
+ * Prefix extraction: 'swarm1_curator_init' → prefix 'swarm1_' by stripping
+ * the known suffix. Longest-match ensures 'alpha_extended_' beats 'alpha_'
+ * when both are registered (prefix-collision avoidance).
  */
 function resolveCuratorAgentName(
 	mode: 'init' | 'phase',
+	sessionId?: string,
 ): string {
 	const suffix = mode === 'init' ? 'curator_init' : 'curator_phase';
 	const registeredNames =
@@ -35,8 +35,7 @@ function resolveCuratorAgentName(
 	// Ultimate fallback if none registered
 	if (registeredNames.length === 0) return suffix;
 
-	// Build a map from swarm prefix → full registered agent name.
-	// Prefix is the portion before the curator suffix.
+	// Build prefix map: swarm prefix → full registered agent name.
 	//   'swarm1_curator_init' → prefix='swarm1_', name='swarm1_curator_init'
 	//   'curator_init'        → prefix='',        name='curator_init'
 	const prefixMap = new Map<string, string>();
@@ -47,24 +46,41 @@ function resolveCuratorAgentName(
 		prefixMap.set(prefix, name);
 	}
 
-	// Scan active agent sessions and find the longest matching prefix.
-	let bestPrefix = '';
-	let bestName = '';
-	for (const activeAgentName of swarmState.activeAgent.values()) {
-		for (const [prefix, agentName] of prefixMap) {
-			if (prefix && activeAgentName.startsWith(prefix)) {
+	/**
+	 * Find the best-matching curator for a given active agent name.
+	 * Returns the longest registered prefix that is a prefix of agentName,
+	 * or empty string if no named-swarm prefix matches.
+	 */
+	const matchForAgent = (agentName: string): string => {
+		let bestPrefix = '';
+		let bestName = '';
+		for (const [prefix, name] of prefixMap) {
+			if (prefix && agentName.startsWith(prefix)) {
 				if (prefix.length > bestPrefix.length) {
 					bestPrefix = prefix;
-					bestName = agentName;
+					bestName = name;
 				}
 			}
 		}
-		if (bestName) break; // found a named-swarm match — stop scanning
-	}
-	if (bestName) return bestName;
+		return bestName;
+	};
 
-	// No named-swarm match: use default swarm curator (empty prefix) if present,
-	// otherwise the first registered (preserves original single-swarm behavior).
+	// 1. Direct lookup via calling session — deterministic even under parallel swarms
+	if (sessionId) {
+		const callingAgent = swarmState.activeAgent.get(sessionId);
+		if (callingAgent) {
+			const match = matchForAgent(callingAgent);
+			if (match) return match;
+		}
+	}
+
+	// 2. Heuristic scan — correct for single-swarm or session-init scenarios
+	for (const activeAgentName of swarmState.activeAgent.values()) {
+		const match = matchForAgent(activeAgentName);
+		if (match) return match;
+	}
+
+	// 3. Static fallback: default swarm (empty prefix) → first registered
 	return prefixMap.get('') ?? registeredNames[0];
 }
 
@@ -79,15 +95,17 @@ function resolveCuratorAgentName(
  *   - 'init'  → curator_init  (e.g. 'curator_init' or 'swarm1_curator_init')
  *   - 'phase' → curator_phase (e.g. 'curator_phase' or 'swarm1_curator_phase')
  *
- * Agent name resolution is lazy (at delegate call time, not factory call time)
- * so multi-swarm deployments always get the curator for the currently active
- * swarm — regardless of how many swarms are configured.
+ * The optional `sessionId` parameter enables deterministic swarm resolution:
+ * when provided, the factory uses the calling session's registered agent to
+ * identify the swarm prefix, rather than scanning all active sessions.
+ * Pass `ctx?.sessionID` from tool handlers that have it available.
  *
  * Returns undefined if swarmState.opencodeClient is not set (e.g. in unit tests).
  */
 export function createCuratorLLMDelegate(
 	directory: string,
 	mode: 'init' | 'phase' = 'init',
+	sessionId?: string,
 ): CuratorLLMDelegate | undefined {
 	const client = swarmState.opencodeClient;
 	if (!client) return undefined;
@@ -106,9 +124,9 @@ export function createCuratorLLMDelegate(
 			}
 			ephemeralSessionId = createResult.data.id;
 
-			// 2. Resolve the curator agent name for the currently active swarm.
-			// This is done lazily so activeAgent reflects the running session.
-			const agentName = resolveCuratorAgentName(mode);
+			// 2. Resolve the curator agent name for the calling swarm.
+			// Uses direct sessionId lookup when available; heuristic scan otherwise.
+			const agentName = resolveCuratorAgentName(mode, sessionId);
 
 			// 3. Prompt using the registered curator agent.
 			// The system: field overrides the agent's baked-in prompt with the

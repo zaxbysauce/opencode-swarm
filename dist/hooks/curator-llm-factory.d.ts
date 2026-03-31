@@ -10,10 +10,11 @@ import type { CuratorLLMDelegate } from './curator.js';
  *   - 'init'  → curator_init  (e.g. 'curator_init' or 'swarm1_curator_init')
  *   - 'phase' → curator_phase (e.g. 'curator_phase' or 'swarm1_curator_phase')
  *
- * Agent name resolution is lazy (at delegate call time, not factory call time)
- * so multi-swarm deployments always get the curator for the currently active
- * swarm — regardless of how many swarms are configured.
+ * The optional `sessionId` parameter enables deterministic swarm resolution:
+ * when provided, the factory uses the calling session's registered agent to
+ * identify the swarm prefix, rather than scanning all active sessions.
+ * Pass `ctx?.sessionID` from tool handlers that have it available.
  *
  * Returns undefined if swarmState.opencodeClient is not set (e.g. in unit tests).
  */
-export declare function createCuratorLLMDelegate(directory: string, mode?: 'init' | 'phase'): CuratorLLMDelegate | undefined;
+export declare function createCuratorLLMDelegate(directory: string, mode?: 'init' | 'phase', sessionId?: string): CuratorLLMDelegate | undefined;

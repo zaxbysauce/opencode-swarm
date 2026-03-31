@@ -199,6 +199,109 @@ describe('createCuratorLLMDelegate', () => {
         });
     });
 
+    // ─── Direct sessionId lookup ─────────────────────────────────────────────
+
+    test('sessionId direct lookup: ignores other active sessions, picks calling swarm', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'beta_curator_init',
+        ];
+        // Both alpha and beta sessions are active simultaneously
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-alpha', 'alpha_architect'],
+            ['sess-beta', 'beta_architect'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-x' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        // beta session calls — must get beta_curator_init, not alpha
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init', 'sess-beta')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-x' },
+            body: expect.objectContaining({ agent: 'beta_curator_init' }),
+        });
+    });
+
+    test('sessionId direct lookup: alpha session gets alpha_curator_init even if beta is first in map', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'beta_curator_init',
+        ];
+        // beta is inserted first (would win under heuristic scan)
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-beta', 'beta_architect'],
+            ['sess-alpha', 'alpha_architect'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-y' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init', 'sess-alpha')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-y' },
+            body: expect.objectContaining({ agent: 'alpha_curator_init' }),
+        });
+    });
+
+    // ─── Prefix collision (longest-match) ────────────────────────────────────
+
+    test('prefix collision: alpha_extended_ beats alpha_ for alpha_extended_architect', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'alpha_extended_curator_init',
+        ];
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-ext', 'alpha_extended_architect'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-coll' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init', 'sess-ext')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-coll' },
+            // alpha_extended_ (17 chars) wins over alpha_ (6 chars)
+            body: expect.objectContaining({ agent: 'alpha_extended_curator_init' }),
+        });
+    });
+
+    test('prefix collision: shorter prefix alpha_ used when active session is alpha_architect', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'alpha_extended_curator_init',
+        ];
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-plain', 'alpha_architect'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-plain2' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init', 'sess-plain')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-plain2' },
+            // alpha_extended_ does NOT match 'alpha_architect' — only alpha_ matches
+            body: expect.objectContaining({ agent: 'alpha_curator_init' }),
+        });
+    });
+
     // ─── Session lifecycle ────────────────────────────────────────────────────
 
     test('system prompt is passed as system: override', async () => {

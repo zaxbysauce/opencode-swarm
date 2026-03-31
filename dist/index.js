@@ -52394,7 +52394,7 @@ function maskToolOutput(msg, _threshold) {
   return freedTokens;
 }
 // src/hooks/curator-llm-factory.ts
-function resolveCuratorAgentName(mode) {
+function resolveCuratorAgentName(mode, sessionId) {
   const suffix = mode === "init" ? "curator_init" : "curator_phase";
   const registeredNames = mode === "init" ? swarmState.curatorInitAgentNames : swarmState.curatorPhaseAgentNames;
   if (registeredNames.length === 1)
@@ -52406,25 +52406,35 @@ function resolveCuratorAgentName(mode) {
     const prefix = name2.endsWith(suffix) ? name2.slice(0, name2.length - suffix.length) : "";
     prefixMap.set(prefix, name2);
   }
-  let bestPrefix = "";
-  let bestName = "";
-  for (const activeAgentName of swarmState.activeAgent.values()) {
-    for (const [prefix, agentName] of prefixMap) {
-      if (prefix && activeAgentName.startsWith(prefix)) {
+  const matchForAgent = (agentName) => {
+    let bestPrefix = "";
+    let bestName = "";
+    for (const [prefix, name2] of prefixMap) {
+      if (prefix && agentName.startsWith(prefix)) {
         if (prefix.length > bestPrefix.length) {
           bestPrefix = prefix;
-          bestName = agentName;
+          bestName = name2;
         }
       }
     }
-    if (bestName)
-      break;
-  }
-  if (bestName)
     return bestName;
+  };
+  if (sessionId) {
+    const callingAgent = swarmState.activeAgent.get(sessionId);
+    if (callingAgent) {
+      const match = matchForAgent(callingAgent);
+      if (match)
+        return match;
+    }
+  }
+  for (const activeAgentName of swarmState.activeAgent.values()) {
+    const match = matchForAgent(activeAgentName);
+    if (match)
+      return match;
+  }
   return prefixMap.get("") ?? registeredNames[0];
 }
-function createCuratorLLMDelegate(directory, mode = "init") {
+function createCuratorLLMDelegate(directory, mode = "init", sessionId) {
   const client = swarmState.opencodeClient;
   if (!client)
     return;
@@ -52438,7 +52448,7 @@ function createCuratorLLMDelegate(directory, mode = "init") {
         throw new Error(`Failed to create curator session: ${JSON.stringify(createResult.error)}`);
       }
       ephemeralSessionId = createResult.data.id;
-      const agentName = resolveCuratorAgentName(mode);
+      const agentName = resolveCuratorAgentName(mode, sessionId);
       const promptResult = await client.session.prompt({
         path: { id: ephemeralSessionId },
         body: {
@@ -59229,7 +59239,7 @@ var curator_analyze = createSwarmTool({
       reason: tool.schema.string()
     })).optional().describe("Knowledge recommendations to apply. If omitted, only collects digest data.")
   },
-  execute: async (args2, directory) => {
+  execute: async (args2, directory, ctx) => {
     const typedArgs = args2;
     try {
       if (!Number.isInteger(typedArgs.phase) || typedArgs.phase < 1) {
@@ -59248,7 +59258,7 @@ var curator_analyze = createSwarmTool({
       const { config: config3 } = loadPluginConfigWithMeta(directory);
       const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
       const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
-      const llmDelegate = createCuratorLLMDelegate(directory, "phase");
+      const llmDelegate = createCuratorLLMDelegate(directory, "phase", ctx?.sessionID);
       const curatorResult = await runCuratorPhase(directory, typedArgs.phase, [], curatorConfig, {}, llmDelegate);
       {
         const scopeContent = curatorResult.digest?.summary ?? `Phase ${typedArgs.phase} curator analysis`;
@@ -61812,7 +61822,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   try {
     const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
     if (curatorConfig.enabled && curatorConfig.phase_enabled) {
-      const llmDelegate = createCuratorLLMDelegate(dir, "phase");
+      const llmDelegate = createCuratorLLMDelegate(dir, "phase", sessionID ?? undefined);
       const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {}, llmDelegate);
       {
         const scopeContent = curatorResult.digest?.summary ?? `Phase ${phase} curator analysis`;
