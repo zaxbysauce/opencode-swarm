@@ -1107,8 +1107,14 @@ export async function runTests(
 
 		const [exitCode, stdoutResult, stderrResult] = await Promise.all([
 			Promise.race([proc.exited, timeoutPromise]),
-			readBoundedStream(proc.stdout as ReadableStream<Uint8Array>, MAX_OUTPUT_BYTES),
-			readBoundedStream(proc.stderr as ReadableStream<Uint8Array>, MAX_OUTPUT_BYTES),
+			readBoundedStream(
+				proc.stdout as ReadableStream<Uint8Array>,
+				MAX_OUTPUT_BYTES,
+			),
+			readBoundedStream(
+				proc.stderr as ReadableStream<Uint8Array>,
+				MAX_OUTPUT_BYTES,
+			),
 		]);
 
 		const duration_ms = Date.now() - startTime;

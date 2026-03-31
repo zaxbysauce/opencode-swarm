@@ -57,8 +57,7 @@ export function resolveWorkingDirectory(
 
 	// Windows device path check
 	if (process.platform === 'win32') {
-		const devicePathPattern =
-			/^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
+		const devicePathPattern = /^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
 		if (devicePathPattern.test(workingDirectory)) {
 			return {
 				success: false,

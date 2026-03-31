@@ -383,7 +383,8 @@ export async function executeCompletionVerify(
 			const projectRoot = path.resolve(directory);
 			const relative = path.relative(projectRoot, resolvedPath);
 			const withinProject =
-				relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+				relative === '' ||
+				(!relative.startsWith('..') && !path.isAbsolute(relative));
 			if (!withinProject) {
 				blockedTasks.push({
 					task_id: task.id,
