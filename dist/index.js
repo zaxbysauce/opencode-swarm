@@ -52368,7 +52368,6 @@ function createCuratorLLMDelegate(directory) {
       const promptResult = await client.session.prompt({
         path: { id: ephemeralSessionId },
         body: {
-          agent: "explorer",
           system: systemPrompt,
           tools: { write: false, edit: false, patch: false },
           parts: [{ type: "text", text: userInput }]

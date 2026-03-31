@@ -30,11 +30,14 @@ export function createCuratorLLMDelegate(
 			}
 			ephemeralSessionId = createResult.data.id;
 
-			// 2. Prompt with curator system override + read-only tool constraints
+			// 2. Prompt with curator system override + read-only tool constraints.
+			// Note: agent field intentionally omitted — passing an agent name string
+			// causes the server to look up the Agent object; if the lookup fails
+			// the server crashes with "agent.name" undefined. The system prompt
+			// controls curator behavior without needing a specific named agent.
 			const promptResult = await client.session.prompt({
 				path: { id: ephemeralSessionId },
 				body: {
-					agent: 'explorer',
 					system: systemPrompt,
 					tools: { write: false, edit: false, patch: false },
 					parts: [{ type: 'text', text: userInput }],
