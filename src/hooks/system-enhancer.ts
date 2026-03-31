@@ -46,6 +46,7 @@ import {
 	appendKnowledge,
 	readKnowledge,
 	resolveSwarmKnowledgePath,
+	rewriteKnowledge,
 } from './knowledge-store';
 import type { SwarmKnowledgeEntry } from './knowledge-types.js';
 import {
@@ -504,6 +505,34 @@ export function createSystemEnhancerHook(
 								}
 							}
 						} // end if (!fs.existsSync(darkMatterPath))
+
+					// Retroactive repair: v6.41.0 regression (b324ce1) wrote dark matter entries
+					// with scope: 'project', which is filtered out by the default scope_filter ['global'].
+					// Re-scope any such entries to 'global' so they can reach the architect.
+					try {
+						const knowledgePath = resolveSwarmKnowledgePath(directory);
+						const allEntries =
+							await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+						const stale = allEntries.filter(
+							(e) =>
+								e.scope === 'project' &&
+								e.auto_generated === true &&
+								Array.isArray(e.tags) &&
+								e.tags.includes('dark-matter'),
+						);
+						if (stale.length > 0) {
+							for (const e of stale) {
+								e.scope = 'global';
+								e.updated_at = new Date().toISOString();
+							}
+							await rewriteKnowledge(knowledgePath, allEntries);
+							warn(
+								`[system-enhancer] Repaired ${stale.length} dark matter knowledge entries (scope: 'project' → 'global')`,
+							);
+						}
+					} catch {
+						// Non-blocking
+					}
 					} catch {
 						// Non-blocking — skip silently on repos without git history, shallow clones, or errors
 					}
