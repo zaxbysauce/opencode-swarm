@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.41.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.2...v6.41.3) (2026-03-31)
+
+
+### Bug Fixes
+
+* **swarm:** resolve .swarm/ paths from working_directory, fix test_runner crash and pipe deadlocks ([#352](https://github.com/zaxbysauce/opencode-swarm/issues/352)) ([931c80a](https://github.com/zaxbysauce/opencode-swarm/commit/931c80abb4b1564a38901961139dfd2f3838dbda))
+
 ## [6.41.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.1...v6.41.2) (2026-03-30)
 
 
