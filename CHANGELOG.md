@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.41.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.3...v6.41.4) (2026-03-31)
+
+
+### Bug Fixes
+
+* **knowledge:** fix dark matter pipeline — scope filter, npmi threshold, retroactive repair ([#354](https://github.com/zaxbysauce/opencode-swarm/issues/354)) ([1fdd5de](https://github.com/zaxbysauce/opencode-swarm/commit/1fdd5de5e609d5cd5fa769156961e44b93b9f7d9))
+
 ## [6.41.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.2...v6.41.3) (2026-03-31)
 
 
