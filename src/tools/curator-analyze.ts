@@ -11,7 +11,13 @@ import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
 } from '../hooks/curator';
+import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory.js';
 import type { KnowledgeRecommendation } from '../hooks/curator-types.js';
+import {
+	buildApprovedReceipt,
+	buildRejectedReceipt,
+	persistReviewReceipt,
+} from '../hooks/review-receipt.js';
 import { createSwarmTool } from './create-tool';
 
 export const curator_analyze: ReturnType<typeof createSwarmTool> =
@@ -83,13 +89,59 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				);
 
 				// Run the curator phase analysis (collects digest + compliance)
+				const llmDelegate = createCuratorLLMDelegate(directory);
 				const curatorResult = await runCuratorPhase(
 					directory,
 					typedArgs.phase,
 					[], // agentsDispatched — empty for on-demand analysis
 					curatorConfig,
 					{},
+					llmDelegate,
 				);
+
+				// Persist review receipt for drift tracking (best-effort)
+				{
+					const scopeContent =
+						curatorResult.digest?.summary ??
+						`Phase ${typedArgs.phase} curator analysis`;
+					const complianceWarnings = curatorResult.compliance.filter(
+						(c) => c.severity === 'warning',
+					);
+					const receipt =
+						complianceWarnings.length > 0
+							? buildRejectedReceipt({
+									agent: 'curator',
+									scopeContent,
+									scopeDescription: 'phase-digest',
+									blockingFindings: complianceWarnings.map((c) => ({
+										location: `phase-${c.phase}`,
+										summary: c.description,
+										severity:
+											c.type === 'missing_reviewer'
+												? ('high' as const)
+												: ('medium' as const),
+									})),
+									evidenceReferences: [],
+									passConditions: [
+										'resolve all compliance warnings before phase completion',
+									],
+								})
+							: buildApprovedReceipt({
+									agent: 'curator',
+									scopeContent,
+									scopeDescription: 'phase-digest',
+									checkedAspects: [
+										'phase_compliance',
+										'knowledge_recommendations',
+										'phase_digest',
+									],
+									validatedClaims: [
+										`phase: ${typedArgs.phase}`,
+										`knowledge_recommendations: ${curatorResult.knowledge_recommendations.length}`,
+									],
+								});
+					persistReviewReceipt(directory, receipt).catch(() => {});
+				}
 
 				let applied = 0;
 				let skipped = 0;

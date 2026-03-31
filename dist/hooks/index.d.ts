@@ -1,6 +1,7 @@
 export { createAgentActivityHooks } from './agent-activity';
 export { createCompactionCustomizerHook } from './compaction-customizer';
 export { createContextBudgetHandler } from './context-budget';
+export { createCuratorLLMDelegate } from './curator-llm-factory';
 export { createDelegationGateHook } from './delegation-gate';
 export { createDelegationSanitizerHook } from './delegation-sanitizer';
 export { createDelegationTrackerHook } from './delegation-tracker';
@@ -11,6 +12,7 @@ export { consolidateSystemMessages } from './messages-transform';
 export { extractModelInfo, NATIVE_MODEL_LIMITS, PROVIDER_CAPS, resolveModelLimit, } from './model-limits';
 export { createPhaseMonitorHook } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
+export { buildApprovedReceipt, buildReceiptContextForDrift, buildRejectedReceipt, persistReviewReceipt, readAllReceipts, readReceiptsByScopeHash, } from './review-receipt';
 export { createSystemEnhancerHook } from './system-enhancer';
 export { createToolSummarizerHook, resetSummaryIdCounter, } from './tool-summarizer';
 export { composeHandlers, estimateTokens, readSwarmFileAsync, safeHook, validateSwarmPath, } from './utils';

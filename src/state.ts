@@ -9,7 +9,7 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-
+import type { OpencodeClient } from '@opencode-ai/sdk';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
@@ -231,6 +231,9 @@ export const swarmState = {
 	/** Number of events since last flush */
 	pendingEvents: 0,
 
+	/** SDK client — set at plugin init for curator LLM delegation */
+	opencodeClient: null as OpencodeClient | null,
+
 	/** Last known context budget percentage (0-100), updated by system-enhancer */
 	lastBudgetPct: 0,
 
@@ -253,6 +256,7 @@ export function resetSwarmState(): void {
 	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
 	swarmState.pendingRehydrations.clear();
+	swarmState.opencodeClient = null;
 	_rehydrationCache = null;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted

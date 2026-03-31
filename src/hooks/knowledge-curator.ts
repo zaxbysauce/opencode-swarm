@@ -5,6 +5,7 @@ import {
 	appendKnowledge,
 	appendRejectedLesson,
 	computeConfidence,
+	enforceKnowledgeCap,
 	findNearDuplicate,
 	inferTags,
 	normalize,
@@ -363,6 +364,9 @@ export async function curateAndStoreSwarm(
 		// Add to existing entries for subsequent deduplication checks
 		existingEntries.push(entry);
 	}
+
+	// Enforce swarm_max_entries cap (FIFO: drop oldest when exceeded)
+	await enforceKnowledgeCap(knowledgePath, config.swarm_max_entries);
 
 	// Run auto-promotion after processing all lessons
 	await runAutoPromotion(directory, config);

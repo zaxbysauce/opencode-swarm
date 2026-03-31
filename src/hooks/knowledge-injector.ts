@@ -48,22 +48,12 @@ function sanitizeLessonForContext(text: string): string {
 		.replace(/^system\s*:/gim, '[BLOCKED]:'); // Block system: prefix
 }
 
-/** Returns true if this agent is an orchestrator (architect) that should receive knowledge injection. */
+/** Returns true if this agent is the architect (the sole intended recipient of knowledge injection). */
 function isOrchestratorAgent(agentName: string): boolean {
 	const stripped = stripKnownSwarmPrefix(agentName);
-	const nonOrchestratorAgents = new Set([
-		'coder',
-		'reviewer',
-		'test_engineer',
-		'security_reviewer',
-		'integration_analyst',
-		'docs_writer',
-		'designer',
-		'critic',
-		'docs',
-		'explorer',
-	]);
-	return !nonOrchestratorAgents.has(stripped.toLowerCase());
+	// Only the architect receives knowledge injection.
+	// Using an explicit allowlist prevents unintentional injection into future agents.
+	return stripped.toLowerCase() === 'architect';
 }
 
 /** Inserts the knowledge block just after the system message (or at position 0 if none). */

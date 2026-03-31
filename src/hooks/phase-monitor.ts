@@ -37,11 +37,13 @@ export type CuratorInitRunner = (
 export function createPhaseMonitorHook(
 	directory: string,
 	preflightManager?: PreflightTriggerManager,
-	curatorRunner: CuratorInitRunner = defaultRunCuratorInit,
+	curatorRunner?: CuratorInitRunner,
+	llmDelegate?: CuratorLLMDelegate,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
 
 	const handler = async (_input: unknown, _output: unknown): Promise<void> => {
+		const runner = curatorRunner ?? defaultRunCuratorInit;
 		const plan = await loadPlan(directory);
 		if (!plan) return;
 
@@ -55,7 +57,11 @@ export function createPhaseMonitorHook(
 				const { config } = loadPluginConfigWithMeta(directory);
 				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
-					const initResult = await curatorRunner(directory, curatorConfig);
+					const initResult = await runner(
+						directory,
+						curatorConfig,
+						llmDelegate,
+					);
 					if (initResult.briefing) {
 						const briefingPath = path.join(
 							directory,
@@ -65,6 +71,26 @@ export function createPhaseMonitorHook(
 						const { mkdir, writeFile } = await import('node:fs/promises');
 						await mkdir(path.dirname(briefingPath), { recursive: true });
 						await writeFile(briefingPath, initResult.briefing, 'utf-8');
+						// Persist init receipt for drift context (best-effort)
+						const { buildApprovedReceipt, persistReviewReceipt } = await import(
+							'./review-receipt.js'
+						);
+						const initReceipt = buildApprovedReceipt({
+							agent: 'curator',
+							scopeContent: initResult.briefing,
+							scopeDescription: 'curator-init-briefing',
+							checkedAspects: [
+								'knowledge_entries',
+								'prior_phase_summaries',
+								'contradiction_detection',
+							],
+							validatedClaims: [
+								`knowledge_entries_reviewed: ${initResult.knowledge_entries_reviewed}`,
+								`prior_phases_covered: ${initResult.prior_phases_covered}`,
+								`contradictions: ${initResult.contradictions.length}`,
+							],
+						});
+						persistReviewReceipt(directory, initReceipt).catch(() => {});
 					}
 				}
 			} catch {

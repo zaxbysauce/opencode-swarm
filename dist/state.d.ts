@@ -6,6 +6,7 @@
  * chat.message, system-enhancer) to share state like active agents, tool call tracking,
  * and delegation chains.
  */
+import type { OpencodeClient } from '@opencode-ai/sdk';
 /**
  * Represents a single tool call entry for tracking purposes
  */
@@ -187,6 +188,8 @@ export declare const swarmState: {
     delegationChains: Map<string, DelegationEntry[]>;
     /** Number of events since last flush */
     pendingEvents: number;
+    /** SDK client — set at plugin init for curator LLM delegation */
+    opencodeClient: OpencodeClient | null;
     /** Last known context budget percentage (0-100), updated by system-enhancer */
     lastBudgetPct: number;
     /** Per-session guardrail state — keyed by sessionID */

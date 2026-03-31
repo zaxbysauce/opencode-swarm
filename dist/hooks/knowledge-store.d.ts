@@ -9,6 +9,7 @@ export declare function readKnowledge<T>(filePath: string): Promise<T[]>;
 export declare function readRejectedLessons(directory: string): Promise<RejectedLesson[]>;
 export declare function appendKnowledge<T>(filePath: string, entry: T): Promise<void>;
 export declare function rewriteKnowledge<T>(filePath: string, entries: T[]): Promise<void>;
+export declare function enforceKnowledgeCap<T>(filePath: string, maxEntries: number): Promise<void>;
 export declare function appendRejectedLesson(directory: string, lesson: RejectedLesson): Promise<void>;
 export declare function normalize(text: string): string;
 export declare function wordBigrams(text: string): Set<string>;
