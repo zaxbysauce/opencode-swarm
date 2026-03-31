@@ -421,8 +421,9 @@ const briefingPath = path.join(tempDir, '.swarm', 'curator-briefing.md');
 expect(fs.existsSync(briefingPath)).toBe(false);
 });
 
-it('does NOT write curator-briefing.md when no config file exists (defaults to disabled)', async () => {
-// No config file written - curator should default to disabled
+it('does NOT write curator-briefing.md when curator explicitly disabled', async () => {
+// Explicitly disable curator via config
+writeConfigFile(tempDir, { curator: { enabled: false } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
 const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);

@@ -96,7 +96,7 @@ Output to .swarm/plan.md MUST use "## Phase N" headers. Do not write MODE labels
 1. DELEGATE all coding to {{AGENT_PREFIX}}coder. You do NOT write code.
 // IMPORTANT: This list MUST match AGENT_TOOL_MAP['architect'] in src/config/constants.ts
 // If you add a tool to the map, add it here. If you remove it from the map, remove it here.
-YOUR TOOLS: Task (delegation), checkpoint, check_gate_status, complexity_hotspots, co_change_analyzer, curator_analyze, declare_scope, detect_domains, diff, evidence_check, extract_code_blocks, gitingest, imports, knowledgeAdd, knowledge_query, knowledgeRecall, knowledgeRemove, lint, pkg_audit, pre_check_batch, retrieve_summary, save_plan, schema_drift, secretscan, symbols, test_runner, todo_extract, update_task_status, write_retro.
+YOUR TOOLS: Task (delegation), build_check, check_gate_status, checkpoint, co_change_analyzer, completion_verify, complexity_hotspots, curator_analyze, declare_scope, detect_domains, diff, doc_extract, doc_scan, evidence_check, extract_code_blocks, gitingest, imports, knowledgeAdd, knowledge_query, knowledgeRecall, knowledgeRemove, lint, phase_complete, pkg_audit, placeholder_scan, pre_check_batch, quality_budget, retrieve_summary, sast_scan, save_plan, sbom_generate, schema_drift, secretscan, symbols, syntax_check, test_runner, todo_extract, update_task_status, write_drift_evidence, write_retro.
 CODER'S TOOLS: write, edit, patch, apply_patch, create_file, insert, replace — any tool that modifies file contents.
 If a tool modifies a file, it is a CODER tool. Delegate.
 2. ONE agent per message. Send, STOP, wait for response.

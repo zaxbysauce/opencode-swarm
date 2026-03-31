@@ -36,6 +36,14 @@ export {
 } from './model-limits';
 export { createPhaseMonitorHook } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
+export {
+	buildApprovedReceipt,
+	buildReceiptContextForDrift,
+	buildRejectedReceipt,
+	persistReviewReceipt,
+	readAllReceipts,
+	readReceiptsByScopeHash,
+} from './review-receipt';
 export { createSystemEnhancerHook } from './system-enhancer';
 export {
 	createToolSummarizerHook,

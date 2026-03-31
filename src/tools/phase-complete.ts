@@ -25,6 +25,11 @@ import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory.js';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import { updateRetrievalOutcome } from '../hooks/knowledge-reader.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
+import {
+	buildApprovedReceipt,
+	buildRejectedReceipt,
+	persistReviewReceipt,
+} from '../hooks/review-receipt.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import {
@@ -716,6 +721,49 @@ export async function executePhaseComplete(
 				{},
 				llmDelegate,
 			);
+			// Persist review receipt for drift tracking (best-effort)
+			{
+				const scopeContent =
+					curatorResult.digest?.summary ?? `Phase ${phase} curator analysis`;
+				const complianceWarnings = curatorResult.compliance.filter(
+					(c) => c.severity === 'warning',
+				);
+				const receipt =
+					complianceWarnings.length > 0
+						? buildRejectedReceipt({
+								agent: 'curator',
+								scopeContent,
+								scopeDescription: 'phase-digest',
+								blockingFindings: complianceWarnings.map((c) => ({
+									location: `phase-${c.phase}`,
+									summary: c.description,
+									severity:
+										c.type === 'missing_reviewer'
+											? ('high' as const)
+											: ('medium' as const),
+								})),
+								evidenceReferences: [],
+								passConditions: [
+									'resolve all compliance warnings before phase completion',
+								],
+							})
+						: buildApprovedReceipt({
+								agent: 'curator',
+								scopeContent,
+								scopeDescription: 'phase-digest',
+								checkedAspects: [
+									'phase_compliance',
+									'knowledge_recommendations',
+									'phase_digest',
+								],
+								validatedClaims: [
+									`phase: ${phase}`,
+									`agents_dispatched: ${agentsDispatched.length}`,
+									`knowledge_recommendations: ${curatorResult.knowledge_recommendations.length}`,
+								],
+							});
+				persistReviewReceipt(dir, receipt).catch(() => {});
+			}
 			const knowledgeResult = await applyCuratorKnowledgeUpdates(
 				dir,
 				curatorResult.knowledge_recommendations,

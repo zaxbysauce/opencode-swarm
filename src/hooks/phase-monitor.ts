@@ -71,6 +71,26 @@ export function createPhaseMonitorHook(
 						const { mkdir, writeFile } = await import('node:fs/promises');
 						await mkdir(path.dirname(briefingPath), { recursive: true });
 						await writeFile(briefingPath, initResult.briefing, 'utf-8');
+						// Persist init receipt for drift context (best-effort)
+						const { buildApprovedReceipt, persistReviewReceipt } = await import(
+							'./review-receipt.js'
+						);
+						const initReceipt = buildApprovedReceipt({
+							agent: 'curator',
+							scopeContent: initResult.briefing,
+							scopeDescription: 'curator-init-briefing',
+							checkedAspects: [
+								'knowledge_entries',
+								'prior_phase_summaries',
+								'contradiction_detection',
+							],
+							validatedClaims: [
+								`knowledge_entries_reviewed: ${initResult.knowledge_entries_reviewed}`,
+								`prior_phases_covered: ${initResult.prior_phases_covered}`,
+								`contradictions: ${initResult.contradictions.length}`,
+							],
+						});
+						persistReviewReceipt(directory, initReceipt).catch(() => {});
 					}
 				}
 			} catch {
