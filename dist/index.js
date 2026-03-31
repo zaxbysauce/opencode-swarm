@@ -32324,7 +32324,7 @@ function darkMatterToKnowledgeEntries(pairs, projectName) {
       lesson,
       category: "architecture",
       tags: ["hidden-coupling", "co-change", "dark-matter"],
-      scope: "project",
+      scope: "global",
       confidence,
       status: "candidate",
       confirmed_by: [],
@@ -55210,8 +55210,7 @@ function createSystemEnhancerHook(config3, directory) {
             } = await Promise.resolve().then(() => (init_co_change_analyzer(), exports_co_change_analyzer));
             const darkMatter = await detectDarkMatter2(directory, {
               minCommits: 20,
-              minCoChanges: 3,
-              npmiThreshold: 0.3
+              minCoChanges: 3
             });
             if (darkMatter && darkMatter.length > 0) {
               const darkMatterReport = formatDarkMatterOutput2(darkMatter);
@@ -55237,6 +55236,19 @@ function createSystemEnhancerHook(config3, directory) {
               }
             }
           }
+          try {
+            const knowledgePath = resolveSwarmKnowledgePath(directory);
+            const allEntries = await readKnowledge(knowledgePath);
+            const stale = allEntries.filter((e) => e.scope === "project" && e.auto_generated === true && Array.isArray(e.tags) && e.tags.includes("dark-matter"));
+            if (stale.length > 0) {
+              for (const e of stale) {
+                e.scope = "global";
+                e.updated_at = new Date().toISOString();
+              }
+              await rewriteKnowledge(knowledgePath, allEntries);
+              warn(`[system-enhancer] Repaired ${stale.length} dark matter knowledge entries (scope: 'project' \u2192 'global')`);
+            }
+          } catch {}
         } catch {}
         const scoringEnabled = config3.context_budget?.scoring?.enabled === true;
         if (!scoringEnabled) {
