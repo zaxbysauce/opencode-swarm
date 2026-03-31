@@ -456,7 +456,6 @@ export function createSystemEnhancerHook(
 							const darkMatter = await detectDarkMatter(directory, {
 								minCommits: 20,
 								minCoChanges: 3,
-								npmiThreshold: 0.3,
 							});
 							if (darkMatter && darkMatter.length > 0) {
 								const darkMatterReport = formatDarkMatterOutput(darkMatter);
