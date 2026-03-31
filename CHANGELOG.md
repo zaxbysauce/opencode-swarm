@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.42.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.4...v6.42.0) (2026-03-31)
+
+
+### Features
+
+* **curator:** wire llm delegation to explorer-as-curator agent ([#356](https://github.com/zaxbysauce/opencode-swarm/issues/356)) ([5f42c85](https://github.com/zaxbysauce/opencode-swarm/commit/5f42c853b82d8187cfdd160da4d4660c31a5437c))
+
 ## [6.41.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.3...v6.41.4) (2026-03-31)
 
 
