@@ -255,18 +255,34 @@ The architect prompt lists `knowledge_query` but `AGENT_TOOL_MAP` defines `knowl
 
 ---
 
-## 7. Final Verdict
+## 7. Independent Adversarial Review Findings
+
+Two independent review agents (adversarial + completeness) were run after implementation.
+
+**Adversarial review**: All 6 fixes confirmed correct. One initially flagged concern — hive cap conditional enforcement (`if newPromotions > 0 || hiveModified`) — was resolved as a false positive. The condition is correct because the hive file can only grow through the `appendKnowledge` path (newPromotions) or the `rewriteKnowledge` path (hiveModified). Neither condition being true means the file size is unchanged, so cap enforcement is unnecessary.
+
+**Completeness review**: Identified two gaps in Phase 5 test coverage:
+1. **Prompt/runtime alignment** — No test verifying that knowledge tools in the architect prompt match `AGENT_TOOL_MAP`. Fixed by adding `tests/unit/agents/architect-knowledge-tools-alignment.test.ts` (16 tests).
+2. **Template placeholder resolution** — Existing tests in `architect.turbo-banner.test.ts` and `architect-prompt-template.test.ts` already cover this; the completeness agent missed them. New test confirms `TURBO_MODE_BANNER` is absent from the created agent's prompt (resolved to empty string by `createArchitectAgent`).
+
+Curator init flow is covered by `curator.test.ts` lines 552+ (10 tests) and `phase-monitor-curator.test.ts`. This was incorrectly flagged as missing.
+
+---
+
+## 8. Final Verdict
 
 **The knowledge system was non-functional in its core tracking path (F1) and silently non-compliant in its cap enforcement (F2). The agent injection boundary was leaky (F3), and the architect's tool list was inconsistent with its runtime capabilities (F4).**
 
-All confirmed broken paths are now repaired and covered by tests. The new review receipt persistence system (Phase 3) provides durable evidence for re-review cycles and critic drift verification.
+All confirmed broken paths are now repaired and covered by tests. The new review receipt persistence system (Phase 3) provides durable evidence for re-review cycles and critic drift verification. Independent review confirmed all fixes are correct.
 
 **Net state after repair**:
 - Retrieval outcome tracking: ✅ functional (applied, succeeded, failed counts all updatable)
 - Cap enforcement: ✅ functional (FIFO, both swarm and hive tiers)
 - Agent injection boundary: ✅ strict allowlist (architect only)
-- Prompt/runtime consistency: ✅ aligned
-- Review receipt persistence: ✅ implemented and tested
+- Prompt/runtime consistency: ✅ aligned (verified by test)
+- Review receipt persistence: ✅ implemented and tested (46 tests)
 - Config isolation in phase_complete: ✅ uses loaded project config
+
+**Total tests added**: 94 (78 from initial pass + 16 from post-review alignment test).
 
 The system is now ready for runtime use with curator disabled (default) or curator enabled (opt-in) configurations.
