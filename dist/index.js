@@ -43575,26 +43575,6 @@ ${customAppendPrompt}`;
     }
   };
 }
-function createExplorerCuratorAgent(model, mode, customAppendPrompt) {
-  const basePrompt = mode === "CURATOR_INIT" ? CURATOR_INIT_PROMPT : CURATOR_PHASE_PROMPT;
-  const prompt = customAppendPrompt ? `${basePrompt}
-
-${customAppendPrompt}` : basePrompt;
-  return {
-    name: "explorer",
-    description: `Explorer in ${mode} mode \u2014 consolidates context at phase boundaries.`,
-    config: {
-      model,
-      temperature: 0.1,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
-    }
-  };
-}
 
 // src/agents/curator-agent.ts
 var ROLE_CONFIG = {
@@ -47833,7 +47813,6 @@ async function runCuratorInit(directory, config3, llmDelegate) {
 `);
     if (llmDelegate) {
       try {
-        const curatorAgent = createExplorerCuratorAgent("default", "CURATOR_INIT");
         const userInput = [
           "TASK: CURATOR_INIT",
           `PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : "none"}`,
@@ -47841,7 +47820,7 @@ async function runCuratorInit(directory, config3, llmDelegate) {
           `PROJECT_CONTEXT: ${contextMd?.slice(0, config3.max_summary_tokens * 2) ?? "none"}`
         ].join(`
 `);
-        const systemPrompt = curatorAgent.config.prompt ?? "";
+        const systemPrompt = CURATOR_INIT_PROMPT;
         const llmOutput = await Promise.race([
           llmDelegate(systemPrompt, userInput),
           new Promise((_, reject) => setTimeout(() => reject(new Error("CURATOR_LLM_TIMEOUT")), CURATOR_LLM_TIMEOUT_MS))
@@ -47924,9 +47903,8 @@ async function runCuratorPhase(directory, phase, agentsDispatched, _config, _kno
     let knowledgeRecommendations = [];
     if (llmDelegate) {
       try {
-        const curatorAgent = createExplorerCuratorAgent("default", "CURATOR_PHASE");
         const priorDigest = priorSummary?.digest ?? "none";
-        const systemPrompt = curatorAgent.config.prompt ?? "";
+        const systemPrompt = CURATOR_PHASE_PROMPT;
         const userInput = [
           `TASK: CURATOR_PHASE ${phase}`,
           `PRIOR_DIGEST: ${priorDigest}`,
@@ -68231,8 +68209,13 @@ var OpenCodeSwarm = async (ctx) => {
   initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3);
   const agentDefinitions = createAgents(config3);
-  swarmState.curatorInitAgentName = Object.keys(agents).find((k) => k === "curator_init" || k.endsWith("_curator_init")) ?? null;
-  swarmState.curatorPhaseAgentName = Object.keys(agents).find((k) => k === "curator_phase" || k.endsWith("_curator_phase")) ?? null;
+  const allInitNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
+  const allPhaseNames = Object.keys(agents).filter((k) => k === "curator_phase" || k.endsWith("_curator_phase"));
+  if (allInitNames.length > 1) {
+    console.warn("[swarm] Multiple curator_init agents found across swarms (%s). " + "Curator LLM delegation will use the first registered: %s. " + "Multi-swarm curator routing is not yet session-aware.", allInitNames.join(", "), allInitNames[0]);
+  }
+  swarmState.curatorInitAgentName = allInitNames[0] ?? null;
+  swarmState.curatorPhaseAgentName = allPhaseNames[0] ?? null;
   const pipelineHook = createPipelineTrackerHook(config3, ctx.directory);
   const systemEnhancerHook = createSystemEnhancerHook(config3, ctx.directory);
   const compactionHook = createCompactionCustomizerHook(config3, ctx.directory);
