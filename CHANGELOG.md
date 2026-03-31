@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.42.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.42.0...v6.42.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* **curator:** remove agent field from ephemeral session prompt to prevent crash ([#358](https://github.com/zaxbysauce/opencode-swarm/issues/358)) ([9899978](https://github.com/zaxbysauce/opencode-swarm/commit/9899978207b777168c0541ed20a035cea6e71915))
+
 ## [6.42.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.41.4...v6.42.0) (2026-03-31)
 
 
