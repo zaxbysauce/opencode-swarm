@@ -53,7 +53,6 @@ describe('createCuratorLLMDelegate', () => {
         expect(mockPrompt).toHaveBeenCalledWith({
             path: { id: 'sess-123' },
             body: {
-                agent: 'explorer',
                 system: 'SYSTEM_PROMPT',
                 tools: { write: false, edit: false, patch: false },
                 parts: [{ type: 'text', text: 'user input' }],
