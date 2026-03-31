@@ -1,9 +1,10 @@
 ---
 name: qa-sweep
 description: >
-  Apply when implementing features, fixing bugs, reviewing tech debt, tracing issues,
-  planning fixes, or completing any task. Enforces parallel sub-agent implementation,
-  independent adversarial review, and a 95% confidence gate before stopping.
+  Apply when implementing features, fixing bugs, debugging errors, investigating failures,
+  tracing root causes, reviewing tech debt, tracing issues, planning fixes, or completing
+  any task. Enforces parallel sub-agent implementation, independent adversarial review,
+  and a 95% confidence gate before stopping.
 effort: high
 ---
 
