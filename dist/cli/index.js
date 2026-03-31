@@ -18224,7 +18224,7 @@ var KnowledgeConfigSchema = exports_external.object({
   max_encounter_score: exports_external.number().min(1).max(20).default(10)
 });
 var CuratorConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
+  enabled: exports_external.boolean().default(true),
   init_enabled: exports_external.boolean().default(true),
   phase_enabled: exports_external.boolean().default(true),
   max_summary_tokens: exports_external.number().min(500).max(8000).default(2000),
@@ -18494,6 +18494,7 @@ var swarmState = {
   activeAgent: new Map,
   delegationChains: new Map,
   pendingEvents: 0,
+  opencodeClient: null,
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set
@@ -31672,6 +31673,13 @@ async function rewriteKnowledge(filePath, entries) {
     }
   }
 }
+async function enforceKnowledgeCap(filePath, maxEntries) {
+  const entries = await readKnowledge(filePath);
+  if (entries.length > maxEntries) {
+    const trimmed = entries.slice(entries.length - maxEntries);
+    await rewriteKnowledge(filePath, trimmed);
+  }
+}
 async function appendRejectedLesson(directory, lesson) {
   const filePath = resolveSwarmRejectedPath(directory);
   const existing = await readRejectedLessons(directory);
@@ -32185,6 +32193,7 @@ async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, c
     stored++;
     existingEntries.push(entry);
   }
+  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
   await runAutoPromotion(directory, config3);
   return { stored, skipped, rejected };
 }
@@ -33026,6 +33035,9 @@ async function checkHivePromotions(swarmEntries, config3) {
   }
   if (hiveModified) {
     await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
+  }
+  if (newPromotions > 0 || hiveModified) {
+    await enforceKnowledgeCap(resolveHiveKnowledgePath(), config3.hive_max_entries);
   }
   return {
     timestamp: new Date().toISOString(),

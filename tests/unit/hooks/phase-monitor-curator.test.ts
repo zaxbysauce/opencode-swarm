@@ -14,6 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { PreflightTriggerManager } from '../../../src/background/trigger';
 import type { CuratorConfig, CuratorInitResult } from '../../../src/hooks/curator-types';
+import type { CuratorLLMDelegate } from '../../../src/hooks/curator';
 import { createPhaseMonitorHook } from '../../../src/hooks/phase-monitor';
 
 // Injected curator runner mock — does NOT use mock.module to avoid leakage
@@ -89,13 +90,14 @@ fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
 describe('Verification Tests', () => {
-it('1. Curator init skipped by default (enabled: false)', async () => {
+it('1. Curator init skipped when explicitly disabled (enabled: false)', async () => {
+writeConfigFile(tempDir, { curator: { enabled: false } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
 const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 await hook({}, {});
 
-// runCuratorInit should NOT be called because enabled defaults to false
+// runCuratorInit should NOT be called because enabled is explicitly false
 expect(mockRunCuratorInit).not.toHaveBeenCalled();
 });
 
@@ -114,10 +116,36 @@ const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCurato
 await hook({}, {});
 
 // runCuratorInit SHOULD be called because enabled && init_enabled
+// 3rd arg is llmDelegate (undefined in test — no opencodeClient set)
 expect(mockRunCuratorInit).toHaveBeenCalledWith(tempDir, expect.objectContaining({
 enabled: true,
 init_enabled: true,
-}));
+}), undefined);
+});
+
+it('2b. llmDelegate is threaded through createPhaseMonitorHook to curatorRunner', async () => {
+writeConfigFile(tempDir, { curator: { enabled: true } });
+writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
+
+const mockDelegate = jest.fn<CuratorLLMDelegate>();
+
+mockRunCuratorInit.mockResolvedValue({
+briefing: 'Test briefing',
+contradictions: [],
+knowledge_entries_reviewed: 0,
+prior_phases_covered: 0,
+});
+
+// Pass real delegate as 4th arg
+const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit, mockDelegate);
+await hook({}, {});
+
+// Verify delegate was forwarded to curatorRunner as 3rd positional arg
+expect(mockRunCuratorInit).toHaveBeenCalledWith(
+tempDir,
+expect.objectContaining({ enabled: true }),
+mockDelegate,
+);
 });
 
 it('3. Curator init error does not block hook', async () => {
@@ -262,17 +290,18 @@ const result = await hook({}, {});
 expect(result).toBeUndefined();
 });
 
-it('10. Missing config directory - hook handles gracefully (curator disabled)', async () => {
-// No config file written, tempDir has no .opencode → defaults to disabled
+it('10. Curator explicitly disabled - hook handles gracefully', async () => {
+// Explicitly disable curator — curator now defaults to enabled
+writeConfigFile(tempDir, { curator: { enabled: false } });
 writePlanFile(tempDir, 1, [{ id: 1, tasks: [{ id: '1.1', status: 'pending' }] }]);
 
 const hook = createPhaseMonitorHook(tempDir, mockPreflightManager, mockRunCuratorInit);
 
-// Should NOT throw - curator disabled by default
+// Should NOT throw
 const result = await hook({}, {});
 expect(result).toBeUndefined();
 
-// runCuratorInit should NOT be called due to curator being disabled
+// runCuratorInit should NOT be called when curator is explicitly disabled
 expect(mockRunCuratorInit).not.toHaveBeenCalled();
 });
 });

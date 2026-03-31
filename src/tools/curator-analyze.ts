@@ -11,6 +11,7 @@ import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
 } from '../hooks/curator';
+import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory.js';
 import type { KnowledgeRecommendation } from '../hooks/curator-types.js';
 import { createSwarmTool } from './create-tool';
 
@@ -83,12 +84,14 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				);
 
 				// Run the curator phase analysis (collects digest + compliance)
+				const llmDelegate = createCuratorLLMDelegate(directory);
 				const curatorResult = await runCuratorPhase(
 					directory,
 					typedArgs.phase,
 					[], // agentsDispatched — empty for on-demand analysis
 					curatorConfig,
 					{},
+					llmDelegate,
 				);
 
 				let applied = 0;

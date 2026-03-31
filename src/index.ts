@@ -26,6 +26,7 @@ import {
 	createAgentActivityHooks,
 	createCompactionCustomizerHook,
 	createContextBudgetHandler,
+	createCuratorLLMDelegate,
 	createDelegationGateHook,
 	createDelegationSanitizerHook,
 	createDelegationTrackerHook,
@@ -113,6 +114,8 @@ const _heartbeatTimers = new Map<string, number>();
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
+	// Store SDK client for curator LLM delegation
+	swarmState.opencodeClient = ctx.client;
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
 	initTelemetry(ctx.directory);
@@ -754,9 +757,19 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				},
 				automationConfig.capabilities?.phase_preflight === true &&
 				preflightTriggerManager
-					? createPhaseMonitorHook(ctx.directory, preflightTriggerManager)
+					? createPhaseMonitorHook(
+							ctx.directory,
+							preflightTriggerManager,
+							undefined,
+							createCuratorLLMDelegate(ctx.directory),
+						)
 					: knowledgeConfig.enabled
-						? createPhaseMonitorHook(ctx.directory)
+						? createPhaseMonitorHook(
+								ctx.directory,
+								undefined,
+								undefined,
+								createCuratorLLMDelegate(ctx.directory),
+							)
 						: undefined,
 			].filter(Boolean) as Array<
 				(input: unknown, output: unknown) => Promise<void>

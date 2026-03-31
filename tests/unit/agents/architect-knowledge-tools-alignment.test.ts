@@ -102,10 +102,10 @@ describe('Curator init flow coverage verification', () => {
 	// and that phase-monitor-curator.test.ts covers the hook-level init path.
 	// This test verifies the structural wiring: curator init is gated by enabled+init_enabled.
 
-	it('CuratorConfigSchema.enabled defaults to false (opt-in)', async () => {
+	it('CuratorConfigSchema.enabled defaults to true (enabled by default)', async () => {
 		const { CuratorConfigSchema } = await import('../../../src/config/schema.js');
 		const defaults = CuratorConfigSchema.parse({});
-		expect(defaults.enabled).toBe(false);
+		expect(defaults.enabled).toBe(true);
 	});
 
 	it('CuratorConfigSchema.init_enabled defaults to true (runs when curator is enabled)', async () => {
@@ -114,13 +114,13 @@ describe('Curator init flow coverage verification', () => {
 		expect(defaults.init_enabled).toBe(true);
 	});
 
-	it('Curator is disabled by default (enabled=false) — init cannot fire until opted in', async () => {
+	it('Curator init fires when enabled and init_enabled are both true (both defaults)', async () => {
 		const { CuratorConfigSchema } = await import('../../../src/config/schema.js');
 		const defaults = CuratorConfigSchema.parse({});
-		// enabled=false is the primary guard; init_enabled=true is ready but gated
-		expect(defaults.enabled).toBe(false);
+		// enabled=true is the primary guard; init_enabled=true is ready and unblocked
+		expect(defaults.enabled).toBe(true);
 		// The effective init gate: both must be true
 		const wouldRunInit = defaults.enabled && defaults.init_enabled;
-		expect(wouldRunInit).toBe(false);
+		expect(wouldRunInit).toBe(true);
 	});
 });

@@ -37,11 +37,13 @@ export type CuratorInitRunner = (
 export function createPhaseMonitorHook(
 	directory: string,
 	preflightManager?: PreflightTriggerManager,
-	curatorRunner: CuratorInitRunner = defaultRunCuratorInit,
+	curatorRunner?: CuratorInitRunner,
+	llmDelegate?: CuratorLLMDelegate,
 ): (input: unknown, output: unknown) => Promise<void> {
 	let lastKnownPhase: number | null = null;
 
 	const handler = async (_input: unknown, _output: unknown): Promise<void> => {
+		const runner = curatorRunner ?? defaultRunCuratorInit;
 		const plan = await loadPlan(directory);
 		if (!plan) return;
 
@@ -55,7 +57,11 @@ export function createPhaseMonitorHook(
 				const { config } = loadPluginConfigWithMeta(directory);
 				const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 				if (curatorConfig.enabled && curatorConfig.init_enabled) {
-					const initResult = await curatorRunner(directory, curatorConfig);
+					const initResult = await runner(
+						directory,
+						curatorConfig,
+						llmDelegate,
+					);
 					if (initResult.briefing) {
 						const briefingPath = path.join(
 							directory,

@@ -14943,7 +14943,7 @@ var init_schema = __esm(() => {
     max_encounter_score: exports_external.number().min(1).max(20).default(10)
   });
   CuratorConfigSchema = exports_external.object({
-    enabled: exports_external.boolean().default(false),
+    enabled: exports_external.boolean().default(true),
     init_enabled: exports_external.boolean().default(true),
     phase_enabled: exports_external.boolean().default(true),
     max_summary_tokens: exports_external.number().min(500).max(8000).default(2000),
@@ -31964,6 +31964,13 @@ async function rewriteKnowledge(filePath, entries) {
     }
   }
 }
+async function enforceKnowledgeCap(filePath, maxEntries) {
+  const entries = await readKnowledge(filePath);
+  if (entries.length > maxEntries) {
+    const trimmed = entries.slice(entries.length - maxEntries);
+    await rewriteKnowledge(filePath, trimmed);
+  }
+}
 async function appendRejectedLesson(directory, lesson) {
   const filePath = resolveSwarmRejectedPath(directory);
   const existing = await readRejectedLessons(directory);
@@ -41227,6 +41234,7 @@ var swarmState = {
   activeAgent: new Map,
   delegationChains: new Map,
   pendingEvents: 0,
+  opencodeClient: null,
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set
@@ -41732,7 +41740,7 @@ Output to .swarm/plan.md MUST use "## Phase N" headers. Do not write MODE labels
 1. DELEGATE all coding to {{AGENT_PREFIX}}coder. You do NOT write code.
 // IMPORTANT: This list MUST match AGENT_TOOL_MAP['architect'] in src/config/constants.ts
 // If you add a tool to the map, add it here. If you remove it from the map, remove it here.
-YOUR TOOLS: Task (delegation), checkpoint, check_gate_status, complexity_hotspots, declare_scope, detect_domains, diff, evidence_check, extract_code_blocks, gitingest, imports, knowledge_query, lint, pkg_audit, pre_check_batch, retrieve_summary, save_plan, schema_drift, secretscan, symbols, test_runner, todo_extract, update_task_status, write_retro.
+YOUR TOOLS: Task (delegation), checkpoint, check_gate_status, complexity_hotspots, co_change_analyzer, curator_analyze, declare_scope, detect_domains, diff, evidence_check, extract_code_blocks, gitingest, imports, knowledgeAdd, knowledge_query, knowledgeRecall, knowledgeRemove, lint, pkg_audit, pre_check_batch, retrieve_summary, save_plan, schema_drift, secretscan, symbols, test_runner, todo_extract, update_task_status, write_retro.
 CODER'S TOOLS: write, edit, patch, apply_patch, create_file, insert, replace \u2014 any tool that modifies file contents.
 If a tool modifies a file, it is a CODER tool. Delegate.
 2. ONE agent per message. Send, STOP, wait for response.
@@ -45895,7 +45903,9 @@ async function recordLessonsShown(directory, lessonIds, currentPhase) {
       const content = await readFile3(shownFile, "utf-8");
       shownData = JSON.parse(content);
     }
-    shownData[currentPhase] = lessonIds;
+    const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
+    const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
+    shownData[canonicalKey] = lessonIds;
     await mkdir2(path12.dirname(shownFile), { recursive: true });
     await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
@@ -46619,6 +46629,7 @@ async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, c
     stored++;
     existingEntries.push(entry);
   }
+  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
   await runAutoPromotion(directory, config3);
   return { stored, skipped, rejected };
 }
@@ -47984,6 +47995,9 @@ async function checkHivePromotions(swarmEntries, config3) {
   }
   if (hiveModified) {
     await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
+  }
+  if (newPromotions > 0 || hiveModified) {
+    await enforceKnowledgeCap(resolveHiveKnowledgePath(), config3.hive_max_entries);
   }
   return {
     timestamp: new Date().toISOString(),
@@ -52158,6 +52172,43 @@ function maskToolOutput(msg, _threshold) {
   }
   return freedTokens;
 }
+// src/hooks/curator-llm-factory.ts
+function createCuratorLLMDelegate(directory) {
+  const client = swarmState.opencodeClient;
+  if (!client)
+    return;
+  return async (systemPrompt, userInput) => {
+    let ephemeralSessionId;
+    try {
+      const createResult = await client.session.create({
+        query: { directory }
+      });
+      if (!createResult.data) {
+        throw new Error(`Failed to create curator session: ${JSON.stringify(createResult.error)}`);
+      }
+      ephemeralSessionId = createResult.data.id;
+      const promptResult = await client.session.prompt({
+        path: { id: ephemeralSessionId },
+        body: {
+          agent: "explorer",
+          system: systemPrompt,
+          tools: { write: false, edit: false, patch: false },
+          parts: [{ type: "text", text: userInput }]
+        }
+      });
+      if (!promptResult.data) {
+        throw new Error(`Curator LLM prompt failed: ${JSON.stringify(promptResult.error)}`);
+      }
+      const textParts = promptResult.data.parts.filter((p) => p.type === "text");
+      return textParts.map((p) => p.text).join(`
+`);
+    } finally {
+      if (ephemeralSessionId) {
+        client.session.delete({ path: { id: ephemeralSessionId } }).catch(() => {});
+      }
+    }
+  };
+}
 // src/hooks/delegation-gate.ts
 init_schema();
 import * as fs23 from "fs";
@@ -54182,9 +54233,10 @@ init_schema();
 init_manager2();
 import * as path36 from "path";
 init_utils2();
-function createPhaseMonitorHook(directory, preflightManager, curatorRunner = runCuratorInit) {
+function createPhaseMonitorHook(directory, preflightManager, curatorRunner, llmDelegate) {
   let lastKnownPhase = null;
   const handler = async (_input, _output) => {
+    const runner = curatorRunner ?? runCuratorInit;
     const plan = await loadPlan(directory);
     if (!plan)
       return;
@@ -54196,7 +54248,7 @@ function createPhaseMonitorHook(directory, preflightManager, curatorRunner = run
         const { config: config3 } = loadPluginConfigWithMeta2(directory);
         const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
         if (curatorConfig.enabled && curatorConfig.init_enabled) {
-          const initResult = await curatorRunner(directory, curatorConfig);
+          const initResult = await runner(directory, curatorConfig, llmDelegate);
           if (initResult.briefing) {
             const briefingPath = path36.join(directory, ".swarm", "curator-briefing.md");
             const { mkdir: mkdir5, writeFile: writeFile5 } = await import("fs/promises");
@@ -56643,19 +56695,7 @@ function sanitizeLessonForContext(text) {
 }
 function isOrchestratorAgent(agentName) {
   const stripped = stripKnownSwarmPrefix(agentName);
-  const nonOrchestratorAgents = new Set([
-    "coder",
-    "reviewer",
-    "test_engineer",
-    "security_reviewer",
-    "integration_analyst",
-    "docs_writer",
-    "designer",
-    "critic",
-    "docs",
-    "explorer"
-  ]);
-  return !nonOrchestratorAgents.has(stripped.toLowerCase());
+  return stripped.toLowerCase() === "architect";
 }
 function injectKnowledgeMessage(output, text) {
   if (!output.messages)
@@ -58934,7 +58974,8 @@ var curator_analyze = createSwarmTool({
       const { config: config3 } = loadPluginConfigWithMeta(directory);
       const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
       const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
-      const curatorResult = await runCuratorPhase(directory, typedArgs.phase, [], curatorConfig, {});
+      const llmDelegate = createCuratorLLMDelegate(directory);
+      const curatorResult = await runCuratorPhase(directory, typedArgs.phase, [], curatorConfig, {}, llmDelegate);
       let applied = 0;
       let skipped = 0;
       if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
@@ -61443,29 +61484,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       safeWarn(`[phase_complete] Drift verifier error (non-blocking):`, driftError);
     }
   }
-  const knowledgeConfig = {
-    enabled: true,
-    swarm_max_entries: 100,
-    hive_max_entries: 200,
-    auto_promote_days: 90,
-    max_inject_count: 5,
-    dedup_threshold: 0.6,
-    scope_filter: ["global"],
-    hive_enabled: true,
-    rejected_max_entries: 20,
-    validation_enabled: true,
-    evergreen_confidence: 0.9,
-    evergreen_utility: 0.8,
-    low_utility_threshold: 0.3,
-    min_retrievals_for_utility: 3,
-    schema_version: 1,
-    same_project_weight: 1,
-    cross_project_weight: 0.5,
-    min_encounter_score: 0.1,
-    initial_encounter_score: 1,
-    encounter_increment: 0.1,
-    max_encounter_score: 10
-  };
+  const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
   if (retroFound && retroEntry?.lessons_learned && retroEntry.lessons_learned.length > 0) {
     try {
       const projectName = path54.basename(dir);
@@ -61477,6 +61496,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           sessionState.pendingAdvisoryMessages.push(`[CURATOR] Knowledge curation: ${curationResult.stored} stored, ${curationResult.skipped} skipped, ${curationResult.rejected} rejected.`);
         }
       }
+      await updateRetrievalOutcome(dir, `Phase ${phase}`, true);
     } catch (error93) {
       safeWarn("[phase_complete] Failed to curate lessons from retrospective:", error93);
     }
@@ -61485,7 +61505,8 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   try {
     const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
     if (curatorConfig.enabled && curatorConfig.phase_enabled) {
-      const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {});
+      const llmDelegate = createCuratorLLMDelegate(dir);
+      const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {}, llmDelegate);
       const knowledgeResult = await applyCuratorKnowledgeUpdates(dir, curatorResult.knowledge_recommendations, knowledgeConfig);
       const callerSessionState = swarmState.agentSessions.get(sessionID);
       if (callerSessionState) {
@@ -67873,6 +67894,7 @@ ${footerLines.join(`
 var _heartbeatTimers = new Map;
 var OpenCodeSwarm = async (ctx) => {
   const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
+  swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
   initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3);
@@ -68315,7 +68337,7 @@ var OpenCodeSwarm = async (ctx) => {
         } catch {}
         return Promise.resolve();
       },
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, createCuratorLLMDelegate(ctx.directory)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, createCuratorLLMDelegate(ctx.directory)) : undefined
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),

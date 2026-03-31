@@ -20,4 +20,4 @@ export type CuratorInitRunner = (directory: string, config: CuratorConfig, llmDe
  * @param curatorRunner - Optional curator init runner (defaults to runCuratorInit; injectable for tests)
  * @returns A safeHook-wrapped system.transform handler
  */
-export declare function createPhaseMonitorHook(directory: string, preflightManager?: PreflightTriggerManager, curatorRunner?: CuratorInitRunner): (input: unknown, output: unknown) => Promise<void>;
+export declare function createPhaseMonitorHook(directory: string, preflightManager?: PreflightTriggerManager, curatorRunner?: CuratorInitRunner, llmDelegate?: CuratorLLMDelegate): (input: unknown, output: unknown) => Promise<void>;

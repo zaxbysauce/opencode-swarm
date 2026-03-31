@@ -21,6 +21,7 @@ import {
 	applyCuratorKnowledgeUpdates,
 	runCuratorPhase,
 } from '../hooks/curator';
+import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory.js';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import { updateRetrievalOutcome } from '../hooks/knowledge-reader.js';
 import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
@@ -706,12 +707,14 @@ export async function executePhaseComplete(
 	try {
 		const curatorConfig = CuratorConfigSchema.parse(config.curator ?? {});
 		if (curatorConfig.enabled && curatorConfig.phase_enabled) {
+			const llmDelegate = createCuratorLLMDelegate(dir);
 			const curatorResult = await runCuratorPhase(
 				dir,
 				phase,
 				agentsDispatched,
 				curatorConfig,
 				{},
+				llmDelegate,
 			);
 			const knowledgeResult = await applyCuratorKnowledgeUpdates(
 				dir,
