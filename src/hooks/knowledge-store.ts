@@ -153,6 +153,20 @@ export async function rewriteKnowledge<T>(
 	}
 }
 
+// Enforce a FIFO max-entries cap on a JSONL file.
+// If the file exceeds `maxEntries`, the oldest entries are dropped.
+// No-op when the file has fewer entries than the cap.
+export async function enforceKnowledgeCap<T>(
+	filePath: string,
+	maxEntries: number,
+): Promise<void> {
+	const entries = await readKnowledge<T>(filePath);
+	if (entries.length > maxEntries) {
+		const trimmed = entries.slice(entries.length - maxEntries);
+		await rewriteKnowledge(filePath, trimmed);
+	}
+}
+
 // Append a RejectedLesson, enforcing a FIFO max-20 cap.
 // If the file already has >= 20 entries, drop the oldest before appending.
 export async function appendRejectedLesson(

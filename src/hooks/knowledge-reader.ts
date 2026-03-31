@@ -270,7 +270,13 @@ async function recordLessonsShown(
 			shownData = JSON.parse(content);
 		}
 
-		shownData[currentPhase] = lessonIds;
+		// Normalize to canonical 'Phase N' key so updateRetrievalOutcome can
+		// always find the record regardless of verbose phase description format.
+		// e.g. 'Phase 1: Setup [IN PROGRESS]' → 'Phase 1'
+		const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
+		const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
+
+		shownData[canonicalKey] = lessonIds;
 
 		await mkdir(path.dirname(shownFile), { recursive: true });
 		await writeFile(shownFile, JSON.stringify(shownData, null, 2), 'utf-8');

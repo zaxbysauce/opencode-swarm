@@ -5,6 +5,7 @@ import { readCuratorSummary, writeCuratorSummary } from './curator.js';
 import type { CuratorSummary } from './curator-types.js';
 import {
 	appendKnowledge,
+	enforceKnowledgeCap,
 	findNearDuplicate,
 	readKnowledge,
 	resolveHiveKnowledgePath,
@@ -309,6 +310,11 @@ export async function checkHivePromotions(
 	// Rewrite hive file if any entries were modified
 	if (hiveModified) {
 		await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
+	}
+
+	// Enforce hive_max_entries cap (FIFO: drop oldest when exceeded)
+	if (newPromotions > 0 || hiveModified) {
+		await enforceKnowledgeCap(resolveHiveKnowledgePath(), config.hive_max_entries);
 	}
 
 	// Return the promotion summary for curator state
