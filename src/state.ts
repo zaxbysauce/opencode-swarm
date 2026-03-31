@@ -234,6 +234,12 @@ export const swarmState = {
 	/** SDK client — set at plugin init for curator LLM delegation */
 	opencodeClient: null as OpencodeClient | null,
 
+	/** Registered curator agent names (with swarm prefix if applicable).
+	 * Set at plugin init after agents are built so curator-llm-factory can
+	 * resolve the correct prefixed agent name for session.prompt calls. */
+	curatorInitAgentName: null as string | null,
+	curatorPhaseAgentName: null as string | null,
+
 	/** Last known context budget percentage (0-100), updated by system-enhancer */
 	lastBudgetPct: 0,
 
@@ -257,6 +263,8 @@ export function resetSwarmState(): void {
 	swarmState.agentSessions.clear();
 	swarmState.pendingRehydrations.clear();
 	swarmState.opencodeClient = null;
+	swarmState.curatorInitAgentName = null;
+	swarmState.curatorPhaseAgentName = null;
 	_rehydrationCache = null;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted

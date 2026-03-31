@@ -17636,6 +17636,8 @@ var ALL_SUBAGENT_NAMES = [
   "designer",
   "critic_sounding_board",
   "critic_drift_verifier",
+  "curator_init",
+  "curator_phase",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -17787,6 +17789,12 @@ var AGENT_TOOL_MAP = {
     "extract_code_blocks",
     "retrieve_summary",
     "symbols",
+    "knowledgeRecall"
+  ],
+  curator_init: [
+    "knowledgeRecall"
+  ],
+  curator_phase: [
     "knowledgeRecall"
   ]
 };
@@ -18495,6 +18503,8 @@ var swarmState = {
   delegationChains: new Map,
   pendingEvents: 0,
   opencodeClient: null,
+  curatorInitAgentName: null,
+  curatorPhaseAgentName: null,
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set

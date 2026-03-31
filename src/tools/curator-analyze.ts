@@ -89,7 +89,7 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				);
 
 				// Run the curator phase analysis (collects digest + compliance)
-				const llmDelegate = createCuratorLLMDelegate(directory);
+				const llmDelegate = createCuratorLLMDelegate(directory, 'phase');
 				const curatorResult = await runCuratorPhase(
 					directory,
 					typedArgs.phase,

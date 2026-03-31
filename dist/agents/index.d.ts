@@ -37,6 +37,7 @@ export declare function getAgentConfigs(config?: PluginConfig): Record<string, S
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createCriticAgent } from './critic';
+export { createCuratorAgent } from './curator-agent';
 export { createDesignerAgent } from './designer';
 export { createDocsAgent } from './docs';
 export { createExplorerAgent } from './explorer';

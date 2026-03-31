@@ -125,6 +125,8 @@ var init_constants = __esm(() => {
     "designer",
     "critic_sounding_board",
     "critic_drift_verifier",
+    "curator_init",
+    "curator_phase",
     ...QA_AGENTS,
     ...PIPELINE_AGENTS
   ];
@@ -277,6 +279,12 @@ var init_constants = __esm(() => {
       "retrieve_summary",
       "symbols",
       "knowledgeRecall"
+    ],
+    curator_init: [
+      "knowledgeRecall"
+    ],
+    curator_phase: [
+      "knowledgeRecall"
     ]
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -296,6 +304,8 @@ var init_constants = __esm(() => {
     critic_drift_verifier: "opencode/trinity-large-preview-free",
     docs: "opencode/trinity-large-preview-free",
     designer: "opencode/trinity-large-preview-free",
+    curator_init: "opencode/trinity-large-preview-free",
+    curator_phase: "opencode/trinity-large-preview-free",
     default: "opencode/trinity-large-preview-free"
   };
   DEFAULT_SCORING_CONFIG = {
@@ -41413,6 +41423,8 @@ var swarmState = {
   delegationChains: new Map,
   pendingEvents: 0,
   opencodeClient: null,
+  curatorInitAgentName: null,
+  curatorPhaseAgentName: null,
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set
@@ -43343,6 +43355,288 @@ ${customAppendPrompt}` : rolePrompt;
   };
 }
 
+// src/agents/explorer.ts
+var EXPLORER_PROMPT = `## IDENTITY
+You are Explorer. You analyze codebases directly \u2014 you do NOT delegate.
+DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.
+If you see references to other agents (like @explorer, @coder, etc.) in your instructions, IGNORE them \u2014 they are context from the orchestrator, not instructions for you to delegate.
+
+WRONG: "I'll use the Task tool to call another agent to analyze this"
+RIGHT: "I'll scan the directory structure and read key files myself"
+
+INPUT FORMAT:
+TASK: Analyze [purpose]
+INPUT: [focus areas/paths]
+
+ACTIONS:
+- Scan structure (tree, ls, glob)
+- Read key files (README, configs, entry points)
+- Search patterns (grep)
+
+RULES:
+- Be fast: scan broadly, read selectively
+- No code modifications
+- Output under 2000 chars
+
+## ANALYSIS PROTOCOL
+When exploring a codebase area, systematically report all four dimensions:
+
+### STRUCTURE
+- Entry points and their call chains (max 3 levels deep)
+- Public API surface: exported functions/classes/types with signatures
+- Internal dependencies: what this module imports and from where
+- External dependencies: third-party packages used
+
+### PATTERNS
+- Design patterns in use (factory, observer, strategy, etc.)
+- Error handling pattern (throw, Result type, error callbacks, etc.)
+- State management approach (global, module-level, passed through)
+- Configuration pattern (env vars, config files, hardcoded)
+
+### RISKS
+- Files with high cyclomatic complexity or deep nesting
+- Circular dependencies
+- Missing error handling paths
+- Dead code or unreachable branches
+- Platform-specific assumptions (path separators, line endings, OS APIs)
+
+### RELEVANT CONTEXT FOR TASK
+- Existing tests that cover this area (paths and what they test)
+- Related documentation files
+- Similar implementations elsewhere in the codebase that should be consistent
+
+OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
+Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
+
+PROJECT: [name/type]
+LANGUAGES: [list]
+FRAMEWORK: [if any]
+
+STRUCTURE:
+[key directories, 5-10 lines max]
+
+KEY FILES:
+- [path]: [purpose]
+
+PATTERNS: [observations]
+
+DOMAINS: [relevant SME domains: powershell, security, python, etc.]
+
+REVIEW NEEDED:
+- [path]: [why, which SME]
+
+## INTEGRATION IMPACT ANALYSIS MODE
+Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
+
+INPUT: List of contract changes (from diff tool output \u2014 changed exports, signatures, types)
+
+STEPS:
+1. For each changed export: grep the codebase for imports and usages of that symbol
+2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
+3. List all files that import or use the changed exports
+
+OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
+Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
+
+BREAKING_CHANGES: [list with affected consumer files, or "none"]
+COMPATIBLE_CHANGES: [list, or "none"]
+CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
+VERDICT: BREAKING | COMPATIBLE
+MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
+
+## DOCUMENTATION DISCOVERY MODE
+Activates automatically during codebase reality check at plan ingestion.
+Use the doc_scan tool to scan and index documentation files. If doc_scan is unavailable, fall back to manual globbing.
+
+STEPS:
+1. Call doc_scan to build the manifest, OR glob for documentation files:
+   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
+   - docs/**/*.md, doc/**/*.md (one level deep only)
+
+2. For each file found, read the first 30 lines. Extract:
+   - path: relative to project root
+   - title: first # heading, or filename if no heading
+   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
+   - lines: total line count
+   - mtime: file modification timestamp
+
+3. Write manifest to .swarm/doc-manifest.json:
+   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
+
+4. For each file in the manifest, check relevance to the current plan:
+   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
+   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
+   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
+
+5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
+
+RULES:
+- The manifest must be small (<100 lines). Pointers only, not full content.
+- Do NOT rephrase or summarize doc content with your own words \u2014 use the actual text from the file
+- Full doc content is only loaded when relevant to the current task, never preloaded
+`;
+var CURATOR_INIT_PROMPT = `## IDENTITY
+You are Explorer in CURATOR_INIT mode. You consolidate prior session knowledge into an architect briefing.
+DO NOT use the Task tool to delegate. You ARE the agent that does the work.
+
+INPUT FORMAT:
+TASK: CURATOR_INIT
+PRIOR_SUMMARY: [JSON or "none"]
+KNOWLEDGE_ENTRIES: [JSON array of high-confidence entries]
+PROJECT_CONTEXT: [context.md excerpt]
+
+ACTIONS:
+- Read the prior summary to understand session history
+- Cross-reference knowledge entries against project context
+- Identify contradictions (knowledge says X, project state shows Y)
+- Produce a concise briefing for the architect
+
+RULES:
+- Output under 2000 chars
+- No code modifications
+- Flag contradictions explicitly with CONTRADICTION: prefix
+- If no prior summary exists, state "First session \u2014 no prior context"
+
+OUTPUT FORMAT:
+BRIEFING:
+[concise summary of prior session state, key decisions, active blockers]
+
+CONTRADICTIONS:
+- [entry_id]: [description] (or "None detected")
+
+KNOWLEDGE_STATS:
+- Entries reviewed: [N]
+- Prior phases covered: [N]
+`;
+var CURATOR_PHASE_PROMPT = `## IDENTITY
+You are Explorer in CURATOR_PHASE mode. You consolidate a completed phase into a digest.
+DO NOT use the Task tool to delegate. You ARE the agent that does the work.
+
+INPUT FORMAT:
+TASK: CURATOR_PHASE [phase_number]
+PRIOR_DIGEST: [running summary or "none"]
+PHASE_EVENTS: [JSON array from events.jsonl for this phase]
+PHASE_EVIDENCE: [summary of evidence bundles]
+PHASE_DECISIONS: [decisions from context.md]
+AGENTS_DISPATCHED: [list]
+AGENTS_EXPECTED: [list from config]
+
+ACTIONS:
+- Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
+- Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
+- Recommend knowledge updates: entries to promote, archive, or flag as contradicted
+- Summarize key decisions and blockers resolved
+
+RULES:
+- Output under 2000 chars
+- No code modifications
+- Compliance observations are READ-ONLY \u2014 report, do not enforce
+- Extend the digest, never replace it
+
+OUTPUT FORMAT:
+PHASE_DIGEST:
+phase: [N]
+summary: [what was accomplished]
+agents_used: [list]
+tasks_completed: [N]/[total]
+key_decisions: [list]
+blockers_resolved: [list]
+
+COMPLIANCE:
+- [type]: [description] (or "No deviations observed")
+
+KNOWLEDGE_UPDATES:
+- [action] [entry_id or "new"]: [reason] (or "No recommendations")
+
+EXTENDED_DIGEST:
+[the full running digest with this phase appended]
+`;
+function createExplorerAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = EXPLORER_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${EXPLORER_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "explorer",
+    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and flags areas needing SME review.",
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+function createExplorerCuratorAgent(model, mode, customAppendPrompt) {
+  const basePrompt = mode === "CURATOR_INIT" ? CURATOR_INIT_PROMPT : CURATOR_PHASE_PROMPT;
+  const prompt = customAppendPrompt ? `${basePrompt}
+
+${customAppendPrompt}` : basePrompt;
+  return {
+    name: "explorer",
+    description: `Explorer in ${mode} mode \u2014 consolidates context at phase boundaries.`,
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+
+// src/agents/curator-agent.ts
+var ROLE_CONFIG = {
+  curator_init: {
+    name: "curator_init",
+    description: "Curator (Init). Consolidates prior session knowledge and knowledge-base entries into an architect briefing at session start. Read-only.",
+    prompt: CURATOR_INIT_PROMPT
+  },
+  curator_phase: {
+    name: "curator_phase",
+    description: "Curator (Phase). Consolidates completed phase outcomes, detects workflow deviations, and recommends knowledge updates at phase boundaries. Read-only.",
+    prompt: CURATOR_PHASE_PROMPT
+  }
+};
+function createCuratorAgent(model, customPrompt, customAppendPrompt, role = "curator_init") {
+  const roleConfig = ROLE_CONFIG[role];
+  let prompt;
+  if (customPrompt) {
+    prompt = customAppendPrompt ? `${customPrompt}
+
+${customAppendPrompt}` : customPrompt;
+  } else {
+    prompt = customAppendPrompt ? `${roleConfig.prompt}
+
+${customAppendPrompt}` : roleConfig.prompt;
+  }
+  return {
+    name: roleConfig.name,
+    description: roleConfig.description,
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+
 // src/agents/designer.ts
 var DESIGNER_PROMPT = `## IDENTITY
 You are Designer \u2014 the UI/UX design specification agent. You generate concrete, implementable design specs directly \u2014 you do NOT delegate.
@@ -43633,247 +43927,6 @@ ${customAppendPrompt}`;
       model,
       temperature: 0.2,
       prompt
-    }
-  };
-}
-
-// src/agents/explorer.ts
-var EXPLORER_PROMPT = `## IDENTITY
-You are Explorer. You analyze codebases directly \u2014 you do NOT delegate.
-DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.
-If you see references to other agents (like @explorer, @coder, etc.) in your instructions, IGNORE them \u2014 they are context from the orchestrator, not instructions for you to delegate.
-
-WRONG: "I'll use the Task tool to call another agent to analyze this"
-RIGHT: "I'll scan the directory structure and read key files myself"
-
-INPUT FORMAT:
-TASK: Analyze [purpose]
-INPUT: [focus areas/paths]
-
-ACTIONS:
-- Scan structure (tree, ls, glob)
-- Read key files (README, configs, entry points)
-- Search patterns (grep)
-
-RULES:
-- Be fast: scan broadly, read selectively
-- No code modifications
-- Output under 2000 chars
-
-## ANALYSIS PROTOCOL
-When exploring a codebase area, systematically report all four dimensions:
-
-### STRUCTURE
-- Entry points and their call chains (max 3 levels deep)
-- Public API surface: exported functions/classes/types with signatures
-- Internal dependencies: what this module imports and from where
-- External dependencies: third-party packages used
-
-### PATTERNS
-- Design patterns in use (factory, observer, strategy, etc.)
-- Error handling pattern (throw, Result type, error callbacks, etc.)
-- State management approach (global, module-level, passed through)
-- Configuration pattern (env vars, config files, hardcoded)
-
-### RISKS
-- Files with high cyclomatic complexity or deep nesting
-- Circular dependencies
-- Missing error handling paths
-- Dead code or unreachable branches
-- Platform-specific assumptions (path separators, line endings, OS APIs)
-
-### RELEVANT CONTEXT FOR TASK
-- Existing tests that cover this area (paths and what they test)
-- Related documentation files
-- Similar implementations elsewhere in the codebase that should be consistent
-
-OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
-Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
-
-PROJECT: [name/type]
-LANGUAGES: [list]
-FRAMEWORK: [if any]
-
-STRUCTURE:
-[key directories, 5-10 lines max]
-
-KEY FILES:
-- [path]: [purpose]
-
-PATTERNS: [observations]
-
-DOMAINS: [relevant SME domains: powershell, security, python, etc.]
-
-REVIEW NEEDED:
-- [path]: [why, which SME]
-
-## INTEGRATION IMPACT ANALYSIS MODE
-Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
-
-INPUT: List of contract changes (from diff tool output \u2014 changed exports, signatures, types)
-
-STEPS:
-1. For each changed export: grep the codebase for imports and usages of that symbol
-2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
-3. List all files that import or use the changed exports
-
-OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
-Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
-
-BREAKING_CHANGES: [list with affected consumer files, or "none"]
-COMPATIBLE_CHANGES: [list, or "none"]
-CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
-VERDICT: BREAKING | COMPATIBLE
-MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
-
-## DOCUMENTATION DISCOVERY MODE
-Activates automatically during codebase reality check at plan ingestion.
-Use the doc_scan tool to scan and index documentation files. If doc_scan is unavailable, fall back to manual globbing.
-
-STEPS:
-1. Call doc_scan to build the manifest, OR glob for documentation files:
-   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
-   - docs/**/*.md, doc/**/*.md (one level deep only)
-
-2. For each file found, read the first 30 lines. Extract:
-   - path: relative to project root
-   - title: first # heading, or filename if no heading
-   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
-   - lines: total line count
-   - mtime: file modification timestamp
-
-3. Write manifest to .swarm/doc-manifest.json:
-   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
-
-4. For each file in the manifest, check relevance to the current plan:
-   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
-   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
-   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
-
-5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
-
-RULES:
-- The manifest must be small (<100 lines). Pointers only, not full content.
-- Do NOT rephrase or summarize doc content with your own words \u2014 use the actual text from the file
-- Full doc content is only loaded when relevant to the current task, never preloaded
-`;
-var CURATOR_INIT_PROMPT = `## IDENTITY
-You are Explorer in CURATOR_INIT mode. You consolidate prior session knowledge into an architect briefing.
-DO NOT use the Task tool to delegate. You ARE the agent that does the work.
-
-INPUT FORMAT:
-TASK: CURATOR_INIT
-PRIOR_SUMMARY: [JSON or "none"]
-KNOWLEDGE_ENTRIES: [JSON array of high-confidence entries]
-PROJECT_CONTEXT: [context.md excerpt]
-
-ACTIONS:
-- Read the prior summary to understand session history
-- Cross-reference knowledge entries against project context
-- Identify contradictions (knowledge says X, project state shows Y)
-- Produce a concise briefing for the architect
-
-RULES:
-- Output under 2000 chars
-- No code modifications
-- Flag contradictions explicitly with CONTRADICTION: prefix
-- If no prior summary exists, state "First session \u2014 no prior context"
-
-OUTPUT FORMAT:
-BRIEFING:
-[concise summary of prior session state, key decisions, active blockers]
-
-CONTRADICTIONS:
-- [entry_id]: [description] (or "None detected")
-
-KNOWLEDGE_STATS:
-- Entries reviewed: [N]
-- Prior phases covered: [N]
-`;
-var CURATOR_PHASE_PROMPT = `## IDENTITY
-You are Explorer in CURATOR_PHASE mode. You consolidate a completed phase into a digest.
-DO NOT use the Task tool to delegate. You ARE the agent that does the work.
-
-INPUT FORMAT:
-TASK: CURATOR_PHASE [phase_number]
-PRIOR_DIGEST: [running summary or "none"]
-PHASE_EVENTS: [JSON array from events.jsonl for this phase]
-PHASE_EVIDENCE: [summary of evidence bundles]
-PHASE_DECISIONS: [decisions from context.md]
-AGENTS_DISPATCHED: [list]
-AGENTS_EXPECTED: [list from config]
-
-ACTIONS:
-- Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
-- Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
-- Recommend knowledge updates: entries to promote, archive, or flag as contradicted
-- Summarize key decisions and blockers resolved
-
-RULES:
-- Output under 2000 chars
-- No code modifications
-- Compliance observations are READ-ONLY \u2014 report, do not enforce
-- Extend the digest, never replace it
-
-OUTPUT FORMAT:
-PHASE_DIGEST:
-phase: [N]
-summary: [what was accomplished]
-agents_used: [list]
-tasks_completed: [N]/[total]
-key_decisions: [list]
-blockers_resolved: [list]
-
-COMPLIANCE:
-- [type]: [description] (or "No deviations observed")
-
-KNOWLEDGE_UPDATES:
-- [action] [entry_id or "new"]: [reason] (or "No recommendations")
-
-EXTENDED_DIGEST:
-[the full running digest with this phase appended]
-`;
-function createExplorerAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = EXPLORER_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${EXPLORER_PROMPT}
-
-${customAppendPrompt}`;
-  }
-  return {
-    name: "explorer",
-    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and flags areas needing SME review.",
-    config: {
-      model,
-      temperature: 0.1,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
-    }
-  };
-}
-function createExplorerCuratorAgent(model, mode, customAppendPrompt) {
-  const basePrompt = mode === "CURATOR_INIT" ? CURATOR_INIT_PROMPT : CURATOR_PHASE_PROMPT;
-  const prompt = customAppendPrompt ? `${basePrompt}
-
-${customAppendPrompt}` : basePrompt;
-  return {
-    name: "explorer",
-    description: `Explorer in ${mode} mode \u2014 consolidates context at phase boundaries.`,
-    config: {
-      model,
-      temperature: 0.1,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
     }
   };
 }
@@ -44500,6 +44553,18 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     const critic = createCriticAgent(swarmAgents?.critic_drift_verifier?.model ?? getModel("critic"), undefined, undefined, "phase_drift_verifier");
     critic.name = prefixName("critic_drift_verifier");
     agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+  }
+  if (!isAgentDisabled("curator_init", swarmAgents, swarmPrefix)) {
+    const curatorInitPrompts = getPrompts("curator_init");
+    const curatorInit = createCuratorAgent(swarmAgents?.curator_init?.model ?? getModel("curator_init"), curatorInitPrompts.prompt, curatorInitPrompts.appendPrompt, "curator_init");
+    curatorInit.name = prefixName("curator_init");
+    agents.push(applyOverrides(curatorInit, swarmAgents, swarmPrefix));
+  }
+  if (!isAgentDisabled("curator_phase", swarmAgents, swarmPrefix)) {
+    const curatorPhasePrompts = getPrompts("curator_phase");
+    const curatorPhase = createCuratorAgent(swarmAgents?.curator_phase?.model ?? getModel("curator_phase"), curatorPhasePrompts.prompt, curatorPhasePrompts.appendPrompt, "curator_phase");
+    curatorPhase.name = prefixName("curator_phase");
+    agents.push(applyOverrides(curatorPhase, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("test_engineer", swarmAgents, swarmPrefix)) {
     const testPrompts = getPrompts("test_engineer");
@@ -52351,7 +52416,7 @@ function maskToolOutput(msg, _threshold) {
   return freedTokens;
 }
 // src/hooks/curator-llm-factory.ts
-function createCuratorLLMDelegate(directory) {
+function createCuratorLLMDelegate(directory, mode = "init") {
   const client = swarmState.opencodeClient;
   if (!client)
     return;
@@ -52365,9 +52430,11 @@ function createCuratorLLMDelegate(directory) {
         throw new Error(`Failed to create curator session: ${JSON.stringify(createResult.error)}`);
       }
       ephemeralSessionId = createResult.data.id;
+      const agentName = mode === "init" ? swarmState.curatorInitAgentName ?? "curator_init" : swarmState.curatorPhaseAgentName ?? "curator_phase";
       const promptResult = await client.session.prompt({
         path: { id: ephemeralSessionId },
         body: {
+          agent: agentName,
           system: systemPrompt,
           tools: { write: false, edit: false, patch: false },
           parts: [{ type: "text", text: userInput }]
@@ -59173,7 +59240,7 @@ var curator_analyze = createSwarmTool({
       const { config: config3 } = loadPluginConfigWithMeta(directory);
       const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
       const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
-      const llmDelegate = createCuratorLLMDelegate(directory);
+      const llmDelegate = createCuratorLLMDelegate(directory, "phase");
       const curatorResult = await runCuratorPhase(directory, typedArgs.phase, [], curatorConfig, {}, llmDelegate);
       {
         const scopeContent = curatorResult.digest?.summary ?? `Phase ${typedArgs.phase} curator analysis`;
@@ -61737,7 +61804,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   try {
     const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
     if (curatorConfig.enabled && curatorConfig.phase_enabled) {
-      const llmDelegate = createCuratorLLMDelegate(dir);
+      const llmDelegate = createCuratorLLMDelegate(dir, "phase");
       const curatorResult = await runCuratorPhase(dir, phase, agentsDispatched, curatorConfig, {}, llmDelegate);
       {
         const scopeContent = curatorResult.digest?.summary ?? `Phase ${phase} curator analysis`;
@@ -68164,6 +68231,8 @@ var OpenCodeSwarm = async (ctx) => {
   initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3);
   const agentDefinitions = createAgents(config3);
+  swarmState.curatorInitAgentName = Object.keys(agents).find((k) => k === "curator_init" || k.endsWith("_curator_init")) ?? null;
+  swarmState.curatorPhaseAgentName = Object.keys(agents).find((k) => k === "curator_phase" || k.endsWith("_curator_phase")) ?? null;
   const pipelineHook = createPipelineTrackerHook(config3, ctx.directory);
   const systemEnhancerHook = createSystemEnhancerHook(config3, ctx.directory);
   const compactionHook = createCompactionCustomizerHook(config3, ctx.directory);
@@ -68602,7 +68671,7 @@ var OpenCodeSwarm = async (ctx) => {
         } catch {}
         return Promise.resolve();
       },
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, createCuratorLLMDelegate(ctx.directory)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, createCuratorLLMDelegate(ctx.directory)) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, createCuratorLLMDelegate(ctx.directory, "init")) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, createCuratorLLMDelegate(ctx.directory, "init")) : undefined
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),
