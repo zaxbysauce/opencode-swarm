@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Read .claude/skills/qa-sweep/SKILL.md and apply its protocol to any implementation, debugging, investigation, or fixing task in this session. Also read .claude/skills/commit-pr/SKILL.md before any commit or PR operation."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
