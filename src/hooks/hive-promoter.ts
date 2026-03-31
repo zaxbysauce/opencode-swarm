@@ -314,7 +314,10 @@ export async function checkHivePromotions(
 
 	// Enforce hive_max_entries cap (FIFO: drop oldest when exceeded)
 	if (newPromotions > 0 || hiveModified) {
-		await enforceKnowledgeCap(resolveHiveKnowledgePath(), config.hive_max_entries);
+		await enforceKnowledgeCap(
+			resolveHiveKnowledgePath(),
+			config.hive_max_entries,
+		);
 	}
 
 	// Return the promotion summary for curator state

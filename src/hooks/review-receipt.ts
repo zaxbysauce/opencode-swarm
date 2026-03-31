@@ -160,7 +160,10 @@ export function computeScopeFingerprint(
 	content: string,
 	scopeDescription: string,
 ): ScopeFingerprint {
-	const hash = crypto.createHash('sha256').update(content, 'utf-8').digest('hex');
+	const hash = crypto
+		.createHash('sha256')
+		.update(content, 'utf-8')
+		.digest('hex');
 	return {
 		hash,
 		scope_description: scopeDescription,
