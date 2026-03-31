@@ -6,8 +6,9 @@ import { swarmState } from '../../../src/state';
 vi.mock('../../../src/state', () => ({
     swarmState: {
         opencodeClient: null,
-        curatorInitAgentName: null,
-        curatorPhaseAgentName: null,
+        curatorInitAgentNames: [] as string[],
+        curatorPhaseAgentNames: [] as string[],
+        activeAgent: new Map<string, string>(),
     },
 }));
 
@@ -26,8 +27,9 @@ const mockClient = {
 beforeEach(() => {
     vi.clearAllMocks();
     (swarmState as { opencodeClient: unknown }).opencodeClient = null;
-    (swarmState as { curatorInitAgentName: unknown }).curatorInitAgentName = null;
-    (swarmState as { curatorPhaseAgentName: unknown }).curatorPhaseAgentName = null;
+    (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [];
+    (swarmState as { curatorPhaseAgentNames: string[] }).curatorPhaseAgentNames = [];
+    (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map();
 });
 
 describe('createCuratorLLMDelegate', () => {
@@ -43,57 +45,29 @@ describe('createCuratorLLMDelegate', () => {
         expect(typeof delegate).toBe('function');
     });
 
-    test('delegate uses curator_init agent name for init mode (default)', async () => {
+    // ─── Single-swarm resolution ─────────────────────────────────────────────
+
+    test('single default swarm: uses curator_init', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
-        (swarmState as { curatorInitAgentName: unknown }).curatorInitAgentName = 'curator_init';
-        mockCreate.mockResolvedValue({ data: { id: 'sess-123' } });
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
+        mockCreate.mockResolvedValue({ data: { id: 'sess-1' } });
         mockPrompt.mockResolvedValue({
-            data: { info: {}, parts: [{ type: 'text', text: 'BRIEFING: test output' }] },
+            data: { info: {}, parts: [{ type: 'text', text: 'BRIEFING: ok' }] },
         });
 
         const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
-        const result = await delegate('SYSTEM_PROMPT', 'user input');
-
-        expect(mockCreate).toHaveBeenCalledWith({ query: { directory: '/tmp/test' } });
-        expect(mockPrompt).toHaveBeenCalledWith({
-            path: { id: 'sess-123' },
-            body: {
-                agent: 'curator_init',
-                system: 'SYSTEM_PROMPT',
-                tools: { write: false, edit: false, patch: false },
-                parts: [{ type: 'text', text: 'user input' }],
-            },
-        });
-        expect(result).toBe('BRIEFING: test output');
-    });
-
-    test('delegate uses curator_phase agent name for phase mode', async () => {
-        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
-        (swarmState as { curatorPhaseAgentName: unknown }).curatorPhaseAgentName = 'curator_phase';
-        mockCreate.mockResolvedValue({ data: { id: 'sess-phase' } });
-        mockPrompt.mockResolvedValue({
-            data: { info: {}, parts: [{ type: 'text', text: 'phase output' }] },
-        });
-
-        const delegate = createCuratorLLMDelegate('/tmp/test', 'phase')!;
-        await delegate('PHASE_PROMPT', 'phase input');
+        await delegate('SYS', 'input');
 
         expect(mockPrompt).toHaveBeenCalledWith({
-            path: { id: 'sess-phase' },
-            body: {
-                agent: 'curator_phase',
-                system: 'PHASE_PROMPT',
-                tools: { write: false, edit: false, patch: false },
-                parts: [{ type: 'text', text: 'phase input' }],
-            },
+            path: { id: 'sess-1' },
+            body: expect.objectContaining({ agent: 'curator_init' }),
         });
     });
 
-    test('delegate uses prefixed agent name for non-default swarms', async () => {
+    test('single named swarm: uses prefixed curator_init', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
-        // Prefixed name as set by src/index.ts for a 'local' swarm
-        (swarmState as { curatorInitAgentName: unknown }).curatorInitAgentName = 'local_curator_init';
-        mockCreate.mockResolvedValue({ data: { id: 'sess-prefix' } });
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['local_curator_init'];
+        mockCreate.mockResolvedValue({ data: { id: 'sess-2' } });
         mockPrompt.mockResolvedValue({
             data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
         });
@@ -102,31 +76,158 @@ describe('createCuratorLLMDelegate', () => {
         await delegate('SYS', 'input');
 
         expect(mockPrompt).toHaveBeenCalledWith({
-            path: { id: 'sess-prefix' },
+            path: { id: 'sess-2' },
             body: expect.objectContaining({ agent: 'local_curator_init' }),
         });
     });
 
-    test('delegate falls back to bare agent name when swarmState not populated', async () => {
+    // ─── Multi-swarm active-agent resolution ─────────────────────────────────
+
+    test('multi-swarm: picks curator for active swarm via prefix matching', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
-        // curatorInitAgentName left as null (e.g., if resolver ran before agents built)
-        mockCreate.mockResolvedValue({ data: { id: 'sess-fallback' } });
+        // 5 custom swarms
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'beta_curator_init',
+            'gamma_curator_init',
+            'delta_curator_init',
+            'epsilon_curator_init',
+        ];
+        // gamma_architect is currently active
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-gamma', 'gamma_architect'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-x' } });
         mockPrompt.mockResolvedValue({
-            data: { info: {}, parts: [{ type: 'text', text: 'fallback ok' }] },
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
         });
 
         const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
         await delegate('SYS', 'input');
 
         expect(mockPrompt).toHaveBeenCalledWith({
-            path: { id: 'sess-fallback' },
+            path: { id: 'sess-x' },
+            body: expect.objectContaining({ agent: 'gamma_curator_init' }),
+        });
+    });
+
+    test('multi-swarm: phase mode picks correct swarm curator_phase', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorPhaseAgentNames: string[] }).curatorPhaseAgentNames = [
+            'alpha_curator_phase',
+            'beta_curator_phase',
+        ];
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map([
+            ['sess-b', 'beta_coder'],
+        ]);
+        mockCreate.mockResolvedValue({ data: { id: 'sess-y' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'phase')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-y' },
+            body: expect.objectContaining({ agent: 'beta_curator_phase' }),
+        });
+    });
+
+    test('multi-swarm: falls back to default swarm when no active session matches named swarm', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        // Mix of default and named swarms
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'curator_init',         // default swarm (empty prefix)
+            'local_curator_init',   // named swarm
+        ];
+        // No active sessions at all (e.g. called at plugin init before sessions start)
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map();
+        mockCreate.mockResolvedValue({ data: { id: 'sess-fb' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
+        await delegate('SYS', 'input');
+
+        // Falls back to default swarm (empty prefix) since no active session
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-fb' },
             body: expect.objectContaining({ agent: 'curator_init' }),
         });
     });
 
-    test('delegate deletes ephemeral session in finally block', async () => {
+    test('multi-swarm: falls back to first registered when no active session and no default swarm', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
-        mockCreate.mockResolvedValue({ data: { id: 'sess-abc' } });
+        // Only non-default swarms registered
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [
+            'alpha_curator_init',
+            'beta_curator_init',
+        ];
+        // No active sessions
+        (swarmState as { activeAgent: Map<string, string> }).activeAgent = new Map();
+        mockCreate.mockResolvedValue({ data: { id: 'sess-fb2' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
+        await delegate('SYS', 'input');
+
+        // Falls back to first registered
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-fb2' },
+            body: expect.objectContaining({ agent: 'alpha_curator_init' }),
+        });
+    });
+
+    test('no registered agents: falls back to bare suffix name', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = [];
+        mockCreate.mockResolvedValue({ data: { id: 'sess-bare' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
+        await delegate('SYS', 'input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-bare' },
+            body: expect.objectContaining({ agent: 'curator_init' }),
+        });
+    });
+
+    // ─── Session lifecycle ────────────────────────────────────────────────────
+
+    test('system prompt is passed as system: override', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
+        mockCreate.mockResolvedValue({ data: { id: 'sess-sys' } });
+        mockPrompt.mockResolvedValue({
+            data: { info: {}, parts: [{ type: 'text', text: 'result' }] },
+        });
+
+        const delegate = createCuratorLLMDelegate('/tmp/test', 'init')!;
+        const result = await delegate('MY_SYSTEM_PROMPT', 'user input');
+
+        expect(mockPrompt).toHaveBeenCalledWith({
+            path: { id: 'sess-sys' },
+            body: {
+                agent: 'curator_init',
+                system: 'MY_SYSTEM_PROMPT',
+                tools: { write: false, edit: false, patch: false },
+                parts: [{ type: 'text', text: 'user input' }],
+            },
+        });
+        expect(result).toBe('result');
+    });
+
+    test('ephemeral session deleted in finally block', async () => {
+        (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
+        mockCreate.mockResolvedValue({ data: { id: 'sess-del' } });
         mockPrompt.mockResolvedValue({
             data: { info: {}, parts: [{ type: 'text', text: 'ok' }] },
         });
@@ -134,11 +235,12 @@ describe('createCuratorLLMDelegate', () => {
         const delegate = createCuratorLLMDelegate('/tmp/test')!;
         await delegate('SYS', 'input');
 
-        expect(mockDelete).toHaveBeenCalledWith({ path: { id: 'sess-abc' } });
+        expect(mockDelete).toHaveBeenCalledWith({ path: { id: 'sess-del' } });
     });
 
-    test('delegate deletes session in finally even on prompt error', async () => {
+    test('session deleted in finally even on prompt error', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
         mockCreate.mockResolvedValue({ data: { id: 'sess-err' } });
         mockPrompt.mockRejectedValue(new Error('LLM_FAILURE'));
 
@@ -148,7 +250,7 @@ describe('createCuratorLLMDelegate', () => {
         expect(mockDelete).toHaveBeenCalledWith({ path: { id: 'sess-err' } });
     });
 
-    test('delegate throws if session.create fails', async () => {
+    test('throws if session.create fails', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
         mockCreate.mockResolvedValue({ data: undefined, error: 'server error' });
 
@@ -158,6 +260,7 @@ describe('createCuratorLLMDelegate', () => {
 
     test('multiple text parts are joined with newline', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
         mockCreate.mockResolvedValue({ data: { id: 'sess-multi' } });
         mockPrompt.mockResolvedValue({
             data: {
@@ -178,6 +281,7 @@ describe('createCuratorLLMDelegate', () => {
 
     test('non-text parts are filtered out', async () => {
         (swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
+        (swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames = ['curator_init'];
         mockCreate.mockResolvedValue({ data: { id: 'sess-filter' } });
         mockPrompt.mockResolvedValue({
             data: {

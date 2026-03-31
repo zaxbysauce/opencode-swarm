@@ -41423,8 +41423,8 @@ var swarmState = {
   delegationChains: new Map,
   pendingEvents: 0,
   opencodeClient: null,
-  curatorInitAgentName: null,
-  curatorPhaseAgentName: null,
+  curatorInitAgentNames: [],
+  curatorPhaseAgentNames: [],
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set
@@ -52394,6 +52394,36 @@ function maskToolOutput(msg, _threshold) {
   return freedTokens;
 }
 // src/hooks/curator-llm-factory.ts
+function resolveCuratorAgentName(mode) {
+  const suffix = mode === "init" ? "curator_init" : "curator_phase";
+  const registeredNames = mode === "init" ? swarmState.curatorInitAgentNames : swarmState.curatorPhaseAgentNames;
+  if (registeredNames.length === 1)
+    return registeredNames[0];
+  if (registeredNames.length === 0)
+    return suffix;
+  const prefixMap = new Map;
+  for (const name2 of registeredNames) {
+    const prefix = name2.endsWith(suffix) ? name2.slice(0, name2.length - suffix.length) : "";
+    prefixMap.set(prefix, name2);
+  }
+  let bestPrefix = "";
+  let bestName = "";
+  for (const activeAgentName of swarmState.activeAgent.values()) {
+    for (const [prefix, agentName] of prefixMap) {
+      if (prefix && activeAgentName.startsWith(prefix)) {
+        if (prefix.length > bestPrefix.length) {
+          bestPrefix = prefix;
+          bestName = agentName;
+        }
+      }
+    }
+    if (bestName)
+      break;
+  }
+  if (bestName)
+    return bestName;
+  return prefixMap.get("") ?? registeredNames[0];
+}
 function createCuratorLLMDelegate(directory, mode = "init") {
   const client = swarmState.opencodeClient;
   if (!client)
@@ -52408,7 +52438,7 @@ function createCuratorLLMDelegate(directory, mode = "init") {
         throw new Error(`Failed to create curator session: ${JSON.stringify(createResult.error)}`);
       }
       ephemeralSessionId = createResult.data.id;
-      const agentName = mode === "init" ? swarmState.curatorInitAgentName ?? "curator_init" : swarmState.curatorPhaseAgentName ?? "curator_phase";
+      const agentName = resolveCuratorAgentName(mode);
       const promptResult = await client.session.prompt({
         path: { id: ephemeralSessionId },
         body: {
@@ -68209,13 +68239,8 @@ var OpenCodeSwarm = async (ctx) => {
   initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3);
   const agentDefinitions = createAgents(config3);
-  const allInitNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
-  const allPhaseNames = Object.keys(agents).filter((k) => k === "curator_phase" || k.endsWith("_curator_phase"));
-  if (allInitNames.length > 1) {
-    console.warn("[swarm] Multiple curator_init agents found across swarms (%s). " + "Curator LLM delegation will use the first registered: %s. " + "Multi-swarm curator routing is not yet session-aware.", allInitNames.join(", "), allInitNames[0]);
-  }
-  swarmState.curatorInitAgentName = allInitNames[0] ?? null;
-  swarmState.curatorPhaseAgentName = allPhaseNames[0] ?? null;
+  swarmState.curatorInitAgentNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
+  swarmState.curatorPhaseAgentNames = Object.keys(agents).filter((k) => k === "curator_phase" || k.endsWith("_curator_phase"));
   const pipelineHook = createPipelineTrackerHook(config3, ctx.directory);
   const systemEnhancerHook = createSystemEnhancerHook(config3, ctx.directory);
   const compactionHook = createCompactionCustomizerHook(config3, ctx.directory);

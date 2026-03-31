@@ -2,6 +2,73 @@ import { swarmState } from '../state.js';
 import type { CuratorLLMDelegate } from './curator.js';
 
 /**
+ * Resolve the registered curator agent name for the currently active swarm.
+ *
+ * Works for any number of swarms — default, single named, or 5+ named swarms.
+ *
+ * Algorithm:
+ *   1. For each registered curator name, derive its swarm prefix by stripping
+ *      the known base suffix ('curator_init' or 'curator_phase'). e.g.
+ *        'swarm1_curator_init' → prefix = 'swarm1_'
+ *        'curator_init'        → prefix = '' (default swarm)
+ *   2. Scan swarmState.activeAgent for any currently active agent. For each,
+ *      find the registered curator whose prefix is a prefix of the active agent
+ *      name (e.g. 'swarm1_' is a prefix of 'swarm1_architect'). Prefer the
+ *      longest match to avoid the empty-prefix default swarm false-matching.
+ *   3. If no active-agent match: fall back to the default-swarm curator (empty
+ *      prefix) if registered, otherwise the first registered name.
+ *
+ * This is called lazily at delegate invocation time — not at factory creation
+ * time — so the active session map is populated by the time we resolve.
+ */
+function resolveCuratorAgentName(
+	mode: 'init' | 'phase',
+): string {
+	const suffix = mode === 'init' ? 'curator_init' : 'curator_phase';
+	const registeredNames =
+		mode === 'init'
+			? swarmState.curatorInitAgentNames
+			: swarmState.curatorPhaseAgentNames;
+
+	// Fast path: only one registered (single-swarm or default-only)
+	if (registeredNames.length === 1) return registeredNames[0];
+	// Ultimate fallback if none registered
+	if (registeredNames.length === 0) return suffix;
+
+	// Build a map from swarm prefix → full registered agent name.
+	// Prefix is the portion before the curator suffix.
+	//   'swarm1_curator_init' → prefix='swarm1_', name='swarm1_curator_init'
+	//   'curator_init'        → prefix='',        name='curator_init'
+	const prefixMap = new Map<string, string>();
+	for (const name of registeredNames) {
+		const prefix = name.endsWith(suffix)
+			? name.slice(0, name.length - suffix.length)
+			: '';
+		prefixMap.set(prefix, name);
+	}
+
+	// Scan active agent sessions and find the longest matching prefix.
+	let bestPrefix = '';
+	let bestName = '';
+	for (const activeAgentName of swarmState.activeAgent.values()) {
+		for (const [prefix, agentName] of prefixMap) {
+			if (prefix && activeAgentName.startsWith(prefix)) {
+				if (prefix.length > bestPrefix.length) {
+					bestPrefix = prefix;
+					bestName = agentName;
+				}
+			}
+		}
+		if (bestName) break; // found a named-swarm match — stop scanning
+	}
+	if (bestName) return bestName;
+
+	// No named-swarm match: use default swarm curator (empty prefix) if present,
+	// otherwise the first registered (preserves original single-swarm behavior).
+	return prefixMap.get('') ?? registeredNames[0];
+}
+
+/**
  * Create a CuratorLLMDelegate that uses the opencode SDK to call
  * the registered curator agent in CURATOR_INIT or CURATOR_PHASE mode.
  *
@@ -9,14 +76,12 @@ import type { CuratorLLMDelegate } from './curator.js';
  * re-entrancy with the current session's message flow.
  *
  * The `mode` parameter determines which registered named agent is used:
- *   - 'init'  → swarmState.curatorInitAgentName  (e.g. 'curator_init' or 'local_curator_init')
- *   - 'phase' → swarmState.curatorPhaseAgentName (e.g. 'curator_phase' or 'local_curator_phase')
+ *   - 'init'  → curator_init  (e.g. 'curator_init' or 'swarm1_curator_init')
+ *   - 'phase' → curator_phase (e.g. 'curator_phase' or 'swarm1_curator_phase')
  *
- * The curator agents are registered with their role-specific system prompts
- * baked in at plugin init (following the same pattern as critic_sounding_board /
- * critic_drift_verifier). The `system:` field passed via session.prompt serves
- * as a runtime override — this matches how curator.ts prepares mode-specific
- * context (CURATOR_INIT vs CURATOR_PHASE prompts).
+ * Agent name resolution is lazy (at delegate call time, not factory call time)
+ * so multi-swarm deployments always get the curator for the currently active
+ * swarm — regardless of how many swarms are configured.
  *
  * Returns undefined if swarmState.opencodeClient is not set (e.g. in unit tests).
  */
@@ -41,14 +106,9 @@ export function createCuratorLLMDelegate(
 			}
 			ephemeralSessionId = createResult.data.id;
 
-			// 2. Resolve the registered curator agent name for this mode.
-			// The agent names include the swarm prefix when active (e.g. 'local_curator_init'),
-			// so the OpenCode server can look them up correctly in the agent registry.
-			// Fallback to bare name if swarmState was not populated (should not happen in prod).
-			const agentName =
-				mode === 'init'
-					? (swarmState.curatorInitAgentName ?? 'curator_init')
-					: (swarmState.curatorPhaseAgentName ?? 'curator_phase');
+			// 2. Resolve the curator agent name for the currently active swarm.
+			// This is done lazily so activeAgent reflects the running session.
+			const agentName = resolveCuratorAgentName(mode);
 
 			// 3. Prompt using the registered curator agent.
 			// The system: field overrides the agent's baked-in prompt with the

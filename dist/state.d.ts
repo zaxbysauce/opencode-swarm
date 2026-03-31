@@ -190,11 +190,13 @@ export declare const swarmState: {
     pendingEvents: number;
     /** SDK client — set at plugin init for curator LLM delegation */
     opencodeClient: OpencodeClient | null;
-    /** Registered curator agent names (with swarm prefix if applicable).
-     * Set at plugin init after agents are built so curator-llm-factory can
-     * resolve the correct prefixed agent name for session.prompt calls. */
-    curatorInitAgentName: string | null;
-    curatorPhaseAgentName: string | null;
+    /** All registered curator agent names across all swarms (with their swarm prefix).
+     * e.g. ['curator_init'] for a single default swarm, or
+     * ['swarm1_curator_init', 'swarm2_curator_init', ...] for multiple named swarms.
+     * Set at plugin init after agents are built. The factory resolves the correct
+     * name at call time by matching the active session's agent prefix. */
+    curatorInitAgentNames: string[];
+    curatorPhaseAgentNames: string[];
     /** Last known context budget percentage (0-100), updated by system-enhancer */
     lastBudgetPct: number;
     /** Per-session guardrail state — keyed by sessionID */

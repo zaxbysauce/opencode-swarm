@@ -18503,8 +18503,8 @@ var swarmState = {
   delegationChains: new Map,
   pendingEvents: 0,
   opencodeClient: null,
-  curatorInitAgentName: null,
-  curatorPhaseAgentName: null,
+  curatorInitAgentNames: [],
+  curatorPhaseAgentNames: [],
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set

@@ -123,35 +123,15 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
 
-	// Resolve curator agent names from the built agent map (includes swarm prefix).
-	// For a single swarm (default or single named), this resolves unambiguously:
-	//   default swarm  → 'curator_init'
-	//   'local' swarm  → 'local_curator_init'
-	//
-	// KNOWN LIMITATION — multi-swarm with 2+ non-default swarms:
-	// getAgentConfigs() merges agents from ALL swarms into one flat map. When two
-	// non-default swarms are both configured (e.g. 'local' and 'cloud'), the find()
-	// below picks whichever swarm's curator agent appears first in insertion order —
-	// not necessarily the swarm whose session is currently active. A per-session
-	// swarm-aware resolution requires threading session context into the factory,
-	// which is deferred to a follow-up. The warning below makes this explicit.
-	const allInitNames = Object.keys(agents).filter(
+	// Collect all registered curator agent names across all swarms.
+	// The factory resolves the correct name at call time by matching the active
+	// session's agent prefix — so multi-swarm deployments each get their own curator.
+	swarmState.curatorInitAgentNames = Object.keys(agents).filter(
 		(k) => k === 'curator_init' || k.endsWith('_curator_init'),
 	);
-	const allPhaseNames = Object.keys(agents).filter(
+	swarmState.curatorPhaseAgentNames = Object.keys(agents).filter(
 		(k) => k === 'curator_phase' || k.endsWith('_curator_phase'),
 	);
-	if (allInitNames.length > 1) {
-		console.warn(
-			'[swarm] Multiple curator_init agents found across swarms (%s). ' +
-				'Curator LLM delegation will use the first registered: %s. ' +
-				'Multi-swarm curator routing is not yet session-aware.',
-			allInitNames.join(', '),
-			allInitNames[0],
-		);
-	}
-	swarmState.curatorInitAgentName = allInitNames[0] ?? null;
-	swarmState.curatorPhaseAgentName = allPhaseNames[0] ?? null;
 
 	const pipelineHook = createPipelineTrackerHook(config, ctx.directory);
 	const systemEnhancerHook = createSystemEnhancerHook(config, ctx.directory);
