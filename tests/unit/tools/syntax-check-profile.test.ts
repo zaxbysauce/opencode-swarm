@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { syntaxCheck } from '../../../src/tools/syntax-check';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PluginConfig } from '../../../src/config';
+import { syntaxCheck } from '../../../src/tools/syntax-check';
 
 // Mock fs to avoid actual file system access
 vi.mock('node:fs', () => ({
@@ -27,7 +27,8 @@ vi.mock('../../../src/lang/detector', () => ({
 const mockGetLanguageForExtension = vi.fn();
 const mockGetParserForFile = vi.fn();
 vi.mock('../../../src/lang/registry', () => ({
-	getLanguageForExtension: (...args: unknown[]) => mockGetLanguageForExtension(...args),
+	getLanguageForExtension: (...args: unknown[]) =>
+		mockGetLanguageForExtension(...args),
 	getParserForFile: (...args: unknown[]) => mockGetParserForFile(...args),
 }));
 
@@ -96,9 +97,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockLoadGrammar.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.kt', additions: 10 },
-			],
+			changed_files: [{ path: 'test.kt', additions: 10 }],
 		};
 
 		// Act
@@ -122,9 +121,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockGetParserForFile.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.rb', additions: 10 },
-			],
+			changed_files: [{ path: 'test.rb', additions: 10 }],
 		};
 
 		// Act
@@ -148,9 +145,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockGetParserForFile.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.swift', additions: 10 },
-			],
+			changed_files: [{ path: 'test.swift', additions: 10 }],
 		};
 
 		// Act
@@ -171,9 +166,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockGetParserForFile.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.legacy', additions: 10 },
-			],
+			changed_files: [{ path: 'test.legacy', additions: 10 }],
 		};
 
 		// Act
@@ -193,9 +186,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockGetParserForFile.mockResolvedValue(null);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.unknown', additions: 10 },
-			],
+			changed_files: [{ path: 'test.unknown', additions: 10 }],
 		};
 
 		// Act
@@ -248,9 +239,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockLoadGrammar.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.ts', additions: 10 },
-			],
+			changed_files: [{ path: 'test.ts', additions: 10 }],
 			languages: ['typescript'],
 		};
 
@@ -305,9 +294,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockLoadGrammar.mockResolvedValue(fakeParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.ts', additions: 10 },
-			],
+			changed_files: [{ path: 'test.ts', additions: 10 }],
 		};
 
 		// Act
@@ -328,9 +315,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		mockLoadGrammar.mockResolvedValue(errorParser);
 
 		const input = {
-			changed_files: [
-				{ path: 'test.js', additions: 10 },
-			],
+			changed_files: [{ path: 'test.js', additions: 10 }],
 		};
 
 		// Act
@@ -352,7 +337,12 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 			inject_phase_reminders: true,
 			gates: {
 				syntax_check: { enabled: false },
-				placeholder_scan: { enabled: true, deny_patterns: [], allow_globs: [], max_allowed_findings: 0 },
+				placeholder_scan: {
+					enabled: true,
+					deny_patterns: [],
+					allow_globs: [],
+					max_allowed_findings: 0,
+				},
 				sast_scan: { enabled: true },
 				sbom_generate: { enabled: true },
 				build_check: { enabled: true },
@@ -369,9 +359,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution (Task 2.5)', () => {
 		};
 
 		const input = {
-			changed_files: [
-				{ path: 'test.ts', additions: 10 },
-			],
+			changed_files: [{ path: 'test.ts', additions: 10 }],
 		};
 
 		// Act

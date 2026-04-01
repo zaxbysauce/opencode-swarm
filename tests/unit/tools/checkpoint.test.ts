@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the tool AFTER setting up test environment
 const { checkpoint } = await import('../../../src/tools/checkpoint');
@@ -52,7 +52,10 @@ describe('checkpoint tool', () => {
 
 	describe('save action', () => {
 		test('creates checkpoint and returns success JSON', async () => {
-			const result = await checkpoint.execute({ action: 'save', label: 'my-checkpoint' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: 'my-checkpoint',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.action).toBe('save');
@@ -78,7 +81,10 @@ describe('checkpoint tool', () => {
 
 		test('rejects duplicate label', async () => {
 			await checkpoint.execute({ action: 'save', label: 'dup-test' });
-			const result = await checkpoint.execute({ action: 'save', label: 'dup-test' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: 'dup-test',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -86,7 +92,10 @@ describe('checkpoint tool', () => {
 		});
 
 		test('handles label with spaces', async () => {
-			const result = await checkpoint.execute({ action: 'save', label: 'my checkpoint name' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: 'my checkpoint name',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -94,7 +103,10 @@ describe('checkpoint tool', () => {
 		});
 
 		test('handles label with special chars (hyphen, underscore)', async () => {
-			const result = await checkpoint.execute({ action: 'save', label: 'test-label_123' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: 'test-label_123',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -102,7 +114,10 @@ describe('checkpoint tool', () => {
 
 		test('rejects label exceeding max length', async () => {
 			const longLabel = 'a'.repeat(101);
-			const result = await checkpoint.execute({ action: 'save', label: longLabel });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: longLabel,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -121,7 +136,10 @@ describe('checkpoint tool', () => {
 	describe('restore action', () => {
 		test('restores to checkpoint and returns success JSON', async () => {
 			// First save a checkpoint
-			const saveResult = await checkpoint.execute({ action: 'save', label: 'restore-me' });
+			const saveResult = await checkpoint.execute({
+				action: 'save',
+				label: 'restore-me',
+			});
 			const saveParsed = JSON.parse(saveResult);
 			const checkpointSha = saveParsed.sha;
 
@@ -131,7 +149,10 @@ describe('checkpoint tool', () => {
 			execSync('git commit -m "new commit"', { encoding: 'utf-8' });
 
 			// Now restore
-			const result = await checkpoint.execute({ action: 'restore', label: 'restore-me' });
+			const result = await checkpoint.execute({
+				action: 'restore',
+				label: 'restore-me',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.action).toBe('restore');
@@ -142,7 +163,10 @@ describe('checkpoint tool', () => {
 		});
 
 		test('returns error for non-existent checkpoint', async () => {
-			const result = await checkpoint.execute({ action: 'restore', label: 'does-not-exist' });
+			const result = await checkpoint.execute({
+				action: 'restore',
+				label: 'does-not-exist',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -180,7 +204,10 @@ describe('checkpoint tool', () => {
 		test('deletes checkpoint and returns success JSON', async () => {
 			await checkpoint.execute({ action: 'save', label: 'to-delete' });
 
-			const result = await checkpoint.execute({ action: 'delete', label: 'to-delete' });
+			const result = await checkpoint.execute({
+				action: 'delete',
+				label: 'to-delete',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.action).toBe('delete');
@@ -200,7 +227,10 @@ describe('checkpoint tool', () => {
 		});
 
 		test('returns error for non-existent checkpoint', async () => {
-			const result = await checkpoint.execute({ action: 'delete', label: 'does-not-exist' });
+			const result = await checkpoint.execute({
+				action: 'delete',
+				label: 'does-not-exist',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -242,7 +272,10 @@ describe('checkpoint tool', () => {
 		});
 
 		test('rejects label with shell metacharacters', async () => {
-			const result = await checkpoint.execute({ action: 'save', label: 'test;rm -rf' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: 'test;rm -rf',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -252,7 +285,10 @@ describe('checkpoint tool', () => {
 		test('rejects label with path traversal', async () => {
 			// Note: forward slash and backslash are caught by SAFE_LABEL_PATTERN first
 			// This tests backslash specifically which fails validation earlier
-			const result = await checkpoint.execute({ action: 'save', label: '..\\etc\\passwd' });
+			const result = await checkpoint.execute({
+				action: 'save',
+				label: '..\\etc\\passwd',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -305,7 +341,10 @@ describe('checkpoint tool', () => {
 
 		test('all success responses contain required fields', async () => {
 			// Save action
-			const saveResult = await checkpoint.execute({ action: 'save', label: 'fields-test' });
+			const saveResult = await checkpoint.execute({
+				action: 'save',
+				label: 'fields-test',
+			});
 			const saveParsed = JSON.parse(saveResult);
 			expect(saveParsed).toHaveProperty('action');
 			expect(saveParsed).toHaveProperty('success');
@@ -322,7 +361,10 @@ describe('checkpoint tool', () => {
 			expect(listParsed).toHaveProperty('checkpoints');
 
 			// Delete action
-			const deleteResult = await checkpoint.execute({ action: 'delete', label: 'fields-test' });
+			const deleteResult = await checkpoint.execute({
+				action: 'delete',
+				label: 'fields-test',
+			});
 			const deleteParsed = JSON.parse(deleteResult);
 			expect(deleteParsed).toHaveProperty('action');
 			expect(deleteParsed).toHaveProperty('success');
@@ -331,7 +373,10 @@ describe('checkpoint tool', () => {
 
 			// Restore action (need to save first)
 			await checkpoint.execute({ action: 'save', label: 'restore-fields' });
-			const restoreResult = await checkpoint.execute({ action: 'restore', label: 'restore-fields' });
+			const restoreResult = await checkpoint.execute({
+				action: 'restore',
+				label: 'restore-fields',
+			});
 			const restoreParsed = JSON.parse(restoreResult);
 			expect(restoreParsed).toHaveProperty('action');
 			expect(restoreParsed).toHaveProperty('success');

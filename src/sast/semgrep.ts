@@ -3,7 +3,7 @@
  * Provides optional Semgrep detection and invocation for advanced static analysis
  */
 
-import { execFileSync, spawn } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { SastFinding } from './rules/index.js';
@@ -68,7 +68,7 @@ export function isSemgrepAvailable(): boolean {
 
 	try {
 		// Try to run semgrep --version using execFileSync (safer than exec)
-		execFileSync('semgrep', ['--version'], {
+		child_process.execFileSync('semgrep', ['--version'], {
 			encoding: 'utf-8',
 			stdio: 'pipe',
 		});
@@ -182,7 +182,7 @@ async function executeWithTimeout(
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
 	return new Promise((resolve) => {
 		// Use spawn with args array and NO shell to prevent command injection
-		const child = spawn(command, args, {
+		const child = child_process.spawn(command, args, {
 			shell: false, // SECURITY FIX: prevent shell injection
 			cwd: options.cwd,
 		});

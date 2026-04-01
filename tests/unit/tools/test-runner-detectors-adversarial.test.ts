@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the discovery module before importing test-runner
 const mockIsCommandAvailable = vi.fn();
@@ -48,7 +48,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 			fs.writeFileSync(path.join(tempDir, 'go.mod'), 'module example\n');
 
 			// Mock: go binary NOT available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'go' ? false : false);
+			mockIsCommandAvailable.mockImplementation((cmd: string) =>
+				cmd === 'go' ? false : false,
+			);
 
 			// Since detector is private and not wired, detectTestFramework should return 'none'
 			const result = await detectTestFramework(tempDir);
@@ -63,11 +65,16 @@ describe('test-runner detector functions - adversarial tests', () => {
 	describe('2. detectGradle - gradlew exists but no build.gradle or build.gradle.kts', () => {
 		it('should return false (no build file)', async () => {
 			// Create gradlew wrapper script WITHOUT build.gradle files
-			fs.writeFileSync(path.join(tempDir, 'gradlew'), '#!/bin/bash\necho gradle wrapper\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'gradlew'),
+				'#!/bin/bash\necho gradle wrapper\n',
+			);
 			fs.chmodSync(path.join(tempDir, 'gradlew'), 0o755);
 
 			// Mock: gradle binary available, gradlew present (via fs.existsSync)
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'gradle' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'gradle',
+			);
 
 			// detectTestFramework should return 'none' (detector not wired)
 			const result = await detectTestFramework(tempDir);
@@ -76,10 +83,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 
 		it('should return false with gradlew.bat but no build files', async () => {
 			// Create gradlew.bat wrapper
-			fs.writeFileSync(path.join(tempDir, 'gradlew.bat'), '@echo off\necho gradle wrapper\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'gradlew.bat'),
+				'@echo off\necho gradle wrapper\n',
+			);
 
 			// Mock: gradle binary available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'gradle' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'gradle',
+			);
 
 			const result = await detectTestFramework(tempDir);
 			expect(result).toBe('none');
@@ -93,7 +105,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 			fs.writeFileSync(filePath, 'I am a file, not a directory');
 
 			// Mock: dotnet binary available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'dotnet' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'dotnet',
+			);
 
 			// Pass a FILE path instead of directory
 			// detectDotnetTest uses try-catch around readdirSync, so should return false
@@ -106,7 +120,10 @@ describe('test-runner detector functions - adversarial tests', () => {
 		it('existsSync returns true for files too - should not crash', async () => {
 			// Create spec as a FILE, not a directory
 			fs.writeFileSync(path.join(tempDir, 'spec'), 'I am a file named spec');
-			fs.writeFileSync(path.join(tempDir, 'Gemfile'), 'source "https://rubygems.org"');
+			fs.writeFileSync(
+				path.join(tempDir, 'Gemfile'),
+				'source "https://rubygems.org"',
+			);
 
 			// Mock: rspec available
 			mockIsCommandAvailable.mockImplementation((cmd: string) => {
@@ -140,10 +157,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 		it('should return false when ruby binary unavailable', async () => {
 			// Create test directory and Gemfile
 			fs.mkdirSync(path.join(tempDir, 'test'));
-			fs.writeFileSync(path.join(tempDir, 'Gemfile'), 'source "https://rubygems.org"');
+			fs.writeFileSync(
+				path.join(tempDir, 'Gemfile'),
+				'source "https://rubygems.org"',
+			);
 
 			// Mock: ruby NOT available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruby' ? false : false);
+			mockIsCommandAvailable.mockImplementation((cmd: string) =>
+				cmd === 'ruby' ? false : false,
+			);
 
 			const result = await detectTestFramework(tempDir);
 			expect(result).toBe('none'); // Detector not wired + ruby unavailable
@@ -154,7 +176,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 			fs.writeFileSync(path.join(tempDir, 'Rakefile'), 'task :default do; end');
 
 			// Mock: ruby NOT available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruby' ? false : false);
+			mockIsCommandAvailable.mockImplementation((cmd: string) =>
+				cmd === 'ruby' ? false : false,
+			);
 
 			const result = await detectTestFramework(tempDir);
 			expect(result).toBe('none');
@@ -165,10 +189,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 		it('should return false - test/ alone is not enough', async () => {
 			// Create test/ directory ONLY - no Gemfile, no Rakefile
 			fs.mkdirSync(path.join(tempDir, 'test'));
-			fs.writeFileSync(path.join(tempDir, 'test', 'example_test.rb'), 'require "minitest/autorun"');
+			fs.writeFileSync(
+				path.join(tempDir, 'test', 'example_test.rb'),
+				'require "minitest/autorun"',
+			);
 
 			// Mock: ruby IS available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruby' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ruby',
+			);
 
 			// This is the KEY false-positive prevention test
 			// Without Gemfile or Rakefile, should NOT detect as minitest
@@ -182,7 +211,9 @@ describe('test-runner detector functions - adversarial tests', () => {
 			fs.writeFileSync(path.join(tempDir, 'config.yml'), 'key: value');
 
 			// Mock: ruby available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruby' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ruby',
+			);
 
 			const result = await detectTestFramework(tempDir);
 			expect(result).toBe('none');
@@ -193,10 +224,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 		it('should return true - build directory case', async () => {
 			// Create ONLY CMakeCache.txt (no CMakeLists.txt)
 			// This simulates a build directory
-			fs.writeFileSync(path.join(tempDir, 'CMakeCache.txt'), 'CMAKE_BUILD_TYPE=Release\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'CMakeCache.txt'),
+				'CMAKE_BUILD_TYPE=Release\n',
+			);
 
 			// Mock: ctest available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ctest' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ctest',
+			);
 
 			// detectCTest accepts either source (CMakeLists.txt) OR build cache (CMakeCache.txt).
 			// CMakeCache.txt exists + ctest binary available → detector fires.
@@ -208,10 +244,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 			// Create build subdirectory with CMakeCache.txt
 			const buildDir = path.join(tempDir, 'build');
 			fs.mkdirSync(buildDir);
-			fs.writeFileSync(path.join(buildDir, 'CMakeCache.txt'), 'CMAKE_BUILD_TYPE=Release\n');
+			fs.writeFileSync(
+				path.join(buildDir, 'CMakeCache.txt'),
+				'CMAKE_BUILD_TYPE=Release\n',
+			);
 
 			// Mock: ctest available
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ctest' ? true : false);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ctest',
+			);
 
 			// build/CMakeCache.txt satisfies the hasBuildCache check in detectCTest.
 			const result = await detectTestFramework(tempDir);
@@ -222,7 +263,10 @@ describe('test-runner detector functions - adversarial tests', () => {
 	describe('8. detectDartTest - pubspec.yaml exists but neither dart nor flutter available', () => {
 		it('should return false - neither dart nor flutter on PATH', async () => {
 			// Create pubspec.yaml
-			fs.writeFileSync(path.join(tempDir, 'pubspec.yaml'), 'name: my_app\nversion: 1.0.0');
+			fs.writeFileSync(
+				path.join(tempDir, 'pubspec.yaml'),
+				'name: my_app\nversion: 1.0.0',
+			);
 
 			// Mock: neither dart nor flutter available
 			mockIsCommandAvailable.mockImplementation((cmd: string) => {
@@ -234,7 +278,10 @@ describe('test-runner detector functions - adversarial tests', () => {
 		});
 
 		it('pubspec.yaml exists, flutter available but dart not', async () => {
-			fs.writeFileSync(path.join(tempDir, 'pubspec.yaml'), 'name: flutter_app\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'pubspec.yaml'),
+				'name: flutter_app\n',
+			);
 
 			// Mock: flutter available, dart not
 			mockIsCommandAvailable.mockImplementation((cmd: string) => {
@@ -273,7 +320,15 @@ describe('test-runner detector functions - adversarial tests', () => {
 		});
 
 		it('deeply nested non-existent path', async () => {
-			const deepPath = path.join(tempDir, 'a', 'b', 'c', 'd', 'e', 'non-existent');
+			const deepPath = path.join(
+				tempDir,
+				'a',
+				'b',
+				'c',
+				'd',
+				'e',
+				'non-existent',
+			);
 
 			mockIsCommandAvailable.mockReturnValue(true);
 
@@ -283,7 +338,11 @@ describe('test-runner detector functions - adversarial tests', () => {
 
 		it('path with special characters that does not exist', async () => {
 			// Use special chars in path (but doesn't exist)
-			const specialPath = path.join(tempDir, 'path with spaces', 'non-existent');
+			const specialPath = path.join(
+				tempDir,
+				'path with spaces',
+				'non-existent',
+			);
 
 			mockIsCommandAvailable.mockReturnValue(true);
 
@@ -344,10 +403,13 @@ describe('test-runner detector functions - adversarial tests', () => {
 
 	describe('isCommandAvailable mock verification', () => {
 		it('mock is called correctly when framework detection uses it', async () => {
-			fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({
-				scripts: { test: 'vitest' },
-				devDependencies: { vitest: '^1.0.0' }
-			}));
+			fs.writeFileSync(
+				path.join(tempDir, 'package.json'),
+				JSON.stringify({
+					scripts: { test: 'vitest' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 
 			// Clear and set fresh mock
 			mockIsCommandAvailable.mockClear();

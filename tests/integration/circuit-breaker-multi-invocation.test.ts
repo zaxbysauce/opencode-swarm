@@ -8,10 +8,9 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../src/config/constants';
-import type { GuardrailsConfig } from '../../src/config/schema';
-import type { PluginConfig } from '../../src/config/schema';
-import { createGuardrailsHooks } from '../../src/hooks/guardrails';
+import type { GuardrailsConfig, PluginConfig } from '../../src/config/schema';
 import { createDelegationTrackerHook } from '../../src/hooks/delegation-tracker';
+import { createGuardrailsHooks } from '../../src/hooks/guardrails';
 import {
 	beginInvocation,
 	ensureAgentSession,

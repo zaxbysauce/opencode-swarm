@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { pkg_audit } from '../../../src/tools/pkg-audit';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { pkg_audit } from '../../../src/tools/pkg-audit';
 
 // Mock for Bun.spawn
 let originalSpawn: typeof Bun.spawn;
@@ -23,13 +23,13 @@ function mockSpawn(cmd: string[], opts: unknown) {
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStdout));
 			controller.close();
-		}
+		},
 	});
 	const stderrReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStderr));
 			controller.close();
-		}
+		},
 	});
 
 	return {
@@ -88,7 +88,10 @@ describe('pkg-audit adversarial security tests', () => {
 	// ============ Ecosystem Validation Tests ============
 	describe('ecosystem validation', () => {
 		it('should reject unknown ecosystem string with validation error', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'unknown_ecosystem' as any }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'unknown_ecosystem' as any },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
@@ -97,7 +100,10 @@ describe('pkg-audit adversarial security tests', () => {
 
 		it('should reject malicious ecosystem injection attempt', async () => {
 			const maliciousInput = 'auto; rm -rf /';
-			const result = await pkg_audit.execute({ ecosystem: maliciousInput as any }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: maliciousInput as any },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
@@ -110,17 +116,30 @@ describe('pkg-audit adversarial security tests', () => {
 			// Create a huge JSON object (over 52MB)
 			const hugeString = createLargeString(53_000_000); // 53MB > MAX_OUTPUT_BYTES
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + hugeString + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				hugeString +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -138,7 +157,10 @@ ${hugeString}
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -160,14 +182,17 @@ Project has the following vulnerable packages
 							url: hugeString,
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -185,12 +210,15 @@ Project has the following vulnerable packages
 						package: hugeString,
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -204,18 +232,32 @@ Project has the following vulnerable packages
 	describe('deeply nested and malformed JSON', () => {
 		it('govulncheck: should handle deeply nested JSON', async () => {
 			mockExitCode = 3;
-			const deeplyNested = { a: { b: { c: { d: { e: { f: { g: 'deep' } } } } } } };
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'], extra: deeplyNested }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			const deeplyNested = {
+				a: { b: { c: { d: { e: { f: { g: 'deep' } } } } } },
+			};
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+						extra: deeplyNested,
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -226,11 +268,15 @@ Project has the following vulnerable packages
 
 		it('govulncheck: should handle malformed JSON lines', async () => {
 			mockExitCode = 3;
-			mockStdout = '{"osv":{"id":"GO-2021-0053","summary":"Test","aliases":["CVE-2021-33196"]}}\n' +
+			mockStdout =
+				'{"osv":{"id":"GO-2021-0053","summary":"Test","aliases":["CVE-2021-33196"]}}\n' +
 				'{malformed json}\n' +
 				'{"finding":{"osv":"GO-2021-0053","trace":[{"module":"test","version":"1.0.0"}],"fixed_by":null}}\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -243,7 +289,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = '{invalid json: ';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -257,7 +306,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = '{invalid json: ';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -271,7 +323,10 @@ Project has the following vulnerable packages
 			// Test for govulncheck
 			mockExitCode = 3;
 			mockStdout = '{}\n';
-			let result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			let result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			let parsed = JSON.parse(result);
 			if (!parsed.note?.includes('not installed')) {
 				expect(parsed).toBeDefined();
@@ -302,17 +357,28 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle extremely long package names', async () => {
 			const longName = createLargeString(10_000);
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: longName, version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: longName, version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -324,17 +390,28 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle extremely long version strings', async () => {
 			const longVersion = createLargeString(10_000);
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: longVersion }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: longVersion }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -352,7 +429,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -374,14 +454,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -398,12 +481,15 @@ Project has the following vulnerable packages
 						package: longName,
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -418,11 +504,19 @@ Project has the following vulnerable packages
 			mockExitCode = 3;
 			// Include some non-UTF-8 bytes (in practice, TextEncoder will encode properly,
 			// but we test the error handling path)
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -436,7 +530,10 @@ Project has the following vulnerable packages
 			// This simulates potential encoding issues
 			mockStdout = '\xff\xfe invalid utf-8';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -449,7 +546,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = '\xff\xfe invalid utf-8';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -463,17 +563,28 @@ Project has the following vulnerable packages
 	describe('embedded newlines and null bytes in fields', () => {
 		it('govulncheck: should handle package names with embedded newlines', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test\nnewline\nin\nname', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test\nnewline\nin\nname', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -494,14 +605,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -517,12 +631,15 @@ Project has the following vulnerable packages
 						package: 'test\npackage\nname',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -533,17 +650,28 @@ Project has the following vulnerable packages
 		it('all auditors: should handle null bytes in JSON strings', async () => {
 			// Test govulncheck with null byte in summary
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test\x00null\x00byte', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test\x00null\x00byte',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -557,17 +685,28 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle shell metacharacters in package names', async () => {
 			const maliciousName = '$(whoami);`rm -rf /`|touch /tmp/pwned';
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: maliciousName, version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: maliciousName, version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -580,17 +719,28 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle SQL injection attempt in package name', async () => {
 			const sqlInjection = "'; DROP TABLE packages; --";
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: sqlInjection, version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: sqlInjection, version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -607,7 +757,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -629,14 +782,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -653,12 +809,15 @@ Project has the following vulnerable packages
 						package: maliciousName,
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -669,17 +828,28 @@ Project has the following vulnerable packages
 		it('all auditors: should handle XSS attempt in package names', async () => {
 			const xssAttempt = '<script>alert("XSS")</script>';
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: xssAttempt, version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: xssAttempt, version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -693,17 +863,28 @@ Project has the following vulnerable packages
 	describe('govulncheck edge cases', () => {
 		it('govulncheck: should handle empty trace array (trace[0] access safety)', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [], // Empty trace array
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [], // Empty trace array
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -715,17 +896,28 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle missing OSV entry in map', async () => {
 			mockExitCode = 3;
 			// finding.osv references GO-MISSING which is not in the map
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-MISSING', // This ID is not in the osvMap
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-MISSING', // This ID is not in the osvMap
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -737,11 +929,19 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle exit code 3 with zero findings', async () => {
 			mockExitCode = 3;
 			// Exit code 3 but no findings
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -753,17 +953,28 @@ Project has the following vulnerable packages
 
 		it('govulncheck: should handle trace with missing module field', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ version: '1.0.0' }], // Missing module
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ version: '1.0.0' }], // Missing module
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -774,17 +985,28 @@ Project has the following vulnerable packages
 
 		it('govulncheck: should handle trace with missing version field', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test' }], // Missing version
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test' }], // Missing version
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -796,7 +1018,8 @@ Project has the following vulnerable packages
 	// ============ dotnet-Specific Edge Cases ============
 	describe('dotnet edge cases', () => {
 		it('dotnet: should handle package names with special regex chars', async () => {
-			const specialChars = 'test+package*special?chars^test$test[test]test{test}test|test\\test.test';
+			const specialChars =
+				'test+package*special?chars^test$test[test]test{test}test|test\\test.test';
 			mockExitCode = 1;
 			mockStdout = `Project > TestProject
   > ${specialChars}  1.0.0  2.0.0  High  https://example.com/vuln
@@ -804,7 +1027,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -821,7 +1047,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -835,7 +1064,10 @@ Project has the following vulnerable packages
 			mockStdout = `Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -860,14 +1092,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: null, // null instead of array
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -889,14 +1124,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							// missing patched_versions field
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -917,14 +1155,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: [], // Empty array
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -946,14 +1187,17 @@ Project has the following vulnerable packages
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
 							cvss_v3: 7.5,
-							criticality: null // null instead of string
-						}
-					}
+							criticality: null, // null instead of string
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -974,14 +1218,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'UNKNOWN' // Unknown value
-						}
-					}
+							criticality: 'UNKNOWN', // Unknown value
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1003,14 +1250,17 @@ Project has the following vulnerable packages
 							title: 'Test vuln',
 							// missing cve field
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1030,13 +1280,16 @@ Project has the following vulnerable packages
 						package: 'test',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
+						upgradable: { version: '1.5.0' },
 					},
-					null
-				]
+					null,
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1053,12 +1306,15 @@ Project has the following vulnerable packages
 						package: 'test',
 						// missing current field
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1075,12 +1331,15 @@ Project has the following vulnerable packages
 						package: 'test',
 						current: { version: '1.0.0' },
 						// missing latest field
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1096,13 +1355,16 @@ Project has the following vulnerable packages
 					{
 						package: 'test',
 						current: { version: '1.0.0' },
-						latest: { version: '2.0.0' }
+						latest: { version: '2.0.0' },
 						// missing upgradable field
-					}
-				]
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1114,10 +1376,13 @@ Project has the following vulnerable packages
 		it('dart: should handle packages array as null', async () => {
 			mockExitCode = 0;
 			mockStdout = JSON.stringify({
-				packages: null
+				packages: null,
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1134,12 +1399,15 @@ Project has the following vulnerable packages
 						package: 'test',
 						current: null,
 						latest: null,
-						upgradable: null
-					}
-				]
+						upgradable: null,
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1156,12 +1424,15 @@ Project has the following vulnerable packages
 						package: 'test',
 						current: { nullSafety: true }, // missing version
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1176,7 +1447,10 @@ Project has the following vulnerable packages
 		it('govulncheck: should handle tool not found on PATH', async () => {
 			mockSpawnError = new Error("'govulncheck' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -1188,7 +1462,10 @@ Project has the following vulnerable packages
 			// not the isCommandAvailable check which returns early
 			mockSpawnError = new Error("'dotnet' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Should return clean with an error message
@@ -1200,7 +1477,10 @@ Project has the following vulnerable packages
 		it('bundle-audit: should handle both bundle-audit and bundle not found', async () => {
 			mockSpawnError = new Error("'bundle-audit' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -1210,7 +1490,10 @@ Project has the following vulnerable packages
 		it('dart: should handle both dart and flutter not found', async () => {
 			mockSpawnError = new Error("'dart' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -1224,7 +1507,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = 'Some error occurred';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1238,7 +1524,10 @@ Project has the following vulnerable packages
 			mockExitCode = 2;
 			mockStdout = 'Another error occurred';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1251,7 +1540,10 @@ Project has the following vulnerable packages
 			mockExitCode = 2;
 			mockStdout = 'Error in bundle-audit';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1264,7 +1556,10 @@ Project has the following vulnerable packages
 			mockExitCode = 3;
 			mockStdout = 'Unexpected exit code';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1278,7 +1573,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = 'Error in dart pub outdated';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;

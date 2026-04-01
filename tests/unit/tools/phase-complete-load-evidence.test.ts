@@ -1,22 +1,37 @@
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import * as path from 'node:path';
 import type { EvidenceBundle } from '../../../src/config/evidence-schema';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 // Mock loadEvidence and listEvidenceTaskIds from evidence/manager
 // IMPORTANT: Use local mock variable pattern, NOT vi.mocked()
-const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
-	status: 'found';
-	bundle: EvidenceBundle;
-} | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
+const mockLoadEvidence =
+	vi.fn<
+		(
+			dir: string,
+			taskId: string,
+		) => Promise<
+			| {
+					status: 'found';
+					bundle: EvidenceBundle;
+			  }
+			| { status: 'not_found' }
+			| { status: 'invalid_schema'; errors: string[] }
+		>
+	>();
 const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
 
 vi.mock('../../../src/evidence/manager', () => ({
-	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
-	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
+	loadEvidence: (...args: unknown[]) =>
+		mockLoadEvidence(...(args as [string, string])),
+	listEvidenceTaskIds: (...args: unknown[]) =>
+		mockListEvidenceTaskIds(...(args as [string])),
 }));
 
 // Import the tool after mocking
@@ -74,7 +89,9 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 		vi.clearAllMocks();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-load-evidence-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-load-evidence-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -149,7 +166,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			});
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -168,7 +188,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -236,7 +259,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - should try primary, then fallback, then block
@@ -251,7 +277,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const schemaErrors = ['entries.0.phase_number: Expected number, got string', 'entries.0.verdict: Invalid enum value'];
+			const schemaErrors = [
+				'entries.0.phase_number: Expected number, got string',
+				'entries.0.verdict: Invalid enum value',
+			];
 
 			// Mock loadEvidence to return 'invalid_schema'
 			mockLoadEvidence.mockResolvedValue({
@@ -261,7 +290,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -277,7 +309,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			const schemaErrors = ['schema_version: Required', 'entries: Must be array'];
+			const schemaErrors = [
+				'schema_version: Required',
+				'entries: Must be array',
+			];
 
 			mockLoadEvidence.mockResolvedValue({
 				status: 'invalid_schema',
@@ -286,7 +321,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -310,7 +348,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -330,7 +371,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - warnings[1] should be valid JSON string
@@ -353,7 +397,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -370,7 +417,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -389,7 +439,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -406,7 +459,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -423,7 +479,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -485,7 +544,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -511,7 +573,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -566,12 +631,15 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			});
 			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			// Assert
 			expect(parsed.success).toBe(true);
 			expect(parsed.warnings).toContain(
-				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`
+				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`,
 			);
 		});
 
@@ -611,13 +679,18 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			});
 			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			// Assert
 			expect(parsed.success).toBe(true);
-			expect(parsed.warnings.some((w: string) =>
-				w.includes('may have been automatically migrated')
-			)).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('may have been automatically migrated'),
+				),
+			).toBe(true);
 		});
 
 		test('18. No migration warning when loadEvidence returns not_found', async () => {
@@ -627,12 +700,15 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			// Assert: blocked (no retro found) AND no migration warning
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.warnings ?? []).not.toContain(
-				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`
+				`Retrospective data for phase ${phase} may have been automatically migrated to current schema format.`,
 			);
 		});
 
@@ -672,11 +748,14 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			});
 			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			// Assert: warning contains exact phase number
-			const migrationWarnings = (parsed.warnings as string[]).filter((w: string) =>
-				w.includes('automatically migrated')
+			const migrationWarnings = (parsed.warnings as string[]).filter(
+				(w: string) => w.includes('automatically migrated'),
 			);
 			expect(migrationWarnings).toHaveLength(1);
 			expect(migrationWarnings[0]).toContain(`phase ${phase}`);
@@ -692,11 +771,14 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 			});
 			mockListEvidenceTaskIds.mockResolvedValue([`retro-${phase}`]);
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			// Assert: blocked or warning path, but NOT the migration warning
-			const hasAutoMigrationWarning = (parsed.warnings ?? []).some((w: string) =>
-				w.includes('automatically migrated')
+			const hasAutoMigrationWarning = (parsed.warnings ?? []).some(
+				(w: string) => w.includes('automatically migrated'),
 			);
 			expect(hasAutoMigrationWarning).toBe(false);
 		});

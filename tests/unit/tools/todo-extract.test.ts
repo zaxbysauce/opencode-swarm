@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { todo_extract } from '../../../src/tools/todo-extract';
 
@@ -32,7 +32,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// TODO: fix this\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -45,7 +48,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// FIXME urgent\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'FIXME' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'FIXME' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -57,7 +63,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// HACK: workaround\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'HACK' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'HACK' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -69,7 +78,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// XXX needs review\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'XXX' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'XXX' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -81,7 +93,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// WARN memory leak\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'WARN' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'WARN' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -93,7 +108,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// NOTE see docs\nconst x = 1;');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'NOTE' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'NOTE' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -127,12 +145,12 @@ describe('todo_extract tool', () => {
 
 		it('returns correct byPriority counts with single tags', async () => {
 			const testFile = path.join(tmpDir, 'test.ts');
-			fs.writeFileSync(
-				testFile,
-				`// TODO: medium`,
-			);
+			fs.writeFileSync(testFile, `// TODO: medium`);
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.byPriority.high).toBe(0);
@@ -145,7 +163,10 @@ describe('todo_extract tool', () => {
 			fs.writeFileSync(path.join(tmpDir, 'one.ts'), '// TODO: one');
 			fs.writeFileSync(path.join(tmpDir, 'two.ts'), '// TODO: two');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(2);
@@ -158,7 +179,10 @@ describe('todo_extract tool', () => {
 			const longText = 'x'.repeat(300);
 			fs.writeFileSync(testFile, `// TODO: ${longText}`);
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.entries[0].text.length).toBe(200);
@@ -172,14 +196,20 @@ describe('todo_extract tool', () => {
 			const nodeModulesDir = path.join(tmpDir, 'node_modules');
 			const pkgDir = path.join(nodeModulesDir, 'some-package');
 			fs.mkdirSync(pkgDir, { recursive: true });
-			fs.writeFileSync(path.join(pkgDir, 'test.ts'), '// TODO: in node_modules');
+			fs.writeFileSync(
+				path.join(pkgDir, 'test.ts'),
+				'// TODO: in node_modules',
+			);
 
 			// Create a source file in main dir
 			const srcDir = path.join(tmpDir, 'src');
 			fs.mkdirSync(srcDir, { recursive: true });
 			fs.writeFileSync(path.join(srcDir, 'main.ts'), '// TODO: in src');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should only find the one in src, not in node_modules
@@ -196,7 +226,10 @@ describe('todo_extract tool', () => {
 			// Create a source file in main dir
 			fs.writeFileSync(path.join(tmpDir, 'main.ts'), '// TODO: in main');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should only find the one in main, not in dist
@@ -208,7 +241,10 @@ describe('todo_extract tool', () => {
 	describe('verification - empty and single file', () => {
 		it('handles empty directory (no source files) → total: 0', async () => {
 			// Create an empty temp directory (already created)
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(0);
@@ -219,7 +255,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'single.ts');
 			fs.writeFileSync(testFile, '// TODO: single file test');
 
-			const result = await todo_extract.execute({ paths: testFile, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: testFile, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(1);
@@ -246,7 +285,10 @@ describe('todo_extract tool', () => {
 			// The OS temp directory is outside the cwd, so this should fail validation
 			const outsidePath = os.tmpdir();
 
-			const result = await todo_extract.execute({ paths: outsidePath, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: outsidePath, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should error about being outside cwd
@@ -325,7 +367,10 @@ describe('todo_extract tool', () => {
 			const content = '// TODO: large file\n' + 'x'.repeat(1024 * 1024 + 1000);
 			fs.writeFileSync(largeFile, content);
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should skip the file, not crash
@@ -338,11 +383,14 @@ describe('todo_extract tool', () => {
 			const buffer = Buffer.alloc(100);
 			buffer.write('// TODO: fake', 0, 10);
 			buffer[10] = 0x00; // null byte
-			buffer[11] = 0xFF; // non-UTF8
+			buffer[11] = 0xff; // non-UTF8
 			fs.writeFileSync(binaryFile, buffer);
 
 			// Should not crash - but binary files won't be scanned anyway since .bin is not a supported extension
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should complete without error, but not find any TODOs (binary is not supported)
@@ -354,7 +402,10 @@ describe('todo_extract tool', () => {
 			const unsupportedFile = path.join(tmpDir, 'test.xyz');
 			fs.writeFileSync(unsupportedFile, '// TODO: test');
 
-			const result = await todo_extract.execute({ paths: unsupportedFile, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: unsupportedFile, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should return error for unsupported extension
@@ -369,7 +420,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// TODO: test');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: '' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: '' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Empty tags defaults to all tags, so it should find the TODO
@@ -392,7 +446,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// TODO: test');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: '   ' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: '   ' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Tags with only spaces defaults to all tags
@@ -434,7 +491,10 @@ describe('todo_extract tool', () => {
 			fs.writeFileSync(path.join(tmpDir, 'afile.ts'), '// TODO: a first');
 			fs.writeFileSync(path.join(tmpDir, 'mfile.ts'), '// TODO: m middle');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.total).toBe(3);
@@ -448,7 +508,10 @@ describe('todo_extract tool', () => {
 			const testFile = path.join(tmpDir, 'test.ts');
 			fs.writeFileSync(testFile, '// TODO: test');
 
-			const result = await todo_extract.execute({ paths: tmpDir, tags: 'TODO' } as any, {} as any);
+			const result = await todo_extract.execute(
+				{ paths: tmpDir, tags: 'TODO' } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Verify structure

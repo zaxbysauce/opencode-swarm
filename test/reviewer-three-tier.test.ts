@@ -12,8 +12,11 @@
  * 8. Token budget ≤800
  */
 
-import { describe, it, expect } from 'bun:test';
-import { createReviewerAgent, SECURITY_CATEGORIES } from '../src/agents/reviewer';
+import { describe, expect, it } from 'bun:test';
+import {
+	createReviewerAgent,
+	SECURITY_CATEGORIES,
+} from '../src/agents/reviewer';
 
 describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 	describe('REVIEWER_PROMPT Structure Verification', () => {
@@ -23,7 +26,9 @@ describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 
 			expect(prompt).toContain('STEP 0: INTENT RECONSTRUCTION');
 			expect(prompt).toContain('mandatory, before Tier 1');
-			expect(prompt).toContain('State in ONE sentence what the developer was trying to accomplish');
+			expect(prompt).toContain(
+				'State in ONE sentence what the developer was trying to accomplish',
+			);
 			expect(prompt).toContain('reconstructed intent');
 		});
 
@@ -80,7 +85,9 @@ describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 
 			expect(prompt).toContain('TIER 1: CORRECTNESS');
 			expect(prompt).toContain('mandatory, always run');
-			expect(prompt).toContain('Does the code do what the task acceptance criteria require?');
+			expect(prompt).toContain(
+				'Does the code do what the task acceptance criteria require?',
+			);
 		});
 
 		it('should enforce first-error focus in Tier 1', async () => {
@@ -90,7 +97,9 @@ describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 			expect(prompt).toContain('First-error focus:');
 			expect(prompt).toContain('if you find a correctness issue, stop');
 			expect(prompt).toContain('Report it');
-			expect(prompt).toContain('Do not continue to style or optimization issues');
+			expect(prompt).toContain(
+				'Do not continue to style or optimization issues',
+			);
 		});
 
 		it('should define Tier 2: SAFETY', async () => {
@@ -135,7 +144,7 @@ describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 
 			expect(prompt).toContain('Do NOT approve with caveats');
 			expect(prompt).toContain('"APPROVED but fix X later" is not valid');
-			expect(prompt).toContain('Either it passes or it doesn\'t');
+			expect(prompt).toContain("Either it passes or it doesn't");
 		});
 
 		it('should enforce token budget ≤800', async () => {

@@ -1,6 +1,6 @@
 /**
  * Phase 4 verification tests: Stack Trace Leakage Hotfix
- * 
+ *
  * KEY BEHAVIORS TO VERIFY:
  * 1. update_task_status catch block returns only error.message, not stack frames
  * 2. A thrown Error from a wrapped tool (via createSwarmTool) returns sanitized JSON with only the message
@@ -8,7 +8,7 @@
  * 4. createSwarmTool wrapper catches errors that the inner tool doesn't catch
  * 5. save-plan catch block returns sanitized error (test by mocking scenario where plan save throws)
  * 6. Non-Error throwables (e.g., throw 'string') are handled by the String(error) fallback without leaking stack
- * 
+ *
  * STACK TRACE PATTERNS TO DETECT (all must be absent in sanitized output):
  * - 'at execute' — internal Bun/execution stack frame
  * - 'src/tool/registry.ts' — internal tool registry
@@ -16,10 +16,10 @@
  * - 'dist/index.js' — compiled bundle path
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
 
 // ========== STACK TRACE LEAKAGE PATTERNS ==========
@@ -66,7 +66,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await throwingTool.execute({}, createToolContext('/fake/dir'));
+		const result = await throwingTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 
 		const parsed = JSON.parse(result);
 
@@ -103,7 +106,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await throwingTool.execute({}, createToolContext('/fake/dir'));
+		const result = await throwingTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.errors[0]).toBe('Database connection failed');
@@ -124,7 +130,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await unhandledTool.execute({}, createToolContext('/fake/dir'));
+		const result = await unhandledTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -147,7 +156,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await stringThrowTool.execute({}, createToolContext('/fake/dir'));
+		const result = await stringThrowTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -166,7 +178,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await emptyMsgTool.execute({}, createToolContext('/fake/dir'));
+		const result = await emptyMsgTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -187,7 +202,10 @@ describe('createSwarmTool error sanitization', () => {
 			},
 		});
 
-		const result = await undefinedMsgTool.execute({}, createToolContext('/fake/dir'));
+		const result = await undefinedMsgTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -204,7 +222,9 @@ describe('update_task_status error sanitization', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-sanitize-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'update-task-status-sanitize-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -216,7 +236,9 @@ describe('update_task_status error sanitization', () => {
 	});
 
 	test('catch block returns only error.message, not stack frames', async () => {
-		const { executeUpdateTaskStatus } = await import('../../../src/tools/update-task-status');
+		const { executeUpdateTaskStatus } = await import(
+			'../../../src/tools/update-task-status'
+		);
 		const { ensureAgentSession } = await import('../../../src/state');
 
 		const plan = {
@@ -225,22 +247,29 @@ describe('update_task_status error sanitization', () => {
 			swarm: 'test',
 			current_phase: 1,
 			migration_status: 'native',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
-					status: 'pending',
-					size: 'small',
-					description: 'Test',
-					depends: [],
-					files_touched: [],
-				}],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 
 		const session = ensureAgentSession('test-session', 'test-agent');
 		session.taskWorkflowStates.set('1.1', 'tests_run');
@@ -249,7 +278,10 @@ describe('update_task_status error sanitization', () => {
 		// Remove plan.json to trigger error
 		fs.rmSync(path.join(tempDir, '.swarm', 'plan.json'));
 
-		const result = await executeUpdateTaskStatus({ task_id: '1.1', status: 'completed' }, tempDir);
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'completed' },
+			tempDir,
+		);
 
 		expect(result.success).toBe(false);
 		expect(result.errors).toBeDefined();
@@ -267,7 +299,9 @@ describe('update_task_status error sanitization', () => {
 	});
 
 	test('updateTaskStatus catch block sanitizes Error objects to message only', async () => {
-		const { executeUpdateTaskStatus } = await import('../../../src/tools/update-task-status');
+		const { executeUpdateTaskStatus } = await import(
+			'../../../src/tools/update-task-status'
+		);
 
 		const plan = {
 			schema_version: '1.0.0',
@@ -275,28 +309,38 @@ describe('update_task_status error sanitization', () => {
 			swarm: 'test',
 			current_phase: 1,
 			migration_status: 'native',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
-					status: 'pending',
-					size: 'small',
-					description: 'Test',
-					depends: [],
-					files_touched: [],
-				}],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 
 		// Make plan.json a directory to trigger an error during write
 		fs.rmSync(path.join(tempDir, '.swarm', 'plan.json'));
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'plan.json'));
 
-		const result = await executeUpdateTaskStatus({ task_id: '1.1', status: 'completed' }, tempDir);
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'completed' },
+			tempDir,
+		);
 
 		expect(result.success).toBe(false);
 		expect(result.errors).toBeDefined();
@@ -320,7 +364,9 @@ describe('save-plan error sanitization', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'save-plan-sanitize-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'save-plan-sanitize-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -340,22 +386,29 @@ describe('save-plan error sanitization', () => {
 			swarm: 'test',
 			current_phase: 1,
 			migration_status: 'native',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
 					status: 'pending',
-					size: 'small',
-					description: 'Test task',
-					depends: [],
-					files_touched: [],
-				}],
-			}],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 
 		// Make plan.json a directory to trigger a write error
 		fs.rmSync(path.join(tempDir, '.swarm', 'plan.json'));
@@ -364,14 +417,18 @@ describe('save-plan error sanitization', () => {
 		const args = {
 			title: 'Updated Plan',
 			swarm_id: 'test',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				tasks: [{
-					id: '1.1',
-					description: 'Updated task',
-				}],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Updated task',
+						},
+					],
+				},
+			],
 			working_directory: tempDir,
 		};
 
@@ -400,22 +457,29 @@ describe('save-plan error sanitization', () => {
 			swarm: 'test',
 			current_phase: 1,
 			migration_status: 'native',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
 					status: 'pending',
-					size: 'small',
-					description: 'Test',
-					depends: [],
-					files_touched: [],
-				}],
-			}],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 
 		fs.rmSync(path.join(tempDir, '.swarm', 'plan.json'));
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'plan.json'));
@@ -423,14 +487,18 @@ describe('save-plan error sanitization', () => {
 		const args = {
 			title: 'Test Plan',
 			swarm_id: 'test',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				tasks: [{
-					id: '1.1',
-					description: 'Test',
-				}],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Test',
+						},
+					],
+				},
+			],
 			working_directory: tempDir,
 		};
 
@@ -448,7 +516,9 @@ describe('save-plan error sanitization', () => {
 // ========== GROUP 4: curator-analyze error sanitization ==========
 describe('curator_analyze error sanitization', () => {
 	test('catch block returns sanitized error via error.message', async () => {
-		const { curator_analyze } = await import('../../../src/tools/curator-analyze');
+		const { curator_analyze } = await import(
+			'../../../src/tools/curator-analyze'
+		);
 
 		const result = await curator_analyze.execute(
 			{ phase: -1 },
@@ -464,7 +534,9 @@ describe('curator_analyze error sanitization', () => {
 	});
 
 	test('execute function returns only error.message, not stack', async () => {
-		const { curator_analyze } = await import('../../../src/tools/curator-analyze');
+		const { curator_analyze } = await import(
+			'../../../src/tools/curator-analyze'
+		);
 
 		const result = await curator_analyze.execute(
 			{ phase: 1 },
@@ -482,7 +554,9 @@ describe('curator_analyze error sanitization', () => {
 // ========== GROUP 5: phase-complete safeWarn sanitization (indirect test) ==========
 describe('phase_complete safeWarn sanitization (indirect)', () => {
 	test('phase_complete tool does not leak stack traces via safeWarn calls', async () => {
-		const { phase_complete } = await import('../../../src/tools/phase-complete');
+		const { phase_complete } = await import(
+			'../../../src/tools/phase-complete'
+		);
 
 		// Call with valid phase but no sessionID - triggers error path
 		const result = await phase_complete.execute(
@@ -523,7 +597,9 @@ describe('evidence/manager error sanitization', () => {
 	test('loadEvidence catch block sanitizes errors in warn calls', async () => {
 		const { loadEvidence } = await import('../../../src/evidence/manager');
 
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-sanitize-test-'));
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'evidence-sanitize-test-'),
+		);
 
 		try {
 			// Create a malformed evidence file
@@ -563,9 +639,13 @@ describe('evidence/manager error sanitization', () => {
 // ========== GROUP 7: commands error sanitization ==========
 describe('commands error sanitization', () => {
 	test('rollback handles missing checkpoint gracefully', async () => {
-		const { handleRollbackCommand } = await import('../../../src/commands/rollback');
+		const { handleRollbackCommand } = await import(
+			'../../../src/commands/rollback'
+		);
 
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rollback-sanitize-test-'));
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'rollback-sanitize-test-'),
+		);
 
 		try {
 			// No checkpoint structure - should return error message
@@ -581,10 +661,14 @@ describe('commands error sanitization', () => {
 	});
 
 	test('promote command returns only error.message in catch blocks', async () => {
-		const { handlePromoteCommand } = await import('../../../src/commands/promote');
+		const { handlePromoteCommand } = await import(
+			'../../../src/commands/promote'
+		);
 
 		// Call with invalid text that fails validation
-		const result = await handlePromoteCommand('/fake/dir', ['[invalid placeholder]']);
+		const result = await handlePromoteCommand('/fake/dir', [
+			'[invalid placeholder]',
+		]);
 
 		// If it returns an error message, it should be sanitized
 		if (result.includes('rejected') || result.includes('Failed')) {
@@ -594,10 +678,15 @@ describe('commands error sanitization', () => {
 	});
 
 	test('curate command returns only error.message in catch block', async () => {
-		const { handleCurateCommand } = await import('../../../src/commands/curate');
+		const { handleCurateCommand } = await import(
+			'../../../src/commands/curate'
+		);
 
 		// Call with directory that causes an error
-		const result = await handleCurateCommand('/nonexistent/path/that/does/not/exist', []);
+		const result = await handleCurateCommand(
+			'/nonexistent/path/that/does/not/exist',
+			[],
+		);
 
 		// If it returns an error, it should be sanitized
 		if (result.includes('failed') || result.includes('Failed')) {
@@ -608,9 +697,13 @@ describe('commands error sanitization', () => {
 	});
 
 	test('dark-matter command uses sanitized console.warn', async () => {
-		const { handleDarkMatterCommand } = await import('../../../src/commands/dark-matter');
+		const { handleDarkMatterCommand } = await import(
+			'../../../src/commands/dark-matter'
+		);
 
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dark-matter-sanitize-test-'));
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'dark-matter-sanitize-test-'),
+		);
 
 		try {
 			// Create a minimal git repo to trigger dark matter detection
@@ -643,7 +736,8 @@ describe('commands error sanitization', () => {
 // ========== GROUP 8: Negative tests - ensure patterns ARE detected when present ==========
 describe('stack trace detection verification', () => {
 	test('findStackTraceLeak correctly detects "at execute" pattern', () => {
-		const text = 'Error: something failed\n    at execute (/app/src/tool/registry.ts:45:11)';
+		const text =
+			'Error: something failed\n    at execute (/app/src/tool/registry.ts:45:11)';
 		const leak = findStackTraceLeak(text);
 		expect(leak).toBe('at execute');
 	});
@@ -667,7 +761,8 @@ describe('stack trace detection verification', () => {
 	});
 
 	test('findStackTraceLeak returns null for clean text', () => {
-		const text = 'This is a clean error message without any stack trace patterns';
+		const text =
+			'This is a clean error message without any stack trace patterns';
 		const leak = findStackTraceLeak(text);
 		expect(leak).toBeNull();
 	});
@@ -693,7 +788,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await largeErrorTool.execute({}, createToolContext('/fake/dir'));
+		const result = await largeErrorTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -715,7 +813,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await circularTool.execute({}, createToolContext('/fake/dir'));
+		const result = await circularTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -733,7 +834,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await nullThrowTool.execute({}, createToolContext('/fake/dir'));
+		const result = await nullThrowTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -751,7 +855,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await undefinedThrowTool.execute({}, createToolContext('/fake/dir'));
+		const result = await undefinedThrowTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -769,7 +876,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await numberThrowTool.execute({}, createToolContext('/fake/dir'));
+		const result = await numberThrowTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -787,7 +897,10 @@ describe('adversarial error handling', () => {
 			},
 		});
 
-		const result = await objectThrowTool.execute({}, createToolContext('/fake/dir'));
+		const result = await objectThrowTool.execute(
+			{},
+			createToolContext('/fake/dir'),
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -809,7 +922,9 @@ describe('full tool pipeline sanitization', () => {
 	});
 
 	test('update_task_status tool definition execute returns sanitized output', async () => {
-		const { update_task_status } = await import('../../../src/tools/update-task-status');
+		const { update_task_status } = await import(
+			'../../../src/tools/update-task-status'
+		);
 
 		const plan = {
 			schema_version: '1.0.0',
@@ -817,22 +932,29 @@ describe('full tool pipeline sanitization', () => {
 			swarm: 'test',
 			current_phase: 1,
 			migration_status: 'native',
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
-					status: 'pending',
-					size: 'small',
-					description: 'Test',
-					depends: [],
-					files_touched: [],
-				}],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 
 		const result = await update_task_status.execute(
 			{ task_id: '1.1', status: 'in_progress' },
@@ -855,14 +977,18 @@ describe('full tool pipeline sanitization', () => {
 			{
 				title: 'Test Plan',
 				swarm_id: 'test',
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					tasks: [{
-						id: '1.1',
-						description: 'Test task',
-					}],
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Test task',
+							},
+						],
+					},
+				],
 				working_directory: tempDir,
 			},
 			createToolContext(tempDir),

@@ -7,7 +7,7 @@
  * 2. runTests(..., cwd) - passes cwd to Bun.spawn
  * 3. execute() - extracts workingDir from ToolContext and passes it correctly
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -16,11 +16,7 @@ import * as path from 'node:path';
 const testRunnerModule = await import('../../../src/tools/test-runner');
 
 // Extract the exports we need
-const {
-	test_runner,
-	detectTestFramework,
-	runTests,
-} = testRunnerModule;
+const { test_runner, detectTestFramework, runTests } = testRunnerModule;
 
 // Helper to create temp test directories
 function createTempDir(): string {
@@ -28,7 +24,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -59,13 +59,13 @@ function mockSpawn(cmd: string[], opts: unknown) {
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStdout));
 			controller.close();
-		}
+		},
 	});
 	const stderrReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStderr));
 			controller.close();
-		}
+		},
 	});
 
 	return {
@@ -106,9 +106,13 @@ describe('test-runner.ts - CWD Threading', () => {
 	describe('detectTestFramework(cwd) - bun detection', () => {
 		test('uses provided cwd for path joins when detecting bun framework', async () => {
 			// Create package.json in tempDir
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 
 			// Call with explicit cwd (tempDir)
@@ -119,9 +123,13 @@ describe('test-runner.ts - CWD Threading', () => {
 		});
 
 		test('uses cwd for bun.lockb detection', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun run test' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun run test' },
+				}),
+			);
 			// Create bun.lockb (empty file simulates it)
 			createTestFile(tempDir, 'bun.lockb', '');
 
@@ -132,27 +140,39 @@ describe('test-runner.ts - CWD Threading', () => {
 
 	describe('detectTestFramework(cwd) - pytest detection', () => {
 		test('uses provided cwd for requirements.txt detection', async () => {
-			createTestFile(tempDir, 'requirements.txt', 'pytest>=7.0.0\nrequests>=2.0.0');
+			createTestFile(
+				tempDir,
+				'requirements.txt',
+				'pytest>=7.0.0\nrequests>=2.0.0',
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('pytest');
 		});
 
 		test('uses cwd for pyproject.toml detection', async () => {
-			createTestFile(tempDir, 'pyproject.toml', `
+			createTestFile(
+				tempDir,
+				'pyproject.toml',
+				`
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-`);
+`,
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('pytest');
 		});
 
 		test('uses cwd for setup.cfg detection', async () => {
-			createTestFile(tempDir, 'setup.cfg', `
+			createTestFile(
+				tempDir,
+				'setup.cfg',
+				`
 [pytest]
 testpaths = tests
-`);
+`,
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('pytest');
@@ -169,14 +189,18 @@ testpaths = tests
 
 	describe('detectTestFramework(cwd) - cargo detection', () => {
 		test('uses provided cwd for Cargo.toml detection', async () => {
-			createTestFile(tempDir, 'Cargo.toml', `
+			createTestFile(
+				tempDir,
+				'Cargo.toml',
+				`
 [package]
 name = "test-rs"
 version = "0.1.0"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
-`);
+`,
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('cargo');
@@ -211,14 +235,7 @@ tokio = { version = "1.0", features = ["full"] }
 			// Set up mock spawn
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'bun',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('bun', 'all', [], false, 60000, fakeCwd);
 
 			// Verify the cwd was passed correctly
 			expect(spawnCalls.length).toBeGreaterThan(0);
@@ -235,14 +252,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'vitest',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('vitest', 'all', [], false, 60000, fakeCwd);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
@@ -254,14 +264,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'pytest',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('pytest', 'all', [], false, 60000, fakeCwd);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
@@ -277,14 +280,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'jest',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('jest', 'all', [], false, 60000, fakeCwd);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
@@ -296,14 +292,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'mocha',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('mocha', 'all', [], false, 60000, fakeCwd);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
@@ -315,14 +304,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 			Bun.spawn = mockSpawn as any;
 
-			await runTests(
-				'cargo',
-				'all',
-				[],
-				false,
-				60000,
-				fakeCwd,
-			);
+			await runTests('cargo', 'all', [], false, 60000, fakeCwd);
 
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
@@ -333,14 +315,26 @@ tokio = { version = "1.0", features = ["full"] }
 		test('uses ctx.directory as workingDir when provided', async () => {
 			// Set up a real vitest project in tempDir so scope: 'convention' can run fully
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			// Pass ctx.directory explicitly — createSwarmTool extracts ctx?.directory ?? process.cwd()
@@ -358,14 +352,26 @@ tokio = { version = "1.0", features = ["full"] }
 			// The createSwarmTool implementation is: const directory = ctx?.directory ?? process.cwd()
 			// ctx.worktree is NOT consulted. When only worktree is provided, process.cwd() is used.
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			// Provide only worktree (no directory) — createSwarmTool will use process.cwd() instead
@@ -382,14 +388,26 @@ tokio = { version = "1.0", features = ["full"] }
 		test('falls back to process.cwd() when neither directory nor worktree is provided', async () => {
 			// Change to tempDir and set up vitest framework there
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			// Call with empty context (should fall back to process.cwd())
@@ -405,17 +423,29 @@ tokio = { version = "1.0", features = ["full"] }
 		test('ctx.directory is used (not worktree) when both are provided', async () => {
 			// Set up vitest framework in tempDir (used as ctx.directory)
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
 			// Create another dir for worktree (not used by createSwarmTool)
 			const worktreeDir = createTempDir();
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			try {
@@ -439,14 +469,26 @@ tokio = { version = "1.0", features = ["full"] }
 		test('correctly detects vitest framework from ctx.directory path', async () => {
 			// Set up vitest framework in tempDir
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			const result = await test_runner.execute(
@@ -461,14 +503,26 @@ tokio = { version = "1.0", features = ["full"] }
 
 		test('correctly detects jest framework from ctx.directory path', async () => {
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'jest' },
-				devDependencies: { jest: '^29.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'jest' },
+					devDependencies: { jest: '^29.0.0' },
+				}),
+			);
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import { describe, test, expect } from "@jest/globals"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import { describe, test, expect } from "@jest/globals"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
-			mockStdout = JSON.stringify({ numTotalTests: 1, numPassedTests: 1, numFailedTests: 0 });
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
 			Bun.spawn = mockSpawn as any;
 
 			const result = await test_runner.execute(
@@ -484,7 +538,11 @@ tokio = { version = "1.0", features = ["full"] }
 			process.chdir(tempDir);
 			createTestFile(tempDir, 'requirements.txt', 'pytest>=7.0.0');
 			createTestFile(tempDir, 'utils.py', 'def add(a, b): return a + b');
-			createTestFile(tempDir, 'utils_test.py', 'from utils import add\ndef test_add(): assert add(1, 2) == 3');
+			createTestFile(
+				tempDir,
+				'utils_test.py',
+				'from utils import add\ndef test_add(): assert add(1, 2) == 3',
+			);
 
 			mockStdout = '1 passed';
 			Bun.spawn = mockSpawn as any;
@@ -514,18 +572,26 @@ tokio = { version = "1.0", features = ["full"] }
 
 	describe('detectTestFramework(cwd) - vitest detection', () => {
 		test('uses cwd for vitest detection via scripts', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'vitest run' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('vitest');
 		});
 
 		test('uses cwd for vitest detection via devDependencies', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				devDependencies: { vitest: '^1.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('vitest');
@@ -534,18 +600,26 @@ tokio = { version = "1.0", features = ["full"] }
 
 	describe('detectTestFramework(cwd) - jest detection', () => {
 		test('uses cwd for jest detection via scripts', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'jest' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'jest' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('jest');
 		});
 
 		test('uses cwd for jest detection via devDependencies', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				devDependencies: { jest: '^29.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					devDependencies: { jest: '^29.0.0' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('jest');
@@ -554,18 +628,26 @@ tokio = { version = "1.0", features = ["full"] }
 
 	describe('detectTestFramework(cwd) - mocha detection', () => {
 		test('uses cwd for mocha detection via scripts', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'mocha' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'mocha' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('mocha');
 		});
 
 		test('uses cwd for mocha detection via devDependencies', async () => {
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				devDependencies: { mocha: '^10.0.0' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					devDependencies: { mocha: '^10.0.0' },
+				}),
+			);
 
 			const framework = await detectTestFramework(tempDir);
 			expect(framework).toBe('mocha');

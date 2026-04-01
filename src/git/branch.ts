@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import { warn } from '../utils/logger.js';
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -7,7 +7,7 @@ const GIT_TIMEOUT_MS = 30_000;
  * Execute git command safely
  */
 function gitExec(args: string[], cwd: string): string {
-	const result = spawnSync('git', args, {
+	const result = child_process.spawnSync('git', args, {
 		cwd,
 		encoding: 'utf-8',
 		timeout: GIT_TIMEOUT_MS,

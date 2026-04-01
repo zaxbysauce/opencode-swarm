@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { qualityBudget, type QualityBudgetInput } from '../../../src/tools/quality-budget';
+import {
+	type QualityBudgetInput,
+	qualityBudget,
+} from '../../../src/tools/quality-budget';
 
 // Mock the saveEvidence function
 vi.mock('../../../src/evidence/manager', () => ({
@@ -15,7 +18,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -26,7 +33,10 @@ function createTestFile(dir: string, filename: string, content: string): string 
 }
 
 // Helper to create test directory structure
-function createTestStructure(dir: string, structure: Record<string, string>): void {
+function createTestStructure(
+	dir: string,
+	structure: Record<string, string>,
+): void {
 	for (const [filePath, content] of Object.entries(structure)) {
 		createTestFile(dir, filePath, content);
 	}
@@ -52,32 +62,44 @@ describe('quality_budget tool', () => {
 
 	describe('input validation', () => {
 		it('should throw error for non-object input', async () => {
-			await expect(qualityBudget(null as unknown as QualityBudgetInput, tempDir)).rejects.toThrow(
-				'Invalid input: Input must be an object',
-			);
+			await expect(
+				qualityBudget(null as unknown as QualityBudgetInput, tempDir),
+			).rejects.toThrow('Invalid input: Input must be an object');
 		});
 
 		it('should throw error for missing changed_files', async () => {
-			await expect(qualityBudget({} as QualityBudgetInput, tempDir)).rejects.toThrow(
-				'Invalid input: changed_files must be an array',
-			);
+			await expect(
+				qualityBudget({} as QualityBudgetInput, tempDir),
+			).rejects.toThrow('Invalid input: changed_files must be an array');
 		});
 
 		it('should throw error for non-array changed_files', async () => {
 			await expect(
-				qualityBudget({ changed_files: 'not-array' } as unknown as QualityBudgetInput, tempDir),
+				qualityBudget(
+					{ changed_files: 'not-array' } as unknown as QualityBudgetInput,
+					tempDir,
+				),
 			).rejects.toThrow('Invalid input: changed_files must be an array');
 		});
 
 		it('should throw error for non-string in changed_files', async () => {
 			await expect(
-				qualityBudget({ changed_files: [123] } as unknown as QualityBudgetInput, tempDir),
+				qualityBudget(
+					{ changed_files: [123] } as unknown as QualityBudgetInput,
+					tempDir,
+				),
 			).rejects.toThrow('Invalid input: changed_files must contain strings');
 		});
 
 		it('should throw error for invalid config type', async () => {
 			await expect(
-				qualityBudget({ changed_files: ['test.ts'], config: 'invalid' } as unknown as QualityBudgetInput, tempDir),
+				qualityBudget(
+					{
+						changed_files: ['test.ts'],
+						config: 'invalid',
+					} as unknown as QualityBudgetInput,
+					tempDir,
+				),
 			).rejects.toThrow('Invalid input: config must be an object if provided');
 		});
 
@@ -119,7 +141,11 @@ describe('quality_budget tool', () => {
 	describe('complexity threshold', () => {
 		it('should pass when complexity is below threshold', async () => {
 			// Simple function with low complexity
-			createTestFile(tempDir, 'src/simple.ts', 'export function hello() {\n  console.log("hi");\n}\n');
+			createTestFile(
+				tempDir,
+				'src/simple.ts',
+				'export function hello() {\n  console.log("hi");\n}\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -129,7 +155,9 @@ describe('quality_budget tool', () => {
 				tempDir,
 			);
 
-			const complexityViolation = result.violations.find((v) => v.type === 'complexity');
+			const complexityViolation = result.violations.find(
+				(v) => v.type === 'complexity',
+			);
 			expect(complexityViolation).toBeUndefined();
 		});
 
@@ -173,7 +201,9 @@ describe('quality_budget tool', () => {
 				tempDir,
 			);
 
-			const complexityViolation = result.violations.find((v) => v.type === 'complexity');
+			const complexityViolation = result.violations.find(
+				(v) => v.type === 'complexity',
+			);
 			expect(complexityViolation).toBeDefined();
 			expect(complexityViolation?.severity).toBe('error');
 		});
@@ -200,7 +230,9 @@ describe('quality_budget tool', () => {
 				tempDir,
 			);
 
-			const complexityViolation = result.violations.find((v) => v.type === 'complexity');
+			const complexityViolation = result.violations.find(
+				(v) => v.type === 'complexity',
+			);
 			expect(complexityViolation).toBeDefined();
 			// With threshold of 1 and complexity of ~3, it should be warning (not error)
 			expect(['warning', 'error']).toContain(complexityViolation?.severity);
@@ -211,7 +243,11 @@ describe('quality_budget tool', () => {
 
 	describe('API delta threshold', () => {
 		it('should pass when API additions are below threshold', async () => {
-			createTestFile(tempDir, 'src/api-simple.ts', 'export const x = 1;\nexport const y = 2;\n');
+			createTestFile(
+				tempDir,
+				'src/api-simple.ts',
+				'export const x = 1;\nexport const y = 2;\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -280,7 +316,9 @@ export function unique3() { return 3; }
 				tempDir,
 			);
 
-			const dupViolation = result.violations.find((v) => v.type === 'duplication');
+			const dupViolation = result.violations.find(
+				(v) => v.type === 'duplication',
+			);
 			expect(dupViolation).toBeUndefined();
 		});
 
@@ -312,7 +350,9 @@ const y = 2;
 				tempDir,
 			);
 
-			const dupViolation = result.violations.find((v) => v.type === 'duplication');
+			const dupViolation = result.violations.find(
+				(v) => v.type === 'duplication',
+			);
 			expect(dupViolation).toBeDefined();
 			expect(dupViolation?.severity).toBe('error');
 		});
@@ -324,7 +364,11 @@ const y = 2;
 		it('should pass when test ratio meets minimum', async () => {
 			// Create test files to meet ratio
 			createTestFile(tempDir, 'src/code.ts', 'export const x = 1;\n');
-			createTestFile(tempDir, 'tests/code.test.ts', 'describe("test", () => { it("passes", () => {}); });\n');
+			createTestFile(
+				tempDir,
+				'tests/code.test.ts',
+				'describe("test", () => { it("passes", () => {}); });\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -338,7 +382,9 @@ const y = 2;
 			);
 
 			// Test ratio violation only triggers if below threshold
-			const testViolation = result.violations.find((v) => v.type === 'test_ratio');
+			const testViolation = result.violations.find(
+				(v) => v.type === 'test_ratio',
+			);
 			// May or may not have violation depending on actual ratio
 			expect(result).toBeDefined();
 		});
@@ -348,7 +394,11 @@ const y = 2;
 
 	describe('verdict determination', () => {
 		it('should return pass when no violations', async () => {
-			createTestFile(tempDir, 'src/clean.ts', 'export function clean() { return 1; }\n');
+			createTestFile(
+				tempDir,
+				'src/clean.ts',
+				'export function clean() { return 1; }\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -448,7 +498,11 @@ export const x = 1;
 
 		it('should respect exclude_globs', async () => {
 			createTestFile(tempDir, 'src/include.ts', 'export const x = 1;\n');
-			createTestFile(tempDir, 'tests/exclude.test.ts', 'describe("test", () => {});\n');
+			createTestFile(
+				tempDir,
+				'tests/exclude.test.ts',
+				'describe("test", () => {});\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -565,7 +619,11 @@ export const t = 7;
 
 	describe('metrics computation', () => {
 		it('should compute complexity_delta', async () => {
-			createTestFile(tempDir, 'src/complex.ts', 'export function test(a, b, c, d) {\n  if (a && b && c && d) return 1;\n  return 0;\n}\n');
+			createTestFile(
+				tempDir,
+				'src/complex.ts',
+				'export function test(a, b, c, d) {\n  if (a && b && c && d) return 1;\n  return 0;\n}\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -578,7 +636,11 @@ export const t = 7;
 		});
 
 		it('should compute public_api_delta', async () => {
-			createTestFile(tempDir, 'src/exports.ts', 'export const a = 1;\nexport const b = 2;\nexport const c = 3;\n');
+			createTestFile(
+				tempDir,
+				'src/exports.ts',
+				'export const a = 1;\nexport const b = 2;\nexport const c = 3;\n',
+			);
 
 			const result = await qualityBudget(
 				{
@@ -730,7 +792,10 @@ const y = 2;
 			const largeContent = 'export const x = ' + '1;\n'.repeat(50000);
 			createTestFile(tempDir, 'src/large.ts', largeContent);
 
-			const result = await qualityBudget({ changed_files: ['src/large.ts'] }, tempDir);
+			const result = await qualityBudget(
+				{ changed_files: ['src/large.ts'] },
+				tempDir,
+			);
 
 			// Should not crash, may skip the file
 			expect(result).toBeDefined();
@@ -739,7 +804,10 @@ const y = 2;
 		it('should handle binary files gracefully', async () => {
 			createTestFile(tempDir, 'src/binary.bin', '\0\0\0\0');
 
-			const result = await qualityBudget({ changed_files: ['src/binary.bin'] }, tempDir);
+			const result = await qualityBudget(
+				{ changed_files: ['src/binary.bin'] },
+				tempDir,
+			);
 
 			expect(result).toBeDefined();
 		});

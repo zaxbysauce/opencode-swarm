@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	swarmState,
-	resetSwarmState,
 	ensureAgentSession,
 	recordPhaseAgentDispatch,
+	resetSwarmState,
+	swarmState,
 } from '../../src/state';
 import { executePhaseComplete } from '../../src/tools/phase-complete';
 
@@ -35,7 +35,10 @@ describe('phase_complete integration — events.jsonl', () => {
 			return [];
 		}
 		const content = fs.readFileSync(eventsPath, 'utf-8');
-		const lines = content.trim().split('\n').filter((l) => l.trim());
+		const lines = content
+			.trim()
+			.split('\n')
+			.filter((l) => l.trim());
 		const events = lines.map((l) => JSON.parse(l));
 		if (eventType) {
 			return events.filter((e) => e.event === eventType);
@@ -89,7 +92,10 @@ describe('phase_complete integration — events.jsonl', () => {
 		};
 		const retroDir = path.join(tempDir, '.swarm', 'evidence', `retro-${phase}`);
 		fs.mkdirSync(retroDir, { recursive: true });
-		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
+		fs.writeFileSync(
+			path.join(retroDir, 'evidence.json'),
+			JSON.stringify(evidence, null, 2),
+		);
 	}
 
 	/**
@@ -147,11 +153,14 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			// Assert: tool return value
@@ -192,10 +201,13 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			// Assert: tool return value has success: false
@@ -242,11 +254,14 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result1 = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result1 = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 			expect(parsed1.phase).toBe(1);
@@ -260,11 +275,14 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(2);
 			writeGateEvidence(2);
-			const result2 = await executePhaseComplete({
-				phase: 2,
-				sessionID,
-				summary: 'Phase 2 complete',
-			}, tempDir);
+			const result2 = await executePhaseComplete(
+				{
+					phase: 2,
+					sessionID,
+					summary: 'Phase 2 complete',
+				},
+				tempDir,
+			);
 			const parsed2 = JSON.parse(result2);
 			expect(parsed2.success).toBe(true);
 			expect(parsed2.phase).toBe(2);
@@ -311,15 +329,18 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result1 = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-			}, tempDir);
+			const result1 = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 
 			// Verify session.phaseAgentsDispatched is empty after phase 1
-			let session = swarmState.agentSessions.get(sessionID);
+			const session = swarmState.agentSessions.get(sessionID);
 			expect(session?.phaseAgentsDispatched.size).toBe(0);
 
 			// === Phase 2: dispatch ONLY coder ===
@@ -327,10 +348,13 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(2);
 			writeGateEvidence(2);
-			const result2 = await executePhaseComplete({
-				phase: 2,
-				sessionID,
-			}, tempDir);
+			const result2 = await executePhaseComplete(
+				{
+					phase: 2,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed2 = JSON.parse(result2);
 			// Warn policy - should succeed with warning
 			expect(parsed2.success).toBe(true);
@@ -369,10 +393,13 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			// Assert: status success, no warnings, agents_missing empty
@@ -408,10 +435,13 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			// Assert: success is true (warn policy doesn't fail)
@@ -457,10 +487,13 @@ describe('phase_complete integration — events.jsonl', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+				},
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);

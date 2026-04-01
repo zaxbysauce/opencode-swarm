@@ -4,10 +4,10 @@
  * oversized payloads, ReDoS, circular references.
  */
 
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Define the args type locally to avoid import issues with await import
 interface WriteRetroArgs {
@@ -30,23 +30,37 @@ interface WriteRetroArgs {
 }
 
 // Mock loadEvidence, saveEvidence, and listEvidenceTaskIds from evidence/manager
-const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
-	status: 'found';
-	bundle: {
-		schema_version: string;
-		task_id: string;
-		created_at: string;
-		updated_at: string;
-		entries: Array<Record<string, unknown>>;
-	};
-} | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
-const mockSaveEvidence = vi.fn<(dir: string, taskId: string, entry: unknown) => Promise<void>>();
+const mockLoadEvidence =
+	vi.fn<
+		(
+			dir: string,
+			taskId: string,
+		) => Promise<
+			| {
+					status: 'found';
+					bundle: {
+						schema_version: string;
+						task_id: string;
+						created_at: string;
+						updated_at: string;
+						entries: Array<Record<string, unknown>>;
+					};
+			  }
+			| { status: 'not_found' }
+			| { status: 'invalid_schema'; errors: string[] }
+		>
+	>();
+const mockSaveEvidence =
+	vi.fn<(dir: string, taskId: string, entry: unknown) => Promise<void>>();
 const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
 
 vi.mock('../../../src/evidence/manager.js', () => ({
-	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
-	saveEvidence: (...args: unknown[]) => mockSaveEvidence(...args as [string, string, unknown]),
-	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
+	loadEvidence: (...args: unknown[]) =>
+		mockLoadEvidence(...(args as [string, string])),
+	saveEvidence: (...args: unknown[]) =>
+		mockSaveEvidence(...(args as [string, string, unknown])),
+	listEvidenceTaskIds: (...args: unknown[]) =>
+		mockListEvidenceTaskIds(...(args as [string])),
 }));
 
 // Import after mocking
@@ -77,12 +91,20 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-taxonomy-adversarial-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'write-retro-taxonomy-adversarial-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 		// Default: return task IDs 3.1-3.5 for phase 3 (most tests use phase 3)
-		mockListEvidenceTaskIds.mockResolvedValue(['3.1', '3.2', '3.3', '3.4', '3.5']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'3.1',
+			'3.2',
+			'3.3',
+			'3.4',
+			'3.5',
+		]);
 		// Default loadEvidence to not_found (individual tests override as needed)
 		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 	});
@@ -147,7 +169,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		expect(parsed.success).toBe(true);
 		// Taxonomy should classify this as logic_error (no interface keywords)
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
 	});
 
@@ -183,7 +208,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		// No taxonomy entries since verdict wasn't 'fail' (0 !== 'fail')
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
 
@@ -218,7 +246,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		// __proto__ type won't match any classification branch
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
 
@@ -251,7 +282,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
 
@@ -287,7 +321,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		// Array.isArray check should skip the issues string
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
 	});
 
@@ -322,7 +359,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		// typeof check should prevent string concatenation
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
 	});
 
@@ -478,7 +518,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		// Should detect 'interface' in summary
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toContain('interface_mismatch');
 	});
 
@@ -527,7 +570,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		// Taxonomy should be empty due to error
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
@@ -549,7 +595,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 								type: 'review',
 								verdict: 'fail',
 								summary: 'Review found problems in logic',
-								issues: [{ message: 'Normal issue' }, { __proto__: { polluted: true } }],
+								issues: [
+									{ message: 'Normal issue' },
+									{ __proto__: { polluted: true } },
+								],
 							},
 						],
 					},
@@ -563,7 +612,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		// Should have logic_error (not polluted)
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
 		// Verify no pollution in taxonomy array
@@ -606,7 +658,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
 		// Verify no prototype pollution
 		expect(savedEntry.polluted).toBeUndefined();
@@ -724,10 +779,26 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 						created_at: new Date().toISOString(),
 						updated_at: new Date().toISOString(),
 						entries: [
-							{ task_id: '3.1', type: 'review', verdict: 'fail', summary: 'Signature type error', issues: [] },
+							{
+								task_id: '3.1',
+								type: 'review',
+								verdict: 'fail',
+								summary: 'Signature type error',
+								issues: [],
+							},
 							{ task_id: '3.1', type: 'test', verdict: 'fail', issues: [] },
-							{ task_id: '3.1', agent: 'scope_guard', verdict: 'fail', issues: [] },
-							{ task_id: '3.1', agent: 'loop_detector', verdict: 'fail', issues: [] },
+							{
+								task_id: '3.1',
+								agent: 'scope_guard',
+								verdict: 'fail',
+								issues: [],
+							},
+							{
+								task_id: '3.1',
+								agent: 'loop_detector',
+								verdict: 'fail',
+								issues: [],
+							},
 						],
 					},
 				};
@@ -740,7 +811,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		// All four error types should be captured (deduplicated)
 		expect(savedEntry.error_taxonomy).toContain('interface_mismatch');
 		expect(savedEntry.error_taxonomy).toContain('logic_error');
@@ -807,7 +881,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
 
@@ -883,7 +960,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 	// --- TEST 24: Very deep recursion in entry nesting ---
 	test('24. Deeply nested entry object — should not cause stack overflow', async () => {
-		function createNestedObject(depth: number, current: Record<string, unknown>): Record<string, unknown> {
+		function createNestedObject(
+			depth: number,
+			current: Record<string, unknown>,
+		): Record<string, unknown> {
 			if (depth === 0) return current;
 			return createNestedObject(depth - 1, { nested: current });
 		}
@@ -943,7 +1023,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<string, unknown>;
+		const savedEntry = mockSaveEvidence.mock.calls[0][2] as Record<
+			string,
+			unknown
+		>;
 		expect(savedEntry.error_taxonomy).toEqual([]);
 	});
 });

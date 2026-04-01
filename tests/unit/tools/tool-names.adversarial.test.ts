@@ -4,8 +4,12 @@
  * and accidental omission between union and array
  */
 
-import { describe, test, expect } from 'bun:test';
-import { ToolName, TOOL_NAMES, TOOL_NAME_SET } from '../../../src/tools/tool-names';
+import { describe, expect, test } from 'bun:test';
+import {
+	TOOL_NAME_SET,
+	TOOL_NAMES,
+	type ToolName,
+} from '../../../src/tools/tool-names';
 
 describe('tool-names registry integrity - adversarial', () => {
 	describe('duplicate detection in TOOL_NAMES array', () => {
@@ -68,7 +72,9 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 
 		test('should have check_gate_status appear exactly once in TOOL_NAMES', () => {
-			const occurrences = TOOL_NAMES.filter(name => name === 'check_gate_status');
+			const occurrences = TOOL_NAMES.filter(
+				(name) => name === 'check_gate_status',
+			);
 			expect(occurrences).toHaveLength(1);
 		});
 	});
@@ -200,7 +206,9 @@ describe('tool-names registry integrity - adversarial', () => {
 				'knowledgeRemove',
 			]);
 
-			const extraTools = TOOL_NAMES.filter(name => !expectedToolsSet.has(name));
+			const extraTools = TOOL_NAMES.filter(
+				(name) => !expectedToolsSet.has(name),
+			);
 			expect(extraTools).toEqual([]);
 		});
 	});
@@ -251,7 +259,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'check_gate_status',
 				'lint',
 				'test_runner',
-				'knowledge_query'
+				'knowledge_query',
 			];
 
 			for (const tool of testTools) {

@@ -4,13 +4,16 @@
  * oversized payloads, boundary violations, and prototype pollution.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { extractDocConstraints, scanDocIndex } from '../../../src/tools/doc-scan';
 import { readKnowledge } from '../../../src/hooks/knowledge-store';
 import type { SwarmKnowledgeEntry } from '../../../src/hooks/knowledge-types';
+import {
+	extractDocConstraints,
+	scanDocIndex,
+} from '../../../src/tools/doc-scan';
 
 // Helper to create temp test directories
 function createTempDir(): string {
@@ -18,7 +21,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test markdown files with forward-slash paths
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const relativePath = filename.replace(/\\/g, '/');
 	const parts = relativePath.split('/');
 	let currentDir = dir;
@@ -36,13 +43,23 @@ function createTestFile(dir: string, filename: string, content: string): string 
 }
 
 // Helper to parse knowledge.jsonl entries
-async function readKnowledgeEntries(dir: string): Promise<SwarmKnowledgeEntry[]> {
+async function readKnowledgeEntries(
+	dir: string,
+): Promise<SwarmKnowledgeEntry[]> {
 	const knowledgePath = path.join(dir, '.swarm', 'knowledge.jsonl');
 	return readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
 }
 
 // Helper to create manifest with controlled content
-function createManifest(dir: string, files: Array<{ path: string; title?: string; summary?: string; mtime?: number }>): void {
+function createManifest(
+	dir: string,
+	files: Array<{
+		path: string;
+		title?: string;
+		summary?: string;
+		mtime?: number;
+	}>,
+): void {
 	const manifestPath = path.join(dir, '.swarm', 'doc-manifest.json');
 	const manifest = {
 		schema_version: 1,
@@ -74,11 +91,23 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 1. Path Traversal in Directory ============
 	describe('path traversal in directory', () => {
 		it('should handle "../../etc" path traversal attempt', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Attempt path traversal - use a path that definitely doesn't exist
 			// to avoid scanning a real directory
-			const maliciousPath = path.join(tempDir, '..', '..', '..', '..', '..', 'nonexistent_dir_that_cannot_be_scanned');
+			const maliciousPath = path.join(
+				tempDir,
+				'..',
+				'..',
+				'..',
+				'..',
+				'..',
+				'nonexistent_dir_that_cannot_be_scanned',
+			);
 			const result = await extractDocConstraints(
 				maliciousPath,
 				['docs/guide.md'],
@@ -92,10 +121,22 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle deeply nested non-existent path', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou SHOULD follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou SHOULD follow rules.\n`,
+			);
 
 			// Use a path that definitely doesn't exist
-			const maliciousPath = path.join(tempDir, '..', '..', '..', '..', '..', 'another_nonexistent');
+			const maliciousPath = path.join(
+				tempDir,
+				'..',
+				'..',
+				'..',
+				'..',
+				'..',
+				'another_nonexistent',
+			);
 			const result = await extractDocConstraints(
 				maliciousPath,
 				['docs/guide.md'],
@@ -107,10 +148,19 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle path traversal to root that does not exist', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST be secure.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST be secure.\n`,
+			);
 
 			// Use a path that is definitely non-existent
-			const maliciousPath = path.join(tempDir, 'nonexistent', '..', 'nonexistent2');
+			const maliciousPath = path.join(
+				tempDir,
+				'nonexistent',
+				'..',
+				'nonexistent2',
+			);
 			const result = await extractDocConstraints(
 				maliciousPath,
 				['docs/guide.md'],
@@ -125,10 +175,18 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 2. Malicious task_files Array ============
 	describe('malicious task_files array', () => {
 		it('should handle task_files with path traversal entries', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Attempt path traversal via task_files array
-			const maliciousFiles = ['../../etc/passwd', '../../../root', 'docs/guide.md'];
+			const maliciousFiles = [
+				'../../etc/passwd',
+				'../../../root',
+				'docs/guide.md',
+			];
 			const result = await extractDocConstraints(
 				tempDir,
 				maliciousFiles,
@@ -142,7 +200,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle task_files with null values', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Null values in array - filtered by the function's type guard
 			const result = await extractDocConstraints(
@@ -156,7 +218,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle task_files with object instead of string', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Objects instead of strings - should be filtered out
 			const result = await extractDocConstraints(
@@ -170,7 +236,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle task_files with __proto__ pollution attempt', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Prototype pollution attempt via task_files
 			const maliciousFiles: string[] = [];
@@ -190,7 +260,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle task_files with constructor pollution attempt', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Constructor pollution
 			const maliciousFiles: string[] = [];
@@ -210,7 +284,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 3. Malicious task_description ============
 	describe('malicious task_description', () => {
 		it('should handle task_description with 100,000 characters', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Oversized description
 			const hugeDescription = 'x'.repeat(100000);
@@ -226,7 +304,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle null task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -240,7 +322,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle number instead of string for task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -254,7 +340,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle object with getters as task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Object that throws on property access - use any to bypass type checking
 			// since we're testing adversarial input
@@ -284,7 +374,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle empty string task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -298,7 +392,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle unicode emoji in task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Emojis in description
 			const emojiDesc = 'update 📚 guide 🚀 MUST follow rules';
@@ -313,7 +411,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle CJK characters in task_description', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Chinese/Japanese/Korean characters
 			const cjkDesc = '更新指南 MUST -follow 规则 ドキュメント';
@@ -331,7 +433,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 4. Corrupted Manifest ============
 	describe('corrupted manifest', () => {
 		it('should handle manifest with garbage JSON content', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
 			fs.writeFileSync(manifestPath, '{ garbage json content }{{}{}{', 'utf-8');
@@ -348,10 +454,18 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle manifest with partial JSON', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
-			fs.writeFileSync(manifestPath, '{"schema_version": 1, "files": [', 'utf-8');
+			fs.writeFileSync(
+				manifestPath,
+				'{"schema_version": 1, "files": [',
+				'utf-8',
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -364,11 +478,18 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle manifest with invalid UTF-8 sequences', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
 			// Write binary content as manifest
-			fs.writeFileSync(manifestPath, Buffer.from([0x80, 0x81, 0x82, 0xFF, 0xFE]));
+			fs.writeFileSync(
+				manifestPath,
+				Buffer.from([0x80, 0x81, 0x82, 0xff, 0xfe]),
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -383,7 +504,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 5. Manifest with Extra Fields ============
 	describe('manifest with extra fields', () => {
 		it('should handle manifest with extra unexpected fields', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
 			const manifest = {
@@ -417,7 +542,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle manifest entries with extra fields', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
 			const manifest = {
@@ -506,7 +635,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				],
 			};
 			fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8');
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -523,7 +656,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 8. Knowledge.jsonl is a Directory ============
 	describe('knowledge.jsonl is a directory', () => {
 		it('should handle when knowledge.jsonl path is a directory', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Replace knowledge.jsonl with a directory
 			const knowledgePath = path.join(tempDir, '.swarm', 'knowledge.jsonl');
@@ -551,7 +688,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 9. Knowledge.jsonl with Corrupted Entries ============
 	describe('knowledge.jsonl corrupted entries', () => {
 		it('should skip corrupted JSON lines in knowledge.jsonl', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Create knowledge.jsonl with corrupted lines mixed with valid entries
 			const knowledgePath = path.join(tempDir, '.swarm', 'knowledge.jsonl');
@@ -566,7 +707,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				status: 'candidate' as const,
 				confirmed_by: [],
 				project_name: '',
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -577,7 +722,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				JSON.stringify(validEntry),
 				'{{{{ invalid json',
 				'not json at all',
-				JSON.stringify({ ...validEntry, id: 'test-2', lesson: 'another constraint' }),
+				JSON.stringify({
+					...validEntry,
+					id: 'test-2',
+					lesson: 'another constraint',
+				}),
 			].join('\n');
 			fs.writeFileSync(knowledgePath, corruptedContent, 'utf-8');
 
@@ -593,7 +742,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle empty lines in knowledge.jsonl', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const knowledgePath = path.join(tempDir, '.swarm', 'knowledge.jsonl');
 			const validEntry = {
@@ -607,7 +760,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				status: 'candidate' as const,
 				confirmed_by: [],
 				project_name: '',
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -619,7 +776,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				'',
 				JSON.stringify({ ...validEntry, id: 'test-2', lesson: 'another' }),
 				'   ',
-				JSON.stringify({ ...validEntry, id: 'test-3', lesson: 'third constraint' }),
+				JSON.stringify({
+					...validEntry,
+					id: 'test-3',
+					lesson: 'third constraint',
+				}),
 			].join('\n');
 			fs.writeFileSync(knowledgePath, contentWithEmptyLines, 'utf-8');
 
@@ -639,7 +800,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		it('should include constraint exactly 15 chars after stripping', async () => {
 			// "MUST write tests" = 18 chars - above minimum
 			// Let's create a constraint that is exactly at or above 15
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST write tests.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST write tests.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -669,7 +834,11 @@ describe('extractDocConstraints adversarial tests', () => {
 
 		it('should include constraint at exactly 16 chars after stripping', async () => {
 			// "use async await" is 15 chars, "MUST use async await" is 21 chars
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST use async await.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST use async await.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -684,7 +853,11 @@ describe('extractDocConstraints adversarial tests', () => {
 
 		it('should skip constraint with only whitespace after stripping', async () => {
 			// Only "- MUST" and whitespace lines before the real constraint
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\n- MUST\n  \n\t\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\n- MUST\n  \n\t\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -694,14 +867,20 @@ describe('extractDocConstraints adversarial tests', () => {
 
 			const entries = await readKnowledgeEntries(tempDir);
 			// Only "You MUST follow rules." should be extracted (not the "- MUST" which is too short)
-			expect(entries.some((e) => e.lesson.includes('MUST follow rules'))).toBe(true);
+			expect(entries.some((e) => e.lesson.includes('MUST follow rules'))).toBe(
+				true,
+			);
 		});
 	});
 
 	// ============ 14. Unicode Characters in Constraints ============
 	describe('unicode characters in constraints', () => {
 		it('should handle emoji in constraint text', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST 🚀 launch rockets.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST 🚀 launch rockets.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -717,7 +896,11 @@ describe('extractDocConstraints adversarial tests', () => {
 
 		it('should handle CJK characters in constraint', async () => {
 			// "MUST follow these important CJK rules" = ~35 chars, well above 15 minimum
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow these important CJK rules 遵守规则.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow these important CJK rules 遵守规则.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -731,7 +914,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle mixed unicode constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST 🎯 achieve goals 📈.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST 🎯 achieve goals 📈.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -744,7 +931,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle zero-width characters in constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST\u200Bfollow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST\u200Bfollow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -777,7 +968,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				],
 			};
 			fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8');
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -807,7 +1002,11 @@ describe('extractDocConstraints adversarial tests', () => {
 				],
 			};
 			fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8');
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -836,7 +1035,11 @@ describe('extractDocConstraints adversarial tests', () => {
 			}).replace('"mtime"', '"__proto__": {"admin": true}, "mtime"');
 
 			fs.writeFileSync(manifestPath, pollutedManifest, 'utf-8');
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -853,11 +1056,21 @@ describe('extractDocConstraints adversarial tests', () => {
 	describe('very large manifest', () => {
 		it('should handle manifest with 100 files efficiently', async () => {
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
-			const files: Array<{ path: string; title: string; summary: string; lines: number; mtime: number }> = [];
+			const files: Array<{
+				path: string;
+				title: string;
+				summary: string;
+				lines: number;
+				mtime: number;
+			}> = [];
 
 			for (let i = 0; i < 100; i++) {
 				const filePath = `docs/file${i}.md`;
-				createTestFile(tempDir, filePath, `# Doc ${i}\n\nYou MUST follow rule ${i}.\n`);
+				createTestFile(
+					tempDir,
+					filePath,
+					`# Doc ${i}\n\nYou MUST follow rule ${i}.\n`,
+				);
 				files.push({
 					path: filePath,
 					title: `Doc ${i}`,
@@ -961,8 +1174,16 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 18. Concurrent Writes to knowledge.jsonl ============
 	describe('concurrent writes to knowledge.jsonl', () => {
 		it('should handle two concurrent extractDocConstraints calls', async () => {
-			createTestFile(tempDir, 'docs/guide1.md', `# Guide 1\n\nYou MUST follow rule one.\n`);
-			createTestFile(tempDir, 'docs/guide2.md', `# Guide 2\n\nYou SHOULD follow rule two.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide1.md',
+				`# Guide 1\n\nYou MUST follow rule one.\n`,
+			);
+			createTestFile(
+				tempDir,
+				'docs/guide2.md',
+				`# Guide 2\n\nYou SHOULD follow rule two.\n`,
+			);
 
 			// Two concurrent calls
 			const [result1, result2] = await Promise.all([
@@ -977,7 +1198,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle rapid sequential calls without corruption', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rule.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rule.\n`,
+			);
 
 			// 5 rapid sequential calls
 			for (let i = 0; i < 5; i++) {
@@ -998,7 +1223,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 19. Task Files Array with 1000+ Entries ============
 	describe('task files array with 1000+ entries', () => {
 		it('should not hang with 1000 task files', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Create 1000 file entries
 			const manyFiles = Array.from({ length: 1000 }, (_, i) => `file${i}.md`);
@@ -1019,7 +1248,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle 1000+ characters in a single task file path', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// Very long filename
 			const longFilename = 'a'.repeat(1000) + '.md';
@@ -1038,7 +1271,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ 20. Manifest File Deleted Between Read and Process ============
 	describe('manifest race condition', () => {
 		it('should handle manifest deleted between read and process', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
 
@@ -1061,7 +1298,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle manifest deleted between consecutive calls', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			// First call creates manifest
 			await extractDocConstraints(tempDir, ['docs/guide.md'], 'update guide');
@@ -1085,7 +1326,11 @@ describe('extractDocConstraints adversarial tests', () => {
 	// ============ Additional Edge Cases ============
 	describe('additional edge cases', () => {
 		it('should handle very large task_description (1MB)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rules.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rules.\n`,
+			);
 
 			const hugeDescription = 'x'.repeat(1000000);
 			const startTime = Date.now();
@@ -1102,7 +1347,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle backslashes in constraint (Windows paths)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST use C:\\path\\to\\file.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST use C:\\path\\to\\file.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1115,7 +1364,11 @@ describe('extractDocConstraints adversarial tests', () => {
 		});
 
 		it('should handle null bytes in constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Guide\n\nYou MUST follow rule\u0000with null.\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Guide\n\nYou MUST follow rule\u0000with null.\n`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,

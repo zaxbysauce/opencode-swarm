@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { scanDocIndex, extractDocConstraints } from '../../src/tools/doc-scan';
 import { AGENT_TOOL_MAP } from '../../src/config/constants';
+import { extractDocConstraints, scanDocIndex } from '../../src/tools/doc-scan';
 
 describe('doc scan auto-trigger', () => {
 	let tmpDir: string;

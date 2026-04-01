@@ -4,7 +4,7 @@
  * Unicode/emoji edge cases, ReDoS vulnerability, race conditions, and boundary violations.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -48,22 +48,29 @@ describe('path traversal attacks', () => {
 	it('should prevent path traversal via files_touched (absolute path outside project)', async () => {
 		// Security fix: completion_verify now checks that resolved file paths stay within
 		// the project directory. An absolute path in files_touched must be rejected.
-		const secretDir = path.join(os.tmpdir(), 'completion-verify-secret-' + Date.now());
+		const secretDir = path.join(
+			os.tmpdir(),
+			'completion-verify-secret-' + Date.now(),
+		);
 		fs.mkdirSync(secretDir, { recursive: true });
 		const secretPath = path.join(secretDir, 'secret.txt');
 		fs.writeFileSync(secretPath, 'SUPER_SECRET_DATA_12345', 'utf-8');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Update configuration',
-					status: 'completed',
-					files_touched: [secretPath] // Absolute path outside project
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Update configuration',
+							status: 'completed',
+							files_touched: [secretPath], // Absolute path outside project
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -73,7 +80,9 @@ describe('path traversal attacks', () => {
 		// The path escapes the project directory — tool must block with a boundary error,
 		// not read the file and then fail on identifiers.
 		expect(parsed.status).toBe('blocked');
-		expect(parsed.blockedTasks[0].reason).toContain('escapes the project directory');
+		expect(parsed.blockedTasks[0].reason).toContain(
+			'escapes the project directory',
+		);
 
 		// Cleanup
 		fs.rmSync(secretDir, { recursive: true, force: true });
@@ -83,16 +92,22 @@ describe('path traversal attacks', () => {
 		// Security fix: relative traversal sequences that resolve outside the project
 		// root must also be blocked before file I/O is attempted.
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Update something',
-					status: 'completed',
-					files_touched: ['../../../../../../../../../../../../../../../tmp/test-file']
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Update something',
+							status: 'completed',
+							files_touched: [
+								'../../../../../../../../../../../../../../../tmp/test-file',
+							],
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -102,23 +117,29 @@ describe('path traversal attacks', () => {
 		// Should block because the path escapes the project directory
 		expect(parsed.status).toBe('blocked');
 		expect(parsed.tasksBlocked).toBe(1);
-		expect(parsed.blockedTasks[0].reason).toContain('escapes the project directory');
+		expect(parsed.blockedTasks[0].reason).toContain(
+			'escapes the project directory',
+		);
 	});
 
 	it('should handle null byte in file path from files_touched', async () => {
 		// Null bytes in paths can cause undefined behavior
 		const nullBytePath = 'src/file\x00.txt';
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Update something',
-					status: 'completed',
-					files_touched: [nullBytePath]
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Update something',
+							status: 'completed',
+							files_touched: [nullBytePath],
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -133,16 +154,20 @@ describe('path traversal attacks', () => {
 	it('should handle Windows-style absolute path traversal', async () => {
 		// On Windows, C:\Windows\System32 style paths
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Update something',
-					status: 'completed',
-					files_touched: ['C:\\Windows\\System32\\config\\SAM']
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Update something',
+							status: 'completed',
+							files_touched: ['C:\\Windows\\System32\\config\\SAM'],
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -173,15 +198,19 @@ describe('oversized payload attacks', () => {
 		createSourceFile(tempDir, 'src/large-file.ts', largeContent);
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `someIdentifier` in src/large-file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `someIdentifier` in src/large-file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -196,19 +225,24 @@ describe('oversized payload attacks', () => {
 
 	it('should handle 100MB source file', async () => {
 		// Create a 100MB source file
-		const hugeContent = 'export const data = "'.padEnd(100 * 1024 * 1024, 'x') + '";';
+		const hugeContent =
+			'export const data = "'.padEnd(100 * 1024 * 1024, 'x') + '";';
 		createSourceFile(tempDir, 'src/huge-file.ts', hugeContent);
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `someIdentifier` in src/huge-file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `someIdentifier` in src/huge-file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -224,15 +258,19 @@ describe('oversized payload attacks', () => {
 		createSourceFile(tempDir, 'src/long-line.ts', longLine);
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `x` in src/long-line.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `x` in src/long-line.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -260,7 +298,7 @@ describe('malformed plan.json attacks', () => {
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
 			'{ invalid json: true, }',
-			'utf-8'
+			'utf-8',
 		);
 
 		// Should catch the parse error and return success=false, blocked=true
@@ -277,7 +315,7 @@ describe('malformed plan.json attacks', () => {
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
 			'just a string',
-			'utf-8'
+			'utf-8',
 		);
 
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
@@ -305,7 +343,7 @@ describe('malformed plan.json attacks', () => {
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
 			'{"phases": [\x00null]}',
-			'utf-8'
+			'utf-8',
 		);
 
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
@@ -322,7 +360,7 @@ describe('malformed plan.json attacks', () => {
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ phases: [deepObj] }),
-			'utf-8'
+			'utf-8',
 		);
 
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
@@ -337,12 +375,12 @@ describe('malformed plan.json attacks', () => {
 		const phases = Array.from({ length: 10000 }, (_, i) => ({
 			id: i + 1,
 			name: `Phase ${i + 1}`,
-			tasks: []
+			tasks: [],
 		}));
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ phases }),
-			'utf-8'
+			'utf-8',
 		);
 
 		const result = await executeCompletionVerify({ phase: 5000 }, tempDir);
@@ -366,18 +404,26 @@ describe('unicode/emoji edge case attacks', () => {
 	});
 
 	it('should handle task description with emoji identifiers', async () => {
-		createSourceFile(tempDir, 'src/emoji.ts', 'export function 🎉() { return 42; }');
+		createSourceFile(
+			tempDir,
+			'src/emoji.ts',
+			'export function 🎉() { return 42; }',
+		);
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `🎉` in src/emoji.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `🎉` in src/emoji.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -394,15 +440,19 @@ describe('unicode/emoji edge case attacks', () => {
 		createSourceFile(tempDir, 'src/rtl.ts', 'export const value = 42;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `value\u200F` in src/rtl.ts', // Right-to-left mark
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `value\u200F` in src/rtl.ts', // Right-to-left mark
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -417,15 +467,19 @@ describe('unicode/emoji edge case attacks', () => {
 		createSourceFile(tempDir, 'src/combine.ts', 'export const café = 42;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `café` in src/combine.ts', // é can be e + combining accent
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `café` in src/combine.ts', // é can be e + combining accent
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -439,15 +493,19 @@ describe('unicode/emoji edge case attacks', () => {
 		createSourceFile(tempDir, 'src/null.ts', 'export const x = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `x\x00` in src/null.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `x\x00` in src/null.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -462,15 +520,19 @@ describe('unicode/emoji edge case attacks', () => {
 		createSourceFile(tempDir, 'src/zwc.ts', 'export const secret = 42;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `secret\u200B` in src/zwc.ts', // zero-width space after secret
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `secret\u200B` in src/zwc.ts', // zero-width space after secret
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -502,15 +564,19 @@ describe('ReDoS vulnerability in identifier parsing', () => {
 		createSourceFile(tempDir, 'src/redos.ts', adversarialContent);
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `someIdentifier` in src/redos.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `someIdentifier` in src/redos.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -530,15 +596,19 @@ describe('ReDoS vulnerability in identifier parsing', () => {
 		createSourceFile(tempDir, 'src/nested.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: `Create \`${nested}\` in src/nested.ts`,
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: `Create \`${nested}\` in src/nested.ts`,
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -553,19 +623,24 @@ describe('ReDoS vulnerability in identifier parsing', () => {
 
 	it('should handle many special characters in description', async () => {
 		// Many regex special chars could stress the engine
-		const manySpecialChars = '$'.repeat(100) + '||'.repeat(50) + '&&'.repeat(50);
+		const manySpecialChars =
+			'$'.repeat(100) + '||'.repeat(50) + '&&'.repeat(50);
 		createSourceFile(tempDir, 'src/special.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: `Create identifier in src/special.ts and also ${manySpecialChars}`,
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: `Create identifier in src/special.ts and also ${manySpecialChars}`,
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -595,33 +670,43 @@ describe('concurrent evidence write race conditions', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
 		// Run 10 concurrent verifications for phase 1
 		const promises = Array.from({ length: 10 }, () =>
-			executeCompletionVerify({ phase: 1 }, tempDir)
+			executeCompletionVerify({ phase: 1 }, tempDir),
 		);
 
 		const results = await Promise.all(promises);
-		const parsed = results.map(r => JSON.parse(r));
+		const parsed = results.map((r) => JSON.parse(r));
 
 		// All should succeed
-		parsed.forEach(p => {
+		parsed.forEach((p) => {
 			expect(p.status).toBeDefined();
 		});
 
 		// Evidence file should exist
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1', 'completion-verify.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'completion-verify.json',
+		);
 		expect(fs.existsSync(evidencePath)).toBe(true);
 
 		// Evidence should be valid JSON (last writer wins, but should be valid)
@@ -640,46 +725,105 @@ describe('concurrent evidence write race conditions', () => {
 
 		const plan = {
 			phases: [
-				{ id: 1, name: 'Phase 1', tasks: [{ id: '1.1', description: 'Create `identifier` in src/file.ts', status: 'completed' }] },
-				{ id: 2, name: 'Phase 2', tasks: [{ id: '2.1', description: 'Create `identifier` in src/file.ts', status: 'completed' }] },
-				{ id: 3, name: 'Phase 3', tasks: [{ id: '3.1', description: 'Create `identifier` in src/file.ts', status: 'completed' }] },
-				{ id: 4, name: 'Phase 4', tasks: [{ id: '4.1', description: 'Create `identifier` in src/file.ts', status: 'completed' }] },
-				{ id: 5, name: 'Phase 5', tasks: [{ id: '5.1', description: 'Create `identifier` in src/file.ts', status: 'completed' }] },
-			]
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					tasks: [
+						{
+							id: '2.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+				{
+					id: 3,
+					name: 'Phase 3',
+					tasks: [
+						{
+							id: '3.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+				{
+					id: 4,
+					name: 'Phase 4',
+					tasks: [
+						{
+							id: '4.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+				{
+					id: 5,
+					name: 'Phase 5',
+					tasks: [
+						{
+							id: '5.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
 		// Run concurrent verifications for all 5 phases
 		const promises = Array.from({ length: 5 }, (_, i) =>
-			executeCompletionVerify({ phase: i + 1 }, tempDir)
+			executeCompletionVerify({ phase: i + 1 }, tempDir),
 		);
 
 		const results = await Promise.all(promises);
-		const parsed = results.map(r => JSON.parse(r));
+		const parsed = results.map((r) => JSON.parse(r));
 
 		// All should succeed
-		parsed.forEach(p => {
+		parsed.forEach((p) => {
 			expect(p.status).toBe('passed');
 		});
 	});
 
 	it('should handle evidence directory with special characters', async () => {
 		// Create a directory with special characters
-		const specialDir = path.join(tempDir, '.swarm', 'evidence', 'phase-with-$pecial');
+		const specialDir = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'phase-with-$pecial',
+		);
 		fs.mkdirSync(specialDir, { recursive: true });
 
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -707,21 +851,25 @@ describe('boundary violations', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
 		const result = await executeCompletionVerify(
 			{ phase: Number.MAX_SAFE_INTEGER },
-			tempDir
+			tempDir,
 		);
 		const parsed = JSON.parse(result);
 
@@ -735,15 +883,19 @@ describe('boundary violations', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -758,15 +910,19 @@ describe('boundary violations', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -781,15 +937,19 @@ describe('boundary violations', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -804,15 +964,19 @@ describe('boundary violations', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -829,15 +993,17 @@ describe('boundary violations', () => {
 		const tasks = Array.from({ length: 10000 }, (_, i) => ({
 			id: `1.${i + 1}`,
 			description: 'Create `identifier` in src/file.ts',
-			status: 'completed' as const
+			status: 'completed' as const,
 		}));
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Large Phase',
-				tasks
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Large Phase',
+					tasks,
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -869,15 +1035,19 @@ describe('type confusion attacks', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -893,20 +1063,27 @@ describe('type confusion attacks', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
 		// @ts-ignore - deliberately passing wrong type
-		const result = await executeCompletionVerify({ phase: { value: 1 } }, tempDir);
+		const result = await executeCompletionVerify(
+			{ phase: { value: 1 } },
+			tempDir,
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.status).toBe('blocked');
@@ -917,15 +1094,19 @@ describe('type confusion attacks', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -941,15 +1122,19 @@ describe('type confusion attacks', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -966,8 +1151,10 @@ describe('type confusion attacks', () => {
 		// @ts-ignore - deliberately malformed
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'plan.json'),
-			JSON.stringify({ phases: [{ id: 1, name: 'Test', tasks: 'not-an-array' }] }),
-			'utf-8'
+			JSON.stringify({
+				phases: [{ id: 1, name: 'Test', tasks: 'not-an-array' }],
+			}),
+			'utf-8',
 		);
 
 		const result = await executeCompletionVerify({ phase: 1 }, tempDir);
@@ -979,16 +1166,20 @@ describe('type confusion attacks', () => {
 
 	it('should handle plan with undefined files_touched', async () => {
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed',
-					files_touched: undefined
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+							files_touched: undefined,
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
@@ -1002,16 +1193,20 @@ describe('type confusion attacks', () => {
 
 	it('should handle plan with null files_touched', async () => {
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed',
-					files_touched: null
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+							files_touched: null,
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
@@ -1039,15 +1234,19 @@ describe('evidence write failure handling', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1071,20 +1270,30 @@ describe('evidence write failure handling', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `identifier` in src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
 		// Create a file at the evidence path to make directory creation fail
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1', 'completion-verify.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'completion-verify.json',
+		);
 		fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
 		fs.writeFileSync(evidencePath, 'existing file');
 		fs.chmodSync(evidencePath, 0o444);
@@ -1118,15 +1327,19 @@ describe('injection attacks in task descriptions', () => {
 		createSourceFile(tempDir, 'src/sql.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `\' OR \'1\'=\'1` in src/sql.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: "Create `' OR '1'='1` in src/sql.ts",
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1141,15 +1354,19 @@ describe('injection attacks in task descriptions', () => {
 		createSourceFile(tempDir, 'src/tpl.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `${malicious}` in src/tpl.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Create `${malicious}` in src/tpl.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1163,15 +1380,20 @@ describe('injection attacks in task descriptions', () => {
 		createSourceFile(tempDir, 'src/html.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/html.ts <script>alert(1)</script>',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description:
+								'Create `identifier` in src/html.ts <script>alert(1)</script>',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1188,15 +1410,20 @@ describe('injection attacks in task descriptions', () => {
 		createSourceFile(tempDir, 'src/file.ts', 'export const identifier = 1;');
 
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Test Phase',
-				tasks: [{
-					id: '1.1',
-					description: 'Create `identifier` in src/../etc/passwd or src/file.ts',
-					status: 'completed'
-				}]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Test Phase',
+					tasks: [
+						{
+							id: '1.1',
+							description:
+								'Create `identifier` in src/../etc/passwd or src/file.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1225,15 +1452,30 @@ describe('Research/inventory task skip behavior (Kimi K2 regression)', () => {
 		// Regression: Kimi K2.5 could not complete Phase 1 because completion_verify blocked
 		// all research/inventory tasks. These tasks produce knowledge artifacts, not source files.
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Research & Inventory',
-				tasks: [
-					{ id: '1.1', description: 'Inventory all Python files and identify test coverage gaps', status: 'completed' },
-					{ id: '1.2', description: 'Review CI/CD pipeline configuration for gaps', status: 'completed' },
-					{ id: '1.3', description: 'Analyze dependency security posture', status: 'completed' },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Research & Inventory',
+					tasks: [
+						{
+							id: '1.1',
+							description:
+								'Inventory all Python files and identify test coverage gaps',
+							status: 'completed',
+						},
+						{
+							id: '1.2',
+							description: 'Review CI/CD pipeline configuration for gaps',
+							status: 'completed',
+						},
+						{
+							id: '1.3',
+							description: 'Analyze dependency security posture',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
 
@@ -1251,25 +1493,31 @@ describe('Research/inventory task skip behavior (Kimi K2 regression)', () => {
 		// Research task + implementation task in same phase:
 		// Research task should skip, implementation task should be verified against its file.
 		const plan = {
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				tasks: [
-					{
-						id: '1.1',
-						description: 'Inventory codebase and document gaps',
-						status: 'completed'
-					},
-					{
-						id: '1.2',
-						description: 'Create `setupAuth` in src/auth/setup.ts',
-						status: 'completed'
-					}
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Inventory codebase and document gaps',
+							status: 'completed',
+						},
+						{
+							id: '1.2',
+							description: 'Create `setupAuth` in src/auth/setup.ts',
+							status: 'completed',
+						},
+					],
+				},
+			],
 		};
 		createPlanFile(tempDir, plan);
-		createSourceFile(tempDir, 'src/auth/setup.ts', 'export function setupAuth() {}');
+		createSourceFile(
+			tempDir,
+			'src/auth/setup.ts',
+			'export function setupAuth() {}',
+		);
 
 		return executeCompletionVerify({ phase: 1 }, tempDir).then((raw) => {
 			const parsed = JSON.parse(raw);

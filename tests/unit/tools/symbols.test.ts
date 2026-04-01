@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,7 +10,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -341,7 +345,10 @@ const notExported = 2;
 			createTestFile(tempDir, 'test.ts', content);
 			// TypeScript extraction currently only exports exported symbols
 			// This tests the behavior - it may still only return exported
-			const result = await symbols.execute({ file: 'test.ts', exported_only: false }, {} as any);
+			const result = await symbols.execute(
+				{ file: 'test.ts', exported_only: false },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Tool may still only return exported symbols - verify it returns at least the exported one
@@ -385,7 +392,10 @@ export const multiply = (x: number) => x * 2;
 		});
 
 		it('should reject path with path traversal', async () => {
-			const result = await symbols.execute({ file: '../secrets/passwd' }, {} as any);
+			const result = await symbols.execute(
+				{ file: '../secrets/passwd' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('path traversal');
@@ -394,14 +404,20 @@ export const multiply = (x: number) => x * 2;
 		it('should reject path outside workspace', async () => {
 			// Note: /tmp is rejected as path traversal on Windows-like behavior
 			// This tests that absolute paths starting with / are rejected
-			const result = await symbols.execute({ file: '/secrets/passwd' }, {} as any);
+			const result = await symbols.execute(
+				{ file: '/secrets/passwd' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('Path is outside workspace');
 		});
 
 		it('should reject Windows ADS stream syntax', async () => {
-			const result = await symbols.execute({ file: 'test.txt:stream' }, {} as any);
+			const result = await symbols.execute(
+				{ file: 'test.txt:stream' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('Windows-specific');
@@ -437,7 +453,7 @@ export const second = 2;
 export function test(): void {}
 `;
 			createTestFile(tempDir, 'test.ts', content);
-			
+
 			const result1 = await symbols.execute({ file: 'test.ts' }, {} as any);
 			const result2 = await symbols.execute({ file: 'test.ts' }, {} as any);
 

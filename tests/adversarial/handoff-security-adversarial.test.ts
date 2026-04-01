@@ -2,15 +2,15 @@
  * Security Tests for Handoff Enhancer - Adversarial Attack Vectors
  * Tests attack vectors: path traversal, race conditions, malformed content
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import type { PluginConfig } from '../../src/config';
 import { createSystemEnhancerHook } from '../../src/hooks/system-enhancer';
 import { validateSwarmPath } from '../../src/hooks/utils';
-import type { PluginConfig } from '../../src/config';
-import { swarmState, resetSwarmState } from '../../src/state';
+import { resetSwarmState, swarmState } from '../../src/state';
 
 describe('SECURITY: Handoff Enhancer Adversarial Tests', () => {
 	let testDir: string;
@@ -37,7 +37,7 @@ describe('SECURITY: Handoff Enhancer Adversarial Tests', () => {
 		testDir = fs.mkdtempSync(path.join(tmpdir(), 'handoff-security-test-'));
 		swarmDir = path.join(testDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
-		
+
 		// Set active agent for non-DISCOVER mode
 		resetSwarmState();
 		swarmState.activeAgent.set('test-session', 'architect');
@@ -71,19 +71,20 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			// Create the hook
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// The content should be injected but NOT cause any file system access
 			// The path traversal is just text content - the security boundary is
@@ -126,7 +127,9 @@ The path ../../../etc/shadow contains sensitive data.`;
 						title: 'Test',
 						swarm: 'test',
 						current_phase: 1,
-						phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+						phases: [
+							{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+						],
 					}),
 				);
 
@@ -143,13 +146,12 @@ The path ../../../etc/shadow contains sensitive data.`;
 
 				// Attempt to read handoff.md
 				const hook = createSystemEnhancerHook(defaultConfig, testDir);
-				const transformFn = hook['experimental.chat.system.transform'] as Function;
+				const transformFn = hook[
+					'experimental.chat.system.transform'
+				] as Function;
 
 				const output = { system: [] as string[] };
-				await transformFn(
-					{ sessionID: 'test-session' },
-					output,
-				);
+				await transformFn({ sessionID: 'test-session' }, output);
 
 				// The symlink would be followed and content injected
 				// This is a known risk - validateSwarmPath doesn't check for symlinks
@@ -178,29 +180,27 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			// First call should succeed
 			const output1 = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output1,
-			);
+			await transformFn({ sessionID: 'test-session' }, output1);
 
 			// Content should be injected from first call
 			expect(output1.system.join('\n')).toContain('Initial handoff content');
 
 			// Second call - file was renamed to handoff-consumed.md
 			const output2 = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output2,
-			);
+			await transformFn({ sessionID: 'test-session' }, output2);
 
 			// Second call should not find handoff.md (ENOENT is expected)
 			const injectedContent = output2.system.join('\n');
@@ -220,31 +220,29 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			// Run two concurrent transformations
 			const results = await Promise.allSettled([
 				(async () => {
 					const output = { system: [] as string[] };
-					await transformFn(
-						{ sessionID: 'concurrent-1' },
-						output,
-					);
+					await transformFn({ sessionID: 'concurrent-1' }, output);
 					return output;
 				})(),
 				(async () => {
 					// Small delay to create race condition
 					await new Promise((r) => setTimeout(r, 10));
 					const output = { system: [] as string[] };
-					await transformFn(
-						{ sessionID: 'concurrent-2' },
-						output,
-					);
+					await transformFn({ sessionID: 'concurrent-2' }, output);
 					return output;
 				})(),
 			]);
@@ -256,7 +254,9 @@ The path ../../../etc/shadow contains sensitive data.`;
 			);
 
 			// Only ONE should contain the handoff content (the one that won the race)
-			const hasContent = contents.filter((c) => c.includes('Concurrent test content'));
+			const hasContent = contents.filter((c) =>
+				c.includes('Concurrent test content'),
+			);
 			expect(hasContent.length).toBeLessThanOrEqual(1);
 		});
 	});
@@ -274,18 +274,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Large content IS injected - no size limit exists
 			const injectedContent = output.system.join('\n');
@@ -306,7 +307,9 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
@@ -319,13 +322,12 @@ The path ../../../etc/shadow contains sensitive data.`;
 			} as PluginConfig;
 
 			const hook = createSystemEnhancerHook(configWithBudget, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// With low budget, large content is read but budget limits injection
 			// Content is read from file but then filtered by budget
@@ -349,18 +351,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Null bytes are NOT stripped - injected as-is
 			const injectedContent = output.system.join('\n');
@@ -395,20 +398,21 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			// Run 5 sequential transformations
 			for (let i = 0; i < 5; i++) {
 				const output = { system: [] as string[] };
-				await transformFn(
-					{ sessionID: `sequential-${i}` },
-					output,
-				);
+				await transformFn({ sessionID: `sequential-${i}` }, output);
 
 				// First call gets content, subsequent calls don't (file renamed)
 				if (i === 0) {
@@ -436,18 +440,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Code should handle duplicate by deleting old consumed file
 			// and renaming new one
@@ -455,7 +460,9 @@ The path ../../../etc/shadow contains sensitive data.`;
 			expect(injectedContent).toContain('New handoff content');
 
 			// Verify old consumed was removed and new one exists
-			expect(fs.existsSync(path.join(swarmDir, 'handoff-consumed.md'))).toBe(true);
+			expect(fs.existsSync(path.join(swarmDir, 'handoff-consumed.md'))).toBe(
+				true,
+			);
 			const consumedContent = fs.readFileSync(
 				path.join(swarmDir, 'handoff-consumed.md'),
 				'utf-8',
@@ -475,18 +482,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Empty content is handled gracefully - no injection
 			const injectedContent = output.system.join('\n');
@@ -503,18 +511,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Whitespace content gets injected (falsy check may pass)
 			const injectedContent = output.system.join('\n');
@@ -523,7 +532,7 @@ The path ../../../etc/shadow contains sensitive data.`;
 
 		it('should handle binary-looking content', async () => {
 			// Create content that looks like binary
-			const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD]);
+			const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd]);
 
 			fs.writeFileSync(path.join(swarmDir, 'handoff.md'), binaryContent);
 			fs.writeFileSync(
@@ -533,18 +542,19 @@ The path ../../../etc/shadow contains sensitive data.`;
 					title: 'Test',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
 			const hook = createSystemEnhancerHook(defaultConfig, testDir);
-			const transformFn = hook['experimental.chat.system.transform'] as Function;
+			const transformFn = hook[
+				'experimental.chat.system.transform'
+			] as Function;
 
 			const output = { system: [] as string[] };
-			await transformFn(
-				{ sessionID: 'test-session' },
-				output,
-			);
+			await transformFn({ sessionID: 'test-session' }, output);
 
 			// Binary content is injected as-is (no sanitization)
 			const injectedContent = output.system.join('\n');

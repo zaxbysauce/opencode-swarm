@@ -10,7 +10,9 @@ import { advanceTaskState } from '../../src/state';
  * Creates a base agent session with default test values.
  * Use this as a starting point for workflow state tests.
  */
-export function createWorkflowTestSession(overrides?: Partial<AgentSessionState>): AgentSessionState {
+export function createWorkflowTestSession(
+	overrides?: Partial<AgentSessionState>,
+): AgentSessionState {
 	return {
 		agentName: 'test-agent',
 		lastToolCallTime: Date.now(),
@@ -53,7 +55,9 @@ export function createWorkflowTestSession(overrides?: Partial<AgentSessionState>
 export function createWorkflowTestSessionWithTasks(
 	taskStates: Record<string, TaskWorkflowState>,
 ): AgentSessionState {
-	const taskWorkflowStates = new Map<string, TaskWorkflowState>(Object.entries(taskStates));
+	const taskWorkflowStates = new Map<string, TaskWorkflowState>(
+		Object.entries(taskStates),
+	);
 	return createWorkflowTestSession({ taskWorkflowStates });
 }
 
@@ -74,7 +78,9 @@ export function createWorkflowTestSessionWithTaskAtState(
  * Creates a session with a task that has passed all QA gates (tests_run state).
  * This is useful for tests that need a "passing" task state.
  */
-export function createWorkflowTestSessionWithPassedTask(taskId: string): AgentSessionState {
+export function createWorkflowTestSessionWithPassedTask(
+	taskId: string,
+): AgentSessionState {
 	const session = createWorkflowTestSession();
 	advanceTaskState(session, taskId, 'coder_delegated');
 	advanceTaskState(session, taskId, 'pre_check_passed');
@@ -87,7 +93,9 @@ export function createWorkflowTestSessionWithPassedTask(taskId: string): AgentSe
  * Creates a session with a task that has completed all gates.
  * This is useful for tests that need a "completed" task state.
  */
-export function createWorkflowTestSessionWithCompletedTask(taskId: string): AgentSessionState {
+export function createWorkflowTestSessionWithCompletedTask(
+	taskId: string,
+): AgentSessionState {
 	const session = createWorkflowTestSession();
 	advanceTaskState(session, taskId, 'coder_delegated');
 	advanceTaskState(session, taskId, 'pre_check_passed');

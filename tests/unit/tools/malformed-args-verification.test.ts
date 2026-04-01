@@ -1,22 +1,22 @@
 /**
  * VERIFICATION TESTS for malformed-args hardening fix
- * 
+ *
  * These tests verify that both imports and secretscan tools properly handle:
  * - execute(undefined)
- * - execute(null) 
+ * - execute(null)
  * - Malicious getters that throw
  * - Invalid args shapes
- * 
+ *
  * The fix ensures these return structured error JSON instead of crashing.
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
 // Test imports tool
 const { imports } = await import('../../../src/tools/imports');
-// Test secretscan tool  
+// Test secretscan tool
 const { secretscan } = await import('../../../src/tools/secretscan');
 
 // Helper to create temp test directories
@@ -96,7 +96,10 @@ describe('imports tool - malformed args hardening', () => {
 		});
 
 		test('execute({ file: undefined }) returns validation error', async () => {
-			const result = await imports.execute({ file: undefined } as any, {} as any);
+			const result = await imports.execute(
+				{ file: undefined } as any,
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toContain('invalid');
@@ -251,9 +254,16 @@ describe('secretscan tool - malformed args hardening', () => {
 	describe('no regression - valid args still work', () => {
 		test('execute with valid directory scans successfully', async () => {
 			// Create a test file with a potential secret
-			createTestFile(tempDir, 'config.js', 'const apiKey = "sk_test_1234567890123456789012345678";');
+			createTestFile(
+				tempDir,
+				'config.js',
+				'const apiKey = "sk_test_1234567890123456789012345678";',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should NOT have error
@@ -264,7 +274,11 @@ describe('secretscan tool - malformed args hardening', () => {
 
 		test('execute with exclude array works', async () => {
 			// Create a test file
-			createTestFile(tempDir, 'config.js', 'const apiKey = "sk_test_1234567890123456789012345678";');
+			createTestFile(
+				tempDir,
+				'config.js',
+				'const apiKey = "sk_test_1234567890123456789012345678";',
+			);
 
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['*.js'] },
@@ -279,7 +293,10 @@ describe('secretscan tool - malformed args hardening', () => {
 		});
 
 		test('response shape is consistent', async () => {
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = JSON.parse(result);
 
 			// Verify all expected fields exist
@@ -299,7 +316,11 @@ describe('secretscan tool - malformed args hardening', () => {
 });
 
 // Helper for secretscan tests
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {

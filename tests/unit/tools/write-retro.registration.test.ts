@@ -6,23 +6,23 @@
  * - Proper tool definition structure
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-// Test the full export chain - this verifies registration
-import { write_retro } from '../../../src/tools/write-retro';
-import { executeWriteRetro } from '../../../src/tools/write-retro';
-import { TOOL_NAMES, TOOL_NAME_SET } from '../../../src/tools/tool-names';
+import * as path from 'node:path';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants';
+import { TOOL_NAME_SET, TOOL_NAMES } from '../../../src/tools/tool-names';
+// Test the full export chain - this verifies registration
+import { executeWriteRetro, write_retro } from '../../../src/tools/write-retro';
 
 describe('write_retro runtime registration adversarial verification', () => {
 	let tempDir: string;
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-registration-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'write-retro-registration-'),
+		);
 		originalCwd = process.cwd();
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 	});
@@ -162,7 +162,9 @@ describe('write_retro runtime registration adversarial verification', () => {
 		});
 
 		test('write_retro tool name is unique in TOOL_NAMES', () => {
-			const writeRetroCount = TOOL_NAMES.filter((name) => name === 'write_retro').length;
+			const writeRetroCount = TOOL_NAMES.filter(
+				(name) => name === 'write_retro',
+			).length;
 			expect(writeRetroCount).toBe(1);
 		});
 
@@ -447,7 +449,12 @@ describe('write_retro runtime registration adversarial verification', () => {
 		});
 
 		test('all task_complexity values are accepted', async () => {
-			const complexities = ['trivial', 'simple', 'moderate', 'complex'] as const;
+			const complexities = [
+				'trivial',
+				'simple',
+				'moderate',
+				'complex',
+			] as const;
 
 			for (const complexity of complexities) {
 				const result = await executeWriteRetro(

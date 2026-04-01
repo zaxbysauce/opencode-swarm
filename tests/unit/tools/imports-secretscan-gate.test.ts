@@ -1,20 +1,20 @@
 /**
  * ADVERSARIAL SECURITY RE-TEST for post-fix 3.1 state
- * 
+ *
  * Testing ONLY attack vectors for imports.ts and secretscan.ts:
  * - Malformed args (undefined, null, wrong types)
  * - Malicious getters/proxies
  * - Oversized payloads
  * - Boundary violations
  * - Bypass attempts
- * 
+ *
  * Preserves existing response-shape and metadata-only secret redaction expectations.
  * DO NOT add functional/exploratory tests - only adversarial vectors.
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // ============ IMPORTS TOOL ADVERSARIAL TESTS ============
 describe('imports tool - malicious args handling (post-fix 3.1)', () => {
@@ -26,11 +26,14 @@ describe('imports tool - malicious args handling (post-fix 3.1)', () => {
 			path.join(os.tmpdir(), 'imports-adversarial-'),
 		);
 		originalFile = path.join(tempDir, 'test-util.ts');
-		await fs.promises.writeFile(originalFile, `
+		await fs.promises.writeFile(
+			originalFile,
+			`
 export function helper() { return 1; }
 export class MyClass { }
 export const MY_CONST = 42;
-`);
+`,
+		);
 	});
 
 	afterEach(async () => {
@@ -65,9 +68,7 @@ export const MY_CONST = 42;
 
 	test('ADVERSARIAL: missing file property entirely should return error', async () => {
 		const { imports } = await import('../../../src/tools/imports');
-		const result = JSON.parse(
-			await imports.execute({} as any, {} as any),
-		);
+		const result = JSON.parse(await imports.execute({} as any, {} as any));
 		expect(result.error).toContain('invalid arguments');
 		expect(result.consumers).toEqual([]);
 	});
@@ -83,9 +84,7 @@ export const MY_CONST = 42;
 
 	test('ADVERSARIAL: empty string file should return error', async () => {
 		const { imports } = await import('../../../src/tools/imports');
-		const result = JSON.parse(
-			await imports.execute({ file: '' }, {} as any),
-		);
+		const result = JSON.parse(await imports.execute({ file: '' }, {} as any));
 		expect(result.error).toContain('invalid file');
 		expect(result.error).toContain('required');
 	});
@@ -93,14 +92,17 @@ export const MY_CONST = 42;
 	test('ADVERSARIAL: malicious getter that throws should be caught', async () => {
 		const { imports } = await import('../../../src/tools/imports');
 		// Create object with malicious getter
-		const maliciousArgs = new Proxy({}, {
-			get(_target, prop) {
-				if (prop === 'file') {
-					throw new Error('malicious getter attack');
-				}
-				return undefined;
+		const maliciousArgs = new Proxy(
+			{},
+			{
+				get(_target, prop) {
+					if (prop === 'file') {
+						throw new Error('malicious getter attack');
+					}
+					return undefined;
+				},
 			},
-		});
+		);
 
 		const result = JSON.parse(
 			await imports.execute(maliciousArgs as any, {} as any),
@@ -112,13 +114,16 @@ export const MY_CONST = 42;
 
 	test('ADVERSARIAL: proxy with file getter returning undefined', async () => {
 		const { imports } = await import('../../../src/tools/imports');
-		const proxyArgs = new Proxy({}, {
-			get(_target, prop) {
-				if (prop === 'file') return undefined;
-				if (prop === 'symbol') return undefined;
-				return undefined;
+		const proxyArgs = new Proxy(
+			{},
+			{
+				get(_target, prop) {
+					if (prop === 'file') return undefined;
+					if (prop === 'symbol') return undefined;
+					return undefined;
+				},
 			},
-		});
+		);
 
 		const result = JSON.parse(
 			await imports.execute(proxyArgs as any, {} as any),
@@ -152,9 +157,7 @@ export const MY_CONST = 42;
 
 	test('ADVERSARIAL: non-object args (primitive number) should not crash', async () => {
 		const { imports } = await import('../../../src/tools/imports');
-		const result = JSON.parse(
-			await imports.execute(123 as any, {} as any),
-		);
+		const result = JSON.parse(await imports.execute(123 as any, {} as any));
 		expect(result.error).toContain('invalid arguments');
 	});
 
@@ -194,7 +197,10 @@ export const MY_CONST = 42;
 		const { imports } = await import('../../../src/tools/imports');
 		const longSymbol = 'a'.repeat(300);
 		const result = JSON.parse(
-			await imports.execute({ file: originalFile, symbol: longSymbol }, {} as any),
+			await imports.execute(
+				{ file: originalFile, symbol: longSymbol },
+				{} as any,
+			),
 		);
 		expect(result.error).toContain('invalid symbol');
 		expect(result.error).toContain('exceeds maximum length');
@@ -300,9 +306,7 @@ describe('secretscan tool - malicious args handling (post-fix 3.1)', () => {
 
 	test('ADVERSARIAL: missing directory entirely should return error', async () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
-		const result = JSON.parse(
-			await secretscan.execute({} as any, {} as any),
-		);
+		const result = JSON.parse(await secretscan.execute({} as any, {} as any));
 		expect(result.error).toContain('invalid arguments');
 	});
 
@@ -326,14 +330,17 @@ describe('secretscan tool - malicious args handling (post-fix 3.1)', () => {
 
 	test('ADVERSARIAL: malicious getter that throws should be caught', async () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
-		const maliciousArgs = new Proxy({}, {
-			get(_target, prop) {
-				if (prop === 'directory') {
-					throw new Error('directory getter attack');
-				}
-				return undefined;
+		const maliciousArgs = new Proxy(
+			{},
+			{
+				get(_target, prop) {
+					if (prop === 'directory') {
+						throw new Error('directory getter attack');
+					}
+					return undefined;
+				},
 			},
-		});
+		);
 
 		const result = JSON.parse(
 			await secretscan.execute(maliciousArgs as any, {} as any),
@@ -344,13 +351,16 @@ describe('secretscan tool - malicious args handling (post-fix 3.1)', () => {
 
 	test('ADVERSARIAL: proxy with directory getter returning undefined', async () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
-		const proxyArgs = new Proxy({}, {
-			get(_target, prop) {
-				if (prop === 'directory') return undefined;
-				if (prop === 'exclude') return undefined;
-				return undefined;
+		const proxyArgs = new Proxy(
+			{},
+			{
+				get(_target, prop) {
+					if (prop === 'directory') return undefined;
+					if (prop === 'exclude') return undefined;
+					return undefined;
+				},
 			},
-		});
+		);
 
 		const result = JSON.parse(
 			await secretscan.execute(proxyArgs as any, {} as any),
@@ -384,9 +394,7 @@ describe('secretscan tool - malicious args handling (post-fix 3.1)', () => {
 
 	test('ADVERSARIAL: non-object args (primitive number) should not crash', async () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
-		const result = JSON.parse(
-			await secretscan.execute(123 as any, {} as any),
-		);
+		const result = JSON.parse(await secretscan.execute(123 as any, {} as any));
 		expect(result.error).toContain('invalid arguments');
 	});
 
@@ -515,8 +523,8 @@ describe('secretscan - redaction verification (critical for security)', () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
 		const testFile = path.join(tempDir, 'config.js');
 		await fs.promises.writeFile(
-		testFile,
-		`
+			testFile,
+			`
 const apiKey = "sk_${'live_'}123456789012345678901234";
 const password = "supersecret123";
 const dbUrl = "mysql://user:password@localhost/db";
@@ -535,7 +543,9 @@ const dbUrl = "mysql://user:password@localhost/db";
 			expect(finding.redacted).not.toMatch(/supersecret123/); // actual password
 			expect(finding.redacted).not.toMatch(/password@localhost/); // actual creds
 			// Various valid redaction formats
-			expect(finding.redacted).toMatch(/\[REDACTED\]|\[SECRET\]|\[user\]|\.\.\./);
+			expect(finding.redacted).toMatch(
+				/\[REDACTED\]|\[SECRET\]|\[user\]|\.\.\./,
+			);
 		}
 	});
 
@@ -555,7 +565,9 @@ const dbUrl = "mysql://user:password@localhost/db";
 			for (const finding of result.findings) {
 				// Context should have redaction placeholder, not raw token
 				// The ghp_ prefix might appear but the actual token chars should be redacted
-				expect(finding.context).not.toMatch(/abcdefghijklmnopqrstuvwxyz1234567890/);
+				expect(finding.context).not.toMatch(
+					/abcdefghijklmnopqrstuvwxyz1234567890/,
+				);
 				// Context redaction can be [SECRET], [REDACTED], or pattern-based
 				expect(finding.context).toMatch(/\[SECRET\]|\[REDACTED\]|\.\.\./);
 			}
@@ -627,7 +639,10 @@ MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy0
 	test('ADVERSARIAL: binary files skipped', async () => {
 		const { secretscan } = await import('../../../src/tools/secretscan');
 		const binaryFile = path.join(tempDir, 'image.png');
-		await fs.promises.writeFile(binaryFile, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+		await fs.promises.writeFile(
+			binaryFile,
+			Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+		);
 
 		const result = JSON.parse(
 			await secretscan.execute({ directory: tempDir }, {} as any),

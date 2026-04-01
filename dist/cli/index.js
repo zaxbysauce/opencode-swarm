@@ -19223,7 +19223,7 @@ async function handleBenchmarkCommand(directory, args) {
 init_zod();
 
 // src/tools/checkpoint.ts
-import { spawnSync } from "child_process";
+import * as child_process from "child_process";
 import * as fs3 from "fs";
 import * as path4 from "path";
 
@@ -31650,7 +31650,7 @@ function writeCheckpointLog(log2, directory) {
   fs3.renameSync(tempPath, logPath);
 }
 function gitExec(args) {
-  const result = spawnSync("git", args, {
+  const result = child_process.spawnSync("git", args, {
     encoding: "utf-8",
     timeout: GIT_TIMEOUT_MS,
     stdio: ["pipe", "pipe", "pipe"]
@@ -33568,13 +33568,13 @@ function formatCurationSummary(summary) {
 import path14 from "path";
 
 // src/tools/co-change-analyzer.ts
-import * as child_process from "child_process";
+import * as child_process2 from "child_process";
 import { randomUUID } from "crypto";
 import { readdir, readFile as readFile2, stat } from "fs/promises";
 import * as path13 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
-  return promisify(child_process.execFile);
+  return promisify(child_process2.execFile);
 }
 async function parseGitLog(directory, maxCommits) {
   const commitMap = new Map;
@@ -33946,7 +33946,7 @@ async function handleDarkMatterCommand(directory, args) {
 }
 
 // src/services/diagnose-service.ts
-import { execSync } from "child_process";
+import * as child_process3 from "child_process";
 import { existsSync as existsSync5, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync3 } from "fs";
 import path15 from "path";
 import { fileURLToPath } from "url";
@@ -34191,7 +34191,10 @@ async function checkGitRepository(directory) {
         detail: "Invalid directory \u2014 cannot check git status"
       };
     }
-    execSync("git rev-parse --git-dir", { cwd: directory, stdio: "pipe" });
+    child_process3.execSync("git rev-parse --git-dir", {
+      cwd: directory,
+      stdio: "pipe"
+    });
     return {
       name: "Git Repository",
       status: "\u2705",

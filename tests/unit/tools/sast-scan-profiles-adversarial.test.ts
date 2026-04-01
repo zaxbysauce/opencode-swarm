@@ -3,15 +3,18 @@
  * Testing attack vectors, boundary violations, and malformed input handling
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // Mutable mock state
 let mockSemgrepAvailable = false;
 const mockRunSemgrepCalls: any[] = [];
-let mockRunSemgrepResult: { findings: any[]; engine: 'tier_a' | 'tier_a+tier_b' } = {
+let mockRunSemgrepResult: {
+	findings: any[];
+	engine: 'tier_a' | 'tier_a+tier_b';
+} = {
 	findings: [],
 	engine: 'tier_a+tier_b',
 };
@@ -140,7 +143,10 @@ describe('SAST Scan - Adversarial Tests', () => {
 		};
 
 		// Act - Path traversal attempt
-		const result = await sastScan({ changed_files: ['../../../etc/passwd'] }, tmpDir);
+		const result = await sastScan(
+			{ changed_files: ['../../../etc/passwd'] },
+			tmpDir,
+		);
 
 		// Assert - Should skip gracefully, 0 files scanned, no crash
 		expect(result.summary.files_scanned).toBe(0);
@@ -304,7 +310,9 @@ describe('SAST Scan - Adversarial Tests', () => {
 		expect(mockRunSemgrepCalls[0].files).toContain(kotlinFile);
 
 		// Combined: Both buckets work correctly
-		expect(result1.summary.files_scanned + result2.summary.files_scanned).toBe(2);
+		expect(result1.summary.files_scanned + result2.summary.files_scanned).toBe(
+			2,
+		);
 	});
 
 	it('Adversarial 8: Profile nativeRuleSet is empty string → Tier A runs (empty string !== null)', async () => {

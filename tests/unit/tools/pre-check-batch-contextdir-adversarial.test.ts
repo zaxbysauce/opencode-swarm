@@ -25,7 +25,7 @@
  *    - Do device paths bypass traversal checks?
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -39,10 +39,10 @@ let spawnCalls: Array<{
 }> = [];
 
 function createMockSpawn() {
-	return function (
+	return (
 		cmd: string[],
 		opts: { cwd?: string; stdout?: string; stderr?: string },
-	) {
+	) => {
 		spawnCalls.push({
 			cmd,
 			opts: opts as { cwd?: string; stdout?: string; stderr?: string },
@@ -73,7 +73,9 @@ function createMockSpawn() {
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-contextdir-adv-'));
+	return fs.mkdtempSync(
+		path.join(os.tmpdir(), 'pre-check-batch-contextdir-adv-'),
+	);
 }
 
 describe('ADVERSARIAL: contextDir path traversal', () => {
@@ -414,7 +416,7 @@ describe('ADVERSARIAL: contextDir Windows device paths', () => {
 	/**
 	 * ATTACK VECTOR 4c: Windows extended device path \\.\PhysicalDrive0
 	 */
-	it('REJECTS: contextDir as Windows extended device path \\\\.\PhysicalDrive0', async () => {
+	it('REJECTS: contextDir as Windows extended device path \\\\.PhysicalDrive0', async () => {
 		const maliciousContextDir = '\\\\.\\PhysicalDrive0';
 
 		const result = await runPreCheckBatch(

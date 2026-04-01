@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import {
-	containsPathTraversal,
 	containsControlChars,
+	containsPathTraversal,
 	validateDirectory,
 } from '../../../src/utils/path-security';
 
@@ -105,7 +105,11 @@ describe('validateDirectory', () => {
 	});
 
 	test('rejects Windows absolute paths', () => {
-		expect(() => validateDirectory('C:\\Users')).toThrow('Windows absolute path');
-		expect(() => validateDirectory('D:/Projects')).toThrow('Windows absolute path');
+		expect(() => validateDirectory('C:\\Users')).toThrow(
+			'Windows absolute path',
+		);
+		expect(() => validateDirectory('D:/Projects')).toThrow(
+			'Windows absolute path',
+		);
 	});
 });

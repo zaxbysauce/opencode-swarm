@@ -1,7 +1,14 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
 	"files": {
-		"includes": ["src/**", "biome.json", "package.json", "tsconfig.json"]
+		"includes": [
+			"src/**",
+			"tests/**",
+			"test/**",
+			"biome.json",
+			"package.json",
+			"tsconfig.json"
+		]
 	},
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
@@ -26,5 +33,41 @@
 			"quoteStyle": "single",
 			"semicolons": "always"
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["tests/**", "test/**"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off",
+						"noUnusedFunctionParameters": "off",
+						"noEmptyCharacterClassInRegex": "off",
+						"noPrecisionLoss": "off"
+					},
+					"style": {
+						"useTemplate": "off",
+						"useNodejsImportProtocol": "off"
+					},
+					"complexity": {
+						"useLiteralKeys": "off",
+						"noBannedTypes": "off",
+						"noUselessTernary": "off"
+					},
+					"suspicious": {
+						"noExplicitAny": "off",
+						"noTemplateCurlyInString": "off",
+						"noTsIgnore": "off",
+						"useIterableCallbackReturn": "off",
+						"noImplicitAnyLet": "off",
+						"noThenProperty": "off",
+						"noAssignInExpressions": "off",
+						"noSelfCompare": "off",
+						"noApproximativeNumericConstant": "off"
+					}
+				}
+			}
+		}
+	]
 }

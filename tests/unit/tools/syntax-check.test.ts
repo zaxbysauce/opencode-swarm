@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { syntaxCheck, type SyntaxCheckInput } from '../../../src/tools/syntax-check';
 import type { PluginConfig } from '../../../src/config';
+import {
+	type SyntaxCheckInput,
+	syntaxCheck,
+} from '../../../src/tools/syntax-check';
 
 // Mock the saveEvidence function
 vi.mock('../../../src/evidence/manager', () => ({
@@ -146,7 +148,11 @@ describe('syntax_check tool', () => {
 		it('handles files with some null bytes but below threshold', async () => {
 			const testFile = path.join(tmpDir, 'mixed.js');
 			// ~2.5% null bytes (5 nulls in 200 chars), clearly below 10% threshold
-			const content = 'const x = 1; // valid code with minimal nulls\0\0\0\0\0'.padEnd(200, ' ');
+			const content =
+				'const x = 1; // valid code with minimal nulls\0\0\0\0\0'.padEnd(
+					200,
+					' ',
+				);
 			fs.writeFileSync(testFile, content);
 
 			const input: SyntaxCheckInput = {
@@ -184,7 +190,7 @@ describe('syntax_check tool', () => {
 		it('processes files exactly at 5MB limit', async () => {
 			const testFile = path.join(tmpDir, 'boundary.js');
 			// Create a file at exactly 5MB
-			const boundaryContent = 'const x = 1;'.repeat(5 * 1024 * 1024 / 15);
+			const boundaryContent = 'const x = 1;'.repeat((5 * 1024 * 1024) / 15);
 			fs.writeFileSync(testFile, boundaryContent);
 
 			const input: SyntaxCheckInput = {

@@ -6,11 +6,14 @@
  * 3. Temp file cleanup after successful writes
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { SavePlanArgs, SavePlanResult } from '../../../src/tools/save-plan';
+import type {
+	SavePlanArgs,
+	SavePlanResult,
+} from '../../../src/tools/save-plan';
 import { executeSavePlan } from '../../../src/tools/save-plan';
 
 describe('Task 4.1: fallbackDir parameter behavior', () => {
@@ -60,7 +63,10 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 
 		// Verify plan was actually written to fallbackDir
 		const planPath = path.join(tmpDir1, '.swarm', 'plan.json');
-		const exists = await fs.access(planPath).then(() => true).catch(() => false);
+		const exists = await fs
+			.access(planPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(exists).toBe(true);
 	});
 
@@ -86,7 +92,10 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 
 		// Verify plan was written to fallbackDir
 		const planPath = path.join(tmpDir2, '.swarm', 'plan.json');
-		const exists = await fs.access(planPath).then(() => true).catch(() => false);
+		const exists = await fs
+			.access(planPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(exists).toBe(true);
 	});
 
@@ -109,13 +118,21 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.plan_path).toBe(path.join(tmpDir1, '.swarm', 'plan.json')); // Should use working_directory
-		expect(result.plan_path).not.toBe(path.join(tmpDir2, '.swarm', 'plan.json')); // Should NOT use fallbackDir
+		expect(result.plan_path).not.toBe(
+			path.join(tmpDir2, '.swarm', 'plan.json'),
+		); // Should NOT use fallbackDir
 
 		// Verify plan was written to working_directory
 		const planPath1 = path.join(tmpDir1, '.swarm', 'plan.json');
 		const planPath2 = path.join(tmpDir2, '.swarm', 'plan.json');
-		const exists1 = await fs.access(planPath1).then(() => true).catch(() => false);
-		const exists2 = await fs.access(planPath2).then(() => true).catch(() => false);
+		const exists1 = await fs
+			.access(planPath1)
+			.then(() => true)
+			.catch(() => false);
+		const exists2 = await fs
+			.access(planPath2)
+			.then(() => true)
+			.catch(() => false);
 
 		expect(exists1).toBe(true);
 		expect(exists2).toBe(false); // Should not be in fallbackDir
@@ -169,7 +186,9 @@ describe('Task 4.1: explicit workspace behavior', () => {
 		// Change to a different directory to prove working_directory is respected
 		process.chdir(tmpDir);
 
-		const otherDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-other-'));
+		const otherDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'save-plan-other-'),
+		);
 		await fs.mkdir(path.join(otherDir, '.swarm'), { recursive: true });
 
 		const args: SavePlanArgs = {
@@ -193,12 +212,18 @@ describe('Task 4.1: explicit workspace behavior', () => {
 
 		// Verify plan was written to the explicit working_directory, not cwd
 		const planPath = path.join(otherDir, '.swarm', 'plan.json');
-		const exists = await fs.access(planPath).then(() => true).catch(() => false);
+		const exists = await fs
+			.access(planPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(exists).toBe(true);
 
 		// Verify NOT written to cwd
 		const cwdPlanPath = path.join(tmpDir, '.swarm', 'plan.json');
-		const cwdExists = await fs.access(cwdPlanPath).then(() => true).catch(() => false);
+		const cwdExists = await fs
+			.access(cwdPlanPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(cwdExists).toBe(false);
 
 		// Cleanup otherDir
@@ -246,7 +271,7 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		// Should only have plan.json and plan.md, no temp files
 		expect(files).toContain('plan.json');
 		expect(files).toContain('plan.md');
-		expect(files.filter(f => f.endsWith('.tmp'))).toHaveLength(0);
+		expect(files.filter((f) => f.endsWith('.tmp'))).toHaveLength(0);
 	});
 
 	it('successful save leaves only plan.json and plan.md files', async () => {
@@ -269,7 +294,12 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		const swarmDir = path.join(tmpDir, '.swarm');
 		const files = await fs.readdir(swarmDir);
 
-		expect(files.sort()).toEqual(['.plan-write-marker', 'locks', 'plan.json', 'plan.md']);
+		expect(files.sort()).toEqual([
+			'.plan-write-marker',
+			'locks',
+			'plan.json',
+			'plan.md',
+		]);
 	});
 
 	it('multiple saves do not accumulate temp files', async () => {
@@ -298,7 +328,7 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		// Should still only have plan.json and plan.md, no temp files
 		expect(files).toContain('plan.json');
 		expect(files).toContain('plan.md');
-		expect(files.filter(f => f.endsWith('.tmp'))).toHaveLength(0);
+		expect(files.filter((f) => f.endsWith('.tmp'))).toHaveLength(0);
 	});
 
 	it('temp file pattern includes timestamp and random suffix', async () => {
@@ -322,13 +352,19 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		);
 
 		// Verify temp file pattern for plan.json
-		expect(managerSource).toContain('plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}');
+		expect(managerSource).toContain(
+			'plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}',
+		);
 
 		// Verify temp file pattern for plan.md
-		expect(managerSource).toContain('plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}');
+		expect(managerSource).toContain(
+			'plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}',
+		);
 
 		// Verify unlinkSync import is present
-		expect(managerSource).toContain("import { renameSync, unlinkSync } from 'node:fs'");
+		expect(managerSource).toContain(
+			"import { renameSync, unlinkSync } from 'node:fs'",
+		);
 	});
 
 	it('temp files are cleaned up even when already renamed', async () => {
@@ -353,6 +389,6 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		const files = await fs.readdir(swarmDir);
 
 		// No temp files should remain
-		expect(files.filter(f => f.endsWith('.tmp'))).toHaveLength(0);
+		expect(files.filter((f) => f.endsWith('.tmp'))).toHaveLength(0);
 	});
 });

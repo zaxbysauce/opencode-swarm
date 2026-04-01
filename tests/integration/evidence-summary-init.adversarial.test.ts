@@ -9,10 +9,10 @@
  * 5. Double initialization: duplicate subscriptions - should not double-process
  */
 
-import { beforeEach, describe, expect, it, mock, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 
 import { AutomationConfigSchema } from '../../src/config/schema';
 
@@ -24,12 +24,14 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 	beforeEach(() => {
 		// Save and isolate XDG_CONFIG_HOME to prevent reading real user config
 		originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
-		xdgIsolatedDir = mkdtempSync(path.join(tmpdir(), 'evidence-adversarial-xdg-'));
+		xdgIsolatedDir = mkdtempSync(
+			path.join(tmpdir(), 'evidence-adversarial-xdg-'),
+		);
 		process.env.XDG_CONFIG_HOME = xdgIsolatedDir;
 
 		// Create a temp directory for each test
 		testDir = mkdtempSync(path.join(tmpdir(), 'evidence-adversarial-'));
-		
+
 		// Create .opencode subdirectory
 		const opencodeDir = path.join(testDir, '.opencode');
 		mkdirSync(opencodeDir, { recursive: true });
@@ -70,7 +72,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			expect(() => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
-					capabilities: null
+					capabilities: null,
 				});
 			}).toThrow();
 		});
@@ -79,7 +81,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			expect(() => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
-					capabilities: 'string'
+					capabilities: 'string',
 				});
 			}).toThrow();
 		});
@@ -88,7 +90,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			expect(() => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
-					capabilities: 42
+					capabilities: 42,
 				});
 			}).toThrow();
 		});
@@ -96,16 +98,16 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 		it('should accept undefined capabilities (use schema defaults)', () => {
 			// When capabilities is omitted, schema provides defaults
 			const config = AutomationConfigSchema.parse({
-				mode: 'hybrid'
+				mode: 'hybrid',
 			});
 
 			// v6.8.0: evidence_auto_summaries default changed to true (read-only, safe)
 			expect(config.capabilities).toBeDefined();
 			expect(config.capabilities?.evidence_auto_summaries).toBe(true);
-			
+
 			// With the v6.8 default, shouldInit will be true (auto-summaries enabled)
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 			expect(shouldInit).toBe(true);
 		});
@@ -122,8 +124,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: 1
-					}
+						evidence_auto_summaries: 1,
+					},
 				});
 			}).toThrow();
 		});
@@ -133,8 +135,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: 'true'
-					}
+						evidence_auto_summaries: 'true',
+					},
 				});
 			}).toThrow();
 		});
@@ -144,8 +146,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: {}
-					}
+						evidence_auto_summaries: {},
+					},
 				});
 			}).toThrow();
 		});
@@ -155,8 +157,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: []
-					}
+						evidence_auto_summaries: [],
+					},
 				});
 			}).toThrow();
 		});
@@ -166,8 +168,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: '1'
-					}
+						evidence_auto_summaries: '1',
+					},
 				});
 			}).toThrow();
 		});
@@ -177,12 +179,12 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			const config = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: true
-				}
+					evidence_auto_summaries: true,
+				},
 			});
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInit).toBe(true);
@@ -192,12 +194,12 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			const config = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: false
-				}
+					evidence_auto_summaries: false,
+				},
 			});
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInit).toBe(false);
@@ -214,7 +216,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 		it('should accept any directory string without validation crash', () => {
 			// The code in src/index.ts directly passes ctx.directory to the integration
 			// Path validation is caller responsibility - we accept any string
-			
+
 			const dangerousPaths = [
 				'../../../etc',
 				'/etc/passwd',
@@ -228,8 +230,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			const config = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: true
-				}
+					evidence_auto_summaries: true,
+				},
 			});
 
 			expect(config.mode).toBe('hybrid');
@@ -252,8 +254,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			const config = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: true
-				}
+					evidence_auto_summaries: true,
+				},
 			});
 
 			// All special paths are valid strings - no crash
@@ -261,8 +263,8 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				expect(typeof dir).toBe('string');
 			}
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 			expect(shouldInit).toBe(true);
 		});
@@ -277,7 +279,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 		it('should propagate error when factory throws (CORRECT behavior)', () => {
 			// Critical setup errors should propagate - not be swallowed
 			// This is consistent with other plugin initialization patterns
-			
+
 			const factoryThrows = () => {
 				throw new Error('Factory initialization failed');
 			};
@@ -289,7 +291,7 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 		it('should propagate error when called with invalid config', () => {
 			// If createEvidenceSummaryIntegration returns null
 			const nullIntegration = null as any;
-			
+
 			// Calling method on null throws
 			expect(() => nullIntegration.on).toThrow();
 		});
@@ -306,21 +308,21 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 			const config1 = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: true
-				}
+					evidence_auto_summaries: true,
+				},
 			});
 
 			const config2 = AutomationConfigSchema.parse({
 				mode: 'hybrid',
 				capabilities: {
-					evidence_auto_summaries: true
-				}
+					evidence_auto_summaries: true,
+				},
 			});
 
 			// Same config produces same result
 			expect(config1.mode).toBe(config2.mode);
 			expect(config1.capabilities?.evidence_auto_summaries).toBe(
-				config2.capabilities?.evidence_auto_summaries
+				config2.capabilities?.evidence_auto_summaries,
 			);
 		});
 
@@ -330,14 +332,14 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				const config = AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: true
-					}
+						evidence_auto_summaries: true,
+					},
 				});
 
-				const shouldInit = 
-					config.mode !== 'manual' && 
+				const shouldInit =
+					config.mode !== 'manual' &&
 					config.capabilities?.evidence_auto_summaries === true;
-				
+
 				expect(shouldInit).toBe(true);
 			}
 		});
@@ -348,14 +350,14 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				const config = AutomationConfigSchema.parse({
 					mode: 'hybrid',
 					capabilities: {
-						evidence_auto_summaries: false
-					}
+						evidence_auto_summaries: false,
+					},
 				});
 
-				const shouldInit = 
-					config.mode !== 'manual' && 
+				const shouldInit =
+					config.mode !== 'manual' &&
 					config.capabilities?.evidence_auto_summaries === true;
-				
+
 				expect(shouldInit).toBe(false);
 			}
 		});
@@ -368,18 +370,23 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 	describe('Additional Edge Cases', () => {
 		it('should handle missing automation section (defaults to manual)', () => {
 			const configPath = path.join(testDir, '.opencode', 'opencode-swarm.json');
-			writeFileSync(configPath, JSON.stringify({
-				max_iterations: 5
-			}));
+			writeFileSync(
+				configPath,
+				JSON.stringify({
+					max_iterations: 5,
+				}),
+			);
 
 			const { loadPluginConfigWithMeta } = require('../../src/config');
 			const { config } = loadPluginConfigWithMeta(testDir);
-			
-			const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+
+			const automationConfig = AutomationConfigSchema.parse(
+				config.automation ?? {},
+			);
 
 			// Default mode is 'manual', so should NOT init
-			const shouldInit = 
-				automationConfig.mode !== 'manual' && 
+			const shouldInit =
+				automationConfig.mode !== 'manual' &&
 				automationConfig.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInit).toBe(false);
@@ -395,15 +402,15 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 					phase_preflight: true,
 					config_doctor_on_startup: true,
 					evidence_auto_summaries: true,
-				}
+				},
 			});
 
 			expect(config.capabilities?.plan_sync).toBe(true);
 			expect(config.capabilities?.phase_preflight).toBe(true);
 			expect(config.capabilities?.evidence_auto_summaries).toBe(true);
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 			expect(shouldInit).toBe(true);
 		});
@@ -413,11 +420,11 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				mode: 'manual',
 				capabilities: {
 					evidence_auto_summaries: true,
-				}
+				},
 			});
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 			expect(shouldInit).toBe(false);
 		});
@@ -427,11 +434,11 @@ describe('EvidenceSummaryIntegration wiring - Adversarial Tests', () => {
 				mode: 'auto',
 				capabilities: {
 					evidence_auto_summaries: true,
-				}
+				},
 			});
 
-			const shouldInit = 
-				config.mode !== 'manual' && 
+			const shouldInit =
+				config.mode !== 'manual' &&
 				config.capabilities?.evidence_auto_summaries === true;
 			expect(shouldInit).toBe(true);
 			expect(config.mode).toBe('auto');

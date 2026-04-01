@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectTestFramework } from '../../../src/tools/test-runner';
 
 // Mock isCommandAvailable from discovery module
@@ -37,7 +37,10 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	});
 
 	function createTempDir(suffix: string): string {
-		const tempDir = path.join(os.tmpdir(), `test-runner-detectors-${suffix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const tempDir = path.join(
+			os.tmpdir(),
+			`test-runner-detectors-${suffix}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		fs.mkdirSync(tempDir, { recursive: true });
 		tempDirs.push(tempDir);
 		return tempDir;
@@ -108,7 +111,11 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	describe('C/C++ CTest detector (detectCTest)', () => {
 		it('should detect ctest for CMake project with CMakeLists.txt when ctest binary is available', async () => {
 			const tempDir = createTempDir('ctest-source');
-			createFile(tempDir, 'CMakeLists.txt', 'cmake_minimum_required(VERSION 3.0)');
+			createFile(
+				tempDir,
+				'CMakeLists.txt',
+				'cmake_minimum_required(VERSION 3.0)',
+			);
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
@@ -148,7 +155,11 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	describe('Dart/Flutter detector (detectDartTest)', () => {
 		it('should detect dart-test for Dart project with pubspec.yaml when dart binary is available', async () => {
 			const tempDir = createTempDir('dart');
-			createFile(tempDir, 'pubspec.yaml', 'name: my_app\ndescription: A Dart app');
+			createFile(
+				tempDir,
+				'pubspec.yaml',
+				'name: my_app\ndescription: A Dart app',
+			);
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
@@ -157,7 +168,11 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 
 		it('should detect dart-test for Flutter project with pubspec.yaml when flutter binary is available', async () => {
 			const tempDir = createTempDir('flutter');
-			createFile(tempDir, 'pubspec.yaml', 'name: my_app\ndescription: A Flutter app');
+			createFile(
+				tempDir,
+				'pubspec.yaml',
+				'name: my_app\ndescription: A Flutter app',
+			);
 			mockIsCommandAvailable.mockReturnValue(true);
 
 			const result = await detectTestFramework(tempDir);
@@ -294,7 +309,11 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	describe('Verification of detectCTest logic (via marker files)', () => {
 		it('should have CMakeLists.txt marker file for CMake source detection', async () => {
 			const tempDir = createTempDir('ctest-source-marker');
-			createFile(tempDir, 'CMakeLists.txt', 'cmake_minimum_required(VERSION 3.0)');
+			createFile(
+				tempDir,
+				'CMakeLists.txt',
+				'cmake_minimum_required(VERSION 3.0)',
+			);
 
 			// Verify marker file exists
 			expect(fs.existsSync(path.join(tempDir, 'CMakeLists.txt'))).toBe(true);
@@ -321,7 +340,9 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 			createFile(tempDir, 'build/CMakeCache.txt', '# CMake configuration');
 
 			// Verify marker file exists
-			expect(fs.existsSync(path.join(tempDir, 'build/CMakeCache.txt'))).toBe(true);
+			expect(fs.existsSync(path.join(tempDir, 'build/CMakeCache.txt'))).toBe(
+				true,
+			);
 
 			// Since detector is not wired, detectTestFramework returns none
 			const result = await detectTestFramework(tempDir);
@@ -346,7 +367,11 @@ describe('Test Framework Detectors (Go, Java, Gradle, .NET, C/C++, Swift, Dart, 
 	describe('Verification of detectDartTest logic (via marker files)', () => {
 		it('should have pubspec.yaml marker file for Dart detection', async () => {
 			const tempDir = createTempDir('dart-marker');
-			createFile(tempDir, 'pubspec.yaml', 'name: my_app\ndescription: A Dart app');
+			createFile(
+				tempDir,
+				'pubspec.yaml',
+				'name: my_app\ndescription: A Dart app',
+			);
 
 			// Verify marker file exists
 			expect(fs.existsSync(path.join(tempDir, 'pubspec.yaml'))).toBe(true);

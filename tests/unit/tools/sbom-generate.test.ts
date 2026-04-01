@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { sbom_generate } from '../../../src/tools/sbom-generate';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { sbom_generate } from '../../../src/tools/sbom-generate';
 
 // Mock saveEvidence
 vi.mock('../../../src/evidence/manager', () => ({
@@ -51,32 +51,47 @@ describe('sbom_generate tool', () => {
 		});
 
 		it('should return error for invalid scope value', async () => {
-			const result = await sbom_generate.execute({ scope: 'invalid' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'invalid' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('Invalid arguments');
 		});
 
 		it('should return error when scope is changed but changed_files is missing', async () => {
-			const result = await sbom_generate.execute({ scope: 'changed' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'changed' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('Invalid arguments');
 		});
 
 		it('should return error when scope is changed but changed_files is empty', async () => {
-			const result = await sbom_generate.execute({ scope: 'changed', changed_files: [] }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'changed', changed_files: [] },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('Invalid arguments');
 		});
 
 		it('should accept valid arguments with scope=all', async () => {
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			// Should not have error, may be skip since no manifests
 			expect(parsed).toHaveProperty('verdict');
 		});
 
 		it('should accept valid arguments with scope=changed and changed_files', async () => {
-			const result = await sbom_generate.execute({ scope: 'changed', changed_files: ['src/index.ts'] }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'changed', changed_files: ['src/index.ts'] },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			// Should not have error, may be skip since no manifests
 			expect(parsed).toHaveProperty('verdict');
@@ -88,9 +103,15 @@ describe('sbom_generate tool', () => {
 		it('should return skip verdict when no manifest files found', async () => {
 			// Create a simple source file but no manifests
 			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
-			fs.writeFileSync(path.join(tempDir, 'src', 'index.ts'), 'console.log("hello");');
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'index.ts'),
+				'console.log("hello");',
+			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('skip');
@@ -117,7 +138,10 @@ describe('sbom_generate tool', () => {
 				JSON.stringify(packageJson, null, 2),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -151,7 +175,10 @@ describe('sbom_generate tool', () => {
 				JSON.stringify(packageLock, null, 2),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -166,7 +193,10 @@ describe('sbom_generate tool', () => {
 				'requests>=2.0\nflask>=2.0\nnumpy>=1.21',
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -187,7 +217,10 @@ serde = "1.0"
 tokio = "1.0"`,
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -208,7 +241,10 @@ require (
 )`,
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -217,7 +253,9 @@ require (
 
 		it('should find manifests in nested directories', async () => {
 			// Create nested package.json
-			fs.mkdirSync(path.join(tempDir, 'packages', 'sub-package'), { recursive: true });
+			fs.mkdirSync(path.join(tempDir, 'packages', 'sub-package'), {
+				recursive: true,
+			});
 			fs.writeFileSync(
 				path.join(tempDir, 'packages', 'sub-package', 'package.json'),
 				JSON.stringify({
@@ -227,7 +265,10 @@ require (
 				}),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -244,7 +285,9 @@ require (
 			);
 
 			// Create package.json in node_modules (should be ignored)
-			fs.mkdirSync(path.join(tempDir, 'node_modules', 'some-package'), { recursive: true });
+			fs.mkdirSync(path.join(tempDir, 'node_modules', 'some-package'), {
+				recursive: true,
+			});
 			fs.writeFileSync(
 				path.join(tempDir, 'node_modules', 'some-package', 'package.json'),
 				JSON.stringify({ name: 'some-package', version: '1.0.0' }),
@@ -257,12 +300,17 @@ require (
 				JSON.stringify({ name: 'dist-package', version: '1.0.0' }),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
 			expect(parsed.files).toContain('package.json');
-			expect(parsed.files).not.toContain('node_modules/some-package/package.json');
+			expect(parsed.files).not.toContain(
+				'node_modules/some-package/package.json',
+			);
 			expect(parsed.files).not.toContain('dist/package.json');
 		});
 	});
@@ -317,7 +365,9 @@ require (
 			expect(parsed.verdict).toBe('pass');
 			expect(parsed.files).toContain(path.join('frontend', 'package.json'));
 			// Backend should NOT be included
-			expect(parsed.files).not.toContain(path.join('backend', 'requirements.txt'));
+			expect(parsed.files).not.toContain(
+				path.join('backend', 'requirements.txt'),
+			);
 		});
 
 		it('should handle changed_files with directories', async () => {
@@ -350,7 +400,12 @@ require (
 				JSON.stringify({ name: 'test', version: '1.0.0' }),
 			);
 
-			const customOutputDir = path.join(tempDir, '.swarm', 'evidence', 'custom-sbom');
+			const customOutputDir = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'custom-sbom',
+			);
 
 			const result = await sbom_generate.execute(
 				{
@@ -374,7 +429,10 @@ require (
 				}),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Read the generated SBOM file
@@ -399,7 +457,10 @@ require (
 				}),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			const sbomContent = fs.readFileSync(parsed.output_path, 'utf-8');
@@ -461,7 +522,10 @@ version = "0.1.0"
 serde = "1.0"`,
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -479,7 +543,10 @@ serde = "1.0"`,
 				JSON.stringify({ name: 'test', version: '1.0.0', dependencies: {} }),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.verdict).toBe('pass');
@@ -488,13 +555,13 @@ serde = "1.0"`,
 
 		it('should handle invalid JSON in manifest files gracefully', async () => {
 			// Create an invalid package.json
-			fs.writeFileSync(
-				path.join(tempDir, 'package.json'),
-				'{ invalid json }',
-			);
+			fs.writeFileSync(path.join(tempDir, 'package.json'), '{ invalid json }');
 
 			// Should still return pass but with 0 components from that file
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed).toHaveProperty('verdict');
@@ -506,7 +573,10 @@ serde = "1.0"`,
 				JSON.stringify({ name: 'test', version: '1.0.0' }),
 			);
 
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.output_path).toContain('.swarm');
@@ -522,14 +592,21 @@ serde = "1.0"`,
 			// Place package.json in the project root
 			fs.writeFileSync(
 				path.join(tempDir, 'package.json'),
-				JSON.stringify({ name: 'test', version: '1.0.0', dependencies: { lodash: '4.17.21' } }),
+				JSON.stringify({
+					name: 'test',
+					version: '1.0.0',
+					dependencies: { lodash: '4.17.21' },
+				}),
 			);
 
 			// Change CWD to the subdirectory (simulating agent working in src/export)
 			process.chdir(subDir);
 
 			// ctx.directory should still point to the project root (tempDir)
-			const result = await sbom_generate.execute({ scope: 'all' }, getMockContext());
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// .swarm output should be under project root (tempDir), NOT under src/export

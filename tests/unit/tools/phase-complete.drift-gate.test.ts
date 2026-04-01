@@ -1,9 +1,14 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmState } from '../../../src/state';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 // Import the tool after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
@@ -16,7 +21,12 @@ function writeRetroBundle(
 	phaseNumber: number,
 	verdict: 'pass' | 'fail' = 'pass',
 ): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 
 	const retroBundle = {
@@ -63,7 +73,12 @@ function writeDriftEvidence(
 	verdict: 'approved' | 'rejected',
 	summary: string,
 ): void {
-	const driftDir = path.join(directory, '.swarm', 'evidence', String(phaseNumber));
+	const driftDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		String(phaseNumber),
+	);
 	fs.mkdirSync(driftDir, { recursive: true });
 
 	const driftEvidence = {
@@ -149,7 +164,9 @@ describe('phase_complete — drift verifier gate', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-drift-gate-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-drift-gate-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -184,9 +201,17 @@ describe('phase_complete — drift verifier gate', () => {
 	describe('Gate 2: Drift Verifier', () => {
 		test('1. APPROVED verdict in drift evidence -> phase completes successfully', async () => {
 			// Write drift evidence with approved verdict
-			writeDriftEvidence(tempDir, 1, 'approved', 'No drift detected. Phase is clean.');
+			writeDriftEvidence(
+				tempDir,
+				1,
+				'approved',
+				'No drift detected. Phase is clean.',
+			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -196,9 +221,17 @@ describe('phase_complete — drift verifier gate', () => {
 
 		test('2. NEEDS_REVISION in drift evidence summary -> blocks with DRIFT_VERIFICATION_REJECTED', async () => {
 			// Write drift evidence with rejected verdict
-			writeDriftEvidence(tempDir, 1, 'rejected', 'Phase needs revision. NEEDS_REVISION: fix the implementation issues.');
+			writeDriftEvidence(
+				tempDir,
+				1,
+				'rejected',
+				'Phase needs revision. NEEDS_REVISION: fix the implementation issues.',
+			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -211,7 +244,10 @@ describe('phase_complete — drift verifier gate', () => {
 			// Do NOT write drift evidence file
 			writeSpecMd(tempDir);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -227,7 +263,10 @@ describe('phase_complete — drift verifier gate', () => {
 
 			// Do NOT write drift evidence file - turbo mode should bypass the check
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -244,7 +283,10 @@ describe('phase_complete — drift verifier gate', () => {
 			);
 			writeSpecMd(tempDir);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -253,9 +295,17 @@ describe('phase_complete — drift verifier gate', () => {
 		});
 
 		test('6. drift evidence with verdict "rejected" -> blocks with DRIFT_VERIFICATION_REJECTED', async () => {
-			writeDriftEvidence(tempDir, 1, 'rejected', 'Implementation has drift from spec.');
+			writeDriftEvidence(
+				tempDir,
+				1,
+				'rejected',
+				'Implementation has drift from spec.',
+			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -284,7 +334,10 @@ describe('phase_complete — drift verifier gate', () => {
 			);
 			writeSpecMd(tempDir);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// No drift entry found -> blocks with missing
@@ -327,7 +380,10 @@ describe('phase_complete — drift verifier gate', () => {
 			);
 
 			// src/foo.ts does NOT exist -> completion-verify will block
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -343,7 +399,10 @@ describe('phase_complete — drift verifier gate', () => {
 
 			// The completion-verify error path is hard to trigger directly
 			// but we can verify that when completion-verify passes and drift passes, success
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -388,7 +447,10 @@ describe('phase_complete — drift verifier gate', () => {
 			// Write drift evidence so phase can complete
 			writeDriftEvidence(tempDir, 1, 'approved', 'No drift.');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed because turbo mode skips completion-verify
@@ -403,7 +465,10 @@ describe('phase_complete — drift verifier gate', () => {
 
 			// Do NOT write drift evidence - turbo mode should skip drift check
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed because turbo mode skips drift-verifier
@@ -426,7 +491,10 @@ describe('phase_complete — drift verifier gate', () => {
 			);
 			writeSpecMd(tempDir);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -454,7 +522,10 @@ describe('phase_complete — drift verifier gate', () => {
 			);
 			writeSpecMd(tempDir);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// No verdict found -> treated as missing
@@ -488,7 +559,10 @@ describe('phase_complete — drift verifier gate', () => {
 				}),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -514,7 +588,10 @@ describe('phase_complete — drift verifier gate', () => {
 				}),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// verdict not approved, and summary doesn't contain NEEDS_REVISION

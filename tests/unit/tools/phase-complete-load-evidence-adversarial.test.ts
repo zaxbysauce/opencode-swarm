@@ -3,39 +3,51 @@
  * Tests error propagation, memory overflow, injection, boundary violations
  */
 
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { ensureAgentSession, resetSwarmState } from '../../../src/state';
 
 // Mock loadEvidence and listEvidenceTaskIds from evidence/manager
 // IMPORTANT: Use local mock variable pattern, NOT vi.mocked()
-const mockLoadEvidence = vi.fn<(dir: string, taskId: string) => Promise<{
-	status: 'found';
-	bundle: {
-		schema_version: string;
-		task_id: string;
-		created_at: string;
-		updated_at: string;
-		entries: Array<{
-			task_id: string;
-			type: string;
-			timestamp: string;
-			agent: string;
-			verdict: string;
-			summary: string;
-			phase_number: number;
-			[key: string]: unknown;
-		}>;
-	};
-} | { status: 'not_found' } | { status: 'invalid_schema'; errors: string[] }>>();
+const mockLoadEvidence =
+	vi.fn<
+		(
+			dir: string,
+			taskId: string,
+		) => Promise<
+			| {
+					status: 'found';
+					bundle: {
+						schema_version: string;
+						task_id: string;
+						created_at: string;
+						updated_at: string;
+						entries: Array<{
+							task_id: string;
+							type: string;
+							timestamp: string;
+							agent: string;
+							verdict: string;
+							summary: string;
+							phase_number: number;
+							[key: string]: unknown;
+						}>;
+					};
+			  }
+			| { status: 'not_found' }
+			| { status: 'invalid_schema'; errors: string[] }
+		>
+	>();
 const mockListEvidenceTaskIds = vi.fn<(dir: string) => Promise<string[]>>();
 
 vi.mock('../../../src/evidence/manager.js', () => ({
-	loadEvidence: (...args: unknown[]) => mockLoadEvidence(...args as [string, string]),
-	listEvidenceTaskIds: (...args: unknown[]) => mockListEvidenceTaskIds(...args as [string]),
+	loadEvidence: (...args: unknown[]) =>
+		mockLoadEvidence(...(args as [string, string])),
+	listEvidenceTaskIds: (...args: unknown[]) =>
+		mockListEvidenceTaskIds(...(args as [string])),
 }));
 
 // Import the tool after mocking
@@ -51,7 +63,9 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 		vi.clearAllMocks();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-load-evidence-adversarial-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-load-evidence-adversarial-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -94,7 +108,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			});
 
 			// The implementation catches errors and resolves with failure result
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 		});
@@ -103,9 +120,14 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			const phase = 1;
 			ensureAgentSession('sess1');
 
-			mockLoadEvidence.mockRejectedValue(new Error('Async loadEvidence failure'));
+			mockLoadEvidence.mockRejectedValue(
+				new Error('Async loadEvidence failure'),
+			);
 
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 		});
@@ -118,7 +140,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 				throw { custom: 'error object' };
 			});
 
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 		});
@@ -133,7 +158,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 
 			mockListEvidenceTaskIds.mockResolvedValue(['retro-2']);
 
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 		});
@@ -146,7 +174,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Generate 1000 error messages
-			const largeErrorArray = Array.from({ length: 1000 }, (_, i) => `error.field.${i}: Field validation failed`);
+			const largeErrorArray = Array.from(
+				{ length: 1000 },
+				(_, i) => `error.field.${i}: Field validation failed`,
+			);
 
 			// Mock loadEvidence to return invalid_schema with 1000 errors
 			mockLoadEvidence.mockResolvedValue({
@@ -156,7 +187,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - should handle large error array
@@ -174,7 +208,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 
 			// Generate 1000 error messages with 100 chars each
 			const largeErrorArray = Array.from({ length: 1000 }, (_, i) =>
-				`error.field.${String(i).padStart(5, '0')}: This is a very long error message that is exactly 100 characters long!`.slice(0, 100)
+				`error.field.${String(i).padStart(5, '0')}: This is a very long error message that is exactly 100 characters long!`.slice(
+					0,
+					100,
+				),
 			);
 
 			mockLoadEvidence.mockResolvedValue({
@@ -184,7 +221,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act - should not throw memory error
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - actual length is ~91KB (1000 * ~91 chars)
@@ -198,8 +238,14 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Create 50 retro bundles, each with 100 errors
-			const retroTaskIds = Array.from({ length: 50 }, (_, i) => `retro-${i + 2}`);
-			const bundleErrors = Array.from({ length: 100 }, (_, i) => `bundle.error.${i}: Schema validation error`);
+			const retroTaskIds = Array.from(
+				{ length: 50 },
+				(_, i) => `retro-${i + 2}`,
+			);
+			const bundleErrors = Array.from(
+				{ length: 100 },
+				(_, i) => `bundle.error.${i}: Schema validation error`,
+			);
 
 			// Primary returns not_found, fallbacks all return invalid_schema
 			mockLoadEvidence.mockResolvedValueOnce({ status: 'not_found' });
@@ -214,7 +260,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue(retroTaskIds);
 
 			// Act - should handle 50 × 100 = 5000 errors
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - all errors should be accumulated
@@ -244,7 +293,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - XSS appears unsanitized in message (this is expected behavior for logging)
@@ -266,7 +318,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - JSON injection appears as string, not parsed
@@ -290,7 +345,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - SQL injection appears in message
@@ -315,7 +373,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - line breaks appear in message
@@ -341,7 +402,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - unicode appears in message
@@ -358,7 +422,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Act
-			const result = await phase_complete.execute({ phase: 0, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 0,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -372,7 +439,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Act
-			const result = await phase_complete.execute({ phase: -1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: -1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -389,7 +459,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - should accept and use in template
@@ -406,7 +479,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Act
-			const result = await phase_complete.execute({ phase: NaN, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: NaN,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -422,7 +498,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase: Infinity, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: Infinity,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - Infinity >= 1 is true, so it passes validation but fails on missing retro
@@ -439,7 +518,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Create 100 retro task IDs
-			const retroTaskIds = Array.from({ length: 100 }, (_, i) => `retro-${i + 2}`);
+			const retroTaskIds = Array.from(
+				{ length: 100 },
+				(_, i) => `retro-${i + 2}`,
+			);
 			const singleError = ['error: Schema validation failed'];
 
 			// Primary returns not_found, all 100 fallbacks return invalid_schema
@@ -455,7 +537,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue(retroTaskIds);
 
 			// Act - should handle 100 bundles
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - should have accumulated all errors
@@ -469,7 +554,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			ensureAgentSession('sess1');
 
 			// Create 1000 retro task IDs
-			const retroTaskIds = Array.from({ length: 1000 }, (_, i) => `retro-${i + 2}`);
+			const retroTaskIds = Array.from(
+				{ length: 1000 },
+				(_, i) => `retro-${i + 2}`,
+			);
 			const complexErrors = [
 				'schema_version: Required',
 				'entries: Must be array',
@@ -491,7 +579,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue(retroTaskIds);
 
 			// Act - should handle 1000 × 5 = 5000 errors
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert
@@ -512,7 +603,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - phase number appears in template
@@ -531,7 +625,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - large phase number appears in template
@@ -549,7 +646,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - MAX_SAFE_INTEGER appears in template
@@ -567,7 +667,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - phase_number is a number, not a string, so injection impossible
@@ -584,7 +687,10 @@ describe('phase_complete - loadEvidence adversarial testing', () => {
 			mockListEvidenceTaskIds.mockResolvedValue([]);
 
 			// Act
-			const result = await phase_complete.execute({ phase, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Assert - task_id is constructed from phase, not user input

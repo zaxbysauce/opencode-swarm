@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { detectAdditionalLinter } from '../../../src/tools/lint';
 import * as fs from 'node:fs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { detectAdditionalLinter } from '../../../src/tools/lint';
 
 // Mock node:fs for filesystem operations
 const mockExistsSync = vi.fn();
@@ -547,7 +547,12 @@ describe('Lint Detectors - Adversarial Security/Edge-Case Tests', () => {
 
 		it('should handle case where all commands are unavailable', () => {
 			mockExistsSync.mockReturnValue(false);
-			mockReaddirSync.mockReturnValue(['test.kt', 'pom.xml', 'Cargo.toml', 'go.mod']);
+			mockReaddirSync.mockReturnValue([
+				'test.kt',
+				'pom.xml',
+				'Cargo.toml',
+				'go.mod',
+			]);
 			mockIsCommandAvailable.mockReturnValue(false);
 
 			const result = detectAdditionalLinter('/test/path');
@@ -586,7 +591,9 @@ describe('Lint Detectors - Adversarial Security/Edge-Case Tests', () => {
 			mockExistsSync.mockImplementation((path: string) => {
 				return path.includes('pyproject.toml');
 			});
-			mockReadFileSync.mockReturnValue('# config\n[tool.ruff]\nline-length = 88');
+			mockReadFileSync.mockReturnValue(
+				'# config\n[tool.ruff]\nline-length = 88',
+			);
 			mockIsCommandAvailable.mockReturnValue(false);
 
 			const result = detectAdditionalLinter('/test/path');

@@ -1,9 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 
 // Mock curator functions BEFORE importing the module under test
 const mockRunCuratorPhase = mock(async () => ({
@@ -80,7 +84,12 @@ function writeRetroBundle(
 	phaseNumber: number,
 	verdict: 'pass' | 'fail' = 'pass',
 ): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 
 	const retroBundle = {
@@ -183,7 +192,9 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 		}));
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-curator-adversarial-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-curator-adversarial-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -233,7 +244,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should still succeed - null access error caught by outer try/catch
@@ -253,7 +267,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -272,7 +289,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - accessing null property throws, caught by try/catch
@@ -309,7 +329,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - error caught by outer try/catch
@@ -336,7 +359,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - accessing undefined property throws, caught by try/catch
@@ -356,12 +382,17 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			);
 
 			// Make runCuratorPhase reject
-			mockRunCuratorPhase.mockRejectedValue(new Error('Curator phase catastrophic failure'));
+			mockRunCuratorPhase.mockRejectedValue(
+				new Error('Curator phase catastrophic failure'),
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - rejection caught by outer try/catch
@@ -376,12 +407,17 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			);
 
 			// Make runCuratorPhase reject with non-Error value
-			mockRunCuratorPhase.mockRejectedValue('Curator phase failed catastrophically');
+			mockRunCuratorPhase.mockRejectedValue(
+				'Curator phase failed catastrophically',
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - rejection caught by outer try/catch
@@ -401,7 +437,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - rejection caught by outer try/catch
@@ -421,7 +460,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed - rejection caught by outer try/catch
@@ -442,13 +484,20 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 
 			// Make all curator functions fail
 			mockRunCuratorPhase.mockRejectedValue(new Error('Total failure'));
-			mockApplyCuratorKnowledgeUpdates.mockRejectedValue(new Error('Knowledge failure'));
-			mockRunDeterministicDriftCheck.mockRejectedValue(new Error('Drift failure'));
+			mockApplyCuratorKnowledgeUpdates.mockRejectedValue(
+				new Error('Knowledge failure'),
+			);
+			mockRunDeterministicDriftCheck.mockRejectedValue(
+				new Error('Drift failure'),
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 
 			// Should be valid JSON
 			let parsed: Record<string, unknown>;
@@ -483,7 +532,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 
 			// First call - curator fails
 			mockRunCuratorPhase.mockRejectedValueOnce(new Error('First failure'));
-			let result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			let result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			let parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
 
@@ -496,7 +548,9 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 				summary: 'Test',
 				timestamp: new Date().toISOString(),
 			}));
-			mockApplyCuratorKnowledgeUpdates.mockRejectedValueOnce(new Error('Second failure'));
+			mockApplyCuratorKnowledgeUpdates.mockRejectedValueOnce(
+				new Error('Second failure'),
+			);
 			result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
 			parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);

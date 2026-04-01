@@ -1,18 +1,22 @@
 /**
  * Tests for CWD fix in pre-check-batch.ts
- * 
+ *
  * Verifies:
  * - runLintOnFiles: binary path uses workspaceDir (not process.cwd())
  * - runLintOnFiles: Bun.spawn receives cwd: workspaceDir
  * - execute() with valid directory works correctly
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { type ToolContext } from '@opencode-ai/plugin';
-import { pre_check_batch, runPreCheckBatch, type PreCheckBatchInput } from '../../../src/tools/pre-check-batch';
+import type { ToolContext } from '@opencode-ai/plugin';
+import {
+	type PreCheckBatchInput,
+	pre_check_batch,
+	runPreCheckBatch,
+} from '../../../src/tools/pre-check-batch';
 
 // Helper to create a mock ToolContext
 function createMockContext(dir?: string): ToolContext {
@@ -45,7 +49,10 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 
 		// Initialize git repo for sast-scan
 		fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
-		fs.writeFileSync(path.join(tempDir, '.git', 'config'), '[core]\n\trepositoryformatversion = 0\n');
+		fs.writeFileSync(
+			path.join(tempDir, '.git', 'config'),
+			'[core]\n\trepositoryformatversion = 0\n',
+		);
 	});
 
 	afterEach(() => {
@@ -55,11 +62,11 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 
 	/**
 	 * EC-001: Test that execute() handles various directory scenarios correctly.
-	 * 
-	 * Note: The createSwarmTool wrapper provides a fallback directory from 
+	 *
+	 * Note: The createSwarmTool wrapper provides a fallback directory from
 	 * ctx?.directory ?? process.cwd() when the context doesn't have a directory.
 	 * The guard in execute() is a failsafe that would trigger in edge cases.
-	 * 
+	 *
 	 * The key tests here verify the expected behavior through the tool interface.
 	 */
 
@@ -73,7 +80,9 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 		const result = JSON.parse(resultStr);
 
 		// Should not have the directory error - should proceed to run tools
-		expect(result.lint.error).not.toBe('project directory is required but was not provided');
+		expect(result.lint.error).not.toBe(
+			'project directory is required but was not provided',
+		);
 		// Lint either ran successfully or was skipped because no linter binary was found.
 		// The key assertion is that no directory validation error occurred.
 		if (!result.lint.ran) {
@@ -88,7 +97,10 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 		// When args.directory is empty string, the validation at line 948 should catch it
 		const args = { files: ['test.ts'], directory: '' };
 		const mockContext = createMockContext(tempDir);
-		const resultStr = await pre_check_batch.execute(args as any, mockContext as any);
+		const resultStr = await pre_check_batch.execute(
+			args as any,
+			mockContext as any,
+		);
 		const result = JSON.parse(resultStr);
 
 		expect(result.gates_passed).toBe(false);
@@ -101,7 +113,10 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 		// When args.directory is undefined, the validation should catch it
 		const args = { files: ['test.ts'] };
 		const mockContext = createMockContext(tempDir);
-		const resultStr = await pre_check_batch.execute(args as any, mockContext as any);
+		const resultStr = await pre_check_batch.execute(
+			args as any,
+			mockContext as any,
+		);
 		const result = JSON.parse(resultStr);
 
 		expect(result.gates_passed).toBe(false);
@@ -114,7 +129,10 @@ describe('EC-001: execute() directory validation via wrapper', () => {
 		// When args.directory is null, the validation should catch it
 		const args = { files: ['test.ts'], directory: null };
 		const mockContext = createMockContext(tempDir);
-		const resultStr = await pre_check_batch.execute(args as any, mockContext as any);
+		const resultStr = await pre_check_batch.execute(
+			args as any,
+			mockContext as any,
+		);
 		const result = JSON.parse(resultStr);
 
 		expect(result.gates_passed).toBe(false);
@@ -133,14 +151,21 @@ describe('runLintOnFiles: CWD fix verification', () => {
 
 		// Create symlink to node_modules so biome/eslint is available
 		try {
-			fs.symlinkSync(path.join(originalCwd, 'node_modules'), path.join(tempDir, 'node_modules'), 'junction');
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(tempDir, 'node_modules'),
+				'junction',
+			);
 		} catch {
 			// Symlink might already exist or fail on some platforms
 		}
 
 		// Initialize git repo for sast-scan
 		fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
-		fs.writeFileSync(path.join(tempDir, '.git', 'config'), '[core]\n\trepositoryformatversion = 0\n');
+		fs.writeFileSync(
+			path.join(tempDir, '.git', 'config'),
+			'[core]\n\trepositoryformatversion = 0\n',
+		);
 	});
 
 	afterEach(() => {
@@ -158,14 +183,21 @@ describe('runLintOnFiles: CWD fix verification', () => {
 
 		// Create symlink in differentDir too
 		try {
-			fs.symlinkSync(path.join(originalCwd, 'node_modules'), path.join(differentDir, 'node_modules'), 'junction');
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(differentDir, 'node_modules'),
+				'junction',
+			);
 		} catch {
 			// ignore
 		}
 
 		// Initialize git repo in differentDir
 		fs.mkdirSync(path.join(differentDir, '.git'), { recursive: true });
-		fs.writeFileSync(path.join(differentDir, '.git', 'config'), '[core]\n\trepositoryformatversion = 0\n');
+		fs.writeFileSync(
+			path.join(differentDir, '.git', 'config'),
+			'[core]\n\trepositoryformatversion = 0\n',
+		);
 
 		// Use runPreCheckBatch with explicit files (which triggers runLintOnFiles)
 		const input: PreCheckBatchInput = {
@@ -201,14 +233,21 @@ describe('runLintOnFiles: CWD fix verification', () => {
 
 		// Create symlink in differentDir
 		try {
-			fs.symlinkSync(path.join(originalCwd, 'node_modules'), path.join(differentDir, 'node_modules'), 'junction');
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(differentDir, 'node_modules'),
+				'junction',
+			);
 		} catch {
 			// ignore
 		}
 
 		// Initialize git repo in differentDir
 		fs.mkdirSync(path.join(differentDir, '.git'), { recursive: true });
-		fs.writeFileSync(path.join(differentDir, '.git', 'config'), '[core]\n\trepositoryformatversion = 0\n');
+		fs.writeFileSync(
+			path.join(differentDir, '.git', 'config'),
+			'[core]\n\trepositoryformatversion = 0\n',
+		);
 
 		// Now the key test: run with a workspace that is NOT the current directory
 		// If Bun.spawn uses cwd: workspaceDir correctly, it will run in tempDir
@@ -253,7 +292,11 @@ describe('runPreCheckBatch: directory validation', () => {
 		process.chdir(tempDir);
 
 		try {
-			fs.symlinkSync(path.join(originalCwd, 'node_modules'), path.join(tempDir, 'node_modules'), 'junction');
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(tempDir, 'node_modules'),
+				'junction',
+			);
 		} catch {
 			// ignore
 		}

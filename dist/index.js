@@ -30523,7 +30523,7 @@ var exports_checkpoint = {};
 __export(exports_checkpoint, {
   checkpoint: () => checkpoint
 });
-import { spawnSync } from "child_process";
+import * as child_process from "child_process";
 import * as fs9 from "fs";
 import * as path11 from "path";
 function containsNonAsciiChars(label) {
@@ -30596,7 +30596,7 @@ function writeCheckpointLog(log2, directory) {
   fs9.renameSync(tempPath, logPath);
 }
 function gitExec(args2) {
-  const result = spawnSync("git", args2, {
+  const result = child_process.spawnSync("git", args2, {
     encoding: "utf-8",
     timeout: GIT_TIMEOUT_MS,
     stdio: ["pipe", "pipe", "pipe"]
@@ -32502,13 +32502,13 @@ __export(exports_co_change_analyzer, {
   co_change_analyzer: () => co_change_analyzer,
   buildCoChangeMatrix: () => buildCoChangeMatrix
 });
-import * as child_process from "child_process";
+import * as child_process2 from "child_process";
 import { randomUUID } from "crypto";
 import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
 import * as path20 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
-  return promisify(child_process.execFile);
+  return promisify(child_process2.execFile);
 }
 async function parseGitLog(directory, maxCommits) {
   const commitMap = new Map;
@@ -48963,7 +48963,7 @@ init_loader();
 init_manager();
 init_utils2();
 init_manager2();
-import { execSync } from "child_process";
+import * as child_process3 from "child_process";
 import { existsSync as existsSync10, readdirSync as readdirSync2, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
 import path22 from "path";
 import { fileURLToPath } from "url";
@@ -49205,7 +49205,10 @@ async function checkGitRepository(directory) {
         detail: "Invalid directory \u2014 cannot check git status"
       };
     }
-    execSync("git rev-parse --git-dir", { cwd: directory, stdio: "pipe" });
+    child_process3.execSync("git rev-parse --git-dir", {
+      cwd: directory,
+      stdio: "pipe"
+    });
     return {
       name: "Git Repository",
       status: "\u2705",
@@ -57236,14 +57239,17 @@ import * as fs32 from "fs";
 import * as path44 from "path";
 
 // src/hooks/spawn-helper.ts
-import { spawn } from "child_process";
+import * as child_process4 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
   return new Promise((resolve13) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
-      const proc = spawn(cmd, args2, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+      const proc = child_process4.spawn(cmd, args2, {
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
       let stdout = "";
       let stderr = "";
       let done = false;
@@ -60066,7 +60072,7 @@ var declare_scope = createSwarmTool({
 });
 // src/tools/diff.ts
 init_dist();
-import * as child_process2 from "child_process";
+import * as child_process5 from "child_process";
 
 // src/diff/ast-diff.ts
 init_tree_sitter();
@@ -60421,13 +60427,13 @@ var diff = createSwarmTool({
         numstatArgs.push("--", ...typedArgs.paths);
         fullDiffArgs.push("--", ...typedArgs.paths);
       }
-      const numstatOutput = child_process2.execFileSync("git", numstatArgs, {
+      const numstatOutput = child_process5.execFileSync("git", numstatArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
         cwd: directory
       });
-      const fullDiffOutput = child_process2.execFileSync("git", fullDiffArgs, {
+      const fullDiffOutput = child_process5.execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
@@ -60476,23 +60482,23 @@ var diff = createSwarmTool({
           let oldContent;
           let newContent;
           if (base === "staged") {
-            oldContent = child_process2.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            oldContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process2.execFileSync("git", ["show", `:${file3.path}`], {
+            newContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
           } else if (base === "unstaged") {
-            oldContent = child_process2.execFileSync("git", ["show", `:${file3.path}`], {
+            oldContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process2.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -60501,12 +60507,12 @@ var diff = createSwarmTool({
             const pathModule = await import("path");
             newContent = fsModule.readFileSync(pathModule.join(directory, file3.path), "utf-8");
           } else {
-            oldContent = child_process2.execFileSync("git", ["show", `${base}:${file3.path}`], {
+            oldContent = child_process5.execFileSync("git", ["show", `${base}:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process2.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -64696,7 +64702,7 @@ function executeRulesSync(filePath, content, language) {
 }
 
 // src/sast/semgrep.ts
-import { execFileSync as execFileSync2, spawn as spawn2 } from "child_process";
+import * as child_process6 from "child_process";
 var semgrepAvailableCache = null;
 var DEFAULT_RULES_DIR = ".swarm/semgrep-rules";
 var DEFAULT_TIMEOUT_MS3 = 30000;
@@ -64705,7 +64711,7 @@ function isSemgrepAvailable() {
     return semgrepAvailableCache;
   }
   try {
-    execFileSync2("semgrep", ["--version"], {
+    child_process6.execFileSync("semgrep", ["--version"], {
       encoding: "utf-8",
       stdio: "pipe"
     });
@@ -64764,7 +64770,7 @@ function mapSemgrepSeverity(severity) {
 }
 async function executeWithTimeout(command, args2, options) {
   return new Promise((resolve19) => {
-    const child = spawn2(command, args2, {
+    const child = child_process6.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
     });
@@ -65983,6 +65989,7 @@ import * as fs49 from "fs";
 import * as path62 from "path";
 
 // src/parallel/file-locks.ts
+var import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
 import * as fs48 from "fs";
 import * as path61 from "path";
 var LOCKS_DIR = ".swarm/locks";
@@ -65995,52 +66002,38 @@ function getLockFilePath(directory, filePath) {
   const hash3 = Buffer.from(normalized).toString("base64").replace(/[/+=]/g, "_");
   return path61.join(directory, LOCKS_DIR, `${hash3}.lock`);
 }
-function tryAcquireLock(directory, filePath, agent, taskId) {
+async function tryAcquireLock(directory, filePath, agent, taskId) {
   const lockPath = getLockFilePath(directory, filePath);
   const locksDir = path61.dirname(lockPath);
   if (!fs48.existsSync(locksDir)) {
     fs48.mkdirSync(locksDir, { recursive: true });
   }
-  if (fs48.existsSync(lockPath)) {
-    try {
-      const existingLock = JSON.parse(fs48.readFileSync(lockPath, "utf-8"));
-      if (Date.now() > existingLock.expiresAt) {
-        fs48.unlinkSync(lockPath);
-      } else {
-        return { acquired: false, existing: existingLock };
-      }
-    } catch {
-      fs48.unlinkSync(lockPath);
+  if (!fs48.existsSync(lockPath)) {
+    fs48.writeFileSync(lockPath, "", "utf-8");
+  }
+  let release;
+  try {
+    release = await import_proper_lockfile3.default.lock(lockPath, {
+      stale: LOCK_TIMEOUT_MS,
+      retries: { retries: 0 },
+      realpath: false
+    });
+  } catch (err2) {
+    const code = err2.code;
+    if (code === "ELOCKED" || code === "EEXIST") {
+      return { acquired: false };
     }
+    throw err2;
   }
   const lock = {
     filePath,
     agent,
     taskId,
     timestamp: new Date().toISOString(),
-    expiresAt: Date.now() + LOCK_TIMEOUT_MS
+    expiresAt: Date.now() + LOCK_TIMEOUT_MS,
+    _release: release
   };
-  const tempPath = `${lockPath}.tmp`;
-  fs48.writeFileSync(tempPath, JSON.stringify(lock, null, 2), "utf-8");
-  fs48.renameSync(tempPath, lockPath);
   return { acquired: true, lock };
-}
-function releaseLock(directory, filePath, taskId) {
-  const lockPath = getLockFilePath(directory, filePath);
-  if (!fs48.existsSync(lockPath)) {
-    return true;
-  }
-  try {
-    const lock = JSON.parse(fs48.readFileSync(lockPath, "utf-8"));
-    if (lock.taskId === taskId) {
-      fs48.unlinkSync(lockPath);
-      return true;
-    }
-    return false;
-  } catch {
-    fs48.unlinkSync(lockPath);
-    return true;
-  }
 }
 
 // src/tools/save-plan.ts
@@ -66149,7 +66142,7 @@ async function executeSavePlan(args2, fallbackDir) {
   const lockTaskId = `save-plan-${Date.now()}`;
   const planFilePath = "plan.json";
   try {
-    const lockResult = tryAcquireLock(dir, planFilePath, "architect", lockTaskId);
+    const lockResult = await tryAcquireLock(dir, planFilePath, "architect", lockTaskId);
     if (!lockResult.acquired) {
       return {
         success: false,
@@ -66193,7 +66186,9 @@ async function executeSavePlan(args2, fallbackDir) {
         ...warnings.length > 0 ? { warnings } : {}
       };
     } finally {
-      releaseLock(dir, planFilePath, lockTaskId);
+      if (lockResult.acquired && lockResult.lock._release) {
+        await lockResult.lock._release().catch(() => {});
+      }
     }
   } catch (error93) {
     return {

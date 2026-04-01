@@ -1,14 +1,14 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 
 describe('cross-platform path normalization', () => {
 	// Test A: Path normalization — forward slash test paths match directory pattern
 	test('Test A: Windows backslash path normalizes to forward slash and includes /tests/', () => {
 		// A Windows-style backslash path like C:\project\tests\unit\foo.ts
 		const windowsPath = 'C:\\project\\tests\\unit\\foo.ts';
-		
+
 		// when normalized with .replace(/\\/g, '/') becomes C:/project/tests/unit/foo.ts
 		const normalizedPath = windowsPath.replace(/\\/g, '/');
-		
+
 		// This normalized path .includes('/tests/') returns true
 		expect(normalizedPath.includes('/tests/')).toBe(true);
 		// Verify normalization converted backslashes to forward slashes
@@ -19,7 +19,7 @@ describe('cross-platform path normalization', () => {
 	test('Test B: Unix-style path already includes /tests/', () => {
 		// A Unix-style path C:/project/tests/unit/foo.ts already includes /tests/
 		const unixPath = 'C:/project/tests/unit/foo.ts';
-		
+
 		// normalizedPath.includes('/tests/') returns true
 		expect(unixPath.includes('/tests/')).toBe(true);
 	});
@@ -28,9 +28,9 @@ describe('cross-platform path normalization', () => {
 	test('Test C: Path with __tests__ directory normalizes and matches', () => {
 		// C:\project\src\__tests__\foo.ts normalized to forward slashes
 		const windowsPathWithUnderscores = 'C:\\project\\src\\__tests__\\foo.ts';
-		
+
 		const normalizedPath = windowsPathWithUnderscores.replace(/\\/g, '/');
-		
+
 		// normalizedPath.includes('/__tests__/') returns true
 		expect(normalizedPath.includes('/__tests__/')).toBe(true);
 		// Verify normalization converted backslashes to forward slashes
@@ -42,13 +42,13 @@ describe('cross-platform path normalization', () => {
 		// basename of utils.test.ts includes .test.
 		const testFile = 'utils.test.ts';
 		const testBasename = testFile.split('/').pop() || testFile;
-		
+
 		expect(testBasename.includes('.test.')).toBe(true);
-		
+
 		// basename of utils.spec.ts includes .spec.
 		const specFile = 'utils.spec.ts';
 		const specBasename = specFile.split('/').pop() || specFile;
-		
+
 		expect(specBasename.includes('.spec.')).toBe(true);
 	});
 
@@ -56,19 +56,19 @@ describe('cross-platform path normalization', () => {
 	test('Test E: Non-test path does NOT match any test patterns', () => {
 		// C:\project\src\utils.ts normalized to forward slashes
 		const windowsNonTestPath = 'C:\\project\\src\\utils.ts';
-		
+
 		const normalizedPath = windowsNonTestPath.replace(/\\/g, '/');
-		
+
 		// Does NOT include /__tests__/, /tests/, /test/
 		expect(normalizedPath.includes('/__tests__/')).toBe(false);
 		expect(normalizedPath.includes('/tests/')).toBe(false);
 		expect(normalizedPath.includes('/test/')).toBe(false);
-		
+
 		// Does NOT include .test. or .spec. in basename
 		const basename = normalizedPath.split('/').pop() || normalizedPath;
 		expect(basename.includes('.test.')).toBe(false);
 		expect(basename.includes('.spec.')).toBe(false);
-		
+
 		// Verify it's a source file, not a test file
 		expect(basename).toBe('utils.ts');
 	});
@@ -84,7 +84,9 @@ describe('isCommandAvailable', () => {
 
 	test('returns false for a nonexistent command', () => {
 		const { isCommandAvailable } = require('../../../src/build/discovery');
-		const result = isCommandAvailable('__nonexistent_command_that_does_not_exist_xyz__');
+		const result = isCommandAvailable(
+			'__nonexistent_command_that_does_not_exist_xyz__',
+		);
 		expect(typeof result).toBe('boolean');
 		expect(result).toBe(false);
 	});
@@ -118,7 +120,17 @@ describe('cross-platform shell execution patterns', () => {
 		expect(typeof process.platform).toBe('string');
 		expect(process.platform.length).toBeGreaterThan(0);
 		// Valid values include 'win32', 'darwin', 'linux', etc.
-		const validPlatforms = ['win32', 'darwin', 'linux', 'freebsd', 'sunos', 'openbsd', 'netbsd', 'aix', 'android'];
+		const validPlatforms = [
+			'win32',
+			'darwin',
+			'linux',
+			'freebsd',
+			'sunos',
+			'openbsd',
+			'netbsd',
+			'aix',
+			'android',
+		];
 		expect(validPlatforms.includes(process.platform)).toBe(true);
 	});
 });

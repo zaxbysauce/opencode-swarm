@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { ensureAgentSession, resetSwarmState } from '../../../src/state';
 
 // Import tools after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
@@ -44,9 +44,9 @@ describe('phase_complete auto-checkpoint trigger', () => {
 					enabled: true,
 					required_agents: [],
 					require_docs: false,
-					policy: 'warn'
-				}
-			})
+					policy: 'warn',
+				},
+			}),
 		);
 	});
 
@@ -62,8 +62,16 @@ describe('phase_complete auto-checkpoint trigger', () => {
 	});
 
 	// Helper function to write a valid retro bundle
-	function writeRetroBundle(phaseNumber: number, verdict: 'pass' | 'fail' = 'pass'): void {
-		const retroDir = path.join(tempDir, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	function writeRetroBundle(
+		phaseNumber: number,
+		verdict: 'pass' | 'fail' = 'pass',
+	): void {
+		const retroDir = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			`retro-${phaseNumber}`,
+		);
 		fs.mkdirSync(retroDir, { recursive: true });
 
 		const retroBundle = {
@@ -152,14 +160,21 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			writeRetroBundle(1, 'pass');
 			writeGateEvidence(1);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: sessionId });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: sessionId,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.phase).toBe(1);
 
 			// No checkpoint log is created (feature not implemented in phase_complete)
-			const checkpointLogPath = path.join(tempDir, '.swarm', 'checkpoints.json');
+			const checkpointLogPath = path.join(
+				tempDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 			expect(fs.existsSync(checkpointLogPath)).toBe(false);
 		});
 
@@ -169,7 +184,10 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			writeRetroBundle(2, 'pass');
 			writeGateEvidence(2);
 
-			const result = await phase_complete.execute({ phase: 2, sessionID: sessionId });
+			const result = await phase_complete.execute({
+				phase: 2,
+				sessionID: sessionId,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -190,11 +208,17 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			writeRetroBundle(1, 'pass');
 			writeGateEvidence(1);
 
-			const result1 = await phase_complete.execute({ phase: 1, sessionID: sessionId });
+			const result1 = await phase_complete.execute({
+				phase: 1,
+				sessionID: sessionId,
+			});
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: sessionId });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: sessionId,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -213,7 +237,10 @@ describe('phase_complete auto-checkpoint trigger', () => {
 				writeRetroBundle(phaseNum, 'pass');
 				writeGateEvidence(phaseNum);
 
-				const result = await phase_complete.execute({ phase: phaseNum, sessionID: sessionId });
+				const result = await phase_complete.execute({
+					phase: phaseNum,
+					sessionID: sessionId,
+				});
 				const parsed = JSON.parse(result);
 
 				expect(parsed.success).toBe(true);
@@ -227,7 +254,9 @@ describe('phase_complete auto-checkpoint trigger', () => {
 			try {
 				// Create .swarm directory structure
 				fs.mkdirSync(path.join(nonGitDir, '.swarm'), { recursive: true });
-				fs.mkdirSync(path.join(nonGitDir, '.swarm', 'evidence'), { recursive: true });
+				fs.mkdirSync(path.join(nonGitDir, '.swarm', 'evidence'), {
+					recursive: true,
+				});
 
 				// Create .opencode directory with config file
 				fs.mkdirSync(path.join(nonGitDir, '.opencode'), { recursive: true });
@@ -238,9 +267,9 @@ describe('phase_complete auto-checkpoint trigger', () => {
 							enabled: true,
 							required_agents: [],
 							require_docs: false,
-							policy: 'warn'
-						}
-					})
+							policy: 'warn',
+						},
+					}),
 				);
 
 				// Create session and retro bundle
@@ -321,7 +350,10 @@ describe('phase_complete auto-checkpoint trigger', () => {
 				process.chdir(nonGitDir);
 
 				// Act: Call phase_complete in non-git directory
-				const result = await phase_complete.execute({ phase: 1, sessionID: sessionId });
+				const result = await phase_complete.execute({
+					phase: 1,
+					sessionID: sessionId,
+				});
 				const parsed = JSON.parse(result);
 
 				// Assert: Phase should complete successfully despite checkpoint failure

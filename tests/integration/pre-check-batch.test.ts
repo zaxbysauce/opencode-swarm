@@ -1,8 +1,8 @@
-import { test, expect, describe, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { type ToolContext } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { pre_check_batch } from '../../src/tools/pre-check-batch';
 
 // Helper to create a mock ToolContext
@@ -31,7 +31,9 @@ describe('pre_check_batch integration', () => {
 		// Add local node_modules/.bin to PATH so npx uses local biome
 		const projectBin = path.join(originalCwd, 'node_modules', '.bin');
 		process.env.PATH = projectBin + path.delimiter + originalPath;
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-integration-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'pre-check-batch-integration-'),
+		);
 		fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 		fs.writeFileSync(
 			path.join(tempDir, '.opencode', 'opencode-swarm.json'),
@@ -50,7 +52,9 @@ describe('pre_check_batch integration', () => {
 			} catch (err: unknown) {
 				const code = (err as NodeJS.ErrnoException).code;
 				if (attempt < 2 && code === 'EBUSY') {
-					await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+					await new Promise((resolve) =>
+						setTimeout(resolve, 500 * (attempt + 1)),
+					);
 				}
 			}
 		}
@@ -319,7 +323,9 @@ function xss(input: string) {
 		// Test that when config.pipeline.parallel_precheck !== false
 		// The "[SWARM HINT] Parallel pre-check enabled" hint is generated
 		// This is a unit test of the hint generation logic
-		const { createSystemEnhancerHook } = await import('../../src/hooks/system-enhancer');
+		const { createSystemEnhancerHook } = await import(
+			'../../src/hooks/system-enhancer'
+		);
 		// The hook should inject the hint for architect sessions
 		// Verify the hint text contains "pre_check_batch"
 		expect(true).toBe(true); // Placeholder - actual test would require mocking session context

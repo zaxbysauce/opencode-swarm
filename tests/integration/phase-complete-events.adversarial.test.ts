@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	resetSwarmState,
 	ensureAgentSession,
 	recordPhaseAgentDispatch,
+	resetSwarmState,
 } from '../../src/state';
 import { executePhaseComplete } from '../../src/tools/phase-complete';
 
@@ -42,7 +42,10 @@ describe('phase_complete integration — adversarial scenarios', () => {
 				events.push(JSON.parse(line));
 			} catch (parseError) {
 				// Log the line that failed to parse for debugging
-				console.error(`Failed to parse line ${i} (length ${line.length}):`, line);
+				console.error(
+					`Failed to parse line ${i} (length ${line.length}):`,
+					line,
+				);
 				console.error('Error:', parseError);
 				console.error('Full file content:');
 				console.error(content);
@@ -109,7 +112,10 @@ describe('phase_complete integration — adversarial scenarios', () => {
 		};
 		const retroDir = path.join(tempDir, '.swarm', 'evidence', `retro-${phase}`);
 		fs.mkdirSync(retroDir, { recursive: true });
-		fs.writeFileSync(path.join(retroDir, 'evidence.json'), JSON.stringify(evidence, null, 2));
+		fs.writeFileSync(
+			path.join(retroDir, 'evidence.json'),
+			JSON.stringify(evidence, null, 2),
+		);
 	}
 
 	/**
@@ -175,11 +181,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			// Call phase_complete twice back-to-back
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result1 = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'First phase complete',
-			}, tempDir);
+			const result1 = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'First phase complete',
+				},
+				tempDir,
+			);
 
 			// For the second call, we need to record agents again since state resets
 			recordPhaseAgentDispatch(sessionID, 'coder');
@@ -187,11 +196,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(2);
 			writeGateEvidence(2);
-			const result2 = await executePhaseComplete({
-				phase: 2,
-				sessionID,
-				summary: 'Second phase complete',
-			}, tempDir);
+			const result2 = await executePhaseComplete(
+				{
+					phase: 2,
+					sessionID,
+					summary: 'Second phase complete',
+				},
+				tempDir,
+			);
 
 			const parsed1 = JSON.parse(result1);
 			const parsed2 = JSON.parse(result2);
@@ -240,11 +252,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
@@ -287,11 +302,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
@@ -360,11 +378,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			}
 
 			try {
-				const result = await executePhaseComplete({
-					phase: 1,
-					sessionID,
-					summary: 'Phase 1 complete',
-				}, tempDir);
+				const result = await executePhaseComplete(
+					{
+						phase: 1,
+						sessionID,
+						summary: 'Phase 1 complete',
+					},
+					tempDir,
+				);
 
 				const parsed = JSON.parse(result);
 
@@ -403,11 +424,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			writeRetro(3);
 			writeGateEvidence(3);
-			const result1 = await executePhaseComplete({
-				phase: 3,
-				sessionID,
-				summary: 'Phase 3 complete',
-			}, tempDir);
+			const result1 = await executePhaseComplete(
+				{
+					phase: 3,
+					sessionID,
+					summary: 'Phase 3 complete',
+				},
+				tempDir,
+			);
 
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
@@ -417,11 +441,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(sessionID, 'coder');
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result2 = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result2 = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 
 			const parsed2 = JSON.parse(result2);
 			expect(parsed2.success).toBe(true);
@@ -461,11 +488,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: longSummary,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: longSummary,
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
@@ -499,11 +529,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: dangerousSummary,
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: dangerousSummary,
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
@@ -542,11 +575,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
@@ -576,39 +612,51 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			recordPhaseAgentDispatch(session1, 'coder');
 			writeRetro(1);
 			writeGateEvidence(1);
-			await executePhaseComplete({
-				phase: 1,
-				sessionID: session1,
-				summary: 'Session 1, Phase 1',
-			}, tempDir);
+			await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID: session1,
+					summary: 'Session 1, Phase 1',
+				},
+				tempDir,
+			);
 
 			// Session 2, Phase 1
 			const session2 = 'sess2';
 			ensureAgentSession(session2);
 			recordPhaseAgentDispatch(session2, 'reviewer');
-			await executePhaseComplete({
-				phase: 1,
-				sessionID: session2,
-				summary: 'Session 2, Phase 1',
-			}, tempDir);
+			await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID: session2,
+					summary: 'Session 2, Phase 1',
+				},
+				tempDir,
+			);
 
 			// Session 1, Phase 2 (back to session 1)
 			recordPhaseAgentDispatch(session1, 'coder');
 			writeRetro(2);
 			writeGateEvidence(2);
-			await executePhaseComplete({
-				phase: 2,
-				sessionID: session1,
-				summary: 'Session 1, Phase 2',
-			}, tempDir);
+			await executePhaseComplete(
+				{
+					phase: 2,
+					sessionID: session1,
+					summary: 'Session 1, Phase 2',
+				},
+				tempDir,
+			);
 
 			// Session 2, Phase 2
 			recordPhaseAgentDispatch(session2, 'reviewer');
-			await executePhaseComplete({
-				phase: 2,
-				sessionID: session2,
-				summary: 'Session 2, Phase 2',
-			}, tempDir);
+			await executePhaseComplete(
+				{
+					phase: 2,
+					sessionID: session2,
+					summary: 'Session 2, Phase 2',
+				},
+				tempDir,
+			);
 
 			// All 4 phase_complete events should be present in the order they were called
 			const events = readEvents('phase_complete');
@@ -652,11 +700,14 @@ describe('phase_complete integration — adversarial scenarios', () => {
 
 			writeRetro(1);
 			writeGateEvidence(1);
-			const result = await executePhaseComplete({
-				phase: 1,
-				sessionID,
-				summary: 'Phase 1 complete',
-			}, tempDir);
+			const result = await executePhaseComplete(
+				{
+					phase: 1,
+					sessionID,
+					summary: 'Phase 1 complete',
+				},
+				tempDir,
+			);
 
 			const parsed = JSON.parse(result);
 

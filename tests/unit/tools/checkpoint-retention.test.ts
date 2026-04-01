@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the tool AFTER setting up test environment
 const { checkpoint } = await import('../../../src/tools/checkpoint');
@@ -75,7 +75,9 @@ describe('checkpoint retention policy', () => {
 			const listParsed = JSON.parse(listResult);
 
 			expect(listParsed.count).toBe(5);
-			expect(listParsed.checkpoints.map((c: { label: string }) => c.label)).toEqual([
+			expect(
+				listParsed.checkpoints.map((c: { label: string }) => c.label),
+			).toEqual([
 				'under-limit-4',
 				'under-limit-3',
 				'under-limit-2',
@@ -92,7 +94,7 @@ describe('checkpoint retention policy', () => {
 			}
 
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
-			
+
 			// No events.jsonl should exist or it should have no retention events
 			if (fs.existsSync(eventsPath)) {
 				const content = fs.readFileSync(eventsPath, 'utf-8');
@@ -126,7 +128,9 @@ describe('checkpoint retention policy', () => {
 			expect(listParsed.checkpoints).toHaveLength(10);
 
 			// Oldest checkpoint should be deleted (checkpoint-0)
-			const labels = listParsed.checkpoints.map((c: { label: string }) => c.label);
+			const labels = listParsed.checkpoints.map(
+				(c: { label: string }) => c.label,
+			);
 			expect(labels).not.toContain('over-limit-0');
 
 			// Most recent 10 should remain
@@ -148,7 +152,9 @@ describe('checkpoint retention policy', () => {
 			expect(listParsed.count).toBe(10);
 
 			// Check that oldest 2 were deleted
-			const labels = listParsed.checkpoints.map((c: { label: string }) => c.label);
+			const labels = listParsed.checkpoints.map(
+				(c: { label: string }) => c.label,
+			);
 			expect(labels).not.toContain('oldest-test-0');
 			expect(labels).not.toContain('oldest-test-1');
 
@@ -172,7 +178,9 @@ describe('checkpoint retention policy', () => {
 			expect(listParsed.checkpoints).toHaveLength(10);
 
 			// Oldest 5 should be deleted
-			const labels = listParsed.checkpoints.map((c: { label: string }) => c.label);
+			const labels = listParsed.checkpoints.map(
+				(c: { label: string }) => c.label,
+			);
 			for (let i = 0; i < 5; i++) {
 				expect(labels).not.toContain(`bulk-${i}`);
 			}
@@ -190,7 +198,7 @@ describe('checkpoint retention policy', () => {
 			for (let i = 0; i < 12; i++) {
 				await checkpoint.execute({ action: 'save', label: `auto-${i}` });
 				await new Promise((r) => setTimeout(r, 10));
-				
+
 				// After each save, check that count never exceeds limit
 				const listResult = await checkpoint.execute({ action: 'list' });
 				const listParsed = JSON.parse(listResult);
@@ -221,9 +229,11 @@ describe('checkpoint retention policy', () => {
 			const listParsed = JSON.parse(listResult);
 
 			// First checkpoint should be deleted (oldest)
-			const labels = listParsed.checkpoints.map((c: { label: string }) => c.label);
+			const labels = listParsed.checkpoints.map(
+				(c: { label: string }) => c.label,
+			);
 			expect(labels).not.toContain('first');
-			
+
 			// Second and third should remain
 			expect(labels).toContain('second');
 			expect(labels).toContain('third');
@@ -239,14 +249,14 @@ describe('checkpoint retention policy', () => {
 			}
 
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
-			
+
 			// Events file should exist
 			expect(fs.existsSync(eventsPath)).toBe(true);
 
 			// Read and parse events
 			const content = fs.readFileSync(eventsPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
-			
+
 			// Should have at least one retention event
 			const retentionEvents = lines
 				.map((line) => {
@@ -256,8 +266,16 @@ describe('checkpoint retention policy', () => {
 						return null;
 					}
 				})
-				.filter((event): event is { event: string; timestamp: string; deletedCount: number; retainedCount: number; deletedLabels: string[] } => 
-					event !== null && event.event === 'checkpoint_retention_applied'
+				.filter(
+					(
+						event,
+					): event is {
+						event: string;
+						timestamp: string;
+						deletedCount: number;
+						retainedCount: number;
+						deletedLabels: string[];
+					} => event !== null && event.event === 'checkpoint_retention_applied',
 				);
 
 			expect(retentionEvents.length).toBeGreaterThan(0);
@@ -281,7 +299,7 @@ describe('checkpoint retention policy', () => {
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 			const content = fs.readFileSync(eventsPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
-			
+
 			const retentionEvents = lines
 				.map((line) => {
 					try {
@@ -290,14 +308,15 @@ describe('checkpoint retention policy', () => {
 						return null;
 					}
 				})
-				.filter((event): event is { event: string; deletedLabels: string[] } => 
-					event !== null && event.event === 'checkpoint_retention_applied'
+				.filter(
+					(event): event is { event: string; deletedLabels: string[] } =>
+						event !== null && event.event === 'checkpoint_retention_applied',
 				);
 
 			// Should have deleted labels (incremental deletion - oldest one each time)
 			// After 12 saves with limit of 10, 2 oldest should be deleted total
 			expect(retentionEvents.length).toBe(2); // 2 retention events (at save 11 and 12)
-			
+
 			// The final event should have deleted one of the oldest labels
 			const lastEvent = retentionEvents[retentionEvents.length - 1];
 			expect(lastEvent.deletedLabels.length).toBe(1);
@@ -315,7 +334,7 @@ describe('checkpoint retention policy', () => {
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 			const content = fs.readFileSync(eventsPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
-			
+
 			const retentionEvents = lines
 				.map((line) => {
 					try {
@@ -324,8 +343,9 @@ describe('checkpoint retention policy', () => {
 						return null;
 					}
 				})
-				.filter((event) => 
-					event !== null && event.event === 'checkpoint_retention_applied'
+				.filter(
+					(event) =>
+						event !== null && event.event === 'checkpoint_retention_applied',
 				);
 
 			// Should have multiple retention events (one for each save that exceeded limit)

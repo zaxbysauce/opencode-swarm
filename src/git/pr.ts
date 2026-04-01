@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { warn } from '../utils/logger.js';
@@ -33,7 +33,7 @@ export function sanitizeInput(input: string): string {
  * Execute gh CLI command
  */
 function ghExec(args: string[], cwd: string): string {
-	const result = spawnSync('gh', args, {
+	const result = child_process.spawnSync('gh', args, {
 		cwd,
 		encoding: 'utf-8',
 		timeout: GIT_TIMEOUT_MS,
@@ -162,7 +162,7 @@ export function commitAndPush(cwd: string, message: string): void {
 	stageAll(cwd);
 
 	// Check if there are changes to commit
-	const status = spawnSync('git', ['status', '--porcelain'], {
+	const status = child_process.spawnSync('git', ['status', '--porcelain'], {
 		cwd,
 		encoding: 'utf-8',
 	}).stdout;
@@ -176,12 +176,16 @@ export function commitAndPush(cwd: string, message: string): void {
 
 	// Push
 	const branch = getCurrentBranch(cwd);
-	const pushResult = spawnSync('git', ['push', '-u', 'origin', branch], {
-		cwd,
-		encoding: 'utf-8',
-		timeout: GIT_TIMEOUT_MS,
-		stdio: ['pipe', 'pipe', 'pipe'],
-	});
+	const pushResult = child_process.spawnSync(
+		'git',
+		['push', '-u', 'origin', branch],
+		{
+			cwd,
+			encoding: 'utf-8',
+			timeout: GIT_TIMEOUT_MS,
+			stdio: ['pipe', 'pipe', 'pipe'],
+		},
+	);
 	if (pushResult.status !== 0) {
 		throw new Error(pushResult.stderr || 'Push failed');
 	}

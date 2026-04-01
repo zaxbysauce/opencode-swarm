@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
 	initTelemetry,
@@ -44,7 +44,14 @@ describe('telemetry-init adversarial tests (Task 3.9)', () => {
 	test('1. initTelemetry with path traversal attempt must not throw', () => {
 		// Attempt to traverse outside using path with relative ..
 		// The function should handle this gracefully (catch any errors)
-		const maliciousPath = path.join(tempDir, '.swarm', '..', '..', '..', 'traversed');
+		const maliciousPath = path.join(
+			tempDir,
+			'.swarm',
+			'..',
+			'..',
+			'..',
+			'traversed',
+		);
 
 		expect(() => {
 			initTelemetry(maliciousPath);

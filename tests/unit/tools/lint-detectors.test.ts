@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectAdditionalLinter } from '../../../src/tools/lint';
 
 // Mock node:fs
@@ -33,17 +33,27 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('detectKtlint (via detectAdditionalLinter returning "ktlint")', () => {
 		it('returns "ktlint" when build.gradle.kts exists + ktlint available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('ktlint');
 		});
 
 		it('returns "ktlint" when build.gradle (Groovy DSL) exists + ktlint available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && p.endsWith('build.gradle') && !p.endsWith('.kts');
+				return (
+					typeof p === 'string' &&
+					p.endsWith('build.gradle') &&
+					!p.endsWith('.kts')
+				);
 			});
 			mockReaddirSync.mockReturnValue([]);
 
@@ -51,32 +61,48 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		});
 
 		it('returns "ktlint" when root dir has .kt file + ktlint available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['Main.kt', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('ktlint');
 		});
 
 		it('returns "ktlint" when root dir has .kts file + ktlint available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['script.kts', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('ktlint');
 		});
 
 		it('returns null when only .editorconfig exists (no other Kotlin marker)', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.includes('.editorconfig'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.includes('.editorconfig'),
+			);
 			mockReaddirSync.mockReturnValue(['.editorconfig']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
 		});
 
 		it('returns null when Kotlin markers exist but ktlint not available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'other-tool');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'other-tool',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -86,16 +112,23 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 	describe('detectCheckstyle (via detectAdditionalLinter returning "checkstyle")', () => {
 		it('returns "checkstyle" when pom.xml + mvn available (Maven path)', () => {
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'mvn');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('pom.xml'));
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('pom.xml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('checkstyle');
 		});
 
 		it('returns "checkstyle" when build.gradle + gradlew exists (Gradle path)', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'other-tool');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'other-tool',
+			);
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && (p.endsWith('build.gradle') || p.endsWith('gradlew'));
+				return (
+					typeof p === 'string' &&
+					(p.endsWith('build.gradle') || p.endsWith('gradlew'))
+				);
 			});
 			mockReaddirSync.mockReturnValue([]);
 
@@ -103,16 +136,24 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		});
 
 		it('returns "checkstyle" when build.gradle.kts + gradle available (Gradle path)', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'gradle');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'gradle',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('build.gradle.kts'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('checkstyle');
 		});
 
 		it('returns null when only pom.xml exists but mvn not available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'other-tool');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('pom.xml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'other-tool',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('pom.xml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -121,7 +162,10 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		it('returns null when only Gradle files but neither gradlew nor gradle available', () => {
 			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'mvn');
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && (p.endsWith('build.gradle') || p.endsWith('build.gradle.kts'));
+				return (
+					typeof p === 'string' &&
+					(p.endsWith('build.gradle') || p.endsWith('build.gradle.kts'))
+				);
 			});
 			mockReaddirSync.mockReturnValue([]);
 
@@ -131,68 +175,104 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('detectCppcheck (via detectAdditionalLinter returning "cppcheck")', () => {
 		it('returns "cppcheck" when CMakeLists.txt exists + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('CMakeLists.txt'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('CMakeLists.txt'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .cpp file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['main.cpp', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .c file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['main.c', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .h file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['header.h', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .cc file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['source.cc', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .cxx file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['source.cxx', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when root has .hpp file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['header.hpp', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('cppcheck');
 		});
 
 		it('returns "cppcheck" when src/ dir has .c file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && (p === testCwd || p.includes('/src') || p.includes('\\src'));
+				return (
+					typeof p === 'string' &&
+					(p === testCwd || p.includes('/src') || p.includes('\\src'))
+				);
 			});
 			mockReaddirSync.mockImplementation((p: string) => {
-				if (typeof p === 'string' && (p.includes('/src') || p.includes('\\src'))) {
+				if (
+					typeof p === 'string' &&
+					(p.includes('/src') || p.includes('\\src'))
+				) {
 					return ['main.c', 'main.cpp'];
 				}
 				return [];
@@ -202,12 +282,20 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		});
 
 		it('returns "cppcheck" when src/ dir has .cpp file + cppcheck available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && (p === testCwd || p.includes('/src') || p.includes('\\src'));
+				return (
+					typeof p === 'string' &&
+					(p === testCwd || p.includes('/src') || p.includes('\\src'))
+				);
 			});
 			mockReaddirSync.mockImplementation((p: string) => {
-				if (typeof p === 'string' && (p.includes('/src') || p.includes('\\src'))) {
+				if (
+					typeof p === 'string' &&
+					(p.includes('/src') || p.includes('\\src'))
+				) {
 					return ['main.cpp'];
 				}
 				return [];
@@ -217,16 +305,24 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		});
 
 		it('returns null when no C/C++ markers', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cppcheck');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cppcheck',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['README.md', '.gitignore']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
 		});
 
 		it('returns null when C/C++ markers exist but cppcheck not available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'other-tool');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'other-tool',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['main.c']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -235,39 +331,57 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('detectRubocop (via detectAdditionalLinter returning "rubocop")', () => {
 		it('returns "rubocop" when Gemfile + rubocop available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'rubocop');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('Gemfile'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'rubocop',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('Gemfile'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('rubocop');
 		});
 
 		it('returns "rubocop" when gems.rb + rubocop available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'rubocop');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('gems.rb'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'rubocop',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('gems.rb'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('rubocop');
 		});
 
 		it('returns "rubocop" when .rubocop.yml + bundle available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'bundle');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('.rubocop.yml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'bundle',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('.rubocop.yml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('rubocop');
 		});
 
 		it('returns "rubocop" when .rubocop.yml + rubocop available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'rubocop');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('.rubocop.yml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'rubocop',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('.rubocop.yml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('rubocop');
 		});
 
 		it('returns null when none of the Ruby markers exist', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'rubocop');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'rubocop',
+			);
 			mockExistsSync.mockReturnValue(false);
 			mockReaddirSync.mockReturnValue(['README.md', '.gitignore']);
 
@@ -275,8 +389,12 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 		});
 
 		it('returns null when Ruby markers exist but neither rubocop nor bundle available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'other-tool');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('Gemfile'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'other-tool',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('Gemfile'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -285,24 +403,36 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('detectDotnetFormat (via detectAdditionalLinter returning "dotnet-format")', () => {
 		it('returns "dotnet-format" when MyApp.csproj exists in root + dotnet available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'dotnet');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'dotnet',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['MyApp.csproj', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('dotnet-format');
 		});
 
 		it('returns "dotnet-format" when MySolution.sln exists in root + dotnet available', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'dotnet');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'dotnet',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['MySolution.sln', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('dotnet-format');
 		});
 
 		it('returns null when no .csproj/.sln in root', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'dotnet');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'dotnet',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['README.md', 'Program.cs']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -310,7 +440,9 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 		it('returns null when .csproj exists but dotnet not available', () => {
 			mockIsCommandAvailable.mockReturnValue(false);
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockReturnValue(['MyApp.csproj', 'README.md']);
 
 			expect(detectAdditionalLinter(testCwd)).toBe(null);
@@ -319,9 +451,13 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('Detector ordering - earlier detectors take priority', () => {
 		it('returns "ruff" when both Python and Kotlin markers exist (ruff has higher priority)', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruff' || cmd === 'ktlint');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ruff' || cmd === 'ktlint',
+			);
 			mockExistsSync.mockImplementation((p: string) => {
-				return typeof p === 'string' && (p.endsWith('ruff.toml') || p === testCwd);
+				return (
+					typeof p === 'string' && (p.endsWith('ruff.toml') || p === testCwd)
+				);
 			});
 			mockReaddirSync.mockReturnValue(['main.kt']);
 
@@ -331,48 +467,72 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('Return all 10 possible linter names', () => {
 		it('returns "ruff" for Python ruff', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ruff');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('ruff.toml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ruff',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('ruff.toml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('ruff');
 		});
 
 		it('returns "clippy" for Rust clippy', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'cargo');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('Cargo.toml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'cargo',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('Cargo.toml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('clippy');
 		});
 
 		it('returns "golangci-lint" for Go golangci-lint', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'golangci-lint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('go.mod'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'golangci-lint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('go.mod'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('golangci-lint');
 		});
 
 		it('returns "swiftlint" for Swift swiftlint', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'swiftlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('Package.swift'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'swiftlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('Package.swift'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('swiftlint');
 		});
 
 		it('returns "dart-analyze" for Dart/Flutter dart-analyze', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'dart');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('pubspec.yaml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'dart',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('pubspec.yaml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('dart-analyze');
 		});
 
 		it('returns "dart-analyze" for Flutter dart-analyze', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'flutter');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p.endsWith('pubspec.yaml'));
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'flutter',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p.endsWith('pubspec.yaml'),
+			);
 			mockReaddirSync.mockReturnValue([]);
 
 			expect(detectAdditionalLinter(testCwd)).toBe('dart-analyze');
@@ -381,8 +541,12 @@ describe('detectAdditionalLinter - Linter Detectors', () => {
 
 	describe('Error handling', () => {
 		it('returns null when readdirSync throws an error', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'ktlint');
-			mockExistsSync.mockImplementation((p: string) => typeof p === 'string' && p === testCwd);
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'ktlint',
+			);
+			mockExistsSync.mockImplementation(
+				(p: string) => typeof p === 'string' && p === testCwd,
+			);
 			mockReaddirSync.mockImplementation(() => {
 				throw new Error('Permission denied');
 			});

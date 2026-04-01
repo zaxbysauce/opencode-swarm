@@ -1,9 +1,16 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { executeCompletionVerify } from '../../../src/tools/completion-verify';
+import { join } from 'node:path';
 import { swarmState } from '../../../src/state';
+import { executeCompletionVerify } from '../../../src/tools/completion-verify';
 
 // Helper to create a mock plan.json
 function createPlanFile(dir: string, plan: object) {
@@ -15,19 +22,33 @@ function createPlanFile(dir: string, plan: object) {
 // Helper to create a source file
 function createSourceFile(dir: string, filePath: string, content: string) {
 	const fullPath = join(dir, filePath);
-	mkdirSync(join(dir, filePath).replace(/[/\\][^/\\]+$/, ''), { recursive: true });
+	mkdirSync(join(dir, filePath).replace(/[/\\][^/\\]+$/, ''), {
+		recursive: true,
+	});
 	writeFileSync(fullPath, content, 'utf-8');
 }
 
 // Helper to check if evidence file was written
 function evidenceExists(dir: string, phase: number): boolean {
-	const evidencePath = join(dir, '.swarm', 'evidence', `${phase}`, 'completion-verify.json');
+	const evidencePath = join(
+		dir,
+		'.swarm',
+		'evidence',
+		`${phase}`,
+		'completion-verify.json',
+	);
 	return existsSync(evidencePath);
 }
 
 // Helper to read evidence file
 function readEvidence(dir: string, phase: number): object | null {
-	const evidencePath = join(dir, '.swarm', 'evidence', `${phase}`, 'completion-verify.json');
+	const evidencePath = join(
+		dir,
+		'.swarm',
+		'evidence',
+		`${phase}`,
+		'completion-verify.json',
+	);
 	if (!existsSync(evidencePath)) return null;
 	return JSON.parse(readFileSync(evidencePath, 'utf-8'));
 }
@@ -50,20 +71,26 @@ describe('completion-verify unit tests', () => {
 	describe('1. Happy path - identifiers exist in target files', () => {
 		test('returns passed when task identifiers are found in source files', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/helper.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/helper.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/utils/helper.ts', 'export function myFunction() { return 42; }');
+			createSourceFile(
+				testDir,
+				'src/utils/helper.ts',
+				'export function myFunction() { return 42; }',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -76,26 +103,36 @@ describe('completion-verify unit tests', () => {
 
 		test('returns passed with multiple tasks all verified', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `helperFn` in src/utils/helper.ts',
-							status: 'completed'
-						},
-						{
-							id: '1.2',
-							description: 'Create `Validator` in src/types/validator.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `helperFn` in src/utils/helper.ts',
+								status: 'completed',
+							},
+							{
+								id: '1.2',
+								description: 'Create `Validator` in src/types/validator.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/utils/helper.ts', 'export function helperFn() {}');
-			createSourceFile(testDir, 'src/types/validator.ts', 'export class Validator {}');
+			createSourceFile(
+				testDir,
+				'src/utils/helper.ts',
+				'export function helperFn() {}',
+			);
+			createSourceFile(
+				testDir,
+				'src/types/validator.ts',
+				'export class Validator {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -109,21 +146,27 @@ describe('completion-verify unit tests', () => {
 			// When files_touched has paths but description has no identifiers,
 			// the task blocks because foundCount stays 0
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Update some config',
-							status: 'completed',
-							files_touched: ['src/config/settings.ts']
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Update some config',
+								status: 'completed',
+								files_touched: ['src/config/settings.ts'],
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/config/settings.ts', 'export const CONFIG = { version: 1 };');
+			createSourceFile(
+				testDir,
+				'src/config/settings.ts',
+				'export const CONFIG = { version: 1 };',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -137,17 +180,19 @@ describe('completion-verify unit tests', () => {
 	describe('2. Blocked path - file not found', () => {
 		test('returns blocked when target file does not exist', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/missing.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/missing.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			// Do NOT create the source file
@@ -167,21 +212,27 @@ describe('completion-verify unit tests', () => {
 	describe('3. Blocked path - identifiers not found', () => {
 		test('returns blocked when identifiers are NOT in target files', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/helper.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/helper.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			// File exists but does NOT contain 'myFunction'
-			createSourceFile(testDir, 'src/utils/helper.ts', 'export function otherFunction() {}');
+			createSourceFile(
+				testDir,
+				'src/utils/helper.ts',
+				'export function otherFunction() {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -196,17 +247,19 @@ describe('completion-verify unit tests', () => {
 	describe('4. Skip path - no parseable file paths (research/inventory tasks)', () => {
 		test('skips task with no file paths in description — research tasks are unverifiable, not incomplete', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Update documentation',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Update documentation',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 
@@ -225,17 +278,20 @@ describe('completion-verify unit tests', () => {
 	describe('5. Skip path - no identifiers AND no file paths', () => {
 		test('skips task with no identifiers and no file paths (unverifiable research task)', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Just a simple task description with no specific identifiers or file paths mentioned',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description:
+									'Just a simple task description with no specific identifiers or file paths mentioned',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 
@@ -252,11 +308,13 @@ describe('completion-verify unit tests', () => {
 	describe('6. Invalid phase number', () => {
 		test('returns blocked for phase=0', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: []
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 
@@ -269,11 +327,13 @@ describe('completion-verify unit tests', () => {
 
 		test('returns blocked for phase=-1', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: []
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 
@@ -300,11 +360,13 @@ describe('completion-verify unit tests', () => {
 	describe('8. Phase not found', () => {
 		test('returns blocked when phase number not in plan', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Phase One',
-					tasks: []
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase One',
+						tasks: [],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 
@@ -319,20 +381,26 @@ describe('completion-verify unit tests', () => {
 	describe('9. Evidence file written', () => {
 		test('writes evidence to .swarm/evidence/{phase}/completion-verify.json', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/helper.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/helper.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/utils/helper.ts', 'export function myFunction() {}');
+			createSourceFile(
+				testDir,
+				'src/utils/helper.ts',
+				'export function myFunction() {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -349,17 +417,19 @@ describe('completion-verify unit tests', () => {
 
 		test('writes fail verdict when blocked', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/missing.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/missing.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			// No source file
@@ -379,30 +449,36 @@ describe('completion-verify unit tests', () => {
 	describe('10. Non-completed tasks skipped', () => {
 		test('only checks tasks with status=completed', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/helper.ts',
-							status: 'completed'
-						},
-						{
-							id: '1.2',
-							description: 'Update config',
-							status: 'pending'
-						},
-						{
-							id: '1.3',
-							description: 'Refactor something',
-							status: 'in_progress'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/helper.ts',
+								status: 'completed',
+							},
+							{
+								id: '1.2',
+								description: 'Update config',
+								status: 'pending',
+							},
+							{
+								id: '1.3',
+								description: 'Refactor something',
+								status: 'in_progress',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/utils/helper.ts', 'export function myFunction() {}');
+			createSourceFile(
+				testDir,
+				'src/utils/helper.ts',
+				'export function myFunction() {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -416,20 +492,26 @@ describe('completion-verify unit tests', () => {
 	describe('Identifier parsing edge cases', () => {
 		test('parses backtick-wrapped identifiers correctly', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `createUser` in src/models/user.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `createUser` in src/models/user.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/models/user.ts', 'export function createUser() {}');
+			createSourceFile(
+				testDir,
+				'src/models/user.ts',
+				'export function createUser() {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -439,20 +521,26 @@ describe('completion-verify unit tests', () => {
 
 		test('parses camelCase identifiers correctly', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Implement userService in src/services/user.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Implement userService in src/services/user.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/services/user.ts', 'const userService = {}; export default userService;');
+			createSourceFile(
+				testDir,
+				'src/services/user.ts',
+				'const userService = {}; export default userService;',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -462,20 +550,27 @@ describe('completion-verify unit tests', () => {
 
 		test('parses PascalCase identifiers correctly', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create DataProcessor class in src/utils/processor.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description:
+									'Create DataProcessor class in src/utils/processor.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/utils/processor.ts', 'export class DataProcessor {}');
+			createSourceFile(
+				testDir,
+				'src/utils/processor.ts',
+				'export class DataProcessor {}',
+			);
 
 			const result = await executeCompletionVerify({ phase: 1 }, testDir);
 			const parsed = JSON.parse(result);
@@ -485,17 +580,20 @@ describe('completion-verify unit tests', () => {
 
 		test('identifier found in one of multiple files passes', async () => {
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Update `helper` across src/utils/a.ts and src/utils/b.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description:
+									'Update `helper` across src/utils/a.ts and src/utils/b.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			createSourceFile(testDir, 'src/utils/a.ts', '// no helper here');
@@ -525,20 +623,24 @@ describe('completion-verify unit tests', () => {
 
 		test('returns passed with turbo bypass reason when turbo mode is active', async () => {
 			// Set up a session with turbo mode enabled
-			swarmState.agentSessions = new Map([['test-session', { turboMode: true } as any]]);
+			swarmState.agentSessions = new Map([
+				['test-session', { turboMode: true } as any],
+			]);
 
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/missing.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/missing.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			// Do NOT create the source file - turbo mode should bypass this check
@@ -560,17 +662,19 @@ describe('completion-verify unit tests', () => {
 			swarmState.agentSessions = new Map();
 
 			const plan = {
-				phases: [{
-					id: 1,
-					name: 'Test Phase',
-					tasks: [
-						{
-							id: '1.1',
-							description: 'Create `myFunction` in src/utils/missing.ts',
-							status: 'completed'
-						}
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Test Phase',
+						tasks: [
+							{
+								id: '1.1',
+								description: 'Create `myFunction` in src/utils/missing.ts',
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
 			// Do NOT create the source file - should be blocked
@@ -595,9 +699,9 @@ describe('completion-verify unit tests', () => {
 							{
 								id: '1.1',
 								description: 'Create `missingFn` in src/missing.ts',
-								status: 'completed'
-							}
-						]
+								status: 'completed',
+							},
+						],
 					},
 					{
 						id: 2,
@@ -606,14 +710,18 @@ describe('completion-verify unit tests', () => {
 							{
 								id: '2.1',
 								description: 'Create `existingFn` in src/existing.ts',
-								status: 'completed'
-							}
-						]
-					}
-				]
+								status: 'completed',
+							},
+						],
+					},
+				],
 			};
 			createPlanFile(testDir, plan);
-			createSourceFile(testDir, 'src/existing.ts', 'export function existingFn() {}');
+			createSourceFile(
+				testDir,
+				'src/existing.ts',
+				'export function existingFn() {}',
+			);
 
 			// Phase 1 has a blocked task, but we check phase 2 which is fine
 			const result = await executeCompletionVerify({ phase: 2 }, testDir);

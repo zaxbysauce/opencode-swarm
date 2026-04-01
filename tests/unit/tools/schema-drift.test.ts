@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { schema_drift } from '../../../src/tools/schema-drift';
 
 // Temp directories
@@ -42,7 +42,10 @@ async function runSchemaDrift(specFile?: string): Promise<{
 	undocumented?: Array<{ path: string; method: string }>;
 	phantom?: Array<{ path: string; methods: string[] }>;
 }> {
-	const result = await schema_drift.execute({ spec_file: specFile } as any, {} as any);
+	const result = await schema_drift.execute(
+		{ spec_file: specFile } as any,
+		{} as any,
+	);
 	return JSON.parse(result);
 }
 
@@ -63,10 +66,13 @@ describe('schema_drift tool', async () => {
 
 	describe('spec file discovery', async () => {
 		it('finds openapi.json in root', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/users': { get: {} } }
-			}));
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/users': { get: {} } },
+				}),
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.error).toBeUndefined();
@@ -74,13 +80,16 @@ describe('schema_drift tool', async () => {
 		});
 
 		it('finds swagger.yaml in root', async () => {
-			createTestFile('swagger.yaml', `
+			createTestFile(
+				'swagger.yaml',
+				`
 openapi: 3.0.0
 paths:
   /users:
     get:
       summary: Get users
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.error).toBeUndefined();
@@ -88,10 +97,13 @@ paths:
 		});
 
 		it('finds api/openapi.json', async () => {
-			createTestFile('api/openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/health': { get: {} } }
-			}));
+			createTestFile(
+				'api/openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/health': { get: {} } },
+				}),
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.error).toBeUndefined();
@@ -102,13 +114,16 @@ paths:
 
 	describe('JSON spec parsing', async () => {
 		it('extracts spec paths correctly', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users': { get: {}, post: {} },
-					'/users/{id}': { get: {}, put: {}, delete: {} }
-				}
-			}));
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users': { get: {}, post: {} },
+						'/users/{id}': { get: {}, put: {}, delete: {} },
+					},
+				}),
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.specPathCount).toBe(2);
@@ -117,7 +132,9 @@ paths:
 
 	describe('YAML spec parsing', async () => {
 		it('extracts spec paths correctly', async () => {
-			createTestFile('openapi.yaml', `
+			createTestFile(
+				'openapi.yaml',
+				`
 openapi: 3.0.0
 paths:
   /users:
@@ -128,7 +145,8 @@ paths:
   /health:
     get:
       summary: Health check
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.specPathCount).toBe(2);
@@ -137,46 +155,64 @@ paths:
 
 	describe('route extraction', async () => {
 		it('finds Express-style route: app.get("/users", handler)', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/users': { get: {} } }
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/users': { get: {} } },
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 const handler = (req, res) => {};
 app.get('/users', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.codeRouteCount).toBe(2);
 		});
 
 		it('finds Express-style route: router.post("/api/items", handler)', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/api/items': { post: {} } }
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/api/items': { post: {} } },
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 const handler = (req, res) => {};
 router.post('/api/items', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.codeRouteCount).toBe(2);
 		});
 
 		it('finds Flask-style route: @app.route("/health")', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/health': { get: {} } }
-			}));
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/health': { get: {} } },
+				}),
+			);
 			// Use .ts file - the tool extracts Flask-style routes from any supported file type
 			// using the regex pattern (it processes .ts, .js, .mjs files)
-			createTestFile('app.ts', `
+			createTestFile(
+				'app.ts',
+				`
 @app.route('/health')
 function health() {
     return 'OK'
 }
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.codeRouteCount).toBe(1);
@@ -185,15 +221,21 @@ function health() {
 
 	describe('path normalization', async () => {
 		it('normalizes /users/:id and /users/{id} to /users/:param', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users/{id}': { get: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users/{id}': { get: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/users/:id', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			// Both should normalize to the same path, so no drift
@@ -201,15 +243,21 @@ app.get('/users/:id', handler);
 		});
 
 		it('removes trailing slash', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users/': { get: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users/': { get: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/users', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			// Both should normalize to /users, so no drift
@@ -219,16 +267,22 @@ app.get('/users', handler);
 
 	describe('drift detection', async () => {
 		it('detects undocumented routes: route in code but not in spec', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users': { get: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users': { get: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/users', handler);
 app.get('/admin', handler);  // undocumented
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			// Route extraction produces duplicates due to regex lastIndex reset ordering
@@ -237,16 +291,22 @@ app.get('/admin', handler);  // undocumented
 		});
 
 		it('detects phantom routes: path in spec but no route in code', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users': { get: {} },
-					'/admin': { get: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users': { get: {} },
+						'/admin': { get: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/users', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.phantomCount).toBe(1);
@@ -254,20 +314,26 @@ app.get('/users', handler);
 		});
 
 		it('returns consistent: true when no drift', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/users': { get: {} },
-					'/users/{id}': { get: {}, put: {}, delete: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/users': { get: {} },
+						'/users/{id}': { get: {}, put: {}, delete: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/users', handler);
 app.post('/users', handler);
 app.get('/users/:id', handler);
 app.put('/users/:id', handler);
 app.delete('/users/:id', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.consistent).toBe(true);
@@ -307,7 +373,9 @@ app.delete('/users/:id', handler);
 
 		it('rejects spec_file outside cwd', async () => {
 			// Create a file in a subdirectory of tmpdir (not root)
-			const tmpSubdir = fs.mkdtempSync(path.join(os.tmpdir(), 'schema-drift-test-'));
+			const tmpSubdir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'schema-drift-test-'),
+			);
 			const externalPath = path.join(tmpSubdir, 'external-spec.json');
 			fs.writeFileSync(externalPath, JSON.stringify({ paths: {} }));
 
@@ -341,12 +409,15 @@ app.delete('/users/:id', handler);
 		});
 
 		it('handles YAML spec with no paths section', async () => {
-			createTestFile('openapi.yaml', `
+			createTestFile(
+				'openapi.yaml',
+				`
 openapi: 3.0.0
 info:
   title: Test API
   version: 1.0.0
-`);
+`,
+			);
 			createTestFile('routes.ts', '');
 
 			const result = await runSchemaDrift('openapi.yaml');
@@ -358,25 +429,34 @@ info:
 
 	describe('edge cases', async () => {
 		it('handles empty paths object in JSON spec', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {}
-			}));
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {},
+				}),
+			);
 
 			const result = await runSchemaDrift();
 			expect(result.specPathCount).toBe(0);
 		});
 
 		it('handles routes with complex paths', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: {
-					'/api/v1/users/{id}/posts/{postId}': { get: {} }
-				}
-			}));
-			createTestFile('routes.ts', `
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: {
+						'/api/v1/users/{id}/posts/{postId}': { get: {} },
+					},
+				}),
+			);
+			createTestFile(
+				'routes.ts',
+				`
 app.get('/api/v1/users/:id/posts/:postId', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			// Complex paths should normalize correctly
@@ -384,20 +464,29 @@ app.get('/api/v1/users/:id/posts/:postId', handler);
 		});
 
 		it('skips node_modules and test files', async () => {
-			createTestFile('openapi.json', JSON.stringify({
-				openapi: '3.0.0',
-				paths: { '/test': { get: {} } }
-			}));
+			createTestFile(
+				'openapi.json',
+				JSON.stringify({
+					openapi: '3.0.0',
+					paths: { '/test': { get: {} } },
+				}),
+			);
 
 			// Create a route in node_modules (should be skipped)
-			createTestFile('node_modules/some-lib/index.js', `
+			createTestFile(
+				'node_modules/some-lib/index.js',
+				`
 app.get('/secret', handler);
-`);
+`,
+			);
 
 			// Create a route in a test file (should be skipped)
-			createTestFile('routes.test.ts', `
+			createTestFile(
+				'routes.test.ts',
+				`
 app.get('/test', handler);
-`);
+`,
+			);
 
 			const result = await runSchemaDrift();
 			// Should not find routes in node_modules or test files

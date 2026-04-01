@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { CheckpointConfigSchema } from '../../src/config/schema';
 
 describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
@@ -39,7 +39,9 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 		});
 
 		it('rejects object instead of boolean', () => {
-			const result = CheckpointConfigSchema.safeParse({ enabled: { value: true } });
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: { value: true },
+			});
 			expect(result.success).toBe(false);
 		});
 
@@ -79,48 +81,66 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	// ============================================
 	describe('ATTACK VECTOR: Invalid auto_checkpoint_threshold type', () => {
 		it('rejects string instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: '5' });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: '5',
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects boolean true instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: true });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: true,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects boolean false instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: false });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: false,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects null instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: null });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: null,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('VULNERABILITY: explicitly undefined passes for threshold', () => {
 			// Zod treats explicit undefined as "not provided" and applies defaults
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: undefined });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: undefined,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('rejects object instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: { value: 5 } });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: { value: 5 },
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects array instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: [5] });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: [5],
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects BigInt instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: BigInt(5) });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: BigInt(5),
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects empty string instead of number', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: '' });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: '',
+			});
 			expect(result.success).toBe(false);
 		});
 	});
@@ -130,80 +150,110 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	// ============================================
 	describe('ATTACK VECTOR: Out of range auto_checkpoint_threshold', () => {
 		it('rejects value below minimum (0)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 0 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects negative value (-1)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: -1 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: -1,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects value above maximum (21)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 21 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 21,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects very large value (1000)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 1000 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1000,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('VULNERABILITY: decimal value (1.5) passes - needs .int() refinement', () => {
 			// SECURITY ISSUE: Zod's .number() accepts decimals, schema should use .int()
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 1.5 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1.5,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: fractional decimal (3.14) passes - needs .int() refinement', () => {
 			// SECURITY ISSUE: Schema should enforce integer only
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 3.14 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 3.14,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('rejects decimal value at boundary (0.5)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 0.5 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0.5,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('VULNERABILITY: fractional decimal (3.14) passes - needs .int() refinement', () => {
 			// SECURITY ISSUE: Schema should enforce integer only
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 3.14 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 3.14,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('rejects Infinity', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: Infinity });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Infinity,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects -Infinity', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: -Infinity });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: -Infinity,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects NaN', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: NaN });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: NaN,
+			});
 			expect(result.success).toBe(false);
 		});
 
 		it('accepts minimum valid value (1)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 1 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('accepts maximum valid value (20)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 20 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 20,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('accepts default value (3)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 3 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 3,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('accepts middle value (10)', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 10 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 10,
+			});
 			expect(result.success).toBe(true);
 		});
 	});
@@ -214,50 +264,50 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	describe('ATTACK VECTOR: Unknown fields injection', () => {
 		it('VULNERABILITY: extra unknown string field passes - needs strict mode', () => {
 			// SECURITY ISSUE: Schema allows unknown keys - should use .strict() or .passthrough(false)
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				malicious_field: 'injection' 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				malicious_field: 'injection',
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: extra unknown number field passes', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				hacked_value: 999 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				hacked_value: 999,
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: extra unknown object field passes', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				config: { exploit: true } 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				config: { exploit: true },
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: extra unknown boolean field passes', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				is_admin: true 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				is_admin: true,
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: __proto__ injection passes', () => {
 			// SECURITY ISSUE: Unknown keys are accepted
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				['__proto__']: { evil: true } 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				['__proto__']: { evil: true },
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('VULNERABILITY: constructor injection passes', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				constructor: { malicious: true } 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				constructor: { malicious: true },
 			});
 			expect(result.success).toBe(true);
 		});
@@ -310,29 +360,29 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	describe('ATTACK VECTOR: Type coercion attacks', () => {
 		it('rejects string "0" converted to number', () => {
 			// JavaScript coerces "0" to 0 in numeric contexts
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: Number('0') 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Number('0'),
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects string "1" converted to number', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: Number('1') 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Number('1'),
 			});
 			expect(result.success).toBe(true); // Number("1") = 1 which is valid
 		});
 
 		it('rejects string "5" converted to number', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: Number('5') 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Number('5'),
 			});
 			expect(result.success).toBe(true); // Number("5") = 5 which is valid
 		});
 
 		it('rejects string "invalid" converted to number', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: Number('invalid') 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Number('invalid'),
 			});
 			// Number('invalid') = NaN
 			expect(result.success).toBe(false);
@@ -340,23 +390,23 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 
 		it('VULNERABILITY: boolean coercion to number passes (true + 0 = 1)', () => {
 			// SECURITY ISSUE: JavaScript coercion creates valid integer
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: (true as any) + 0 // evaluates to 1
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: (true as any) + 0, // evaluates to 1
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('rejects boolean coercion to number (false + 0)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: (false as any) + 0 // 0
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: (false as any) + 0, // 0
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('VULNERABILITY: object coercion to number passes', () => {
 			// SECURITY ISSUE: Objects with valueOf() can be coerced
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: Number({ valueOf: () => 5 }) 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: Number({ valueOf: () => 5 }),
 			});
 			expect(result.success).toBe(true);
 		});
@@ -368,22 +418,22 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	describe('ATTACK VECTOR: Floating point precision attacks', () => {
 		it('VULNERABILITY: 1.0000000001 passes - needs .int() refinement', () => {
 			// SECURITY ISSUE: Near-boundary float values pass validation
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 1.0000000001 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1.0000000001,
 			});
 			expect(result.success).toBe(true);
 		});
 
 		it('rejects 20.9999999999 (precision attack)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 20.9999999999 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 20.9999999999,
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects 1e-10 (very small decimal)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 1e-10 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1e-10,
 			});
 			expect(result.success).toBe(false);
 		});
@@ -394,57 +444,57 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	// ============================================
 	describe('ATTACK VECTOR: Special numeric values', () => {
 		it('rejects negative zero', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: -0 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: -0,
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects scientific notation - 1e0', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 1e0 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1,
 			});
 			expect(result.success).toBe(true); // 1e0 = 1, valid
 		});
 
 		it('rejects scientific notation - 20e0', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 20e0 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 20,
 			});
 			expect(result.success).toBe(true); // 20e0 = 20, valid
 		});
 
 		it('rejects scientific notation - 21e0', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 21e0 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 21,
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects 0xF (hex literal)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 0xF 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0xf,
 			});
 			expect(result.success).toBe(true); // 0xF = 15, valid
 		});
 
 		it('rejects 0x14 (hex literal = 20)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 0x14 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0x14,
 			});
 			expect(result.success).toBe(true); // 0x14 = 20, valid
 		});
 
 		it('rejects 0x15 (hex literal = 21)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 0x15 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0x15,
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects 0b10100 (binary literal = 20)', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				auto_checkpoint_threshold: 0b10100 
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 0b10100,
 			});
 			expect(result.success).toBe(true); // 0b10100 = 20, valid
 		});
@@ -455,34 +505,34 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 	// ============================================
 	describe('ATTACK VECTOR: Combined malformed inputs', () => {
 		it('rejects both fields invalid', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: 'true', 
-				auto_checkpoint_threshold: '5' 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: 'true',
+				auto_checkpoint_threshold: '5',
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects enabled as number and threshold as string', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: 1, 
-				auto_checkpoint_threshold: 'abc' 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: 1,
+				auto_checkpoint_threshold: 'abc',
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects extreme values with extra fields', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				auto_checkpoint_threshold: 999999, 
-				exec: 'malicious' 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				auto_checkpoint_threshold: 999999,
+				exec: 'malicious',
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('rejects nested object injection', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: { valueOf: () => true }, 
-				auto_checkpoint_threshold: { valueOf: () => 5 } 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: { valueOf: () => true },
+				auto_checkpoint_threshold: { valueOf: () => 5 },
 			});
 			expect(result.success).toBe(false);
 		});
@@ -512,19 +562,23 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 		});
 
 		it('accepts explicit threshold at min', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 1 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 1,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('accepts explicit threshold at max', () => {
-			const result = CheckpointConfigSchema.safeParse({ auto_checkpoint_threshold: 20 });
+			const result = CheckpointConfigSchema.safeParse({
+				auto_checkpoint_threshold: 20,
+			});
 			expect(result.success).toBe(true);
 		});
 
 		it('accepts full explicit config', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: true, 
-				auto_checkpoint_threshold: 5 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: true,
+				auto_checkpoint_threshold: 5,
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
@@ -534,9 +588,9 @@ describe('ADVERSARIAL: CheckpointConfigSchema security tests', () => {
 		});
 
 		it('accepts disabled with threshold', () => {
-			const result = CheckpointConfigSchema.safeParse({ 
-				enabled: false, 
-				auto_checkpoint_threshold: 10 
+			const result = CheckpointConfigSchema.safeParse({
+				enabled: false,
+				auto_checkpoint_threshold: 10,
 			});
 			expect(result.success).toBe(true);
 		});

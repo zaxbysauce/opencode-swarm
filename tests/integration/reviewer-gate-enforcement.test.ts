@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import type { PluginConfig } from '../../src/config';
 import { createDelegationGateHook } from '../../src/hooks/delegation-gate';
+import type { DelegationEntry } from '../../src/state';
 import {
 	advanceTaskState,
 	ensureAgentSession,
@@ -7,8 +9,6 @@ import {
 	resetSwarmState,
 	swarmState,
 } from '../../src/state';
-import type { DelegationEntry } from '../../src/state';
-import type { PluginConfig } from '../../src/config';
 
 /**
  * Simulate a coder delegation by adding a delegation chain entry.
@@ -65,9 +65,9 @@ describe('runtime reviewer gate', () => {
 			args: { subagent_type: 'coder', prompt: 'Fix the bug' },
 		};
 
-		await expect(
-			hooks.toolBefore(input, output),
-		).rejects.toThrow('REVIEWER_GATE_VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'REVIEWER_GATE_VIOLATION',
+		);
 	});
 
 	test('allows coder delegation when state is idle (first delegation)', async () => {
@@ -162,8 +162,8 @@ describe('runtime reviewer gate', () => {
 		};
 
 		// Should throw even in turbo mode for Tier 3 tasks
-		await expect(
-			hooks.toolBefore(input, output),
-		).rejects.toThrow('REVIEWER_GATE_VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'REVIEWER_GATE_VIOLATION',
+		);
 	});
 });

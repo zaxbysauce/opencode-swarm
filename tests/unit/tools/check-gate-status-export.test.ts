@@ -6,9 +6,9 @@
  * 2. The export is consumable (importable) by plugin registration code
  */
 
-import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 // Test 1: Verify the export appears exactly once in the source
 describe('check_gate_status export surface', () => {
@@ -30,7 +30,8 @@ describe('check_gate_status export surface', () => {
 		const content = fs.readFileSync(indexPath, 'utf-8');
 
 		// Verify it exports from './check-gate-status'
-		const exportLineRegex = /export\s*{\s*check_gate_status\s*}\s*from\s*['"]\.\/check-gate-status['"]/;
+		const exportLineRegex =
+			/export\s*{\s*check_gate_status\s*}\s*from\s*['"]\.\/check-gate-status['"]/;
 		expect(exportLineRegex.test(content)).toBe(true);
 	});
 });
@@ -40,7 +41,7 @@ describe('check_gate_status consumability', () => {
 	it('should be importable from src/tools/index', async () => {
 		// This verifies the export is consumable - can be imported
 		const toolsIndex = await import('../../../src/tools/index');
-		
+
 		// Check that check_gate_status exists as an export
 		expect('check_gate_status' in toolsIndex).toBe(true);
 	});
@@ -51,7 +52,7 @@ describe('check_gate_status consumability', () => {
 		// Verify it's a valid tool definition with expected properties
 		expect(check_gate_status).toBeDefined();
 		expect(typeof check_gate_status).toBe('object');
-		
+
 		// Check it's a tool with description and execute
 		expect(check_gate_status).toHaveProperty('description');
 		expect(check_gate_status).toHaveProperty('execute');
@@ -70,14 +71,18 @@ describe('check_gate_status consumability', () => {
 // Test 3: Verify the source module also exports it correctly
 describe('check_gate_status source module', () => {
 	it('should be defined in check-gate-status.ts', async () => {
-		const checkGateStatus = await import('../../../src/tools/check-gate-status');
-		
+		const checkGateStatus = await import(
+			'../../../src/tools/check-gate-status'
+		);
+
 		// The source should export check_gate_status
 		expect('check_gate_status' in checkGateStatus).toBe(true);
 	});
 
 	it('should export a tool with task_id argument schema', async () => {
-		const { check_gate_status } = await import('../../../src/tools/check-gate-status');
+		const { check_gate_status } = await import(
+			'../../../src/tools/check-gate-status'
+		);
 
 		// The tool should have args with task_id defined
 		expect(check_gate_status.args).toBeDefined();

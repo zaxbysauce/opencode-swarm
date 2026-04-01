@@ -7,27 +7,33 @@
  * 3. Repos without git skip silently
  */
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { TOOL_NAMES } from '../../src/tools/tool-names';
+import * as path from 'node:path';
 import { AGENT_TOOL_MAP } from '../../src/config/constants';
-import { co_change_analyzer } from '../../src/tools/index';
-import type { CoChangeEntry } from '../../src/tools/co-change-analyzer';
 import type { PluginConfig } from '../../src/config/schema';
+import type { CoChangeEntry } from '../../src/tools/co-change-analyzer';
+import { co_change_analyzer } from '../../src/tools/index';
+import { TOOL_NAMES } from '../../src/tools/tool-names';
 
 // Track calls to detectDarkMatter for verification
-const detectDarkMatterCalls: Array<{ directory: string; options: unknown }> = [];
+const detectDarkMatterCalls: Array<{ directory: string; options: unknown }> =
+	[];
 const formatDarkMatterOutputCalls: Array<CoChangeEntry[]> = [];
-const darkMatterToKnowledgeEntriesCalls: Array<{ pairs: CoChangeEntry[]; projectName: string }> = [];
+const darkMatterToKnowledgeEntriesCalls: Array<{
+	pairs: CoChangeEntry[];
+	projectName: string;
+}> = [];
 
 // Mock co-change-analyzer module
-const mockDetectDarkMatter = mock(async (directory: string, options?: unknown) => {
-	detectDarkMatterCalls.push({ directory, options });
-	return [];
-});
+const mockDetectDarkMatter = mock(
+	async (directory: string, options?: unknown) => {
+		detectDarkMatterCalls.push({ directory, options });
+		return [];
+	},
+);
 
 const mockFormatDarkMatterOutput = mock((pairs: CoChangeEntry[]) => {
 	formatDarkMatterOutputCalls.push(pairs);
@@ -38,7 +44,10 @@ const mockFormatDarkMatterOutput = mock((pairs: CoChangeEntry[]) => {
 });
 
 const mockDarkMatterToKnowledgeEntries = mock(
-	(pairs: CoChangeEntry[], projectName: string): Array<{ lesson: string; category: string; tags: string[] }> => {
+	(
+		pairs: CoChangeEntry[],
+		projectName: string,
+	): Array<{ lesson: string; category: string; tags: string[] }> => {
 		darkMatterToKnowledgeEntriesCalls.push({ pairs, projectName });
 		return pairs.slice(0, 10).map((pair) => ({
 			lesson: `Files ${pair.fileA} and ${pair.fileB} co-change with NPMI=${pair.npmi.toFixed(3)}`,
@@ -50,7 +59,9 @@ const mockDarkMatterToKnowledgeEntries = mock(
 
 // Mock knowledge-store module
 const mockAppendKnowledge = mock(async () => {});
-const mockResolveSwarmKnowledgePath = mock(() => '/test/.swarm/knowledge.jsonl');
+const mockResolveSwarmKnowledgePath = mock(
+	() => '/test/.swarm/knowledge.jsonl',
+);
 const mockReadKnowledge = mock(async () => []);
 
 mock.module('../../src/tools/co-change-analyzer.js', () => ({
@@ -66,7 +77,9 @@ mock.module('../../src/hooks/knowledge-store.js', () => ({
 }));
 
 // Import after mock setup
-const { detectArchitectMode, createSystemEnhancerHook } = await import('../../src/hooks/system-enhancer');
+const { detectArchitectMode, createSystemEnhancerHook } = await import(
+	'../../src/hooks/system-enhancer'
+);
 
 describe('co_change_analyzer registration', () => {
 	describe('TOOL_NAMES registration', () => {
@@ -75,7 +88,9 @@ describe('co_change_analyzer registration', () => {
 		});
 
 		test('TOOL_NAMES has no duplicates', () => {
-			const occurrences = TOOL_NAMES.filter((name) => name === 'co_change_analyzer');
+			const occurrences = TOOL_NAMES.filter(
+				(name) => name === 'co_change_analyzer',
+			);
 			expect(occurrences).toHaveLength(1);
 		});
 	});
@@ -308,4 +323,3 @@ describe('repos without git skip silently', () => {
 		expect(fs.existsSync(darkMatterPath)).toBe(false);
 	});
 });
-

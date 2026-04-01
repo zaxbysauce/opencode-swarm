@@ -8,7 +8,15 @@
  * - Verify enabled-mode zero coverage returns FAIL (not PASS)
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import { sastScan } from '../../../src/tools/sast-scan';
 

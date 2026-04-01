@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the module under test
 const testRunnerModule = await import('../../../src/tools/test-runner');
@@ -249,7 +249,10 @@ describe('test-runner.ts - Validation Tests (no execution)', () => {
 		process.chdir(tempDir);
 
 		// Use explicit scope to reach framework detection (not scope: 'all' which is rejected first)
-		const result = await test_runner.execute({ scope: 'convention', files: ['src/utils.ts'] }, {} as any);
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: ['src/utils.ts'] },
+			{} as any,
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -335,7 +338,7 @@ describe('test-runner.ts - Edge Cases', () => {
 		expect(test_runner.args.files).toBeDefined();
 		expect(test_runner.args.coverage).toBeDefined();
 		expect(test_runner.args.timeout_ms).toBeDefined();
-		
+
 		// Verify DEFAULT_TIMEOUT_MS is exported and correct
 		expect(DEFAULT_TIMEOUT_MS).toBe(60000);
 	});
@@ -430,10 +433,7 @@ describe('test-runner.ts - Security Validation', () => {
 	});
 
 	test('rejects invalid scope value', async () => {
-		const result = await test_runner.execute(
-			{ scope: 'invalid' },
-			{} as any,
-		);
+		const result = await test_runner.execute({ scope: 'invalid' }, {} as any);
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toContain('Invalid arguments');
@@ -489,10 +489,7 @@ describe('test-runner.ts - Security Validation', () => {
 	});
 
 	test('rejects graph scope without files', async () => {
-		const result = await test_runner.execute(
-			{ scope: 'graph' },
-			{} as any,
-		);
+		const result = await test_runner.execute({ scope: 'graph' }, {} as any);
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('graph');
@@ -524,7 +521,9 @@ describe('test-runner.ts - Security Validation', () => {
 
 	test('rejects non-source files array for convention scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-conv-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'test-runner-nonsrc-conv-'),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -544,8 +543,12 @@ describe('test-runner.ts - Security Validation', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('convention');
-		expect(parsed.error).toContain('no source files with recognized extensions');
-		expect(parsed.message).toContain('Non-source files like README.md or config.json');
+		expect(parsed.error).toContain(
+			'no source files with recognized extensions',
+		);
+		expect(parsed.message).toContain(
+			'Non-source files like README.md or config.json',
+		);
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -559,7 +562,9 @@ describe('test-runner.ts - Security Validation', () => {
 
 	test('rejects non-source files array for graph scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-graph-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'test-runner-nonsrc-graph-'),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -579,8 +584,12 @@ describe('test-runner.ts - Security Validation', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('graph');
-		expect(parsed.error).toContain('no source files with recognized extensions');
-		expect(parsed.message).toContain('Non-source files like README.md or config.json');
+		expect(parsed.error).toContain(
+			'no source files with recognized extensions',
+		);
+		expect(parsed.message).toContain(
+			'Non-source files like README.md or config.json',
+		);
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -595,10 +604,7 @@ describe('test-runner.ts - Security Validation', () => {
 
 describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 	test('rejects scope "all" with structured error for interactive sessions', async () => {
-		const result = await test_runner.execute(
-			{ scope: 'all' },
-			{} as any,
-		);
+		const result = await test_runner.execute({ scope: 'all' }, {} as any);
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('all');
@@ -608,7 +614,9 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('allows narrow scope requests to execute normally', async () => {
 		// Create a temp directory with a simple test file
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-narrow-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'test-runner-narrow-'),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -623,10 +631,16 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 		// Create src directory FIRST, then source file
 		fs.mkdirSync('src', { recursive: true });
-		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+		fs.writeFileSync(
+			'src/utils.ts',
+			'export const add = (a: number, b: number) => a + b;',
+		);
 
 		// Create corresponding test file
-		fs.writeFileSync('src/utils.test.ts', 'import { describe, test, expect } from "vitest"; import { add } from "./utils"; describe("add", () => { test("adds", () => { expect(add(1, 2)).toBe(3); }); });');
+		fs.writeFileSync(
+			'src/utils.test.ts',
+			'import { describe, test, expect } from "vitest"; import { add } from "./utils"; describe("add", () => { test("adds", () => { expect(add(1, 2)).toBe(3); }); });',
+		);
 
 		// Use convention scope with explicit file - should NOT be rejected
 		const result = await test_runner.execute(
@@ -653,7 +667,9 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('rejects source file with no matching test file for convention scope', async () => {
 		// Create a temp directory with a source file but NO test file
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-conv-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'test-runner-empty-conv-'),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -668,7 +684,10 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 		// Create src directory and source file WITHOUT a corresponding test file
 		fs.mkdirSync('src', { recursive: true });
-		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+		fs.writeFileSync(
+			'src/utils.ts',
+			'export const add = (a: number, b: number) => a + b;',
+		);
 
 		// Provide the source file - should be rejected because no test file exists
 		const result = await test_runner.execute(
@@ -695,7 +714,9 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('rejects source file with no matching test file for graph scope', async () => {
 		// Create a temp directory with a source file but NO test file
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-graph-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'test-runner-empty-graph-'),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -710,7 +731,10 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 		// Create src directory and source file WITHOUT a corresponding test file
 		fs.mkdirSync('src', { recursive: true });
-		fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+		fs.writeFileSync(
+			'src/utils.ts',
+			'export const add = (a: number, b: number) => a + b;',
+		);
 
 		// Provide the source file - should be rejected because no test file exists
 		const result = await test_runner.execute(
@@ -747,13 +771,9 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
  * - scope:"convention" and scope:"graph" are unaffected by allow_full_suite
  */
 describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
-
 	describe('scope "all" guard behavior', () => {
 		test('scope:"all" without allow_full_suite returns error', async () => {
-			const result = await test_runner.execute(
-				{ scope: 'all' },
-				{} as any,
-			);
+			const result = await test_runner.execute({ scope: 'all' }, {} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.scope).toBe('all');
@@ -767,7 +787,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// The execute function should proceed past the guard check.
 
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allowall-'));
+			const tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-allowall-'),
+			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
 
@@ -806,7 +828,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// by the zero-test-files guard when files is an empty array.
 			// Uses a temp dir with no framework so we get "No test framework detected"
 			// rather than actually running the project's test suite.
-			const noFrameworkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allfiles-'));
+			const noFrameworkDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-allfiles-'),
+			);
 			const savedCwd = process.cwd();
 			process.chdir(noFrameworkDir);
 
@@ -817,7 +841,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			const parsed = JSON.parse(result);
 
 			// Should NOT have the zero-test-files guard error
-			expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
+			expect(parsed.error).not.toContain(
+				'Provided source files resolved to zero test files',
+			);
 			// Should NOT have the allow_full_suite error
 			expect(parsed.error).not.toContain('allow_full_suite');
 			// Will have "No test framework detected" since there's no framework in temp dir
@@ -826,7 +852,11 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			process.chdir(savedCwd);
 			setTimeout(() => {
-				try { fs.rmSync(noFrameworkDir, { recursive: true, force: true }); } catch { /* ignore */ }
+				try {
+					fs.rmSync(noFrameworkDir, { recursive: true, force: true });
+				} catch {
+					/* ignore */
+				}
 			}, 100);
 		});
 
@@ -834,7 +864,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// Codex Bug 1 fix verification: scope:"all" with allow_full_suite:true and NO files argument
 			// Uses a temp dir with no framework so we get "No test framework detected"
 			// rather than actually running the project's test suite.
-			const noFrameworkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allnofiles-'));
+			const noFrameworkDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-allnofiles-'),
+			);
 			const savedCwd = process.cwd();
 			process.chdir(noFrameworkDir);
 
@@ -845,7 +877,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			const parsed = JSON.parse(result);
 
 			// Should NOT have the zero-test-files guard error
-			expect(parsed.error).not.toContain('Provided source files resolved to zero test files');
+			expect(parsed.error).not.toContain(
+				'Provided source files resolved to zero test files',
+			);
 			// Should NOT have the allow_full_suite error
 			expect(parsed.error).not.toContain('allow_full_suite');
 			// Result should be "No test framework detected" (proving it passed through to framework detection)
@@ -853,7 +887,11 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			process.chdir(savedCwd);
 			setTimeout(() => {
-				try { fs.rmSync(noFrameworkDir, { recursive: true, force: true }); } catch { /* ignore */ }
+				try {
+					fs.rmSync(noFrameworkDir, { recursive: true, force: true });
+				} catch {
+					/* ignore */
+				}
 			}, 100);
 		});
 
@@ -883,7 +921,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 	describe('scope "convention" and "graph" are unaffected by allow_full_suite', () => {
 		test('scope:"convention" without allow_full_suite works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-'));
+			const tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-conv-'),
+			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
 
@@ -898,7 +938,10 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			// Create src directory and source file
 			fs.mkdirSync('src', { recursive: true });
-			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+			fs.writeFileSync(
+				'src/utils.ts',
+				'export const add = (a: number, b: number) => a + b;',
+			);
 
 			// convention scope with a file should work (but will fail on no test file - which is fine)
 			const result = await test_runner.execute(
@@ -922,7 +965,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"graph" without allow_full_suite works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-'));
+			const tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-graph-'),
+			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
 
@@ -937,7 +982,10 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			// Create src directory and source file
 			fs.mkdirSync('src', { recursive: true });
-			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+			fs.writeFileSync(
+				'src/utils.ts',
+				'export const add = (a: number, b: number) => a + b;',
+			);
 
 			// graph scope with a file should work (but will fail on no test file - which is fine)
 			const result = await test_runner.execute(
@@ -961,7 +1009,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"convention" with allow_full_suite:true still works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-allow-'));
+			const tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-conv-allow-'),
+			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
 
@@ -976,11 +1026,18 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			// Create src directory and source file
 			fs.mkdirSync('src', { recursive: true });
-			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+			fs.writeFileSync(
+				'src/utils.ts',
+				'export const add = (a: number, b: number) => a + b;',
+			);
 
 			// convention scope with allow_full_suite should still work (allow_full_suite is ignored for non-all scopes)
 			const result = await test_runner.execute(
-				{ scope: 'convention', files: ['src/utils.ts'], allow_full_suite: true },
+				{
+					scope: 'convention',
+					files: ['src/utils.ts'],
+					allow_full_suite: true,
+				},
 				{} as any,
 			);
 			const parsed = JSON.parse(result);
@@ -1000,7 +1057,9 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"graph" with allow_full_suite:true still works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-allow-'));
+			const tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'test-runner-graph-allow-'),
+			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
 
@@ -1015,7 +1074,10 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			// Create src directory and source file
 			fs.mkdirSync('src', { recursive: true });
-			fs.writeFileSync('src/utils.ts', 'export const add = (a: number, b: number) => a + b;');
+			fs.writeFileSync(
+				'src/utils.ts',
+				'export const add = (a: number, b: number) => a + b;',
+			);
 
 			// graph scope with allow_full_suite should still work (allow_full_suite is ignored for non-all scopes)
 			const result = await test_runner.execute(

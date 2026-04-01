@@ -1,27 +1,47 @@
-import { describe, it, expect, beforeEach, afterEach, afterAll, vi, beforeAll } from 'bun:test';
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { syntaxCheck, type SyntaxCheckInput } from '../../src/tools/syntax-check';
-import { placeholderScan, type PlaceholderScanInput } from '../../src/tools/placeholder-scan';
-import { runBuildCheck, type BuildCheckInput } from '../../src/tools/build-check';
-import { qualityBudget, type QualityBudgetInput } from '../../src/tools/quality-budget';
-import {
-	saveEvidence,
-	loadEvidence,
-	deleteEvidence,
-	listEvidenceTaskIds,
-} from '../../src/evidence/manager';
 import type {
+	ApprovalEvidence,
 	Evidence,
+	EvidenceBundle,
 	EvidenceVerdict,
-	SyntaxEvidence,
 	PlaceholderEvidence,
 	ReviewEvidence,
-	ApprovalEvidence,
-	EvidenceBundle,
+	SyntaxEvidence,
 } from '../../src/config/evidence-schema';
+import {
+	deleteEvidence,
+	listEvidenceTaskIds,
+	loadEvidence,
+	saveEvidence,
+} from '../../src/evidence/manager';
+import {
+	type BuildCheckInput,
+	runBuildCheck,
+} from '../../src/tools/build-check';
+import {
+	type PlaceholderScanInput,
+	placeholderScan,
+} from '../../src/tools/placeholder-scan';
+import {
+	type QualityBudgetInput,
+	qualityBudget,
+} from '../../src/tools/quality-budget';
+import {
+	type SyntaxCheckInput,
+	syntaxCheck,
+} from '../../src/tools/syntax-check';
 
 // Test data directory
 let testDir: string;
@@ -42,7 +62,7 @@ describe('Gate Workflow Integration Tests', () => {
 
 	afterEach(async () => {
 		// Give file handles time to close
-		await new Promise(resolve => setTimeout(resolve, 50));
+		await new Promise((resolve) => setTimeout(resolve, 50));
 		if (testDir && fs.existsSync(testDir)) {
 			try {
 				fs.rmSync(testDir, { recursive: true, force: true });
@@ -69,7 +89,10 @@ describe('Gate Workflow Integration Tests', () => {
 
 	describe('1. Syntax Check Gate', () => {
 		it('accepts valid JavaScript files', async () => {
-			const filePath = createTestFile('src/valid.js', 'const x = 1;\nconst y = 2;');
+			const filePath = createTestFile(
+				'src/valid.js',
+				'const x = 1;\nconst y = 2;',
+			);
 			const input: SyntaxCheckInput = {
 				changed_files: [{ path: filePath, additions: 1 }],
 				mode: 'changed',
@@ -146,7 +169,9 @@ describe('Gate Workflow Integration Tests', () => {
 
 			const result = await placeholderScan(input, testDir);
 
-			expect(result.findings.some((f) => f.rule_id.includes('todo'))).toBe(true);
+			expect(result.findings.some((f) => f.rule_id.includes('todo'))).toBe(
+				true,
+			);
 		});
 
 		it('detects FIXME comments', async () => {
@@ -160,7 +185,9 @@ describe('Gate Workflow Integration Tests', () => {
 
 			const result = await placeholderScan(input, testDir);
 
-			expect(result.findings.some((f) => f.rule_id.includes('fixme'))).toBe(true);
+			expect(result.findings.some((f) => f.rule_id.includes('fixme'))).toBe(
+				true,
+			);
 		});
 
 		it('skips test files by default', async () => {
@@ -475,7 +502,10 @@ describe('Gate Workflow Integration Tests', () => {
 
 	describe('6. Failure Path Tests', () => {
 		it('placeholder scan fails with TODOs', async () => {
-			const filePath = createTestFile('src/todo.ts', '// TODO: fix\nfunction foo() {}');
+			const filePath = createTestFile(
+				'src/todo.ts',
+				'// TODO: fix\nfunction foo() {}',
+			);
 			const input: PlaceholderScanInput = {
 				changed_files: [filePath],
 			};
@@ -487,9 +517,15 @@ describe('Gate Workflow Integration Tests', () => {
 
 		it('multiple gates fail independently', async () => {
 			// File with TODO
-			const filePath = createTestFile('src/todo.ts', '// TODO: fix\nfunction foo() {}');
+			const filePath = createTestFile(
+				'src/todo.ts',
+				'// TODO: fix\nfunction foo() {}',
+			);
 
-			const placeholderResult = await placeholderScan({ changed_files: [filePath] }, testDir);
+			const placeholderResult = await placeholderScan(
+				{ changed_files: [filePath] },
+				testDir,
+			);
 
 			// Should fail
 			expect(placeholderResult.verdict).toBe('fail');
@@ -503,14 +539,20 @@ describe('Gate Workflow Integration Tests', () => {
 			const filePath = createTestFile('src/fixme.ts', '// FIXME: fix this');
 
 			// First run - should fail
-			const firstResult = await placeholderScan({ changed_files: [filePath] }, testDir);
+			const firstResult = await placeholderScan(
+				{ changed_files: [filePath] },
+				testDir,
+			);
 			expect(firstResult.verdict).toBe('fail');
 
 			// Fix the file
 			fs.writeFileSync(filePath, '// Fixed!\nfunction foo() {}');
 
 			// Second run - should pass
-			const secondResult = await placeholderScan({ changed_files: [filePath] }, testDir);
+			const secondResult = await placeholderScan(
+				{ changed_files: [filePath] },
+				testDir,
+			);
 			expect(secondResult.verdict).toBe('pass');
 		});
 	});
@@ -520,9 +562,15 @@ describe('Gate Workflow Integration Tests', () => {
 	describe('8. Full Gate Sequence', () => {
 		it('runs complete gate sequence in order', async () => {
 			// Setup: Create files that pass all gates - NO comments at all
-			const cleanFile = createTestFile('src/clean.ts', 'export function add(a: number, b: number): number { return a + b; }');
+			const cleanFile = createTestFile(
+				'src/clean.ts',
+				'export function add(a: number, b: number): number { return a + b; }',
+			);
 			// Use a simpler test file without any comments
-			const testFile = createTestFile('tests/clean.test.ts', 'describe("test", function() { it("works", function() {}); });');
+			const testFile = createTestFile(
+				'tests/clean.test.ts',
+				'describe("test", function() { it("works", function() {}); });',
+			);
 
 			// Gate 1: Syntax Check
 			const syntaxResult = await syntaxCheck(
@@ -537,16 +585,19 @@ describe('Gate Workflow Integration Tests', () => {
 			);
 
 			// Gate 2: Placeholder Scan (test files are skipped)
-			const placeholderResult = await placeholderScan({
-				changed_files: [cleanFile, testFile],
-			}, testDir);
+			const placeholderResult = await placeholderScan(
+				{
+					changed_files: [cleanFile, testFile],
+				},
+				testDir,
+			);
 
 			// Gate 3: Quality Budget with lenient config (only check src files)
 			const qualityResult = await qualityBudget(
 				{
 					changed_files: [cleanFile], // Only check clean.ts
-					config: { 
-						max_complexity_delta: 50, 
+					config: {
+						max_complexity_delta: 50,
 						max_public_api_delta: 50,
 						enforce_on_globs: ['src/**'],
 						exclude_globs: ['tests/**', '**/*.test.*'],
@@ -642,7 +693,10 @@ describe('Gate Workflow Integration Tests', () => {
 
 	describe('10. Edge Cases', () => {
 		it('handles binary files in placeholder scan', async () => {
-			const binaryFile = createTestFile('src/data.bin', Buffer.alloc(100).toString('binary'));
+			const binaryFile = createTestFile(
+				'src/data.bin',
+				Buffer.alloc(100).toString('binary'),
+			);
 			const input: PlaceholderScanInput = {
 				changed_files: [binaryFile],
 			};
@@ -671,7 +725,10 @@ describe('Gate Workflow Integration Tests', () => {
 		it('generates correct summary for syntax check', async () => {
 			const filePath = createTestFile('src/test.ts', 'const x = 1;');
 
-			const result = await syntaxCheck({ changed_files: [{ path: filePath, additions: 1 }], mode: 'changed' }, testDir);
+			const result = await syntaxCheck(
+				{ changed_files: [{ path: filePath, additions: 1 }], mode: 'changed' },
+				testDir,
+			);
 
 			expect(result.summary).toBeDefined();
 		});
@@ -679,7 +736,10 @@ describe('Gate Workflow Integration Tests', () => {
 		it('generates correct summary for placeholder scan', async () => {
 			const filePath = createTestFile('src/clean.ts', 'const x = 1;');
 
-			const result = await placeholderScan({ changed_files: [filePath] }, testDir);
+			const result = await placeholderScan(
+				{ changed_files: [filePath] },
+				testDir,
+			);
 
 			expect(result.summary).toBeDefined();
 			expect(result.summary.files_scanned).toBe(1);
@@ -688,7 +748,10 @@ describe('Gate Workflow Integration Tests', () => {
 		it('generates correct summary for quality budget', async () => {
 			const filePath = createTestFile('src/test.ts', 'const x = 1;');
 
-			const result = await qualityBudget({ changed_files: [filePath], config: { max_complexity_delta: 10 } }, testDir);
+			const result = await qualityBudget(
+				{ changed_files: [filePath], config: { max_complexity_delta: 10 } },
+				testDir,
+			);
 
 			expect(result.summary).toBeDefined();
 		});
@@ -712,7 +775,10 @@ describe('Gate Workflow Integration Tests', () => {
 		it('evidence flows from syntax check to aggregation', async () => {
 			const filePath = createTestFile('src/test.ts', 'const x = 1;');
 
-			await syntaxCheck({ changed_files: [{ path: filePath, additions: 1 }], mode: 'changed' }, testDir);
+			await syntaxCheck(
+				{ changed_files: [{ path: filePath, additions: 1 }], mode: 'changed' },
+				testDir,
+			);
 
 			const result = await loadEvidence(testDir, 'syntax_check');
 			expect(result.status).toBe('found');
@@ -720,7 +786,10 @@ describe('Gate Workflow Integration Tests', () => {
 		});
 
 		it('evidence flows from placeholder scan to aggregation', async () => {
-			const filePath = createTestFile('src/clean.ts', '// TODO: later\nfunction foo() {}');
+			const filePath = createTestFile(
+				'src/clean.ts',
+				'// TODO: later\nfunction foo() {}',
+			);
 
 			await placeholderScan({ changed_files: [filePath] }, testDir);
 

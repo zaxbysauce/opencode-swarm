@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 /**
  * DEBUG_SWARM Diagnostic Gating Tests
@@ -21,7 +21,9 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 		let originalDebugSwarm: string | undefined;
 
 		beforeEach(() => {
-			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curator-diagnostic-test-'));
+			tempDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'curator-diagnostic-test-'),
+			);
 			originalDebugSwarm = process.env.DEBUG_SWARM;
 		});
 
@@ -41,13 +43,17 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 
 			// Act & Assert: Should return null both with and without DEBUG_SWARM
 			process.env.DEBUG_SWARM = undefined;
-			const { readCuratorSummary } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result1 = await readCuratorSummary(tempDir);
 			expect(result1).toBeNull();
 
 			process.env.DEBUG_SWARM = '1';
 			// Need to re-import to pick up env change
-			const { readCuratorSummary: readCuratorSummary2 } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary: readCuratorSummary2 } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result2 = await readCuratorSummary2(tempDir);
 			expect(result2).toBeNull();
 		});
@@ -135,7 +141,9 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			expect(hasTryCatch).toBe(true);
 
 			// Verify the catch block doesn't rethrow
-			const catchBlockMatch = snapshotWriterSource.match(/} catch \(error\) \{[\s\S]*?\n\t}/);
+			const catchBlockMatch = snapshotWriterSource.match(
+				/} catch \(error\) \{[\s\S]*?\n\t}/,
+			);
 			expect(catchBlockMatch).not.toBeNull();
 			// The catch block should NOT contain 'throw'
 			expect(catchBlockMatch![0]).not.toContain('throw');
@@ -173,7 +181,10 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 						// Look ahead up to 5 lines for console.error or console.warn
 						let hasConsoleCall = false;
 						for (let j = i; j <= Math.min(lines.length - 1, i + 5); j++) {
-							if (lines[j].includes('console.error') || lines[j].includes('console.warn')) {
+							if (
+								lines[j].includes('console.error') ||
+								lines[j].includes('console.warn')
+							) {
 								hasConsoleCall = true;
 								break;
 							}
@@ -210,11 +221,18 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			// Helper function to check if console call is gated
 			// Simplified: check that within 5 lines before any console.error/console.warn
 			// there's a process.env.DEBUG_SWARM
-			function isGated(source: string, consoleCall: string, hookName: string): boolean {
+			function isGated(
+				source: string,
+				consoleCall: string,
+				hookName: string,
+			): boolean {
 				const lines = source.split('\n');
 				for (let i = 0; i < lines.length; i++) {
 					// Find any console.error or console.warn call
-					if (lines[i].includes('console.error') || lines[i].includes('console.warn')) {
+					if (
+						lines[i].includes('console.error') ||
+						lines[i].includes('console.warn')
+					) {
 						// Check if there's a process.env.DEBUG_SWARM within 5 lines before
 						for (let j = i; j >= Math.max(0, i - 5); j--) {
 							if (lines[j].includes('process.env.DEBUG_SWARM')) {
@@ -227,10 +245,10 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			}
 
 			// Location 1: src/index.ts — console.error('[DIAG]...)
-			expect(isGated(indexSource, "console.error", "[DIAG]")).toBe(true);
+			expect(isGated(indexSource, 'console.error', '[DIAG]')).toBe(true);
 
 			// Location 2: src/index.ts — console.debug('[session]...)
-			expect(isGated(indexSource, "console.debug", "[session]")).toBe(true);
+			expect(isGated(indexSource, 'console.debug', '[session]')).toBe(true);
 
 			// Location 3: src/session/snapshot-writer.ts — PR #327 replaced process.env.DEBUG_SWARM &&
 			// console.warn with log() from utils/logger (gated by OPENCODE_SWARM_DEBUG). No longer
@@ -238,7 +256,13 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			// expect(isGated(snapshotWriterSource, "console.warn", "[snapshot-writer]")).toBe(true);
 
 			// Location 4: src/hooks/curator.ts — console.warn('Failed to parse curator-summary.json...)
-			expect(isGated(curatorSource, "console.warn", "Failed to parse curator-summary.json")).toBe(true);
+			expect(
+				isGated(
+					curatorSource,
+					'console.warn',
+					'Failed to parse curator-summary.json',
+				),
+			).toBe(true);
 		});
 
 		test('all DEBUG_SWARM checks use correct pattern (process.env.DEBUG_SWARM)', () => {
@@ -287,12 +311,16 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 		test('readCuratorSummary returns null on missing file regardless of DEBUG_SWARM', async () => {
 			// File doesn't exist
 			process.env.DEBUG_SWARM = undefined;
-			const { readCuratorSummary } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result1 = await readCuratorSummary(tempDir);
 			expect(result1).toBeNull();
 
 			process.env.DEBUG_SWARM = '1';
-			const { readCuratorSummary: readCuratorSummary2 } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary: readCuratorSummary2 } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result2 = await readCuratorSummary2(tempDir);
 			expect(result2).toBeNull();
 		});
@@ -307,12 +335,16 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			);
 
 			process.env.DEBUG_SWARM = undefined;
-			const { readCuratorSummary } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result1 = await readCuratorSummary(tempDir);
 			expect(result1).toBeNull();
 
 			process.env.DEBUG_SWARM = '1';
-			const { readCuratorSummary: readCuratorSummary2 } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary: readCuratorSummary2 } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result2 = await readCuratorSummary2(tempDir);
 			expect(result2).toBeNull();
 		});
@@ -336,12 +368,16 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 			);
 
 			process.env.DEBUG_SWARM = undefined;
-			const { readCuratorSummary } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result1 = await readCuratorSummary(tempDir);
 			expect(result1).toBeNull();
 
 			process.env.DEBUG_SWARM = '1';
-			const { readCuratorSummary: readCuratorSummary2 } = await import('../../../src/hooks/curator.js');
+			const { readCuratorSummary: readCuratorSummary2 } = await import(
+				'../../../src/hooks/curator.js'
+			);
 			const result2 = await readCuratorSummary2(tempDir);
 			expect(result2).toBeNull();
 		});

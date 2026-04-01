@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
@@ -148,7 +148,7 @@ function writeCheckpointLog(log: CheckpointLog, directory: string): void {
  * Execute git command safely using spawnSync with argument array (no shell interpolation)
  */
 function gitExec(args: string[]): string {
-	const result = spawnSync('git', args, {
+	const result = child_process.spawnSync('git', args, {
 		encoding: 'utf-8',
 		timeout: GIT_TIMEOUT_MS,
 		stdio: ['pipe', 'pipe', 'pipe'],

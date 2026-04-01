@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { SummaryConfigSchema } from '../../src/config/schema';
 
 describe('SummaryConfigSchema - Adversarial Tests', () => {
@@ -60,7 +60,10 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 		});
 
 		it('should reject threshold_bytes as MAX_SAFE_INTEGER', () => {
-			expectInvalid({ threshold_bytes: Number.MAX_SAFE_INTEGER }, 'MAX_SAFE_INTEGER');
+			expectInvalid(
+				{ threshold_bytes: Number.MAX_SAFE_INTEGER },
+				'MAX_SAFE_INTEGER',
+			);
 		});
 
 		// NOTE: undefined is NOT a rejection - Zod's default() means "use default when missing"
@@ -98,7 +101,10 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 		});
 
 		it('should reject threshold_bytes as object with valueOf', () => {
-			expectInvalid({ threshold_bytes: { valueOf: () => 102400 } }, 'object with valueOf');
+			expectInvalid(
+				{ threshold_bytes: { valueOf: () => 102400 } },
+				'object with valueOf',
+			);
 		});
 	});
 
@@ -196,21 +202,25 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 		it('Mutation of parsed result does not affect future parses', () => {
 			const result = SummaryConfigSchema.safeParse({});
 			expect(result.success).toBe(true);
-			
+
 			if (result.success && result.data) {
 				// Mutate the result
 				result.data.exempt_tools.push('hacked');
-				
+
 				// Parse again - should get fresh defaults
 				const result2 = SummaryConfigSchema.safeParse({});
 				expect(result2.success).toBe(true);
-				expect(result2.data?.exempt_tools).toEqual(['retrieve_summary', 'task', 'read']);
+				expect(result2.data?.exempt_tools).toEqual([
+					'retrieve_summary',
+					'task',
+					'read',
+				]);
 			}
 		});
 
 		it('prototype pollution strings are treated as literal strings', () => {
 			const maliciousInput = {
-				exempt_tools: ['normal', '__proto__', 'constructor']
+				exempt_tools: ['normal', '__proto__', 'constructor'],
 			};
 			const result = SummaryConfigSchema.safeParse(maliciousInput);
 			// These are just strings in JavaScript - not prototype pollution
@@ -226,7 +236,9 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 		it('should accept exempt_tools with 10000 items', () => {
 			// Large arrays are allowed by Zod - no explicit size limit
 			const largeArray = Array(10000).fill('tool');
-			const result = SummaryConfigSchema.safeParse({ exempt_tools: largeArray });
+			const result = SummaryConfigSchema.safeParse({
+				exempt_tools: largeArray,
+			});
 			// This is accepted - Zod doesn't limit array size
 			expect(result.success).toBe(true);
 		});
@@ -238,15 +250,24 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 
 	describe('combined adversarial inputs', () => {
 		it('should reject combined: negative + null array', () => {
-			expectInvalid({ threshold_bytes: -1, exempt_tools: null }, 'negative + null array');
+			expectInvalid(
+				{ threshold_bytes: -1, exempt_tools: null },
+				'negative + null array',
+			);
 		});
 
 		it('should reject combined: Infinity + number', () => {
-			expectInvalid({ threshold_bytes: Infinity, exempt_tools: 123 }, 'Infinity + number');
+			expectInvalid(
+				{ threshold_bytes: Infinity, exempt_tools: 123 },
+				'Infinity + number',
+			);
 		});
 
 		it('should reject combined: string + boolean array', () => {
-			expectInvalid({ threshold_bytes: 'malicious', exempt_tools: [false] }, 'string + boolean array');
+			expectInvalid(
+				{ threshold_bytes: 'malicious', exempt_tools: [false] },
+				'string + boolean array',
+			);
 		});
 	});
 
@@ -263,7 +284,7 @@ describe('SummaryConfigSchema - Adversarial Tests', () => {
 		const totalNonArray = 6; // non-array tests run
 		const totalNonString = 9; // non-string items tests run
 		const totalCombined = 3; // combined tests run
-		
+
 		// Just verify test ran
 		expect(true).toBe(true);
 	});

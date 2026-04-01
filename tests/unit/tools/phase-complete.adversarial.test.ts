@@ -1,9 +1,14 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmState } from '../../../src/state';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 // Import the tool after setting up environment
 const { phase_complete } = await import('../../../src/tools/phase-complete');
@@ -12,35 +17,46 @@ const { phase_complete } = await import('../../../src/tools/phase-complete');
  * Helper to write a valid retro bundle so phase_complete gate passes in tests.
  */
 function writeRetroBundle(directory: string, phaseNumber: number): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 	fs.writeFileSync(
 		path.join(retroDir, 'evidence.json'),
-		JSON.stringify({
-			schema_version: '1.0.0',
-			task_id: `retro-${phaseNumber}`,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			entries: [{
+		JSON.stringify(
+			{
+				schema_version: '1.0.0',
 				task_id: `retro-${phaseNumber}`,
-				type: 'retrospective',
-				timestamp: new Date().toISOString(),
-				agent: 'architect',
-				verdict: 'pass',
-				summary: 'Phase retrospective',
-				phase_number: phaseNumber,
-				total_tool_calls: 10,
-				coder_revisions: 0,
-				reviewer_rejections: 0,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_count: 1,
-				task_complexity: 'simple',
-				top_rejection_reasons: [],
-				lessons_learned: ['test lesson'],
-			}],
-		}, null, 2),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				entries: [
+					{
+						task_id: `retro-${phaseNumber}`,
+						type: 'retrospective',
+						timestamp: new Date().toISOString(),
+						agent: 'architect',
+						verdict: 'pass',
+						summary: 'Phase retrospective',
+						phase_number: phaseNumber,
+						total_tool_calls: 10,
+						coder_revisions: 0,
+						reviewer_rejections: 0,
+						test_failures: 0,
+						security_findings: 0,
+						integration_issues: 0,
+						task_count: 1,
+						task_complexity: 'simple',
+						top_rejection_reasons: [],
+						lessons_learned: ['test lesson'],
+					},
+				],
+			},
+			null,
+			2,
+		),
 	);
 }
 
@@ -94,7 +110,9 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-adversarial-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-adversarial-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -111,9 +129,9 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 					enabled: true,
 					required_agents: [],
 					require_docs: false,
-					policy: 'enforce'
-				}
-			})
+					policy: 'enforce',
+				},
+			}),
 		);
 	});
 
@@ -134,7 +152,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			ensureAgentSession('../../etc/passwd');
 			recordPhaseAgentDispatch('../../etc/passwd', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: '../../etc/passwd' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: '../../etc/passwd',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash - just use the literal string as sessionID
@@ -145,7 +166,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles XSS-like injection in sessionID - <script>alert(1)</script>', async () => {
 			ensureAgentSession('<script>alert(1)</script>');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: '<script>alert(1)</script>' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: '<script>alert(1)</script>',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash - XSS is not applicable server-side
@@ -155,7 +179,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles SQL injection pattern in sessionID', async () => {
 			ensureAgentSession("'; DROP TABLE sessions; --");
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: "'; DROP TABLE sessions; --" });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: "'; DROP TABLE sessions; --",
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash - SQL injection not applicable with Map lookups
@@ -168,13 +195,15 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const result = await phase_complete.execute({
 				phase: 1,
 				sessionID: 'sess1',
-				summary: 'Test; rm -rf / #; && cat /etc/passwd'
+				summary: 'Test; rm -rf / #; && cat /etc/passwd',
 			});
 			const parsed = JSON.parse(result);
 
 			// Should not execute commands
 			expect(parsed.success).toBe(true);
-			expect(parsed.message).toContain('Test; rm -rf / #; && cat /etc/passwd'.slice(0, 500));
+			expect(parsed.message).toContain(
+				'Test; rm -rf / #; && cat /etc/passwd'.slice(0, 500),
+			);
 		});
 	});
 
@@ -185,19 +214,28 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			// Create a 100KB summary
 			const hugeSummary = 'X'.repeat(100 * 1024);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: hugeSummary });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: hugeSummary,
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash and should truncate
 			expect(parsed.success).toBe(true);
-			expect(parsed.message.length).toBeLessThanOrEqual(500 + 'Phase 1 completed: '.length);
+			expect(parsed.message.length).toBeLessThanOrEqual(
+				500 + 'Phase 1 completed: '.length,
+			);
 		});
 
 		test('handles very long sessionID (10KB)', async () => {
 			const longSessionID = 'A'.repeat(10 * 1024);
 			ensureAgentSession(longSessionID);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: longSessionID });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: longSessionID,
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash
@@ -220,7 +258,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as float (1.7)', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1.7, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1.7,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// No retro bundle exists for phase 1.7 — fails gracefully (RETROSPECTIVE_MISSING)
@@ -230,7 +271,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as very large integer (MAX_SAFE_INTEGER)', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: Number.MAX_SAFE_INTEGER, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: Number.MAX_SAFE_INTEGER,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should fail gracefully — no retro bundle exists for this phase, but no crash
@@ -241,7 +285,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as zero after coercing to number', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 0, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 0,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should reject 0
@@ -252,7 +299,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as string "1" - coerced to number', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: '1' as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: '1' as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should coerce '1' to 1
@@ -263,7 +313,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as string "1.5"', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: '1.5' as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: '1.5' as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Coerces '1.5' to 1.5 — no retro bundle exists for 1.5, fails gracefully
@@ -274,7 +327,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as negative float', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: -1.5, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: -1.5,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should reject negative
@@ -285,7 +341,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase number as string "NaN"', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 'NaN' as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 'NaN' as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should reject NaN
@@ -298,7 +357,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles sessionID as explicit "null" string', async () => {
 			ensureAgentSession('null');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'null' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'null',
+			});
 			const parsed = JSON.parse(result);
 
 			// "null" is truthy string, should work
@@ -308,7 +370,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles sessionID as "undefined" string', async () => {
 			ensureAgentSession('undefined');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'undefined' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'undefined',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should work
@@ -320,7 +385,11 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 
 			const summaryWithNullBytes = 'Test\x00\x00\x00Summary';
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: summaryWithNullBytes });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: summaryWithNullBytes,
+			});
 			const parsed = JSON.parse(result);
 
 			// Should not crash
@@ -332,9 +401,14 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles summary with Unicode emojis and special chars', async () => {
 			ensureAgentSession('sess1');
 
-			const summary = 'Test 🎉💥 with emoji \u0000 and null byte \n newline \t tab';
+			const summary =
+				'Test 🎉💥 with emoji \u0000 and null byte \n newline \t tab';
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: summary });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: summary,
+			});
 			const parsed = JSON.parse(result);
 
 			// Should handle gracefully
@@ -345,7 +419,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const unicodeSessionID = 'session-🎉-测试-テスト';
 			ensureAgentSession(unicodeSessionID);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: unicodeSessionID });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: unicodeSessionID,
+			});
 			const parsed = JSON.parse(result);
 
 			// Should work
@@ -361,18 +438,27 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 				JSON.stringify({
 					phase_complete: {
 						enabled: true,
-						required_agents: ['coder', 'coder', 'coder', 'reviewer', 'reviewer'],
+						required_agents: [
+							'coder',
+							'coder',
+							'coder',
+							'reviewer',
+							'reviewer',
+						],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'reviewer');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed with duplicates handled gracefully
@@ -391,7 +477,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 				{ from: 'reviewer', to: 'coder', timestamp: Date.now() - 2000 }, // Duplicate agent
 			]);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should handle duplicates via Set deduplication
@@ -412,13 +501,18 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			recordPhaseAgentDispatch('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'coder'); // Duplicate again
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should deduplicate via Set
 			expect(parsed.success).toBe(true);
 			// coder should only appear once
-			expect(parsed.agentsDispatched.filter((a: string) => a === 'coder').length).toBe(1);
+			expect(
+				parsed.agentsDispatched.filter((a: string) => a === 'coder').length,
+			).toBe(1);
 		});
 	});
 
@@ -435,10 +529,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			];
 
 			const results = await Promise.all(promises);
-			const parsed = results.map(r => JSON.parse(r));
+			const parsed = results.map((r) => JSON.parse(r));
 
 			// All should complete without crashing
-			parsed.forEach(p => {
+			parsed.forEach((p) => {
 				expect(p.success).toBe(true);
 			});
 
@@ -452,14 +546,20 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 
 			// Interleaved operations
-			const result1 = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result1 = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed1 = JSON.parse(result1);
 
 			// After sess1 completes, re-dispatch reviewer for sess2
 			// (sess1's phase_complete resets all contributor sessions including sess2)
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 
-			const result2 = await phase_complete.execute({ phase: 1, sessionID: 'sess2' });
+			const result2 = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess2',
+			});
 			const parsed2 = JSON.parse(result2);
 
 			// Both should succeed independently
@@ -474,7 +574,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase as object that coerces to NaN', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: {} as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: {} as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// {} coerces to NaN, should be rejected
@@ -485,7 +588,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase as array that coerces to NaN or 0', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: [] as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: [] as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// [] coerces to 0, should be rejected
@@ -496,7 +602,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase as boolean true (coerces to 1)', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: true as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: true as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// true coerces to 1, should be accepted
@@ -507,7 +616,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		test('handles phase as boolean false (coerces to 0)', async () => {
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: false as any, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: false as any,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// false coerces to 0, should be rejected
@@ -519,7 +631,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			// Number sessionID gets coerced to string
 			ensureAgentSession('12345');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: '12345' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: '12345',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -533,7 +648,11 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			// Try JSON injection via summary
 			const maliciousSummary = '"event":"hacked"}';
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: maliciousSummary });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: maliciousSummary,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -544,7 +663,7 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const lines = eventsContent.trim().split('\n');
 
 			// Each line should be valid JSON
-			lines.forEach(line => {
+			lines.forEach((line) => {
 				expect(() => JSON.parse(line)).not.toThrow();
 			});
 		});
@@ -554,7 +673,11 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 
 			const summaryWithNewline = 'Phase complete\nInjected line\nAnother line';
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: summaryWithNewline });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: summaryWithNewline,
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -567,12 +690,14 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			// Each line should be valid JSON (newlines in summary are properly escaped).
 			// Multiple lines may exist due to curator compliance events.
 			expect(lines.length).toBeGreaterThanOrEqual(1);
-			lines.forEach(line => {
+			lines.forEach((line) => {
 				expect(() => JSON.parse(line)).not.toThrow();
 			});
 
 			// Verify the phase_complete event has the correct summary
-			const phaseEvent = lines.map(l => JSON.parse(l)).find((e: Record<string, unknown>) => e.event === 'phase_complete');
+			const phaseEvent = lines
+				.map((l) => JSON.parse(l))
+				.find((e: Record<string, unknown>) => e.event === 'phase_complete');
 			expect(phaseEvent).toBeDefined();
 			expect(phaseEvent.summary).toBe(summaryWithNewline);
 		});
@@ -590,14 +715,17 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 						enabled: true,
 						required_agents: hugeArray,
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should handle without crashing
@@ -609,12 +737,15 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			// Circular structure can't be written to JSON, but we can test malformed JSON
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				'{"phase_complete": {"enabled": true, "required_agents": [1, 2, 3,]}}' // Trailing comma - invalid JSON
+				'{"phase_complete": {"enabled": true, "required_agents": [1, 2, 3,]}}', // Trailing comma - invalid JSON
 			);
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// SECURE: Malformed config triggers fallback to safe defaults
@@ -632,12 +763,15 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 			const hugeChain = Array.from({ length: 10000 }, (_, i) => ({
 				from: `agent${i}`,
 				to: `agent${i + 1}`,
-				timestamp: Date.now() - (10000 - i) * 1000
+				timestamp: Date.now() - (10000 - i) * 1000,
 			}));
 
 			swarmState.delegationChains.set('sess1', hugeChain);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should complete without crashing
@@ -652,7 +786,10 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 				recordPhaseAgentDispatch('sess1', `agent${i}`);
 			}
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should complete without crashing

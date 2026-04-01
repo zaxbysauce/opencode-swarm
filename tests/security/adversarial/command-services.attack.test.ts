@@ -1,44 +1,42 @@
 /**
  * ADVERSARIAL SECURITY TESTS for v6.7 Task 5.4 Command Service Extraction
- * 
+ *
  * Attack vectors tested:
  * 1. Malformed args - null bytes, control characters, empty strings, extremely long strings
  * 2. Traversal attempts - ../, ..\\, path traversal in task IDs, directory arguments
  * 3. Unsafe phase/task selectors - negative numbers, floats, NaN, Infinity, very large numbers
  * 4. Evidence/task-id abuse - task IDs with special characters, path patterns, injection attempts
- * 
+ *
  * EXPLOITABLE WEAKNESSES FOUND:
  * - See test failures for potential vulnerabilities
  * - sanitizeTaskId provides strong protection for task IDs
  * - validateSwarmPath provides strong protection for file paths
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
-import { handlePlanCommand } from '../../../src/commands/plan';
+import { dirname, join, resolve } from 'node:path';
+import { handleDiagnoseCommand } from '../../../src/commands/diagnose';
 import { handleEvidenceCommand } from '../../../src/commands/evidence';
-import { handleStatusCommand } from '../../../src/commands/status';
 import { handleExportCommand } from '../../../src/commands/export';
 import { handleHistoryCommand } from '../../../src/commands/history';
-import { handleDiagnoseCommand } from '../../../src/commands/diagnose';
-import { 
-	getPlanData, 
-	formatPlanMarkdown 
-} from '../../../src/services/plan-service';
-import { 
-	getTaskEvidenceData, 
-	formatTaskEvidenceMarkdown,
-	getEvidenceListData 
-} from '../../../src/services/evidence-service';
-import { 
-	sanitizeTaskId 
-} from '../../../src/evidence/manager';
-import { 
+import { handlePlanCommand } from '../../../src/commands/plan';
+import { handleStatusCommand } from '../../../src/commands/status';
+import { sanitizeTaskId } from '../../../src/evidence/manager';
+import {
+	readSwarmFileAsync,
 	validateSwarmPath,
-	readSwarmFileAsync 
 } from '../../../src/hooks/utils';
+import {
+	formatTaskEvidenceMarkdown,
+	getEvidenceListData,
+	getTaskEvidenceData,
+} from '../../../src/services/evidence-service';
+import {
+	formatPlanMarkdown,
+	getPlanData,
+} from '../../../src/services/plan-service';
 
 const SAMPLE_PLAN = `# Project Plan
 
@@ -69,24 +67,31 @@ const SAMPLE_EVIDENCE = {
 			summary: 'Test evidence',
 			timestamp: new Date().toISOString(),
 			risk: 'low' as const,
-			issues: []
-		}
+			issues: [],
+		},
 	],
 	created_at: new Date().toISOString(),
-	updated_at: new Date().toISOString()
+	updated_at: new Date().toISOString(),
 };
 
-const mockAgents: Record<string, { name: string; description?: string; config: { model: string; temperature: number; prompt: string } }> = {
-	architect: { 
-		name: 'Architect', 
-		description: 'Plans',
-		config: { model: 'test-model', temperature: 0.1, prompt: 'test' }
-	},
-	coder: { 
-		name: 'Coder', 
-		description: 'Implements',
-		config: { model: 'test-model', temperature: 0.1, prompt: 'test' }
+const mockAgents: Record<
+	string,
+	{
+		name: string;
+		description?: string;
+		config: { model: string; temperature: number; prompt: string };
 	}
+> = {
+	architect: {
+		name: 'Architect',
+		description: 'Plans',
+		config: { model: 'test-model', temperature: 0.1, prompt: 'test' },
+	},
+	coder: {
+		name: 'Coder',
+		description: 'Implements',
+		config: { model: 'test-model', temperature: 0.1, prompt: 'test' },
+	},
 };
 
 describe('ADVERSARIAL: Command Services Attack Vectors', () => {
@@ -108,7 +113,8 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		const filePath = join(swarmDir, filename);
 		// Create all parent directories
 		await mkdir(dirname(filePath), { recursive: true });
-		const data = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+		const data =
+			typeof content === 'string' ? content : JSON.stringify(content, null, 2);
 		await writeFile(filePath, data);
 		return filePath;
 	}
@@ -117,7 +123,6 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// ATTACK VECTOR 1: MALFORMED ARGUMENTS
 	// =========================================================================
 	describe('Attack Vector 1: Malformed Arguments', () => {
-		
 		test('PLAN: null byte injection in phase arg - handled gracefully', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
 			// Null bytes should be handled gracefully - returns full plan
@@ -210,13 +215,12 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// ATTACK VECTOR 2: PATH TRAVERSAL ATTEMPTS
 	// =========================================================================
 	describe('Attack Vector 2: Path Traversal Attempts', () => {
-		
 		test('EVIDENCE: task ID with ../ traversal - ALL REJECTED by sanitizeTaskId', async () => {
 			await writeSwarmFile('evidence/task-1/evidence.json', SAMPLE_EVIDENCE);
 			const traversalIds = [
 				'../etc/passwd',
 				'task/../other',
-				'task-1/../../../etc/passwd'
+				'task-1/../../../etc/passwd',
 			];
 			for (const id of traversalIds) {
 				await expect(async () => {
@@ -230,7 +234,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'../../../etc/passwd',
 				'evidence/../../../etc/passwd',
 				'../plan.md',
-				'evidence/../../plan.md'
+				'evidence/../../plan.md',
 			];
 			for (const filename of traversalFilenames) {
 				expect(() => {
@@ -260,10 +264,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		test('PLAN: directory traversal in base directory arg - returns null', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
 			// Attempt to access files outside the intended directory
-			const traversalDirs = [
-				'../..',
-				'/etc',
-			];
+			const traversalDirs = ['../..', '/etc'];
 			for (const dir of traversalDirs) {
 				// Should not read files outside the allowed directory
 				const result = await readSwarmFileAsync(dir, 'passwd');
@@ -277,7 +278,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'task-1/..',
 				'task/../1',
 				'task/./1',
-				'./task-1'
+				'./task-1',
 			];
 			for (const id of traversalIds) {
 				expect(() => sanitizeTaskId(id)).toThrow(/Invalid|traversal/);
@@ -286,7 +287,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 
 		test('EVIDENCE: symlink escape - blocked by path validation', async () => {
 			await writeSwarmFile('evidence/task-1/evidence.json', SAMPLE_EVIDENCE);
-			
+
 			// Create a symlink pointing outside .swarm
 			const swarmDir = join(tempDir, '.swarm');
 			try {
@@ -294,7 +295,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 			} catch {
 				// Symlink creation might fail on Windows, which is fine
 			}
-			
+
 			// Attempting to access via symlink should fail validation
 			// because the path doesn't contain .. but resolves outside .swarm
 			const result = await readSwarmFileAsync(tempDir, 'evil-link');
@@ -308,7 +309,6 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// ATTACK VECTOR 3: UNSAFE PHASE/TASK SELECTORS
 	// =========================================================================
 	describe('Attack Vector 3: Unsafe Phase/Task Selectors', () => {
-		
 		test('PLAN: negative phase number - returns not found', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
 			const result = await handlePlanCommand(tempDir, ['-1']);
@@ -373,7 +373,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'task&&ls',
 				'task||ls',
 				'task>output',
-				'task<input'
+				'task<input',
 			];
 			for (const id of specialIds) {
 				await expect(async () => {
@@ -391,7 +391,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'task&&echo pwned',
 				'task||echo pwned',
 				'task>file',
-				'task<file'
+				'task<file',
 			];
 			for (const id of shellInjectionIds) {
 				expect(() => sanitizeTaskId(id)).toThrow(/Invalid/);
@@ -407,7 +407,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'A-B-C',
 				'1.2.3',
 				'v1.0.0',
-				'my-task-v2'
+				'my-task-v2',
 			];
 			for (const id of validIds) {
 				expect(() => sanitizeTaskId(id)).not.toThrow();
@@ -416,16 +416,16 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 
 		test('sanitizeTaskId: rejects invalid task IDs with special chars', () => {
 			const invalidIds = [
-				'task 1',      // space
-				'task@1',      // @
-				'task#1',      // #
-				'task!',       // !
-				'task$',       // $
-				'task%',       // %
-				'task/',       // slash
-				'task\\1',     // backslash
-				'task:1',      // colon
-				'task;1',      // semicolon
+				'task 1', // space
+				'task@1', // @
+				'task#1', // #
+				'task!', // !
+				'task$', // $
+				'task%', // %
+				'task/', // slash
+				'task\\1', // backslash
+				'task:1', // colon
+				'task;1', // semicolon
 			];
 			for (const id of invalidIds) {
 				expect(() => sanitizeTaskId(id)).toThrow(/Invalid/);
@@ -437,7 +437,6 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// ATTACK VECTOR 4: EVIDENCE/TASK-ID ABUSE
 	// =========================================================================
 	describe('Attack Vector 4: Evidence/Task-ID Abuse', () => {
-
 		test('EVIDENCE: JSON injection in task evidence display - rendered as text', async () => {
 			// Create evidence with potentially dangerous content in summary
 			const maliciousEvidence = {
@@ -452,14 +451,14 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 						summary: '</script><script>alert(1)</script>',
 						timestamp: new Date().toISOString(),
 						risk: 'low' as const,
-						issues: []
-					}
+						issues: [],
+					},
 				],
 				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+				updated_at: new Date().toISOString(),
 			};
 			await writeSwarmFile('evidence/task-1/evidence.json', maliciousEvidence);
-			
+
 			const result = await handleEvidenceCommand(tempDir, ['task-1']);
 			// Content should be rendered as text, not executed
 			expect(result).toContain('alert(1)');
@@ -479,14 +478,14 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 						summary: '<img src=x onerror=alert(1)>',
 						timestamp: new Date().toISOString(),
 						risk: 'low' as const,
-						issues: []
-					}
+						issues: [],
+					},
 				],
 				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+				updated_at: new Date().toISOString(),
 			};
 			await writeSwarmFile('evidence/task-1/evidence.json', htmlEvidence);
-			
+
 			const result = await handleEvidenceCommand(tempDir, ['task-1']);
 			expect(result).toContain('<img');
 			expect(typeof result).toBe('string');
@@ -505,14 +504,14 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 						summary: '[click me](javascript:alert(1))',
 						timestamp: new Date().toISOString(),
 						risk: 'low' as const,
-						issues: []
-					}
+						issues: [],
+					},
 				],
 				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+				updated_at: new Date().toISOString(),
 			};
 			await writeSwarmFile('evidence/task-1/evidence.json', mdEvidence);
-			
+
 			const result = await handleEvidenceCommand(tempDir, ['task-1']);
 			expect(result).toContain('javascript');
 			expect(typeof result).toBe('string');
@@ -521,7 +520,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		test('EVIDENCE: deeply nested path traversal in task ID - REJECTED', async () => {
 			await writeSwarmFile('evidence/task-1/evidence.json', SAMPLE_EVIDENCE);
 			const nestedTraversal = 'evidence/../../../../../../../etc/passwd';
-			
+
 			await expect(async () => {
 				await getTaskEvidenceData(tempDir, nestedTraversal);
 			}).toThrow(/Invalid|traversal/);
@@ -530,10 +529,10 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		test('EVIDENCE: URL-encoded traversal attempts - REJECTED by regex', async () => {
 			await writeSwarmFile('evidence/task-1/evidence.json', SAMPLE_EVIDENCE);
 			const encodedTraversal = [
-				'%2e%2e%2f',           // ../
-				'%252e%252e%252f',     // double-encoded ../
-				'..%2f',               // ../
-				'%2e%2e/',             // ../
+				'%2e%2e%2f', // ../
+				'%252e%252e%252f', // double-encoded ../
+				'..%2f', // ../
+				'%2e%2e/', // ../
 			];
 			for (const id of encodedTraversal) {
 				await expect(async () => {
@@ -553,7 +552,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		test('getEvidenceListData: handles malicious directory names - filtered out', async () => {
 			// Create directory with valid task ID
 			await writeSwarmFile('evidence/task-1/evidence.json', SAMPLE_EVIDENCE);
-			
+
 			// Also create a directory that looks like traversal attempt
 			// This should be filtered out by listEvidenceTaskIds
 			const swarmDir = join(tempDir, '.swarm');
@@ -562,7 +561,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 			} catch {
 				// Directory might fail to create with that name
 			}
-			
+
 			const result = await getEvidenceListData(tempDir);
 			expect(result.tasks.length).toBeGreaterThanOrEqual(0);
 			// Malicious directory name should not appear
@@ -576,7 +575,6 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// ADDITIONAL SECURITY BOUNDARY TESTS
 	// =========================================================================
 	describe('Security Boundary Tests', () => {
-
 		test('STATUS: handles malformed plan gracefully', async () => {
 			await writeSwarmFile('plan.md', 'corrupted {{{ markdown');
 			const result = await handleStatusCommand(tempDir, mockAgents);
@@ -618,14 +616,14 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 								phase: 1,
 								description: '${process.env.SECRET}',
 								status: 'completed',
-								depends: []
-							}
-						]
-					}
-				]
+								depends: [],
+							},
+						],
+					},
+				],
 			};
 			await writeSwarmFile('plan.json', maliciousPlan);
-			
+
 			const result = await handlePlanCommand(tempDir, ['1']);
 			expect(typeof result).toBe('string');
 			// Content should be rendered as text
@@ -633,11 +631,7 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 
 		test('PLAN: handles prototype pollution attempts - safe', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
-			const pollutionArgs = [
-				'__proto__',
-				'constructor',
-				'prototype'
-			];
+			const pollutionArgs = ['__proto__', 'constructor', 'prototype'];
 			for (const arg of pollutionArgs) {
 				const result = await handlePlanCommand(tempDir, [arg]);
 				expect(typeof result).toBe('string');
@@ -646,12 +640,12 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 
 		test('getPlanData: handles concurrent access safely', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
-			
+
 			// Launch multiple concurrent reads
-			const promises = Array(10).fill(null).map(() => 
-				getPlanData(tempDir, '1')
-			);
-			
+			const promises = Array(10)
+				.fill(null)
+				.map(() => getPlanData(tempDir, '1'));
+
 			const results = await Promise.all(promises);
 			for (const result of results) {
 				expect(result).toBeDefined();
@@ -665,7 +659,9 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 				'evidence\\..\\..\\plan.md',
 			];
 			for (const p of windowsPaths) {
-				expect(() => validateSwarmPath(tempDir, p)).toThrow(/traversal|escapes|Invalid/);
+				expect(() => validateSwarmPath(tempDir, p)).toThrow(
+					/traversal|escapes|Invalid/,
+				);
 			}
 		});
 
@@ -673,10 +669,12 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 			const mixedPaths = [
 				'../..\\..\\etc',
 				'evidence/..\\..\\plan.md',
-				'..\\../etc/passwd'
+				'..\\../etc/passwd',
 			];
 			for (const p of mixedPaths) {
-				expect(() => validateSwarmPath(tempDir, p)).toThrow(/traversal|escapes|Invalid/);
+				expect(() => validateSwarmPath(tempDir, p)).toThrow(
+					/traversal|escapes|Invalid/,
+				);
 			}
 		});
 
@@ -690,7 +688,6 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 	// INPUT VALIDATION COVERAGE
 	// =========================================================================
 	describe('Input Validation Coverage', () => {
-		
 		test('PLAN: handles empty args array gracefully', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
 			const result = await handlePlanCommand(tempDir, []);
@@ -725,23 +722,29 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 		test('all services handle empty .swarm directory', async () => {
 			// Create empty .swarm directory
 			await mkdir(join(tempDir, '.swarm'), { recursive: true });
-			
-			await expect(handlePlanCommand(tempDir, [])).resolves.toBe('No active swarm plan found.');
-			await expect(handleEvidenceCommand(tempDir, [])).resolves.toBe('No evidence bundles found.');
-			await expect(handleHistoryCommand(tempDir, [])).resolves.toBe('No history available.');
+
+			await expect(handlePlanCommand(tempDir, [])).resolves.toBe(
+				'No active swarm plan found.',
+			);
+			await expect(handleEvidenceCommand(tempDir, [])).resolves.toBe(
+				'No evidence bundles found.',
+			);
+			await expect(handleHistoryCommand(tempDir, [])).resolves.toBe(
+				'No history available.',
+			);
 		});
 
 		test('getPlanData: validates phase arg types correctly', async () => {
 			await writeSwarmFile('plan.md', SAMPLE_PLAN);
-			
+
 			// String number
 			const result1 = await getPlanData(tempDir, '1');
 			expect(result1.requestedPhase).toBe(1);
-			
+
 			// Actual number
 			const result2 = await getPlanData(tempDir, 2);
 			expect(result2.requestedPhase).toBe(2);
-			
+
 			// Invalid string
 			const result3 = await getPlanData(tempDir, 'invalid');
 			expect(Number.isNaN(result3.requestedPhase)).toBe(true);

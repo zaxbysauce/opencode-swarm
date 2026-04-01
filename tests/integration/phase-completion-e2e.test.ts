@@ -1,13 +1,13 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
-	swarmState,
-	resetSwarmState,
 	ensureAgentSession,
 	recordPhaseAgentDispatch,
+	resetSwarmState,
+	swarmState,
 } from '../../src/state';
 import { executePhaseComplete } from '../../src/tools/phase-complete';
 
@@ -62,7 +62,12 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Test task' },
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Test task',
+							},
 						],
 					},
 				],
@@ -79,7 +84,12 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 	 * Helper: write a valid retrospective bundle for a phase
 	 */
 	function writeRetroBundle(dir: string, phaseNumber: number): void {
-		const retroDir = path.join(dir, '.swarm', 'evidence', `retro-${phaseNumber}`);
+		const retroDir = path.join(
+			dir,
+			'.swarm',
+			'evidence',
+			`retro-${phaseNumber}`,
+		);
 		fs.mkdirSync(retroDir, { recursive: true });
 
 		const retroBundle = {
@@ -176,7 +186,12 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 			await withTempDir(async (dir) => {
 				// Arrange: critic_drift_verifier wrote approved drift evidence
 				writeSpecMd(dir);
-				writeDriftEvidence(dir, 1, 'approved', 'No drift detected. Phase is clean.');
+				writeDriftEvidence(
+					dir,
+					1,
+					'approved',
+					'No drift detected. Phase is clean.',
+				);
 				writeRetroBundle(dir, 1);
 				setupSessionWithAgents();
 
@@ -214,7 +229,9 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				expect(result.success).toBe(false);
 				expect(result.status).toBe('blocked');
 				expect(result.reason).toBe('DRIFT_VERIFICATION_MISSING');
-				expect(result.message).toContain('.swarm/evidence/1/drift-verifier.json');
+				expect(result.message).toContain(
+					'.swarm/evidence/1/drift-verifier.json',
+				);
 			});
 		});
 
@@ -222,7 +239,12 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 			await withTempDir(async (dir) => {
 				// Arrange: critic_drift_verifier returned rejected verdict
 				writeSpecMd(dir);
-				writeDriftEvidence(dir, 1, 'rejected', 'Implementation has drift from spec.');
+				writeDriftEvidence(
+					dir,
+					1,
+					'rejected',
+					'Implementation has drift from spec.',
+				);
 				writeRetroBundle(dir, 1);
 				setupSessionWithAgents();
 
@@ -261,9 +283,10 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				expect(result.status).toBe('success');
 				// Should have warning about no spec.md and drift verification missing
 				expect(result.warnings).toSatisfy((w: string[]) =>
-					w.some((warning) =>
-						warning.includes('No spec.md found') ||
-						warning.includes('consider running critic_drift_verifier'),
+					w.some(
+						(warning) =>
+							warning.includes('No spec.md found') ||
+							warning.includes('consider running critic_drift_verifier'),
 					),
 				);
 			});
@@ -277,7 +300,10 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				// 3. Architect calls phase_complete ONCE — must succeed without a second call
 
 				// Step 1: Write spec.md (drift gate is active when spec.md exists)
-				fs.writeFileSync(path.join(dir, '.swarm', 'spec.md'), '# Test Spec\nFR-001: Test requirement');
+				fs.writeFileSync(
+					path.join(dir, '.swarm', 'spec.md'),
+					'# Test Spec\nFR-001: Test requirement',
+				);
 
 				// Step 2: Write retro evidence using the existing helper (required by phase_complete)
 				writeRetroBundle(dir, 1);
@@ -286,12 +312,14 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				const evidenceDir = path.join(dir, '.swarm', 'evidence', '1');
 				fs.mkdirSync(evidenceDir, { recursive: true });
 				const driftEvidence = {
-					entries: [{
-						type: 'drift-verification',
-						verdict: 'approved',
-						summary: 'All Phase 1 tasks verified as implemented',
-						timestamp: new Date().toISOString(),
-					}],
+					entries: [
+						{
+							type: 'drift-verification',
+							verdict: 'approved',
+							summary: 'All Phase 1 tasks verified as implemented',
+							timestamp: new Date().toISOString(),
+						},
+					],
 				};
 				fs.writeFileSync(
 					path.join(evidenceDir, 'drift-verifier.json'),
@@ -316,8 +344,12 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				expect(parsed.status).not.toBe('error');
 
 				// Verify: drift evidence was read correctly (not missing)
-				expect(parsed.message ?? '').not.toContain('DRIFT_VERIFICATION_MISSING');
-				expect(parsed.message ?? '').not.toContain('DRIFT_VERIFICATION_REJECTED');
+				expect(parsed.message ?? '').not.toContain(
+					'DRIFT_VERIFICATION_MISSING',
+				);
+				expect(parsed.message ?? '').not.toContain(
+					'DRIFT_VERIFICATION_REJECTED',
+				);
 			});
 		});
 	});

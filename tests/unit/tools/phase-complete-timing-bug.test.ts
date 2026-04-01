@@ -1,10 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import * as path from 'node:path';
 import type { DriftReport } from '../../../src/hooks/curator-types';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 
 // Track whether runDeterministicDriftCheck was called
 let runDeterministicDriftCheckCalled = false;
@@ -75,7 +78,12 @@ function writeRetroBundle(
 	phaseNumber: number,
 	verdict: 'pass' | 'fail' = 'pass',
 ): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 
 	const retroBundle = {
@@ -154,7 +162,11 @@ function writeDriftVerifier(
 				timestamp: new Date().toISOString(),
 				agent: 'critic',
 				verdict: verdict,
-				summary: summary ?? (verdict === 'approved' ? 'Drift check passed' : 'NEEDS_REVISION: Drift detected'),
+				summary:
+					summary ??
+					(verdict === 'approved'
+						? 'Drift check passed'
+						: 'NEEDS_REVISION: Drift detected'),
 			},
 		],
 	};
@@ -219,7 +231,9 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 		mockRunDeterministicDriftCheck.mockClear();
 		mockReadPriorDriftReports.mockClear();
 
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-timing-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-timing-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -253,7 +267,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			// Write approved drift-verifier.json so drift gate passes
 			writeDriftVerifier(tempDir, 1, 'approved');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -275,7 +292,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -292,7 +312,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			// but still succeed because spec.md doesn't exist
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed with advisory warning about missing drift evidence
@@ -313,7 +336,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			// Ensure NO drift-verifier.json and NO spec.md
 			// (setup already doesn't create these)
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed (advisory-only mode)
@@ -335,7 +361,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should be blocked
@@ -351,7 +380,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -363,7 +395,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -372,26 +407,44 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 
 	describe('4. drift-verifier.json with verdict=rejected blocks gate', () => {
 		test('phase_complete blocks when drift-verifier.json has verdict rejected', async () => {
-			writeDriftVerifier(tempDir, 1, 'rejected', 'NEEDS_REVISION: Spec drift detected');
+			writeDriftVerifier(
+				tempDir,
+				1,
+				'rejected',
+				'NEEDS_REVISION: Spec drift detected',
+			);
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_REJECTED');
-			expect(parsed.message).toContain('drift verifier returned verdict \'rejected\'');
+			expect(parsed.message).toContain(
+				"drift verifier returned verdict 'rejected'",
+			);
 		});
 
 		test('phase_complete blocks when summary contains NEEDS_REVISION', async () => {
 			// verdict is 'approved' but summary indicates needs revision
-			writeDriftVerifier(tempDir, 1, 'approved', 'NEEDS_REVISION: Some drift detected');
+			writeDriftVerifier(
+				tempDir,
+				1,
+				'approved',
+				'NEEDS_REVISION: Some drift detected',
+			);
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -412,7 +465,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -456,7 +512,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -471,12 +530,17 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			);
 
 			writeDriftVerifier(tempDir, 1, 'approved');
-			mockRunCuratorPhase.mockRejectedValueOnce(new Error('Curator phase failed'));
+			mockRunCuratorPhase.mockRejectedValueOnce(
+				new Error('Curator phase failed'),
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should still succeed (curator errors are non-blocking)
@@ -498,7 +562,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -511,12 +578,17 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 			);
 
 			writeDriftVerifier(tempDir, 1, 'approved');
-			mockReadPriorDriftReports.mockRejectedValueOnce(new Error('Read drift reports failed'));
+			mockReadPriorDriftReports.mockRejectedValueOnce(
+				new Error('Read drift reports failed'),
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should still succeed (drift advisory injection is non-blocking)

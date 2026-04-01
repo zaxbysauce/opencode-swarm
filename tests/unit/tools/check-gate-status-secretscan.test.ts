@@ -10,28 +10,41 @@
  * - Most recent secretscan entry is used
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
 
 // Import the tool
 import { check_gate_status } from '../../../src/tools/check-gate-status';
 
 describe('check_gate_status secretscan feature', () => {
-	const TEST_DIR = path.join(os.tmpdir(), `check-gate-status-test-${Date.now()}`);
+	const TEST_DIR = path.join(
+		os.tmpdir(),
+		`check-gate-status-test-${Date.now()}`,
+	);
 	const EVIDENCE_DIR = path.join(TEST_DIR, '.swarm', 'evidence');
 
 	// Helper to create a gate-evidence file (at .swarm/evidence/{taskId}.json)
-	function createGateEvidence(taskId: string, requiredGates: string[], gates: Record<string, { sessionId?: string; timestamp?: string; agent?: string }>) {
+	function createGateEvidence(
+		taskId: string,
+		requiredGates: string[],
+		gates: Record<
+			string,
+			{ sessionId?: string; timestamp?: string; agent?: string }
+		>,
+	) {
 		fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 		const evidence = {
 			taskId,
 			required_gates: requiredGates,
 			gates,
 		};
-		fs.writeFileSync(path.join(EVIDENCE_DIR, `${taskId}.json`), JSON.stringify(evidence, null, 2));
+		fs.writeFileSync(
+			path.join(EVIDENCE_DIR, `${taskId}.json`),
+			JSON.stringify(evidence, null, 2),
+		);
 	}
 
 	// Helper to create an EvidenceBundle file (at .swarm/evidence/{taskId}/evidence.json)
@@ -45,15 +58,17 @@ describe('check_gate_status secretscan feature', () => {
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 		};
-		fs.writeFileSync(path.join(bundleDir, 'evidence.json'), JSON.stringify(bundle, null, 2));
+		fs.writeFileSync(
+			path.join(bundleDir, 'evidence.json'),
+			JSON.stringify(bundle, null, 2),
+		);
 	}
 
 	// Helper to run the tool with proper ToolContext
 	async function runTool(taskId: string) {
-		const result = await check_gate_status.execute(
-			{ task_id: taskId },
-			{ directory: TEST_DIR } as unknown as ToolContext,
-		);
+		const result = await check_gate_status.execute({ task_id: taskId }, {
+			directory: TEST_DIR,
+		} as unknown as ToolContext);
 		return JSON.parse(result);
 	}
 
@@ -93,7 +108,9 @@ describe('check_gate_status secretscan feature', () => {
 			expect(result.secretscan_verdict).toBe('pass');
 			expect(result.status).toBe('all_passed');
 			expect(result.message).not.toContain('BLOCKED');
-			expect(result.missing_gates).not.toContain('secretscan (BLOCKED — secrets detected)');
+			expect(result.missing_gates).not.toContain(
+				'secretscan (BLOCKED — secrets detected)',
+			);
 		});
 
 		it('2. secretscan verdict=fail → secretscan_verdict=fail, BLOCKED message, status downgraded', async () => {
@@ -121,7 +138,9 @@ describe('check_gate_status secretscan feature', () => {
 			expect(result.secretscan_verdict).toBe('fail');
 			expect(result.status).toBe('incomplete');
 			expect(result.message).toContain('BLOCKED');
-			expect(result.missing_gates).toContain('secretscan (BLOCKED — secrets detected)');
+			expect(result.missing_gates).toContain(
+				'secretscan (BLOCKED — secrets detected)',
+			);
 		});
 
 		it('3. secretscan verdict=rejected → same as fail (BLOCKED)', async () => {
@@ -149,7 +168,9 @@ describe('check_gate_status secretscan feature', () => {
 			expect(result.secretscan_verdict).toBe('fail');
 			expect(result.status).toBe('incomplete');
 			expect(result.message).toContain('BLOCKED');
-			expect(result.missing_gates).toContain('secretscan (BLOCKED — secrets detected)');
+			expect(result.missing_gates).toContain(
+				'secretscan (BLOCKED — secrets detected)',
+			);
 		});
 
 		it('4. secretscan verdict=approved → secretscan_verdict=pass', async () => {
@@ -224,7 +245,9 @@ describe('check_gate_status secretscan feature', () => {
 			const result = await runTool('1.6');
 
 			expect(result.secretscan_verdict).toBe('not_run');
-			expect(result.message).toContain('Advisory: No secretscan evidence found');
+			expect(result.message).toContain(
+				'Advisory: No secretscan evidence found',
+			);
 		});
 
 		it('7. No EvidenceBundle file exists → tool works normally (secretscan_verdict=not_run)', async () => {
@@ -236,7 +259,9 @@ describe('check_gate_status secretscan feature', () => {
 
 			expect(result.secretscan_verdict).toBe('not_run');
 			expect(result.status).toBe('all_passed');
-			expect(result.message).toBe('All required gates have passed for task "1.7".');
+			expect(result.message).toBe(
+				'All required gates have passed for task "1.7".',
+			);
 		});
 
 		it('8. EvidenceBundle has invalid schema → tool works normally (silently skipped)', async () => {
@@ -332,7 +357,9 @@ describe('check_gate_status secretscan feature', () => {
 			const result = await runTool('1.10');
 
 			expect(result.secretscan_verdict).toBe('not_run');
-			expect(result.message).toContain('Advisory: No secretscan evidence found');
+			expect(result.message).toContain(
+				'Advisory: No secretscan evidence found',
+			);
 		});
 	});
 
@@ -365,7 +392,9 @@ describe('check_gate_status secretscan feature', () => {
 
 			// Status should be downgraded to incomplete
 			expect(result.status).toBe('incomplete');
-			expect(result.missing_gates).toContain('secretscan (BLOCKED — secrets detected)');
+			expect(result.missing_gates).toContain(
+				'secretscan (BLOCKED — secrets detected)',
+			);
 			expect(result.message).toContain('BLOCKED');
 		});
 
@@ -393,7 +422,9 @@ describe('check_gate_status secretscan feature', () => {
 
 			// Status should remain incomplete (not 'all_passed')
 			expect(result.status).toBe('incomplete');
-			expect(result.missing_gates).toContain('secretscan (BLOCKED — secrets detected)');
+			expect(result.missing_gates).toContain(
+				'secretscan (BLOCKED — secrets detected)',
+			);
 		});
 	});
 

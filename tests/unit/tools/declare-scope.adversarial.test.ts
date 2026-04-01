@@ -3,17 +3,22 @@
  * Tests malformed inputs, boundary violations, injection attempts, path traversal
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	executeDeclareScope,
-	validateTaskIdFormat,
-	validateFiles,
+	advanceTaskState,
+	getTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
+import {
 	type DeclareScopeArgs,
+	executeDeclareScope,
+	validateFiles,
+	validateTaskIdFormat,
 } from '../../../src/tools/declare-scope';
-import { swarmState, resetSwarmState, advanceTaskState, getTaskState } from '../../../src/state';
 import { createWorkflowTestSession } from '../../helpers/workflow-session-factory';
 
 describe('declare-scope adversarial tests', () => {
@@ -21,7 +26,10 @@ describe('declare-scope adversarial tests', () => {
 	let tempDirs: string[] = [];
 
 	// Helper to create a valid plan.json in temp directory
-	async function createPlanWithTasks(tempDir: string, tasks: { id: string }[]): Promise<void> {
+	async function createPlanWithTasks(
+		tempDir: string,
+		tasks: { id: string }[],
+	): Promise<void> {
 		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
 		const plan = {
 			schema_version: '1.0.0',
@@ -54,7 +62,9 @@ describe('declare-scope adversarial tests', () => {
 
 	beforeEach(async () => {
 		// Create temp directory for each test
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'declare-scope-adversarial-'));
+		tempDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'declare-scope-adversarial-'),
+		);
 		tempDirs.push(tempDir);
 		// Create .swarm directory with a valid plan
 		await createPlanWithTasks(tempDir, [{ id: '1.1' }, { id: '1.2' }]);
@@ -84,7 +94,7 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('null bytes'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('null bytes'))).toBe(true);
 		});
 
 		it('rejects null byte in whitelist array', async () => {
@@ -96,7 +106,7 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('null bytes'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('null bytes'))).toBe(true);
 		});
 
 		it('rejects null byte in working_directory', async () => {
@@ -108,7 +118,7 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('null bytes'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('null bytes'))).toBe(true);
 		});
 
 		it('rejects unicode null-byte \\u0000 in files', async () => {
@@ -155,7 +165,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('path traversal'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('path traversal'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects multiple ".." in files', async () => {
@@ -166,7 +178,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('path traversal'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('path traversal'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects path traversal in working_directory', async () => {
@@ -178,7 +192,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('path traversal'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('path traversal'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects Windows-style path traversal', async () => {
@@ -242,7 +258,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('Invalid taskId'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('Invalid taskId'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects files array with 10000 entries', async () => {
@@ -278,7 +296,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('exceeds maximum length'))).toBe(true);
+			expect(
+				result.errors?.some((e) => e.includes('exceeds maximum length')),
+			).toBe(true);
 		});
 
 		it('rejects extremely long file path (10000 chars)', async () => {
@@ -304,7 +324,11 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('files must be a non-empty array'))).toBe(true);
+			expect(
+				result.errors?.some((e) =>
+					e.includes('files must be a non-empty array'),
+				),
+			).toBe(true);
 		});
 
 		it('rejects files as string instead of array', async () => {
@@ -355,7 +379,11 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('files must be a non-empty array'))).toBe(true);
+			expect(
+				result.errors?.some((e) =>
+					e.includes('files must be a non-empty array'),
+				),
+			).toBe(true);
 		});
 	});
 
@@ -369,7 +397,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('Invalid taskId'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('Invalid taskId'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects empty string in files array', async () => {
@@ -421,7 +451,9 @@ describe('declare-scope adversarial tests', () => {
 			const result = await executeDeclareScope(args);
 			if (process.platform === 'win32') {
 				expect(result.success).toBe(false);
-				expect(result.errors?.some(e => e.includes('device paths'))).toBe(true);
+				expect(result.errors?.some((e) => e.includes('device paths'))).toBe(
+					true,
+				);
 			} else {
 				// On non-Windows, it might fail for other reasons (path doesn't exist)
 				expect(result.success).toBe(false);
@@ -439,7 +471,7 @@ describe('declare-scope adversarial tests', () => {
 			expect(result.success).toBe(false);
 		});
 
-		it('rejects UNC path style \\\\.\C:\\', async () => {
+		it('rejects UNC path style \\\\.C:\\', async () => {
 			const args: DeclareScopeArgs = {
 				taskId: '1.1',
 				files: ['src/file.ts'],
@@ -505,9 +537,13 @@ describe('declare-scope adversarial tests', () => {
 
 		it('validates taskId format before checking plan', async () => {
 			// Create plan with weird task ID
-			const planWithWeirdTask = await fs.mkdtemp(path.join(os.tmpdir(), 'plan-weird-'));
+			const planWithWeirdTask = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'plan-weird-'),
+			);
 			tempDirs.push(planWithWeirdTask);
-			await createPlanWithTasks(planWithWeirdTask, [{ id: '../../etc/passwd' }]);
+			await createPlanWithTasks(planWithWeirdTask, [
+				{ id: '../../etc/passwd' },
+			]);
 
 			// Should reject due to format validation, not plan lookup
 			const args: DeclareScopeArgs = {
@@ -522,7 +558,9 @@ describe('declare-scope adversarial tests', () => {
 		});
 
 		it('handles plan with missing phases key', async () => {
-			const planNoPhases = await fs.mkdtemp(path.join(os.tmpdir(), 'plan-nophases-'));
+			const planNoPhases = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'plan-nophases-'),
+			);
 			tempDirs.push(planNoPhases);
 			await fs.mkdir(path.join(planNoPhases, '.swarm'), { recursive: true });
 			await fs.writeFile(
@@ -553,14 +591,19 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, planEmpty);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('JSON'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('JSON'))).toBe(true);
 		});
 
 		it('handles non-JSON plan.json', async () => {
-			const planInvalid = await fs.mkdtemp(path.join(os.tmpdir(), 'plan-invalid-'));
+			const planInvalid = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'plan-invalid-'),
+			);
 			tempDirs.push(planInvalid);
 			await fs.mkdir(path.join(planInvalid, '.swarm'), { recursive: true });
-			await fs.writeFile(path.join(planInvalid, '.swarm', 'plan.json'), 'not valid json {');
+			await fs.writeFile(
+				path.join(planInvalid, '.swarm', 'plan.json'),
+				'not valid json {',
+			);
 
 			const args: DeclareScopeArgs = {
 				taskId: '1.1',
@@ -569,7 +612,7 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, planInvalid);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('JSON'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('JSON'))).toBe(true);
 		});
 	});
 
@@ -609,10 +652,10 @@ describe('declare-scope adversarial tests', () => {
 			};
 
 			const result = await executeDeclareScope(args, tempDir);
-			
+
 			expect(result.success).toBe(false);
 			// Error message is "Cannot declare scope for completed task 1.1"
-			expect(result.errors?.some(e => e.includes('completed'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('completed'))).toBe(true);
 		});
 
 		it('allows declare scope when task is NOT complete in any session', async () => {
@@ -700,7 +743,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('Invalid taskId'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('Invalid taskId'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects constructor.prototype as taskId', async () => {
@@ -711,7 +756,9 @@ describe('declare-scope adversarial tests', () => {
 
 			const result = await executeDeclareScope(args, tempDir);
 			expect(result.success).toBe(false);
-			expect(result.errors?.some(e => e.includes('Invalid taskId'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('Invalid taskId'))).toBe(
+				true,
+			);
 		});
 
 		it('rejects prototype as taskId', async () => {
@@ -911,7 +958,9 @@ describe('declare-scope adversarial tests', () => {
 
 		it('accepts taskId with many segments 1.1.1.1.1.1', async () => {
 			// Add this task to the plan first
-			const planWithManySegments = await fs.mkdtemp(path.join(os.tmpdir(), 'plan-manyseg-'));
+			const planWithManySegments = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'plan-manyseg-'),
+			);
 			tempDirs.push(planWithManySegments);
 			await createPlanWithTasks(planWithManySegments, [{ id: '1.1.1.1.1.1' }]);
 
@@ -926,7 +975,9 @@ describe('declare-scope adversarial tests', () => {
 
 		it('accepts large segment numbers 999.999', async () => {
 			// Add this task to the plan first
-			const planWithLargeNums = await fs.mkdtemp(path.join(os.tmpdir(), 'plan-largenum-'));
+			const planWithLargeNums = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'plan-largenum-'),
+			);
 			tempDirs.push(planWithLargeNums);
 			await createPlanWithTasks(planWithLargeNums, [{ id: '999.999' }]);
 
@@ -1009,8 +1060,16 @@ describe('declare-scope adversarial tests', () => {
 			expect(result.fileCount).toBe(3);
 
 			// Both sessions should have the scope set
-			expect(session1.declaredCoderScope).toEqual(['src/file1.ts', 'src/file2.ts', 'src/allowed.ts']);
-			expect(session2.declaredCoderScope).toEqual(['src/file1.ts', 'src/file2.ts', 'src/allowed.ts']);
+			expect(session1.declaredCoderScope).toEqual([
+				'src/file1.ts',
+				'src/file2.ts',
+				'src/allowed.ts',
+			]);
+			expect(session2.declaredCoderScope).toEqual([
+				'src/file1.ts',
+				'src/file2.ts',
+				'src/allowed.ts',
+			]);
 		});
 
 		it('clears lastScopeViolation on success', async () => {

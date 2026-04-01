@@ -1,24 +1,26 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	swarmState,
-	resetSwarmState,
-} from '../../src/state';
-import {
-	runCuratorPhase,
 	applyCuratorKnowledgeUpdates,
+	runCuratorPhase,
 } from '../../src/hooks/curator';
 import { readPriorDriftReports } from '../../src/hooks/curator-drift';
-import type { CuratorPhaseResult, KnowledgeRecommendation } from '../../src/hooks/curator-types';
+import type {
+	CuratorPhaseResult,
+	KnowledgeRecommendation,
+} from '../../src/hooks/curator-types';
+import { resetSwarmState, swarmState } from '../../src/state';
 
 describe('curator pipeline health — integration', () => {
 	let tempDir: string;
 
 	beforeEach(() => {
 		resetSwarmState();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curator-pipeline-health-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'curator-pipeline-health-'),
+		);
 		// Create required .swarm directory
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 	});
@@ -65,17 +67,21 @@ describe('curator pipeline health — integration', () => {
 		);
 		fs.writeFileSync(
 			reportPath,
-			JSON.stringify({
-				schema_version: 1,
-				phase,
-				alignment: driftScore > 0 ? 'drift_detected' : 'aligned',
-				drift_score: driftScore,
-				timestamp: new Date().toISOString(),
-				spec_deviations: [],
-				compounding_effects: [],
-				evidence_files_checked: 3,
-				evidence_files_passed: driftScore > 0 ? 1 : 3,
-			}, null, 2),
+			JSON.stringify(
+				{
+					schema_version: 1,
+					phase,
+					alignment: driftScore > 0 ? 'drift_detected' : 'aligned',
+					drift_score: driftScore,
+					timestamp: new Date().toISOString(),
+					spec_deviations: [],
+					compounding_effects: [],
+					evidence_files_checked: 3,
+					evidence_files_passed: driftScore > 0 ? 1 : 3,
+				},
+				null,
+				2,
+			),
 		);
 	}
 
@@ -252,33 +258,29 @@ describe('curator pipeline health — integration', () => {
 		});
 
 		test('returns zero applied/skipped when recommendations array is empty', async () => {
-			const result = await applyCuratorKnowledgeUpdates(
-				tempDir,
-				[],
-				{
-					enabled: true,
-					swarm_max_entries: 100,
-					hive_max_entries: 200,
-					auto_promote_days: 90,
-					max_inject_count: 5,
-					dedup_threshold: 0.6,
-					scope_filter: ['global'],
-					hive_enabled: true,
-					rejected_max_entries: 20,
-					validation_enabled: true,
-					evergreen_confidence: 0.9,
-					evergreen_utility: 0.8,
-					low_utility_threshold: 0.3,
-					min_retrievals_for_utility: 3,
-					schema_version: 1,
-					same_project_weight: 1.0,
-					cross_project_weight: 0.5,
-					min_encounter_score: 0.1,
-					initial_encounter_score: 1.0,
-					encounter_increment: 0.1,
-					max_encounter_score: 10.0,
-				},
-			);
+			const result = await applyCuratorKnowledgeUpdates(tempDir, [], {
+				enabled: true,
+				swarm_max_entries: 100,
+				hive_max_entries: 200,
+				auto_promote_days: 90,
+				max_inject_count: 5,
+				dedup_threshold: 0.6,
+				scope_filter: ['global'],
+				hive_enabled: true,
+				rejected_max_entries: 20,
+				validation_enabled: true,
+				evergreen_confidence: 0.9,
+				evergreen_utility: 0.8,
+				low_utility_threshold: 0.3,
+				min_retrievals_for_utility: 3,
+				schema_version: 1,
+				same_project_weight: 1.0,
+				cross_project_weight: 0.5,
+				min_encounter_score: 0.1,
+				initial_encounter_score: 1.0,
+				encounter_increment: 0.1,
+				max_encounter_score: 10.0,
+			});
 
 			expect(result.applied).toBe(0);
 			expect(result.skipped).toBe(0);
@@ -449,7 +451,9 @@ describe('curator pipeline health — integration', () => {
 			expect(typeof updateResult.applied).toBe('number');
 			expect(typeof updateResult.skipped).toBe('number');
 			// applied + skipped should be a non-negative integer
-			expect(Number.isInteger(updateResult.applied + updateResult.skipped)).toBe(true);
+			expect(
+				Number.isInteger(updateResult.applied + updateResult.skipped),
+			).toBe(true);
 
 			// Step 3: Write and read a drift report
 			writeDriftReport(1, 0.05);

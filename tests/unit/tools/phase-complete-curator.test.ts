@@ -1,9 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 
 // Mock curator functions BEFORE importing the module under test
 const mockRunCuratorPhase = mock(async () => ({
@@ -67,7 +71,12 @@ function writeRetroBundle(
 	phaseNumber: number,
 	verdict: 'pass' | 'fail' = 'pass',
 ): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 
 	const retroBundle = {
@@ -191,7 +200,9 @@ describe('phase_complete - curator pipeline', () => {
 		mockRunDeterministicDriftCheck.mockClear();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-curator-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-curator-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -229,7 +240,10 @@ describe('phase_complete - curator pipeline', () => {
 			// Config has curator disabled (default)
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase complete should still succeed
@@ -251,7 +265,10 @@ describe('phase_complete - curator pipeline', () => {
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -272,7 +289,10 @@ describe('phase_complete - curator pipeline', () => {
 			recordPhaseAgentDispatch('sess1', 'reviewer');
 			recordPhaseAgentDispatch('sess1', 'test_engineer');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase complete should succeed
@@ -331,12 +351,17 @@ describe('phase_complete - curator pipeline', () => {
 			);
 
 			// Make runCuratorPhase throw an error
-			mockRunCuratorPhase.mockRejectedValueOnce(new Error('Curator phase failed'));
+			mockRunCuratorPhase.mockRejectedValueOnce(
+				new Error('Curator phase failed'),
+			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase complete should STILL succeed (not blocked by curator error)
@@ -361,7 +386,10 @@ describe('phase_complete - curator pipeline', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -382,7 +410,10 @@ describe('phase_complete - curator pipeline', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -400,11 +431,16 @@ describe('phase_complete - curator pipeline', () => {
 			mockApplyCuratorKnowledgeUpdates.mockRejectedValueOnce(
 				new Error('Curator error 2'),
 			);
-			mockRunDeterministicDriftCheck.mockRejectedValueOnce(new Error('Curator error 3'));
+			mockRunDeterministicDriftCheck.mockRejectedValueOnce(
+				new Error('Curator error 3'),
+			);
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 
 			// Should be valid JSON
 			expect(() => JSON.parse(result)).not.toThrow();
@@ -435,7 +471,10 @@ describe('phase_complete - curator pipeline', () => {
 
 			ensureAgentSession('sess1');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase complete should succeed
@@ -462,7 +501,10 @@ describe('phase_complete - curator pipeline', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 2, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 2,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -487,7 +529,10 @@ describe('phase_complete - curator pipeline', () => {
 			recordPhaseAgentDispatch('sess1', 'test_engineer');
 			recordPhaseAgentDispatch('sess1', 'docs');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -523,7 +568,9 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 		mockApplyCuratorKnowledgeUpdates.mockClear();
 		mockRunDeterministicDriftCheck.mockClear();
 
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-compliance-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'phase-complete-compliance-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -584,7 +631,10 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 				agents_dispatched: ['coder'],
 				compliance: [
 					{ severity: 'warning', description: 'Reviewer skipped for task 1.1' },
-					{ severity: 'error', description: 'No retrospective written for phase 1' },
+					{
+						severity: 'error',
+						description: 'No retrospective written for phase 1',
+					},
 				],
 				knowledge_recommendations: [],
 				summary: 'Test phase result',
@@ -594,7 +644,10 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -654,7 +707,10 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -699,7 +755,10 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -733,7 +792,10 @@ describe('Task 5.3: curator compliance warnings surfacing', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);

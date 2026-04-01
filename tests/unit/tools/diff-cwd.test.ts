@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mock only execFileSync while preserving every other export (#330).
 const mockExecFileSync = mock(() => '');
@@ -28,7 +28,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: null } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: null,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT return the directory-required error; wrapper provides process.cwd()
@@ -42,7 +44,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: undefined } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: undefined,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT return the directory-required error; wrapper provides process.cwd()
@@ -51,34 +55,50 @@ describe('diff tool - directory validation and cwd fix', () => {
 		});
 
 		test('returns error when directory is empty string', async () => {
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.files).toEqual([]);
 		});
 
 		test('returns error when directory is whitespace-only string', async () => {
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '   ' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '   ',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.files).toEqual([]);
 		});
 
 		test('returns error when directory is not a string (number)', async () => {
-			const result = await diff.execute({ base: 'HEAD' }, { directory: 123 } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: 123,
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.files).toEqual([]);
 		});
 
 		test('returns error when directory is an object', async () => {
-			const result = await diff.execute({ base: 'HEAD' }, { directory: { path: '/test' } } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: { path: '/test' },
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.files).toEqual([]);
 		});
 
@@ -98,7 +118,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			await diff.execute({ base: 'HEAD' }, { directory: '/test/project' } as any);
+			await diff.execute({ base: 'HEAD' }, {
+				directory: '/test/project',
+			} as any);
 
 			// Check first call (numstat) - options are the 3rd argument
 			const firstCallOptions = mockExecFileSync.mock.calls[0][2];
@@ -110,7 +132,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			await diff.execute({ base: 'HEAD' }, { directory: '/test/project' } as any);
+			await diff.execute({ base: 'HEAD' }, {
+				directory: '/test/project',
+			} as any);
 
 			// Check second call (fullDiff) - options are the 3rd argument
 			const secondCallOptions = mockExecFileSync.mock.calls[1][2];
@@ -122,7 +146,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			await diff.execute({ base: 'main' }, { directory: '/custom/path' } as any);
+			await diff.execute({ base: 'main' }, {
+				directory: '/custom/path',
+			} as any);
 
 			// Both calls should use the same cwd
 			const firstCallOptions = mockExecFileSync.mock.calls[0][2];
@@ -135,7 +161,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			await diff.execute({ base: 'HEAD', paths: ['src/file.ts'] }, { directory: '/workspace' } as any);
+			await diff.execute({ base: 'HEAD', paths: ['src/file.ts'] }, {
+				directory: '/workspace',
+			} as any);
 
 			// Both calls should have cwd set
 			expect(mockExecFileSync.mock.calls[0][2].cwd).toBe('/workspace');
@@ -150,7 +178,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 				throw new Error(errorMessage);
 			});
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '/test' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '/test',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Error message should include the actual error message, not constructor name
@@ -163,7 +193,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 				throw 'string error';
 			});
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '/test' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '/test',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should fall back to generic error message
@@ -176,7 +208,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 				throw new Error('git failed with code 128');
 			});
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '/test' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '/test',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBe('git diff failed: git failed with code 128');
@@ -188,11 +222,17 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('10\t5\tsrc/file.ts');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '/test/project' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '/test/project',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.files).toHaveLength(1);
-			expect(parsed.files[0]).toEqual({ path: 'src/file.ts', additions: 10, deletions: 5 });
+			expect(parsed.files[0]).toEqual({
+				path: 'src/file.ts',
+				additions: 10,
+				deletions: 5,
+			});
 			expect(parsed.contractChanges).toEqual([]);
 			expect(parsed.hasContractChanges).toBe(false);
 			expect(parsed.summary).toContain('1 files changed');
@@ -202,7 +242,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 			mockExecFileSync.mockReturnValueOnce('');
 			mockExecFileSync.mockReturnValueOnce('');
 
-			await diff.execute({ base: 'HEAD' }, { directory: '/test/project' } as any);
+			await diff.execute({ base: 'HEAD' }, {
+				directory: '/test/project',
+			} as any);
 
 			expect(mockExecFileSync).toHaveBeenCalledTimes(2);
 		});
@@ -214,7 +256,9 @@ describe('diff tool - directory validation and cwd fix', () => {
 +  return true;
 +}`);
 
-			const result = await diff.execute({ base: 'HEAD' }, { directory: '/test/project' } as any);
+			const result = await diff.execute({ base: 'HEAD' }, {
+				directory: '/test/project',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.hasContractChanges).toBe(true);

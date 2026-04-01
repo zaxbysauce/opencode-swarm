@@ -3,13 +3,13 @@
  * Tests type safety constraints and prevents malicious data injection
  */
 
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import type {
-	SoundingBoardConsultedEvent,
 	ArchitectLoopDetectedEvent,
-	PrecedentManipulationDetectedEvent,
-	CoderSelfAuditEvent,
 	CoderRetryCircuitBreakerEvent,
+	CoderSelfAuditEvent,
+	PrecedentManipulationDetectedEvent,
+	SoundingBoardConsultedEvent,
 	V619Event,
 } from '../../src/types/events';
 
@@ -151,7 +151,9 @@ describe('src/types/events.ts - ADVERSARIAL TESTS', () => {
 
 		test('Severity cannot be escalated beyond HIGHEST', () => {
 			// There is no CRITICAL or EXTREME severity level allowed
-			const severityValues: PrecedentManipulationDetectedEvent['severity'][] = ['HIGHEST'];
+			const severityValues: PrecedentManipulationDetectedEvent['severity'][] = [
+				'HIGHEST',
+			];
 
 			expect(severityValues).toHaveLength(1);
 
@@ -305,7 +307,7 @@ describe('src/types/events.ts - ADVERSARIAL TESTS', () => {
 			};
 
 			// @ts-expect-error - Extra fields should be rejected by TypeScript
-		 const pollutedEvent: SoundingBoardConsultedEvent = {
+			const pollutedEvent: SoundingBoardConsultedEvent = {
 				type: 'sounding_board_consulted',
 				timestamp: '2024-01-01T00:00:00Z',
 				architectQuery: 'test query',
@@ -583,10 +585,10 @@ describe('src/types/events.ts - ADVERSARIAL TESTS', () => {
 			};
 
 			// @ts-expect-error - Cannot assign to wrong type
-		 const loopEvent: ArchitectLoopDetectedEvent = soundingBoardEvent;
+			const loopEvent: ArchitectLoopDetectedEvent = soundingBoardEvent;
 
 			// @ts-expect-error - Cannot assign to wrong type
-		 const auditEvent: CoderSelfAuditEvent = soundingBoardEvent;
+			const auditEvent: CoderSelfAuditEvent = soundingBoardEvent;
 		});
 	});
 });

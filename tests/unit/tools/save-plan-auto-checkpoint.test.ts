@@ -3,15 +3,14 @@
  * Tests checkpoint creation after successful plan save
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { execSync } from 'node:child_process';
-
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { SavePlanArgs } from '../../../src/tools/save-plan';
 // Import the execute function from save-plan
 import { executeSavePlan } from '../../../src/tools/save-plan';
-import type { SavePlanArgs } from '../../../src/tools/save-plan';
 
 describe('save_plan auto-checkpoint (Task 5.4)', () => {
 	let tempDir: string;
@@ -19,7 +18,9 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 
 	beforeEach(() => {
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'save-plan-auto-checkpoint-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'save-plan-auto-checkpoint-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -81,7 +82,11 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 			expect(fs.existsSync(planJsonPath)).toBe(true);
 
 			// No checkpoint log is created (feature not implemented in save_plan)
-			const checkpointLogPath = path.join(tempDir, '.swarm', 'checkpoints.json');
+			const checkpointLogPath = path.join(
+				tempDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 			expect(fs.existsSync(checkpointLogPath)).toBe(false);
 		});
 	});
@@ -193,16 +198,24 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 			// Assert: Should fail validation before checkpoint is attempted
 			expect(result.success).toBe(false);
 			expect(result.errors).toBeDefined();
-			expect(result.errors?.some((e) => e.includes('empty') || e.includes('whitespace'))).toBe(
-				true,
-			);
+			expect(
+				result.errors?.some(
+					(e) => e.includes('empty') || e.includes('whitespace'),
+				),
+			).toBe(true);
 
 			// Assert: No checkpoint should be created (save failed before checkpoint)
-			const checkpointLogPath = path.join(tempDir, '.swarm', 'checkpoints.json');
+			const checkpointLogPath = path.join(
+				tempDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 			// Checkpoint log may or may not exist (depends on if it was created before failure)
 			// But if it exists, it should NOT have our checkpoint
 			if (fs.existsSync(checkpointLogPath)) {
-				const checkpointLog = JSON.parse(fs.readFileSync(checkpointLogPath, 'utf-8'));
+				const checkpointLog = JSON.parse(
+					fs.readFileSync(checkpointLogPath, 'utf-8'),
+				);
 				const hasOurCheckpoint = checkpointLog.checkpoints.some(
 					(c: { label: string }) => c.label.startsWith('plan-save-'),
 				);
@@ -231,7 +244,9 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 			// Assert: Should fail validation
 			expect(result.success).toBe(false);
 			expect(result.errors).toBeDefined();
-			expect(result.errors?.some((e) => e.includes('path traversal'))).toBe(true);
+			expect(result.errors?.some((e) => e.includes('path traversal'))).toBe(
+				true,
+			);
 		});
 
 		test('Placeholder content should fail before checkpoint attempt', async () => {
@@ -257,9 +272,15 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 			expect(result.errors?.some((e) => e.includes('placeholder'))).toBe(true);
 
 			// Assert: No checkpoint should be created
-			const checkpointLogPath = path.join(tempDir, '.swarm', 'checkpoints.json');
+			const checkpointLogPath = path.join(
+				tempDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 			if (fs.existsSync(checkpointLogPath)) {
-				const checkpointLog = JSON.parse(fs.readFileSync(checkpointLogPath, 'utf-8'));
+				const checkpointLog = JSON.parse(
+					fs.readFileSync(checkpointLogPath, 'utf-8'),
+				);
 				const hasOurCheckpoint = checkpointLog.checkpoints.some(
 					(c: { label: string }) => c.label.startsWith('plan-save-'),
 				);
@@ -280,7 +301,11 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 						name: 'Foundation',
 						tasks: [
 							{ id: '1.1', description: 'Set up project', size: 'small' },
-							{ id: '1.2', description: 'Configure TypeScript', size: 'medium' },
+							{
+								id: '1.2',
+								description: 'Configure TypeScript',
+								size: 'medium',
+							},
 						],
 					},
 					{
@@ -313,7 +338,11 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 			expect(fs.existsSync(planMdPath)).toBe(true);
 
 			// No checkpoint log is created (feature not implemented in save_plan)
-			const checkpointLogPath = path.join(tempDir, '.swarm', 'checkpoints.json');
+			const checkpointLogPath = path.join(
+				tempDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 			expect(fs.existsSync(checkpointLogPath)).toBe(false);
 		});
 	});

@@ -1,12 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn, mock } from 'bun:test';
-import * as path from 'node:path';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { pkg_audit } from '../../../src/tools/pkg-audit';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { pkg_audit } from '../../../src/tools/pkg-audit';
 
 // Mock for Bun.spawn tracking
-let spawnCalls: Array<{ cmd: string[]; opts: { cwd?: string; stdout?: string; stderr?: string } }> = [];
+let spawnCalls: Array<{
+	cmd: string[];
+	opts: { cwd?: string; stdout?: string; stderr?: string };
+}> = [];
 let mockExitCode: number = 0;
 let mockStdout: string = '';
 let mockStderr: string = '';
@@ -15,23 +26,29 @@ let mockStderr: string = '';
 let tempDir: string;
 
 function createMockSpawn() {
-	return function(cmd: string[], opts: { cwd?: string; stdout?: string; stderr?: string }) {
-		spawnCalls.push({ cmd, opts: opts as { cwd?: string; stdout?: string; stderr?: string } });
-		
+	return (
+		cmd: string[],
+		opts: { cwd?: string; stdout?: string; stderr?: string },
+	) => {
+		spawnCalls.push({
+			cmd,
+			opts: opts as { cwd?: string; stdout?: string; stderr?: string },
+		});
+
 		const encoder = new TextEncoder();
 		const stdoutReadable = new ReadableStream({
 			start(controller) {
 				controller.enqueue(encoder.encode(mockStdout));
 				controller.close();
-			}
+			},
 		});
 		const stderrReadable = new ReadableStream({
 			start(controller) {
 				controller.enqueue(encoder.encode(mockStderr));
 				controller.close();
-			}
+			},
 		});
-		
+
 		return {
 			stdout: stdoutReadable,
 			stderr: stderrReadable,
@@ -71,25 +88,27 @@ describe('pkg-audit tool - cwd fix tests', () => {
 	let BunSpawnSpy: ReturnType<typeof spyOn>;
 	let fsExistsSyncSpy: ReturnType<typeof spyOn>;
 	let originalCwd: string;
-	
+
 	beforeEach(() => {
 		spawnCalls = [];
 		existsSyncCalls = [];
 		mockExitCode = 0;
 		mockStdout = '';
 		mockStderr = '';
-		
+
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-cwd-test-'));
-		
+
 		// Spy on Bun.spawn
 		BunSpawnSpy = spyOn(Bun, 'spawn').mockImplementation(createMockSpawn());
-		
+
 		// Spy on fs.existsSync
-		fsExistsSyncSpy = spyOn(fs, 'existsSync').mockImplementation(mockExistsSync);
+		fsExistsSyncSpy = spyOn(fs, 'existsSync').mockImplementation(
+			mockExistsSync,
+		);
 	});
-	
+
 	afterEach(() => {
 		BunSpawnSpy.mockRestore();
 		fsExistsSyncSpy.mockRestore();
@@ -102,61 +121,88 @@ describe('pkg-audit tool - cwd fix tests', () => {
 	describe('execute() - directory validation (EC-001)', () => {
 		// Note: The wrapper in createSwarmTool provides fallback (process.cwd()) for null/undefined.
 		// These tests verify the validation catches invalid directory values when they reach execute().
-		
+
 		it('should return error for empty string directory', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext(''));
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(''),
+			);
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.error).toBe('project directory is required but was not provided');
+
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
-		
+
 		it('should return error for whitespace-only directory', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext('   '));
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext('   '),
+			);
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.error).toBe('project directory is required but was not provided');
+
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
-		
+
 		it('should return error for newline-only directory', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext('\n'));
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext('\n'),
+			);
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.error).toBe('project directory is required but was not provided');
+
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
-		
+
 		// Null/undefined are handled by wrapper fallback (process.cwd()) - not by execute validation
 		// This is the actual behavior of createSwarmTool wrapper
 		it('should use process.cwd() fallback when directory is null (wrapper behavior)', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, { directory: null } as any);
+			const result = await pkg_audit.execute({ ecosystem: 'auto' }, {
+				directory: null,
+			} as any);
 			const parsed = JSON.parse(result);
-			
+
 			// Wrapper provides fallback, so it doesn't return error
 			// Instead it runs with process.cwd()
 			expect(parsed).toHaveProperty('ecosystems');
 		});
-		
+
 		it('should use process.cwd() fallback when directory is undefined (wrapper behavior)', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, { directory: undefined } as any);
+			const result = await pkg_audit.execute({ ecosystem: 'auto' }, {
+				directory: undefined,
+			} as any);
 			const parsed = JSON.parse(result);
-			
+
 			// Wrapper provides fallback, so it doesn't return error
 			// Instead it runs with process.cwd()
 			expect(parsed).toHaveProperty('ecosystems');
 		});
-		
+
 		// Non-string types are passed through wrapper to execute validation
 		it('should return error for numeric directory (wrong type)', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, { directory: 0 } as any);
+			const result = await pkg_audit.execute({ ecosystem: 'auto' }, {
+				directory: 0,
+			} as any);
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.error).toBe('project directory is required but was not provided');
+
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
-		
+
 		it('should return error for object directory (wrong type)', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, { directory: { path: '/test' } } as any);
+			const result = await pkg_audit.execute({ ecosystem: 'auto' }, {
+				directory: { path: '/test' },
+			} as any);
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.error).toBe('project directory is required but was not provided');
+
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 	});
 
@@ -165,10 +211,13 @@ describe('pkg-audit tool - cwd fix tests', () => {
 		it('should use provided directory for ecosystem detection', async () => {
 			// Create package.json in tempDir
 			fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
-			
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext(tempDir));
+
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(tempDir),
+			);
 			const parsed = JSON.parse(result);
-			
+
 			// Verify that npm was detected (because package.json exists in tempDir)
 			expect(parsed.ecosystems).toContain('npm');
 		});
@@ -181,57 +230,60 @@ describe('pkg-audit tool - cwd fix tests', () => {
 			fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
 			mockExitCode = 0;
 			mockStdout = '{}';
-			
+
 			await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext(tempDir));
-			
+
 			expect(spawnCalls.length).toBe(1);
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir);
 		});
-		
+
 		it('pip ecosystem should pass cwd: directory to Bun.spawn', async () => {
 			// Create pyproject.toml in tempDir
 			fs.writeFileSync(path.join(tempDir, 'pyproject.toml'), '[project]');
 			mockExitCode = 0;
 			mockStdout = '[]';
-			
+
 			await pkg_audit.execute({ ecosystem: 'pip' }, getMockContext(tempDir));
-			
+
 			expect(spawnCalls.length).toBe(1);
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir);
 		});
-		
+
 		it('cargo ecosystem should pass cwd: directory to Bun.spawn', async () => {
 			// Create Cargo.toml in tempDir
 			fs.writeFileSync(path.join(tempDir, 'Cargo.toml'), '[package]');
 			mockExitCode = 0;
 			mockStdout = '';
-			
+
 			await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext(tempDir));
-			
+
 			expect(spawnCalls.length).toBe(1);
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir);
 		});
-		
+
 		it('dotnet ecosystem should pass cwd: directory to Bun.spawn', async () => {
 			// Create .csproj in tempDir
-			fs.writeFileSync(path.join(tempDir, 'test.csproj'), '<Project></Project>');
+			fs.writeFileSync(
+				path.join(tempDir, 'test.csproj'),
+				'<Project></Project>',
+			);
 			mockExitCode = 0;
 			mockStdout = '';
-			
+
 			await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext(tempDir));
-			
+
 			expect(spawnCalls.length).toBe(1);
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir);
 		});
-		
+
 		it('auto ecosystem should pass cwd: directory to Bun.spawn', async () => {
 			// Create package.json in tempDir to trigger npm detection
 			fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
 			mockExitCode = 0;
 			mockStdout = '{}';
-			
+
 			await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext(tempDir));
-			
+
 			// At least one audit should be run (npm in this case)
 			expect(spawnCalls.length).toBeGreaterThanOrEqual(1);
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir);
@@ -244,20 +296,24 @@ describe('pkg-audit tool - cwd fix tests', () => {
 			fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
 			mockExitCode = 0;
 			mockStdout = '{}';
-			
+
 			// Create two different temp directories
-			const tempDir1 = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test1-'));
-			const tempDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test2-'));
-			
+			const tempDir1 = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'pkg-audit-test1-'),
+			);
+			const tempDir2 = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'pkg-audit-test2-'),
+			);
+
 			fs.writeFileSync(path.join(tempDir1, 'package.json'), '{}');
 			fs.writeFileSync(path.join(tempDir2, 'package.json'), '{}');
-			
+
 			await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext(tempDir1));
 			await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext(tempDir2));
-			
+
 			expect(spawnCalls[0].opts.cwd).toBe(tempDir1);
 			expect(spawnCalls[1].opts.cwd).toBe(tempDir2);
-			
+
 			// Cleanup
 			fs.rmSync(tempDir1, { recursive: true, force: true });
 			fs.rmSync(tempDir2, { recursive: true, force: true });

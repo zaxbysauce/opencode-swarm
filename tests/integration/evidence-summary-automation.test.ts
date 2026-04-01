@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -26,7 +26,8 @@ describe('Evidence Summary Automation', () => {
 			});
 
 			const shouldInitialize =
-				config.mode !== 'manual' && config.capabilities?.evidence_auto_summaries === true;
+				config.mode !== 'manual' &&
+				config.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInitialize).toBe(true);
 		});
@@ -38,7 +39,8 @@ describe('Evidence Summary Automation', () => {
 			});
 
 			const shouldInitialize =
-				config.mode !== 'manual' && config.capabilities?.evidence_auto_summaries === true;
+				config.mode !== 'manual' &&
+				config.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInitialize).toBe(false);
 		});
@@ -50,7 +52,8 @@ describe('Evidence Summary Automation', () => {
 			});
 
 			const shouldInitialize =
-				config.mode !== 'manual' && config.capabilities?.evidence_auto_summaries === true;
+				config.mode !== 'manual' &&
+				config.capabilities?.evidence_auto_summaries === true;
 
 			expect(shouldInitialize).toBe(false);
 		});

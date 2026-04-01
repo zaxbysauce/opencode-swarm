@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -342,7 +342,10 @@ async function checkGitRepository(directory: string): Promise<HealthCheck> {
 				detail: 'Invalid directory — cannot check git status',
 			};
 		}
-		execSync('git rev-parse --git-dir', { cwd: directory, stdio: 'pipe' });
+		child_process.execSync('git rev-parse --git-dir', {
+			cwd: directory,
+			stdio: 'pipe',
+		});
 		return {
 			name: 'Git Repository',
 			status: '✅',

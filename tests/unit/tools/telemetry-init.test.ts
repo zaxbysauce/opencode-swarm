@@ -1,12 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
 	initTelemetry,
-	telemetry,
 	resetTelemetryForTesting,
+	telemetry,
 } from '../../../src/telemetry';
 
 describe('telemetry init and heartbeat (Task 3.9)', () => {
@@ -90,7 +90,9 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 			const lines = content.trim().split('\n').filter(Boolean);
 
 			// Find the heartbeat line
-			const heartbeatLine = lines.find((l) => l.includes('"event":"heartbeat"'));
+			const heartbeatLine = lines.find((l) =>
+				l.includes('"event":"heartbeat"'),
+			);
 			expect(heartbeatLine).toBeDefined();
 
 			const parsed = JSON.parse(heartbeatLine!);
@@ -109,7 +111,9 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 			const content = fs.readFileSync(telemetryPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
 
-			const heartbeatLine = lines.find((l) => l.includes('session-timestamp-test'));
+			const heartbeatLine = lines.find((l) =>
+				l.includes('session-timestamp-test'),
+			);
 			expect(heartbeatLine).toBeDefined();
 
 			// Should parse without error
@@ -133,7 +137,9 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 			const content = fs.readFileSync(telemetryPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
 
-			const heartbeatLines = lines.filter((l) => l.includes('"event":"heartbeat"'));
+			const heartbeatLines = lines.filter((l) =>
+				l.includes('"event":"heartbeat"'),
+			);
 			expect(heartbeatLines.length).toBeGreaterThanOrEqual(3);
 		});
 
@@ -162,7 +168,9 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Create second temp dir
-			const tempDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-init-test2-'));
+			const tempDir2 = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'telemetry-init-test2-'),
+			);
 
 			// Reset should allow re-init to new dir
 			resetTelemetryForTesting();
@@ -248,7 +256,9 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 
 			// Verify the shape of a heartbeat event
 			expect(parsed).toEqual({
-				timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
+				timestamp: expect.stringMatching(
+					/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+				),
 				event: 'heartbeat',
 				sessionId: 'session-shape-test',
 			});

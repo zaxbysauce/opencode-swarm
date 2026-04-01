@@ -8,22 +8,29 @@
  * 4. Gating bypass attempts - trying to bypass architect-only restriction
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import {
+	chmod,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { PluginConfig } from '../../src/config';
+import { createSystemEnhancerHook } from '../../src/hooks/system-enhancer';
 import {
 	analyzeDecisionDrift,
+	type Decision,
+	type DriftAnalysisResult,
 	extractDecisionsFromContext,
 	findContradictions,
 	formatDriftForContext,
-	type Decision,
-	type DriftAnalysisResult,
 } from '../../src/services/decision-drift-analyzer';
-import { createSystemEnhancerHook } from '../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../src/config';
 import { resetSwarmState, swarmState } from '../../src/state';
-import { mkdtemp, writeFile, mkdir, rm, chmod, readFile } from 'node:fs/promises';
-import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 // ============================================================================
 // ATTACK VECTOR 1: MALFORMED CONTEXT/PLAN INPUTS
@@ -44,7 +51,9 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 	});
 
 	test('handles binary data in context.md without crashing', async () => {
-		const binaryData = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x89, 0x50, 0x4e, 0x47]);
+		const binaryData = Buffer.from([
+			0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x89, 0x50, 0x4e, 0x47,
+		]);
 		await writeFile(join(tempDir, '.swarm', 'context.md'), binaryData);
 
 		const result = await analyzeDecisionDrift(tempDir);
@@ -118,7 +127,10 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 
 	test('handles malformed plan.json with invalid JSON', async () => {
 		await writeFile(join(tempDir, '.swarm', 'plan.json'), '{ not valid json }');
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -130,7 +142,10 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ foo: 'bar', nested: { deeply: { invalid: true } } }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -141,7 +156,10 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ current_phase: null, phases: [] }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -152,7 +170,10 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ current_phase: -999, phases: [] }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -164,7 +185,10 @@ describe('ATTACK VECTOR 1: Malformed Context/Plan Inputs', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			'{"current_phase": Infinity, "phases": []}',
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		// Should not crash - JSON.parse will handle it
 		const result = await analyzeDecisionDrift(tempDir);
@@ -276,8 +300,20 @@ describe('ATTACK VECTOR 2: Contradiction-Spam Prompt Bloat', () => {
 
 	test('handles contradictory decisions with similar subjects correctly', () => {
 		const decisions: Decision[] = [
-			{ text: 'Use TypeScript for all files', phase: 1, confirmed: true, timestamp: null, line: 1 },
-			{ text: 'Do not use TypeScript for files', phase: 2, confirmed: false, timestamp: null, line: 2 },
+			{
+				text: 'Use TypeScript for all files',
+				phase: 1,
+				confirmed: true,
+				timestamp: null,
+				line: 1,
+			},
+			{
+				text: 'Do not use TypeScript for files',
+				phase: 2,
+				confirmed: false,
+				timestamp: null,
+				line: 2,
+			},
 		];
 
 		const contradictions = findContradictions(decisions);
@@ -286,8 +322,20 @@ describe('ATTACK VECTOR 2: Contradiction-Spam Prompt Bloat', () => {
 
 	test('does not false positive on unrelated decisions', () => {
 		const decisions: Decision[] = [
-			{ text: 'Use React for frontend', phase: 1, confirmed: true, timestamp: null, line: 1 },
-			{ text: 'Use Vue for frontend widget', phase: 2, confirmed: false, timestamp: null, line: 2 },
+			{
+				text: 'Use React for frontend',
+				phase: 1,
+				confirmed: true,
+				timestamp: null,
+				line: 1,
+			},
+			{
+				text: 'Use Vue for frontend widget',
+				phase: 2,
+				confirmed: false,
+				timestamp: null,
+				line: 2,
+			},
 		];
 
 		const contradictions = findContradictions(decisions);
@@ -297,9 +345,27 @@ describe('ATTACK VECTOR 2: Contradiction-Spam Prompt Bloat', () => {
 
 	test('handles decisions with common words that could cause false positives', () => {
 		const decisions: Decision[] = [
-			{ text: 'The system must validate input', phase: 1, confirmed: true, timestamp: null, line: 1 },
-			{ text: 'The system must log errors', phase: 2, confirmed: false, timestamp: null, line: 2 },
-			{ text: 'The system must handle timeouts', phase: 3, confirmed: false, timestamp: null, line: 3 },
+			{
+				text: 'The system must validate input',
+				phase: 1,
+				confirmed: true,
+				timestamp: null,
+				line: 1,
+			},
+			{
+				text: 'The system must log errors',
+				phase: 2,
+				confirmed: false,
+				timestamp: null,
+				line: 2,
+			},
+			{
+				text: 'The system must handle timeouts',
+				phase: 3,
+				confirmed: false,
+				timestamp: null,
+				line: 3,
+			},
 		];
 
 		const contradictions = findContradictions(decisions);
@@ -319,7 +385,10 @@ describe('ATTACK VECTOR 2: Contradiction-Spam Prompt Bloat', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ current_phase: 2, phases: [] }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n${decisions.join('\n')}`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n${decisions.join('\n')}`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		const formatted = formatDriftForContext(result);
@@ -349,8 +418,14 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 	});
 
 	test('handles corrupted evidence JSON files', async () => {
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), 'not valid json {{{');
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			'not valid json {{{',
+		);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		// This tests the system enhancer which reads evidence files
 		// Should not crash
@@ -364,8 +439,14 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 			constructor: { prototype: { polluted: true } },
 			type: 'retrospective',
 		});
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), malicious);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			malicious,
+		);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -376,7 +457,10 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
 			JSON.stringify({ type: null, data: null }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -385,8 +469,14 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 	test('handles evidence JSON with circular reference attempt', async () => {
 		// Can't actually create circular in JSON, but test with self-referencing keys
 		const circular = '{"a":"$ref:b","b":"$ref:a"}';
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), circular);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			circular,
+		);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -398,16 +488,28 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 			phase_number: 1e308,
 			reviewer_rejections: Infinity,
 		});
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), largeNums);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			largeNums,
+		);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
 	});
 
 	test('handles evidence directory without read permissions', async () => {
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), '{"type":"retrospective"}');
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			'{"type":"retrospective"}',
+		);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		// Note: Permission tests may not work on all platforms
 		try {
@@ -422,7 +524,10 @@ describe('ATTACK VECTOR 3: Malformed Evidence JSON', () => {
 
 	test('handles symlinks in evidence directory', async () => {
 		// Create a symlink that could point outside the directory
-		await writeFile(join(tempDir, '.swarm', 'evidence', 'phase-1.json'), '{"type":"retrospective"}');
+		await writeFile(
+			join(tempDir, '.swarm', 'evidence', 'phase-1.json'),
+			'{"type":"retrospective"}',
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -454,7 +559,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		inject_phase_reminders: true,
 	};
 
-	const withDriftCapabilities = (enabled: boolean): PluginConfig['automation'] => ({
+	const withDriftCapabilities = (
+		enabled: boolean,
+	): PluginConfig['automation'] => ({
 		mode: 'manual',
 		capabilities: {
 			plan_sync: false,
@@ -466,7 +573,10 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		},
 	});
 
-	async function invokeHook(config: PluginConfig, sessionID?: string): Promise<string[]> {
+	async function invokeHook(
+		config: PluginConfig,
+		sessionID?: string,
+	): Promise<string[]> {
 		const hooks = createSystemEnhancerHook(config, tempDir);
 		const transform = hooks['experimental.chat.system.transform'] as (
 			input: { sessionID?: string },
@@ -497,7 +607,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_coder');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		// Should NOT inject drift for coder
 		expect(driftContent).toHaveLength(0);
@@ -521,7 +633,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_reviewer');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		expect(driftContent).toHaveLength(0);
 	});
@@ -544,7 +658,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_architect');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		expect(driftContent.length).toBeGreaterThan(0);
 	});
@@ -567,7 +683,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		swarmState.activeAgent.set('test-session', 'architect');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		expect(driftContent.length).toBeGreaterThan(0);
 	});
@@ -610,7 +728,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_architect');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		expect(driftContent).toHaveLength(0);
 	});
@@ -667,7 +787,9 @@ describe('ATTACK VECTOR 4: Gating Bypass Attempts', () => {
 
 		// The hook reads state at call time, so coder should not get drift
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 
 		expect(driftContent).toHaveLength(0);
 	});
@@ -774,7 +896,10 @@ describe('Edge Cases and Additional Attack Vectors', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ current_phase: 999999999, phases: [] }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir);
 		expect(result).toBeDefined();
@@ -785,10 +910,15 @@ describe('Edge Cases and Additional Attack Vectors', () => {
 			join(tempDir, '.swarm', 'plan.json'),
 			JSON.stringify({ current_phase: 1, phases: [] }),
 		);
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n- Use TypeScript`);
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n- Use TypeScript`,
+		);
 
 		// Should handle gracefully
-		const result = await analyzeDecisionDrift(tempDir, { staleThresholdPhases: -1 });
+		const result = await analyzeDecisionDrift(tempDir, {
+			staleThresholdPhases: -1,
+		});
 		expect(result).toBeDefined();
 	});
 
@@ -798,8 +928,14 @@ describe('Edge Cases and Additional Attack Vectors', () => {
 			JSON.stringify({ current_phase: 10, phases: [] }),
 		);
 
-		const decisions = Array.from({ length: 20 }, (_, i) => `- Decision ${i}`).join('\n');
-		await writeFile(join(tempDir, '.swarm', 'context.md'), `## Decisions\n${decisions}`);
+		const decisions = Array.from(
+			{ length: 20 },
+			(_, i) => `- Decision ${i}`,
+		).join('\n');
+		await writeFile(
+			join(tempDir, '.swarm', 'context.md'),
+			`## Decisions\n${decisions}`,
+		);
 
 		const result = await analyzeDecisionDrift(tempDir, { maxSignals: 1000000 });
 		expect(result.signals.length).toBe(20);

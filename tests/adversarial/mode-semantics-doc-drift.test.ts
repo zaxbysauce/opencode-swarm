@@ -9,15 +9,15 @@
  * - PlanSyncWorker behavior drift between docs and code
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 // Import schema for ground truth
 import {
-	AutomationModeSchema,
 	AutomationCapabilitiesSchema,
 	AutomationConfigSchema,
+	AutomationModeSchema,
 } from '../../src/config/schema';
 
 // README path
@@ -37,16 +37,16 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 		it('README documents all schema-defined mode values', () => {
 			// Ground truth from schema
 			const schemaModes = AutomationModeSchema.options;
-			
+
 			// Check each schema mode is documented in README
 			for (const mode of schemaModes) {
 				const modePattern = new RegExp(
 					`[\`'"']${mode}[\`'"']|mode.*${mode}|${mode}.*mode`,
-					'i'
+					'i',
 				);
 				expect(
 					modePattern.test(readmeContent),
-					`README missing documentation for mode: ${mode}`
+					`README missing documentation for mode: ${mode}`,
 				).toBe(true);
 			}
 		});
@@ -54,30 +54,44 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 		it('README does not document non-existent modes', () => {
 			// Ground truth from schema
 			const validModes = new Set(AutomationModeSchema.options);
-			
+
 			// Find all mode-like references in README automation section
-			const automationSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const automationSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			const modeReferences = automationSection.match(/`(\w+)`/g) || [];
-			
+
 			const knownModeLikeWords = new Set([
-				'manual', 'hybrid', 'auto', // valid modes
-				'true', 'false', // boolean values
-				'status', 'plan', 'config', // non-mode keywords
+				'manual',
+				'hybrid',
+				'auto', // valid modes
+				'true',
+				'false', // boolean values
+				'status',
+				'plan',
+				'config', // non-mode keywords
 			]);
 
 			for (const ref of modeReferences) {
 				const mode = ref.replace(/`/g, '');
-				if (mode.endsWith('_sync') || mode.startsWith('config_') || mode.startsWith('phase_') || mode.startsWith('evidence_') || mode.startsWith('decision_')) {
+				if (
+					mode.endsWith('_sync') ||
+					mode.startsWith('config_') ||
+					mode.startsWith('phase_') ||
+					mode.startsWith('evidence_') ||
+					mode.startsWith('decision_')
+				) {
 					// These are capabilities, not modes
 					continue;
 				}
-				if (knownModeLikeWords.has(mode) || validModes.has(mode as 'manual' | 'hybrid' | 'auto')) {
-					continue;
+				if (
+					knownModeLikeWords.has(mode) ||
+					validModes.has(mode as 'manual' | 'hybrid' | 'auto')
+				) {
 				}
 				// Unknown mode - potential drift
 				// Note: We're lenient here since there may be other documented keywords
 			}
-			
+
 			// Test passes if we successfully parsed the section
 			expect(validModes.has('manual')).toBe(true);
 			expect(validModes.has('hybrid')).toBe(true);
@@ -97,10 +111,11 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			// Check README documents this default
 			const defaultPattern = /default.*mode.*manual|mode.*default.*manual/i;
 			const explicitDefaultPattern = /Default mode:\s*[`'"']manual[`'"']/i;
-			
+
 			expect(
-				defaultPattern.test(readmeContent) || explicitDefaultPattern.test(readmeContent),
-				'README should document that default mode is "manual"'
+				defaultPattern.test(readmeContent) ||
+					explicitDefaultPattern.test(readmeContent),
+				'README should document that default mode is "manual"',
 			).toBe(true);
 		});
 	});
@@ -115,10 +130,11 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.plan_sync).toBe(true);
 
 			// README should document true default
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
 				readmeSection.includes('plan_sync') && readmeSection.includes('true'),
-				'README should document plan_sync defaults to true'
+				'README should document plan_sync defaults to true',
 			).toBe(true);
 		});
 
@@ -128,11 +144,12 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.phase_preflight).toBe(false);
 
 			// README should document false default (opt-in)
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
-				readmeSection.includes('phase_preflight') && 
-				(readmeSection.includes('false') || readmeSection.includes('opt-in')),
-				'README should document phase_preflight defaults to false (opt-in)'
+				readmeSection.includes('phase_preflight') &&
+					(readmeSection.includes('false') || readmeSection.includes('opt-in')),
+				'README should document phase_preflight defaults to false (opt-in)',
 			).toBe(true);
 		});
 
@@ -142,10 +159,12 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.config_doctor_on_startup).toBe(false);
 
 			// README should document false default
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
-				readmeSection.includes('config_doctor_on_startup') && readmeSection.includes('false'),
-				'README should document config_doctor_on_startup defaults to false'
+				readmeSection.includes('config_doctor_on_startup') &&
+					readmeSection.includes('false'),
+				'README should document config_doctor_on_startup defaults to false',
 			).toBe(true);
 		});
 
@@ -155,11 +174,12 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.config_doctor_autofix).toBe(false);
 
 			// README should document false default (opt-in for security)
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
-				readmeSection.includes('config_doctor_autofix') && 
-				(readmeSection.includes('false') || readmeSection.includes('opt-in')),
-				'README should document config_doctor_autofix defaults to false (opt-in)'
+				readmeSection.includes('config_doctor_autofix') &&
+					(readmeSection.includes('false') || readmeSection.includes('opt-in')),
+				'README should document config_doctor_autofix defaults to false (opt-in)',
 			).toBe(true);
 		});
 
@@ -169,10 +189,12 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.evidence_auto_summaries).toBe(true);
 
 			// README should document true default
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
-				readmeSection.includes('evidence_auto_summaries') && readmeSection.includes('true'),
-				'README should document evidence_auto_summaries defaults to true'
+				readmeSection.includes('evidence_auto_summaries') &&
+					readmeSection.includes('true'),
+				'README should document evidence_auto_summaries defaults to true',
 			).toBe(true);
 		});
 
@@ -182,10 +204,12 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			expect(defaults.decision_drift_detection).toBe(true);
 
 			// README should document true default
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			expect(
-				readmeSection.includes('decision_drift_detection') && readmeSection.includes('true'),
-				'README should document decision_drift_detection defaults to true'
+				readmeSection.includes('decision_drift_detection') &&
+					readmeSection.includes('true'),
+				'README should document decision_drift_detection defaults to true',
 			).toBe(true);
 		});
 	});
@@ -196,34 +220,36 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 	describe('ATTACK 4: Mode semantics drift', () => {
 		it('README correctly describes manual mode behavior', () => {
 			// Manual mode: no background automation
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
-			
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+
 			// Check for key semantic descriptions
-			const hasManualDescription = 
-				readmeSection.includes('manual') && 
-				(readmeSection.includes('No background') || 
-				 readmeSection.includes('disabled') ||
-				 readmeSection.includes('explicit'));
-			
+			const hasManualDescription =
+				readmeSection.includes('manual') &&
+				(readmeSection.includes('No background') ||
+					readmeSection.includes('disabled') ||
+					readmeSection.includes('explicit'));
+
 			expect(
 				hasManualDescription,
-				'README should describe manual mode as having no background automation'
+				'README should describe manual mode as having no background automation',
 			).toBe(true);
 		});
 
 		it('README correctly describes hybrid/auto mode behavior', () => {
 			// Hybrid/auto: background automation enabled
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
-			
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+
 			// Check for key semantic descriptions
-			const hasHybridDescription = 
-				readmeSection.includes('hybrid') && 
-				(readmeSection.includes('background automation enabled') || 
-				 readmeSection.includes('Background automation'));
-			
+			const hasHybridDescription =
+				readmeSection.includes('hybrid') &&
+				(readmeSection.includes('background automation enabled') ||
+					readmeSection.includes('Background automation'));
+
 			expect(
 				hasHybridDescription,
-				'README should describe hybrid/auto modes as enabling background automation'
+				'README should describe hybrid/auto modes as enabling background automation',
 			).toBe(true);
 		});
 	});
@@ -235,41 +261,46 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 		it('README documents correct debounce timing', () => {
 			// Implementation default: 300ms
 			const expectedDebounce = 300;
-			
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			const debounceMatch = readmeSection.match(/debounce[sd]?.*?(\d+)\s*ms/i);
-			
+
 			expect(
-				debounceMatch && parseInt(debounceMatch[1]) === expectedDebounce,
-				`README should document debounce as ${expectedDebounce}ms (found: ${debounceMatch?.[1] || 'none'})`
+				debounceMatch && parseInt(debounceMatch[1], 10) === expectedDebounce,
+				`README should document debounce as ${expectedDebounce}ms (found: ${debounceMatch?.[1] || 'none'})`,
 			).toBe(true);
 		});
 
 		it('README documents correct polling fallback interval', () => {
 			// Implementation default: 2000ms
 			const expectedPoll = 2000;
-			
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
-			const pollMatch = readmeSection.match(/(\d+)\s*[-\w]*\s*(second|sec|ms|millisecond).*poll|poll.*?(\d+)\s*(ms|second|sec|millisecond)/i);
-			
+
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const pollMatch = readmeSection.match(
+				/(\d+)\s*[-\w]*\s*(second|sec|ms|millisecond).*poll|poll.*?(\d+)\s*(ms|second|sec|millisecond)/i,
+			);
+
 			// Check if 2-second or 2000ms is mentioned
-			const has2SecondPolling = 
-				readmeSection.includes('2-second') || 
+			const has2SecondPolling =
+				readmeSection.includes('2-second') ||
 				readmeSection.includes('2 second') ||
 				readmeSection.includes('2000');
-			
+
 			expect(
 				has2SecondPolling,
-				'README should document polling fallback as 2-second or 2000ms'
+				'README should document polling fallback as 2-second or 2000ms',
 			).toBe(true);
 		});
 
 		it('README documents fs.watch usage', () => {
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
-			
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+
 			expect(
 				readmeSection.includes('fs.watch'),
-				'README should document that plan_sync uses fs.watch()'
+				'README should document that plan_sync uses fs.watch()',
 			).toBe(true);
 		});
 	});
@@ -281,7 +312,7 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 		it('README config example uses valid mode value', () => {
 			// Find JSON config examples in README
 			const configMatch = readmeContent.match(/"automation"[^}]*}/g);
-			
+
 			if (configMatch) {
 				for (const config of configMatch) {
 					const modeMatch = config.match(/"mode"\s*:\s*"(\w+)"/);
@@ -289,7 +320,7 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 						const mode = modeMatch[1];
 						expect(
 							AutomationModeSchema.safeParse(mode).success,
-							`README config example uses invalid mode: ${mode}`
+							`README config example uses invalid mode: ${mode}`,
 						).toBe(true);
 					}
 				}
@@ -299,7 +330,7 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 		it('README config example uses valid capability keys', () => {
 			const validCapabilities = new Set([
 				'plan_sync',
-				'phase_preflight', 
+				'phase_preflight',
 				'config_doctor_on_startup',
 				'config_doctor_autofix',
 				'evidence_auto_summaries',
@@ -307,22 +338,23 @@ describe('Mode-Semantics Documentation Drift (Adversarial)', () => {
 			]);
 
 			// Check that capabilities mentioned in README are valid
-			const readmeSection = readmeContent.split('### Automation')[1]?.split('---')[0] || '';
+			const readmeSection =
+				readmeContent.split('### Automation')[1]?.split('---')[0] || '';
 			const capabilityRefs = readmeSection.match(/[`'"'](\w+)[`'"']/g) || [];
-			
+
 			for (const ref of capabilityRefs) {
 				const key = ref.replace(/[`'"']/g, '');
 				// Skip if it's a boolean, number, or known non-capability
 				if (['true', 'false'].includes(key) || /^\d+$/.test(key)) continue;
 				if (['manual', 'hybrid', 'auto'].includes(key)) continue; // modes
-				
+
 				// If it looks like a capability (has underscore), check it's valid
 				if (key.includes('_') && !validCapabilities.has(key)) {
 					// Could be drift, but might be other documented items
 					// We're lenient here - just log for review
 				}
 			}
-			
+
 			// Test passes if we found the known capabilities
 			expect(validCapabilities.size).toBe(6);
 		});

@@ -9,33 +9,35 @@
  * 4. QUEUE OVERFLOW/REPLAY - queue exhaustion, request replay, priority gaming
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'fs';
-import * as path from 'path';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
+import * as path from 'path';
+import { resetGlobalEventBus } from '../../src/background/event-bus';
 import {
-	runPreflight,
-	formatPreflightMarkdown,
-	type PreflightReport,
-	type PreflightConfig,
-} from '../../src/services/preflight-service';
+	type PreflightRequest,
+	PreflightTriggerManager,
+} from '../../src/background/trigger';
 import {
 	createPreflightIntegration,
-	runManualPreflight,
 	type PreflightIntegrationConfig,
+	runManualPreflight,
 } from '../../src/services/preflight-integration';
 import {
-	PreflightTriggerManager,
-	type PreflightRequest,
-} from '../../src/background/trigger';
-import { resetGlobalEventBus } from '../../src/background/event-bus';
+	formatPreflightMarkdown,
+	type PreflightConfig,
+	type PreflightReport,
+	runPreflight,
+} from '../../src/services/preflight-service';
 
 // Helper to create automation config
-function createAutomationConfig(options: {
-	mode?: 'manual' | 'hybrid' | 'auto';
-	phasePreflight?: boolean;
-} = {}) {
+function createAutomationConfig(
+	options: {
+		mode?: 'manual' | 'hybrid' | 'auto';
+		phasePreflight?: boolean;
+	} = {},
+) {
 	return {
 		mode: options.mode ?? 'hybrid',
 		capabilities: {
@@ -914,38 +916,53 @@ describe('SECURITY FINDINGS: Task 5.6', () => {
 	test('All Task 5.6 attack vectors documented', () => {
 		const findings = {
 			directoryTraversal: {
-				dotDotTraversal: 'HANDLED - path is normalized via path.normalize(), not rejected outright',
-				nullByteInjection: 'SECURE - handled gracefully, path may fail at OS level',
+				dotDotTraversal:
+					'HANDLED - path is normalized via path.normalize(), not rejected outright',
+				nullByteInjection:
+					'SECURE - handled gracefully, path may fail at OS level',
 				emptyPath: 'SECURE - handled gracefully, fails validation',
 				uncPaths: 'HANDLED - OS-level handling, no special validation',
-				symlinkAttacks: 'HANDLED - symlink resolved to target path (filesystem-level)',
-				finding: 'NOTE: ".." sequences are NORMALIZED not REJECTED. If attacker can control path and it resolves to valid dir, check runs there.',
+				symlinkAttacks:
+					'HANDLED - symlink resolved to target path (filesystem-level)',
+				finding:
+					'NOTE: ".." sequences are NORMALIZED not REJECTED. If attacker can control path and it resolves to valid dir, check runs there.',
 			},
 			timeoutAbuse: {
 				negativeTimeout: 'SECURE - validateTimeout rejects negative values',
 				zeroTimeout: 'SECURE - validateTimeout rejects zero',
 				infinityNaN: 'SECURE - validateTimeout rejects non-finite values',
-				overflowValues: 'SECURE - validateTimeout caps at 5 minutes max (300000ms)',
+				overflowValues:
+					'SECURE - validateTimeout caps at 5 minutes max (300000ms)',
 				belowMinimum: 'SECURE - validateTimeout enforces 5s minimum (5000ms)',
 			},
 			configGatingBypass: {
-				disabledCapability: 'SECURE - integration throws error when phase_preflight=false',
-				manualMode: 'SECURE - manager.isEnabled() returns false, triggers skipped',
-				missingCapabilities: 'SECURE - isEnabled() returns false when capabilities is undefined (secure by default)',
+				disabledCapability:
+					'SECURE - integration throws error when phase_preflight=false',
+				manualMode:
+					'SECURE - manager.isEnabled() returns false, triggers skipped',
+				missingCapabilities:
+					'SECURE - isEnabled() returns false when capabilities is undefined (secure by default)',
 				nullCapabilities: 'SECURE - null capabilities handled gracefully',
 				prototypePollution: 'SECURE - no prototype pollution detected',
-				finding: 'FIXED: PreflightTriggerManager.isEnabled() now returns false for undefined/null capabilities',
+				finding:
+					'FIXED: PreflightTriggerManager.isEnabled() now returns false for undefined/null capabilities',
 			},
 			queueOverflowReplay: {
 				queueSizeLimit: 'SECURE - maxSize of 100 enforced',
-				overflowBehavior: 'SECURE - returns false gracefully when full, publishes preflight.skipped event',
-				replayAttacks: 'MITIGATED - lastTriggeredPhase prevents duplicate triggers for same phase',
-				priorityGaming: 'HANDLED - all triggers use same high priority (no gaming possible)',
-				uniqueRequestIds: 'SECURE - unique IDs generated with timestamp+counter pattern',
+				overflowBehavior:
+					'SECURE - returns false gracefully when full, publishes preflight.skipped event',
+				replayAttacks:
+					'MITIGATED - lastTriggeredPhase prevents duplicate triggers for same phase',
+				priorityGaming:
+					'HANDLED - all triggers use same high priority (no gaming possible)',
+				uniqueRequestIds:
+					'SECURE - unique IDs generated with timestamp+counter pattern',
 			},
 			outputSafety: {
-				markdownPassthrough: 'FINDING - Message content passed through literally to markdown',
-				reportIdNotExposed: 'SECURE - Report ID is NOT included in markdown output',
+				markdownPassthrough:
+					'FINDING - Message content passed through literally to markdown',
+				reportIdNotExposed:
+					'SECURE - Report ID is NOT included in markdown output',
 			},
 		};
 
@@ -953,22 +970,22 @@ describe('SECURITY FINDINGS: Task 5.6', () => {
 		const allFindings = Object.values(findings).flatMap((f) =>
 			typeof f === 'string' ? [f] : Object.values(f),
 		);
-		const vulnerabilities = allFindings.filter((v) =>
-			typeof v === 'string' && v.startsWith('VULN'),
+		const vulnerabilities = allFindings.filter(
+			(v) => typeof v === 'string' && v.startsWith('VULN'),
 		);
 
 		// No active vulnerabilities - all previously found issues are now fixed
 		expect(vulnerabilities.length).toBe(0);
 
 		// Verify security hardening is documented
-		const fixed = allFindings.filter((v) =>
-			typeof v === 'string' && v.startsWith('FIXED'),
+		const fixed = allFindings.filter(
+			(v) => typeof v === 'string' && v.startsWith('FIXED'),
 		);
 		expect(fixed.length).toBeGreaterThanOrEqual(1);
 
 		// Document findings that are not vulnerabilities but notable
-		const notes = allFindings.filter((v) =>
-			typeof v === 'string' && v.startsWith('NOTE:'),
+		const notes = allFindings.filter(
+			(v) => typeof v === 'string' && v.startsWith('NOTE:'),
 		);
 		expect(notes.length).toBeGreaterThanOrEqual(1);
 	});

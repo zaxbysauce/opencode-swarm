@@ -1,40 +1,49 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
 	getLinterCommand,
-	runLint,
 	runAdditionalLint,
+	runLint,
 	validateArgs,
 } from '../../../src/tools/lint';
 
 // Mock for Bun.spawn
 let originalSpawn: typeof Bun.spawn;
-let spawnCalls: Array<{ cmd: string[]; opts: { cwd?: string; stdout?: string; stderr?: string } }> = [];
+let spawnCalls: Array<{
+	cmd: string[];
+	opts: { cwd?: string; stdout?: string; stderr?: string };
+}> = [];
 let mockExitCode: number = 0;
 let mockStdout: string = '';
 let mockStderr: string = '';
 let mockSpawnError: Error | null = null;
 
-function mockSpawn(cmd: string[], opts: { cwd?: string; stdout?: string; stderr?: string }) {
-	spawnCalls.push({ cmd, opts: opts as { cwd?: string; stdout?: string; stderr?: string } });
-	
+function mockSpawn(
+	cmd: string[],
+	opts: { cwd?: string; stdout?: string; stderr?: string },
+) {
+	spawnCalls.push({
+		cmd,
+		opts: opts as { cwd?: string; stdout?: string; stderr?: string },
+	});
+
 	if (mockSpawnError) {
 		throw mockSpawnError;
 	}
-	
+
 	const encoder = new TextEncoder();
 	const stdoutReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStdout));
 			controller.close();
-		}
+		},
 	});
 	const stderrReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStderr));
 			controller.close();
-		}
+		},
 	});
-	
+
 	return {
 		stdout: stdoutReadable,
 		stderr: stderrReadable,
@@ -52,7 +61,7 @@ describe('lint.ts - Adversarial Security Tests', () => {
 		mockStderr = '';
 		mockSpawnError = null;
 	});
-	
+
 	afterEach(() => {
 		Bun.spawn = originalSpawn;
 	});
@@ -230,7 +239,11 @@ describe('lint.ts - Adversarial Security Tests', () => {
 	describe('mode argument injection attempts', () => {
 		it('should handle SQL injection in mode', async () => {
 			Bun.spawn = mockSpawn;
-			const result = await runLint('biome', "'; DROP TABLE users; --" as 'fix', '/valid');
+			const result = await runLint(
+				'biome',
+				"'; DROP TABLE users; --" as 'fix',
+				'/valid',
+			);
 			expect(result).toBeDefined();
 			expect(result).toHaveProperty('success');
 		});
@@ -347,7 +360,11 @@ describe('lint.ts - Adversarial Security Tests', () => {
 
 		it('should handle null byte in path + injection in mode', async () => {
 			Bun.spawn = mockSpawn;
-			const result = await runLint('biome', 'fix\x00;evil' as 'fix', '/path\x00/evil');
+			const result = await runLint(
+				'biome',
+				'fix\x00;evil' as 'fix',
+				'/path\x00/evil',
+			);
 			expect(result).toBeDefined();
 			expect(result).toHaveProperty('success');
 		});
@@ -365,7 +382,11 @@ describe('lint.ts - Adversarial Security Tests', () => {
 	describe('runAdditionalLint - same attack vectors', () => {
 		it('should handle path traversal in runAdditionalLint', async () => {
 			Bun.spawn = mockSpawn;
-			const result = await runAdditionalLint('ruff', 'check', '../../etc/passwd');
+			const result = await runAdditionalLint(
+				'ruff',
+				'check',
+				'../../etc/passwd',
+			);
 			expect(result).toBeDefined();
 			expect(result).toHaveProperty('success');
 		});
@@ -379,7 +400,11 @@ describe('lint.ts - Adversarial Security Tests', () => {
 
 		it('should handle shell injection in runAdditionalLint mode', async () => {
 			Bun.spawn = mockSpawn;
-			const result = await runAdditionalLint('ruff', 'fix\x00;rm -rf .' as 'fix', '/valid');
+			const result = await runAdditionalLint(
+				'ruff',
+				'fix\x00;rm -rf .' as 'fix',
+				'/valid',
+			);
 			expect(result).toBeDefined();
 			expect(result).toHaveProperty('success');
 		});
@@ -398,7 +423,7 @@ describe('lint.ts - Adversarial Security Tests', () => {
 				'undefined',
 				'null',
 			];
-			
+
 			for (const mode of invalidModes) {
 				const result = validateArgs({ mode });
 				expect(result).toBe(false);

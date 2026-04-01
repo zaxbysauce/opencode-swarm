@@ -11,10 +11,10 @@
  *
  * DO NOT add functional tests here - those belong in imports.test.ts
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Constants from imports.ts for boundary testing
 const MAX_FILE_PATH_LENGTH = 500;
@@ -259,9 +259,7 @@ describe('imports tool - ADVERSARIAL SECURITY TESTS', () => {
 	describe('boundary violations', () => {
 		test('handles empty string file path', async () => {
 			const { imports } = await import('../../../src/tools/imports');
-			const result = JSON.parse(
-				await imports.execute({ file: '' }, {} as any),
-			);
+			const result = JSON.parse(await imports.execute({ file: '' }, {} as any));
 			expect(result.error).toContain('required');
 		});
 
@@ -326,7 +324,9 @@ import { ${'{'.repeat(100)}a${'}'.repeat(100)} } from './target';
 			const { imports } = await import('../../../src/tools/imports');
 			const consumerFile = path.join(tempDir, 'consumer.ts');
 			// Create a very long import line with many symbols
-			const symbols = Array.from({ length: 100 }, (_, i) => `sym${i}`).join(', ');
+			const symbols = Array.from({ length: 100 }, (_, i) => `sym${i}`).join(
+				', ',
+			);
 			const longContent = `import { ${symbols} } from './target';`;
 			await fs.promises.writeFile(consumerFile, longContent);
 
@@ -389,7 +389,10 @@ import { a } from './target
 		test('handles backslash patterns in file path', async () => {
 			const { imports } = await import('../../../src/tools/imports');
 			const result = JSON.parse(
-				await imports.execute({ file: 'path\\with\\backslashes.ts' }, {} as any),
+				await imports.execute(
+					{ file: 'path\\with\\backslashes.ts' },
+					{} as any,
+				),
 			);
 			// Should handle gracefully (not crash)
 			expect(result).toBeDefined();
@@ -484,7 +487,15 @@ import { c } from \`./target\`;
 			const binaryFile = path.join(tempDir, 'binary.ts');
 			// PNG header + garbage
 			const binaryData = Buffer.from([
-				0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(100).fill(0),
+				0x89,
+				0x50,
+				0x4e,
+				0x47,
+				0x0d,
+				0x0a,
+				0x1a,
+				0x0a,
+				...Array(100).fill(0),
 			]);
 			await fs.promises.writeFile(binaryFile, binaryData);
 
@@ -513,7 +524,10 @@ import { c } from \`./target\`;
 		test('handles unreadable file gracefully', async () => {
 			const { imports } = await import('../../../src/tools/imports');
 			const consumerFile = path.join(tempDir, 'consumer.ts');
-			await fs.promises.writeFile(consumerFile, "import { foo } from './target';");
+			await fs.promises.writeFile(
+				consumerFile,
+				"import { foo } from './target';",
+			);
 
 			// Remove read permissions (on Unix-like systems)
 			if (process.platform !== 'win32') {

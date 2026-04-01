@@ -4,11 +4,11 @@
  * oversized payloads, type coercion exploits, and boundary violations.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { scanDocIndex, doc_scan } from '../../../src/tools/doc-scan';
+import { doc_scan, scanDocIndex } from '../../../src/tools/doc-scan';
 
 // Helper to create temp test directories
 function createTempDir(): string {
@@ -16,7 +16,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test markdown files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const relativePath = filename.replace(/\\/g, '/');
 	const parts = relativePath.split('/');
 	let currentDir = dir;
@@ -134,7 +138,11 @@ describe('doc-scan adversarial tests', () => {
 		});
 
 		it('should handle file with only # headings and no content', async () => {
-			createTestFile(tempDir, 'README.md', '# Heading 1\n\n## Heading 2\n\n### Heading 3\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'# Heading 1\n\n## Heading 2\n\n### Heading 3\n',
+			);
 
 			const result = await scanDocIndex(tempDir);
 
@@ -169,7 +177,11 @@ describe('doc-scan adversarial tests', () => {
 		it('should handle many small files (memory pressure)', async () => {
 			// Create 200 files to stress test
 			for (let i = 0; i < 200; i++) {
-				createTestFile(tempDir, `docs/file${i}.md`, `# Doc ${i}\n\nContent for file ${i}.\n`);
+				createTestFile(
+					tempDir,
+					`docs/file${i}.md`,
+					`# Doc ${i}\n\nContent for file ${i}.\n`,
+				);
 			}
 
 			const result = await scanDocIndex(tempDir);
@@ -182,8 +194,14 @@ describe('doc-scan adversarial tests', () => {
 
 		it('should handle deeply nested directory (15 levels)', async () => {
 			// Create 15 levels of nesting
-			const deepPath = Array.from({ length: 15 }, (_, i) => `level${i}`).join('/');
-			createTestFile(tempDir, `${deepPath}/CHANGELOG.md`, `# Deep Change\n\nNested.\n`);
+			const deepPath = Array.from({ length: 15 }, (_, i) => `level${i}`).join(
+				'/',
+			);
+			createTestFile(
+				tempDir,
+				`${deepPath}/CHANGELOG.md`,
+				`# Deep Change\n\nNested.\n`,
+			);
 
 			const result = await scanDocIndex(tempDir);
 
@@ -215,7 +233,11 @@ describe('doc-scan adversarial tests', () => {
 
 		it('should handle file with parentheses in name that matches pattern', async () => {
 			// Create a file that matches pattern with parentheses in directory
-			createTestFile(tempDir, 'docs/README (copy).md', '# Parens\n\nContent.\n');
+			createTestFile(
+				tempDir,
+				'docs/README (copy).md',
+				'# Parens\n\nContent.\n',
+			);
 
 			const result = await scanDocIndex(tempDir);
 
@@ -237,7 +259,7 @@ describe('doc-scan adversarial tests', () => {
 		it('should handle file with binary content', async () => {
 			const binaryPath = path.join(tempDir, 'README.md');
 			// Write binary content (not valid UTF-8)
-			fs.writeFileSync(binaryPath, Buffer.from([0x80, 0x81, 0x82, 0xFF, 0xFE]));
+			fs.writeFileSync(binaryPath, Buffer.from([0x80, 0x81, 0x82, 0xff, 0xfe]));
 
 			// readFileSync with utf-8 will replace invalid sequences
 			// This tests that the code handles the resulting string
@@ -270,7 +292,11 @@ describe('doc-scan adversarial tests', () => {
 
 			// Write valid JSON but wrong schema
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
-			fs.writeFileSync(manifestPath, JSON.stringify({ wrong: 'schema' }), 'utf-8');
+			fs.writeFileSync(
+				manifestPath,
+				JSON.stringify({ wrong: 'schema' }),
+				'utf-8',
+			);
 
 			const result = await scanDocIndex(tempDir);
 
@@ -299,7 +325,9 @@ describe('doc-scan adversarial tests', () => {
 			createTestFile(tempDir, 'README.md', '# Title\n\nContent.\n');
 
 			// Pass force as string "true" instead of boolean true
-			const result = await doc_scan.execute({ force: 'true' as any }, { cwd: tempDir } as any);
+			const result = await doc_scan.execute({ force: 'true' as any }, {
+				cwd: tempDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should still work - string "true" should not be treated as true
@@ -310,7 +338,9 @@ describe('doc-scan adversarial tests', () => {
 		it('should handle args.force as number 1', async () => {
 			createTestFile(tempDir, 'README.md', '# Title\n\nContent.\n');
 
-			const result = await doc_scan.execute({ force: 1 as any }, { cwd: tempDir } as any);
+			const result = await doc_scan.execute({ force: 1 as any }, {
+				cwd: tempDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -338,7 +368,9 @@ describe('doc-scan adversarial tests', () => {
 			// Try prototype pollution
 			const maliciousArgs = { force: true, __proto__: { admin: true } } as any;
 
-			const result = await doc_scan.execute(maliciousArgs, { cwd: tempDir } as any);
+			const result = await doc_scan.execute(maliciousArgs, {
+				cwd: tempDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -351,7 +383,9 @@ describe('doc-scan adversarial tests', () => {
 
 			const argsWithConstructor = { force: true, constructor: {} } as any;
 
-			const result = await doc_scan.execute(argsWithConstructor, { cwd: tempDir } as any);
+			const result = await doc_scan.execute(argsWithConstructor, {
+				cwd: tempDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -393,7 +427,11 @@ describe('doc-scan adversarial tests', () => {
 	// ============ Line Ending Variations ============
 	describe('line ending variations', () => {
 		it('should handle mixed CRLF and LF line endings', async () => {
-			createTestFile(tempDir, 'README.md', '# Title\r\n\r\nLine one.\r\nLine two.\nLine three.\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'# Title\r\n\r\nLine one.\r\nLine two.\nLine three.\n',
+			);
 
 			const result = await scanDocIndex(tempDir);
 
@@ -497,7 +535,11 @@ describe('doc-scan adversarial tests', () => {
 		it('should handle directory with same name as skip directory', async () => {
 			// Create node_modules directory with a README
 			fs.mkdirSync(path.join(tempDir, 'node_modules'), { recursive: true });
-			createTestFile(tempDir, 'node_modules/README.md', '# In NodeModules\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'node_modules/README.md',
+				'# In NodeModules\n\nShould be skipped.\n',
+			);
 			createTestFile(tempDir, 'README.md', '# Real\n\nShould be included.\n');
 
 			const result = await scanDocIndex(tempDir);

@@ -10,10 +10,10 @@
  * 5. Gated by outer mode check (mode !== 'manual')
  */
 
-import { beforeEach, describe, expect, it, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 
 // Import the config schema to test the conditional logic directly
 import { AutomationConfigSchema } from '../../src/config/schema';
@@ -100,7 +100,7 @@ describe('PlanSyncWorker wiring logic', () => {
 
 		// v6.8 default: plan_sync defaults to true
 		expect(automationConfig.capabilities?.plan_sync).toBe(true);
-		
+
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;
@@ -155,7 +155,7 @@ describe('PlanSyncWorker non-fatal error handling', () => {
 
 		// Create a worker with an invalid directory to simulate failure
 		const invalidDir = '/nonexistent/path/that/should/not/exist';
-		
+
 		// The constructor itself shouldn't throw (start might fail, but that's caught)
 		expect(() => new PlanSyncWorker({ directory: invalidDir })).not.toThrow();
 	});
@@ -165,7 +165,7 @@ describe('PlanSyncWorker non-fatal error handling', () => {
 	 */
 	it('should handle worker construction with null directory gracefully', async () => {
 		const { PlanSyncWorker } = await import('../../src/background/index.js');
-		
+
 		// Worker should not throw on construction even with bad options
 		expect(() => new PlanSyncWorker({})).not.toThrow();
 	});
@@ -184,7 +184,7 @@ describe('PlanSyncWorker integration with plugin config', () => {
 
 		// Create a temp directory for each test
 		testDir = mkdtempSync(path.join(tmpdir(), 'plan-sync-test-'));
-		
+
 		// Create .opencode subdirectory with config file
 		const opencodeDir = path.join(testDir, '.opencode');
 		mkdirSync(opencodeDir, { recursive: true });
@@ -241,7 +241,9 @@ describe('PlanSyncWorker integration with plugin config', () => {
 		expect(config.automation?.capabilities?.plan_sync).toBe(true);
 
 		// Apply the same logic as in src/index.ts
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;
@@ -268,7 +270,9 @@ describe('PlanSyncWorker integration with plugin config', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;
@@ -295,7 +299,9 @@ describe('PlanSyncWorker integration with plugin config', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;
@@ -317,11 +323,13 @@ describe('PlanSyncWorker integration with plugin config', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
-		
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
+
 		// Default mode is 'manual', so should NOT init
 		expect(automationConfig.mode).toBe('manual');
-		
+
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;
@@ -345,11 +353,13 @@ describe('PlanSyncWorker integration with plugin config', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
-		
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
+
 		// v6.8: plan_sync defaults to true
 		expect(automationConfig.capabilities?.plan_sync).toBe(true);
-		
+
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.plan_sync === true;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,7 +10,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -65,7 +69,10 @@ describe('secretscan tool', () => {
 		});
 
 		it('should reject directory with control characters', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/test\0dir' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/test\0dir' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('invalid directory');
@@ -74,7 +81,10 @@ describe('secretscan tool', () => {
 		});
 
 		it('should reject directory with path traversal', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/../etc/passwd' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/../etc/passwd' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('invalid directory');
@@ -83,7 +93,10 @@ describe('secretscan tool', () => {
 
 		it('should reject directory exceeding max length', async () => {
 			const longPath = 'x'.repeat(501);
-			const result = await secretscan.execute({ directory: longPath }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: longPath },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('invalid directory');
@@ -93,18 +106,23 @@ describe('secretscan tool', () => {
 		it('should reject non-existent directory', async () => {
 			const result = await secretscan.execute(
 				{ directory: '/nonexistent/directory/that/does/not/exist' },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('directory not found');
-			expect(parsed.scan_dir).toBe('/nonexistent/directory/that/does/not/exist');
+			expect(parsed.scan_dir).toBe(
+				'/nonexistent/directory/that/does/not/exist',
+			);
 		});
 
 		it('should reject file path instead of directory', async () => {
 			const filePath = createTestFile(tempDir, 'test.txt', 'hello world');
 
-			const result = await secretscan.execute({ directory: filePath }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: filePath },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.error).toContain('target must be a directory');
@@ -113,7 +131,7 @@ describe('secretscan tool', () => {
 		it('should validate exclude paths for traversal', async () => {
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['../etc'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -125,9 +143,16 @@ describe('secretscan tool', () => {
 	// ============ Secret Detection Tests ============
 	describe('secret detection patterns', () => {
 		it('should detect AWS Access Key ID', async () => {
-			createTestFile(tempDir, 'config.js', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n');
+			createTestFile(
+				tempDir,
+				'config.js',
+				'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -142,10 +167,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'env.sh',
-				'aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n'
+				'aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -155,9 +183,16 @@ describe('secretscan tool', () => {
 
 		it('should detect GitHub Token', async () => {
 			// GitHub token format: ghp_ + at least 36 alphanumeric chars
-			createTestFile(tempDir, 'auth.txt', 'ghp_1234567890abcdefghijklmnopqrstuvwxyz1234\n');
+			createTestFile(
+				tempDir,
+				'auth.txt',
+				'ghp_1234567890abcdefghijklmnopqrstuvwxyz1234\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			const ghFinding = parsed.findings.find((f) => f.type === 'github_token');
@@ -170,10 +205,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'token.json',
-				'{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"}\n'
+				'{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"}\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -185,10 +223,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'key.pem',
-				'-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n'
+				'-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -200,10 +241,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'db.env',
-				'DATABASE_URL=postgres://admin:secretpassword@localhost:5432/mydb\n'
+				'DATABASE_URL=postgres://admin:secretpassword@localhost:5432/mydb\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings.length).toBeGreaterThan(0);
@@ -216,7 +260,10 @@ describe('secretscan tool', () => {
 			const stripeLikeKey = `sk_${'live_'}xxxxxxxxxxxxxxxxxxxxxxxx`;
 			createTestFile(tempDir, 'stripe.js', `const key = "${stripeLikeKey}";\n`);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -226,18 +273,22 @@ describe('secretscan tool', () => {
 
 		it('should detect Slack token', async () => {
 			// Use a unique format to avoid overlap with other patterns
-			const slackLikeToken =
-				`xox${'b-'}123456789012-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx`;
+			const slackLikeToken = `xox${'b-'}123456789012-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx`;
 			createTestFile(
 				tempDir,
 				'slack.env',
-				`SLACK_BOT_TOKEN=${slackLikeToken}\n`
+				`SLACK_BOT_TOKEN=${slackLikeToken}\n`,
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
-			const slackFinding = parsed.findings.find((f) => f.type === 'slack_token');
+			const slackFinding = parsed.findings.find(
+				(f) => f.type === 'slack_token',
+			);
 			expect(slackFinding).toBeDefined();
 			expect(slackFinding!.severity).toBe('critical');
 		});
@@ -245,7 +296,10 @@ describe('secretscan tool', () => {
 		it('should detect generic password in config', async () => {
 			createTestFile(tempDir, 'settings.ini', 'password=SuperSecret123!\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings.length).toBeGreaterThan(0);
@@ -256,20 +310,36 @@ describe('secretscan tool', () => {
 
 		it('should detect bearer token', async () => {
 			// Pattern requires space/quote after token: bearer\s+TOKEN[\s"'<]
-			createTestFile(tempDir, 'api.sh', 'Authorization: bearer abcdefghijklmnopqrstuvwxyz123456 "other"\n');
+			createTestFile(
+				tempDir,
+				'api.sh',
+				'Authorization: bearer abcdefghijklmnopqrstuvwxyz123456 "other"\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
-			const bearerFinding = parsed.findings.find((f) => f.type === 'bearer_token');
+			const bearerFinding = parsed.findings.find(
+				(f) => f.type === 'bearer_token',
+			);
 			expect(bearerFinding).toBeDefined();
 		});
 
 		it('should detect basic auth', async () => {
 			// Pattern requires space/quote/bracket after token: basic\s+TOKEN[\s"'<]
-			createTestFile(tempDir, 'curl.txt', 'Authorization: basic dXNlcjpwYXNzd29yZA== <redacted>\n');
+			createTestFile(
+				tempDir,
+				'curl.txt',
+				'Authorization: basic dXNlcjpwYXNzd29yZA== <redacted>\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			const basicFinding = parsed.findings.find((f) => f.type === 'basic_auth');
@@ -281,9 +351,16 @@ describe('secretscan tool', () => {
 	describe('secret redaction', () => {
 		it('should never include raw secret in output', async () => {
 			const secretValue = 'AKIAIOSFODNN7EXAMPLE';
-			createTestFile(tempDir, 'config.js', `AWS_ACCESS_KEY_ID=${secretValue}\n`);
+			createTestFile(
+				tempDir,
+				'config.js',
+				`AWS_ACCESS_KEY_ID=${secretValue}\n`,
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 
 			// Raw secret should never appear in JSON output
 			expect(result).not.toContain(secretValue);
@@ -292,7 +369,10 @@ describe('secretscan tool', () => {
 		it('should redact context around secret', async () => {
 			createTestFile(tempDir, 'config.js', 'password=SuperSecret123!\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings[0].redacted).toContain('REDACTED');
@@ -304,10 +384,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'api.js',
-				'api_key=abcd1234567890abcdefghijklmnopqrstuvwxyz1234\n'
+				'api_key=abcd1234567890abcdefghijklmnopqrstuvwxyz1234\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should show first 4 and last 4 chars
@@ -326,7 +409,10 @@ describe('secretscan tool', () => {
 			// Also create a text file with secret
 			createTestFile(tempDir, 'config.txt', 'password=secret123\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should only find the secret in text file
@@ -335,10 +421,17 @@ describe('secretscan tool', () => {
 		});
 
 		it('should skip files with excluded extensions', async () => {
-			createTestFile(tempDir, 'readme.md', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n');
+			createTestFile(
+				tempDir,
+				'readme.md',
+				'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=secret123\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should skip .md file and only find in .txt
@@ -354,11 +447,14 @@ describe('secretscan tool', () => {
 			createTestFile(
 				path.join(tempDir, 'node_modules'),
 				'secret.js',
-				'password=secretInNodeModules\n'
+				'password=secretInNodeModules\n',
 			);
 			createTestFile(tempDir, 'app.js', 'password=secretInApp\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should only find secret in app.js, not node_modules
@@ -368,10 +464,17 @@ describe('secretscan tool', () => {
 
 		it('should exclude .git directory by default', async () => {
 			fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
-			createTestFile(path.join(tempDir, '.git'), 'config', 'password=gitSecret\n');
+			createTestFile(
+				path.join(tempDir, '.git'),
+				'config',
+				'password=gitSecret\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -380,12 +483,16 @@ describe('secretscan tool', () => {
 
 		it('should support additional exclude patterns', async () => {
 			fs.mkdirSync(path.join(tempDir, 'secrets'), { recursive: true });
-			createTestFile(path.join(tempDir, 'secrets'), 'vault.txt', 'password=vaultSecret\n');
+			createTestFile(
+				path.join(tempDir, 'secrets'),
+				'vault.txt',
+				'password=vaultSecret\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['secrets'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -394,13 +501,19 @@ describe('secretscan tool', () => {
 		});
 
 		it('should support glob patterns in exclude (e.g. **/.svelte-kit/**)', async () => {
-			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), { recursive: true });
-			createTestFile(path.join(tempDir, '.svelte-kit', 'output'), 'chunk.js', 'password=generated\n');
+			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), {
+				recursive: true,
+			});
+			createTestFile(
+				path.join(tempDir, '.svelte-kit', 'output'),
+				'chunk.js',
+				'password=generated\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['**/.svelte-kit/**'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -414,7 +527,7 @@ describe('secretscan tool', () => {
 
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['**/*.test.ts'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -424,12 +537,16 @@ describe('secretscan tool', () => {
 
 		it('should support excluding a specific file by relative path', async () => {
 			fs.mkdirSync(path.join(tempDir, 'src', 'routes'), { recursive: true });
-			createTestFile(path.join(tempDir, 'src', 'routes'), 'page.test.ts', 'password=testSecret\n');
+			createTestFile(
+				path.join(tempDir, 'src', 'routes'),
+				'page.test.ts',
+				'password=testSecret\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['src/routes/page.test.ts'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -440,7 +557,7 @@ describe('secretscan tool', () => {
 		it('should reject negation patterns in exclude array', async () => {
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['!node_modules'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -451,7 +568,7 @@ describe('secretscan tool', () => {
 		it('should reject absolute paths in exclude array', async () => {
 			const result = await secretscan.execute(
 				{ directory: tempDir, exclude: ['/etc/passwd'] },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -460,15 +577,25 @@ describe('secretscan tool', () => {
 		});
 
 		it('should load and apply .secretscanignore patterns', async () => {
-			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), { recursive: true });
-			createTestFile(path.join(tempDir, '.svelte-kit', 'output'), 'chunk.js', 'password=generated\n');
+			fs.mkdirSync(path.join(tempDir, '.svelte-kit', 'output'), {
+				recursive: true,
+			});
+			createTestFile(
+				path.join(tempDir, '.svelte-kit', 'output'),
+				'chunk.js',
+				'password=generated\n',
+			);
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 			// Write a .secretscanignore file
-			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '# ignore generated\n**/.svelte-kit/**\n', 'utf-8');
+			fs.writeFileSync(
+				path.join(tempDir, '.secretscanignore'),
+				'# ignore generated\n**/.svelte-kit/**\n',
+				'utf-8',
+			);
 
 			const result = await secretscan.execute(
 				{ directory: tempDir },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -480,11 +607,15 @@ describe('secretscan tool', () => {
 			createTestFile(tempDir, 'app.test.ts', 'password=testSecret\n');
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 			// Write a .secretscanignore with comments and blanks only
-			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '# this is a comment\n\n  \n', 'utf-8');
+			fs.writeFileSync(
+				path.join(tempDir, '.secretscanignore'),
+				'# this is a comment\n\n  \n',
+				'utf-8',
+			);
 
 			const result = await secretscan.execute(
 				{ directory: tempDir },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -495,11 +626,15 @@ describe('secretscan tool', () => {
 		it('should silently skip unsafe patterns in .secretscanignore', async () => {
 			createTestFile(tempDir, 'config.txt', 'password=appSecret\n');
 			// Write a .secretscanignore with a traversal attempt
-			fs.writeFileSync(path.join(tempDir, '.secretscanignore'), '../etc/passwd\n*.txt\n', 'utf-8');
+			fs.writeFileSync(
+				path.join(tempDir, '.secretscanignore'),
+				'../etc/passwd\n*.txt\n',
+				'utf-8',
+			);
 
 			const result = await secretscan.execute(
 				{ directory: tempDir },
-				{} as any
+				{} as any,
 			);
 			const parsed = parseResult(result);
 
@@ -511,10 +646,17 @@ describe('secretscan tool', () => {
 	// ============ Deterministic Ordering Tests ============
 	describe('deterministic ordering', () => {
 		it('should return findings sorted by path then line', async () => {
-			createTestFile(tempDir, 'z-config.txt', 'line1\npassword=secretA\nline3\npassword=secretB\n');
+			createTestFile(
+				tempDir,
+				'z-config.txt',
+				'line1\npassword=secretA\nline3\npassword=secretB\n',
+			);
 			createTestFile(tempDir, 'a-config.txt', 'password=secretC\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.count).toBeGreaterThanOrEqual(3);
@@ -530,18 +672,30 @@ describe('secretscan tool', () => {
 			expect(aConfigIdx).toBeLessThan(zConfigIdx);
 
 			// Check line ordering within z-config.txt
-			const zFindings = parsed.findings.filter((f) => f.path.includes('z-config'));
+			const zFindings = parsed.findings.filter((f) =>
+				f.path.includes('z-config'),
+			);
 			if (zFindings.length >= 2) {
 				expect(zFindings[0].line).toBeLessThan(zFindings[1].line);
 			}
 		});
 
 		it('should produce consistent results across multiple scans', async () => {
-			createTestFile(tempDir, 'config1.txt', 'password=secret1\napi_key=abcd1234efgh5678\n');
+			createTestFile(
+				tempDir,
+				'config1.txt',
+				'password=secret1\napi_key=abcd1234efgh5678\n',
+			);
 			createTestFile(tempDir, 'config2.txt', 'password=secret2\n');
 
-			const result1 = await secretscan.execute({ directory: tempDir }, {} as any);
-			const result2 = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result1 = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
+			const result2 = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 
 			// Results should be identical
 			expect(result1).toBe(result2);
@@ -553,7 +707,10 @@ describe('secretscan tool', () => {
 		it('should return valid JSON structure', async () => {
 			createTestFile(tempDir, 'config.txt', 'password=secret\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Verify required fields
@@ -573,7 +730,10 @@ describe('secretscan tool', () => {
 		it('should have correct finding structure', async () => {
 			createTestFile(tempDir, 'config.txt', 'password=secret\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -595,9 +755,16 @@ describe('secretscan tool', () => {
 		});
 
 		it('should return empty findings for clean directory', async () => {
-			createTestFile(tempDir, 'readme.txt', 'This is a clean file with no secrets.\n');
+			createTestFile(
+				tempDir,
+				'readme.txt',
+				'This is a clean file with no secrets.\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toEqual([]);
@@ -611,7 +778,10 @@ describe('secretscan tool', () => {
 				createTestFile(tempDir, `file${i}.txt`, `password=secret${i}\n`);
 			}
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// If MAX_FINDINGS is 100, should have message about truncation
@@ -625,7 +795,10 @@ describe('secretscan tool', () => {
 	// ============ Edge Case Tests ============
 	describe('edge cases', () => {
 		it('should handle empty directory', async () => {
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toEqual([]);
@@ -635,9 +808,16 @@ describe('secretscan tool', () => {
 
 		it('should handle nested directories', async () => {
 			fs.mkdirSync(path.join(tempDir, 'a', 'b', 'c'), { recursive: true });
-			createTestFile(path.join(tempDir, 'a', 'b', 'c'), 'deep.txt', 'password=deepSecret\n');
+			createTestFile(
+				path.join(tempDir, 'a', 'b', 'c'),
+				'deep.txt',
+				'password=deepSecret\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -652,7 +832,10 @@ describe('secretscan tool', () => {
 			]);
 			fs.writeFileSync(path.join(tempDir, 'bom.txt'), content);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -663,7 +846,10 @@ describe('secretscan tool', () => {
 			const largeContent = 'x'.repeat(600 * 1024);
 			createTestFile(tempDir, 'large.txt', largeContent);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toEqual([]);
@@ -672,10 +858,14 @@ describe('secretscan tool', () => {
 
 		it('should skip lines that are too long', async () => {
 			// Create file with very long line containing a secret
-			const longLine = 'x'.repeat(15000) + 'password=longSecret' + 'y'.repeat(15000);
+			const longLine =
+				'x'.repeat(15000) + 'password=longSecret' + 'y'.repeat(15000);
 			createTestFile(tempDir, 'longline.txt', longLine + '\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should skip the line due to length
@@ -686,10 +876,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'multi.txt',
-				'password=secret1 api_key=abcd1234567890abcdefghijklmnop\n'
+				'password=secret1 api_key=abcd1234567890abcdefghijklmnop\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should detect both patterns
@@ -697,14 +890,19 @@ describe('secretscan tool', () => {
 		});
 
 		it('should handle special characters in path', async () => {
-			fs.mkdirSync(path.join(tempDir, 'dir-with-dashes_and.underscores'), { recursive: true });
+			fs.mkdirSync(path.join(tempDir, 'dir-with-dashes_and.underscores'), {
+				recursive: true,
+			});
 			createTestFile(
 				path.join(tempDir, 'dir-with-dashes_and.underscores'),
 				'config.txt',
-				'password=specialPath\n'
+				'password=specialPath\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -715,7 +913,10 @@ describe('secretscan tool', () => {
 			const content = 'password=sec\0ret\n';
 			fs.writeFileSync(path.join(tempDir, 'null.txt'), content);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should skip the file due to null bytes
@@ -729,10 +930,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'multiline.txt',
-				'line1\nline2\npassword=secretOnLine3\nline4\nline5\n'
+				'line1\nline2\npassword=secretOnLine3\nline4\nline5\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -740,9 +944,16 @@ describe('secretscan tool', () => {
 		});
 
 		it('should handle Windows-style line endings', async () => {
-			createTestFile(tempDir, 'windows.txt', 'line1\r\npassword=secret\r\nline3\r\n');
+			createTestFile(
+				tempDir,
+				'windows.txt',
+				'line1\r\npassword=secret\r\nline3\r\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -753,9 +964,16 @@ describe('secretscan tool', () => {
 	// ============ Confidence and Severity Tests ============
 	describe('confidence and severity levels', () => {
 		it('should assign critical severity to AWS keys', async () => {
-			createTestFile(tempDir, 'aws.txt', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n');
+			createTestFile(
+				tempDir,
+				'aws.txt',
+				'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings[0].severity).toBe('critical');
@@ -765,7 +983,10 @@ describe('secretscan tool', () => {
 		it('should assign critical severity to private keys', async () => {
 			createTestFile(tempDir, 'key.txt', '-----BEGIN PRIVATE KEY-----\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings[0].severity).toBe('critical');
@@ -775,10 +996,13 @@ describe('secretscan tool', () => {
 			createTestFile(
 				tempDir,
 				'api.txt',
-				'api_key=abcdefghijklmnopqrstuvwxyz1234567890\n'
+				'api_key=abcdefghijklmnopqrstuvwxyz1234567890\n',
 			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			const apiKeyFinding = parsed.findings.find((f) => f.type === 'api_key');
@@ -809,9 +1033,16 @@ describe('secretscan tool', () => {
 		it('should handle mixed path separators', async () => {
 			// Create nested directory
 			fs.mkdirSync(path.join(tempDir, 'nested', 'dir'), { recursive: true });
-			createTestFile(path.join(tempDir, 'nested', 'dir'), 'config.txt', 'password=secret\n');
+			createTestFile(
+				path.join(tempDir, 'nested', 'dir'),
+				'config.txt',
+				'password=secret\n',
+			);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.findings).toHaveLength(1);
@@ -825,7 +1056,10 @@ describe('secretscan tool', () => {
 			createTestFile(tempDir, 'file2.txt', 'content2\n');
 			createTestFile(tempDir, 'file3.txt', 'content3\n');
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.files_scanned).toBe(3);
@@ -838,7 +1072,10 @@ describe('secretscan tool', () => {
 			buffer.writeUInt32BE(0x89_50_4e_47, 0);
 			fs.writeFileSync(path.join(tempDir, 'image.png'), buffer);
 
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.files_scanned).toBe(1); // Only text.txt
@@ -858,7 +1095,10 @@ describe('secretscan tool', () => {
 
 				// This should complete within reasonable time (not hang)
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				// Should complete in under 5 seconds (generous for ReDoS protection)
@@ -869,11 +1109,15 @@ describe('secretscan tool', () => {
 
 			it('should handle nested groups that could trigger ReDoS', async () => {
 				// Create content with nested bracket-like patterns
-				const nestedPattern = 'bearer ' + '('.repeat(100) + 'a'.repeat(100) + ')'.repeat(100);
+				const nestedPattern =
+					'bearer ' + '('.repeat(100) + 'a'.repeat(100) + ')'.repeat(100);
 				createTestFile(tempDir, 'nested.txt', nestedPattern + '\n');
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(5000);
@@ -883,11 +1127,15 @@ describe('secretscan tool', () => {
 
 			it('should handle password patterns with many special chars (ReDoS vector)', async () => {
 				// Password with many alternations that could cause backtracking
-				const trickyPassword = 'password=' + '!@#$%^&*()'.repeat(500) + 'secret';
+				const trickyPassword =
+					'password=' + '!@#$%^&*()'.repeat(500) + 'secret';
 				createTestFile(tempDir, 'tricky.txt', trickyPassword + '\n');
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(5000);
@@ -903,7 +1151,10 @@ describe('secretscan tool', () => {
 				createTestFile(tempDir, 'longline.txt', longLine);
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(5000);
@@ -915,7 +1166,10 @@ describe('secretscan tool', () => {
 				createTestFile(tempDir, 'patho.txt', pathological + '\n');
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(5000);
@@ -940,10 +1194,13 @@ describe('secretscan tool', () => {
 					// Create symlink inside scan dir pointing outside
 					fs.symlinkSync(
 						path.join(outsideDir, 'secret.txt'),
-						path.join(tempDir, 'link-to-outside')
+						path.join(tempDir, 'link-to-outside'),
 					);
 
-					const result = await secretscan.execute({ directory: tempDir }, {} as any);
+					const result = await secretscan.execute(
+						{ directory: tempDir },
+						{} as any,
+					);
 					const parsed = parseResult(result);
 
 					// Should not find the secret from outside the scan directory
@@ -962,12 +1219,19 @@ describe('secretscan tool', () => {
 
 				const outsideDir = createTempDir();
 				try {
-					createTestFile(outsideDir, 'config.txt', 'api_key=escapedKey12345678\n');
+					createTestFile(
+						outsideDir,
+						'config.txt',
+						'api_key=escapedKey12345678\n',
+					);
 
 					// Create symlink to directory
 					fs.symlinkSync(outsideDir, path.join(tempDir, 'escaped-dir'), 'dir');
 
-					const result = await secretscan.execute({ directory: tempDir }, {} as any);
+					const result = await secretscan.execute(
+						{ directory: tempDir },
+						{} as any,
+					);
 					const parsed = parseResult(result);
 
 					// Should not traverse into symlinked directory
@@ -991,7 +1255,10 @@ describe('secretscan tool', () => {
 
 				// This should not hang or crash
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(5000);
@@ -1005,10 +1272,17 @@ describe('secretscan tool', () => {
 				}
 
 				// Create a regular file with secret
-				const filePath = createTestFile(tempDir, 'config.txt', 'password=testSecret\n');
+				const filePath = createTestFile(
+					tempDir,
+					'config.txt',
+					'password=testSecret\n',
+				);
 
 				// Scan should work normally
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				// File should be scanned (symlink check happens before read)
@@ -1026,10 +1300,13 @@ describe('secretscan tool', () => {
 				// Create a symlink to that file
 				fs.symlinkSync(
 					path.join(tempDir, 'real.txt'),
-					path.join(tempDir, 'link-to-real')
+					path.join(tempDir, 'link-to-real'),
 				);
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				// Should only find one secret (from real file, not symlink)
@@ -1042,7 +1319,7 @@ describe('secretscan tool', () => {
 			it('should reject URL-encoded path traversal (%2e%2e)', async () => {
 				const result = await secretscan.execute(
 					{ directory: '/tmp/%2e%2e%2f%2e%2e%2fetc' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1059,7 +1336,7 @@ describe('secretscan tool', () => {
 				// CURRENT: Falls through to "not found" (no actual traversal possible)
 				const result = await secretscan.execute(
 					{ directory: '/tmp/%252e%252e%252f' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1075,7 +1352,7 @@ describe('secretscan tool', () => {
 				// If not caught by validation, falls through safely
 				const result = await secretscan.execute(
 					{ directory: '/tmp/..%2f..%2fetc/passwd' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1090,7 +1367,7 @@ describe('secretscan tool', () => {
 			it('should reject path traversal with backslash (Windows)', async () => {
 				const result = await secretscan.execute(
 					{ directory: '..\\..\\windows\\system32' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1101,7 +1378,7 @@ describe('secretscan tool', () => {
 			it('should reject path traversal in exclude array', async () => {
 				const result = await secretscan.execute(
 					{ directory: tempDir, exclude: ['../../etc'] },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1112,7 +1389,7 @@ describe('secretscan tool', () => {
 			it('should reject URL-encoded traversal in exclude array', async () => {
 				const result = await secretscan.execute(
 					{ directory: tempDir, exclude: ['%2e%2e%2f'] },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1124,7 +1401,7 @@ describe('secretscan tool', () => {
 				// Even if input looks innocent, normalization should catch traversal
 				const result = await secretscan.execute(
 					{ directory: './../../../etc' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1138,15 +1415,30 @@ describe('secretscan tool', () => {
 			it('should handle malformed Unicode gracefully', async () => {
 				// Create file with invalid UTF-8 sequences
 				const malformed = Buffer.from([
-					0x70, 0x61, 0x73, 0x73, // "pass"
-					0x77, 0x6f, 0x72, 0x64, // "word"
+					0x70,
+					0x61,
+					0x73,
+					0x73, // "pass"
+					0x77,
+					0x6f,
+					0x72,
+					0x64, // "word"
 					0x3d, // "="
-					0xff, 0xfe, // Invalid UTF-8 BOM-like sequence
-					0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // "secret"
+					0xff,
+					0xfe, // Invalid UTF-8 BOM-like sequence
+					0x73,
+					0x65,
+					0x63,
+					0x72,
+					0x65,
+					0x74, // "secret"
 				]);
 				fs.writeFileSync(path.join(tempDir, 'malformed.txt'), malformed);
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				// Should not crash, either finds something or skips cleanly
@@ -1157,7 +1449,10 @@ describe('secretscan tool', () => {
 				const nulls = Buffer.alloc(1000, 0);
 				fs.writeFileSync(path.join(tempDir, 'nulls.bin'), nulls);
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				expect(parsed.error).toBeUndefined();
@@ -1169,7 +1464,7 @@ describe('secretscan tool', () => {
 				const longPath = 'a'.repeat(490);
 				const result = await secretscan.execute(
 					{ directory: `/tmp/${longPath}` },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1180,7 +1475,7 @@ describe('secretscan tool', () => {
 			it('should handle empty exclude array items', async () => {
 				const result = await secretscan.execute(
 					{ directory: tempDir, exclude: ['', 'valid'] },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1192,7 +1487,7 @@ describe('secretscan tool', () => {
 				const longExclude = 'x'.repeat(600);
 				const result = await secretscan.execute(
 					{ directory: tempDir, exclude: [longExclude] },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1203,7 +1498,7 @@ describe('secretscan tool', () => {
 			it('should handle control characters in exclude array', async () => {
 				const result = await secretscan.execute(
 					{ directory: tempDir, exclude: ['test\0dir'] },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1222,10 +1517,16 @@ describe('secretscan tool', () => {
 					fs.mkdirSync(currentPath, { recursive: true });
 				}
 				// Put a secret at the deepest level
-				fs.writeFileSync(path.join(currentPath, 'deep.txt'), 'password=deepSecret\n');
+				fs.writeFileSync(
+					path.join(currentPath, 'deep.txt'),
+					'password=deepSecret\n',
+				);
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(10000);
@@ -1243,7 +1544,10 @@ describe('secretscan tool', () => {
 				}
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(10000);
@@ -1255,7 +1559,10 @@ describe('secretscan tool', () => {
 					createTestFile(tempDir, `file${i}.txt`, `content${i}\n`);
 				}
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				// Should have a message about truncation or be within limits
@@ -1268,7 +1575,10 @@ describe('secretscan tool', () => {
 					createTestFile(tempDir, `secrets${i}.txt`, `password=secret${i}\n`);
 				}
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const parsed = parseResult(result);
 
 				// Should limit findings
@@ -1282,7 +1592,10 @@ describe('secretscan tool', () => {
 				}
 
 				const start = Date.now();
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const elapsed = Date.now() - start;
 
 				expect(elapsed).toBeLessThan(10000);
@@ -1298,7 +1611,7 @@ describe('secretscan tool', () => {
 				const secretLikeDir = `/tmp/api_key=sk_${'live_'}secret123`;
 				const result = await secretscan.execute(
 					{ directory: secretLikeDir },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1312,7 +1625,7 @@ describe('secretscan tool', () => {
 				// Try to scan a file with permission issues (we'll simulate with invalid input)
 				const result = await secretscan.execute(
 					{ directory: '/root/.ssh/id_rsa' }, // Likely inaccessible
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1326,10 +1639,17 @@ describe('secretscan tool', () => {
 			it('should redact secrets even in truncated output', async () => {
 				// Create many secrets to trigger truncation
 				for (let i = 0; i < 150; i++) {
-					createTestFile(tempDir, `secret${i}.txt`, `password=actualSecret${i}\n`);
+					createTestFile(
+						tempDir,
+						`secret${i}.txt`,
+						`password=actualSecret${i}\n`,
+					);
 				}
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const rawOutput = result;
 
 				// Raw output should never contain the actual secrets
@@ -1341,7 +1661,7 @@ describe('secretscan tool', () => {
 			it.skip('should not expose internal paths in error messages', async () => {
 				const result = await secretscan.execute(
 					{ directory: '/nonexistent/path/that/does/not/exist' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1356,7 +1676,7 @@ describe('secretscan tool', () => {
 				// Try with a path that has special regex characters
 				const result = await secretscan.execute(
 					{ directory: '/tmp/$(rm -rf /)' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1371,7 +1691,7 @@ describe('secretscan tool', () => {
 			it('should not leak memory addresses or internal state in errors', async () => {
 				const result = await secretscan.execute(
 					{ directory: '\x00\x01\x02\x03' },
-					{} as any
+					{} as any,
 				);
 				const parsed = parseResult(result);
 
@@ -1387,7 +1707,10 @@ describe('secretscan tool', () => {
 				const rawSecret = `sk_${'live_'}4eC39HqLyjWDarjtT1zdp7dc`; // Stripe test key
 				createTestFile(tempDir, 'real.txt', `stripe_key=${rawSecret}\n`);
 
-				const result = await secretscan.execute({ directory: tempDir }, {} as any);
+				const result = await secretscan.execute(
+					{ directory: tempDir },
+					{} as any,
+				);
 				const rawOutput = result;
 				const parsed = parseResult(result);
 
@@ -1407,35 +1730,50 @@ describe('secretscan tool', () => {
 
 	describe('containsControlChars consistency', () => {
 		it('blocks tab character in directory input', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/test\tdir' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/test\tdir' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 			expect(parsed.error).toBeDefined();
 			expect(parsed.error).toContain('control characters');
 		});
 
 		it('blocks newline character in directory input', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/test\ndir' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/test\ndir' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 			expect(parsed.error).toBeDefined();
 			expect(parsed.error).toContain('control characters');
 		});
 
 		it('blocks carriage return in directory input', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/test\rdir' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/test\rdir' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 			expect(parsed.error).toBeDefined();
 			expect(parsed.error).toContain('control characters');
 		});
 
 		it('blocks null byte in directory input', async () => {
-			const result = await secretscan.execute({ directory: '/tmp/test\0dir' }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: '/tmp/test\0dir' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 			expect(parsed.error).toBeDefined();
 			expect(parsed.error).toContain('control characters');
 		});
 
 		it('allows normal strings without control characters', async () => {
-			const result = await secretscan.execute({ directory: tempDir }, {} as any);
+			const result = await secretscan.execute(
+				{ directory: tempDir },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 			expect(parsed.error).toBeUndefined();
 		});

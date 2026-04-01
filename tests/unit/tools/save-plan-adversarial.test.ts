@@ -3,13 +3,13 @@
  * Tests malformed inputs, boundary violations, injection attempts, bypass attempts
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	executeSavePlan,
 	detectPlaceholderContent,
+	executeSavePlan,
 	type SavePlanArgs,
 } from '../../../src/tools/save-plan';
 
@@ -19,7 +19,9 @@ describe('save-plan adversarial tests', () => {
 
 	beforeEach(async () => {
 		// Create temp directory for each test
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-adversarial-'));
+		tempDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'save-plan-adversarial-'),
+		);
 		tempDirs.push(tempDir);
 	});
 
@@ -493,9 +495,7 @@ describe('save-plan adversarial tests', () => {
 					{
 						id: 1,
 						name: 'Setup',
-						tasks: [
-							{ id: '1.1', description: 'Add\n[task]\nto system' },
-						],
+						tasks: [{ id: '1.1', description: 'Add\n[task]\nto system' }],
 					},
 				],
 				working_directory: tempDir,
@@ -528,7 +528,9 @@ describe('save-plan adversarial tests', () => {
 			if (result.plan_path) {
 				const saved = await fs.readFile(result.plan_path, 'utf-8');
 				const plan = JSON.parse(saved);
-				expect(plan.phases[0].tasks[0].description).toBe('Line 1\nLine 2\nLine 3');
+				expect(plan.phases[0].tasks[0].description).toBe(
+					'Line 1\nLine 2\nLine 3',
+				);
 			}
 		});
 	});
@@ -738,9 +740,10 @@ describe('save-plan adversarial tests', () => {
 			expect(result.success).toBeDefined();
 			// Key assertion: no validation error for root path (path traversal or empty check)
 			const errors = result.errors ?? [];
-			const hasValidationError = errors.some(e => 
-				e.includes('cannot contain path traversal') || 
-				e.includes('cannot be empty')
+			const hasValidationError = errors.some(
+				(e) =>
+					e.includes('cannot contain path traversal') ||
+					e.includes('cannot be empty'),
 			);
 			expect(hasValidationError).toBe(false);
 		});
@@ -769,9 +772,10 @@ describe('save-plan adversarial tests', () => {
 			expect(result.success).toBeDefined();
 			// Key assertion: no validation error for root path (path traversal or empty check)
 			const errors = result.errors ?? [];
-			const hasValidationError = errors.some(e => 
-				e.includes('cannot contain path traversal') || 
-				e.includes('cannot be empty')
+			const hasValidationError = errors.some(
+				(e) =>
+					e.includes('cannot contain path traversal') ||
+					e.includes('cannot be empty'),
 			);
 			expect(hasValidationError).toBe(false);
 		});
@@ -800,9 +804,10 @@ describe('save-plan adversarial tests', () => {
 			expect(result.success).toBeDefined();
 			// Key assertion: no validation error for UNC path (path traversal or empty check)
 			const errors = result.errors ?? [];
-			const hasValidationError = errors.some(e => 
-				e.includes('cannot contain path traversal') || 
-				e.includes('cannot be empty')
+			const hasValidationError = errors.some(
+				(e) =>
+					e.includes('cannot contain path traversal') ||
+					e.includes('cannot be empty'),
 			);
 			expect(hasValidationError).toBe(false);
 		});
@@ -887,7 +892,13 @@ describe('save-plan adversarial tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Plan',
 				swarm_id: 'test',
-				phases: [{ id: -1, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				phases: [
+					{
+						id: -1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid task' }],
+					},
+				],
 				working_directory: tempDir,
 			};
 			await fs.mkdir(`${tempDir}/.swarm`, { recursive: true });
@@ -902,7 +913,13 @@ describe('save-plan adversarial tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Plan',
 				swarm_id: 'test',
-				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				phases: [
+					{
+						id: 0,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid task' }],
+					},
+				],
 				working_directory: tempDir,
 			};
 			await fs.mkdir(`${tempDir}/.swarm`, { recursive: true });
@@ -917,7 +934,13 @@ describe('save-plan adversarial tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Plan',
 				swarm_id: 'test',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Valid task' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Valid task' }],
+					},
+				],
 				working_directory: tempDir,
 			};
 			const result = await executeSavePlan(args, tempDir);
