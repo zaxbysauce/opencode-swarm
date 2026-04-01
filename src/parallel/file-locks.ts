@@ -114,13 +114,19 @@ export function isLocked(directory: string, filePath: string): FileLock | null {
 	// proper-lockfile creates a <file>.lock directory; check for it
 	const plLockDir = `${lockPath}.lock`;
 	if (fs.existsSync(plLockDir)) {
-		// A lock directory exists — treat as locked with minimal info
+		// Use the lock directory's mtime as a proxy for acquisition time
+		let acquiredAt = Date.now();
+		try {
+			acquiredAt = fs.statSync(plLockDir).mtimeMs;
+		} catch {
+			// fallback to now
+		}
 		return {
 			filePath,
 			agent: 'unknown',
 			taskId: 'unknown',
-			timestamp: new Date().toISOString(),
-			expiresAt: Date.now() + LOCK_TIMEOUT_MS,
+			timestamp: new Date(acquiredAt).toISOString(),
+			expiresAt: acquiredAt + LOCK_TIMEOUT_MS,
 		};
 	}
 
@@ -198,12 +204,18 @@ export function listActiveLocks(directory: string): FileLock[] {
 				// Check whether a proper-lockfile lock directory is active for it
 				const plLockDir = `${lockPath}.lock`;
 				if (fs.existsSync(plLockDir)) {
+					let acquiredAt = Date.now();
+					try {
+						acquiredAt = fs.statSync(plLockDir).mtimeMs;
+					} catch {
+						// fallback to now
+					}
 					locks.push({
 						filePath: file,
 						agent: 'unknown',
 						taskId: 'unknown',
-						timestamp: new Date().toISOString(),
-						expiresAt: Date.now() + LOCK_TIMEOUT_MS,
+						timestamp: new Date(acquiredAt).toISOString(),
+						expiresAt: acquiredAt + LOCK_TIMEOUT_MS,
 					});
 				}
 			}
