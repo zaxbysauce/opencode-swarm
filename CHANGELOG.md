@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.43.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.42.1...v6.43.0) (2026-04-01)
+
+
+### Features
+
+* **curator:** register curator as named swarm agent pair (fixes TUI crash) ([#360](https://github.com/zaxbysauce/opencode-swarm/issues/360)) ([6a5a5e0](https://github.com/zaxbysauce/opencode-swarm/commit/6a5a5e0b2a73174c2361816a3fefb4df4f404aef))
+
 ## [6.42.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.42.0...v6.42.1) (2026-03-31)
 
 
