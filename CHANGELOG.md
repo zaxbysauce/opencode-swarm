@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.44.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.0...v6.44.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* **ci:** resolve 22 integration test failures and add per-file subprocess isolation ([#370](https://github.com/zaxbysauce/opencode-swarm/issues/370)) ([aefd95f](https://github.com/zaxbysauce/opencode-swarm/commit/aefd95f2d4ce9100f361892fabea69ec4512ff34))
+
 ## [6.44.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.2...v6.44.0) (2026-04-01)
 
 
