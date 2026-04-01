@@ -77,6 +77,7 @@ export interface CuratorConfig {
     compliance_report: boolean;
     suppress_warnings: boolean;
     drift_inject_max_chars: number;
+    llm_timeout_ms?: number;
 }
 export interface CuratorInitResult {
     briefing: string;

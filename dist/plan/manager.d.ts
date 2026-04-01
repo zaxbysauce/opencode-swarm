@@ -27,6 +27,15 @@ export declare function savePlan(directory: string, plan: Plan, options?: {
     preserveCompletedStatuses?: boolean;
 }): Promise<void>;
 /**
+ * Rebuild plan from ledger events.
+ * Replays the ledger to reconstruct plan state, then writes the result.
+ * Uses direct atomic writes to avoid circular ledger append (savePlan appends ledger events).
+ *
+ * @param directory - The working directory
+ * @returns Reconstructed Plan from ledger, or null if ledger is empty/missing
+ */
+export declare function rebuildPlan(directory: string, plan?: Plan): Promise<Plan | null>;
+/**
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.
  */

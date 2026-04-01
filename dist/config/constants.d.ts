@@ -8,6 +8,19 @@ export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];
 export declare const AGENT_TOOL_MAP: Record<AgentName, ToolName[]>;
+/**
+ * Human-readable descriptions for tools shown in the architect Available Tools block.
+ * Used to generate the Available Tools section of the architect prompt at construction time.
+ */
+/**
+ * Canonical set of tool names that write/modify file contents.
+ * Used by scope-guard.ts and guardrails.ts to detect write operations.
+ * NOTE: bash/shell tools are intentionally excluded — bash commands are opaque
+ * to static scope analysis. Post-hoc detection via guardrails diff-scope provides secondary coverage.
+ */
+export declare const WRITE_TOOL_NAMES: readonly ["write", "edit", "patch", "apply_patch", "create_file", "insert", "replace", "append", "prepend"];
+export type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
+export declare const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>>;
 export declare const DEFAULT_MODELS: Record<string, string>;
 export declare function isQAAgent(name: string): name is QAAgentName;
 export declare function isSubagent(name: string): boolean;

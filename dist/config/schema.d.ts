@@ -442,6 +442,7 @@ export declare const CuratorConfigSchema: z.ZodObject<{
     compliance_report: z.ZodDefault<z.ZodBoolean>;
     suppress_warnings: z.ZodDefault<z.ZodBoolean>;
     drift_inject_max_chars: z.ZodDefault<z.ZodNumber>;
+    llm_timeout_ms: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;
 export declare const SlopDetectorConfigSchema: z.ZodObject<{
@@ -753,6 +754,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         compliance_report: z.ZodDefault<z.ZodBoolean>;
         suppress_warnings: z.ZodDefault<z.ZodBoolean>;
         drift_inject_max_chars: z.ZodDefault<z.ZodNumber>;
+        llm_timeout_ms: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     tool_output: z.ZodOptional<z.ZodObject<{
         truncation_enabled: z.ZodDefault<z.ZodBoolean>;

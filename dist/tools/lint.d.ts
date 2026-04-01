@@ -41,6 +41,14 @@ export declare function getAdditionalLinterCommand(linter: AdditionalLinter, mod
 export declare function detectAdditionalLinter(cwd: string): 'ruff' | 'clippy' | 'golangci-lint' | 'checkstyle' | 'ktlint' | 'dotnet-format' | 'cppcheck' | 'swiftlint' | 'dart-analyze' | 'rubocop' | null;
 /** Compute the local biome binary path for a given project directory. */
 export declare function getBiomeBinPath(directory: string): string;
+/**
+ * Resolve the binary path for a linter, using the same hierarchy as detectAvailableLinter:
+ * 1. Local node_modules/.bin
+ * 2. Ancestor node_modules/.bin (monorepo)
+ * 3. process.env.PATH scan
+ * 4. Local path as fallback (may not exist)
+ */
+export declare function resolveLinterBinPath(linter: SupportedLinter, projectDir: string): string;
 /** Compute the local eslint binary path for a given project directory. */
 export declare function getEslintBinPath(directory: string): string;
 export declare function detectAvailableLinter(directory?: string): Promise<SupportedLinter | null>;
