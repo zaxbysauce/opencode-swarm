@@ -280,3 +280,42 @@ All CI jobs use `bun-version: latest`. A Bun release during a PR run can change 
 15. Fix `proper-lockfile` usage in `src/parallel/file-locks.ts` to eliminate TOCTOU.
 16. Align `zod` versions across the dependency tree.
 17. Add missing tests: concurrent lock acquisition, gate evidence security edge cases, architect prompt template completeness, session eviction.
+
+---
+
+## Post-Implementation Validation (2026-04-01)
+
+### Fixes implemented: FIX-1 through FIX-12
+
+All 12 fixes were implemented, independently reviewed, and verified. Zero regressions introduced.
+
+### Pre-existing failure triage
+
+**Tools test suite (tests/unit/tools/ — 120 files per-file run):**
+- 102 pass, 18 fail
+- All 18 failures confirmed pre-existing on base commit f1242c3
+- Failures concentrated in checkpoint, phase-complete, pkg-audit, lint-cwd, placeholder-scan-plan, sast-scan-profiles, tool-names, write-retro adversarial
+
+**Hooks test suite:**
+- Batch mode (bun --smol test tests/unit/hooks/): 1865 failures, 4009 tests, 161 files
+- Per-file mode: 157 files pass, 4 files fail
+- **Root cause of 1865-vs-4 gap**: bun --smol shares module cache across files in a single test run; mock.module() registrations from one file poison other files. CI avoids this by running hooks per group — the batch run is not a valid signal.
+- 4 per-file failures confirmed pre-existing: `destructive-command-guard.test.ts` (18 fail), `knowledge-curator-output.test.ts` (1 fail), `system-enhancer-coder-context.test.ts` (3 fail), `telemetry-guardrails-wiring.test.ts` (1 fail)
+
+### describe.skip / it.skip audit
+
+56+ skip blocks exist in tests/unit/hooks/ and tests/unit/agents/. They fall into three categories:
+
+1. **Obsolete (feature removed)**: `architect-v6-prompt.test.ts:1144` — "BEFORE SELF-CODING section was removed in Phase 3 — these tests are now obsolete"; `guardrails-self-coding-gate.test.ts` skip blocks for SELF_CODING_BLOCK — same reason. These must stay skipped; the feature they tested no longer exists.
+
+2. **Test infrastructure issues unrelated to FIX-4**: `knowledge-injector.adversarial.test.ts` — still uses `import { vi } from 'vitest'` with `vi.mock()`. The skip blocks fail because `vi.fn().mockResolvedValue()` mid-test mock updates don't propagate correctly in bun's vitest compat layer. Un-skipping one block confirms: the test fails with `Expected to contain "` ` `" Received: ""`. Fixing requires migrating the full file to `bun:test` with `mock.module()` — a separate work item.
+
+3. **Feature gaps**: Various `describe.skip` blocks in hooks tests document unimplemented behaviors (e.g., `knowledge-migrator.external`, `adversarial-detector-spiral`). These test planned but unbuilt features.
+
+**FIX-4 (namespace child_process imports) did NOT unblock these skip blocks.** FIX-4 enables mock interception of child_process calls in source files (e.g., co-change-analyzer.ts). The knowledge-injector skip blocks are about mocking plan/manager.js and knowledge-reader.js — unaffected by child_process import style.
+
+### Remaining blocked items
+
+- `continue-on-error: true` removal: still blocked on resolving the 43 pre-existing failures in #332
+- `knowledge-injector.adversarial.test.ts` skip migration: separate work item (requires full vitest→bun:test migration of the file)
+- Obsolete test cleanup: `architect-v6-prompt.test.ts` Rule 4 block and related guardrails blocks should be deleted, not un-skipped
