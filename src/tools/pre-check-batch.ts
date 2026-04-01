@@ -14,7 +14,7 @@ import { saveEvidence } from '../evidence/manager.js';
 import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';
 import type { LintResult, LintSuccessResult, SupportedLinter } from './lint';
-import { detectAvailableLinter, runLint } from './lint';
+import { detectAvailableLinter, resolveLinterBinPath, runLint } from './lint';
 import type { QualityBudgetResult } from './quality-budget';
 import { qualityBudget } from './quality-budget';
 import type { SastScanFinding, SastScanResult } from './sast-scan';
@@ -246,9 +246,6 @@ async function runLintOnFiles(
 	files: string[],
 	workspaceDir: string,
 ): Promise<LintResult> {
-	const isWindows = process.platform === 'win32';
-	const binDir = path.join(workspaceDir, 'node_modules', '.bin');
-
 	// Security: Validate all resolved file paths before use
 	const validatedFiles: string[] = [];
 	for (const file of files) {
@@ -282,17 +279,14 @@ async function runLintOnFiles(
 		};
 	}
 
+	// Resolve binary using the same hierarchy as detectAvailableLinter
+	// (local → ancestor → PATH) so detection and execution are consistent.
+	const resolvedBin = resolveLinterBinPath(linter, workspaceDir);
 	let command: string[];
 	if (linter === 'biome') {
-		const biomeBin = isWindows
-			? path.join(binDir, 'biome.EXE')
-			: path.join(binDir, 'biome');
-		command = [biomeBin, 'check', ...validatedFiles];
+		command = [resolvedBin, 'check', ...validatedFiles];
 	} else {
-		const eslintBin = isWindows
-			? path.join(binDir, 'eslint.cmd')
-			: path.join(binDir, 'eslint');
-		command = [eslintBin, ...validatedFiles];
+		command = [resolvedBin, ...validatedFiles];
 	}
 
 	try {

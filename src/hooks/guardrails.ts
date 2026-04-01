@@ -520,7 +520,7 @@ export function createGuardrailsHooks(
 					delegArgs?.target) as string | undefined;
 				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
 					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
-					const cwd = directory ?? process.cwd();
+					const cwd = effectiveDirectory;
 					const authorityCheck = checkFileAuthority(
 						agentName,
 						delegTargetPath,

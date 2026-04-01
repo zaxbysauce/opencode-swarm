@@ -332,6 +332,35 @@ export function getBiomeBinPath(directory: string): string {
 		: path.join(directory, 'node_modules', '.bin', 'biome');
 }
 
+/**
+ * Resolve the binary path for a linter, using the same hierarchy as detectAvailableLinter:
+ * 1. Local node_modules/.bin
+ * 2. Ancestor node_modules/.bin (monorepo)
+ * 3. process.env.PATH scan
+ * 4. Local path as fallback (may not exist)
+ */
+export function resolveLinterBinPath(
+	linter: SupportedLinter,
+	projectDir: string,
+): string {
+	const isWindows = process.platform === 'win32';
+	const binName =
+		linter === 'biome'
+			? isWindows
+				? 'biome.EXE'
+				: 'biome'
+			: isWindows
+				? 'eslint.cmd'
+				: 'eslint';
+	const localBin = path.join(projectDir, 'node_modules', '.bin', binName);
+	if (fs.existsSync(localBin)) return localBin;
+	const ancestor = findBinInAncestors(path.dirname(projectDir), binName);
+	if (ancestor) return ancestor;
+	const fromPath = findBinInEnvPath(binName);
+	if (fromPath) return fromPath;
+	return localBin; // fallback — may not exist but preserves original behavior
+}
+
 /** Compute the local eslint binary path for a given project directory. */
 export function getEslintBinPath(directory: string): string {
 	const isWindows = process.platform === 'win32';
@@ -340,13 +369,40 @@ export function getEslintBinPath(directory: string): string {
 		: path.join(directory, 'node_modules', '.bin', 'eslint');
 }
 
+/**
+ * Walk up ancestor directories from startDir looking for node_modules/.bin/<binName>.
+ * Returns the first absolute path found, or null.
+ */
+function findBinInAncestors(startDir: string, binName: string): string | null {
+	let dir = startDir;
+	while (true) {
+		const candidate = path.join(dir, 'node_modules', '.bin', binName);
+		if (fs.existsSync(candidate)) return candidate;
+		const parent = path.dirname(dir);
+		if (parent === dir) break; // reached filesystem root
+		dir = parent;
+	}
+	return null;
+}
+
+/**
+ * Find a binary by scanning process.env.PATH directories.
+ * Bun.which does not pick up runtime changes to process.env.PATH, so we scan manually.
+ */
+function findBinInEnvPath(binName: string): string | null {
+	const searchPath = process.env.PATH ?? '';
+	for (const dir of searchPath.split(path.delimiter)) {
+		if (!dir) continue;
+		const candidate = path.join(dir, binName);
+		if (fs.existsSync(candidate)) return candidate;
+	}
+	return null;
+}
+
 // ============ Linter Detection ============
 export async function detectAvailableLinter(
 	directory?: string,
 ): Promise<SupportedLinter | null> {
-	// Timeout for linter detection (in ms)
-	const _DETECT_TIMEOUT = 2000;
-
 	if (!directory) return null;
 
 	// Check if directory exists before attempting detection
@@ -361,7 +417,44 @@ export async function detectAvailableLinter(
 		? path.join(projectDir!, 'node_modules', '.bin', 'eslint.cmd')
 		: path.join(projectDir!, 'node_modules', '.bin', 'eslint');
 
-	return _detectAvailableLinter(projectDir!, biomeBin, eslintBin);
+	// Try local node_modules first
+	const localResult = await _detectAvailableLinter(
+		projectDir!,
+		biomeBin,
+		eslintBin,
+	);
+	if (localResult) return localResult;
+
+	// Walk up ancestor directories to find binary (handles projects nested under a monorepo root)
+	const biomeAncestor = findBinInAncestors(
+		path.dirname(projectDir!),
+		isWindows ? 'biome.EXE' : 'biome',
+	);
+	const eslintAncestor = findBinInAncestors(
+		path.dirname(projectDir!),
+		isWindows ? 'eslint.cmd' : 'eslint',
+	);
+	if (biomeAncestor || eslintAncestor) {
+		return _detectAvailableLinter(
+			projectDir!,
+			biomeAncestor ?? biomeBin,
+			eslintAncestor ?? eslintBin,
+		);
+	}
+
+	// Fall back to scanning process.env.PATH (handles cases where biome is in PATH
+	// but not under the project directory; Bun.which does not see runtime PATH changes)
+	const pathBiome = findBinInEnvPath(isWindows ? 'biome.EXE' : 'biome');
+	const pathEslint = findBinInEnvPath(isWindows ? 'eslint.cmd' : 'eslint');
+	if (pathBiome || pathEslint) {
+		return _detectAvailableLinter(
+			projectDir!,
+			pathBiome ?? biomeBin,
+			pathEslint ?? eslintBin,
+		);
+	}
+
+	return null;
 }
 
 /** Internal implementation — accepts pre-computed binary paths for testability. */

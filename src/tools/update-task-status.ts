@@ -169,7 +169,7 @@ export function checkReviewerGate(
 		}
 
 		// === evidence-first check (durable, survives restarts) ===
-		const resolvedDir = workingDirectory!;
+		const resolvedDir = workingDirectory ?? process.cwd();
 		try {
 			const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
 

@@ -15,7 +15,7 @@ import type { KnowledgeConfig } from './knowledge-types.js';
  * Takes a system prompt and user input, returns the LLM output text.
  * Used to delegate analysis to the explorer agent in CURATOR mode.
  */
-export type CuratorLLMDelegate = (systemPrompt: string, userInput: string) => Promise<string>;
+export type CuratorLLMDelegate = (systemPrompt: string, userInput: string, signal?: AbortSignal) => Promise<string>;
 /**
  * Parse KNOWLEDGE_UPDATES section from curator LLM output.
  * Expected format per line: "- [action] [entry_id or "new"]: [reason]"
@@ -72,7 +72,7 @@ export declare function runCuratorInit(directory: string, config: CuratorConfig,
  * @param llmDelegate - Optional LLM delegate for enhanced analysis
  * @returns CuratorPhaseResult with digest, compliance, and recommendations
  */
-export declare function runCuratorPhase(directory: string, phase: number, agentsDispatched: string[], _config: CuratorConfig, _knowledgeConfig: {
+export declare function runCuratorPhase(directory: string, phase: number, agentsDispatched: string[], config: CuratorConfig, _knowledgeConfig: {
     directory?: string;
 }, llmDelegate?: CuratorLLMDelegate): Promise<CuratorPhaseResult>;
 /**

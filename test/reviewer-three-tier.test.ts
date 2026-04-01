@@ -271,28 +271,28 @@ describe('Reviewer Agent - Three-Tier Review Structure (Task 3.1)', () => {
 			const agent = createReviewerAgent('gpt-4');
 			const prompt = agent.config.prompt as string;
 
-			expect(prompt).toContain('LOW: defense in depth improvements');
+			expect(prompt).toContain('LOW: Code smell');
 		});
 
 		it('should define MEDIUM risk level', () => {
 			const agent = createReviewerAgent('gpt-4');
 			const prompt = agent.config.prompt as string;
 
-			expect(prompt).toContain('MEDIUM: fix before production');
+			expect(prompt).toContain('MEDIUM: Edge case');
 		});
 
 		it('should define HIGH risk level', () => {
 			const agent = createReviewerAgent('gpt-4');
 			const prompt = agent.config.prompt as string;
 
-			expect(prompt).toContain('HIGH: must fix');
+			expect(prompt).toContain('HIGH: Logic error');
 		});
 
 		it('should define CRITICAL risk level', () => {
 			const agent = createReviewerAgent('gpt-4');
 			const prompt = agent.config.prompt as string;
 
-			expect(prompt).toContain('CRITICAL: blocks approval');
+			expect(prompt).toContain('CRITICAL: Will crash');
 		});
 	});
 

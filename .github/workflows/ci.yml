@@ -161,7 +161,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Integration tests
-        run: bun test tests/integration ./test --timeout 120000
+        shell: bash
+        run: |
+          # Per-file isolation to prevent module cache poisoning and process.chdir
+          # contamination across integration test files (#330 pattern).
+          failed=0
+          for f in tests/integration/*.test.ts ./test/*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
 
   security:
     needs: quality
