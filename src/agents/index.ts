@@ -329,7 +329,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	if (!isAgentDisabled('curator_init', swarmAgents, swarmPrefix)) {
 		const curatorInitPrompts = getPrompts('curator_init');
 		const curatorInit = createCuratorAgent(
-			swarmAgents?.curator_init?.model ?? getModel('curator_init'),
+			swarmAgents?.curator_init?.model ?? getModel('explorer'),
 			curatorInitPrompts.prompt,
 			curatorInitPrompts.appendPrompt,
 			'curator_init' as CuratorRole,
@@ -342,7 +342,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 	if (!isAgentDisabled('curator_phase', swarmAgents, swarmPrefix)) {
 		const curatorPhasePrompts = getPrompts('curator_phase');
 		const curatorPhase = createCuratorAgent(
-			swarmAgents?.curator_phase?.model ?? getModel('curator_phase'),
+			swarmAgents?.curator_phase?.model ?? getModel('explorer'),
 			curatorPhasePrompts.prompt,
 			curatorPhasePrompts.appendPrompt,
 			'curator_phase' as CuratorRole,
