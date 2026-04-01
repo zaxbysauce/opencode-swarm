@@ -1,4 +1,37 @@
-import { describe, it, expect } from 'bun:test';
+import { afterEach, beforeEach, describe, it, expect } from 'bun:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { execSync } from 'node:child_process';
+
+let tempDir: string;
+let originalCwd: string;
+
+beforeEach(() => {
+	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-adversarial-'));
+	originalCwd = process.cwd();
+	process.chdir(tempDir);
+	// Minimal git repo so checkpoint save/list operations have a valid context
+	try {
+		execSync('git init', { encoding: 'utf-8', stdio: 'pipe' });
+		execSync('git config user.email "test@test.com"', { encoding: 'utf-8', stdio: 'pipe' });
+		execSync('git config user.name "Test"', { encoding: 'utf-8', stdio: 'pipe' });
+		fs.writeFileSync(path.join(tempDir, 'initial.txt'), 'initial');
+		execSync('git add .', { encoding: 'utf-8', stdio: 'pipe' });
+		execSync('git commit -m "initial"', { encoding: 'utf-8', stdio: 'pipe' });
+	} catch {
+		// git may fail due to signing hooks; checkpoint tests don't require commits
+	}
+});
+
+afterEach(() => {
+	process.chdir(originalCwd);
+	try {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	} catch {
+		// Ignore cleanup errors
+	}
+});
 
 // Dynamic import to handle path resolution
 const { checkpoint } = await import('../../src/tools/checkpoint');

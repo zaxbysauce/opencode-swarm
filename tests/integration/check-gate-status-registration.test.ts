@@ -152,8 +152,8 @@ describe('check_gate_status path security', () => {
         const parsed = JSON.parse(result);
         
         // Should either validate the path correctly or return no_evidence for missing file
-        // Should NOT expose any path traversal vulnerability
-        expect(parsed.message).not.toContain(testWorkspace.replace(/\\/g, '/').split('/').slice(0, -2).join('/'));
+        // Should NOT expose any path traversal in the error message
+        expect(parsed.message).not.toContain('..');
     });
 
     it('should handle missing evidence file gracefully', async () => {

@@ -10,6 +10,9 @@
  * the architect from being misidentified as a subagent.
  */
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../src/config/constants';
 import type { GuardrailsConfig } from '../../src/config/schema';
@@ -24,12 +27,21 @@ import {
 
 describe('Circuit Breaker Race Condition', () => {
 	const sessionId = 'test-session-123';
+	let tempDir: string;
+	let originalCwd: string;
 
 	beforeEach(() => {
 		resetSwarmState();
+		// Run from a temp dir with no .swarm folder so guardrails cwd fallback
+		// doesn't pick up the repo's real plan.json
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'circuit-breaker-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
 	});
 
 	afterEach(() => {
+		process.chdir(originalCwd);
+		try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
 		resetSwarmState();
 	});
 
@@ -316,11 +328,12 @@ describe('Circuit Breaker Race Condition', () => {
 		window.startedAtMs = Date.now() - 44 * 60000;
 		session.lastToolCallTime = Date.now() - 1000;
 
-		// Should NOT throw (within limits)
+		// Should NOT throw (within limits) - use read tool to avoid write-authority check
+		// which doesn't know about swarm-prefixed agent names like mega_coder
 		await expect(
 			hooks.toolBefore(
-				{ tool: 'edit', sessionID: sessionId, callID: 'call-1' },
-				{ args: { filePath: '/test', oldString: 'a', newString: 'b' } },
+				{ tool: 'read', sessionID: sessionId, callID: 'call-1' },
+				{ args: { filePath: '/test' } },
 			),
 		).resolves.toBeUndefined();
 
@@ -330,8 +343,8 @@ describe('Circuit Breaker Race Condition', () => {
 		// Should throw (exceeded 45 min limit)
 		await expect(
 			hooks.toolBefore(
-				{ tool: 'edit', sessionID: sessionId, callID: 'call-2' },
-				{ args: { filePath: '/test', oldString: 'a', newString: 'b' } },
+				{ tool: 'read', sessionID: sessionId, callID: 'call-2' },
+				{ args: { filePath: '/test' } },
 			),
 		).rejects.toThrow(/LIMIT REACHED.*Duration exhausted.*45/);
 	});

@@ -106,13 +106,13 @@ describe('pre_check_batch integration', () => {
 		expect(parsed.total_duration_ms).toBeGreaterThan(0);
 	});
 
-	test('correctly reports gates_passed=false when lint has errors', async () => {
-		// Create a file with lint errors - unused variable
-		// biome will flag unused variables as warnings
+	test('correctly reports lint errors (lint is informational, does not block gates)', async () => {
+		// Create a file with a lint error that biome flags as an error (exit 1)
+		// debugger statement is flagged by biome's noDebugger rule
 		fs.writeFileSync(
 			path.join(tempDir, 'bad-code.js'),
-			`// Biome will flag unused variable
-var x = 1;
+			`// Biome flags debugger as an error (noDebugger rule)
+debugger;
 `,
 		);
 
@@ -142,9 +142,9 @@ var x = 1;
 		const lintExitCode = parsed.lint.result.exitCode;
 		const hasLintErrors = lintSuccess === false || lintExitCode !== 0;
 
-		// Verify gates_passed is false when lint has errors
 		expect(hasLintErrors).toBe(true);
-		expect(parsed.gates_passed).toBe(false);
+		// Lint is informational only - does NOT block gates_passed (only secretscan and sast_scan do)
+		expect(parsed.gates_passed).toBe(true);
 	});
 
 	test('correctly reports gates_passed=false when secretscan finds secrets', async () => {

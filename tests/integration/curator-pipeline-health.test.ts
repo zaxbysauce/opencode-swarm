@@ -66,11 +66,13 @@ describe('curator pipeline health — integration', () => {
 		fs.writeFileSync(
 			reportPath,
 			JSON.stringify({
+				schema_version: 1,
 				phase,
 				alignment: driftScore > 0 ? 'drift_detected' : 'aligned',
 				drift_score: driftScore,
 				timestamp: new Date().toISOString(),
 				spec_deviations: [],
+				compounding_effects: [],
 				evidence_files_checked: 3,
 				evidence_files_passed: driftScore > 0 ? 1 : 3,
 			}, null, 2),

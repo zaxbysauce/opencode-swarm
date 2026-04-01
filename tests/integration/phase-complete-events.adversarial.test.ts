@@ -249,17 +249,15 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
 
-			// Both events should be present
-			const events = readEvents();
-			expect(events.length).toBe(2);
+			// The pre-existing event must still be present (append, not overwrite)
+			const customEvents = readEvents('custom_event');
+			expect(customEvents.length).toBe(1);
+			expect(customEvents[0].data).toBe('some pre-existing data');
 
-			// First event should be the pre-existing one
-			expect(events[0].event).toBe('custom_event');
-			expect(events[0].data).toBe('some pre-existing data');
-
-			// Second event should be the phase_complete event
-			expect(events[1].event).toBe('phase_complete');
-			expect(events[1].phase).toBe(1);
+			// The phase_complete event must have been appended
+			const phaseEvents = readEvents('phase_complete');
+			expect(phaseEvents.length).toBe(1);
+			expect(phaseEvents[0].phase).toBe(1);
 		});
 	});
 
@@ -298,17 +296,15 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
 
-			// Both events should be parseable
-			const events = readEvents();
-			expect(events.length).toBe(2);
+			// The pre-existing event must still be present (append, not overwrite)
+			const customEvents = readEvents('custom_event');
+			expect(customEvents.length).toBe(1);
+			expect(customEvents[0].data).toBe('with newline');
 
-			// First event should be the pre-existing one
-			expect(events[0].event).toBe('custom_event');
-			expect(events[0].data).toBe('with newline');
-
-			// Second event should be the phase_complete event
-			expect(events[1].event).toBe('phase_complete');
-			expect(events[1].phase).toBe(1);
+			// The phase_complete event must have been appended
+			const phaseEvents = readEvents('phase_complete');
+			expect(phaseEvents.length).toBe(1);
+			expect(phaseEvents[0].phase).toBe(1);
 		});
 	});
 
@@ -431,17 +427,18 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			expect(parsed2.success).toBe(true);
 			expect(parsed2.phase).toBe(1);
 
-			// Both events should be present in the order they were called
-			const events = readEvents();
-			expect(events.length).toBe(2);
+			// Both phase_complete events should be present in the order they were called
+			// (curator_compliance events are also written but are not phase_complete events)
+			const phaseEvents = readEvents('phase_complete');
+			expect(phaseEvents.length).toBe(2);
 
 			// First event should be phase 3 (order of calls)
-			expect(events[0].phase).toBe(3);
-			expect(events[0].summary).toBe('Phase 3 complete');
+			expect(phaseEvents[0].phase).toBe(3);
+			expect(phaseEvents[0].summary).toBe('Phase 3 complete');
 
 			// Second event should be phase 1
-			expect(events[1].phase).toBe(1);
-			expect(events[1].summary).toBe('Phase 1 complete');
+			expect(phaseEvents[1].phase).toBe(1);
+			expect(phaseEvents[1].summary).toBe('Phase 1 complete');
 		});
 	});
 
@@ -511,16 +508,13 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(true);
 
-			// Read raw file content to verify exactly 1 line
-			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
-			const rawContent = fs.readFileSync(eventsPath, 'utf-8');
-			const lines = rawContent.split('\n').filter((l) => l.trim());
-
-			// Should be exactly 1 line (no newlines in the summary)
-			expect(lines.length).toBe(1);
+			// Read raw file content — multiple events may be written (e.g. curator_compliance),
+			// but the phase_complete event must be exactly 1 valid JSON line
+			const phaseEvents = readEvents('phase_complete');
+			expect(phaseEvents.length).toBe(1);
 
 			// Parse and verify the summary is correctly escaped
-			const event = JSON.parse(lines[0]);
+			const event = phaseEvents[0];
 			expect(event.summary).toBe(dangerousSummary);
 			expect(event.summary).toContain('\n');
 			expect(event.summary).toContain('\\');

@@ -7,7 +7,23 @@ import {
 	resetSwarmState,
 	swarmState,
 } from '../../src/state';
+import type { DelegationEntry } from '../../src/state';
 import type { PluginConfig } from '../../src/config';
+
+/**
+ * Simulate a coder delegation by adding a delegation chain entry.
+ * The delegation-gate checks for this to determine if coder_delegated state
+ * is from the current session (not stale from a prior session).
+ */
+function simulateCoderDelegation(sessionId: string): void {
+	const existing = swarmState.delegationChains.get(sessionId) ?? [];
+	const entry: DelegationEntry = {
+		from: 'architect',
+		to: 'coder',
+		timestamp: Date.now(),
+	};
+	swarmState.delegationChains.set(sessionId, [...existing, entry]);
+}
 
 const TEST_DIR = '/test/project';
 
@@ -36,6 +52,9 @@ describe('runtime reviewer gate', () => {
 		const session = ensureAgentSession(sessionId, 'architect');
 		// Set task 1.1 to coder_delegated (coder already ran, no reviewer)
 		advanceTaskState(session, '1.1', 'coder_delegated');
+		// Simulate that the coder delegation happened in this session
+		// (delegation-gate resets stale coder_delegated state if no delegation entry exists)
+		simulateCoderDelegation(sessionId);
 
 		const input = {
 			tool: 'Task',
@@ -127,6 +146,8 @@ describe('runtime reviewer gate', () => {
 		const session = ensureAgentSession(sessionId, 'architect');
 		// Task 3.1 is a Tier 3 task
 		advanceTaskState(session, '3.1', 'coder_delegated');
+		// Simulate that the coder delegation happened in this session
+		simulateCoderDelegation(sessionId);
 
 		// Enable turbo mode
 		session.turboMode = true;

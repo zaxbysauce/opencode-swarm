@@ -59,12 +59,7 @@ export class PlanSyncWorker {
 	private disposed = false;
 
 	constructor(options: PlanSyncWorkerOptions = {}) {
-		if (!options.directory) {
-			throw new Error(
-				'[plan-sync-worker] No directory provided - options.directory is required',
-			);
-		}
-		this.directory = options.directory;
+		this.directory = options.directory ?? '';
 		this.debounceMs = options.debounceMs ?? 300;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
 		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
@@ -94,6 +89,11 @@ export class PlanSyncWorker {
 			return;
 		}
 
+		if (!this.directory) {
+			log('[PlanSyncWorker] Cannot start - no directory provided');
+			return;
+		}
+
 		if (this.status === 'running' || this.status === 'starting') {
 			log('[PlanSyncWorker] Already running or starting');
 			return;
@@ -105,12 +105,12 @@ export class PlanSyncWorker {
 		// Initialize lastStat for change detection
 		this.initializeStat();
 
-		// Try to set up native fs.watch first
-		if (!this.setupNativeWatcher()) {
-			// Fall back to polling
-			log('[PlanSyncWorker] Native watch unavailable, using polling fallback');
-			this.setupPolling();
-		}
+		// Always set up polling as a reliable fallback.
+		// Native fs.watch is also attempted; if it fires first, polling overlap protection
+		// prevents duplicate syncs. This ensures callbacks fire even when fs.watch events
+		// are delayed or not delivered by the OS (common in test environments).
+		this.setupPolling();
+		this.setupNativeWatcher();
 
 		this.status = 'running';
 		log('[PlanSyncWorker] Started watching for plan.json changes');

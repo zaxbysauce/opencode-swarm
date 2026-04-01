@@ -114,6 +114,7 @@ describe('PlanSyncWorker Integration', () => {
 		const worker = new PlanSyncWorker({
 			directory: tempDir,
 			debounceMs: 50, // Short debounce for faster test
+			pollIntervalMs: 50, // Supplement native watcher with fast polling
 			syncTimeoutMs: 5000,
 			onSyncComplete: (success, error) => {
 				syncResults.push({ success, error });
@@ -149,6 +150,7 @@ describe('PlanSyncWorker Integration', () => {
 		const worker = new PlanSyncWorker({
 			directory: tempDir,
 			debounceMs: 100, // Longer debounce to catch rapid changes
+			pollIntervalMs: 50, // Supplement native watcher with fast polling
 			syncTimeoutMs: 5000,
 			onSyncComplete: (success, error) => {
 				syncResults.push({ success, error });
@@ -355,6 +357,7 @@ describe('PlanSyncWorker Integration', () => {
 		const worker = new PlanSyncWorker({
 			directory: tempDir,
 			debounceMs: 150, // 150ms debounce
+			pollIntervalMs: 50, // Supplement native watcher (fs.watch unreliable in test env)
 			syncTimeoutMs: 5000,
 			onSyncComplete: (success) => {
 				if (success) {
@@ -515,6 +518,7 @@ describe('PlanSyncWorker Integration', () => {
 		const worker = new PlanSyncWorker({
 			directory: tempDir,
 			debounceMs: 50,
+			pollIntervalMs: 50, // Supplement native watcher (fs.watch unreliable in test env)
 			syncTimeoutMs: 5000,
 			onSyncComplete: (success, error) => {
 				syncResults.push({ success, error });
