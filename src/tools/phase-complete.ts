@@ -931,6 +931,18 @@ export async function executePhaseComplete(
 		}
 	}
 
+	// Declare result early so the ledger-rebuild blocks can set result fields
+	// instead of returning early, allowing flow-through to the finalization block
+	const result: PhaseCompleteResult = {
+		success,
+		phase,
+		status,
+		message,
+		agentsDispatched,
+		agentsMissing,
+		warnings,
+	};
+
 	// Regression sweep check: advisory warning if enforce=true and no sweep found
 	if (phaseCompleteConfig.regression_sweep?.enforce) {
 		try {
@@ -1044,21 +1056,10 @@ export async function executePhaseComplete(
 								} catch {
 									// Snapshot failure is non-blocking
 								}
-								return JSON.stringify(
-									{
-										success: true,
-										phase,
-										status: 'success',
-										message,
-										agentsDispatched,
-										agentsMissing,
-										warnings,
-										timestamp: event.timestamp,
-										duration_ms: durationMs,
-									},
-									null,
-									2,
-								);
+								// Don't return here — flow through to the common finalization block
+								// which writes checkpoint artifacts and builds the final result
+								result.success = true;
+								result.status = 'success';
 							}
 						}
 					} catch {
@@ -1118,6 +1119,10 @@ export async function executePhaseComplete(
 							} catch {
 								// Snapshot failure is non-blocking
 							}
+							// Don't return here — flow through to the common finalization block
+							// which writes checkpoint artifacts and builds the final result
+							result.success = true;
+							result.status = 'success';
 						}
 					}
 				} catch {
@@ -1146,17 +1151,6 @@ export async function executePhaseComplete(
 	if (complianceWarnings.length > 0) {
 		warnings.push(`Curator compliance: ${complianceWarnings.join('; ')}`);
 	}
-
-	// Build final result
-	const result: PhaseCompleteResult = {
-		success,
-		phase,
-		status,
-		message,
-		agentsDispatched,
-		agentsMissing,
-		warnings,
-	};
 
 	// v6.33.1: Flush debounced snapshot on phase-complete
 	await flushPendingSnapshot(dir);

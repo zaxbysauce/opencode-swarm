@@ -463,7 +463,9 @@ export async function savePlan(
 	const SNAPSHOT_INTERVAL = 50;
 	const latestSeq = await getLatestLedgerSeq(directory);
 	if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-		await takeSnapshotEvent(directory, validated).catch(() => {});
+		await takeSnapshotEvent(directory, validated, {
+			planHashAfter: hashAfter,
+		}).catch(() => {});
 	}
 
 	const swarmDir = path.resolve(directory, '.swarm');
