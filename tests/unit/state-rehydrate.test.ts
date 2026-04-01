@@ -438,17 +438,17 @@ describe('rehydrateSessionFromDisk', () => {
 			],
 		});
 
-		// Write evidence file with path traversal attempt
+		// Write evidence file with invalid taskId format (non-numeric, skipped by regex)
 		const evidencePath = path.join(
 			testDir,
 			'.swarm',
 			'evidence',
-			'../plan.json',
+			'invalid-format.json',
 		);
 		await fs.writeFile(
 			evidencePath,
 			JSON.stringify({
-				taskId: '../plan.json',
+				taskId: 'invalid-format',
 				required_gates: ['reviewer'],
 				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
 			}),

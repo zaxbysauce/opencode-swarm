@@ -296,8 +296,8 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Verify all cache scenarios are covered
-			expect(agent.config.prompt).toContain('If section absent');
-			expect(agent.config.prompt).toContain('If URL/topic listed');
+			expect(agent.config.prompt).toContain('## Research Sources');
+			expect(agent.config.prompt).toContain('If URL/topic IS listed in ## Research Sources');
 			expect(agent.config.prompt).toContain('If cache miss');
 			expect(agent.config.prompt).toContain('Cache bypass');
 		});

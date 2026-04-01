@@ -177,7 +177,7 @@ describe('checkGrammarWasmFiles', () => {
 
 		expect(check).toBeDefined();
 		expect(check.status).toBe('✅');
-		expect(check.detail).toBe('All 17 grammar WASM files present');
+		expect(check.detail).toBe('Core runtime + all 19 grammar WASM files present');
 	});
 
 	it('should fail when some grammar WASM files are missing', async () => {
@@ -194,7 +194,7 @@ describe('checkGrammarWasmFiles', () => {
 
 		expect(check).toBeDefined();
 		expect(check.status).toBe('❌');
-		expect(check.detail).toContain('2 grammar WASM file(s) missing');
+		expect(check.detail).toContain('2 WASM file(s) missing');
 		expect(check.detail).toContain('tree-sitter-javascript.wasm');
 		expect(check.detail).toContain('tree-sitter-python.wasm');
 	});
@@ -212,7 +212,7 @@ describe('checkGrammarWasmFiles', () => {
 
 		expect(check).toBeDefined();
 		expect(check.status).toBe('❌');
-		expect(check.detail).toContain('17 grammar WASM file(s) missing');
+		expect(check.detail).toContain('20 WASM file(s) missing');
 	});
 });
 

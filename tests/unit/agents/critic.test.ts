@@ -160,7 +160,9 @@ describe('critic.ts prompt overhaul', () => {
 			const appendPrompt = 'Appended content';
 			const agent = createCriticAgent(TEST_MODEL, customPrompt, appendPrompt);
 
-			expect(agent.config.prompt).toBe(`${customPrompt}\n\n${appendPrompt}`);
+			// customPrompt is a complete replacement — append is ignored
+			expect(agent.config.prompt).toBe(customPrompt);
+			expect(agent.config.prompt).not.toContain(appendPrompt);
 		});
 	});
 
@@ -276,7 +278,10 @@ describe('critic.ts prompt overhaul', () => {
 
 		test('no customAppendPrompt uses base prompt only', () => {
 			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
-			expect(agent.config.prompt).not.toContain('\n\n');
+			// Should use the base PHASE_DRIFT_VERIFIER_PROMPT
+			expect(agent.config.prompt).toContain('PHASE VERIFICATION');
+			// Should NOT contain any appended custom content
+			expect(agent.config.prompt).not.toContain('CUSTOM APPENDED');
 		});
 	});
 

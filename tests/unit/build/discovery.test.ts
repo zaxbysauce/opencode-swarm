@@ -337,8 +337,8 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 			const result = await discoverBuildCommands(tempDir);
 			expect(
-				result.commands.some((c) => c.ecosystem === 'java-maven') ||
-					result.skipped.some((s) => s.ecosystem === 'java-maven'),
+				result.commands.some((c) => c.ecosystem === 'java' || c.ecosystem === 'java-maven') ||
+					result.skipped.some((s) => s.ecosystem === 'java' || s.ecosystem === 'java-maven'),
 			).toBe(true);
 		});
 
@@ -350,8 +350,8 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 			const result = await discoverBuildCommands(tempDir);
 			expect(
-				result.commands.some((c) => c.ecosystem === 'java-gradle') ||
-					result.skipped.some((s) => s.ecosystem === 'java-gradle'),
+				result.commands.some((c) => c.ecosystem === 'java' || c.ecosystem === 'java-gradle') ||
+					result.skipped.some((s) => s.ecosystem === 'java' || s.ecosystem === 'java-gradle'),
 			).toBe(true);
 		});
 	});

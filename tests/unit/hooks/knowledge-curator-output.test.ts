@@ -28,6 +28,7 @@ import {
 // Mock knowledge-store module
 const mockAppendKnowledge = mock(async () => {});
 const mockAppendRejectedLesson = mock(async () => {});
+const mockEnforceKnowledgeCap = mock(async () => {});
 const mockFindNearDuplicate = mock(() => undefined);
 const mockReadKnowledge = mock(async () => []);
 const mockRewriteKnowledge = mock(async () => {});
@@ -48,6 +49,7 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	computeConfidence: mockComputeConfidence,
 	inferTags: mockInferTags,
 	normalize: mockNormalize,
+	enforceKnowledgeCap: mockEnforceKnowledgeCap,
 }));
 
 // Mock knowledge-validator module

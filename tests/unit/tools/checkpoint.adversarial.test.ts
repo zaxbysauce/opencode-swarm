@@ -17,6 +17,7 @@ describe('checkpoint adversarial security tests', () => {
 
 		process.chdir(tempDir);
 		execSync('git init', { encoding: 'utf-8' });
+		execSync('git config --local commit.gpgsign false', { encoding: 'utf-8' });
 		execSync('git config user.email "test@test.com"', { encoding: 'utf-8' });
 		execSync('git config user.name "Test"', { encoding: 'utf-8' });
 		fs.writeFileSync(path.join(tempDir, 'initial.txt'), 'initial');

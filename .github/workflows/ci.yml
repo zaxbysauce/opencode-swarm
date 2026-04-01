@@ -105,8 +105,6 @@ jobs:
           exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
         shell: bash
-        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
-        continue-on-error: true
         run: |
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
@@ -121,8 +119,6 @@ jobs:
           exit $failed
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
         shell: bash
-        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
-        continue-on-error: true
         run: |
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0

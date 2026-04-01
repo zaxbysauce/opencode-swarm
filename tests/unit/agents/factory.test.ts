@@ -25,9 +25,9 @@ afterEach(() => {
 
 describe('createAgents', () => {
 	describe('no config', () => {
-		it('returns 8 agents (docs enabled by default, designer opt-in)', () => {
+		it('returns 12 agents (docs enabled by default, designer opt-in)', () => {
 			const agents = createAgents();
-			expect(agents).toHaveLength(8);
+			expect(agents).toHaveLength(12);
 		});
 
 		it('agent names are correct', () => {
@@ -37,6 +37,10 @@ describe('createAgents', () => {
 				'architect',
 				'coder',
 				'critic',
+				'critic_drift_verifier',
+				'critic_sounding_board',
+				'curator_init',
+				'curator_phase',
 				'docs',
 				'explorer',
 				'reviewer',
@@ -118,8 +122,8 @@ describe('createAgents', () => {
 			const agents = createAgents(config as unknown as PluginConfig);
 			const sme = agents.find((a) => a.name === 'sme');
 			expect(sme).toBeUndefined();
-			// 8 agents - 1 disabled = 7 agents (docs still included by default)
-			expect(agents).toHaveLength(7);
+			// 12 agents - 1 disabled = 11 agents (docs still included by default)
+			expect(agents).toHaveLength(11);
 		});
 	});
 
@@ -137,6 +141,10 @@ describe('createAgents', () => {
 				'architect',
 				'coder',
 				'critic',
+				'critic_drift_verifier',
+				'critic_sounding_board',
+				'curator_init',
+				'curator_phase',
 				'docs',
 				'explorer',
 				'reviewer',
@@ -161,6 +169,10 @@ describe('createAgents', () => {
 				'local_architect',
 				'local_coder',
 				'local_critic',
+				'local_critic_drift_verifier',
+				'local_critic_sounding_board',
+				'local_curator_init',
+				'local_curator_phase',
 				'local_docs',
 				'local_explorer',
 				'local_reviewer',
@@ -350,7 +362,7 @@ describe('getAgentConfigs', () => {
 
 		const configs = getAgentConfigs(config as unknown as PluginConfig);
 		expect(configs.sme).toBeUndefined();
-		// 8 agents - 1 disabled = 7 agents (docs included by default)
-		expect(Object.keys(configs)).toHaveLength(7);
+		// 12 agents - 1 disabled = 11 agents (docs included by default)
+		expect(Object.keys(configs)).toHaveLength(11);
 	});
 });

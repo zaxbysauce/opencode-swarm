@@ -11,6 +11,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+
+// Mock isCommandAvailable so all ecosystem commands are treated as available
+mock.module('../../../src/build/discovery.js', () => ({
+	isCommandAvailable: (_cmd: string) => true,
+	clearToolchainCache: () => {},
+}));
+
 import { pkg_audit } from '../../../src/tools/pkg-audit';
 
 // Mock for Bun.spawn tracking

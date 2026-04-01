@@ -35,9 +35,9 @@ describe('Task 6.2: Conditional adversarial-step changes', () => {
 		expect(prompt).toContain('If change matches TIER 3 criteria');
 		expect(prompt).toContain('If NOT security-sensitive → SKIP this step');
 
-		// Checklist should show conditional PASS/SKIP/SKIPPED
+		// Checklist should show conditional PASS/FAIL/SKIP with explanation
 		expect(prompt).toContain(
-			'test_engineer-adversarial: PASS / SKIP / SKIPPED',
+			'test_engineer-adversarial: PASS / FAIL / SKIP — not security-sensitive',
 		);
 	});
 
@@ -55,8 +55,8 @@ describe('Task 6.2: Conditional adversarial-step changes', () => {
 		);
 		expect(prompt).not.toContain('(conditional: security-sensitive only)');
 
-		// Checklist should show unconditional PASS
-		expect(prompt).toContain('test_engineer-adversarial: PASS — value: ___');
+		// Checklist should show unconditional PASS/FAIL
+		expect(prompt).toContain('test_engineer-adversarial: PASS / FAIL — value: ___');
 	});
 
 	// Default behavior: no config provided should default to enabled=true, scope='all'

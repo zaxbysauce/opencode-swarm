@@ -119,7 +119,8 @@ describe('adversarial: createCriticAgent', () => {
 				appendText,
 				'phase_drift_verifier',
 			);
-			expect(agent.config.prompt).toBe(`${customText}\n\n${appendText}`);
+			// When customPrompt is set, it is used as-is; customAppendPrompt is ignored
+			expect(agent.config.prompt).toBe(customText);
 		});
 
 		it('prompt comes from customPrompt but name still comes from role', () => {

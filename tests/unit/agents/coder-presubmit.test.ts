@@ -8,8 +8,10 @@ const coderPromptContent = readFileSync(CODER_PROMPT_PATH, 'utf-8');
 describe('Task 3.1: PRE-SUBMIT CHECKS in coder prompt', () => {
 	describe('PRE-SUBMIT CHECKS section structure', () => {
 		it('PRE-SUBMIT CHECKS section exists before SELF-AUDIT', () => {
-			const preSubmitIndex = coderPromptContent.indexOf('PRE-SUBMIT CHECKS');
-			const selfAuditIndex = coderPromptContent.indexOf('SELF-AUDIT');
+			const preSubmitIndex = coderPromptContent.indexOf('## PRE-SUBMIT CHECKS');
+			const selfAuditIndex = coderPromptContent.indexOf(
+				'SELF-AUDIT (run before marking any task complete)',
+			);
 
 			expect(preSubmitIndex).toBeGreaterThan(0);
 			expect(selfAuditIndex).toBeGreaterThan(0);

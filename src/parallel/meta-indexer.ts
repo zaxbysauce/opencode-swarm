@@ -77,8 +77,13 @@ export async function indexMetaSummaries(
 	const indexPath = path.join(indexDir, INDEX_FILE);
 
 	// Ensure directory exists
-	if (!fs.existsSync(indexDir)) {
-		fs.mkdirSync(indexDir, { recursive: true });
+	try {
+		if (!fs.existsSync(indexDir)) {
+			fs.mkdirSync(indexDir, { recursive: true });
+		}
+	} catch {
+		// Invalid path (e.g. path traversal pointing to a file, null bytes) - skip indexing
+		return { indexed: 0, path: indexPath };
 	}
 
 	// Read existing index

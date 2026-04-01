@@ -34,7 +34,7 @@ describe('Tier 2 Language Profile Registry - Verification Tests', () => {
 
 	it('3. LANGUAGE_REGISTRY.getAll() returns exactly 9 profiles total', () => {
 		const allProfiles = TEST_REGISTRY.getAll();
-		expect(allProfiles).toHaveLength(9);
+		expect(allProfiles).toHaveLength(12);
 	});
 
 	it('4. getByExtension(".java") returns java profile', () => {

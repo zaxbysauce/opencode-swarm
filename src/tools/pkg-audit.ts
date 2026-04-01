@@ -1137,6 +1137,11 @@ async function runBundleAudit(directory: string): Promise<AuditResult> {
 	} catch (error) {
 		const errorMessage =
 			error instanceof Error ? error.message : 'Unknown error';
+		const isNotInstalled =
+			errorMessage.includes('not recognized') ||
+			errorMessage.includes('not found') ||
+			errorMessage.includes('No such file') ||
+			errorMessage.includes('ENOENT');
 		return {
 			ecosystem: 'ruby',
 			command,
@@ -1145,7 +1150,9 @@ async function runBundleAudit(directory: string): Promise<AuditResult> {
 			highCount: 0,
 			totalCount: 0,
 			clean: true,
-			note: `Error running bundle-audit: ${errorMessage}`,
+			note: isNotInstalled
+				? 'bundle-audit not installed. Install with: gem install bundler-audit'
+				: `Error running bundle-audit: ${errorMessage}`,
 		};
 	}
 }

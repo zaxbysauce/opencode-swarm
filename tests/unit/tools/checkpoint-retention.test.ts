@@ -22,6 +22,7 @@ describe('checkpoint retention policy', () => {
 		// Initialize a git repo in temp directory
 		process.chdir(tempDir);
 		execSync('git init', { encoding: 'utf-8' });
+		execSync('git config --local commit.gpgsign false', { encoding: 'utf-8' });
 		execSync('git config user.email "test@test.com"', { encoding: 'utf-8' });
 		execSync('git config user.name "Test"', { encoding: 'utf-8' });
 		// Create initial commit

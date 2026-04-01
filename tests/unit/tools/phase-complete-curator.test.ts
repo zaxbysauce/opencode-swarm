@@ -304,12 +304,13 @@ describe('phase_complete - curator pipeline', () => {
 			expect(mockRunCuratorPhase).toHaveBeenCalledWith(
 				tempDir,
 				1,
-				['coder', 'reviewer', 'test_engineer'],
+				expect.arrayContaining(['coder', 'reviewer', 'test_engineer']),
 				expect.objectContaining({
 					enabled: true,
 					phase_enabled: true,
 				}),
 				expect.any(Object),
+				undefined,
 			);
 
 			expect(mockApplyCuratorKnowledgeUpdates).toHaveBeenCalledWith(
@@ -514,6 +515,7 @@ describe('phase_complete - curator pipeline', () => {
 				expect.any(Array),
 				expect.any(Object),
 				expect.any(Object),
+				undefined,
 			);
 		});
 
@@ -544,6 +546,7 @@ describe('phase_complete - curator pipeline', () => {
 				expect.arrayContaining(['coder', 'reviewer', 'test_engineer', 'docs']),
 				expect.any(Object),
 				expect.any(Object),
+				undefined,
 			);
 		});
 	});

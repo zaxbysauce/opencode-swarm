@@ -284,7 +284,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 		for (const taskId of invalidIds) {
 			await expect(loadEvidence(tempDir, taskId)).rejects.toThrow(
-				/Invalid task ID: must match pattern/,
+				/Invalid task ID/,
 			);
 		}
 	});

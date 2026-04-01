@@ -121,11 +121,13 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (Task 1.1)', () => {
 			const protocolStartIndex = architectContent.indexOf(
 				protocolStartMatch![0],
 			);
-			// Find the end of the protocol section (next numbered section or end of file)
+			// Find the end of the protocol section (6a ends at 6b; 6b-6f are separate sub-sections)
 			const afterProtocol = architectContent.slice(protocolStartIndex);
+			const nextSubsectionMatch = afterProtocol.match(/\n\s*6b\. \*\*/);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch
-				? protocolStartIndex + nextSectionMatch.index
+			const endMatch = nextSubsectionMatch ?? nextSectionMatch;
+			const protocolEndIndex = endMatch
+				? protocolStartIndex + endMatch.index
 				: architectContent.length;
 
 			const protocolSection = architectContent

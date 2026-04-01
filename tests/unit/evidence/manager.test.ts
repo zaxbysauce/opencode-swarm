@@ -69,20 +69,15 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('retro-100')).toBe('retro-100');
 	});
 
-	it("invalid retrospective IDs throw: 'retro', 'retro-abc', 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
-		// Invalid formats should still be rejected
-		expect(() => sanitizeTaskId('retro')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('retro-abc')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('Retro-1')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('retro-1/2')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
+	it("retrospective-like IDs: 'retro', 'retro-abc', 'Retro-1' are accepted via GENERAL_TASK_ID_REGEX (FR-003, FR-004)", () => {
+		// These are now accepted by the general alphanumeric allowlist
+		expect(sanitizeTaskId('retro')).toBe('retro');
+		expect(sanitizeTaskId('retro-abc')).toBe('retro-abc');
+		expect(sanitizeTaskId('Retro-1')).toBe('Retro-1');
+	});
+
+	it("'retro-1/2' throws because slash is not allowed", () => {
+		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID');
 	});
 
 	it("internal automated-tool IDs: 'sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build' all return the ID", () => {
@@ -95,32 +90,16 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('build')).toBe('build');
 	});
 
-	it("invalid internal tool IDs throw: 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra'", () => {
-		// Partial matches should still be rejected - must match exact pattern
-		expect(() => sanitizeTaskId('sast')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('scan')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('quality')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('syntax')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('placeholder')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('sbom')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('build_extra')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
-		expect(() => sanitizeTaskId('sast-scan')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
+	it("alphanumeric tool-like IDs 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra', 'sast-scan' are now accepted via GENERAL_TASK_ID_REGEX", () => {
+		// These are now accepted by the general alphanumeric allowlist
+		expect(sanitizeTaskId('sast')).toBe('sast');
+		expect(sanitizeTaskId('scan')).toBe('scan');
+		expect(sanitizeTaskId('quality')).toBe('quality');
+		expect(sanitizeTaskId('syntax')).toBe('syntax');
+		expect(sanitizeTaskId('placeholder')).toBe('placeholder');
+		expect(sanitizeTaskId('sbom')).toBe('sbom');
+		expect(sanitizeTaskId('build_extra')).toBe('build_extra');
+		expect(sanitizeTaskId('sast-scan')).toBe('sast-scan');
 	});
 
 	it('empty string throws', () => {
@@ -158,22 +137,16 @@ describe('sanitizeTaskId', () => {
 	});
 
 	it("invalid chars 'task/id' throws", () => {
-		expect(() => sanitizeTaskId('task/id')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
+		expect(() => sanitizeTaskId('task/id')).toThrow('Invalid task ID');
 	});
 
 	it("spaces 'task id' throws", () => {
-		expect(() => sanitizeTaskId('task id')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
+		expect(() => sanitizeTaskId('task id')).toThrow('Invalid task ID');
 	});
 
 	it("leading dot '.hidden' throws", () => {
-		// Leading dot is not valid for the canonical numeric regex ^\d+\.\d+(\.\d+)*$
-		expect(() => sanitizeTaskId('.hidden')).toThrow(
-			'Invalid task ID: must match pattern',
-		);
+		// Leading dot is not valid (must start with alphanumeric)
+		expect(() => sanitizeTaskId('.hidden')).toThrow('Invalid task ID');
 	});
 });
 
@@ -261,14 +234,12 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(loaded.bundle.entries[0].summary).toBe('Phase 1 retrospective');
 	});
 
-	it('save with invalid retrospective ID throws (FR-003, FR-004)', async () => {
+	it('save with retro-abc and retro IDs now succeeds (GENERAL_TASK_ID_REGEX accepts them)', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow(
-			'Invalid task ID',
-		);
-		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow(
-			'Invalid task ID',
-		);
+		const bundle1 = await saveEvidence(tempDir, 'retro-abc', evidence);
+		expect(bundle1.task_id).toBe('retro-abc');
+		const bundle2 = await saveEvidence(tempDir, 'retro', evidence);
+		expect(bundle2.task_id).toBe('retro');
 	});
 
 	it('save and load internal automated-tool evidence: sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build', async () => {
@@ -301,17 +272,14 @@ describe('saveEvidence + loadEvidence', () => {
 		}
 	});
 
-	it('save with invalid internal tool ID throws', async () => {
+	it('save with alphanumeric IDs sast, scan, sast-scan now succeeds (GENERAL_TASK_ID_REGEX accepts them)', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'sast', evidence)).rejects.toThrow(
-			'Invalid task ID',
-		);
-		await expect(saveEvidence(tempDir, 'scan', evidence)).rejects.toThrow(
-			'Invalid task ID',
-		);
-		await expect(saveEvidence(tempDir, 'sast-scan', evidence)).rejects.toThrow(
-			'Invalid task ID',
-		);
+		const bundle1 = await saveEvidence(tempDir, 'sast', evidence);
+		expect(bundle1.task_id).toBe('sast');
+		const bundle2 = await saveEvidence(tempDir, 'scan', evidence);
+		expect(bundle2.task_id).toBe('scan');
+		const bundle3 = await saveEvidence(tempDir, 'sast-scan', evidence);
+		expect(bundle3.task_id).toBe('sast-scan');
 	});
 });
 
@@ -452,8 +420,8 @@ describe('isValidEvidenceType', () => {
 		expect(isValidEvidenceType('REVIEW')).toBe(false); // case sensitive
 	});
 
-	it('VALID_EVIDENCE_TYPES constant has 12 types', () => {
-		expect(VALID_EVIDENCE_TYPES.length).toBe(12);
+	it('VALID_EVIDENCE_TYPES constant has 13 types', () => {
+		expect(VALID_EVIDENCE_TYPES.length).toBe(13);
 	});
 });
 

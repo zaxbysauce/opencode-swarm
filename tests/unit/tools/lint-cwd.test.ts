@@ -138,10 +138,12 @@ describe('lint tool - cwd fix tests', () => {
 			const parsed = JSON.parse(result) as LintResult;
 
 			// Wrapper provides process.cwd() fallback, so it doesn't return the
-			// "project directory is required" error. Instead it proceeds to linter
-			// detection which fails (no linter found in test env) with success: false.
-			expect(parsed.success).toBe(false);
-			expect(parsed.error).not.toContain('project directory is required');
+			// "project directory is required" error. It proceeds to linter detection.
+			// success value depends on whether a linter is available in the environment.
+			expect(parsed).toHaveProperty('success');
+			if (!parsed.success) {
+				expect(parsed.error).not.toContain('project directory is required');
+			}
 		});
 
 		it('should use process.cwd() fallback when directory is undefined (wrapper behavior)', async () => {
@@ -151,10 +153,12 @@ describe('lint tool - cwd fix tests', () => {
 			const parsed = JSON.parse(result) as LintResult;
 
 			// Wrapper provides process.cwd() fallback, so it doesn't return the
-			// "project directory is required" error. Instead it proceeds to linter
-			// detection which fails (no linter found in test env) with success: false.
-			expect(parsed.success).toBe(false);
-			expect(parsed.error).not.toContain('project directory is required');
+			// "project directory is required" error. It proceeds to linter detection.
+			// success value depends on whether a linter is available in the environment.
+			expect(parsed).toHaveProperty('success');
+			if (!parsed.success) {
+				expect(parsed.error).not.toContain('project directory is required');
+			}
 		});
 	});
 

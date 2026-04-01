@@ -64,7 +64,7 @@ function extractEnvelopeFieldsSection(prompt: string): string {
 
 	// Find the end of the section (next major section header or double newline)
 	const afterStart = prompt.slice(start + 30);
-	const endMarkers = ['\n\nPARTIAL GATE', '\n\n## ', '\n\nDELEGATION FORMAT'];
+	const endMarkers = ['\n\nPARTIAL GATE', '\n\n## ', '\n\nDELEGATION FORMAT', '\n\nBefore delegating'];
 
 	let end = -1;
 	for (const marker of endMarkers) {

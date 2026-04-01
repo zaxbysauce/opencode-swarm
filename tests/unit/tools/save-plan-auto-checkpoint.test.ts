@@ -26,6 +26,7 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 
 		// Initialize a git repo in temp directory
 		execSync('git init', { encoding: 'utf-8' });
+		execSync('git config --local commit.gpgsign false', { encoding: 'utf-8' });
 		execSync('git config user.email "test@test.com"', { encoding: 'utf-8' });
 		execSync('git config user.name "Test"', { encoding: 'utf-8' });
 		// Create initial commit

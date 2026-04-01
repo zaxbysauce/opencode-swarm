@@ -71,6 +71,10 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 	}
 
 	beforeEach(() => {
+		// Reset mock implementation to the default fast no-op before each test.
+		// This prevents a slow mockImplementation from a previous test from leaking
+		// into subsequent tests and causing timeouts.
+		mockLoadPlan.mockImplementation(async () => null);
 		mockLoadPlan.mockClear();
 	});
 

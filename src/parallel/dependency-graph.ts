@@ -50,10 +50,13 @@ export function parseDependencyGraph(planPath: string): DependencyGraph {
 
 	// First pass: create all task nodes
 	for (const phase of plan.phases || []) {
+		if (phase == null) continue;
 		const phaseId = phase.id;
 		phases.set(phaseId, []);
 
-		for (const task of phase.tasks || []) {
+		const phaseTasks = Array.isArray(phase.tasks) ? phase.tasks : [];
+		for (const task of phaseTasks) {
+			if (task == null) continue;
 			const taskId = task.id;
 			phases.get(phaseId)?.push(taskId);
 

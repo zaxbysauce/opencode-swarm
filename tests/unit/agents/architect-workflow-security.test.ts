@@ -47,7 +47,8 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 
 	test('SECURITY: Phase sequence cannot be reordered (0→1→2→3→4→4.5→5→6)', () => {
 		const p0 = prompt.indexOf('### MODE: RESUME');
-		const p1 = prompt.indexOf('### MODE: CLARIFY');
+		// Use '\n' suffix to distinguish from ### MODE: CLARIFY-SPEC
+		const p1 = prompt.indexOf('### MODE: CLARIFY\n');
 		const p2 = prompt.indexOf('### MODE: DISCOVER');
 		const p3 = prompt.indexOf('### MODE: CONSULT');
 		const p4 = prompt.indexOf('### MODE: PLAN');
@@ -197,7 +198,7 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 		expect(securityReviewPos).toBeGreaterThan(generalReviewPos);
 
 		// Security gate can still reject after general approval
-		expect(prompt).toContain('REJECTED → return to coder');
+		expect(prompt).toContain('REJECTED (< {{QA_RETRY_LIMIT}}) → coder retry');
 	});
 
 	test('SECURITY: Reviewer cannot run before diff tool', () => {
@@ -379,7 +380,7 @@ describe('ARCHITECT WORKFLOW: Retrospective Tracking', () => {
 
 	test('SECURITY: Evidence written BEFORE user summary in Phase 6', () => {
 		const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-		const phase6Section = prompt.substring(phase6Start, phase6Start + 1200);
+		const phase6Section = prompt.substring(phase6Start, phase6Start + 3200);
 
 		const evidencePos = phase6Section.indexOf('Write retrospective evidence');
 		const summarizePos = phase6Section.indexOf('6. Summarize');

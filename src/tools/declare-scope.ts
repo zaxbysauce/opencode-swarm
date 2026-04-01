@@ -131,7 +131,7 @@ export async function executeDeclareScope(
 
 	// Step 3: Validate working_directory if provided
 	let normalizedDir: string | undefined;
-	if (args.working_directory != null) {
+	if (args.working_directory != null && args.working_directory.trim() !== '') {
 		// Check for null-byte injection before any processing
 		if (args.working_directory.includes('\0')) {
 			return {

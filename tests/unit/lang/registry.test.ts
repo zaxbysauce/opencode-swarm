@@ -66,7 +66,7 @@ describe('Language Registry', () => {
 	describe('listSupportedLanguages', () => {
 		it('should return all supported languages', () => {
 			const languages = listSupportedLanguages();
-			expect(languages.length).toBe(5);
+			expect(languages.length).toBe(6);
 
 			const ids = languages.map((l) => l.id);
 			expect(ids).toContain('javascript');

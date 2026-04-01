@@ -414,7 +414,8 @@ describe('Plan Review — Governance Compliance check (Task 5.2)', () => {
 		expect(prompt).toContain('Completeness');
 		expect(prompt).toContain('Feasibility');
 		expect(prompt).toContain('Scope');
-		expect(prompt).toContain('Dependencies');
+		// Dependencies checking is present (may be labeled "Dependency ordering" or "DEPENDENCY CORRECTNESS")
+		expect(prompt).toMatch(/Dependenc/);
 		expect(prompt).toContain('Risk');
 		expect(prompt).toContain('AI-Slop Detection');
 		expect(prompt).toContain('Task Atomicity');

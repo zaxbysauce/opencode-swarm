@@ -31,7 +31,7 @@ describe('explorer.ts', () => {
 			expect(prompt).toContain(
 				'Activates automatically during codebase reality check',
 			);
-			expect(prompt).toContain('Glob for documentation files');
+			expect(prompt).toContain('glob for documentation files');
 			expect(prompt).toContain('.swarm/doc-manifest.json');
 			expect(prompt).toContain('Score by keyword overlap:');
 			expect(prompt).toContain('.swarm/knowledge/doc-constraints.jsonl');

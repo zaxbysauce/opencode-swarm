@@ -526,7 +526,13 @@ export async function placeholderScan(
 	for (const filePath of changed_files) {
 		const fullPath = path.isAbsolute(filePath)
 			? filePath
-			: path.join(directory, filePath);
+			: path.resolve(directory, filePath);
+
+		// Security: reject paths that escape the working directory via traversal
+		const resolvedDirectory = path.resolve(directory);
+		if (!fullPath.startsWith(resolvedDirectory + path.sep) && fullPath !== resolvedDirectory) {
+			continue;
+		}
 
 		// Skip if file doesn't exist
 		if (!fs.existsSync(fullPath)) {

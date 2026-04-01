@@ -236,14 +236,15 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 
 			await createPullRequest(testCwd, 'PR Title $(whoami)', 'Body', 'main');
 
-			// Verify title was sanitized before being passed to gh
+			// createPullRequest passes title directly as array arg to spawnSync
+			// (array-based spawnSync is shell-injection safe without string sanitization)
 			const prCreateCall = spawnCalls.find(
 				(call) => call.command === 'gh' && call.args.includes('pr'),
 			);
 			const titleIndex = prCreateCall?.args.indexOf('--title') ?? -1;
 			expect(titleIndex).toBeGreaterThan(-1);
-			// Title should contain escaped dollar sign
-			expect(prCreateCall?.args[titleIndex + 1]).toContain('\\$');
+			// Title is passed as-is to the gh CLI (no escaping needed with array args)
+			expect(prCreateCall?.args[titleIndex + 1]).toBe('PR Title $(whoami)');
 		});
 	});
 

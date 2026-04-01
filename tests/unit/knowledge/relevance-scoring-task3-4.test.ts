@@ -37,7 +37,7 @@ function createTestConfig(
 		auto_promote_days: 90,
 		max_inject_count: 10,
 		dedup_threshold: 0.6,
-		scope_filter: ['global'],
+		scope_filter: ['global', 'project'],
 		hive_enabled: false,
 		rejected_max_entries: 20,
 		validation_enabled: true,

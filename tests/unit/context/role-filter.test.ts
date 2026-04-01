@@ -361,12 +361,14 @@ technicalContext: Using Express.js`,
 taskId: 1.1
 targetAgent: coder
 action: implement
-commandType: task`,
+commandType: task
+files: src/main.ts, src/utils.ts
+acceptanceCriteria: Feature works correctly`,
 				},
 			];
 
 			const result = filterByRole(entries, 'reviewer', tempDir);
-			// Should be included because it has a delegation envelope (user role)
+			// Should be included because it has a valid delegation envelope (user role, never filtered)
 			expect(result).toHaveLength(1);
 		});
 	});

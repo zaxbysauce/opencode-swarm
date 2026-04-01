@@ -455,7 +455,13 @@ describe('Agent Creation Functions', () => {
 				const prompt = agent.config.prompt || '';
 
 				test('prompt starts with ## IDENTITY header', () => {
-					expect(prompt.startsWith('## IDENTITY')).toBe(true);
+					// Some agents start with ## PRESSURE IMMUNITY before ## IDENTITY
+					// The behavioral invariant is that ## IDENTITY is present
+					const startsWithIdentity = prompt.startsWith('## IDENTITY');
+					const startsWithPressureImmunity = prompt.startsWith('## PRESSURE IMMUNITY');
+					expect(startsWithIdentity || startsWithPressureImmunity).toBe(true);
+					// IDENTITY section must still be present
+					expect(prompt).toContain('## IDENTITY');
 				});
 
 				test('contains anti-delegation directive', () => {

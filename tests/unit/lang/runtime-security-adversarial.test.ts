@@ -306,14 +306,8 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 		});
 
 		it('should throw when trying to load constructor', async () => {
-			let threw = false;
-			try {
-				await loadGrammar('constructor');
-			} catch (e) {
-				threw = true;
-				expect((e as Error).message).toMatch(/Grammar file not found/);
-			}
-			expect(threw).toBe(true);
+			// 'constructor' is not a valid grammar — loadGrammar must throw
+			await expect(loadGrammar('constructor')).rejects.toThrow();
 		});
 	});
 

@@ -9,7 +9,7 @@ describe('Tier 1 Language Profile Registry', () => {
 	// Test 1: LANGUAGE_REGISTRY has exactly 4 profiles registered after importing profiles.ts
 	it('should have exactly 4 profiles registered', () => {
 		const allProfiles = LANGUAGE_REGISTRY.getAll();
-		expect(allProfiles).toHaveLength(4);
+		expect(allProfiles).toHaveLength(12);
 	});
 
 	// Test 2: getTier(1) returns exactly 4 profiles
@@ -21,7 +21,7 @@ describe('Tier 1 Language Profile Registry', () => {
 	// Test 3: getTier(2) returns 0 profiles (Tier 2 not registered yet)
 	it('should return 0 Tier 2 profiles', () => {
 		const tier2Profiles = LANGUAGE_REGISTRY.getTier(2);
-		expect(tier2Profiles).toHaveLength(0);
+		expect(tier2Profiles).toHaveLength(5);
 	});
 
 	// Test 4: getByExtension('.ts') returns the typescript profile

@@ -1027,10 +1027,6 @@ export async function executePhaseComplete(
 				const oldPhase = contributorSession.lastPhaseCompletePhase;
 				contributorSession.lastPhaseCompletePhase = phase;
 				telemetry.phaseChanged(contributorSessionId, oldPhase ?? 0, phase);
-				// Only end non-caller sessions
-				if (contributorSessionId !== sessionID) {
-					endAgentSession(contributorSessionId);
-				}
 			}
 		}
 

@@ -21,9 +21,18 @@ import {
 	AutomationModeSchema,
 } from '../../../src/config/schema';
 
+// Mock loadPlan to prevent in-flight async operations from holding event loop open
+// across test boundaries (which causes downstream tests to time out).
+const mockLoadPlan = mock(async () => null);
+mock.module('../../../src/plan/manager', () => ({
+	loadPlan: mockLoadPlan,
+}));
+
 // Helper to reset mock state
 function resetMockState(): void {
-	// Reset any global state if needed
+	// Reset mock implementation to fast no-op to avoid test interference
+	mockLoadPlan.mockImplementation(async () => null);
+	mockLoadPlan.mockClear();
 }
 
 describe('ADVERSARIAL: Automation Config Attack Vectors', () => {
@@ -957,7 +966,7 @@ describe('ADVERSARIAL: Plugin Wiring Security Gates', () => {
 			expect(result.success).toBe(false);
 		});
 
-		test('runtime errors in worker caught by try/catch in index.ts', async () => {
+		test('runtime errors in worker caught by try/catch in index.ts', () => {
 			// The index.ts wraps PlanSyncWorker creation in try/catch:
 			// try {
 			//   const planSyncWorker = new PlanSyncWorker({ ... });
@@ -967,7 +976,8 @@ describe('ADVERSARIAL: Plugin Wiring Security Gates', () => {
 			// }
 
 			// This test verifies the pattern is present in the code
-			const indexContent = await Bun.file('./src/index.ts').text();
+			// Use synchronous read to avoid event loop dependency after many PlanSyncWorker cycles
+			const indexContent = require('node:fs').readFileSync('./src/index.ts', 'utf-8');
 
 			expect(indexContent).toContain('try {');
 			expect(indexContent).toContain('new PlanSyncWorker({');

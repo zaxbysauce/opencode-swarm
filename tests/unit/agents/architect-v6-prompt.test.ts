@@ -1084,19 +1084,22 @@ describe('Architect Prompt Hardening v6.12 - ARCHITECT CODING BOUNDARIES', () =>
 			const codersToolsPos = prompt.indexOf("CODER'S TOOLS:");
 			const yourToolsSection = prompt.slice(yourToolsPos, codersToolsPos);
 
-			// These file-modifying tools must NEVER appear in YOUR TOOLS
+			// These file-modifying tools must NEVER appear in YOUR TOOLS as standalone tool names
+			// Use word-boundary check to avoid false positives (e.g., write_retro is allowed)
 			const coderTools = [
-				'write',
 				'edit',
 				'patch',
 				'apply_patch',
 				'create_file',
 				'insert',
-				'replace',
 			];
 			for (const tool of coderTools) {
 				expect(yourToolsSection).not.toContain(tool);
 			}
+			// 'write' as a standalone tool (not as prefix like write_retro or write_drift_evidence)
+			expect(yourToolsSection).not.toMatch(/\bwrite\b(?!_)/);
+			// 'replace' as standalone — not part of other tool names
+			expect(yourToolsSection).not.toMatch(/\breplace\b/);
 		});
 
 		it("ADVERSARIAL: CODER'S TOOLS must NOT contain architect tools (Task, lint, etc)", () => {

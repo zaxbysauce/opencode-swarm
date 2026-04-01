@@ -297,6 +297,7 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		expect(files.sort()).toEqual([
 			'.plan-write-marker',
 			'locks',
+			'plan-ledger.jsonl',
 			'plan.json',
 			'plan.md',
 		]);

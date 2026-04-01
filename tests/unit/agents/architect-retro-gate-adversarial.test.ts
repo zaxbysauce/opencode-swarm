@@ -45,14 +45,15 @@ describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 
 			// This is a "SHOULD FAIL" test - if it finds a bare backtick that should be escaped,
 			// that's actually a problem. But since we can read the string, let's invert the test:
-			// We check that code fence markers appear correctly in the content
-			const codeFencePattern = /```json/g;
-			const codeFenceMatches = ARCHITECT_PROMPT.match(codeFencePattern);
+			// We check that inline backtick markers appear correctly in the content
+			// (The RETROSPECTIVE GATE section uses inline backticks like `phase_complete`, not ```json fences)
+			const inlineBacktickPattern = /`phase_complete`/g;
+			const inlineBacktickMatches = ARCHITECT_PROMPT.match(inlineBacktickPattern);
 
-			// If code fences are present, they must have been properly escaped in source
-			// Test passes if we can find code fences (they're correctly escaped in source)
-			expect(codeFenceMatches).toBeTruthy();
-			expect(codeFenceMatches!.length).toBeGreaterThan(0);
+			// If inline backticks are present, they must have been properly escaped in source
+			// Test passes if we can find inline backticks (they're correctly escaped in source)
+			expect(inlineBacktickMatches).toBeTruthy();
+			expect(inlineBacktickMatches!.length).toBeGreaterThan(0);
 		});
 	});
 
