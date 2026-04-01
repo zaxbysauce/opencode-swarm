@@ -268,6 +268,58 @@ describe('phase_complete E2E — drift evidence → phase_complete reads it and 
 				);
 			});
 		});
+
+		test('10. first-pass: drift step runs, writer emits correct artifact, phase_complete passes on single invocation', async () => {
+			await withTempDir(async (dir) => {
+				// Simulate the correct flow:
+				// 1. Architect delegates to critic_drift_verifier (returns APPROVED)
+				// 2. Architect calls write_drift_evidence (writes artifact)
+				// 3. Architect calls phase_complete ONCE — must succeed without a second call
+
+				// Step 1: Write spec.md (drift gate is active when spec.md exists)
+				fs.writeFileSync(path.join(dir, '.swarm', 'spec.md'), '# Test Spec\nFR-001: Test requirement');
+
+				// Step 2: Write retro evidence using the existing helper (required by phase_complete)
+				writeRetroBundle(dir, 1);
+
+				// Step 3: Write drift-verifier.json (simulates architect calling write_drift_evidence after critic returns)
+				const evidenceDir = path.join(dir, '.swarm', 'evidence', '1');
+				fs.mkdirSync(evidenceDir, { recursive: true });
+				const driftEvidence = {
+					entries: [{
+						type: 'drift-verification',
+						verdict: 'approved',
+						summary: 'All Phase 1 tasks verified as implemented',
+						timestamp: new Date().toISOString(),
+					}],
+				};
+				fs.writeFileSync(
+					path.join(evidenceDir, 'drift-verifier.json'),
+					JSON.stringify(driftEvidence),
+				);
+
+				// Step 4: Set up required swarm state
+				const sessionId = 'test-session-first-pass';
+				ensureAgentSession(sessionId, 'architect');
+				recordPhaseAgentDispatch(sessionId, 'coder');
+
+				// Step 5: Call phase_complete ONCE — must succeed on first invocation
+				const result = await executePhaseComplete(
+					{ phase: 1, sessionID: sessionId },
+					dir,
+				);
+				const parsed = JSON.parse(result);
+
+				// Verify: succeeded on first call, no second call needed
+				expect(parsed.success).toBe(true);
+				expect(parsed.status).not.toBe('blocked');
+				expect(parsed.status).not.toBe('error');
+
+				// Verify: drift evidence was read correctly (not missing)
+				expect(parsed.message ?? '').not.toContain('DRIFT_VERIFICATION_MISSING');
+				expect(parsed.message ?? '').not.toContain('DRIFT_VERIFICATION_REJECTED');
+			});
+		});
 	});
 
 	describe('Evidence File Format Variations', () => {

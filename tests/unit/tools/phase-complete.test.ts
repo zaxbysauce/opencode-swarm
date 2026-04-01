@@ -1091,7 +1091,7 @@ describe('phase_complete tool', () => {
 
 			// Read plan.json back and verify phase status updated
 			const planAfter = JSON.parse(fs.readFileSync(path.join(tempDir, '.swarm', 'plan.json'), 'utf-8'));
-			expect(planAfter.phases[0].status).toBe('completed');
+			expect(planAfter.phases[0].status).toBe('complete');
 		});
 
 		test('plan.json not found produces warning but success is still true', async () => {
@@ -1604,8 +1604,8 @@ describe('phase_complete tool', () => {
 			const planPath = path.join(tempDir, '.swarm', 'plan.json');
 			const planAfter = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
 
-			// Bug A fix should have updated phase status to 'completed'
-			expect(planAfter.phases[0].status).toBe('completed');
+			// Bug A fix should have updated phase status to 'complete'
+			expect(planAfter.phases[0].status).toBe('complete');
 
 			// Verify the JSON structure is still valid
 			expect(planAfter.phases).toBeDefined();

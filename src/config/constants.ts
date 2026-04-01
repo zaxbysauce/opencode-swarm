@@ -180,6 +180,77 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	curator_phase: ['knowledgeRecall'],
 };
 
+/**
+ * Human-readable descriptions for tools shown in the architect Available Tools block.
+ * Used to generate the Available Tools section of the architect prompt at construction time.
+ */
+/**
+ * Canonical set of tool names that write/modify file contents.
+ * Used by scope-guard.ts and guardrails.ts to detect write operations.
+ * NOTE: bash/shell tools are intentionally excluded — bash commands are opaque
+ * to static scope analysis. Post-hoc detection via guardrails diff-scope provides secondary coverage.
+ */
+export const WRITE_TOOL_NAMES = [
+	'write',
+	'edit',
+	'patch',
+	'apply_patch',
+	'create_file',
+	'insert',
+	'replace',
+	'append',
+	'prepend',
+] as const;
+
+export type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
+
+export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
+	symbols: 'code symbol search',
+	checkpoint: 'state snapshots',
+	diff: 'structured git diff with contract change detection',
+	imports: 'dependency audit',
+	lint: 'code quality',
+	placeholder_scan: 'placeholder/todo detection',
+	secretscan: 'secret detection',
+	sast_scan: 'static analysis security scan',
+	syntax_check: 'syntax validation',
+	test_runner: 'auto-detect and run tests',
+	pkg_audit: 'dependency vulnerability scan — npm/pip/cargo',
+	complexity_hotspots: 'git churn × complexity risk map',
+	schema_drift: 'OpenAPI spec vs route drift',
+	todo_extract: 'structured TODO/FIXME extraction',
+	evidence_check: 'verify task evidence completeness',
+	sbom_generate: 'SBOM generation for dependency inventory',
+	build_check: 'build verification',
+	quality_budget: 'code quality budget check',
+	pre_check_batch:
+		'parallel verification: lint:check + secretscan + sast_scan + quality_budget',
+	update_task_status: 'mark tasks complete, track phase progress',
+	write_retro:
+		'document phase retrospectives via phase_complete workflow, capture lessons learned',
+	write_drift_evidence:
+		'write drift verification evidence for a completed phase',
+	declare_scope: 'declare file scope for next coder delegation',
+	phase_complete: 'mark a phase as complete and track dispatched agents',
+	save_plan: 'save a structured implementation plan',
+	doc_scan: 'scan project documentation files and build an index manifest',
+	doc_extract: 'extract actionable constraints from project documentation',
+	curator_analyze:
+		'run curator phase analysis and optionally apply knowledge recommendations',
+	knowledgeAdd: 'store a new lesson in the knowledge base',
+	knowledgeRecall: 'search the knowledge base for relevant past decisions',
+	knowledgeRemove: 'delete an outdated knowledge entry by ID',
+	knowledge_query: 'query swarm or hive knowledge with optional filters',
+	co_change_analyzer: 'detect hidden couplings by analyzing git history',
+	check_gate_status: 'check the gate status of a specific task',
+	completion_verify: 'verify completed tasks have required evidence',
+	detect_domains: 'detect which SME domains are relevant for a given text',
+	extract_code_blocks:
+		'extract code blocks from text content and save them to files',
+	gitingest: 'fetch a GitHub repository full content via gitingest.com',
+	retrieve_summary: 'retrieve the full content of a stored tool output summary',
+};
+
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 	const invalidTools = tools.filter(

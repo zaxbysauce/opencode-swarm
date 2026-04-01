@@ -9,6 +9,17 @@ import {
 } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { warn } from '../utils';
+import {
+	appendLedgerEvent,
+	computeCurrentPlanHash,
+	computePlanHash,
+	initLedger,
+	type LedgerEventInput,
+	LedgerStaleWriterError,
+	ledgerExists,
+	readLedgerEvents,
+	replayFromLedger,
+} from './ledger';
 
 /**
  * Load plan.json ONLY without auto-migration from plan.md.
@@ -57,6 +68,21 @@ function compareTaskIds(a: string, b: string): number {
 		}
 	}
 	return 0;
+}
+
+/**
+ * Get the plan_hash_after from the last ledger event.
+ * Returns empty string if ledger is empty/missing or read fails.
+ */
+async function getLatestLedgerHash(directory: string): Promise<string> {
+	try {
+		const events = await readLedgerEvents(directory);
+		if (events.length === 0) return '';
+		const lastEvent = events[events.length - 1];
+		return lastEvent.plan_hash_after;
+	} catch {
+		return '';
+	}
 }
 
 /**
@@ -219,12 +245,50 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 					}
 				}
 
+				// Task 3.1: Ledger-aware rehydration guard
+				// If ledger exists and plan.json hash doesn't match latest ledger hash,
+				// the projection is stale — rebuild from ledger before returning.
+				if (await ledgerExists(directory)) {
+					const planHash = computePlanHash(validated);
+					const ledgerHash = await getLatestLedgerHash(directory);
+					if (ledgerHash !== '' && planHash !== ledgerHash) {
+						warn(
+							'[loadPlan] plan.json is stale (hash mismatch with ledger) — rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.',
+						);
+						try {
+							const rebuilt = await replayFromLedger(directory);
+							if (rebuilt) {
+								await rebuildPlan(directory, rebuilt);
+								warn(
+									'[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.',
+								);
+								return rebuilt;
+							}
+						} catch (replayError) {
+							warn(
+								`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
+							);
+						}
+						// Fall through and return the validated plan.json
+					}
+				}
 				return validated;
 			} catch (error) {
 				// Step 2: Validation failed, log warning and fall through to legacy
 				warn(
-					`Plan validation failed for .swarm/plan.json: ${error instanceof Error ? error.message : String(error)}`,
+					`[loadPlan] plan.json validation failed: ${error instanceof Error ? error.message : String(error)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`,
 				);
+				// Try replay from ledger before legacy migration
+				if (await ledgerExists(directory)) {
+					const rebuilt = await replayFromLedger(directory);
+					if (rebuilt) {
+						await rebuildPlan(directory, rebuilt);
+						warn(
+							'[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.',
+						);
+						return rebuilt;
+					}
+				}
 				// Auto-heal case 2: plan.json invalid but plan.md exists -> migrate from plan.md
 				const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
 				if (planMdContent !== null) {
@@ -248,6 +312,14 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 	}
 
 	// Step 4: Neither exists
+	// Try to rebuild from ledger
+	if (await ledgerExists(directory)) {
+		const rebuilt = await replayFromLedger(directory);
+		if (rebuilt) {
+			await savePlan(directory, rebuilt);
+			return rebuilt;
+		}
+	}
 	return null;
 }
 
@@ -319,6 +391,66 @@ export async function savePlan(
 		}
 	}
 
+	// LEDGER-FIRST: Append task_updated events before writing projections
+	// Load current plan for comparison and ledger initialization
+	const currentPlan = await loadPlanJsonOnly(directory);
+
+	// Initialize ledger if it doesn't exist (first plan save)
+	if (!(await ledgerExists(directory))) {
+		const planId = `${validated.swarm}-${validated.title}`.replace(
+			/[^a-zA-Z0-9-_]/g,
+			'_',
+		);
+		await initLedger(directory, planId);
+	}
+
+	// Get current plan hash for optimistic concurrency
+	const currentHash = computeCurrentPlanHash(directory);
+
+	// Compute task changes by comparing old vs new plan
+	if (currentPlan) {
+		const oldTaskMap = new Map<string, { phase: number; status: TaskStatus }>();
+		for (const phase of currentPlan.phases) {
+			for (const task of phase.tasks) {
+				oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
+			}
+		}
+
+		// Find tasks that changed status
+		try {
+			for (const phase of validated.phases) {
+				for (const task of phase.tasks) {
+					const oldTask = oldTaskMap.get(task.id);
+					if (oldTask && oldTask.status !== task.status) {
+						// Task status changed - append ledger event
+						const eventInput: LedgerEventInput = {
+							plan_id: `${validated.swarm}-${validated.title}`.replace(
+								/[^a-zA-Z0-9-_]/g,
+								'_',
+							),
+							event_type: 'task_status_changed',
+							task_id: task.id,
+							phase_id: phase.id,
+							from_status: oldTask.status,
+							to_status: task.status,
+							source: 'savePlan',
+						};
+						await appendLedgerEvent(directory, eventInput, {
+							expectedHash: currentHash,
+						});
+					}
+				}
+			}
+		} catch (error) {
+			if (error instanceof LedgerStaleWriterError) {
+				throw new Error(
+					`Concurrent plan modification detected: ${error.message}. Please retry the operation.`,
+				);
+			}
+			throw error;
+		}
+	}
+
 	const swarmDir = path.resolve(directory, '.swarm');
 	const planPath = path.join(swarmDir, 'plan.json');
 	const tempPath = path.join(
@@ -375,6 +507,40 @@ export async function savePlan(
 	} catch {
 		/* Advisory only - marker write failure does not affect plan save */
 	}
+}
+
+/**
+ * Rebuild plan from ledger events.
+ * Replays the ledger to reconstruct plan state, then writes the result.
+ * Uses direct atomic writes to avoid circular ledger append (savePlan appends ledger events).
+ *
+ * @param directory - The working directory
+ * @returns Reconstructed Plan from ledger, or null if ledger is empty/missing
+ */
+export async function rebuildPlan(
+	directory: string,
+	plan?: Plan,
+): Promise<Plan | null> {
+	const targetPlan = plan ?? (await replayFromLedger(directory));
+	if (!targetPlan) return null;
+
+	// Write directly without going through savePlan (avoid circular ledger append)
+	const swarmDir = path.join(directory, '.swarm');
+	const planPath = path.join(swarmDir, 'plan.json');
+	const mdPath = path.join(swarmDir, 'plan.md');
+
+	// Atomic write for plan.json
+	const tempPlanPath = path.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+	await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
+	renameSync(tempPlanPath, planPath);
+
+	// Also regenerate plan.md
+	const markdown = derivePlanMarkdown(targetPlan);
+	const tempMdPath = path.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
+	await Bun.write(tempMdPath, markdown);
+	renameSync(tempMdPath, mdPath);
+
+	return targetPlan;
 }
 
 /**

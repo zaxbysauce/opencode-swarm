@@ -31,6 +31,8 @@ import {
 	persistReviewReceipt,
 } from '../hooks/review-receipt.js';
 import { validateSwarmPath } from '../hooks/utils';
+import { writeCheckpoint } from '../plan/checkpoint';
+import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import {
 	endAgentSession,
@@ -1015,31 +1017,53 @@ export async function executePhaseComplete(
 			}
 		}
 
-		// Update plan.json phase status to completed
+		// Update plan.json phase status to complete via ledger-first savePlan
 		try {
-			const planPath = validateSwarmPath(dir, 'plan.json');
-			const planJson = fs.readFileSync(planPath, 'utf-8');
-			const plan: {
-				phases: Array<{
-					id: number;
-					status: string;
-					tasks: Array<{ id: string; status: string }>;
-				}>;
-			} = JSON.parse(planJson);
-
-			const phaseObj = plan.phases.find((p) => p.id === phase);
-			if (phaseObj) {
-				phaseObj.status = 'completed';
-				fs.writeFileSync(
-					planPath,
-					`${JSON.stringify(plan, null, 2)}\n`,
-					'utf-8',
+			const plan = await loadPlan(dir);
+			if (plan === null) {
+				// loadPlan() returned null (malformed JSON and no plan.md to migrate from)
+				warnings.push(`Warning: failed to update plan.json phase status`);
+				// Fall back to direct fs operations
+				try {
+					const planPath = validateSwarmPath(dir, 'plan.json');
+					const planRaw = fs.readFileSync(planPath, 'utf-8');
+					const plan = JSON.parse(planRaw);
+					const phaseObj = plan.phases.find(
+						(p: { id: number }) => p.id === phase,
+					);
+					if (phaseObj) {
+						phaseObj.status = 'complete';
+						fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+					}
+				} catch {
+					/* fallback failed */
+				}
+			} else if (plan) {
+				const phaseObj = plan.phases.find(
+					(p: { id: number }) => p.id === phase,
 				);
+				if (phaseObj) {
+					phaseObj.status = 'complete';
+					await savePlan(dir, plan, { preserveCompletedStatuses: true });
+				}
 			}
 		} catch (error) {
-			warnings.push(
-				`Warning: failed to update plan.json phase status: ${error instanceof Error ? error.message : String(error)}`,
-			);
+			// loadPlan() threw — this shouldn't happen for malformed JSON (loadPlan returns null instead)
+			warnings.push(`Warning: failed to update plan.json phase status`);
+			try {
+				const planPath = validateSwarmPath(dir, 'plan.json');
+				const planRaw = fs.readFileSync(planPath, 'utf-8');
+				const plan = JSON.parse(planRaw);
+				const phaseObj = plan.phases.find(
+					(p: { id: number }) => p.id === phase,
+				);
+				if (phaseObj) {
+					phaseObj.status = 'complete';
+					fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+				}
+			} catch {
+				/* fallback failed */
+			}
 		}
 	}
 
@@ -1060,6 +1084,9 @@ export async function executePhaseComplete(
 
 	// v6.33.1: Flush debounced snapshot on phase-complete
 	await flushPendingSnapshot(dir);
+
+	// Write root-level checkpoint artifact (non-blocking)
+	await writeCheckpoint(dir).catch(() => {});
 
 	return JSON.stringify(
 		{ ...result, timestamp: event.timestamp, duration_ms: durationMs },

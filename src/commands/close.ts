@@ -3,6 +3,7 @@ import { KnowledgeConfigSchema } from '../config/schema';
 import { archiveEvidence } from '../evidence/manager';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
+import { writeCheckpoint } from '../plan/checkpoint';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { swarmState } from '../state';
 import { executeWriteRetro } from '../tools/write-retro';
@@ -176,6 +177,9 @@ export async function handleCloseCommand(
 	} catch (error) {
 		console.warn('[close-command] flushPendingSnapshot error:', error);
 	}
+
+	// Write root-level checkpoint artifact before clearing sessions (non-blocking)
+	await writeCheckpoint(directory).catch(() => {});
 
 	swarmState.agentSessions.clear();
 	swarmState.delegationChains.clear();
