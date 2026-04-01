@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.43.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.0...v6.43.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* **curator:** resolve model via explorer agent, not own DEFAULT_MODELS entry ([#363](https://github.com/zaxbysauce/opencode-swarm/issues/363)) ([7c5b66c](https://github.com/zaxbysauce/opencode-swarm/commit/7c5b66ce792dc8ee95f645b1240b830678e17235))
+
 ## [6.43.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.42.1...v6.43.0) (2026-04-01)
 
 
