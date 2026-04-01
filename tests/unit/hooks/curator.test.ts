@@ -1016,6 +1016,116 @@ invalid json here
 			expect(result.digest.tasks_completed).toBe(2);
 			expect(result.digest.tasks_total).toBe(3);
 		});
+
+		it('dedup guard — second call for same phase returns cached data', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+
+			const plan = {
+				schema_version: '1.0.0',
+				title: 'Test',
+				swarm: 'test',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task A' },
+							{ id: '1.2', phase: 1, status: 'completed', description: 'Task B' },
+						],
+					},
+				],
+			};
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
+
+			const first = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			expect(first.summary_updated).toBe(true);
+
+			const second = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			expect(second.summary_updated).toBe(false);
+			expect(second.digest.tasks_completed).toBe(2);
+			expect(second.knowledge_recommendations).toEqual([]);
+
+			// Verify no duplicate phase_digests on disk
+			const summaryPath = path.join(swarmDir, 'curator-summary.json');
+			const content = JSON.parse(fs.readFileSync(summaryPath, 'utf-8'));
+			const phase1Digests = content.phase_digests.filter(
+				(d: { phase: number }) => d.phase === 1,
+			);
+			expect(phase1Digests).toHaveLength(1);
+		});
+
+		it('dedup guard — different phase is NOT blocked', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+
+			const plan = {
+				schema_version: '1.0.0',
+				title: 'Test',
+				swarm: 'test',
+				current_phase: 2,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'completed',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'Task A' },
+						],
+					},
+					{
+						id: 2,
+						name: 'Phase 2',
+						status: 'in_progress',
+						tasks: [
+							{ id: '2.1', phase: 2, status: 'completed', description: 'Task B' },
+						],
+					},
+				],
+			};
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
+
+			const phase1 = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			expect(phase1.summary_updated).toBe(true);
+
+			const phase2 = await runCuratorPhase(tempDir, 2, ['reviewer'], testConfig, {});
+			expect(phase2.summary_updated).toBe(true);
+		});
+
+		it('task counting — no plan.json defaults to 0/0', async () => {
+			const result = await runCuratorPhase(tempDir, 1, [], testConfig, {});
+
+			expect(result.digest.tasks_completed).toBe(0);
+			expect(result.digest.tasks_total).toBe(0);
+		});
+
+		it('task counting — empty phase tasks array', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+
+			const plan = {
+				schema_version: '1.0.0',
+				title: 'Test',
+				swarm: 'test',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'in_progress',
+						tasks: [],
+					},
+				],
+			};
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
+
+			const result = await runCuratorPhase(tempDir, 1, [], testConfig, {});
+
+			expect(result.digest.tasks_completed).toBe(0);
+			expect(result.digest.tasks_total).toBe(0);
+		});
 	});
 
 	describe('applyCuratorKnowledgeUpdates', () => {
