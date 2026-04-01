@@ -17636,6 +17636,8 @@ var ALL_SUBAGENT_NAMES = [
   "designer",
   "critic_sounding_board",
   "critic_drift_verifier",
+  "curator_init",
+  "curator_phase",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -17788,7 +17790,9 @@ var AGENT_TOOL_MAP = {
     "retrieve_summary",
     "symbols",
     "knowledgeRecall"
-  ]
+  ],
+  curator_init: ["knowledgeRecall"],
+  curator_phase: ["knowledgeRecall"]
 };
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -18495,6 +18499,8 @@ var swarmState = {
   delegationChains: new Map,
   pendingEvents: 0,
   opencodeClient: null,
+  curatorInitAgentNames: [],
+  curatorPhaseAgentNames: [],
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set

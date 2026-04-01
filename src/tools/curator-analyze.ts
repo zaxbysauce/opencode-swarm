@@ -4,7 +4,7 @@
  * giving the architect an explicit tool to call after reviewing phase data.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { loadPluginConfigWithMeta } from '../config';
 import { CuratorConfigSchema, KnowledgeConfigSchema } from '../config/schema';
 import {
@@ -50,7 +50,11 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 					'Knowledge recommendations to apply. If omitted, only collects digest data.',
 				),
 		},
-		execute: async (args: unknown, directory: string): Promise<string> => {
+		execute: async (
+			args: unknown,
+			directory: string,
+			ctx?: ToolContext,
+		): Promise<string> => {
 			const typedArgs = args as {
 				phase: number;
 				recommendations?: KnowledgeRecommendation[];
@@ -89,7 +93,11 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				);
 
 				// Run the curator phase analysis (collects digest + compliance)
-				const llmDelegate = createCuratorLLMDelegate(directory);
+				const llmDelegate = createCuratorLLMDelegate(
+					directory,
+					'phase',
+					ctx?.sessionID,
+				);
 				const curatorResult = await runCuratorPhase(
 					directory,
 					typedArgs.phase,

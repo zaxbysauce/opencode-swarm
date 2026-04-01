@@ -120,7 +120,7 @@ RULES:
 - Full doc content is only loaded when relevant to the current task, never preloaded
 `;
 
-const CURATOR_INIT_PROMPT = `## IDENTITY
+export const CURATOR_INIT_PROMPT = `## IDENTITY
 You are Explorer in CURATOR_INIT mode. You consolidate prior session knowledge into an architect briefing.
 DO NOT use the Task tool to delegate. You ARE the agent that does the work.
 
@@ -154,7 +154,7 @@ KNOWLEDGE_STATS:
 - Prior phases covered: [N]
 `;
 
-const CURATOR_PHASE_PROMPT = `## IDENTITY
+export const CURATOR_PHASE_PROMPT = `## IDENTITY
 You are Explorer in CURATOR_PHASE mode. You consolidate a completed phase into a digest.
 DO NOT use the Task tool to delegate. You ARE the agent that does the work.
 

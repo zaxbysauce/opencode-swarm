@@ -116,11 +116,23 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 	// Store SDK client for curator LLM delegation
 	swarmState.opencodeClient = ctx.client;
+
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
 	initTelemetry(ctx.directory);
 	const agents = getAgentConfigs(config);
 	const agentDefinitions = createAgents(config);
+
+	// Collect all registered curator agent names across all swarms.
+	// The factory resolves the correct name at call time by matching the active
+	// session's agent prefix — so multi-swarm deployments each get their own curator.
+	swarmState.curatorInitAgentNames = Object.keys(agents).filter(
+		(k) => k === 'curator_init' || k.endsWith('_curator_init'),
+	);
+	swarmState.curatorPhaseAgentNames = Object.keys(agents).filter(
+		(k) => k === 'curator_phase' || k.endsWith('_curator_phase'),
+	);
+
 	const pipelineHook = createPipelineTrackerHook(config, ctx.directory);
 	const systemEnhancerHook = createSystemEnhancerHook(config, ctx.directory);
 	const compactionHook = createCompactionCustomizerHook(config, ctx.directory);
@@ -761,14 +773,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 							ctx.directory,
 							preflightTriggerManager,
 							undefined,
-							createCuratorLLMDelegate(ctx.directory),
+							(sessionId) =>
+								createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 						)
 					: knowledgeConfig.enabled
 						? createPhaseMonitorHook(
 								ctx.directory,
 								undefined,
 								undefined,
-								createCuratorLLMDelegate(ctx.directory),
+								(sessionId) =>
+									createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 							)
 						: undefined,
 			].filter(Boolean) as Array<

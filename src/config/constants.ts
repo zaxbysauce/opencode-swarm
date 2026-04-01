@@ -12,6 +12,8 @@ export const ALL_SUBAGENT_NAMES = [
 	'designer',
 	'critic_sounding_board',
 	'critic_drift_verifier',
+	'curator_init',
+	'curator_phase',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -173,6 +175,9 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledgeRecall',
 	],
+	// Curator agents are read-only analysis roles — knowledge recall only
+	curator_init: ['knowledgeRecall'],
+	curator_phase: ['knowledgeRecall'],
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered
@@ -207,6 +212,10 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	critic_drift_verifier: 'opencode/trinity-large-preview-free',
 	docs: 'opencode/trinity-large-preview-free',
 	designer: 'opencode/trinity-large-preview-free',
+
+	// Curator agents — lightweight read-only analysis (same model family as explorer)
+	curator_init: 'opencode/trinity-large-preview-free',
+	curator_phase: 'opencode/trinity-large-preview-free',
 
 	// Fallback
 	default: 'opencode/trinity-large-preview-free',

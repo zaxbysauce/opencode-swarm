@@ -11,7 +11,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createExplorerCuratorAgent } from '../agents/explorer.js';
+import {
+	CURATOR_INIT_PROMPT,
+	CURATOR_PHASE_PROMPT,
+} from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
 import type {
 	ComplianceObservation,
@@ -448,10 +451,6 @@ export async function runCuratorInit(
 		// 6. LLM delegation: enhance briefing with CURATOR_INIT agent analysis
 		if (llmDelegate) {
 			try {
-				const curatorAgent = createExplorerCuratorAgent(
-					'default',
-					'CURATOR_INIT',
-				);
 				const userInput = [
 					'TASK: CURATOR_INIT',
 					`PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : 'none'}`,
@@ -459,7 +458,7 @@ export async function runCuratorInit(
 					`PROJECT_CONTEXT: ${contextMd?.slice(0, config.max_summary_tokens * 2) ?? 'none'}`,
 				].join('\n');
 
-				const systemPrompt = curatorAgent.config.prompt ?? '';
+				const systemPrompt = CURATOR_INIT_PROMPT;
 				const llmOutput = await Promise.race([
 					llmDelegate(systemPrompt, userInput),
 					new Promise<never>((_, reject) =>
@@ -603,13 +602,8 @@ export async function runCuratorPhase(
 		let knowledgeRecommendations: KnowledgeRecommendation[] = [];
 		if (llmDelegate) {
 			try {
-				const curatorAgent = createExplorerCuratorAgent(
-					'default',
-					'CURATOR_PHASE',
-				);
-
 				const priorDigest = priorSummary?.digest ?? 'none';
-				const systemPrompt = curatorAgent.config.prompt ?? '';
+				const systemPrompt = CURATOR_PHASE_PROMPT;
 				const userInput = [
 					`TASK: CURATOR_PHASE ${phase}`,
 					`PRIOR_DIGEST: ${priorDigest}`,

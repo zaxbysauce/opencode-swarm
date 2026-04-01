@@ -34,7 +34,10 @@ export {
 	PROVIDER_CAPS,
 	resolveModelLimit,
 } from './model-limits';
-export { createPhaseMonitorHook } from './phase-monitor';
+export {
+	type CuratorDelegateFactory,
+	createPhaseMonitorHook,
+} from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
 export {
 	buildApprovedReceipt,

@@ -9,6 +9,7 @@ import { stripKnownSwarmPrefix } from '../config/schema';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
 import { type CriticRole, createCriticAgent } from './critic';
+import { type CuratorRole, createCuratorAgent } from './curator-agent';
 import { createDesignerAgent } from './designer';
 import { createDocsAgent } from './docs';
 import { createExplorerAgent } from './explorer';
@@ -324,6 +325,32 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
 	}
 
+	// 5d. Create Curator Init agent
+	if (!isAgentDisabled('curator_init', swarmAgents, swarmPrefix)) {
+		const curatorInitPrompts = getPrompts('curator_init');
+		const curatorInit = createCuratorAgent(
+			swarmAgents?.curator_init?.model ?? getModel('curator_init'),
+			curatorInitPrompts.prompt,
+			curatorInitPrompts.appendPrompt,
+			'curator_init' as CuratorRole,
+		);
+		curatorInit.name = prefixName('curator_init');
+		agents.push(applyOverrides(curatorInit, swarmAgents, swarmPrefix));
+	}
+
+	// 5e. Create Curator Phase agent
+	if (!isAgentDisabled('curator_phase', swarmAgents, swarmPrefix)) {
+		const curatorPhasePrompts = getPrompts('curator_phase');
+		const curatorPhase = createCuratorAgent(
+			swarmAgents?.curator_phase?.model ?? getModel('curator_phase'),
+			curatorPhasePrompts.prompt,
+			curatorPhasePrompts.appendPrompt,
+			'curator_phase' as CuratorRole,
+		);
+		curatorPhase.name = prefixName('curator_phase');
+		agents.push(applyOverrides(curatorPhase, swarmAgents, swarmPrefix));
+	}
+
 	if (!isAgentDisabled('test_engineer', swarmAgents, swarmPrefix)) {
 		const testPrompts = getPrompts('test_engineer');
 		const testEngineer = createTestEngineerAgent(
@@ -511,6 +538,7 @@ export function getAgentConfigs(
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createCriticAgent } from './critic';
+export { createCuratorAgent } from './curator-agent';
 export { createDesignerAgent } from './designer';
 export { createDocsAgent } from './docs';
 export { createExplorerAgent } from './explorer';
