@@ -16,6 +16,7 @@ import {
 	CURATOR_PHASE_PROMPT,
 } from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
+import { loadPlanJsonOnly } from '../plan/manager.js';
 import type {
 	ComplianceObservation,
 	CuratorConfig,
@@ -35,7 +36,6 @@ import type {
 	KnowledgeConfig,
 	SwarmKnowledgeEntry,
 } from './knowledge-types.js';
-import { loadPlanJsonOnly } from '../plan/manager.js';
 import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
 
 /**
