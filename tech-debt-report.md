@@ -260,3 +260,50 @@ Refactor `gate-workflow.test.ts`, `pre-check-batch.test.ts`, and `workflow-state
 - Add CI step to verify `biome.json` schema version matches `@biomejs/biome` devDependency.
 - Document and enforce the Windows test-skip rationale.
 - Add PATH fallback to `detectAvailableLinter` to prevent future breakage when cwd changes.
+
+---
+
+## Addendum: Source-Level Structural Debt (Explorer candidates — not runtime-validated)
+
+The following findings were produced by the source code explorer subagent after the main report was written. They are candidate findings, not confirmed. They do not affect current CI status but represent structural debt worth validating.
+
+### SA1 — Cross-platform test artifact leak (CONFIRMED by file system inspection)
+**Files:** `tests/unit/tools/cross-platform.test.ts` and adversarial checkpoint tests (e.g., `tests/adversarial/task-5.6-preflight-service-attack.test.ts`)
+**Confirmed:** `src/plan/checkpoint.ts:24` writes `SWARM_PLAN.json` to the literal `directory` argument. Tests that pass Windows-style paths (`C:\`, `C:\projects\myworkspace`, `\\server\share`) on Linux create directories with those names in `process.cwd()`. These directories are not cleaned up in `afterEach`. Running the integration or unit suite locally leaves `C:\` and `\\server\share` directories in the repo root. **This is confirmed** — found and removed during this audit.
+
+**Fix:** Add afterEach cleanup for any tests that invoke `writeCheckpoint` with Windows-style paths, or ensure the function rejects non-POSIX paths on Linux.
+
+---
+
+### SA2 — Module-level Maps in hooks/ without guaranteed error-path cleanup (UNVERIFIED)
+**Files:**
+- `src/hooks/guardrails.ts:43` — `storedInputArgs: Map<callID, unknown>` — deleted via `deleteStoredInputArgs(callID)` but only if the call completes normally
+- `src/hooks/delegation-gate.ts:39` — `pendingCoderScopeByTaskId: Map<taskId, string[]>` — set at line 1090, deleted at line 1092 in normal flow; if an exception fires between set and delete, the entry persists
+- `src/hooks/guardrails.ts:84-86` — `toolCallsSinceLastWrite`, `noOpWarningIssued` — keyed by sessionId, reset on session events but no TTL
+
+None of these Maps have a TTL or size cap. Under normal session lifecycle they are managed, but error paths may leave entries. Unclear whether this affects test isolation in the hooks unit tests or causes cross-session leakage in production.
+
+**Needs validation:** Confirm cleanup is called on all session-end and error paths. Verify hooks unit tests reset these Maps between tests.
+
+---
+
+### SA3 — File lock check-then-acquire race window (UNVERIFIED)
+**File:** `src/parallel/file-locks.ts:54-89`
+
+The lock acquisition sequence is: (1) read lock file, (2) check expiry, (3) delete if expired, (4) create new lock. Steps 3 and 4 are not atomic. Under concurrent access, two processes can both see an expired lock, both delete it, and both attempt to create a new lock. The rename-based write (implicit in Bun's file write) mitigates but doesn't fully close this window. No test exercises concurrent lock acquisition.
+
+**Needs validation:** Determine whether `proper-lockfile` (a production dependency) is used here or whether this is a hand-rolled implementation. If hand-rolled, concurrent access scenarios should be tested.
+
+---
+
+### SA4 — Curator subsystem still settling (UNVERIFIED)
+**Signal:** CHANGELOG shows 5 curator-specific fixes in the last 10 releases (v6.42–v6.44). `curator.ts` hook uses `Promise.race()` with a 5-minute hardcoded timeout (`curator.ts:54`) for LLM delegation. If the LLM call times out, the caller receives `undefined` and must handle it. The null/undefined return from `readCuratorSummary()` is indistinguishable between a missing file and a corrupted file — callers cannot implement targeted recovery.
+
+**Needs validation:** Confirm curator timeout behavior and null-return handling are tested under failure conditions.
+
+---
+
+### SA5 — 322 JSON.parse() calls without Zod post-parse validation (UNVERIFIED)
+Most `JSON.parse()` calls are wrapped in try-catch. However, type safety after parse is inconsistent — many paths cast the result to a typed interface without Zod validation. The most risk-relevant instances are in event replay paths (`plan/ledger.ts`) and evidence file reading (`tools/evidence-check.ts`) where malformed content could corrupt plan state rather than raise a clean error.
+
+**Needs validation:** Audit `plan/ledger.ts` event replay and `tools/evidence-check.ts` for missing schema validation post-parse.
