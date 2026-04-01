@@ -16,6 +16,7 @@ import {
 	CURATOR_PHASE_PROMPT,
 } from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
+import { loadPlanJsonOnly } from '../plan/manager.js';
 import type {
 	ComplianceObservation,
 	CuratorConfig,
@@ -45,10 +46,12 @@ import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
 export type CuratorLLMDelegate = (
 	systemPrompt: string,
 	userInput: string,
+	signal?: AbortSignal,
 ) => Promise<string>;
 
-/** Timeout for curator LLM delegation calls (ms) */
-const CURATOR_LLM_TIMEOUT_MS = 30_000;
+/** Default timeout for curator LLM delegation calls (ms).
+ * Used as fallback when config.llm_timeout_ms is not set. */
+const DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300_000;
 
 /**
  * Parse KNOWLEDGE_UPDATES section from curator LLM output.
@@ -459,15 +462,23 @@ export async function runCuratorInit(
 				].join('\n');
 
 				const systemPrompt = CURATOR_INIT_PROMPT;
-				const llmOutput = await Promise.race([
-					llmDelegate(systemPrompt, userInput),
-					new Promise<never>((_, reject) =>
-						setTimeout(
-							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
-							CURATOR_LLM_TIMEOUT_MS,
-						),
-					),
-				]);
+				const timeoutMs =
+					config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+				const ac = new AbortController();
+				const timer = setTimeout(() => ac.abort(), timeoutMs);
+				let llmOutput: string;
+				try {
+					llmOutput = await Promise.race([
+						llmDelegate(systemPrompt, userInput, ac.signal),
+						new Promise<never>((_, reject) => {
+							ac.signal.addEventListener('abort', () =>
+								reject(new Error('CURATOR_LLM_TIMEOUT')),
+							);
+						}),
+					]);
+				} finally {
+					clearTimeout(timer);
+				}
 
 				// Enhance briefing with LLM output if available
 				if (llmOutput?.trim()) {
@@ -534,13 +545,32 @@ export async function runCuratorPhase(
 	directory: string,
 	phase: number,
 	agentsDispatched: string[],
-	_config: CuratorConfig,
+	config: CuratorConfig,
 	_knowledgeConfig: { directory?: string },
 	llmDelegate?: CuratorLLMDelegate,
 ): Promise<CuratorPhaseResult> {
 	try {
 		// 1. Read prior curator summary
 		const priorSummary = await readCuratorSummary(directory);
+
+		// 1b. Deduplication guard: skip if this phase was already digested.
+		// Without this, repeated phase_complete or curator_analyze calls for
+		// the same phase append duplicate digest entries and re-emit compliance
+		// events, causing the summary to balloon and ephemeral sessions to leak.
+		if (priorSummary?.phase_digests.some((d) => d.phase === phase)) {
+			const existingDigest = priorSummary.phase_digests.find(
+				(d) => d.phase === phase,
+			)!;
+			return {
+				phase,
+				digest: existingDigest,
+				compliance: priorSummary.compliance_observations.filter(
+					(c) => c.phase === phase,
+				),
+				knowledge_recommendations: [],
+				summary_updated: false,
+			};
+		}
 
 		// 2. Read events.jsonl filtered to this phase window
 		const eventsJsonlContent = await readSwarmFileAsync(
@@ -564,10 +594,15 @@ export async function runCuratorPhase(
 			phase,
 		);
 
-		// 5. Build phase digest entry from available data
-		const tasksCompleted = phaseEvents.filter(
-			(e) => (e as Record<string, unknown>).type === 'task.completed',
-		).length;
+		// 5. Build phase digest entry from plan.json (source of truth for task status).
+		// Previously this filtered events.jsonl for 'task.completed' events, but that
+		// event type is never emitted — task status lives in plan.json only.
+		const plan = await loadPlanJsonOnly(directory);
+		const phaseData = plan?.phases.find((p) => p.id === phase);
+		const tasksCompleted = phaseData
+			? phaseData.tasks.filter((t) => t.status === 'completed').length
+			: 0;
+		const tasksTotal = phaseData ? phaseData.tasks.length : 0;
 
 		// Extract key decisions from context.md (lines starting with '- ')
 		const keyDecisions: string[] = [];
@@ -589,10 +624,10 @@ export async function runCuratorPhase(
 		const phaseDigest: PhaseDigestEntry = {
 			phase,
 			timestamp: new Date().toISOString(),
-			summary: `Phase ${phase} completed. ${tasksCompleted} tasks recorded. ${complianceObservations.length} compliance observations.`,
+			summary: `Phase ${phase} completed. ${tasksCompleted}/${tasksTotal} tasks completed. ${complianceObservations.length} compliance observations.`,
 			agents_used: [...new Set(agentsDispatched.map(normalizeAgentName))],
 			tasks_completed: tasksCompleted,
-			tasks_total: tasksCompleted, // actual total not available here; caller may update
+			tasks_total: tasksTotal,
 			key_decisions: keyDecisions.slice(0, 5),
 			blockers_resolved: [],
 		};
@@ -613,15 +648,23 @@ export async function runCuratorPhase(
 					`AGENTS_EXPECTED: ["reviewer", "test_engineer"]`,
 				].join('\n');
 
-				const llmOutput = await Promise.race([
-					llmDelegate(systemPrompt, userInput),
-					new Promise<never>((_, reject) =>
-						setTimeout(
-							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
-							CURATOR_LLM_TIMEOUT_MS,
-						),
-					),
-				]);
+				const timeoutMs =
+					config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+				const ac = new AbortController();
+				const timer = setTimeout(() => ac.abort(), timeoutMs);
+				let llmOutput: string;
+				try {
+					llmOutput = await Promise.race([
+						llmDelegate(systemPrompt, userInput, ac.signal),
+						new Promise<never>((_, reject) => {
+							ac.signal.addEventListener('abort', () =>
+								reject(new Error('CURATOR_LLM_TIMEOUT')),
+							);
+						}),
+					]);
+				} finally {
+					clearTimeout(timer);
+				}
 
 				if (llmOutput?.trim()) {
 					knowledgeRecommendations = parseKnowledgeRecommendations(llmOutput);
