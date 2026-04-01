@@ -115,8 +115,32 @@ export function createCuratorLLMDelegate(
 	const client = swarmState.opencodeClient;
 	if (!client) return undefined;
 
-	return async (_systemPrompt: string, userInput: string): Promise<string> => {
+	return async (
+		_systemPrompt: string,
+		userInput: string,
+		signal?: AbortSignal,
+	): Promise<string> => {
 		let ephemeralSessionId: string | undefined;
+
+		/** Best-effort session cleanup — never throws. */
+		const cleanup = () => {
+			if (ephemeralSessionId) {
+				const id = ephemeralSessionId;
+				ephemeralSessionId = undefined; // prevent double-delete
+				client.session.delete({ path: { id } }).catch(() => {});
+			}
+		};
+
+		// If the caller already aborted, clean up immediately and bail.
+		if (signal?.aborted) {
+			cleanup();
+			throw new Error('CURATOR_LLM_TIMEOUT');
+		}
+
+		// Wire up abort listener so the ephemeral session is deleted as soon
+		// as the timeout fires, rather than waiting for the SDK call to settle.
+		signal?.addEventListener('abort', cleanup, { once: true });
+
 		try {
 			// 1. Create ephemeral session scoped to project directory
 			const createResult = await client.session.create({
@@ -129,15 +153,15 @@ export function createCuratorLLMDelegate(
 			}
 			ephemeralSessionId = createResult.data.id;
 
+			// Re-check abort after awaiting session creation
+			if (signal?.aborted) {
+				throw new Error('CURATOR_LLM_TIMEOUT');
+			}
+
 			// 2. Resolve the curator agent name for the calling swarm.
-			// Uses direct sessionId lookup when available; heuristic scan otherwise.
 			const agentName = resolveCuratorAgentName(mode, sessionId);
 
 			// 3. Prompt using the registered curator agent.
-			// The agent's own baked-in system prompt is used (no system: override),
-			// so any user-configured custom prompts registered for curator_init /
-			// curator_phase are honored. The _systemPrompt parameter is intentionally
-			// unused here — the caller's systemPrompt stays within the curator pipeline.
 			const promptResult = await client.session.prompt({
 				path: { id: ephemeralSessionId },
 				body: {
@@ -159,12 +183,8 @@ export function createCuratorLLMDelegate(
 			);
 			return textParts.map((p) => p.text).join('\n');
 		} finally {
-			// 5. Best-effort cleanup — never block on delete failure
-			if (ephemeralSessionId) {
-				client.session
-					.delete({ path: { id: ephemeralSessionId } })
-					.catch(() => {});
-			}
+			signal?.removeEventListener('abort', cleanup);
+			cleanup();
 		}
 	};
 }

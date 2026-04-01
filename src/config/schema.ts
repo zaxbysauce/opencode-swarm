@@ -846,6 +846,10 @@ export const CuratorConfigSchema = z.object({
 	suppress_warnings: z.boolean().default(true),
 	/** Maximum chars for drift report summary injected into architect context. Default: 500 */
 	drift_inject_max_chars: z.number().min(100).max(2000).default(500),
+	/** Timeout in ms for curator LLM delegation calls (session create + prompt + response).
+	 *  Must cover ephemeral session creation overhead plus full model response time.
+	 *  Default: 300000 (5 minutes). Increase for slower models; decrease for fast local models. */
+	llm_timeout_ms: z.number().int().min(5000).max(600000).default(300_000),
 });
 
 export type CuratorConfig = z.infer<typeof CuratorConfigSchema>;

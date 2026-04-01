@@ -45,13 +45,12 @@ import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
 export type CuratorLLMDelegate = (
 	systemPrompt: string,
 	userInput: string,
+	signal?: AbortSignal,
 ) => Promise<string>;
 
-/** Timeout for curator LLM delegation calls (ms).
- * Curator delegates may process many knowledge entries and run on any model,
- * so the budget needs to cover session creation overhead plus a full model
- * response. 5 minutes gives headroom for slower or more capable models. */
-const CURATOR_LLM_TIMEOUT_MS = 300_000;
+/** Default timeout for curator LLM delegation calls (ms).
+ * Used as fallback when config.llm_timeout_ms is not set. */
+const DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300_000;
 
 /**
  * Parse KNOWLEDGE_UPDATES section from curator LLM output.
@@ -462,15 +461,23 @@ export async function runCuratorInit(
 				].join('\n');
 
 				const systemPrompt = CURATOR_INIT_PROMPT;
-				const llmOutput = await Promise.race([
-					llmDelegate(systemPrompt, userInput),
-					new Promise<never>((_, reject) =>
-						setTimeout(
-							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
-							CURATOR_LLM_TIMEOUT_MS,
-						),
-					),
-				]);
+				const timeoutMs =
+					config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+				const ac = new AbortController();
+				const timer = setTimeout(() => ac.abort(), timeoutMs);
+				let llmOutput: string;
+				try {
+					llmOutput = await Promise.race([
+						llmDelegate(systemPrompt, userInput, ac.signal),
+						new Promise<never>((_, reject) => {
+							ac.signal.addEventListener('abort', () =>
+								reject(new Error('CURATOR_LLM_TIMEOUT')),
+							);
+						}),
+					]);
+				} finally {
+					clearTimeout(timer);
+				}
 
 				// Enhance briefing with LLM output if available
 				if (llmOutput?.trim()) {
@@ -635,15 +642,23 @@ export async function runCuratorPhase(
 					`AGENTS_EXPECTED: ["reviewer", "test_engineer"]`,
 				].join('\n');
 
-				const llmOutput = await Promise.race([
-					llmDelegate(systemPrompt, userInput),
-					new Promise<never>((_, reject) =>
-						setTimeout(
-							() => reject(new Error('CURATOR_LLM_TIMEOUT')),
-							CURATOR_LLM_TIMEOUT_MS,
-						),
-					),
-				]);
+				const timeoutMs =
+					_config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+				const ac = new AbortController();
+				const timer = setTimeout(() => ac.abort(), timeoutMs);
+				let llmOutput: string;
+				try {
+					llmOutput = await Promise.race([
+						llmDelegate(systemPrompt, userInput, ac.signal),
+						new Promise<never>((_, reject) => {
+							ac.signal.addEventListener('abort', () =>
+								reject(new Error('CURATOR_LLM_TIMEOUT')),
+							);
+						}),
+					]);
+				} finally {
+					clearTimeout(timer);
+				}
 
 				if (llmOutput?.trim()) {
 					knowledgeRecommendations = parseKnowledgeRecommendations(llmOutput);
