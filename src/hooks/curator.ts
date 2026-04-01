@@ -545,7 +545,7 @@ export async function runCuratorPhase(
 	directory: string,
 	phase: number,
 	agentsDispatched: string[],
-	_config: CuratorConfig,
+	config: CuratorConfig,
 	_knowledgeConfig: { directory?: string },
 	llmDelegate?: CuratorLLMDelegate,
 ): Promise<CuratorPhaseResult> {
@@ -649,7 +649,7 @@ export async function runCuratorPhase(
 				].join('\n');
 
 				const timeoutMs =
-					_config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+					config.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
 				const ac = new AbortController();
 				const timer = setTimeout(() => ac.abort(), timeoutMs);
 				let llmOutput: string;
