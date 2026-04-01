@@ -2,11 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 import {
 	AGENT_TOOL_MAP,
-	WRITE_TOOL_NAMES,
+	type AgentName,
 	ALL_SUBAGENT_NAMES,
 	ORCHESTRATOR_NAME,
 	TOOL_DESCRIPTIONS,
-	type AgentName,
+	WRITE_TOOL_NAMES,
 } from '../../../src/config/constants';
 
 /**
@@ -70,7 +70,10 @@ describe('YOUR TOOLS prompt list matches AGENT_TOOL_MAP.architect', () => {
 		const yourTools = extractYourToolsNames(resolvedPrompt);
 		const mapSet = new Set<string>(AGENT_TOOL_MAP.architect);
 		for (const tool of yourTools) {
-			expect(mapSet.has(tool), `"${tool}" in prompt but not in AGENT_TOOL_MAP.architect`).toBe(true);
+			expect(
+				mapSet.has(tool),
+				`"${tool}" in prompt but not in AGENT_TOOL_MAP.architect`,
+			).toBe(true);
 		}
 	});
 
@@ -104,7 +107,10 @@ describe('TOOL_DESCRIPTIONS coverage for AGENT_TOOL_MAP.architect', () => {
 	test('every tool in AGENT_TOOL_MAP.architect has a non-empty TOOL_DESCRIPTIONS entry', () => {
 		for (const tool of AGENT_TOOL_MAP.architect) {
 			const desc = TOOL_DESCRIPTIONS[tool];
-			expect(desc, `TOOL_DESCRIPTIONS["${tool}"] should be defined`).toBeTruthy();
+			expect(
+				desc,
+				`TOOL_DESCRIPTIONS["${tool}"] should be defined`,
+			).toBeTruthy();
 			expect(typeof desc).toBe('string');
 			expect((desc as string).length).toBeGreaterThan(0);
 		}
@@ -147,7 +153,10 @@ describe('WRITE_TOOL_NAMES are coder tools, not architect tools', () => {
 	test('no WRITE_TOOL_NAMES tool appears in AGENT_TOOL_MAP.architect', () => {
 		const architectTools = new Set<string>(AGENT_TOOL_MAP.architect);
 		for (const tool of WRITE_TOOL_NAMES) {
-			expect(architectTools.has(tool), `write tool "${tool}" should NOT be in AGENT_TOOL_MAP.architect`).toBe(false);
+			expect(
+				architectTools.has(tool),
+				`write tool "${tool}" should NOT be in AGENT_TOOL_MAP.architect`,
+			).toBe(false);
 		}
 	});
 });
@@ -157,9 +166,15 @@ describe('WRITE_TOOL_NAMES are coder tools, not architect tools', () => {
 // ---------------------------------------------------------------------------
 describe('No unknown agents in AGENT_TOOL_MAP', () => {
 	test('every key in AGENT_TOOL_MAP is a known agent name', () => {
-		const allKnownAgents = new Set<AgentName>([ORCHESTRATOR_NAME, ...ALL_SUBAGENT_NAMES]);
+		const allKnownAgents = new Set<AgentName>([
+			ORCHESTRATOR_NAME,
+			...ALL_SUBAGENT_NAMES,
+		]);
 		for (const agentName of Object.keys(AGENT_TOOL_MAP)) {
-			expect(allKnownAgents.has(agentName as AgentName), `unknown agent in AGENT_TOOL_MAP: "${agentName}"`).toBe(true);
+			expect(
+				allKnownAgents.has(agentName as AgentName),
+				`unknown agent in AGENT_TOOL_MAP: "${agentName}"`,
+			).toBe(true);
 		}
 	});
 
@@ -171,7 +186,10 @@ describe('No unknown agents in AGENT_TOOL_MAP', () => {
 		for (const subagent of ALL_SUBAGENT_NAMES) {
 			if (subagent in AGENT_TOOL_MAP) {
 				const tools = AGENT_TOOL_MAP[subagent as keyof typeof AGENT_TOOL_MAP];
-				expect(tools.length, `"${subagent}" has ${tools.length} tools, expected >= 1`).toBeGreaterThanOrEqual(1);
+				expect(
+					tools.length,
+					`"${subagent}" has ${tools.length} tools, expected >= 1`,
+				).toBeGreaterThanOrEqual(1);
 			}
 		}
 	});

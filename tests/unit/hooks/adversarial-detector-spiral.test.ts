@@ -4,14 +4,14 @@
  * same file modified 3+ times, no spiral detection, formatDebuggingSpiralEvent
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
+	type AdversarialPatternMatch,
 	detectDebuggingSpiral,
 	formatDebuggingSpiralEvent,
-	type AdversarialPatternMatch,
 } from '../../../src/hooks/adversarial-detector';
 import type { RunMemoryEntry } from '../../../src/services/run-memory';
 
@@ -24,10 +24,10 @@ describe.skip('detectDebuggingSpiral', () => {
 		// This allows us to use a relative path that the validateDirectory function accepts
 		tempDir = `test-spiral-${Date.now()}`;
 		originalCwd = process.cwd();
-		
+
 		// Change to parent directory where we'll create our test directory
 		process.chdir(os.tmpdir());
-		
+
 		// Create the test directory
 		fs.mkdirSync(tempDir, { recursive: true });
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -91,7 +91,9 @@ describe.skip('detectDebuggingSpiral', () => {
 			expect(result).not.toBeNull();
 			expect(result?.pattern).toBe('DEBUGGING_SPIRAL');
 			expect(result?.severity).toBe('HIGH');
-			expect(result?.matchedText).toContain('Same rejection reason resurfacing');
+			expect(result?.matchedText).toContain(
+				'Same rejection reason resurfacing',
+			);
 			expect(result?.confidence).toBe('HIGH');
 		});
 
@@ -133,7 +135,9 @@ describe.skip('detectDebuggingSpiral', () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.pattern).toBe('DEBUGGING_SPIRAL');
-			expect(result?.matchedText).toContain('Same rejection reason resurfacing');
+			expect(result?.matchedText).toContain(
+				'Same rejection reason resurfacing',
+			);
 		});
 	});
 
@@ -203,7 +207,7 @@ describe.skip('detectDebuggingSpiral', () => {
 					agent: 'mega_coder',
 					outcome: 'fail',
 					attemptNumber: 1,
-					failureReason: 'Type error',  // Same reason
+					failureReason: 'Type error', // Same reason
 					filesModified: ['src/index.ts'],
 				},
 				{
@@ -213,7 +217,7 @@ describe.skip('detectDebuggingSpiral', () => {
 					agent: 'mega_coder',
 					outcome: 'fail',
 					attemptNumber: 2,
-					failureReason: 'Type error',  // Same reason - will also trigger "same reason" detection
+					failureReason: 'Type error', // Same reason - will also trigger "same reason" detection
 					filesModified: ['src/index.ts'],
 				},
 				{
@@ -223,7 +227,7 @@ describe.skip('detectDebuggingSpiral', () => {
 					agent: 'mega_coder',
 					outcome: 'fail',
 					attemptNumber: 3,
-					failureReason: 'Type error',  // Same reason repeated 3 times
+					failureReason: 'Type error', // Same reason repeated 3 times
 					filesModified: ['src/index.ts'],
 				},
 				{
@@ -246,7 +250,7 @@ describe.skip('detectDebuggingSpiral', () => {
 			// Either "same rejection reason" or "same file modified" is valid
 			expect(
 				result?.matchedText.includes('Same rejection reason') ||
-				result?.matchedText.includes('Same file modified')
+					result?.matchedText.includes('Same file modified'),
 			).toBe(true);
 			expect(result?.confidence).toBe('HIGH');
 		});
@@ -399,7 +403,9 @@ describe('formatDebuggingSpiralEvent', () => {
 		expect(parsed.taskId).toBe('1.1');
 		expect(parsed.pattern).toBe('DEBUGGING_SPIRAL');
 		expect(parsed.severity).toBe('HIGH');
-		expect(parsed.matchedText).toBe('Same rejection reason resurfacing: "type error..."');
+		expect(parsed.matchedText).toBe(
+			'Same rejection reason resurfacing: "type error..."',
+		);
 		expect(parsed.confidence).toBe('HIGH');
 		expect(parsed.timestamp).toBeDefined();
 		// Verify timestamp is ISO format
@@ -421,7 +427,9 @@ describe('formatDebuggingSpiralEvent', () => {
 		expect(parsed.taskId).toBe('2.3');
 		expect(parsed.pattern).toBe('DEBUGGING_SPIRAL');
 		expect(parsed.severity).toBe('HIGH');
-		expect(parsed.matchedText).toBe('3+ cycles with different rejection reasons (5 unique)');
+		expect(parsed.matchedText).toBe(
+			'3+ cycles with different rejection reasons (5 unique)',
+		);
 		expect(parsed.confidence).toBe('MEDIUM');
 		expect(parsed.timestamp).toBeDefined();
 	});

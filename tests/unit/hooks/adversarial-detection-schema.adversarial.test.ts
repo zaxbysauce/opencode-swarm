@@ -12,7 +12,7 @@
  * 7. `enabled` with truthy non-boolean values
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { AdversarialDetectionConfigSchema } from '../../../src/config/schema';
 
 describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => {
@@ -21,7 +21,10 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 		it('should reject pairs with deeply nested arrays', () => {
 			const result = AdversarialDetectionConfigSchema.safeParse({
 				pairs: [
-					[['agent1', 'agent2'], ['agent3', 'agent4']], // nested arrays - should fail
+					[
+						['agent1', 'agent2'],
+						['agent3', 'agent4'],
+					], // nested arrays - should fail
 				],
 			});
 			expect(result.success).toBe(false);
@@ -52,7 +55,10 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 
 		it('should accept valid 2-tuple pairs', () => {
 			const result = AdversarialDetectionConfigSchema.safeParse({
-				pairs: [['coder', 'reviewer'], ['architect', 'reviewer']],
+				pairs: [
+					['coder', 'reviewer'],
+					['architect', 'reviewer'],
+				],
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
@@ -68,7 +74,11 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 	describe('AV2: Empty-string agent names', () => {
 		it('should accept empty-string agent names in pairs (Zod string() allows this)', () => {
 			const result = AdversarialDetectionConfigSchema.safeParse({
-				pairs: [['', 'reviewer'], ['coder', ''], ['', '']],
+				pairs: [
+					['', 'reviewer'],
+					['coder', ''],
+					['', ''],
+				],
 			});
 			// NOTE: Zod's string() accepts empty strings by default
 			// This is expected behavior - downstream validation should catch this
@@ -167,7 +177,9 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 				`reviewer${i % 5}`,
 			]);
 
-			const result = AdversarialDetectionConfigSchema.safeParse({ pairs: largePairs });
+			const result = AdversarialDetectionConfigSchema.safeParse({
+				pairs: largePairs,
+			});
 
 			// Zod accepts this - no max constraint
 			expect(result.success).toBe(true);
@@ -182,7 +194,9 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 				`reviewer${i % 10}`,
 			]);
 
-			const result = AdversarialDetectionConfigSchema.safeParse({ pairs: hugePairs });
+			const result = AdversarialDetectionConfigSchema.safeParse({
+				pairs: hugePairs,
+			});
 
 			expect(result.success).toBe(true);
 			if (result.success) {
@@ -209,7 +223,10 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 
 		it('should accept __proto__ as a string value (not prototype pollution)', () => {
 			const result = AdversarialDetectionConfigSchema.safeParse({
-				pairs: [['__proto__', 'reviewer'], ['coder', 'constructor']],
+				pairs: [
+					['__proto__', 'reviewer'],
+					['coder', 'constructor'],
+				],
 			});
 
 			// Zod's string() accepts "__proto__" and "constructor" as regular strings
@@ -336,7 +353,9 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 		});
 
 		it('should reject null (not coerced to false by z.boolean)', () => {
-			const result = AdversarialDetectionConfigSchema.safeParse({ enabled: null });
+			const result = AdversarialDetectionConfigSchema.safeParse({
+				enabled: null,
+			});
 			expect(result.success).toBe(false);
 		});
 
@@ -353,10 +372,14 @@ describe('AdversarialDetectionConfigSchema - ADVERSARIAL SECURITY TESTS', () => 
 		});
 
 		it('should accept boolean values', () => {
-			const result1 = AdversarialDetectionConfigSchema.safeParse({ enabled: true });
+			const result1 = AdversarialDetectionConfigSchema.safeParse({
+				enabled: true,
+			});
 			expect(result1.success).toBe(true);
 
-			const result2 = AdversarialDetectionConfigSchema.safeParse({ enabled: false });
+			const result2 = AdversarialDetectionConfigSchema.safeParse({
+				enabled: false,
+			});
 			expect(result2.success).toBe(true);
 		});
 	});

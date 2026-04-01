@@ -10,13 +10,13 @@
  * - Unicode and special characters
  */
 
-import { describe, it, beforeEach, afterEach, expect } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	recordSteeringConsumed,
 	createSteeringConsumedHook,
+	recordSteeringConsumed,
 } from '../../../src/hooks/steering-consumed.js';
 
 describe('steering-consumed adversarial security tests', () => {
@@ -82,11 +82,7 @@ describe('steering-consumed adversarial security tests', () => {
 			recordSteeringConsumed(maliciousDir, 'test-id');
 
 			// File should NOT be created outside .swarm
-			const outsidePath = path.join(
-				tmpdir(),
-				'.swarm',
-				'events.jsonl',
-			);
+			const outsidePath = path.join(tmpdir(), '.swarm', 'events.jsonl');
 			expect(fs.existsSync(outsidePath)).toBe(false);
 		});
 
@@ -96,7 +92,9 @@ describe('steering-consumed adversarial security tests', () => {
 			recordSteeringConsumed(maliciousDir, 'test-id');
 
 			// Should not create file in system32
-			expect(() => fs.accessSync('C:\\Windows\\System32\\.swarm\\events.jsonl')).toThrow();
+			expect(() =>
+				fs.accessSync('C:\\Windows\\System32\\.swarm\\events.jsonl'),
+			).toThrow();
 		});
 	});
 
@@ -139,7 +137,7 @@ describe('steering-consumed adversarial security tests', () => {
 			if (fs.existsSync(eventsPath)) {
 				const content = fs.readFileSync(eventsPath, 'utf-8');
 				// The JSON.stringify should escape the quotes
-				expect(content).toContain('\\\"malicious\\\"');
+				expect(content).toContain('\\"malicious\\"');
 				// The content should be valid JSON when parsed line by line
 				const lines = content.trim().split('\n');
 				for (const line of lines) {
@@ -471,7 +469,16 @@ describe('steering-consumed adversarial security tests', () => {
 		it('should handle directiveId with control characters', () => {
 			// Use character codes to avoid parsing issues
 			const controlDirectiveId = String.fromCharCode(
-				116, 101, 115, 116, 1, 2, 3, 27, 105, 100, // "test\x01\x02\x03\x1Bid"
+				116,
+				101,
+				115,
+				116,
+				1,
+				2,
+				3,
+				27,
+				105,
+				100, // "test\x01\x02\x03\x1Bid"
 			);
 
 			recordSteeringConsumed(tempDir, controlDirectiveId);

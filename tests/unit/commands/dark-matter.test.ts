@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import type { CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
 
 // Mock the co-change-analyzer module
@@ -8,7 +8,9 @@ const mockDarkMatterToKnowledgeEntries = mock(() => []);
 
 // Mock the knowledge-store module with all common exports
 const mockAppendKnowledge = mock(async () => {});
-const mockResolveSwarmKnowledgePath = mock(() => '/test/dir/.swarm/knowledge.jsonl');
+const mockResolveSwarmKnowledgePath = mock(
+	() => '/test/dir/.swarm/knowledge.jsonl',
+);
 const mockReadKnowledge = mock(async () => []);
 const mockReadRejectedLessons = mock(async () => []);
 const mockRewriteKnowledge = mock(async () => {});
@@ -28,7 +30,9 @@ mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 
 mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	resolveSwarmKnowledgePath: mockResolveSwarmKnowledgePath,
-	resolveSwarmRejectedPath: mock(() => '/test/dir/.swarm/knowledge-rejected.jsonl'),
+	resolveSwarmRejectedPath: mock(
+		() => '/test/dir/.swarm/knowledge-rejected.jsonl',
+	),
 	resolveHiveKnowledgePath: mock(() => '/hive/shared-learnings.jsonl'),
 	resolveHiveRejectedPath: mock(() => '/hive/shared-learnings-rejected.jsonl'),
 	readKnowledge: mockReadKnowledge,
@@ -45,8 +49,13 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 }));
 
 // Import AFTER mock setup
-const { handleDarkMatterCommand } = await import('../../../src/commands/dark-matter.js');
-const { handleDarkMatterCommand: handleDarkMatterFromIndex, createSwarmCommandHandler } = await import('../../../src/commands/index.js');
+const { handleDarkMatterCommand } = await import(
+	'../../../src/commands/dark-matter.js'
+);
+const {
+	handleDarkMatterCommand: handleDarkMatterFromIndex,
+	createSwarmCommandHandler,
+} = await import('../../../src/commands/index.js');
 
 describe('handleDarkMatterCommand', () => {
 	beforeEach(() => {
@@ -56,7 +65,8 @@ describe('handleDarkMatterCommand', () => {
 
 	it('No args — uses defaults', async () => {
 		const mockPairs: CoChangeEntry[] = [];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\nNo hidden couplings...';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\nNo hidden couplings...';
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
 
@@ -75,7 +85,9 @@ describe('handleDarkMatterCommand', () => {
 
 		await handleDarkMatterCommand('/dir', ['--threshold', '0.7']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', { npmiThreshold: 0.7 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {
+			npmiThreshold: 0.7,
+		});
 	});
 
 	it('--min-commits flag parsed correctly', async () => {
@@ -86,7 +98,9 @@ describe('handleDarkMatterCommand', () => {
 
 		await handleDarkMatterCommand('/dir', ['--min-commits', '50']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', { minCommits: 50 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {
+			minCommits: 50,
+		});
 	});
 
 	it('Both flags together', async () => {
@@ -95,9 +109,17 @@ describe('handleDarkMatterCommand', () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
 
-		await handleDarkMatterCommand('/dir', ['--threshold', '0.6', '--min-commits', '30']);
+		await handleDarkMatterCommand('/dir', [
+			'--threshold',
+			'0.6',
+			'--min-commits',
+			'30',
+		]);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', { npmiThreshold: 0.6, minCommits: 30 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {
+			npmiThreshold: 0.6,
+			minCommits: 30,
+		});
 	});
 
 	it('Invalid threshold (out of range) → silently ignored', async () => {
@@ -109,7 +131,9 @@ describe('handleDarkMatterCommand', () => {
 		await handleDarkMatterCommand('/dir', ['--threshold', '1.5']);
 
 		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {});
-		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(false);
+		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(
+			false,
+		);
 	});
 
 	it('Invalid threshold (non-numeric) → silently ignored', async () => {
@@ -121,7 +145,9 @@ describe('handleDarkMatterCommand', () => {
 		await handleDarkMatterCommand('/dir', ['--threshold', 'abc']);
 
 		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {});
-		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(false);
+		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(
+			false,
+		);
 	});
 
 	it('--threshold at end of args (no value) → silently ignored', async () => {
@@ -133,7 +159,9 @@ describe('handleDarkMatterCommand', () => {
 		await handleDarkMatterCommand('/dir', ['--threshold']);
 
 		expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {});
-		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(false);
+		expect('npmiThreshold' in mockDetectDarkMatter.mock.calls[0][1]).toBe(
+			false,
+		);
 	});
 
 	it('Returns formatted output string', async () => {
@@ -162,7 +190,8 @@ describe('commands/index.ts integration', () => {
 
 	it('HELP_TEXT contains dark-matter', async () => {
 		const mockPairs: CoChangeEntry[] = [];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\nNo hidden couplings...';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\nNo hidden couplings...';
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
 

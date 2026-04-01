@@ -1,9 +1,22 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { createGuardrailsHooks, getStoredInputArgs, setStoredInputArgs, hashArgs } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession, getActiveWindow, beginInvocation } from '../../../src/state';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import {
+	createGuardrailsHooks,
+	getStoredInputArgs,
+	hashArgs,
+	setStoredInputArgs,
+} from '../../../src/hooks/guardrails';
+import {
+	beginInvocation,
+	getActiveWindow,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -17,11 +30,21 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeToolBeforeInput(sessionID = 'test-session', tool = 'read', callID = 'call-1', args?: Record<string, unknown>) {
+function makeToolBeforeInput(
+	sessionID = 'test-session',
+	tool = 'read',
+	callID = 'call-1',
+	args?: Record<string, unknown>,
+) {
 	return { tool, sessionID, callID, args };
 }
 
-function makeToolAfterInput(sessionID = 'test-session', tool = 'Task', callID = 'call-1', args?: Record<string, unknown>) {
+function makeToolAfterInput(
+	sessionID = 'test-session',
+	tool = 'Task',
+	callID = 'call-1',
+	args?: Record<string, unknown>,
+) {
 	return { tool, sessionID, callID, args };
 }
 
@@ -43,7 +66,7 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 		it('should return false when args is null (nullish coalescing fallback)', async () => {
 			// Pre-store args for fallback
 			setStoredInputArgs('call-1', { subagent_type: 'reviewer' });
-			
+
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'coder');
@@ -51,13 +74,13 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// toolBefore to set up the window and call count
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-1'),
-				{ args: { subagent_type: 'reviewer' } }
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			// toolAfter with null args - should fallback to stored args
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-1', null as any),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -68,20 +91,20 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 		it('should return false when args is undefined (nullish coalescing fallback)', async () => {
 			setStoredInputArgs('call-2', { subagent_type: 'test_engineer' });
-			
+
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'coder');
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-2'),
-				{ args: { subagent_type: 'test_engineer' } }
+				{ args: { subagent_type: 'test_engineer' } },
 			);
 
 			// toolAfter without args property - should fallback to stored args
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-2'),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -97,12 +120,12 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// Empty object - no subagent_type property
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-3'),
-				{ args: {} }
+				{ args: {} },
 			);
 
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-3', {}),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -119,12 +142,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// But empty string should NOT increment reviewer counter
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-4'),
-				{ args: { subagent_type: '' } }
+				{ args: { subagent_type: '' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-4', { subagent_type: '' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-4', {
+					subagent_type: '',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -142,12 +167,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// subagent_type: null - typeof null !== 'string'
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-5'),
-				{ args: { subagent_type: null } }
+				{ args: { subagent_type: null } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-5', { subagent_type: null }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-5', {
+					subagent_type: null,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -162,12 +189,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-6'),
-				{ args: { subagent_type: undefined } }
+				{ args: { subagent_type: undefined } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-6', { subagent_type: undefined }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-6', {
+					subagent_type: undefined,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -182,12 +211,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-7'),
-				{ args: { subagent_type: 123 } }
+				{ args: { subagent_type: 123 } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-7', { subagent_type: 123 as any }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-7', {
+					subagent_type: 123 as any,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -202,12 +233,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-8'),
-				{ args: { subagent_type: true } }
+				{ args: { subagent_type: true } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-8', { subagent_type: true as any }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-8', {
+					subagent_type: true as any,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -222,12 +255,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-9'),
-				{ args: { subagent_type: { role: 'reviewer' } } }
+				{ args: { subagent_type: { role: 'reviewer' } } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-9', { subagent_type: { role: 'reviewer' } as any }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-9', {
+					subagent_type: { role: 'reviewer' } as any,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -240,20 +275,22 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 		it('should use input.args (primary source) over stored args', async () => {
 			// Pre-store args with coder subagent
 			setStoredInputArgs('call-10', { subagent_type: 'coder' });
-			
+
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'coder');
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-10'),
-				{ args: { subagent_type: 'coder' } }
+				{ args: { subagent_type: 'coder' } },
 			);
 
 			// toolAfter has input.args with 'reviewer' - should take precedence
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-10', { subagent_type: 'reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-10', {
+					subagent_type: 'reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -265,20 +302,20 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 		it('should use stored args when input.args is missing', async () => {
 			// Pre-store args with reviewer subagent
 			setStoredInputArgs('call-11', { subagent_type: 'reviewer' });
-			
+
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'coder');
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-11'),
-				{ args: { subagent_type: 'reviewer' } }
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			// toolAfter has no args - should fallback to stored args
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-11'),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -288,20 +325,20 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 		it('should use stored args when input.args is undefined', async () => {
 			setStoredInputArgs('call-12', { subagent_type: 'test_engineer' });
-			
+
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'coder');
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-12'),
-				{ args: { subagent_type: 'test_engineer' } }
+				{ args: { subagent_type: 'test_engineer' } },
 			);
 
 			// Explicitly pass undefined args
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-12', undefined),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -318,12 +355,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-13'),
-				{ args: { subagent_type: 'reviewer' } }
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-13', { subagent_type: 'reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-13', {
+					subagent_type: 'reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -337,12 +376,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-14'),
-				{ args: { subagent_type: 'test_engineer' } }
+				{ args: { subagent_type: 'test_engineer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-14', { subagent_type: 'test_engineer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-14', {
+					subagent_type: 'test_engineer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -356,12 +397,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-15'),
-				{ args: { subagent_type: 'coder' } }
+				{ args: { subagent_type: 'coder' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-15', { subagent_type: 'coder' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-15', {
+					subagent_type: 'coder',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -379,12 +422,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// Even with valid subagent_type, non-Task tool should be ignored
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'read', 'call-16'),
-				{ args: { subagent_type: 'reviewer' } }
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'read', 'call-16', { subagent_type: 'reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'read', 'call-16', {
+					subagent_type: 'reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -400,12 +445,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// Task with colon namespace prefix (e.g., "mcp:Task")
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'mcp:Task', 'call-17'),
-				{ args: { subagent_type: 'reviewer' } }
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'mcp:Task', 'call-17', { subagent_type: 'reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'mcp:Task', 'call-17', {
+					subagent_type: 'reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -420,13 +467,22 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 			// Task with __ prefix - regex /^[^:]+[:.]/ does NOT match double-underscore
 			// So this is a known limitation of the current implementation
 			await hooks.toolBefore(
-				makeToolBeforeInput('test-session', 'mcp__code_executor__Task', 'call-17'),
-				{ args: { subagent_type: 'reviewer' } }
+				makeToolBeforeInput(
+					'test-session',
+					'mcp__code_executor__Task',
+					'call-17',
+				),
+				{ args: { subagent_type: 'reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'mcp__code_executor__Task', 'call-17', { subagent_type: 'reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput(
+					'test-session',
+					'mcp__code_executor__Task',
+					'call-17',
+					{ subagent_type: 'reviewer' },
+				),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -447,12 +503,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-18'),
-				{ args: { subagent_type: largeString } }
+				{ args: { subagent_type: largeString } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-18', { subagent_type: largeString }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-18', {
+					subagent_type: largeString,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -474,12 +532,12 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-19'),
-				{ args: manyProps }
+				{ args: manyProps },
 			);
 
 			await hooks.toolAfter(
 				makeToolAfterInput('test-session', 'Task', 'call-19', manyProps),
-				makeAfterOutput('success')
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -493,12 +551,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-20'),
-				{ args: { subagent_type: { nested: 'reviewer' } } }
+				{ args: { subagent_type: { nested: 'reviewer' } } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-20', { subagent_type: { nested: 'reviewer' } as any }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-20', {
+					subagent_type: { nested: 'reviewer' } as any,
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -515,12 +575,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-prefix-1'),
-				{ args: { subagent_type: 'mega_reviewer' } }
+				{ args: { subagent_type: 'mega_reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-prefix-1', { subagent_type: 'mega_reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-1', {
+					subagent_type: 'mega_reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -535,12 +597,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-prefix-2'),
-				{ args: { subagent_type: 'mega_test_engineer' } }
+				{ args: { subagent_type: 'mega_test_engineer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-prefix-2', { subagent_type: 'mega_test_engineer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-2', {
+					subagent_type: 'mega_test_engineer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -555,12 +619,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-prefix-3'),
-				{ args: { subagent_type: 'local_reviewer' } }
+				{ args: { subagent_type: 'local_reviewer' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-prefix-3', { subagent_type: 'local_reviewer' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-3', {
+					subagent_type: 'local_reviewer',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');
@@ -575,12 +641,14 @@ describe('guardrails adversarial - Task 1.2 delegation detection', () => {
 
 			await hooks.toolBefore(
 				makeToolBeforeInput('test-session', 'Task', 'call-prefix-4'),
-				{ args: { subagent_type: 'mega_coder' } }
+				{ args: { subagent_type: 'mega_coder' } },
 			);
 
 			await hooks.toolAfter(
-				makeToolAfterInput('test-session', 'Task', 'call-prefix-4', { subagent_type: 'mega_coder' }),
-				makeAfterOutput('success')
+				makeToolAfterInput('test-session', 'Task', 'call-prefix-4', {
+					subagent_type: 'mega_coder',
+				}),
+				makeAfterOutput('success'),
 			);
 
 			const session = getAgentSession('test-session');

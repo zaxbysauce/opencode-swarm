@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -45,7 +45,9 @@ describe('handleResetCommand - Background Automation Reset', () => {
 		expect(mockResetAutomationManager).toHaveBeenCalledTimes(1);
 
 		// Verify output contains automation reset message
-		expect(result).toContain('✅ Stopped background automation (in-memory queues cleared)');
+		expect(result).toContain(
+			'✅ Stopped background automation (in-memory queues cleared)',
+		);
 	});
 
 	it('Reset clears queues and reports success', async () => {
@@ -112,8 +114,12 @@ describe('handleResetCommand - Background Automation Reset', () => {
 
 		// Verify output contains all expected messages
 		expect(result).toContain('## Swarm Reset Complete');
-		expect(result).toContain('✅ Stopped background automation (in-memory queues cleared)');
-		expect(result).toContain('Swarm state has been cleared. Start fresh with a new plan.');
+		expect(result).toContain(
+			'✅ Stopped background automation (in-memory queues cleared)',
+		);
+		expect(result).toContain(
+			'Swarm state has been cleared. Start fresh with a new plan.',
+		);
 	});
 
 	it('Without --confirm - resetAutomationManager is NOT called', async () => {
@@ -144,7 +150,9 @@ describe('handleResetCommand - Background Automation Reset', () => {
 		expect(mockResetAutomationManager).toHaveBeenCalledTimes(1);
 
 		// Verify output mentions automation reset
-		expect(result).toContain('✅ Stopped background automation (in-memory queues cleared)');
+		expect(result).toContain(
+			'✅ Stopped background automation (in-memory queues cleared)',
+		);
 
 		// Verify output mentions files not found
 		expect(result).toContain('⏭️ plan.md not found (skipped)');
@@ -156,7 +164,10 @@ describe('handleResetCommand - Background Automation Reset', () => {
 		await writeFile(join(tempDir, '.swarm', 'plan.md'), '## Test Plan\n');
 		await writeFile(join(tempDir, '.swarm', 'context.md'), '# Context\n');
 		await mkdir(join(tempDir, '.swarm', 'summaries'), { recursive: true });
-		await writeFile(join(tempDir, '.swarm', 'summaries', 'summary.txt'), 'Test summary');
+		await writeFile(
+			join(tempDir, '.swarm', 'summaries', 'summary.txt'),
+			'Test summary',
+		);
 
 		const result = await handleResetCommand(tempDir, ['--confirm']);
 
@@ -175,7 +186,10 @@ describe('handleResetCommand - Background Automation Reset', () => {
 		await writeFile(join(tempDir, '.swarm', 'plan.md'), '## Test Plan\n');
 		await writeFile(join(tempDir, '.swarm', 'context.md'), '# Context\n');
 		await mkdir(join(tempDir, '.swarm', 'summaries'), { recursive: true });
-		await writeFile(join(tempDir, '.swarm', 'summaries', 'summary.txt'), 'Test summary');
+		await writeFile(
+			join(tempDir, '.swarm', 'summaries', 'summary.txt'),
+			'Test summary',
+		);
 
 		const result = await handleResetCommand(tempDir, ['--confirm']);
 
@@ -183,7 +197,9 @@ describe('handleResetCommand - Background Automation Reset', () => {
 		expect(result).toContain('## Swarm Reset Complete');
 		expect(result).toContain('✅ Deleted plan.md');
 		expect(result).toContain('✅ Deleted context.md');
-		expect(result).toContain('✅ Stopped background automation (in-memory queues cleared)');
+		expect(result).toContain(
+			'✅ Stopped background automation (in-memory queues cleared)',
+		);
 		expect(result).toContain('✅ Deleted summaries/ directory');
 
 		// Verify the order: files deleted before automation reset message

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -14,17 +14,24 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 	// ATTACK VECTOR 1: Template injection
 	describe('ATTACK VECTOR 1: Template injection — verify {{AGENT_PREFIX}} is properly escaped', () => {
 		it('should not have nested or malformed template patterns in protocol section', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch && nextSectionMatch.index
+			const protocolEndIndex = nextSectionMatch?.index
 				? protocolStartIndex + nextSectionMatch.index
 				: architectContent.length;
 
-			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex);
+			const protocolSection = architectContent.slice(
+				protocolStartIndex,
+				protocolEndIndex,
+			);
 
 			// Check for genuinely malformed template patterns
 			// Pattern 1: Nested braces like {{{
@@ -45,17 +52,24 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 	// ATTACK VECTOR 2: Quote handling
 	describe('ATTACK VECTOR 2: Quote handling — verify single quotes in event names dont break string', () => {
 		it('should have properly balanced single quotes in protocol section', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch && nextSectionMatch.index
+			const protocolEndIndex = nextSectionMatch?.index
 				? protocolStartIndex + nextSectionMatch.index
 				: architectContent.length;
 
-			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex);
+			const protocolSection = architectContent.slice(
+				protocolStartIndex,
+				protocolEndIndex,
+			);
 
 			// Count single quotes - should be even (paired)
 			const singleQuoteCount = (protocolSection.match(/'/g) || []).length;
@@ -113,10 +127,14 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 	// ATTACK VECTOR 4: Content boundaries
 	describe('ATTACK VECTOR 4: Content boundaries — verify block doesnt bleed into adjacent sections', () => {
 		it('should have clear separation between section 6a and 7', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
 
@@ -124,7 +142,10 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 
 			// Verify the section boundary
 			const protocolEndIndex = protocolStartIndex + nextSectionMatch!.index;
-			const protocolContent = architectContent.slice(protocolStartIndex, protocolEndIndex);
+			const protocolContent = architectContent.slice(
+				protocolStartIndex,
+				protocolEndIndex,
+			);
 
 			// Protocol should have content
 			expect(protocolContent.length).toBeGreaterThan(100);
@@ -134,19 +155,29 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 		});
 
 		it('should not have section 6a content leaking into section 7', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
 
 			expect(nextSectionMatch).toBeTruthy();
 
 			const protocolEndIndex = protocolStartIndex + nextSectionMatch!.index;
-			const section7Index = protocolStartIndex + nextSectionMatch!.index + nextSectionMatch![0].length;
+			const section7Index =
+				protocolStartIndex +
+				nextSectionMatch!.index +
+				nextSectionMatch![0].length;
 
-			const section7Content = architectContent.slice(section7Index, section7Index + 500);
+			const section7Content = architectContent.slice(
+				section7Index,
+				section7Index + 500,
+			);
 
 			// Section 7 should not contain 6a-specific content
 			expect(section7Content).not.toContain('SOUNDING BOARD PROTOCOL');
@@ -157,17 +188,23 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 	// ATTACK VECTOR 5: Token overflow
 	describe('ATTACK VECTOR 5: Token overflow — verify content is within budget', () => {
 		it('should have the protocol section within reasonable token budget', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch && nextSectionMatch.index
+			const protocolEndIndex = nextSectionMatch?.index
 				? protocolStartIndex + nextSectionMatch.index
 				: architectContent.length;
 
-			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex).trim();
+			const protocolSection = architectContent
+				.slice(protocolStartIndex, protocolEndIndex)
+				.trim();
 
 			// Count tokens (rough estimation: ~0.75 words per token)
 			const words = protocolSection.split(/\s+/).filter((w) => w.length > 0);
@@ -181,17 +218,24 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 		});
 
 		it('should not have excessive whitespace padding that wastes tokens', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch && nextSectionMatch.index
+			const protocolEndIndex = nextSectionMatch?.index
 				? protocolStartIndex + nextSectionMatch.index
 				: architectContent.length;
 
-			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex);
+			const protocolSection = architectContent.slice(
+				protocolStartIndex,
+				protocolEndIndex,
+			);
 
 			// Count excessive blank lines (3+ consecutive newlines)
 			const excessiveBlankLines = protocolSection.match(/\n\s*\n\s*\n/g);
@@ -199,17 +243,24 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 		});
 
 		it('should have concise content without redundant repetition', () => {
-			const protocolStartMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/);
+			const protocolStartMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL\*\*/,
+			);
 			expect(protocolStartMatch).toBeTruthy();
 
-			const protocolStartIndex = architectContent.indexOf(protocolStartMatch![0]);
+			const protocolStartIndex = architectContent.indexOf(
+				protocolStartMatch![0],
+			);
 			const afterProtocol = architectContent.slice(protocolStartIndex);
 			const nextSectionMatch = afterProtocol.match(/\n\s*7\. \*\*/);
-			const protocolEndIndex = nextSectionMatch && nextSectionMatch.index
+			const protocolEndIndex = nextSectionMatch?.index
 				? protocolStartIndex + nextSectionMatch.index
 				: architectContent.length;
 
-			const protocolSection = architectContent.slice(protocolStartIndex, protocolEndIndex);
+			const protocolSection = architectContent.slice(
+				protocolStartIndex,
+				protocolEndIndex,
+			);
 
 			// Check for word repetition (e.g., "critic" appearing too many times)
 			const criticMatches = protocolSection.match(/critic/gi);
@@ -217,7 +268,9 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			expect(criticMatches?.length).toBeLessThan(5); // Should not mention "critic" excessively
 
 			// Check for duplicate phrases
-			const lines = protocolSection.split('\n').filter((l) => l.trim().length > 0);
+			const lines = protocolSection
+				.split('\n')
+				.filter((l) => l.trim().length > 0);
 			const uniqueLines = new Set(lines);
 			// Most lines should be unique
 			expect(uniqueLines.size).toBeGreaterThanOrEqual(lines.length * 0.8);

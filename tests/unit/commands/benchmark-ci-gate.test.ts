@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { handleBenchmarkCommand } from '../../../src/commands/benchmark';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { saveEvidence } from '../../../src/evidence/manager';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { handleBenchmarkCommand } from '../../../src/commands/benchmark';
+import { saveEvidence } from '../../../src/evidence/manager';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 let testDir: string;
 
@@ -536,7 +536,9 @@ describe('CI Gate Quality Checks', () => {
 			// Should have 8 checks now (4 original + 4 quality)
 			expect(parsed.ci_gate.checks).toHaveLength(8);
 			// Verify all quality check names
-			const checkNames = parsed.ci_gate.checks.map((c: { name: string }) => c.name);
+			const checkNames = parsed.ci_gate.checks.map(
+				(c: { name: string }) => c.name,
+			);
 			expect(checkNames).toContain('Complexity Delta');
 			expect(checkNames).toContain('Public API Delta');
 			expect(checkNames).toContain('Duplication Ratio');

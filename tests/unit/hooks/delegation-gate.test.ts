@@ -1,7 +1,12 @@
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession, getTaskState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	ensureAgentSession,
+	getTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -21,12 +26,22 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID: string | undefined | null = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID: string | undefined | null = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID: sessionID ?? undefined },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: {
+					role: 'user' as const,
+					agent,
+					sessionID: sessionID ?? undefined,
+				},
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -35,16 +50,22 @@ type MessageWithParts = any;
 
 // Helper to find user messages in the array (accounts for injected system messages)
 function findUserMessage(messages: { messages: MessageWithParts[] }) {
-	return messages.messages.find((m: MessageWithParts) => m.info?.role === 'user');
+	return messages.messages.find(
+		(m: MessageWithParts) => m.info?.role === 'user',
+	);
 }
 
 // Helper to find system messages (for [NEXT] guidance)
 function findSystemMessage(messages: { messages: MessageWithParts[] }) {
-	return messages.messages.find((m: MessageWithParts) => m.info?.role === 'system');
+	return messages.messages.find(
+		(m: MessageWithParts) => m.info?.role === 'system',
+	);
 }
 
 // Helper to get concatenated text from all system messages (for warning assertions)
-function getSystemWarningText(messages: { messages: MessageWithParts[] }): string {
+function getSystemWarningText(messages: {
+	messages: MessageWithParts[];
+}): string {
 	return messages.messages
 		.filter((m: MessageWithParts) => m.info?.role === 'system')
 		.map((m: MessageWithParts) => m.parts?.[0]?.text ?? '')
@@ -54,7 +75,7 @@ function getSystemWarningText(messages: { messages: MessageWithParts[] }): strin
 // Helper to get the primary text content - finds user message text if present, otherwise first message
 function getPrimaryText(messages: { messages: MessageWithParts[] }): string {
 	const userMsg = findUserMessage(messages);
-	if (userMsg && userMsg.parts && userMsg.parts[0]) {
+	if (userMsg?.parts?.[0]) {
 		return userMsg.parts[0].text ?? '';
 	}
 	// Fallback to first message if no user message found
@@ -76,7 +97,10 @@ describe('delegation gate hook', () => {
 		const config = makeConfig({ hooks: { delegation_gate: false } });
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const messages = makeMessages('coder\nTASK: Add validation\nFILE: src/test.ts', 'architect');
+		const messages = makeMessages(
+			'coder\nTASK: Add validation\nFILE: src/test.ts',
+			'architect',
+		);
 		const originalText = getPrimaryText(messages);
 
 		await hook.messagesTransform({}, messages);
@@ -89,7 +113,8 @@ describe('delegation gate hook', () => {
 		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Long message without coder TASK: pattern - use null sessionID to skip preamble
-		const longText = 'TASK: Review this very long task description ' + 'a'.repeat(5000);
+		const longText =
+			'TASK: Review this very long task description ' + 'a'.repeat(5000);
 		const messages = makeMessages(longText, 'architect', null);
 
 		await hook.messagesTransform({}, messages);
@@ -123,7 +148,10 @@ describe('delegation gate hook', () => {
 		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Coder delegation > 4000 chars
-		const longText = 'coder\nTASK: Add validation\nINPUT: ' + 'a'.repeat(4000) + '\nFILE: src/test.ts';
+		const longText =
+			'coder\nTASK: Add validation\nINPUT: ' +
+			'a'.repeat(4000) +
+			'\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
 
 		await hook.messagesTransform({}, messages);
@@ -145,7 +173,8 @@ describe('delegation gate hook', () => {
 		const config = makeConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const longText = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
+		const longText =
+			'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(longText, 'architect');
 
 		await hook.messagesTransform({}, messages);
@@ -166,7 +195,8 @@ describe('delegation gate hook', () => {
 		const config = makeConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const longText = 'coder\nTASK: Add validation\nFILE: src/test.ts\n\nTASK: Add tests';
+		const longText =
+			'coder\nTASK: Add validation\nFILE: src/test.ts\n\nTASK: Add tests';
 		const messages = makeMessages(longText, 'architect');
 
 		await hook.messagesTransform({}, messages);
@@ -187,7 +217,8 @@ describe('delegation gate hook', () => {
 		const config = makeConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const longText = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
+		const longText =
+			'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(longText, 'architect');
 
 		await hook.messagesTransform({}, messages);
@@ -208,7 +239,8 @@ describe('delegation gate hook', () => {
 		const config = makeConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const cleanText = 'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email format';
+		const cleanText =
+			'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email format';
 		const messages = makeMessages(cleanText, 'architect', null);
 		const originalText = getPrimaryText(messages);
 
@@ -273,7 +305,10 @@ describe('delegation gate hook', () => {
 			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() - 1000 },
 		]);
 
-		const messages = makeMessages('coder\nTASK: Implement feature B\nFILE: src/b.ts', 'architect');
+		const messages = makeMessages(
+			'coder\nTASK: Implement feature B\nFILE: src/b.ts',
+			'architect',
+		);
 
 		await hook.messagesTransform({}, messages);
 
@@ -288,7 +323,9 @@ describe('delegation gate hook', () => {
 		expect(systemWarningText5).toContain('test_engineer');
 		// User message text should be unchanged
 		const userMsg5 = findUserMessage(messages);
-		expect(userMsg5?.parts[0].text).toBe('coder\nTASK: Implement feature B\nFILE: src/b.ts');
+		expect(userMsg5?.parts[0].text).toBe(
+			'coder\nTASK: Implement feature B\nFILE: src/b.ts',
+		);
 	});
 
 	it('should NOT warn when proper QA sequence is followed', async () => {
@@ -301,8 +338,16 @@ describe('delegation gate hook', () => {
 			{ from: 'mega_coder', to: 'architect', timestamp: Date.now() - 8000 },
 			{ from: 'architect', to: 'mega_reviewer', timestamp: Date.now() - 6000 },
 			{ from: 'mega_reviewer', to: 'architect', timestamp: Date.now() - 4000 },
-			{ from: 'architect', to: 'mega_test_engineer', timestamp: Date.now() - 2000 },
-			{ from: 'mega_test_engineer', to: 'architect', timestamp: Date.now() - 1000 },
+			{
+				from: 'architect',
+				to: 'mega_test_engineer',
+				timestamp: Date.now() - 2000,
+			},
+			{
+				from: 'mega_test_engineer',
+				to: 'architect',
+				timestamp: Date.now() - 1000,
+			},
 			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() },
 		]);
 
@@ -336,7 +381,10 @@ describe('delegation gate hook', () => {
 			{ from: 'architect', to: 'mega_coder', timestamp: Date.now() - 1000 },
 		]);
 
-		const messages = makeMessages('coder\nTASK: Another task\nFILE: src/another.ts', 'architect');
+		const messages = makeMessages(
+			'coder\nTASK: Another task\nFILE: src/another.ts',
+			'architect',
+		);
 
 		await hook.messagesTransform({}, messages);
 
@@ -349,7 +397,9 @@ describe('delegation gate hook', () => {
 		expect(systemWarningText6).toContain('PROTOCOL VIOLATION');
 		// User message text should be unchanged
 		const userMsg6 = findUserMessage(messages);
-		expect(userMsg6?.parts[0].text).toBe('coder\nTASK: Another task\nFILE: src/another.ts');
+		expect(userMsg6?.parts[0].text).toBe(
+			'coder\nTASK: Another task\nFILE: src/another.ts',
+		);
 	});
 
 	// ============================================
@@ -366,23 +416,32 @@ describe('delegation gate hook', () => {
 			session.architectWriteCount = 3;
 
 			// Architect sends a non-coder message with a task
-			const messages = makeMessages('TASK: Fix the validation logic', 'architect');
+			const messages = makeMessages(
+				'TASK: Fix the validation logic',
+				'architect',
+			);
 
-		await hook.messagesTransform({}, messages);
+			await hook.messagesTransform({}, messages);
 
-		// Both DELEGATION VIOLATION and [NEXT] guidance are injected as system messages
-		// Check that at least one system message exists
-		const systemMsgs = messages.messages.filter((m: MessageWithParts) => m.info?.role === 'system');
-		expect(systemMsgs.length).toBeGreaterThan(0);
+			// Both DELEGATION VIOLATION and [NEXT] guidance are injected as system messages
+			// Check that at least one system message exists
+			const systemMsgs = messages.messages.filter(
+				(m: MessageWithParts) => m.info?.role === 'system',
+			);
+			expect(systemMsgs.length).toBeGreaterThan(0);
 
-		// One of the system messages should contain [NEXT] or DELEGATION VIOLATION
-		const systemTexts = systemMsgs.map((m: MessageWithParts) => m.parts[0]?.text ?? '').join('\n');
-		expect(systemTexts).toMatch(/\[NEXT\]|DELEGATION VIOLATION/);
+			// One of the system messages should contain [NEXT] or DELEGATION VIOLATION
+			const systemTexts = systemMsgs
+				.map((m: MessageWithParts) => m.parts[0]?.text ?? '')
+				.join('\n');
+			expect(systemTexts).toMatch(/\[NEXT\]|DELEGATION VIOLATION/);
 
-		// User message should contain the task
-		const userMsg = findUserMessage(messages);
-		expect(userMsg?.parts[0].text).toContain('TASK: Fix the validation logic');
-	});
+			// User message should contain the task
+			const userMsg = findUserMessage(messages);
+			expect(userMsg?.parts[0].text).toContain(
+				'TASK: Fix the validation logic',
+			);
+		});
 
 		it('should NOT warn when task ID matches last coder delegation', async () => {
 			const config = makeConfig();
@@ -394,7 +453,11 @@ describe('delegation gate hook', () => {
 			session.lastCoderDelegationTaskId = 'Fix the validation logic';
 
 			// Same task ID as last coder delegation - use null sessionID to skip preamble
-			const messages = makeMessages('TASK: Fix the validation logic', 'architect', null);
+			const messages = makeMessages(
+				'TASK: Fix the validation logic',
+				'architect',
+				null,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -429,7 +492,11 @@ describe('delegation gate hook', () => {
 			session.architectWriteCount = 5;
 
 			// This IS a coder delegation - use null sessionID to skip preamble
-			const messages = makeMessages('coder\nTASK: Implement feature\nFILE: src/feature.ts', 'architect', null);
+			const messages = makeMessages(
+				'coder\nTASK: Implement feature\nFILE: src/feature.ts',
+				'architect',
+				null,
+			);
 			const originalText = getPrimaryText(messages);
 
 			await hook.messagesTransform({}, messages);
@@ -444,7 +511,10 @@ describe('delegation gate hook', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Send a coder delegation
-			const messages1 = makeMessages('coder\nTASK: Task Alpha\nFILE: src/alpha.ts', 'architect');
+			const messages1 = makeMessages(
+				'coder\nTASK: Task Alpha\nFILE: src/alpha.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages1);
 
 			// Verify task ID was tracked
@@ -470,7 +540,10 @@ describe('delegation gate hook', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// First: architect delegates to coder for Task A
-			const messages1 = makeMessages('coder\nTASK: Task A\nFILE: src/a.ts', 'architect');
+			const messages1 = makeMessages(
+				'coder\nTASK: Task A\nFILE: src/a.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages1);
 
 			// Architect writes some files (simulated)
@@ -482,8 +555,12 @@ describe('delegation gate hook', () => {
 			await hook.messagesTransform({}, messages2);
 
 			// Should warn because Task B differs from last coder delegation (Task A)
-			expect(messages2.messages[0].parts[0].text).toContain('DELEGATION VIOLATION');
-			expect(messages2.messages[0].parts[0].text).toContain('Task B - fix the bug');
+			expect(messages2.messages[0].parts[0].text).toContain(
+				'DELEGATION VIOLATION',
+			);
+			expect(messages2.messages[0].parts[0].text).toContain(
+				'Task B - fix the bug',
+			);
 		});
 
 		it('should NOT warn for messages without TASK line', async () => {
@@ -494,7 +571,11 @@ describe('delegation gate hook', () => {
 			session.architectWriteCount = 5;
 
 			// No TASK: prefix - use null sessionID to skip preamble
-			const messages = makeMessages('Just checking the status of the build', 'architect', null);
+			const messages = makeMessages(
+				'Just checking the status of the build',
+				'architect',
+				null,
+			);
 			const originalText = getPrimaryText(messages);
 
 			await hook.messagesTransform({}, messages);
@@ -502,23 +583,25 @@ describe('delegation gate hook', () => {
 			expect(getPrimaryText(messages)).toBe(originalText);
 		});
 
-	it('should not warn when sessionID is missing', async () => {
-		const config = makeConfig();
-		const hook = createDelegationGateHook(config, process.cwd());
+		it('should not warn when sessionID is missing', async () => {
+			const config = makeConfig();
+			const hook = createDelegationGateHook(config, process.cwd());
 
-		// No sessionID
-		const messages = {
-			messages: [{
-				info: { role: 'user' as const, agent: 'architect' },
-				parts: [{ type: 'text', text: 'TASK: Do something' }],
-			}],
-		};
-		const originalText = getPrimaryText(messages);
+			// No sessionID
+			const messages = {
+				messages: [
+					{
+						info: { role: 'user' as const, agent: 'architect' },
+						parts: [{ type: 'text', text: 'TASK: Do something' }],
+					},
+				],
+			};
+			const originalText = getPrimaryText(messages);
 
-		await hook.messagesTransform({}, messages);
+			await hook.messagesTransform({}, messages);
 
-		expect(getPrimaryText(messages)).toBe(originalText);
-	});
+			expect(getPrimaryText(messages)).toBe(originalText);
+		});
 	});
 
 	// ============================================
@@ -535,7 +618,7 @@ describe('delegation gate hook', () => {
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // Second coder without reviewer in between
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 }, // Second coder without reviewer in between
 			]);
 
 			// Setup session with initial state
@@ -544,7 +627,8 @@ describe('delegation gate hook', () => {
 			session.qaSkipTaskIds = [];
 			session.lastCoderDelegationTaskId = '1.1';
 
-			const msgText = 'mega_coder\nTASK: 1.2\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file';
+			const msgText =
+				'mega_coder\nTASK: 1.2\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file';
 			const messages = makeMessages(msgText, 'architect');
 
 			// Should NOT throw - call directly without expect().resolves
@@ -557,7 +641,9 @@ describe('delegation gate hook', () => {
 			// Warning is now in a system message (model-only), not in user message text
 			const systemWarningText = getSystemWarningText(messages);
 			expect(systemWarningText).toContain('⚠️ PROTOCOL VIOLATION');
-			expect(systemWarningText).toContain('Previous coder task completed, but QA gate was skipped');
+			expect(systemWarningText).toContain(
+				'Previous coder task completed, but QA gate was skipped',
+			);
 			// User message text should be unchanged
 			const userMsg = findUserMessage(messages);
 			expect(userMsg?.parts[0].text).toBe(msgText);
@@ -577,21 +663,26 @@ describe('delegation gate hook', () => {
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // First skip (task 1.2)
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 }, // First skip (task 1.2)
 				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 5 },  // Second skip (task 1.3) - this should throw
+				{ from: 'architect', to: 'mega_coder', timestamp: 5 }, // Second skip (task 1.3) - this should throw
 			]);
 
 			// Setup session with one QA skip already counted
 			const session = ensureAgentSession('test-session');
-			session.qaSkipCount = 1;  // Already skipped once
-			session.qaSkipTaskIds = ['1.2'];  // Previous skipped task
+			session.qaSkipCount = 1; // Already skipped once
+			session.qaSkipTaskIds = ['1.2']; // Previous skipped task
 			session.lastCoderDelegationTaskId = '1.2';
 
-			const messages = makeMessages('mega_coder\nTASK: 1.3\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.3\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file',
+				'architect',
+			);
 
 			// Should throw Error with "QA GATE ENFORCEMENT"
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('QA GATE ENFORCEMENT');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'QA GATE ENFORCEMENT',
+			);
 		});
 
 		it('thrown error message names skipped task IDs: The thrown error message contains the task IDs that were skipped', async () => {
@@ -608,14 +699,21 @@ describe('delegation gate hook', () => {
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 1;
-			session.qaSkipTaskIds = ['1.2', '1.3'];  // Multiple skipped tasks
+			session.qaSkipTaskIds = ['1.2', '1.3']; // Multiple skipped tasks
 			session.lastCoderDelegationTaskId = '1.3';
 
-			const messages = makeMessages('mega_coder\nTASK: 1.4\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.4\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file',
+				'architect',
+			);
 
 			// Should throw Error containing the skipped task IDs
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('1.2, 1.3');
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('Skipped tasks: [1.2, 1.3]');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'1.2, 1.3',
+			);
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'Skipped tasks: [1.2, 1.3]',
+			);
 		});
 
 		it('reviewer delegation resets counter so next coder does not throw: After reviewer delegation detected in toolAfter, qaSkipCount resets and next coder can proceed without throw', async () => {
@@ -623,15 +721,15 @@ describe('delegation gate hook', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup: previous QA skip state
-		swarmState.delegationChains.set('test-session', [
-			{ from: 'architect', to: 'mega_coder', timestamp: 1 },
-			{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-			{ from: 'architect', to: 'mega_coder', timestamp: 3 },
-			{ from: 'mega_coder', to: 'architect', timestamp: 4 },
-			{ from: 'architect', to: 'reviewer', timestamp: 5 },
-			{ from: 'reviewer', to: 'architect', timestamp: 6 },
-			{ from: 'architect', to: 'test_engineer', timestamp: 7 },  // Both reviewer AND test_engineer required for reset
-		]);
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'reviewer', timestamp: 5 },
+				{ from: 'reviewer', to: 'architect', timestamp: 6 },
+				{ from: 'architect', to: 'test_engineer', timestamp: 7 }, // Both reviewer AND test_engineer required for reset
+			]);
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 2;
@@ -661,10 +759,13 @@ describe('delegation gate hook', () => {
 				{ from: 'reviewer', to: 'architect', timestamp: 6 },
 				{ from: 'architect', to: 'test_engineer', timestamp: 7 },
 				{ from: 'test_engineer', to: 'architect', timestamp: 8 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 9 },  // New coder after both reviewer AND test_engineer
+				{ from: 'architect', to: 'mega_coder', timestamp: 9 }, // New coder after both reviewer AND test_engineer
 			]);
 
-			const messages = makeMessages('mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file',
+				'architect',
+			);
 
 			// Should NOT throw - call directly without expect().resolves
 			await hook.messagesTransform({}, messages);
@@ -678,15 +779,15 @@ describe('delegation gate hook', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Setup: previous QA skip state
-		swarmState.delegationChains.set('test-session', [
-			{ from: 'architect', to: 'mega_coder', timestamp: 1 },
-			{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-			{ from: 'architect', to: 'mega_coder', timestamp: 3 },
-			{ from: 'mega_coder', to: 'architect', timestamp: 4 },
-			{ from: 'architect', to: 'reviewer', timestamp: 5 },
-			{ from: 'reviewer', to: 'architect', timestamp: 6 },
-			{ from: 'architect', to: 'test_engineer', timestamp: 7 },  // Both reviewer AND test_engineer required for reset
-		]);
+			swarmState.delegationChains.set('test-session', [
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
+				{ from: 'mega_coder', to: 'architect', timestamp: 4 },
+				{ from: 'architect', to: 'reviewer', timestamp: 5 },
+				{ from: 'reviewer', to: 'architect', timestamp: 6 },
+				{ from: 'architect', to: 'test_engineer', timestamp: 7 }, // Both reviewer AND test_engineer required for reset
+			]);
 
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 2;
@@ -716,10 +817,13 @@ describe('delegation gate hook', () => {
 				{ from: 'reviewer', to: 'architect', timestamp: 6 },
 				{ from: 'architect', to: 'test_engineer', timestamp: 7 },
 				{ from: 'test_engineer', to: 'architect', timestamp: 8 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 9 },  // New coder after both reviewer AND test_engineer
+				{ from: 'architect', to: 'mega_coder', timestamp: 9 }, // New coder after both reviewer AND test_engineer
 			]);
 
-			const messages = makeMessages('mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 2.1\nFILE: src/foo.ts\nINPUT: do stuff\nOUTPUT: modified file',
+				'architect',
+			);
 
 			// Should NOT throw - call directly without expect().resolves
 			await hook.messagesTransform({}, messages);
@@ -894,7 +998,11 @@ describe('delegation gate hook', () => {
 
 			// Trigger toolAfter - should reset due to BOTH being present
 			await hook.toolAfter(
-				{ tool: 'tool.execute.Task', sessionID: 'test-session', callID: 'call-1' },
+				{
+					tool: 'tool.execute.Task',
+					sessionID: 'test-session',
+					callID: 'call-1',
+				},
 				{},
 			);
 
@@ -945,7 +1053,11 @@ describe('delegation gate hook', () => {
 			// Trigger toolAfter - finds coder at index 0, then checks forward
 			// Finds BOTH reviewer and test_engineer after coder, so resets
 			await hook.toolAfter(
-				{ tool: 'tool.execute.Task', sessionID: 'test-session', callID: 'call-1' },
+				{
+					tool: 'tool.execute.Task',
+					sessionID: 'test-session',
+					callID: 'call-1',
+				},
 				{},
 			);
 
@@ -974,11 +1086,11 @@ describe('delegation gate hook', () => {
 			// Should warn - between coder(1) and coder(7) there's no QA
 			// Wait - actually between them there IS reviewer and test_engineer at indices 3 and 5
 			// So this won't warn. Let me reconsider...
-			
+
 			// Actually, the test should verify that reset works correctly.
 			// The integration test is complex. Let's just verify the reset happened (above)
 			// and not test the full integration flow which has its own test coverage.
-			
+
 			// This test passes if we got here with qaSkipCount = 0
 			expect(session.qaSkipCount).toBe(0);
 		});
@@ -1432,12 +1544,14 @@ describe('delegation gate hook', () => {
 			setCurrentTaskId(sessionID, '1.2');
 			const messages = makeMessages(taskList, undefined, sessionID);
 
-		await hook.messagesTransform({}, messages);
+			await hook.messagesTransform({}, messages);
 
-		const resultText = getPrimaryText(messages);
+			const resultText = getPrimaryText(messages);
 
-		// Should NOT have hidden marker before (window clamped at start)
-			expect(resultText).not.toMatch(/\[\.\.\.\d+ tasks hidden\.\.\.\]\n- \[ \] 1\.1/);
+			// Should NOT have hidden marker before (window clamped at start)
+			expect(resultText).not.toMatch(
+				/\[\.\.\.\d+ tasks hidden\.\.\.\]\n- \[ \] 1\.1/,
+			);
 			// Should show visible window (5 tasks: 1.1-1.5)
 			expect(resultText).toContain('1.1: Task one');
 			expect(resultText).toContain('1.2: Task two');
@@ -1497,7 +1611,9 @@ describe('delegation gate hook', () => {
 			expect(resultText).toContain('1.9: Task nine');
 			expect(resultText).toContain('1.10: Task ten');
 			// Should NOT have hidden marker after (window clamped at end)
-			expect(resultText).not.toMatch(/1\.10.*\n\[\.\.\.\d+ tasks hidden\.\.\.\]/);
+			expect(resultText).not.toMatch(
+				/1\.10.*\n\[\.\.\.\d+ tasks hidden\.\.\.\]/,
+			);
 			// Should show correct count
 			expect(resultText).toContain('[Task window: showing 4 of 10 tasks]');
 			// Should NOT contain hidden tasks
@@ -1569,12 +1685,16 @@ describe('delegation gate hook', () => {
 				'- [ ] 1.7: Task seven',
 			].join('\n');
 
-			const messages = makeMessages(prefixText + taskList + suffixText, undefined, sessionID);
+			const messages = makeMessages(
+				prefixText + taskList + suffixText,
+				undefined,
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
 			// Find the user message (visible message)
-			const userMessage = messages.messages.find(m => m.info.role === 'user');
+			const userMessage = messages.messages.find((m) => m.info.role === 'user');
 			const userText = userMessage?.parts[0]?.text ?? '';
 
 			// [NEXT] guidance should be model-only (in system message), NOT visible in user message
@@ -1588,10 +1708,12 @@ describe('delegation gate hook', () => {
 			expect(userText).toContain('[...1 tasks hidden...]');
 
 			// Verify [NEXT] guidance is in a system message (model-only)
-			const systemMessages = messages.messages.filter(m => m.info.role === 'system');
+			const systemMessages = messages.messages.filter(
+				(m) => m.info.role === 'system',
+			);
 			expect(systemMessages.length).toBeGreaterThan(0);
-			const hasNextGuidance = systemMessages.some(m =>
-				m.parts.some(p => p.text?.includes('[NEXT]'))
+			const hasNextGuidance = systemMessages.some((m) =>
+				m.parts.some((p) => p.text?.includes('[NEXT]')),
 			);
 			expect(hasNextGuidance).toBe(true);
 		});
@@ -2094,13 +2216,13 @@ describe('delegation gate hook', () => {
 			// Setup delegation chain that has reviewer AND test_engineer between coders
 			// This would normally pass the chain-based check, BUT the state machine says prior task is stuck
 			swarmState.delegationChains.set(sessionID, [
-				{ from: 'architect', to: 'mega_coder', timestamp: 1 },    // First coder (2.1)
+				{ from: 'architect', to: 'mega_coder', timestamp: 1 }, // First coder (2.1)
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
 				{ from: 'architect', to: 'mega_reviewer', timestamp: 3 },
 				{ from: 'mega_reviewer', to: 'architect', timestamp: 4 },
 				{ from: 'architect', to: 'mega_test_engineer', timestamp: 5 },
 				{ from: 'mega_test_engineer', to: 'architect', timestamp: 6 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 7 },    // Second coder (2.2)
+				{ from: 'architect', to: 'mega_coder', timestamp: 7 }, // Second coder (2.2)
 			]);
 
 			// Send second coder delegation for task 2.2
@@ -2154,7 +2276,9 @@ describe('delegation gate hook', () => {
 			);
 
 			// Should throw with QA GATE ENFORCEMENT
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('QA GATE ENFORCEMENT');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'QA GATE ENFORCEMENT',
+			);
 		});
 
 		it('State machine clear — no false positive: priorCoderTaskId advanced past coder_delegated does NOT trigger escalation', async () => {
@@ -2172,7 +2296,7 @@ describe('delegation gate hook', () => {
 			swarmState.delegationChains.set(sessionID, [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // No QA between
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 }, // No QA between
 			]);
 
 			// Send second coder delegation for task 2.2
@@ -2202,7 +2326,7 @@ describe('delegation gate hook', () => {
 			swarmState.delegationChains.set(sessionID, [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // No QA between
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 }, // No QA between
 			]);
 
 			// Send second coder delegation (but this is actually the first one since prior is null)
@@ -2383,14 +2507,19 @@ describe('delegation gate hook', () => {
 
 	describe('Task 4.2: model-only [NEXT] guidance injection (replaces visible deliberation)', () => {
 		// Helper to find system message containing [NEXT] guidance
-		const findSystemGuidance = (messages: { messages: TestMessageWithParts[] }) => {
-			return messages.messages.find(m => m.info?.role === 'system' && 
-				m.parts?.some(p => p.text?.includes('[NEXT]')));
+		const findSystemGuidance = (messages: {
+			messages: TestMessageWithParts[];
+		}) => {
+			return messages.messages.find(
+				(m) =>
+					m.info?.role === 'system' &&
+					m.parts?.some((p) => p.text?.includes('[NEXT]')),
+			);
 		};
 
 		// Helper to get user message text
 		const getUserText = (messages: { messages: TestMessageWithParts[] }) => {
-			const userMsg = messages.messages.find(m => m.info?.role === 'user');
+			const userMsg = messages.messages.find((m) => m.info?.role === 'user');
 			return userMsg?.parts?.[0]?.text ?? '';
 		};
 
@@ -2404,7 +2533,11 @@ describe('delegation gate hook', () => {
 			session.lastGateOutcome = null;
 
 			// Message with sessionID but no prior gate
-			const messages = makeMessages('TASK: Start the implementation', undefined, sessionID);
+			const messages = makeMessages(
+				'TASK: Start the implementation',
+				undefined,
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -2417,7 +2550,9 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			expect(guidanceMsg?.parts[0]?.text).toContain('[NEXT]');
-			expect(guidanceMsg?.parts[0]?.text).toContain('Begin the first plan task');
+			expect(guidanceMsg?.parts[0]?.text).toContain(
+				'Begin the first plan task',
+			);
 		});
 
 		it('passed gate → [NEXT] guidance with PASSED status in system message', async () => {
@@ -2434,7 +2569,11 @@ describe('delegation gate hook', () => {
 				timestamp: Date.now() - 1000,
 			};
 
-			const messages = makeMessages('TASK: Continue to next task', undefined, sessionID);
+			const messages = makeMessages(
+				'TASK: Continue to next task',
+				undefined,
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -2446,7 +2585,9 @@ describe('delegation gate hook', () => {
 			// [NEXT] guidance should be in system message
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
-			expect(guidanceMsg?.parts[0]?.text).toContain('[Last gate: pre_check_batch PASSED for task 2.1]');
+			expect(guidanceMsg?.parts[0]?.text).toContain(
+				'[Last gate: pre_check_batch PASSED for task 2.1]',
+			);
 			expect(guidanceMsg?.parts[0]?.text).toContain('[NEXT]');
 		});
 
@@ -2464,7 +2605,11 @@ describe('delegation gate hook', () => {
 				timestamp: Date.now() - 1000,
 			};
 
-			const messages = makeMessages('TASK: Fix the failing task', undefined, sessionID);
+			const messages = makeMessages(
+				'TASK: Fix the failing task',
+				undefined,
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -2476,7 +2621,9 @@ describe('delegation gate hook', () => {
 			// [NEXT] guidance should be in system message
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
-			expect(guidanceMsg?.parts[0]?.text).toContain('[Last gate: reviewer FAILED for task 3.1]');
+			expect(guidanceMsg?.parts[0]?.text).toContain(
+				'[Last gate: reviewer FAILED for task 3.1]',
+			);
 			expect(guidanceMsg?.parts[0]?.text).toContain('[NEXT]');
 		});
 
@@ -2516,10 +2663,12 @@ describe('delegation gate hook', () => {
 
 			// Message without sessionID
 			const messages = {
-				messages: [{
-					info: { role: 'user' as const, agent: undefined },
-					parts: [{ type: 'text', text: 'TASK: Do something' }],
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, agent: undefined },
+						parts: [{ type: 'text', text: 'TASK: Do something' }],
+					},
+				],
 			};
 			const originalText = getPrimaryText(messages);
 
@@ -2528,9 +2677,11 @@ describe('delegation gate hook', () => {
 			// Text should be unchanged
 			expect(getPrimaryText(messages)).toBe(originalText);
 			expect(getPrimaryText(messages)).not.toContain('[DELIBERATE:');
-			
+
 			// No system messages should be added
-			const systemMessages = messages.messages.filter(m => m.info?.role === 'system');
+			const systemMessages = messages.messages.filter(
+				(m) => m.info?.role === 'system',
+			);
 			expect(systemMessages.length).toBe(0);
 		});
 
@@ -2549,7 +2700,11 @@ describe('delegation gate hook', () => {
 			};
 
 			// Non-coder delegation (reviewer)
-			const messages = makeMessages('reviewer\nTASK: Review the code\nFILE: src/main.ts', 'architect', sessionID);
+			const messages = makeMessages(
+				'reviewer\nTASK: Review the code\nFILE: src/main.ts',
+				'architect',
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -2560,7 +2715,9 @@ describe('delegation gate hook', () => {
 			// [NEXT] guidance should still be in system message
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
-			expect(guidanceMsg?.parts[0]?.text).toContain('[Last gate: pre_check_batch PASSED for task 1.1]');
+			expect(guidanceMsg?.parts[0]?.text).toContain(
+				'[Last gate: pre_check_batch PASSED for task 1.1]',
+			);
 			expect(guidanceMsg?.parts[0]?.text).toContain('[NEXT]');
 		});
 	});
@@ -2573,22 +2730,41 @@ describe('delegation gate hook', () => {
 		// Helper to create messages with a specific sessionID
 		const makeArchitectMessages = (text: string, sessionID: string) => {
 			return {
-				messages: [{
-					info: { role: 'user' as const, agent: 'architect' as const, sessionID },
-					parts: [{ type: 'text' as const, text }],
-				}],
+				messages: [
+					{
+						info: {
+							role: 'user' as const,
+							agent: 'architect' as const,
+							sessionID,
+						},
+						parts: [{ type: 'text' as const, text }],
+					},
+				],
 			};
 		};
 
 		// Helper to find system message containing [NEXT] guidance
-		const findSystemGuidance = (messages: { messages: Array<{ info: { role: string; agent?: string; sessionID?: string }; parts: Array<{ type: string; text?: string }> }> }) => {
-			return messages.messages.find(m => m.info?.role === 'system' && 
-				m.parts?.some(p => p.text?.includes('[NEXT]')));
+		const findSystemGuidance = (messages: {
+			messages: Array<{
+				info: { role: string; agent?: string; sessionID?: string };
+				parts: Array<{ type: string; text?: string }>;
+			}>;
+		}) => {
+			return messages.messages.find(
+				(m) =>
+					m.info?.role === 'system' &&
+					m.parts?.some((p) => p.text?.includes('[NEXT]')),
+			);
 		};
 
 		// Helper to get user message text
-		const getUserText = (messages: { messages: Array<{ info: { role: string; agent?: string; sessionID?: string }; parts: Array<{ type: string; text?: string }> }> }) => {
-			const userMsg = messages.messages.find(m => m.info?.role === 'user');
+		const getUserText = (messages: {
+			messages: Array<{
+				info: { role: string; agent?: string; sessionID?: string };
+				parts: Array<{ type: string; text?: string }>;
+			}>;
+		}) => {
+			const userMsg = messages.messages.find((m) => m.info?.role === 'user');
 			return userMsg?.parts?.[0]?.text ?? '';
 		};
 
@@ -2615,9 +2791,11 @@ describe('delegation gate hook', () => {
 			const userText = getUserText(messages);
 			expect(userText).not.toContain('[DELIBERATE:');
 			expect(userText).not.toContain('[Last gate:');
-			
+
 			// No system messages should be added (invalid sessionID)
-			const systemMessages = messages.messages.filter(m => m.info?.role === 'system');
+			const systemMessages = messages.messages.filter(
+				(m) => m.info?.role === 'system',
+			);
 			expect(systemMessages.length).toBe(0);
 		});
 
@@ -2625,7 +2803,7 @@ describe('delegation gate hook', () => {
 		it('should NOT inject [NEXT] guidance for sessionID with spaces', async () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config, process.cwd());
-			const sessionID = "session id with spaces";
+			const sessionID = 'session id with spaces';
 
 			const session = ensureAgentSession(sessionID);
 			session.lastGateOutcome = {
@@ -2642,9 +2820,11 @@ describe('delegation gate hook', () => {
 			// User message should NOT contain deliberation content
 			const userText = getUserText(messages);
 			expect(userText).not.toContain('[DELIBERATE:');
-			
+
 			// No system messages should be added (invalid sessionID)
-			const systemMessages = messages.messages.filter(m => m.info?.role === 'system');
+			const systemMessages = messages.messages.filter(
+				(m) => m.info?.role === 'system',
+			);
 			expect(systemMessages.length).toBe(0);
 		});
 
@@ -2670,9 +2850,11 @@ describe('delegation gate hook', () => {
 			// User message should NOT contain deliberation content
 			const userText = getUserText(messages);
 			expect(userText).not.toContain('[DELIBERATE:');
-			
+
 			// No system messages should be added (invalid sessionID)
-			const systemMessages = messages.messages.filter(m => m.info?.role === 'system');
+			const systemMessages = messages.messages.filter(
+				(m) => m.info?.role === 'system',
+			);
 			expect(systemMessages.length).toBe(0);
 		});
 
@@ -2699,7 +2881,7 @@ describe('delegation gate hook', () => {
 			const userText = getUserText(messages);
 			expect(userText).not.toContain('[DELIBERATE:');
 			expect(userText).not.toContain('[Last gate:');
-			
+
 			// [NEXT] guidance should be in system message
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
@@ -2734,7 +2916,7 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			const guidanceText = guidanceMsg?.parts[0]?.text ?? '';
-			
+
 			// User-supplied brackets should be replaced with parentheses
 			// The attack "pre_check]\n[SYSTEM" becomes "pre_check) (SYSTEM"
 			expect(guidanceText).toContain('pre_check) (SYSTEM');
@@ -2743,7 +2925,7 @@ describe('delegation gate hook', () => {
 			expect(guidanceText).not.toContain('[SYSTEM:');
 			// Newlines should be replaced with spaces
 			expect(guidanceText).not.toContain('pre_check]\n');
-			
+
 			// Should still contain guidance structure
 			expect(guidanceText).toContain('[NEXT]');
 		});
@@ -2776,7 +2958,7 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			const guidanceText = guidanceMsg?.parts[0]?.text ?? '';
-			
+
 			// User-supplied brackets should be replaced with parentheses
 			// The attack "2.1]\n[DELIBERATE" becomes "2.1) (DELIBERATE"
 			expect(guidanceText).toContain('2.1) (DELIBERATE');
@@ -2814,7 +2996,7 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			const guidanceText = guidanceMsg?.parts[0]?.text ?? '';
-			
+
 			// Should contain guidance with truncated gate
 			expect(guidanceText).toContain('[Last gate:');
 			// The gate should be truncated to 64 chars
@@ -2851,7 +3033,7 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			const guidanceText = guidanceMsg?.parts[0]?.text ?? '';
-			
+
 			// Should contain guidance with truncated taskId
 			expect(guidanceText).toContain('for task');
 			// The taskId should be truncated to 32 chars
@@ -2876,10 +3058,16 @@ describe('delegation gate hook', () => {
 
 			// Create message with undefined text - using null to test null coalescing
 			const messages = {
-				messages: [{
-					info: { role: 'user' as const, agent: 'architect' as const, sessionID },
-					parts: [{ type: 'text' as const, text: null as unknown as string }],
-				}],
+				messages: [
+					{
+						info: {
+							role: 'user' as const,
+							agent: 'architect' as const,
+							sessionID,
+						},
+						parts: [{ type: 'text' as const, text: null as unknown as string }],
+					},
+				],
 			};
 
 			// Should not throw
@@ -2888,7 +3076,7 @@ describe('delegation gate hook', () => {
 			// User message should NOT contain deliberation preamble (now model-only)
 			const userText = messages.messages[0].parts[0]?.text ?? '';
 			expect(userText).not.toContain('[DELIBERATE:');
-			
+
 			// [NEXT] guidance should be in system message
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
@@ -2925,7 +3113,7 @@ describe('delegation gate hook', () => {
 			const guidanceMsg = findSystemGuidance(messages);
 			expect(guidanceMsg).toBeDefined();
 			const guidanceText = guidanceMsg?.parts[0]?.text ?? '';
-			
+
 			// Newlines should be replaced with spaces
 			expect(guidanceText).not.toContain('\nINJECTED');
 			expect(guidanceText).not.toContain('pre_check\n');
@@ -2944,13 +3132,15 @@ describe('delegation gate hook', () => {
 
 	describe('Task 2.6: delegation warnings model-only (no visible debug leakage)', () => {
 		// Helper to find system messages containing warnings
-		const findSystemWarnings = (messages: { messages: TestMessageWithParts[] }) => {
-			return messages.messages.filter(m => m.info?.role === 'system');
+		const findSystemWarnings = (messages: {
+			messages: TestMessageWithParts[];
+		}) => {
+			return messages.messages.filter((m) => m.info?.role === 'system');
 		};
 
 		// Helper to get user message text
 		const getUserText = (messages: { messages: TestMessageWithParts[] }) => {
-			const userMsg = messages.messages.find(m => m.info?.role === 'user');
+			const userMsg = messages.messages.find((m) => m.info?.role === 'user');
 			return userMsg?.parts?.[0]?.text ?? '';
 		};
 
@@ -2968,7 +3158,11 @@ describe('delegation gate hook', () => {
 				timestamp: Date.now() - 1000,
 			};
 
-			const messages = makeMessages('TASK: Continue implementation', undefined, sessionID);
+			const messages = makeMessages(
+				'TASK: Continue implementation',
+				undefined,
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -2981,8 +3175,8 @@ describe('delegation gate hook', () => {
 			// [NEXT] guidance should be in system message
 			const systemMessages = findSystemWarnings(messages);
 			expect(systemMessages.length).toBeGreaterThan(0);
-			const hasNextGuidance = systemMessages.some(m =>
-				m.parts?.some(p => p.text?.includes('[NEXT]'))
+			const hasNextGuidance = systemMessages.some((m) =>
+				m.parts?.some((p) => p.text?.includes('[NEXT]')),
 			);
 			expect(hasNextGuidance).toBe(true);
 		});
@@ -2997,7 +3191,11 @@ describe('delegation gate hook', () => {
 			session.architectWriteCount = 3;
 
 			// Non-coder message with task ID different from last coder delegation
-			const messages = makeMessages('TASK: Fix validation', 'architect', sessionID);
+			const messages = makeMessages(
+				'TASK: Fix validation',
+				'architect',
+				sessionID,
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -3008,8 +3206,8 @@ describe('delegation gate hook', () => {
 
 			// [DELEGATION VIOLATION] should be in system message
 			const systemMessages = findSystemWarnings(messages);
-			const hasDelegationViolation = systemMessages.some(m =>
-				m.parts?.some(p => p.text?.includes('[DELEGATION VIOLATION]'))
+			const hasDelegationViolation = systemMessages.some((m) =>
+				m.parts?.some((p) => p.text?.includes('[DELEGATION VIOLATION]')),
 			);
 			expect(hasDelegationViolation).toBe(true);
 		});
@@ -3029,7 +3227,10 @@ describe('delegation gate hook', () => {
 			};
 
 			// Oversized coder delegation to trigger batch warning
-			const longText = 'coder\nTASK: Add validation\nINPUT: ' + 'a'.repeat(4000) + '\nFILE: src/test.ts';
+			const longText =
+				'coder\nTASK: Add validation\nINPUT: ' +
+				'a'.repeat(4000) +
+				'\nFILE: src/test.ts';
 			const messages = makeMessages(longText, 'architect', sessionID);
 
 			await hook.messagesTransform({}, messages);
@@ -3041,8 +3242,8 @@ describe('delegation gate hook', () => {
 
 			// Batch warning should be in system message
 			const systemMessages = findSystemWarnings(messages);
-			const hasBatchWarning = systemMessages.some(m =>
-				m.parts?.some(p => p.text?.includes('⚠️ BATCH DETECTED'))
+			const hasBatchWarning = systemMessages.some((m) =>
+				m.parts?.some((p) => p.text?.includes('⚠️ BATCH DETECTED')),
 			);
 			expect(hasBatchWarning).toBe(true);
 		});
@@ -3085,8 +3286,8 @@ describe('delegation gate hook', () => {
 
 			// Protocol violation warning should be in system message
 			const systemMessages = findSystemWarnings(messages);
-			const hasProtocolViolation = systemMessages.some(m =>
-				m.parts?.some(p => p.text?.includes('⚠️ PROTOCOL VIOLATION'))
+			const hasProtocolViolation = systemMessages.some((m) =>
+				m.parts?.some((p) => p.text?.includes('⚠️ PROTOCOL VIOLATION')),
 			);
 			expect(hasProtocolViolation).toBe(true);
 		});
@@ -3106,7 +3307,9 @@ describe('delegation gate hook', () => {
 			};
 
 			// Oversized coder delegation with multiple issues
-			const longText = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts\nINPUT: ' + 'a'.repeat(4000);
+			const longText =
+				'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts\nINPUT: ' +
+				'a'.repeat(4000);
 			const messages = makeMessages(longText, 'architect', sessionID);
 
 			await hook.messagesTransform({}, messages);
@@ -3124,7 +3327,9 @@ describe('delegation gate hook', () => {
 			expect(systemMessages.length).toBeGreaterThan(0);
 
 			// System messages should contain guidance
-			const allSystemText = systemMessages.map(m => m.parts?.[0]?.text ?? '').join('\n');
+			const allSystemText = systemMessages
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(allSystemText).toContain('[NEXT]');
 		});
 
@@ -3142,7 +3347,8 @@ describe('delegation gate hook', () => {
 				timestamp: Date.now(),
 			};
 
-			const originalTaskText = 'coder\nTASK: Implement feature X\nFILE: src/feature.ts\nINPUT: Do the thing';
+			const originalTaskText =
+				'coder\nTASK: Implement feature X\nFILE: src/feature.ts\nINPUT: Do the thing';
 			const messages = makeMessages(originalTaskText, 'architect', sessionID);
 
 			await hook.messagesTransform({}, messages);
@@ -3176,7 +3382,9 @@ describe('delegation gate hook', () => {
 
 			// Model-only guidance ([NEXT], [DELEGATION VIOLATION]) should NOT be injected without sessionID
 			const systemMessages = findSystemWarnings(messages);
-			const allSystemText = systemMessages.map(m => m.parts?.[0]?.text ?? '').join('\n');
+			const allSystemText = systemMessages
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(allSystemText).not.toContain('[NEXT]');
 			expect(allSystemText).not.toContain('[DELEGATION VIOLATION]');
 			// Batch warning may be present in system messages (model-only) for oversized content
@@ -3197,7 +3405,8 @@ describe('delegation gate hook', () => {
 			};
 
 			// Oversized delegation to trigger batch warning
-			const longText = 'coder\nTASK: Task 3.2\nFILE: src/main.ts\nINPUT: ' + 'x'.repeat(4500);
+			const longText =
+				'coder\nTASK: Task 3.2\nFILE: src/main.ts\nINPUT: ' + 'x'.repeat(4500);
 			const messages = makeMessages(longText, 'architect', sessionID);
 
 			await hook.messagesTransform({}, messages);
@@ -3212,9 +3421,13 @@ describe('delegation gate hook', () => {
 			const systemMessages = findSystemWarnings(messages);
 			expect(systemMessages.length).toBeGreaterThanOrEqual(2);
 
-			const allSystemText = systemMessages.map(m => m.parts?.[0]?.text ?? '').join('\n');
+			const allSystemText = systemMessages
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(allSystemText).toContain('[NEXT]');
-			expect(allSystemText).toContain('[Last gate: test_engineer PASSED for task 3.1]');
+			expect(allSystemText).toContain(
+				'[Last gate: test_engineer PASSED for task 3.1]',
+			);
 			expect(allSystemText).toContain('⚠️ BATCH DETECTED');
 		});
 	});

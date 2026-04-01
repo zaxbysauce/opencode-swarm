@@ -2,21 +2,21 @@
  * Verification tests for src/session/snapshot-reader.ts
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	deserializeAgentSession,
+	loadSnapshot,
 	readSnapshot,
 	rehydrateState,
-	loadSnapshot,
 } from '../../../src/session/snapshot-reader';
-import { resetSwarmState, swarmState } from '../../../src/state';
 import type {
 	SerializedAgentSession,
 	SnapshotData,
 } from '../../../src/session/snapshot-writer';
-import type { ToolAggregate, DelegationEntry } from '../../../src/state';
+import type { DelegationEntry, ToolAggregate } from '../../../src/state';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('deserializeAgentSession', () => {
 	it('restores gateLog: Record<string, string[]> → Map<string, Set<string>>', () => {
@@ -109,10 +109,10 @@ describe('deserializeAgentSession', () => {
 			gateLog: {},
 			reviewerCallCount: {
 				'1': 5,
-				'NaN': 10,
-				'Infinity': 15,
+				NaN: 10,
+				Infinity: 15,
 				'-Infinity': 20,
-				'invalid': 25,
+				invalid: 25,
 				'2': 30,
 			},
 			lastGateFailure: null,
@@ -476,7 +476,10 @@ describe('readSnapshot', () => {
 	let testDir: string;
 
 	beforeEach(() => {
-		testDir = path.join(os.tmpdir(), `snapshot-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = path.join(
+			os.tmpdir(),
+			`snapshot-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 	});
 
 	it('returns SnapshotData for valid JSON file with version: 1', async () => {
@@ -484,7 +487,13 @@ describe('readSnapshot', () => {
 			version: 1,
 			writtenAt: Date.now(),
 			toolAggregates: {
-				'bash': { tool: 'bash', count: 10, successCount: 8, failureCount: 2, totalDuration: 5000 },
+				bash: {
+					tool: 'bash',
+					count: 10,
+					successCount: 8,
+					failureCount: 2,
+					totalDuration: 5000,
+				},
 			},
 			activeAgent: {},
 			delegationChains: {},
@@ -514,10 +523,7 @@ describe('readSnapshot', () => {
 
 	it('returns null for corrupt JSON (no throw)', async () => {
 		const sessionDir = path.join(testDir, '.swarm', 'session');
-		await Bun.write(
-			path.join(sessionDir, 'state.json'),
-			'{ invalid json }',
-		);
+		await Bun.write(path.join(sessionDir, 'state.json'), '{ invalid json }');
 
 		const result = await readSnapshot(testDir);
 
@@ -592,9 +598,17 @@ describe('rehydrateState', () => {
 
 	it('correctly clears all 4 maps before repopulating', async () => {
 		// Pre-populate state
-		swarmState.toolAggregates.set('bash', { tool: 'bash', count: 1, successCount: 1, failureCount: 0, totalDuration: 100 });
+		swarmState.toolAggregates.set('bash', {
+			tool: 'bash',
+			count: 1,
+			successCount: 1,
+			failureCount: 0,
+			totalDuration: 100,
+		});
 		swarmState.activeAgent.set('session-1', 'architect');
-		swarmState.delegationChains.set('session-1', [{ from: 'architect', to: 'coder', timestamp: Date.now() }]);
+		swarmState.delegationChains.set('session-1', [
+			{ from: 'architect', to: 'coder', timestamp: Date.now() },
+		]);
 		swarmState.agentSessions.set('session-1', {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),
@@ -642,8 +656,20 @@ describe('rehydrateState', () => {
 			version: 1,
 			writtenAt: Date.now(),
 			toolAggregates: {
-				'bash': { tool: 'bash', count: 10, successCount: 8, failureCount: 2, totalDuration: 5000 },
-				'read': { tool: 'read', count: 5, successCount: 5, failureCount: 0, totalDuration: 1000 },
+				bash: {
+					tool: 'bash',
+					count: 10,
+					successCount: 8,
+					failureCount: 2,
+					totalDuration: 5000,
+				},
+				read: {
+					tool: 'read',
+					count: 5,
+					successCount: 5,
+					failureCount: 0,
+					totalDuration: 1000,
+				},
 			},
 			activeAgent: {},
 			delegationChains: {},
@@ -766,7 +792,9 @@ describe('rehydrateState', () => {
 		const session1 = swarmState.agentSessions.get('session-1');
 		expect(session1).toBeDefined();
 		expect(session1?.agentName).toBe('architect');
-		expect(session1?.gateLog.get('task-1')).toEqual(new Set(['gate-a', 'gate-b']));
+		expect(session1?.gateLog.get('task-1')).toEqual(
+			new Set(['gate-a', 'gate-b']),
+		);
 		expect(session1?.reviewerCallCount.get(1)).toBe(5);
 		expect(session1?.reviewerCallCount.get(2)).toBe(10);
 		expect(session1?.partialGateWarningsIssuedForTask.has('task-2')).toBe(true);
@@ -818,10 +846,10 @@ describe('rehydrateState', () => {
 			version: 2,
 			writtenAt: staleTime,
 			toolAggregates: {},
-			activeAgent: { 'ses_abc': 'coder' },
+			activeAgent: { ses_abc: 'coder' },
 			delegationChains: {},
 			agentSessions: {
-				'ses_abc': {
+				ses_abc: {
 					agentName: 'coder',
 					lastToolCallTime: staleTime,
 					lastAgentEventTime: staleTime,
@@ -910,7 +938,10 @@ describe('loadSnapshot', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
-		testDir = path.join(os.tmpdir(), `snapshot-load-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = path.join(
+			os.tmpdir(),
+			`snapshot-load-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 	});
 
 	it('with valid file: rehydrates swarmState', async () => {
@@ -918,7 +949,13 @@ describe('loadSnapshot', () => {
 			version: 1,
 			writtenAt: Date.now(),
 			toolAggregates: {
-				'bash': { tool: 'bash', count: 10, successCount: 8, failureCount: 2, totalDuration: 5000 },
+				bash: {
+					tool: 'bash',
+					count: 10,
+					successCount: 8,
+					failureCount: 2,
+					totalDuration: 5000,
+				},
 			},
 			activeAgent: {
 				'session-1': 'architect',
@@ -989,7 +1026,13 @@ describe('loadSnapshot', () => {
 		);
 
 		// Pre-populate state to verify it doesn't get cleared
-		swarmState.toolAggregates.set('bash', { tool: 'bash', count: 1, successCount: 1, failureCount: 0, totalDuration: 100 });
+		swarmState.toolAggregates.set('bash', {
+			tool: 'bash',
+			count: 1,
+			successCount: 1,
+			failureCount: 0,
+			totalDuration: 100,
+		});
 
 		await loadSnapshot(testDir);
 
@@ -1143,7 +1186,10 @@ describe('deserializeAgentSession - taskWorkflowStates adversarial', () => {
 		const serialized = createBaseSession();
 		// Arrays pass typeof check ('object'), and Object.entries iterates indices as keys
 		// This is the current behavior - arrays are processed with index keys
-		(serialized as any).taskWorkflowStates = ['idle'] as unknown as Record<string, string>;
+		(serialized as any).taskWorkflowStates = ['idle'] as unknown as Record<
+			string,
+			string
+		>;
 
 		const result = deserializeAgentSession(serialized);
 

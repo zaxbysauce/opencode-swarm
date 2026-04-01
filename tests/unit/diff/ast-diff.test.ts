@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as path from 'node:path';
 import { computeASTDiff } from '../../../src/diff/ast-diff';
 
@@ -150,16 +150,12 @@ describe('computeASTDiff', () => {
 			);
 
 			expect(result.changes).toHaveLength(2);
-			const addedChanges = result.changes.filter(c => c.type === 'added');
+			const addedChanges = result.changes.filter((c) => c.type === 'added');
 			expect(addedChanges).toHaveLength(2);
 		});
 
 		it('detects added class', async () => {
-			const result = await computeASTDiff(
-				'test.ts',
-				'',
-				'class MyClass { }',
-			);
+			const result = await computeASTDiff('test.ts', '', 'class MyClass { }');
 
 			expect(result.changes).toHaveLength(1);
 			expect(result.changes[0]).toMatchObject({
@@ -264,11 +260,7 @@ describe('computeASTDiff', () => {
 		});
 
 		it('detects removed class', async () => {
-			const result = await computeASTDiff(
-				'test.ts',
-				'class OldClass { }',
-				'',
-			);
+			const result = await computeASTDiff('test.ts', 'class OldClass { }', '');
 
 			expect(result.changes).toHaveLength(1);
 			expect(result.changes[0]).toMatchObject({
@@ -301,7 +293,7 @@ describe('computeASTDiff', () => {
 			);
 
 			expect(result.changes).toHaveLength(2);
-			const removedChanges = result.changes.filter(c => c.type === 'removed');
+			const removedChanges = result.changes.filter((c) => c.type === 'removed');
 			expect(removedChanges).toHaveLength(2);
 		});
 	});
@@ -309,8 +301,9 @@ describe('computeASTDiff', () => {
 	describe('500ms timeout works', () => {
 		it('falls back to raw diff on timeout', async () => {
 			// Create a very large file that will likely cause timeout
-			const largeContent = 'function foo() { return ' + 'x'.repeat(100000) + '; }';
-			
+			const largeContent =
+				'function foo() { return ' + 'x'.repeat(100000) + '; }';
+
 			const result = await computeASTDiff(
 				'test.ts',
 				largeContent,
@@ -494,7 +487,7 @@ function added() {}`,
 
 			// Should detect at least added and removed
 			expect(result.changes.length).toBeGreaterThanOrEqual(1);
-			const types = result.changes.map(c => c.type);
+			const types = result.changes.map((c) => c.type);
 			expect(types).toContain('added');
 			expect(types).toContain('removed');
 		});

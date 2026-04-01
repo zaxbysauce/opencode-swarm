@@ -3,7 +3,7 @@
  * Tests cover the full registry with all 11 profiles across all tiers
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles';
 
 describe('LanguageRegistry - Registry Completeness', () => {
@@ -174,9 +174,7 @@ describe('LanguageRegistry - All Profiles Have Non-Empty Prompts', () => {
 
 	it('every profile has at least 3 coderConstraints', () => {
 		for (const profile of allProfiles) {
-			expect(profile.prompts.coderConstraints.length).toBeGreaterThanOrEqual(
-				3,
-			);
+			expect(profile.prompts.coderConstraints.length).toBeGreaterThanOrEqual(3);
 		}
 	});
 
@@ -250,12 +248,7 @@ describe('LanguageRegistry - SAST Configuration', () => {
 		});
 	});
 
-	const semgrepSupportProfiles = [
-		'kotlin',
-		'swift',
-		'dart',
-		'ruby',
-	];
+	const semgrepSupportProfiles = ['kotlin', 'swift', 'dart', 'ruby'];
 
 	const validSemgrepSupport = ['ga', 'beta', 'experimental', 'none'];
 

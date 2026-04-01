@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { migrateLegacyPlan } from '../../../src/plan/manager';
 
 describe('migrateLegacyPlan - Phase Headers', () => {
@@ -210,8 +210,10 @@ describe('migrateLegacyPlan - Tasks With N.M: Prefix (Regression)', () => {
 describe('migrateLegacyPlan - Zero Phases Warning', () => {
 	test('Empty string input triggers console.warn', () => {
 		const originalWarn = console.warn;
-		let warnCalls: string[] = [];
-		console.warn = (...args: unknown[]) => { warnCalls.push(args.join(' ')); };
+		const warnCalls: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnCalls.push(args.join(' '));
+		};
 
 		try {
 			const result = migrateLegacyPlan('');
@@ -226,8 +228,10 @@ describe('migrateLegacyPlan - Zero Phases Warning', () => {
 
 	test('Plan with text but no phase headers triggers console.warn', () => {
 		const originalWarn = console.warn;
-		let warnCalls: string[] = [];
-		console.warn = (...args: unknown[]) => { warnCalls.push(args.join(' ')); };
+		const warnCalls: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnCalls.push(args.join(' '));
+		};
 
 		try {
 			const planContent = `
@@ -247,8 +251,10 @@ No phase headers here
 
 	test('Verify warn message contains correct details', () => {
 		const originalWarn = console.warn;
-		let warnCalls: string[] = [];
-		console.warn = (...args: unknown[]) => { warnCalls.push(args.join(' ')); };
+		const warnCalls: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnCalls.push(args.join(' '));
+		};
 
 		try {
 			const planContent = 'Random content';
@@ -303,7 +309,9 @@ describe('migrateLegacyPlan - Regression: Existing Behavior', () => {
 		expect(result.phases[1].tasks).toHaveLength(3);
 		expect(result.phases[1].tasks[1].depends).toEqual(['2.1']);
 		expect(result.phases[1].tasks[2].status).toBe('blocked');
-		expect(result.phases[1].tasks[2].blocked_reason).toBe('pending infrastructure');
+		expect(result.phases[1].tasks[2].blocked_reason).toBe(
+			'pending infrastructure',
+		);
 
 		// Phase 3
 		expect(result.phases[2].id).toBe(3);
@@ -440,7 +448,8 @@ describe('migrateLegacyPlan - Adversarial', () => {
 	});
 
 	test('handles special characters in task descriptions without breaking JSON output', () => {
-		const specialChars = 'Test with "quotes" and \'apostrophes\' and \\backslashes\\';
+		const specialChars =
+			'Test with "quotes" and \'apostrophes\' and \\backslashes\\';
 		const plan = `
 ## Phase 1
 - [ ] 1.1: ${specialChars} [SMALL]
@@ -469,8 +478,10 @@ describe('migrateLegacyPlan - Adversarial', () => {
 		const result = migrateLegacyPlan(plan);
 
 		// The description should be treated as a literal string, not evaluated
-		expect(result.phases[0].tasks[0].description).toContain('${process.exit(1)}');
-		
+		expect(result.phases[0].tasks[0].description).toContain(
+			'${process.exit(1)}',
+		);
+
 		// Verify JSON serialization is safe
 		const json = JSON.stringify(result);
 		expect(json).toBeDefined();
@@ -487,28 +498,30 @@ describe('migrateLegacyPlan - Adversarial', () => {
 		const result = migrateLegacyPlan(plan);
 
 		expect(result.phases[0].tasks).toHaveLength(2);
-		
+
 		// The no-prefix task should get auto-generated ID 1.2, not 1.1
-		const taskIds = result.phases[0].tasks.map(t => t.id);
+		const taskIds = result.phases[0].tasks.map((t) => t.id);
 		expect(taskIds).toContain('1.1');
 		expect(taskIds).toContain('1.2');
 	});
 
 	test('handles phase overflow with 100+ phase headers', () => {
 		const start = Date.now();
-		const phases = Array.from({ length: 100 }, (_, i) => 
-			`### Phase ${i + 1}: Test Phase\n- [ ] ${i + 1}.1: Task [SMALL]`
+		const phases = Array.from(
+			{ length: 100 },
+			(_, i) =>
+				`### Phase ${i + 1}: Test Phase\n- [ ] ${i + 1}.1: Task [SMALL]`,
 		).join('\n');
 		const plan = phases;
-		
+
 		const result = migrateLegacyPlan(plan);
-		
+
 		// Should complete in reasonable time
 		expect(Date.now() - start).toBeLessThan(1000);
-		
+
 		// Should have all phases
 		expect(result.phases).toHaveLength(100);
-		
+
 		// Verify phase IDs are correct
 		expect(result.phases[0].id).toBe(1);
 		expect(result.phases[99].id).toBe(100);
@@ -525,7 +538,9 @@ describe('migrateLegacyPlan - Adversarial', () => {
 		// Only the valid "1. Task" should match
 		expect(result.phases[0].tasks).toHaveLength(1);
 		expect(result.phases[0].tasks[0].id).toBe('1.1');
-		expect(result.phases[0].tasks[0].description).toBe('This SHOULD match as a numbered task');
+		expect(result.phases[0].tasks[0].description).toBe(
+			'This SHOULD match as a numbered task',
+		);
 	});
 
 	test('handles numbered list with non-numeric prefix', () => {
@@ -558,7 +573,7 @@ A. This should NOT match - not a number
 		expect(result.phases[0].tasks[1].description).toContain('©');
 		expect(result.phases[0].tasks[2].description).toContain('∑');
 		expect(result.phases[0].tasks[3].description).toContain('←');
-		
+
 		// Verify JSON serialization works with Unicode
 		const json = JSON.stringify(result);
 		expect(json).toBeDefined();
@@ -572,7 +587,7 @@ A. This should NOT match - not a number
 `;
 		// This should not crash
 		const result = migrateLegacyPlan(plan);
-		
+
 		expect(result.phases[0].tasks).toHaveLength(2);
 	});
 
@@ -586,10 +601,10 @@ A. This should NOT match - not a number
 `;
 		// Should complete without infinite loop
 		const result = migrateLegacyPlan(plan);
-		
+
 		expect(Date.now() - start).toBeLessThan(100);
 		expect(result.phases[0].tasks).toHaveLength(3);
-		
+
 		// Dependencies should be stored even if circular
 		expect(result.phases[0].tasks[0].depends).toEqual(['1.3']);
 		expect(result.phases[0].tasks[1].depends).toEqual(['1.1']);
@@ -604,18 +619,20 @@ A. This should NOT match - not a number
 `;
 		// Should complete without infinite loop
 		const result = migrateLegacyPlan(plan);
-		
+
 		expect(Date.now() - start).toBeLessThan(100);
 		expect(result.phases[0].tasks[0].depends).toEqual(['1.1']);
 	});
 
 	test('handles extremely long phase names with special characters', () => {
 		const start = Date.now();
-		const longName = 'Phase with special chars: #$%^&*()_+-=[]{}|;:\'",.<>?/ ~`' + 'X'.repeat(1000);
+		const longName =
+			'Phase with special chars: #$%^&*()_+-=[]{}|;:\'",.<>?/ ~`' +
+			'X'.repeat(1000);
 		const plan = `### Phase 1: ${longName}\n- [ ] 1.1: Task [SMALL]`;
-		
+
 		const result = migrateLegacyPlan(plan);
-		
+
 		expect(Date.now() - start).toBeLessThan(100);
 		expect(result.phases[0].name).toContain('special chars');
 	});

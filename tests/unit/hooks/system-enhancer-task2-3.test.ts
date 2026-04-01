@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState } from '../../../src/state';
 
 describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 	let tempDir: string;
@@ -112,17 +112,37 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create recent retro bundles (1 day old)
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Lesson from phase 8'], [], 'Phase 8 completed.', recentDate);
-			await createRetroBundle(7, 'pass', ['Lesson from phase 7'], [], 'Phase 7 completed.', recentDate);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Lesson from phase 8'],
+				[],
+				'Phase 8 completed.',
+				recentDate,
+			);
+			await createRetroBundle(
+				7,
+				'pass',
+				['Lesson from phase 7'],
+				[],
+				'Phase 7 completed.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
-			expect(historicalLessons).toContain('Most recent retrospectives in this workspace:');
+			expect(historicalLessons).toContain(
+				'Most recent retrospectives in this workspace:',
+			);
 			expect(historicalLessons).toContain('Phase 8');
 			expect(historicalLessons).toContain('Phase 7');
 			expect(historicalLessons).toContain('Key lesson:');
@@ -133,19 +153,39 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create old retro bundles (45 days old)
-			const oldDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Old lesson'], [], 'Phase 8 completed.', oldDate);
-			await createRetroBundle(7, 'pass', ['Older lesson'], [], 'Phase 7 completed.', oldDate);
+			const oldDate = new Date(
+				Date.now() - 45 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Old lesson'],
+				[],
+				'Phase 8 completed.',
+				oldDate,
+			);
+			await createRetroBundle(
+				7,
+				'pass',
+				['Older lesson'],
+				[],
+				'Phase 7 completed.',
+				oldDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert no historical lessons block
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeUndefined();
 
 			// Also ensure no retrospective injection at all
-			const anyRetro = systemOutput.find((s) => s.includes('Retrospective') || s.includes('retrospective'));
+			const anyRetro = systemOutput.find(
+				(s) => s.includes('Retrospective') || s.includes('retrospective'),
+			);
 			expect(anyRetro).toBeUndefined();
 		});
 
@@ -158,7 +198,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert no historical lessons block
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeUndefined();
 		});
 
@@ -170,7 +212,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			const baseDate = Date.now();
 			for (let i = 1; i <= 5; i++) {
 				const daysAgo = i * 2; // 2, 4, 6, 8, 10 days ago
-				const timestamp = new Date(baseDate - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+				const timestamp = new Date(
+					baseDate - daysAgo * 24 * 60 * 60 * 1000,
+				).toISOString();
 				await createRetroBundle(
 					10 + i,
 					'pass',
@@ -185,7 +229,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Only top 3 should appear (most recent = smallest days ago)
@@ -203,7 +249,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create retro bundle with specific timestamp
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
 			const taskDir = join(tempDir, '.swarm', 'evidence', 'retro-8');
 			await mkdir(taskDir, { recursive: true });
 
@@ -211,7 +259,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			const bundle = {
 				schema_version: '1.0.0',
 				task_id: 'retro-8',
-				created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Different from entry timestamp
+				created_at: new Date(
+					Date.now() - 2 * 24 * 60 * 60 * 1000,
+				).toISOString(), // Different from entry timestamp
 				updated_at: new Date().toISOString(),
 				entries: [
 					{
@@ -236,13 +286,18 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 				],
 			};
 
-			await writeFile(join(taskDir, 'evidence.json'), JSON.stringify(bundle, null, 2));
+			await writeFile(
+				join(taskDir, 'evidence.json'),
+				JSON.stringify(bundle, null, 2),
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Should show the date from entry.timestamp (not bundle.created_at)
@@ -255,16 +310,41 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create mix of pass and fail retros
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Pass lesson'], [], 'Phase 8 completed.', recentDate);
-			await createRetroBundle(7, 'fail', ['Fail lesson'], ['Failure reason'], 'Phase 7 failed.', recentDate);
-			await createRetroBundle(6, 'pass', ['Another pass lesson'], [], 'Phase 6 completed.', recentDate);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Pass lesson'],
+				[],
+				'Phase 8 completed.',
+				recentDate,
+			);
+			await createRetroBundle(
+				7,
+				'fail',
+				['Fail lesson'],
+				['Failure reason'],
+				'Phase 7 failed.',
+				recentDate,
+			);
+			await createRetroBundle(
+				6,
+				'pass',
+				['Another pass lesson'],
+				[],
+				'Phase 6 completed.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Only pass verdicts should appear
@@ -303,11 +383,23 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 					},
 				],
 			};
-			await writeFile(join(swarmDir, 'plan.json'), JSON.stringify(plan, null, 2));
+			await writeFile(
+				join(swarmDir, 'plan.json'),
+				JSON.stringify(plan, null, 2),
+			);
 
 			// Create retro-1 bundle
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(1, 'pass', ['Lesson from phase 1'], ['Issue found'], 'Phase 1 completed.', recentDate);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				1,
+				'pass',
+				['Lesson from phase 1'],
+				['Issue found'],
+				'Phase 1 completed.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
@@ -317,7 +409,9 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 
 			// Should inject Tier 1 block for previous phase, not Tier 2 Historical Lessons
 			expect(retroOutput).toBeDefined();
-			expect(retroOutput).toContain('## Previous Phase Retrospective (Phase 1)');
+			expect(retroOutput).toContain(
+				'## Previous Phase Retrospective (Phase 1)',
+			);
 			expect(retroOutput).toContain('Outcome:');
 			expect(retroOutput).toContain('Rejection reasons:');
 			expect(retroOutput).toContain('Lessons learned:');
@@ -331,18 +425,46 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create retros with very long lessons to exceed 800 chars
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			const longLesson = 'This is a very long lesson that adds lots of characters to make the output exceed the 800 character limit and ensure truncation works correctly. '.repeat(10);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			const longLesson =
+				'This is a very long lesson that adds lots of characters to make the output exceed the 800 character limit and ensure truncation works correctly. '.repeat(
+					10,
+				);
 
-			await createRetroBundle(10, 'pass', [longLesson], [], 'Phase 10 completed.', recentDate);
-			await createRetroBundle(9, 'pass', [longLesson], [], 'Phase 9 completed.', recentDate);
-			await createRetroBundle(8, 'pass', [longLesson], [], 'Phase 8 completed.', recentDate);
+			await createRetroBundle(
+				10,
+				'pass',
+				[longLesson],
+				[],
+				'Phase 10 completed.',
+				recentDate,
+			);
+			await createRetroBundle(
+				9,
+				'pass',
+				[longLesson],
+				[],
+				'Phase 9 completed.',
+				recentDate,
+			);
+			await createRetroBundle(
+				8,
+				'pass',
+				[longLesson],
+				[],
+				'Phase 8 completed.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Should be truncated with "..."
@@ -355,19 +477,34 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create single recent retro
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(5, 'pass', ['Key lesson learned'], ['Minor issue'], 'Phase 5 completed successfully.', recentDate);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				5,
+				'pass',
+				['Key lesson learned'],
+				['Minor issue'],
+				'Phase 5 completed successfully.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Should contain the expected format
-			expect(historicalLessons).toContain('## Historical Lessons (from recent prior projects)');
-			expect(historicalLessons).toContain('Most recent retrospectives in this workspace:');
+			expect(historicalLessons).toContain(
+				'## Historical Lessons (from recent prior projects)',
+			);
+			expect(historicalLessons).toContain(
+				'Most recent retrospectives in this workspace:',
+			);
 			expect(historicalLessons).toContain('- Phase 5');
 			expect(historicalLessons).toContain('Phase 5 completed successfully.');
 			expect(historicalLessons).toContain('Key lesson: Key lesson learned');
@@ -378,14 +515,25 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create retro exactly at 30 days boundary (should be excluded since ageMs > cutoff)
-			const boundaryDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Boundary lesson'], [], 'Phase 8 completed.', boundaryDate);
+			const boundaryDate = new Date(
+				Date.now() - 30 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Boundary lesson'],
+				[],
+				'Phase 8 completed.',
+				boundaryDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert no historical lessons block (boundary excluded)
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeUndefined();
 		});
 
@@ -394,14 +542,25 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			await createSwarmFiles(1);
 
 			// Create retro at 29 days (should be included)
-			const includedDate = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Included lesson'], [], 'Phase 8 completed.', includedDate);
+			const includedDate = new Date(
+				Date.now() - 29 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Included lesson'],
+				[],
+				'Phase 8 completed.',
+				includedDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 			expect(historicalLessons).toContain('Phase 8');
 		});
@@ -417,15 +576,38 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			const date3 = new Date(baseDate - 3 * 24 * 60 * 60 * 1000).toISOString(); // 3 days ago
 
 			// Create in random order
-			await createRetroBundle(10, 'pass', ['Lesson 10'], [], 'Phase 10.', date1);
-			await createRetroBundle(11, 'pass', ['Lesson 11'], [], 'Phase 11.', date2);
-			await createRetroBundle(12, 'pass', ['Lesson 12'], [], 'Phase 12.', date3);
+			await createRetroBundle(
+				10,
+				'pass',
+				['Lesson 10'],
+				[],
+				'Phase 10.',
+				date1,
+			);
+			await createRetroBundle(
+				11,
+				'pass',
+				['Lesson 11'],
+				[],
+				'Phase 11.',
+				date2,
+			);
+			await createRetroBundle(
+				12,
+				'pass',
+				['Lesson 12'],
+				[],
+				'Phase 12.',
+				date3,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// Should be sorted by timestamp descending (most recent first)
@@ -442,16 +624,41 @@ describe('Task 2.3: System Enhancer Tier 2 Logic (buildRetroInjection)', () => {
 			// Setup: create swarm files with current phase 1
 			await createSwarmFiles(1);
 
-			const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-			await createRetroBundle(8, 'pass', ['Pass lesson'], [], 'Phase 8 pass.', recentDate);
-			await createRetroBundle(7, 'fail', ['Fail lesson'], ['Fail reason'], 'Phase 7 fail.', recentDate);
-			await createRetroBundle(6, 'info', ['Info lesson'], [], 'Phase 6 info.', recentDate);
+			const recentDate = new Date(
+				Date.now() - 1 * 24 * 60 * 60 * 1000,
+			).toISOString();
+			await createRetroBundle(
+				8,
+				'pass',
+				['Pass lesson'],
+				[],
+				'Phase 8 pass.',
+				recentDate,
+			);
+			await createRetroBundle(
+				7,
+				'fail',
+				['Fail lesson'],
+				['Fail reason'],
+				'Phase 7 fail.',
+				recentDate,
+			);
+			await createRetroBundle(
+				6,
+				'info',
+				['Info lesson'],
+				[],
+				'Phase 6 info.',
+				recentDate,
+			);
 
 			// Invoke the hook
 			const systemOutput = await invokeHook(defaultConfig);
 
 			// Assert historical lessons block is present
-			const historicalLessons = systemOutput.find((s) => s.includes('## Historical Lessons'));
+			const historicalLessons = systemOutput.find((s) =>
+				s.includes('## Historical Lessons'),
+			);
 			expect(historicalLessons).toBeDefined();
 
 			// pass and info should be included

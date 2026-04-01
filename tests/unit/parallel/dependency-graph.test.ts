@@ -3,17 +3,17 @@
  * Covers parseDependencyGraph, getRunnableTasks, and getExecutionOrder
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
-	parseDependencyGraph,
-	getRunnableTasks,
-	getExecutionOrder,
-	isTaskBlocked,
-	getDependencyChain,
 	type DependencyGraph,
+	getDependencyChain,
+	getExecutionOrder,
+	getRunnableTasks,
+	isTaskBlocked,
+	parseDependencyGraph,
 } from '../../../src/parallel/dependency-graph';
 
 describe('dependency-graph module tests', () => {
@@ -35,23 +35,36 @@ describe('dependency-graph module tests', () => {
 	describe('Group 1: parseDependencyGraph', () => {
 		it('builds graph from plan.json', () => {
 			const planPath = path.join(tmpDir, 'plan.json');
-			fs.writeFileSync(planPath, JSON.stringify({
-				phases: [
-					{
-						id: 1,
-						tasks: [
-							{ id: '1.1', description: 'Task 1', status: 'pending' },
-							{ id: '1.2', description: 'Task 2', depends: ['1.1'], status: 'pending' },
-						],
-					},
-					{
-						id: 2,
-						tasks: [
-							{ id: '2.1', description: 'Task 3', depends: ['1.2'], status: 'pending' },
-						],
-					},
-				],
-			}));
+			fs.writeFileSync(
+				planPath,
+				JSON.stringify({
+					phases: [
+						{
+							id: 1,
+							tasks: [
+								{ id: '1.1', description: 'Task 1', status: 'pending' },
+								{
+									id: '1.2',
+									description: 'Task 2',
+									depends: ['1.1'],
+									status: 'pending',
+								},
+							],
+						},
+						{
+							id: 2,
+							tasks: [
+								{
+									id: '2.1',
+									description: 'Task 3',
+									depends: ['1.2'],
+									status: 'pending',
+								},
+							],
+						},
+					],
+				}),
+			);
 
 			const graph = parseDependencyGraph(planPath);
 
@@ -70,17 +83,20 @@ describe('dependency-graph module tests', () => {
 
 		it('identifies roots (tasks with no dependencies)', () => {
 			const planPath = path.join(tmpDir, 'plan.json');
-			fs.writeFileSync(planPath, JSON.stringify({
-				phases: [
-					{
-						id: 1,
-						tasks: [
-							{ id: '1.1', description: 'Root task', depends: [] },
-							{ id: '1.2', description: 'Dependent task', depends: ['1.1'] },
-						],
-					},
-				],
-			}));
+			fs.writeFileSync(
+				planPath,
+				JSON.stringify({
+					phases: [
+						{
+							id: 1,
+							tasks: [
+								{ id: '1.1', description: 'Root task', depends: [] },
+								{ id: '1.2', description: 'Dependent task', depends: ['1.1'] },
+							],
+						},
+					],
+				}),
+			);
 
 			const graph = parseDependencyGraph(planPath);
 			expect(graph.roots).toContain('1.1');
@@ -89,18 +105,21 @@ describe('dependency-graph module tests', () => {
 
 		it('identifies leaves (tasks with no dependents)', () => {
 			const planPath = path.join(tmpDir, 'plan.json');
-			fs.writeFileSync(planPath, JSON.stringify({
-				phases: [
-					{
-						id: 1,
-						tasks: [
-							{ id: '1.1', description: 'Root' },
-							{ id: '1.2', description: 'Middle', depends: ['1.1'] },
-							{ id: '1.3', description: 'Leaf', depends: ['1.2'] },
-						],
-					},
-				],
-			}));
+			fs.writeFileSync(
+				planPath,
+				JSON.stringify({
+					phases: [
+						{
+							id: 1,
+							tasks: [
+								{ id: '1.1', description: 'Root' },
+								{ id: '1.2', description: 'Middle', depends: ['1.1'] },
+								{ id: '1.3', description: 'Leaf', depends: ['1.2'] },
+							],
+						},
+					],
+				}),
+			);
 
 			const graph = parseDependencyGraph(planPath);
 			expect(graph.leaves).toContain('1.3');
@@ -109,12 +128,15 @@ describe('dependency-graph module tests', () => {
 
 		it('organizes tasks by phase', () => {
 			const planPath = path.join(tmpDir, 'plan.json');
-			fs.writeFileSync(planPath, JSON.stringify({
-				phases: [
-					{ id: 1, tasks: [{ id: '1.1' }, { id: '1.2' }] },
-					{ id: 2, tasks: [{ id: '2.1' }] },
-				],
-			}));
+			fs.writeFileSync(
+				planPath,
+				JSON.stringify({
+					phases: [
+						{ id: 1, tasks: [{ id: '1.1' }, { id: '1.2' }] },
+						{ id: 2, tasks: [{ id: '2.1' }] },
+					],
+				}),
+			);
 
 			const graph = parseDependencyGraph(planPath);
 			expect(graph.phases.get(1)).toEqual(['1.1', '1.2']);
@@ -127,8 +149,28 @@ describe('dependency-graph module tests', () => {
 		it('returns tasks with no dependencies', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: [], status: 'pending' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: [],
+							status: 'pending',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -143,8 +185,28 @@ describe('dependency-graph module tests', () => {
 		it('returns tasks with all dependencies complete', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: ['1.2'], status: 'complete' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['1.2'],
+							status: 'complete',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -158,8 +220,28 @@ describe('dependency-graph module tests', () => {
 		it('excludes tasks with incomplete dependencies', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: ['1.2'], status: 'in_progress' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['1.2'],
+							status: 'in_progress',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -173,9 +255,39 @@ describe('dependency-graph module tests', () => {
 		it('excludes non-pending tasks', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: [], status: 'complete' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: [], dependents: [], status: 'in_progress' }],
-					['1.3', { id: '1.3', phase: 1, description: '', depends: [], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: [],
+							status: 'complete',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: [],
+							status: 'in_progress',
+						},
+					],
+					[
+						'1.3',
+						{
+							id: '1.3',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1', '1.2', '1.3'],
@@ -192,8 +304,28 @@ describe('dependency-graph module tests', () => {
 		it('returns topological sort order', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: ['1.2'], status: 'pending' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['1.2'],
+							status: 'pending',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -207,10 +339,50 @@ describe('dependency-graph module tests', () => {
 		it('handles complex dependency chains', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['a', { id: 'a', phase: 1, description: '', depends: [], dependents: ['b', 'c'], status: 'pending' }],
-					['b', { id: 'b', phase: 1, description: '', depends: ['a'], dependents: ['d'], status: 'pending' }],
-					['c', { id: 'c', phase: 1, description: '', depends: ['a'], dependents: ['d'], status: 'pending' }],
-					['d', { id: 'd', phase: 1, description: '', depends: ['b', 'c'], dependents: [], status: 'pending' }],
+					[
+						'a',
+						{
+							id: 'a',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['b', 'c'],
+							status: 'pending',
+						},
+					],
+					[
+						'b',
+						{
+							id: 'b',
+							phase: 1,
+							description: '',
+							depends: ['a'],
+							dependents: ['d'],
+							status: 'pending',
+						},
+					],
+					[
+						'c',
+						{
+							id: 'c',
+							phase: 1,
+							description: '',
+							depends: ['a'],
+							dependents: ['d'],
+							status: 'pending',
+						},
+					],
+					[
+						'd',
+						{
+							id: 'd',
+							phase: 1,
+							description: '',
+							depends: ['b', 'c'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['a'],
@@ -226,8 +398,28 @@ describe('dependency-graph module tests', () => {
 		it('throws on circular dependency', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['a', { id: 'a', phase: 1, description: '', depends: ['b'], dependents: [], status: 'pending' }],
-					['b', { id: 'b', phase: 1, description: '', depends: ['a'], dependents: [], status: 'pending' }],
+					[
+						'a',
+						{
+							id: 'a',
+							phase: 1,
+							description: '',
+							depends: ['b'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
+					[
+						'b',
+						{
+							id: 'b',
+							phase: 1,
+							description: '',
+							depends: ['a'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['a'],
@@ -243,7 +435,17 @@ describe('dependency-graph module tests', () => {
 		it('returns false for task with no dependencies', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -256,8 +458,28 @@ describe('dependency-graph module tests', () => {
 		it('returns true for task with incomplete dependency', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: ['1.2'], status: 'pending' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['1.2'],
+							status: 'pending',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -270,8 +492,28 @@ describe('dependency-graph module tests', () => {
 		it('returns false for task with complete dependencies', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['1.1', { id: '1.1', phase: 1, description: '', depends: [], dependents: ['1.2'], status: 'complete' }],
-					['1.2', { id: '1.2', phase: 1, description: '', depends: ['1.1'], dependents: [], status: 'pending' }],
+					[
+						'1.1',
+						{
+							id: '1.1',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['1.2'],
+							status: 'complete',
+						},
+					],
+					[
+						'1.2',
+						{
+							id: '1.2',
+							phase: 1,
+							description: '',
+							depends: ['1.1'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['1.1'],
@@ -298,9 +540,39 @@ describe('dependency-graph module tests', () => {
 		it('returns dependency chain for a task', () => {
 			const graph: DependencyGraph = {
 				tasks: new Map([
-					['a', { id: 'a', phase: 1, description: '', depends: [], dependents: ['b'], status: 'pending' }],
-					['b', { id: 'b', phase: 1, description: '', depends: ['a'], dependents: ['c'], status: 'pending' }],
-					['c', { id: 'c', phase: 1, description: '', depends: ['b'], dependents: [], status: 'pending' }],
+					[
+						'a',
+						{
+							id: 'a',
+							phase: 1,
+							description: '',
+							depends: [],
+							dependents: ['b'],
+							status: 'pending',
+						},
+					],
+					[
+						'b',
+						{
+							id: 'b',
+							phase: 1,
+							description: '',
+							depends: ['a'],
+							dependents: ['c'],
+							status: 'pending',
+						},
+					],
+					[
+						'c',
+						{
+							id: 'c',
+							phase: 1,
+							description: '',
+							depends: ['b'],
+							dependents: [],
+							status: 'pending',
+						},
+					],
 				]),
 				phases: new Map(),
 				roots: ['a'],

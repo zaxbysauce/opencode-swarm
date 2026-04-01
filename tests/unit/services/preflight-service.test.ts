@@ -1,24 +1,24 @@
 import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
 	describe,
 	expect,
 	it,
-	beforeEach,
-	afterEach,
 	mock,
-	beforeAll,
-	afterAll,
 } from 'bun:test';
 import * as fs from 'fs';
-import * as path from 'path';
 import { tmpdir } from 'os';
+import * as path from 'path';
+import { resetGlobalEventBus } from '../../../src/background/event-bus';
 import {
-	runPreflight,
 	formatPreflightMarkdown,
 	handlePreflightCommand,
-	type PreflightReport,
 	type PreflightConfig,
+	type PreflightReport,
+	runPreflight,
 } from '../../../src/services/preflight-service';
-import { resetGlobalEventBus } from '../../../src/background/event-bus';
 
 describe('Preflight Service', () => {
 	let testDir: string;
@@ -401,7 +401,10 @@ describe('Preflight Service', () => {
 
 		it('should detect mismatch with version file', async () => {
 			fs.writeFileSync(path.join(testDir, 'VERSION.txt'), '1.0.0');
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '2.0.0' }),
+			);
 
 			const report = await runPreflight(testDir, 1, {
 				skipTests: true,
@@ -503,9 +506,7 @@ describe('Preflight Service', () => {
 				timestamp: Date.now(),
 				phase: 3,
 				overall: 'skipped',
-				checks: [
-					{ type: 'lint', status: 'skip', message: 'Skipped' },
-				],
+				checks: [{ type: 'lint', status: 'skip', message: 'Skipped' }],
 				totalDurationMs: 5,
 				message: 'All checks were skipped',
 			};
@@ -532,8 +533,14 @@ describe('Preflight Service', () => {
 
 		it('should count failed checks correctly', async () => {
 			// Create version mismatch to force a failure
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
-			fs.writeFileSync(path.join(testDir, 'CHANGELOG.md'), '## 9.9.9\n\nChanges');
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '1.0.0' }),
+			);
+			fs.writeFileSync(
+				path.join(testDir, 'CHANGELOG.md'),
+				'## 9.9.9\n\nChanges',
+			);
 
 			const report = await runPreflight(testDir, 1, {
 				skipTests: true,
@@ -655,8 +662,14 @@ describe('Preflight Service', () => {
 
 	describe('check details', () => {
 		it('should include details in version check when passed', async () => {
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
-			fs.writeFileSync(path.join(testDir, 'CHANGELOG.md'), '## 1.0.0\n\nChanges');
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '1.0.0' }),
+			);
+			fs.writeFileSync(
+				path.join(testDir, 'CHANGELOG.md'),
+				'## 1.0.0\n\nChanges',
+			);
 
 			const report = await runPreflight(testDir, 1, {
 				skipTests: true,
@@ -670,8 +683,14 @@ describe('Preflight Service', () => {
 		});
 
 		it('should include details when version mismatch', async () => {
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
-			fs.writeFileSync(path.join(testDir, 'CHANGELOG.md'), '## 2.0.0\n\nChanges');
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '1.0.0' }),
+			);
+			fs.writeFileSync(
+				path.join(testDir, 'CHANGELOG.md'),
+				'## 2.0.0\n\nChanges',
+			);
 
 			const report = await runPreflight(testDir, 1, {
 				skipTests: true,
@@ -688,8 +707,14 @@ describe('Preflight Service', () => {
 
 	describe('changelog version parsing', () => {
 		it('should parse bracketed version format', async () => {
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.5.0' }));
-			fs.writeFileSync(path.join(testDir, 'CHANGELOG.md'), '## [1.5.0] - 2024-01-01\n\n- Feature');
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '1.5.0' }),
+			);
+			fs.writeFileSync(
+				path.join(testDir, 'CHANGELOG.md'),
+				'## [1.5.0] - 2024-01-01\n\n- Feature',
+			);
 
 			const report = await runPreflight(testDir, 1, {
 				skipTests: true,
@@ -702,8 +727,14 @@ describe('Preflight Service', () => {
 		});
 
 		it('should handle changelog without version header', async () => {
-			fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
-			fs.writeFileSync(path.join(testDir, 'CHANGELOG.md'), '# Changelog\n\nSome text without version');
+			fs.writeFileSync(
+				path.join(testDir, 'package.json'),
+				JSON.stringify({ version: '1.0.0' }),
+			);
+			fs.writeFileSync(
+				path.join(testDir, 'CHANGELOG.md'),
+				'# Changelog\n\nSome text without version',
+			);
 
 			// Version from package.json only - should pass
 			const report = await runPreflight(testDir, 1, {

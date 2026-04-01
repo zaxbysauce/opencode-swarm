@@ -6,10 +6,10 @@
  * bun test runner module-registry contamination across test files.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { handleBenchmarkCommand } from '../../../src/commands/benchmark.js';
 import { saveEvidence } from '../../../src/evidence/manager.js';
 
@@ -83,13 +83,16 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 		it('should handle partially valid JSON that fails schema validation', async () => {
 			// Valid JSON but wrong schema — Zod returns 'invalid_schema'
 			const dir = mkEvidenceDir('1.1');
-			writeFileSync(path.join(dir, 'evidence.json'), JSON.stringify({
-				schema_version: '1.0.0',
-				task_id: '1.1',
-				// entries is missing — Zod validation fails
-				created_at: mockDate,
-				updated_at: mockDate,
-			}));
+			writeFileSync(
+				path.join(dir, 'evidence.json'),
+				JSON.stringify({
+					schema_version: '1.0.0',
+					task_id: '1.1',
+					// entries is missing — Zod validation fails
+					created_at: mockDate,
+					updated_at: mockDate,
+				}),
+			);
 
 			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
 
@@ -128,9 +131,14 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 		});
 
 		it('should handle non-existent directory gracefully', async () => {
-			const nonExistentDir = path.join(os.tmpdir(), 'definitely-does-not-exist-xyz123');
+			const nonExistentDir = path.join(
+				os.tmpdir(),
+				'definitely-does-not-exist-xyz123',
+			);
 
-			const result = await handleBenchmarkCommand(nonExistentDir, ['--cumulative']);
+			const result = await handleBenchmarkCommand(nonExistentDir, [
+				'--cumulative',
+			]);
 
 			expect(result).toContain('No evidence data found');
 		});
@@ -166,11 +174,11 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 		it('should handle 20 task directories (moderate load)', async () => {
 			// Create 20 real evidence directories (mix of valid and invalid)
 			for (let i = 1; i <= 15; i++) {
-				mkEvidenceDir(`${i}.1`);  // not_found (no evidence.json)
+				mkEvidenceDir(`${i}.1`); // not_found (no evidence.json)
 			}
 			for (let i = 16; i <= 20; i++) {
 				const dir = mkEvidenceDir(`${i}.1`);
-				writeFileSync(path.join(dir, 'evidence.json'), '{ invalid }');  // invalid_schema
+				writeFileSync(path.join(dir, 'evidence.json'), '{ invalid }'); // invalid_schema
 			}
 
 			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);

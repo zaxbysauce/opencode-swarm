@@ -10,26 +10,28 @@
  * about process violations while preventing false positives.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { PluginConfig } from '../../../src/config';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import type { Plan } from '../../../src/config/plan-schema';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
-	getAgentSession,
 	beginInvocation,
 	getActiveWindow,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
-import type { PluginConfig } from '../../../src/config';
-import type { Plan } from '../../../src/config/plan-schema';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -43,7 +45,9 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeDelegationConfig(overrides?: Record<string, unknown>): PluginConfig {
+function makeDelegationConfig(
+	overrides?: Record<string, unknown>,
+): PluginConfig {
 	return {
 		max_iterations: 5,
 		qa_retry_limit: 3,
@@ -61,12 +65,18 @@ function makeDelegationConfig(overrides?: Record<string, unknown>): PluginConfig
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: { role: 'user' as const, agent, sessionID },
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -89,7 +99,10 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 	// ============================================================
 	// HELPER: Create temp plan.json for catastrophic warning tests
 	// ============================================================
-	function createTempPlan(phases: Array<{ id: number; name: string; status: string }>, currentPhase: number): void {
+	function createTempPlan(
+		phases: Array<{ id: number; name: string; status: string }>,
+		currentPhase: number,
+	): void {
 		const swarmDir = path.join(tempDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
 
@@ -116,12 +129,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 	describe('Partial Gate Violation Detection', () => {
 		it('all required gates observed -> no warning on messagesTransform', async () => {
 			// Create temp plan with current_phase = 1 (matches our reviewerCallCount setup)
-			createTempPlan(
-				[
-					{ id: 1, name: 'Phase 1', status: 'in_progress' },
-				],
-				1,
-			);
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -137,7 +145,16 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const session = getAgentSession('full-gates');
 			const taskId = 'full-gates:current';
 			session!.currentTaskId = taskId;
-			session!.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+			session!.gateLog.set(
+				taskId,
+				new Set([
+					'diff',
+					'syntax_check',
+					'placeholder_scan',
+					'lint',
+					'pre_check_batch',
+				]),
+			);
 
 			// Set reviewerCallCount for phase 1 to 1 (has reviewer delegation)
 			session!.reviewerCallCount.set(1, 1);
@@ -156,12 +173,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('only pre_check_batch + syntax_check -> warning listing reviewer/test_engineer and missing gates', async () => {
 			// Create temp plan with current_phase = 1 but phase is NOT complete (so catastrophic doesn't trigger)
-			createTempPlan(
-				[
-					{ id: 1, name: 'Phase 1', status: 'in_progress' },
-				],
-				1,
-			);
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -175,7 +187,10 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			// Manually set gateLog with only partial gates
 			const session = getAgentSession('partial-gates');
 			const taskId = 'partial-gates:current';
-			session!.gateLog.set(taskId, new Set(['pre_check_batch', 'syntax_check']));
+			session!.gateLog.set(
+				taskId,
+				new Set(['pre_check_batch', 'syntax_check']),
+			);
 
 			// Set NO reviewer delegation (reviewerCallCount is empty or 0 for phase 1)
 			session!.reviewerCallCount.set(1, 0);
@@ -198,12 +213,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('only reviewer (no pre_check_batch) -> warning listing pre_check_batch', async () => {
 			// Create temp plan with current_phase = 1, not complete
-			createTempPlan(
-				[
-					{ id: 1, name: 'Phase 1', status: 'in_progress' },
-				],
-				1,
-			);
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -237,12 +247,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('warning text contains PARTIAL GATE VIOLATION', async () => {
 			// Create temp plan with current_phase = 1, not complete
-			createTempPlan(
-				[
-					{ id: 1, name: 'Phase 1', status: 'in_progress' },
-				],
-				1,
-			);
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'in_progress' }], 1);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -294,10 +299,12 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			session!.gateLog.set(taskId, new Set(['lint']));
 			session!.reviewerCallCount.set(1, 1);
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'custom-tools' },
-				parts: [{ type: 'text', text: 'Task done!' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'custom-tools' },
+					parts: [{ type: 'text', text: 'Task done!' }],
+				},
+			];
 			await hooks.messagesTransform({}, { messages });
 
 			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
@@ -324,16 +331,17 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			session!.currentTaskId = taskId;
 			session!.gateLog.set(taskId, new Set(['lint']));
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'no-reviewer-required' },
-				parts: [{ type: 'text', text: 'Task done!' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'no-reviewer-required' },
+					parts: [{ type: 'text', text: 'Task done!' }],
+				},
+			];
 			await hooks.messagesTransform({}, { messages });
 
 			expect(messages[0].parts[0].text).not.toContain('reviewer/test_engineer');
 			expect(messages[0].parts[0].text).not.toContain('PARTIAL GATE VIOLATION');
 		});
-
 
 		it('gateLog does not bleed across tasks', async () => {
 			// Single session with multiple task IDs
@@ -365,7 +373,9 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			session!.gateLog.set('before-reset:current', new Set(['lint']));
 
 			// Verify gateLog has entry
-			expect(swarmState.agentSessions.get('before-reset')?.gateLog.size).toBeGreaterThan(0);
+			expect(
+				swarmState.agentSessions.get('before-reset')?.gateLog.size,
+			).toBeGreaterThan(0);
 
 			// Reset state
 			resetSwarmState();
@@ -456,7 +466,6 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			expect(messages[0].parts[0].text).toContain('ZERO reviewer');
 		});
 
-
 		it('does not emit catastrophic warning when reviewer/test_engineer requirement is disabled', async () => {
 			// Create temp plan with Phase 1 complete, current phase = 2
 			createTempPlan(
@@ -541,12 +550,7 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 		it('warning text contains CATASTROPHIC VIOLATION', async () => {
 			// Create temp plan with Phase 1 complete
-			createTempPlan(
-				[
-					{ id: 1, name: 'Phase 1', status: 'complete' },
-				],
-				2,
-			);
+			createTempPlan([{ id: 1, name: 'Phase 1', status: 'complete' }], 2);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -584,19 +588,28 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect has written files but NOT for current task
-			const session = getAgentSession('delegation-test') || swarmState.agentSessions.get('delegation-test') || (() => {
-				startAgentSession('delegation-test', 'architect');
-				return getAgentSession('delegation-test')!;
-			})();
+			const session =
+				getAgentSession('delegation-test') ||
+				swarmState.agentSessions.get('delegation-test') ||
+				(() => {
+					startAgentSession('delegation-test', 'architect');
+					return getAgentSession('delegation-test')!;
+				})();
 
 			session.architectWriteCount = 3;
 			session.lastCoderDelegationTaskId = 'Previous Task';
 
 			// Current task is different from last coder delegation
-			const messages = makeMessages('TASK: Current Task', 'architect', 'delegation-test');
+			const messages = makeMessages(
+				'TASK: Current Task',
+				'architect',
+				'delegation-test',
+			);
 
 			await hook.messagesTransform({}, messages);
-			expect(messages.messages[0].parts[0].text).toContain('zero coder delegations');
+			expect(messages.messages[0].parts[0].text).toContain(
+				'zero coder delegations',
+			);
 		});
 
 		it('architectWriteCount > 0 but lastCoderDelegationTaskId == currentTaskId -> no warning', async () => {
@@ -604,16 +617,23 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Simulate session where architect wrote files BUT also delegated to coder for same task
-			const session = getAgentSession('delegation-match-test') || swarmState.agentSessions.get('delegation-match-test') || (() => {
-				startAgentSession('delegation-match-test', 'architect');
-				return getAgentSession('delegation-match-test')!;
-			})();
+			const session =
+				getAgentSession('delegation-match-test') ||
+				swarmState.agentSessions.get('delegation-match-test') ||
+				(() => {
+					startAgentSession('delegation-match-test', 'architect');
+					return getAgentSession('delegation-match-test')!;
+				})();
 
 			session.architectWriteCount = 3;
 			session.lastCoderDelegationTaskId = 'Same Task';
 
 			// Same task ID as last coder delegation
-			const messages = makeMessages('TASK: Same Task', 'architect', 'delegation-match-test');
+			const messages = makeMessages(
+				'TASK: Same Task',
+				'architect',
+				'delegation-match-test',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
@@ -632,16 +652,23 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session with no architect writes (e.g., only .swarm/state.json updates)
-			const session = getAgentSession('no-writes-test') || swarmState.agentSessions.get('no-writes-test') || (() => {
-				startAgentSession('no-writes-test', 'architect');
-				return getAgentSession('no-writes-test')!;
-			})();
+			const session =
+				getAgentSession('no-writes-test') ||
+				swarmState.agentSessions.get('no-writes-test') ||
+				(() => {
+					startAgentSession('no-writes-test', 'architect');
+					return getAgentSession('no-writes-test')!;
+				})();
 
 			session.architectWriteCount = 0;
 			session.lastCoderDelegationTaskId = 'Plan Update Task';
 
 			// Task matches coder delegation (no warning expected)
-			const messages = makeMessages('TASK: Plan Update Task', 'architect', 'no-writes-test');
+			const messages = makeMessages(
+				'TASK: Plan Update Task',
+				'architect',
+				'no-writes-test',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
@@ -659,15 +686,22 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Session with architect writes
-			const session = getAgentSession('coder-delegation-test') || swarmState.agentSessions.get('coder-delegation-test') || (() => {
-				startAgentSession('coder-delegation-test', 'architect');
-				return getAgentSession('coder-delegation-test')!;
-			})();
+			const session =
+				getAgentSession('coder-delegation-test') ||
+				swarmState.agentSessions.get('coder-delegation-test') ||
+				(() => {
+					startAgentSession('coder-delegation-test', 'architect');
+					return getAgentSession('coder-delegation-test')!;
+				})();
 
 			session.architectWriteCount = 5;
 
 			// This IS a coder delegation message
-			const messages = makeMessages('coder\nTASK: Implement Feature\nFILE: src/feature.ts', 'architect', 'coder-delegation-test');
+			const messages = makeMessages(
+				'coder\nTASK: Implement Feature\nFILE: src/feature.ts',
+				'architect',
+				'coder-delegation-test',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);

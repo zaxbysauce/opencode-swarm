@@ -1,11 +1,13 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import { resetSwarmState, startAgentSession } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
 const TEST_DIR = '/tmp';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -56,7 +58,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf /');
 			const output = makeBashOutput('rm -rf /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 
 		test('rm -rf /important → BLOCKED', async () => {
@@ -64,7 +68,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf /important');
 			const output = makeBashOutput('rm -rf /important');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 
 		test('rm -rf src/ dist/ → BLOCKED (multiple paths, src/ is not safe)', async () => {
@@ -72,7 +78,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf src/ dist/');
 			const output = makeBashOutput('rm -rf src/ dist/');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 
 		test('rm -r -f / → BLOCKED (reversed flags)', async () => {
@@ -80,7 +88,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -r -f /');
 			const output = makeBashOutput('rm -r -f /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 
 		test('rm --recursive --force / → allowed (long-form flags not detected by current patterns)', async () => {
@@ -97,7 +107,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf node_modules/.cache');
 			const output = makeBashOutput('rm -rf node_modules/.cache');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 	});
 
@@ -107,7 +119,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'git push --force');
 			const output = makeBashOutput('git push --force');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Force push detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Force push detected/,
+			);
 		});
 
 		test('git push -f → BLOCKED', async () => {
@@ -115,7 +129,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'git push -f');
 			const output = makeBashOutput('git push -f');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Force push detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Force push detected/,
+			);
 		});
 
 		test('git reset --hard → BLOCKED', async () => {
@@ -123,7 +139,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'git reset --hard');
 			const output = makeBashOutput('git reset --hard');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: "git reset --hard" detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: "git reset --hard" detected/,
+			);
 		});
 
 		test('git reset --mixed HEAD~1 → BLOCKED', async () => {
@@ -131,7 +149,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'git reset --mixed HEAD~1');
 			const output = makeBashOutput('git reset --mixed HEAD~1');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: "git reset --mixed" with a target branch/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: "git reset --mixed" with a target branch/,
+			);
 		});
 	});
 
@@ -141,7 +161,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'kubectl delete pod app');
 			const output = makeBashOutput('kubectl delete pod app');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: "kubectl delete" detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: "kubectl delete" detected/,
+			);
 		});
 
 		test('docker system prune -af → BLOCKED', async () => {
@@ -149,7 +171,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'docker system prune -af');
 			const output = makeBashOutput('docker system prune -af');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: "docker system prune" detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: "docker system prune" detected/,
+			);
 		});
 	});
 
@@ -159,7 +183,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', ':(){:|:&};:');
 			const output = makeBashOutput(':(){:|:&};:');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command detected/,
+			);
 		});
 
 		test('Fork bomb standard :(){ :|:& };: → BLOCKED', async () => {
@@ -167,7 +193,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', ':(){ :|:& };:');
 			const output = makeBashOutput(':(){ :|:& };:');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command detected/,
+			);
 		});
 	});
 
@@ -219,9 +247,15 @@ describe('destructive command guard', () => {
 		test('rm -rf / blocked when tool is shell', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-			const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+			const input = {
+				tool: 'shell',
+				sessionID: 'test-session',
+				callID: 'call-1',
+			};
 			const output = makeBashOutput('rm -rf /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Potentially destructive shell command/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Potentially destructive shell command/,
+			);
 		});
 	});
 
@@ -231,7 +265,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'DROP TABLE users');
 			const output = makeBashOutput('DROP TABLE users');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: SQL DROP command detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: SQL DROP command detected/,
+			);
 		});
 
 		test('DROP DATABASE → BLOCKED', async () => {
@@ -239,7 +275,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'DROP DATABASE production');
 			const output = makeBashOutput('DROP DATABASE production');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: SQL DROP command detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: SQL DROP command detected/,
+			);
 		});
 
 		test('TRUNCATE TABLE → BLOCKED', async () => {
@@ -247,7 +285,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'TRUNCATE TABLE orders');
 			const output = makeBashOutput('TRUNCATE TABLE orders');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: SQL TRUNCATE command detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: SQL TRUNCATE command detected/,
+			);
 		});
 	});
 
@@ -257,7 +297,9 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'mkfs.ext4 /dev/sda1');
 			const output = makeBashOutput('mkfs.ext4 /dev/sda1');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED: Disk format command \(mkfs\) detected/);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/BLOCKED: Disk format command \(mkfs\) detected/,
+			);
 		});
 	});
 });

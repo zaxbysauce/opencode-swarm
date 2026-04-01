@@ -5,12 +5,12 @@
  * language IDs are handled gracefully without crashing or exposing security vulnerabilities.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
-	loadGrammar,
-	isGrammarAvailable,
 	clearParserCache,
 	getSupportedLanguages,
+	isGrammarAvailable,
+	loadGrammar,
 } from '../../../src/lang/runtime';
 
 describe('runtime.ts - LANGUAGE_WASM_MAP Adversarial Tests', () => {
@@ -347,7 +347,8 @@ describe('runtime.ts - LANGUAGE_WASM_MAP Adversarial Tests', () => {
 	describe('getSupportedLanguages Integrity', () => {
 		it('should not be affected by prototype pollution on Object.prototype', () => {
 			// Attempt to pollute prototype
-			(Object.prototype as any).maliciousLanguage = 'tree-sitter-malicious.wasm';
+			(Object.prototype as any).maliciousLanguage =
+				'tree-sitter-malicious.wasm';
 
 			const languages = getSupportedLanguages();
 

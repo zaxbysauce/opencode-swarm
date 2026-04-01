@@ -4,11 +4,14 @@
  * Tests both recordSteeringConsumed and createSteeringConsumedHook functions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { recordSteeringConsumed, createSteeringConsumedHook } from '../../../src/hooks/steering-consumed.js';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	createSteeringConsumedHook,
+	recordSteeringConsumed,
+} from '../../../src/hooks/steering-consumed.js';
 
 describe('recordSteeringConsumed', () => {
 	let tempDir: string;
@@ -66,7 +69,9 @@ describe('recordSteeringConsumed', () => {
 
 		// Validate ISO 8601 timestamp format
 		expect(() => new Date(event.timestamp)).not.toThrow();
-		expect(event.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+		expect(event.timestamp).toMatch(
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+		);
 	});
 
 	it('should NOT throw on missing .swarm directory (silently swallows)', () => {
@@ -136,7 +141,10 @@ describe('recordSteeringConsumed', () => {
 		expect(lines.length).toBe(2);
 		expect(lines[0]).toContain('other-event');
 
-		const newEvent = JSON.parse(lines[1]) as { type: string; directiveId: string };
+		const newEvent = JSON.parse(lines[1]) as {
+			type: string;
+			directiveId: string;
+		};
 		expect(newEvent.type).toBe('steering-consumed');
 		expect(newEvent.directiveId).toBe('dir-append');
 	});

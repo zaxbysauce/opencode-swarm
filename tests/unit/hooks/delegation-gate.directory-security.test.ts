@@ -10,10 +10,11 @@
  * - Malformed directory inputs
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { readTaskEvidence } from '../../../src/gate-evidence';
 import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
 import {
 	ensureAgentSession,
@@ -21,7 +22,6 @@ import {
 	startAgentSession,
 	swarmState,
 } from '../../../src/state';
-import { readTaskEvidence } from '../../../src/gate-evidence';
 
 const testConfig = {
 	hooks: { delegation_gate: true },
@@ -108,7 +108,13 @@ describe('ADVERSARIAL: fallback evidence directory security', () => {
 	 */
 	it('2. path traversal attempt via directory param is blocked or contained', async () => {
 		// Attempt path traversal - try to escape to /tmp or parent
-		const maliciousDir = path.join(projectDir, '..', '..', 'tmp', `escape-${Date.now()}`);
+		const maliciousDir = path.join(
+			projectDir,
+			'..',
+			'..',
+			'tmp',
+			`escape-${Date.now()}`,
+		);
 		mkdirSync(maliciousDir, { recursive: true });
 
 		const hook = createDelegationGateHook(testConfig, maliciousDir);
@@ -136,7 +142,9 @@ describe('ADVERSARIAL: fallback evidence directory security', () => {
 
 		// For defense-in-depth: Check that evidence is also NOT in random system locations
 		// The key security check: we should NOT have written to arbitrary system paths
-		expect(existsSync(path.join('/etc/passwd', '.swarm', 'evidence', '1.2.json'))).toBe(false);
+		expect(
+			existsSync(path.join('/etc/passwd', '.swarm', 'evidence', '1.2.json')),
+		).toBe(false);
 	});
 
 	/**
@@ -435,7 +443,13 @@ describe('ADVERSARIAL: fallback evidence directory security', () => {
 			);
 
 			// Should have logged a warning
-			expect(warnMessages.some((m) => m.includes('evidence recording failed') || m.includes('evidence write failed'))).toBe(true);
+			expect(
+				warnMessages.some(
+					(m) =>
+						m.includes('evidence recording failed') ||
+						m.includes('evidence write failed'),
+				),
+			).toBe(true);
 		} finally {
 			console.warn = originalWarn;
 			rmSync(readOnlyDir, { recursive: true, force: true });

@@ -1,21 +1,20 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
+import * as path from 'node:path';
+import { recordGateEvidence } from '../../../src/gate-evidence';
 import {
-	resetTelemetryForTesting,
+	advanceTaskState,
+	beginInvocation,
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+} from '../../../src/state';
+import {
 	addTelemetryListener,
 	initTelemetry,
+	resetTelemetryForTesting,
 } from '../../../src/telemetry';
-import {
-	startAgentSession,
-	ensureAgentSession,
-	beginInvocation,
-	advanceTaskState,
-	resetSwarmState,
-} from '../../../src/state';
-import { recordGateEvidence } from '../../../src/gate-evidence';
 
 describe('telemetry wiring in state.ts', () => {
 	let sharedTempDir: string;
@@ -286,7 +285,12 @@ describe('telemetry wiring in state.ts', () => {
 
 			await recordGateEvidence(tempDir, taskId, gate, sessionId);
 
-			const evidencePath = path.join(tempDir, '.swarm', 'evidence', `${taskId}.json`);
+			const evidencePath = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				`${taskId}.json`,
+			);
 			expect(fs.existsSync(evidencePath)).toBe(true);
 
 			const content = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));

@@ -1,17 +1,17 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	type AgentSessionState,
 	rehydrateSessionFromDisk,
 	startAgentSession,
 	swarmState,
-	type AgentSessionState,
 } from '../../src/state';
 
 /**
  * Adversarial security tests for rehydrateSessionFromDisk in src/state.ts
- * 
+ *
  * Attack vectors tested:
  * 1. Malformed durable state (invalid JSON, wrong schema)
  * 2. Invalid evidence filenames (path traversal, special chars, null bytes)
@@ -25,7 +25,10 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 	let testSessionId: string;
 
 	// Helper to create plan.json content - matches the format in src/state.rehydrate.test.ts
-	function writePlan(tasks: Array<{ id: string; status: string }>, phases = 1): void {
+	function writePlan(
+		tasks: Array<{ id: string; status: string }>,
+		phases = 1,
+	): void {
 		// Parse phase number from task id (e.g., "1.1" -> phase 1)
 		const getPhase = (taskId: string): number => {
 			const dotIndex = taskId.indexOf('.');
@@ -53,7 +56,10 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 					})),
 			})),
 		};
-		writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+		writeFileSync(
+			path.join(tmpDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan),
+		);
 	}
 
 	// Helper to create evidence file
@@ -86,7 +92,7 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 	beforeEach(() => {
 		// Clean any existing state
 		swarmState.agentSessions.clear();
-		
+
 		// Create test directory structure
 		tmpDir = mkdtempSync(path.join(os.tmpdir(), 'rehydrate-adversarial-'));
 		mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
@@ -112,7 +118,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(planPath, '{{{{ invalid', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.size).toBe(0);
 		});
 
@@ -121,7 +129,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(planPath, '   \n\t   ', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.size).toBe(0);
 		});
 
@@ -131,7 +141,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(planPath, JSON.stringify({ phases: [] }), 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should be non-fatal, taskWorkflowStates remains empty
 			expect(session.taskWorkflowStates?.size).toBe(0);
 		});
@@ -141,7 +153,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(planPath, 'null', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.size).toBe(0);
 		});
 
@@ -150,7 +164,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(planPath, '["not", "a", "plan"]', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.size).toBe(0);
 		});
 	});
@@ -162,7 +178,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(evidencePath, '{{malformed', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Falls back to plan state
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -173,7 +191,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(evidencePath, 'null', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -183,7 +203,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writeFileSync(evidencePath, '["not", "an", "object"]', 'utf-8');
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -197,7 +219,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should fall back to plan state (evidence skipped due to type mismatch)
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -212,7 +236,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -225,7 +251,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -238,7 +266,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 	});
@@ -258,7 +288,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Falls back to plan state
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -273,7 +305,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -287,7 +321,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Falls back to plan state because taskId doesn't match regex
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -302,7 +338,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -316,7 +354,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -330,7 +370,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 	});
@@ -345,17 +387,23 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			// Create file in plan.json location (wrong) - but it won't be read
 			const wrongPath = path.join(tmpDir, '.swarm', 'plan.json');
 			// This overwrites the plan, so we need to rewrite plan after
-			writeFileSync(wrongPath, JSON.stringify({
-				taskId: '1.1',
-				required_gates: ['reviewer'],
-				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
-			}), 'utf-8');
+			writeFileSync(
+				wrongPath,
+				JSON.stringify({
+					taskId: '1.1',
+					required_gates: ['reviewer'],
+					gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
+				}),
+				'utf-8',
+			);
 
 			// Re-write valid plan after the evidence-in-plan-location attempt
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should use plan state (evidence in wrong location ignored)
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -364,14 +412,20 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 			// File with .JSON extension (uppercase) - should be skipped
 			const evidencePath = path.join(tmpDir, '.swarm', 'evidence', '1.1.JSON');
-			writeFileSync(evidencePath, JSON.stringify({
-				taskId: '1.1',
-				required_gates: ['reviewer'],
-				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
-			}), 'utf-8');
+			writeFileSync(
+				evidencePath,
+				JSON.stringify({
+					taskId: '1.1',
+					required_gates: ['reviewer'],
+					gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
+				}),
+				'utf-8',
+			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should fall back to plan state (only .json lowercase is read)
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -380,14 +434,20 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 			// File without .json extension - should be skipped
 			const evidencePath = path.join(tmpDir, '.swarm', 'evidence', '1.1');
-			writeFileSync(evidencePath, JSON.stringify({
-				taskId: '1.1',
-				required_gates: ['reviewer'],
-				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
-			}), 'utf-8');
+			writeFileSync(
+				evidencePath,
+				JSON.stringify({
+					taskId: '1.1',
+					required_gates: ['reviewer'],
+					gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
+				}),
+				'utf-8',
+			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 	});
@@ -428,9 +488,10 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
 			// Evidence shows only coder passed (weaker than reviewer_run)
-			writeEvidence('1.1',
+			writeEvidence(
+				'1.1',
 				{ coder: { sessionId: 's1', timestamp: 't1', agent: 'c' } },
-				['reviewer', 'test_engineer']
+				['reviewer', 'test_engineer'],
 			);
 
 			await rehydrateSessionFromDisk(tmpDir, session);
@@ -443,14 +504,18 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			const session = createTestSession();
 			session.taskWorkflowStates?.set('1.1', 'complete');
 
-			writePlan([{ id: '1.1', status: 'pending' }, { id: '1.2', status: 'pending' }]);
+			writePlan([
+				{ id: '1.1', status: 'pending' },
+				{ id: '1.2', status: 'pending' },
+			]);
 
 			// Evidence for a DIFFERENT taskId - should not affect 1.1
 			// Note: This evidence WILL be read for task 1.2
 			// When required_gates match gates exactly, state becomes 'complete'
-			writeEvidence('1.2',
+			writeEvidence(
+				'1.2',
 				{ reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
-				['reviewer']
+				['reviewer'],
 			);
 
 			await rehydrateSessionFromDisk(tmpDir, session);
@@ -487,7 +552,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
 			// Create deeply nested object (DoS attempt)
-			let deeplyNested: any = { gate: { sessionId: 'x', timestamp: 'y', agent: 'z' } };
+			let deeplyNested: any = {
+				gate: { sessionId: 'x', timestamp: 'y', agent: 'z' },
+			};
 			for (let i = 0; i < 100; i++) {
 				deeplyNested = { nested: deeplyNested };
 			}
@@ -499,7 +566,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
 
@@ -507,7 +576,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
 			// Create huge array (10k elements)
-			const hugeArray = Array(10000).fill(null).map((_, i) => ({ index: i }));
+			const hugeArray = Array(10000)
+				.fill(null)
+				.map((_, i) => ({ index: i }));
 
 			writeEvidence('1.1', {
 				taskId: '1.1',
@@ -516,7 +587,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			});
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should fall back to plan state (invalid required_gates type)
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
 		});
@@ -529,13 +602,16 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			// Use helper with correct signature: writeEvidence(taskId, gates, required_gates)
 			// When required_gates matches gates exactly, it becomes complete
-			writeEvidence('1.1', 
+			writeEvidence(
+				'1.1',
 				{ reviewer: { sessionId: longString, timestamp: 'y', agent: 'z' } },
-				['reviewer']
+				['reviewer'],
 			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should handle gracefully - long strings are accepted
 			// When required_gates match, state is 'complete'
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
@@ -547,18 +623,21 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 			// JSON with __proto__ property - when parsed, should NOT pollute prototype
 			// Use helper with correct signature
 			// When required_gates matches gates exactly, it becomes complete
-			writeEvidence('1.1',
-				{ 
+			writeEvidence(
+				'1.1',
+				{
 					reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' },
 					// Attempt prototype pollution
 					__proto__: { pollution: 'attempt' },
-					constructor: { prototype: { pollution: 'attempt2' } }
+					constructor: { prototype: { pollution: 'attempt2' } },
 				},
-				['reviewer']
+				['reviewer'],
 			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should work normally - __proto__ is just another property after JSON.parse
 			// When all required_gates pass, state is 'complete'
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
@@ -569,15 +648,18 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			// Null in the gates object - use helper
 			// When required_gates matches gates exactly, it becomes complete
-			writeEvidence('1.1',
-				{ 
+			writeEvidence(
+				'1.1',
+				{
 					reviewer: { sessionId: null, timestamp: 'y', agent: 'z' },
 				},
-				['reviewer']
+				['reviewer'],
 			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// When all required_gates pass, state is 'complete'
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
 		});
@@ -585,15 +667,19 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 	describe('hostile plan payloads', () => {
 		it('should handle plan with huge array of phases', async () => {
-			const hugeTasks = Array(1000).fill(null).map((_, i) => ({
-				id: `${i}.1`,
-				status: 'pending'
-			}));
+			const hugeTasks = Array(1000)
+				.fill(null)
+				.map((_, i) => ({
+					id: `${i}.1`,
+					status: 'pending',
+				}));
 
 			writePlan(hugeTasks, 1000);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should handle and create states for all tasks
 			// Note: Might be slightly less due to how writePlan distributes tasks
 			expect(session.taskWorkflowStates?.size).toBeGreaterThanOrEqual(999);
@@ -610,24 +696,31 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 						id: 1,
 						name: 'Phase 1',
 						status: 'pending' as const,
-						tasks: [{
-							id: '1.1',
-							phase: 1,
-							description: 'Task 1.1',
-							status: 'pending',
-							size: 'small' as const,
-							depends: [],
-							files_touched: [],
-						}],
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								description: 'Task 1.1',
+								status: 'pending',
+								size: 'small' as const,
+								depends: [],
+								files_touched: [],
+							},
+						],
 					},
 					null as any,
 					undefined as any,
 				],
 			};
-			writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+			writeFileSync(
+				path.join(tmpDir, '.swarm', 'plan.json'),
+				JSON.stringify(plan),
+			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should still process valid phase - Zod may filter out null/undefined
 			expect(session.taskWorkflowStates?.size).toBeGreaterThanOrEqual(0);
 		});
@@ -637,25 +730,34 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 				schema_version: '1.0.0' as const,
 				title: 'Test Plan',
 				swarm: 'test',
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending' as const,
-					tasks: [{
-						id: '1.1',
-						phase: 1,
-						description: 'Task 1.1',
-						status: 'invalid_status' as any,
-						size: 'small' as const,
-						depends: [],
-						files_touched: [],
-					}],
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending' as const,
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								description: 'Task 1.1',
+								status: 'invalid_status' as any,
+								size: 'small' as const,
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			};
-			writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+			writeFileSync(
+				path.join(tmpDir, '.swarm', 'plan.json'),
+				JSON.stringify(plan),
+			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Invalid status may be handled gracefully or skip the task
 			expect(session.taskWorkflowStates?.size).toBeGreaterThanOrEqual(0);
 		});
@@ -665,17 +767,24 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 				schema_version: '1.0.0' as const,
 				title: 'Test Plan',
 				swarm: 'test',
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending' as const,
-					tasks: [{ id: '1.1' }] as any,
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending' as const,
+						tasks: [{ id: '1.1' }] as any,
+					},
+				],
 			};
-			writeFileSync(path.join(tmpDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+			writeFileSync(
+				path.join(tmpDir, '.swarm', 'plan.json'),
+				JSON.stringify(plan),
+			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should handle gracefully - Zod defaults may apply
 		});
 	});
@@ -693,7 +802,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// Should initialize taskWorkflowStates
 			expect(session.taskWorkflowStates).toBeDefined();
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
@@ -706,7 +817,9 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			writePlan([{ id: '1.1', status: 'in_progress' }]);
 
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			expect(session.taskWorkflowStates).toBeDefined();
 		});
 
@@ -725,7 +838,12 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 				// If it throws, that's also acceptable behavior for invalid input
 			}
 			// If no exception, taskWorkflowStates should be initialized to a Map
-			expect(session.taskWorkflowStates instanceof Map || session.taskWorkflowStates === undefined || session.taskWorkflowStates === null || typeof session.taskWorkflowStates === 'object').toBe(true);
+			expect(
+				session.taskWorkflowStates instanceof Map ||
+					session.taskWorkflowStates === undefined ||
+					session.taskWorkflowStates === null ||
+					typeof session.taskWorkflowStates === 'object',
+			).toBe(true);
 		});
 
 		it('should not affect other task states when rehydrating', async () => {
@@ -761,11 +879,14 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 		});
 
 		it('should handle deeply nested phase structure', async () => {
-			writePlan([
-				{ id: '1.1', status: 'in_progress' },
-				{ id: '1.2', status: 'completed' },
-				{ id: '2.1', status: 'blocked' },
-			], 2);
+			writePlan(
+				[
+					{ id: '1.1', status: 'in_progress' },
+					{ id: '1.2', status: 'completed' },
+					{ id: '2.1', status: 'blocked' },
+				],
+				2,
+			);
 
 			const session = createTestSession();
 			await rehydrateSessionFromDisk(tmpDir, session);
@@ -780,15 +901,18 @@ describe('rehydrateSessionFromDisk adversarial tests', () => {
 
 			// Use helper with correct signature
 			// Note: When required_gates match gates, it becomes 'complete'
-			writeEvidence('1.1',
-				{ 
+			writeEvidence(
+				'1.1',
+				{
 					reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' },
 				},
-				['reviewer']
+				['reviewer'],
 			);
 
 			const session = createTestSession();
-			await expect(rehydrateSessionFromDisk(tmpDir, session)).resolves.toBeUndefined();
+			await expect(
+				rehydrateSessionFromDisk(tmpDir, session),
+			).resolves.toBeUndefined();
 			// When required_gates all pass, it becomes complete
 			expect(session.taskWorkflowStates?.get('1.1')).toBe('complete');
 		});

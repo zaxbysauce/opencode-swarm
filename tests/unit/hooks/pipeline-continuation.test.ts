@@ -1,16 +1,25 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { stripKnownSwarmPrefix } from '../../../src/config/schema';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 /**
  * Tests for the pipeline continuation advisory injection in src/index.ts toolAfter.
- * 
+ *
  * After QA-gate agent (reviewer, test_engineer, critic, critic_sounding_board) Task
  * completions, a [PIPELINE] advisory is pushed to the session's pendingAdvisoryMessages
  * to prevent the architect from stalling on clean results.
  */
 
-const QA_GATE_AGENTS = ['reviewer', 'test_engineer', 'critic', 'critic_sounding_board'];
+const QA_GATE_AGENTS = [
+	'reviewer',
+	'test_engineer',
+	'critic',
+	'critic_sounding_board',
+];
 const NON_QA_AGENTS = ['coder', 'explorer', 'sme', 'docs', 'designer'];
 
 /**
@@ -21,7 +30,7 @@ const NON_QA_AGENTS = ['coder', 'explorer', 'sme', 'docs', 'designer'];
 function simulateAdvisoryInjection(sessionId: string, agentName: string) {
 	const session = swarmState.agentSessions.get(sessionId);
 	if (!session) return;
-	
+
 	const baseAgentName = stripKnownSwarmPrefix(agentName);
 	if (
 		baseAgentName === 'reviewer' ||
@@ -32,8 +41,8 @@ function simulateAdvisoryInjection(sessionId: string, agentName: string) {
 		session.pendingAdvisoryMessages ??= [];
 		session.pendingAdvisoryMessages.push(
 			`[PIPELINE] ${baseAgentName} delegation complete for task ${session.currentTaskId ?? 'unknown'}. ` +
-			`Resume the QA gate pipeline — check your task pipeline steps for the next required action. ` +
-			`Do not stop here.`,
+				`Resume the QA gate pipeline — check your task pipeline steps for the next required action. ` +
+				`Do not stop here.`,
 		);
 	}
 }
@@ -120,7 +129,9 @@ describe('Pipeline continuation advisory', () => {
 		expect(session.pendingAdvisoryMessages!.length).toBe(1);
 		// The advisory should use the stripped name, not the prefixed name
 		expect(session.pendingAdvisoryMessages![0]).toContain('test_engineer');
-		expect(session.pendingAdvisoryMessages![0]).not.toContain('mega_test_engineer');
+		expect(session.pendingAdvisoryMessages![0]).not.toContain(
+			'mega_test_engineer',
+		);
 	});
 
 	test('7. critic Task completion pushes pipeline advisory', () => {
@@ -146,7 +157,9 @@ describe('Pipeline continuation advisory', () => {
 		const session = swarmState.agentSessions.get(sessionId)!;
 		expect(session.pendingAdvisoryMessages!.length).toBe(1);
 		expect(session.pendingAdvisoryMessages![0]).toContain('[PIPELINE]');
-		expect(session.pendingAdvisoryMessages![0]).toContain('critic_sounding_board');
+		expect(session.pendingAdvisoryMessages![0]).toContain(
+			'critic_sounding_board',
+		);
 	});
 
 	test('9. advisory uses "unknown" when currentTaskId is null', () => {
@@ -263,7 +276,9 @@ describe('Pipeline continuation advisory — adversarial', () => {
 		swarmState.activeAgent.set(sessionId, 'mega_reviewer');
 
 		// Should not throw
-		expect(() => simulateAdvisoryInjection(sessionId, 'mega_reviewer')).not.toThrow();
+		expect(() =>
+			simulateAdvisoryInjection(sessionId, 'mega_reviewer'),
+		).not.toThrow();
 
 		const advisories = session.pendingAdvisoryMessages!;
 		expect(advisories.length).toBe(1);
@@ -278,7 +293,9 @@ describe('Pipeline continuation advisory — adversarial', () => {
 		session.currentTaskId = 'X'.repeat(1024 * 1024); // 1MB task ID
 		swarmState.activeAgent.set(sessionId, 'mega_test_engineer');
 
-		expect(() => simulateAdvisoryInjection(sessionId, 'mega_test_engineer')).not.toThrow();
+		expect(() =>
+			simulateAdvisoryInjection(sessionId, 'mega_test_engineer'),
+		).not.toThrow();
 
 		const advisories = session.pendingAdvisoryMessages!;
 		expect(advisories.length).toBe(1);
@@ -348,7 +365,12 @@ describe('Pipeline continuation advisory — adversarial', () => {
 		ensureAgentSession(sessionId, 'architect');
 		const session = swarmState.agentSessions.get(sessionId)!;
 		session.currentTaskId = '5.5';
-		const agents = ['mega_reviewer', 'mega_test_engineer', 'mega_critic', 'mega_critic_sounding_board'];
+		const agents = [
+			'mega_reviewer',
+			'mega_test_engineer',
+			'mega_critic',
+			'mega_critic_sounding_board',
+		];
 
 		// Simulate 10 rapid completions from mixed agents
 		simulateAdvisoryInjection(sessionId, 'mega_reviewer');
@@ -439,6 +461,8 @@ describe('Pipeline continuation advisory — adversarial', () => {
 
 		expect(session.pendingAdvisoryMessages.length).toBe(2);
 		expect(session.pendingAdvisoryMessages![0]).toBe('[SLOP] existing warning');
-		expect(session.pendingAdvisoryMessages![1]).toContain('critic_sounding_board');
+		expect(session.pendingAdvisoryMessages![1]).toContain(
+			'critic_sounding_board',
+		);
 	});
 });

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	parseDependencyGraph,
 	getExecutionOrder,
+	parseDependencyGraph,
 } from '../../../src/parallel/dependency-graph.js';
 
 /**
@@ -23,7 +23,15 @@ beforeEach(() => {
 describe('Security: Dependency-Graph - Circular Dependencies', () => {
 	it('should handle circular dependency bomb (reduced nodes)', () => {
 		const circularPlanPath = path.join(TEST_DIR, 'plan.json');
-		const phases: Array<{ id: number; tasks: Array<{ id: string; description: string; depends: string[]; status: string }> }> = [];
+		const phases: Array<{
+			id: number;
+			tasks: Array<{
+				id: string;
+				description: string;
+				depends: string[];
+				status: string;
+			}>;
+		}> = [];
 
 		// Reduced from 100 to 30 tasks
 		for (let i = 0; i < 30; i++) {
@@ -78,7 +86,12 @@ describe('Security: Dependency-Graph - Circular Dependencies', () => {
 
 	it('should handle deep dependency chain without stack overflow', () => {
 		const deepPlanPath = path.join(TEST_DIR, 'deep-plan.json');
-		const tasks: Array<{ id: string; description: string; depends: string[]; status: string }> = [];
+		const tasks: Array<{
+			id: string;
+			description: string;
+			depends: string[];
+			status: string;
+		}> = [];
 
 		// Reduced from 500 to 200
 		for (let i = 0; i < 200; i++) {
@@ -195,7 +208,10 @@ describe('Security: Dependency-Graph - Malformed JSON', () => {
 	});
 
 	it('should handle plan.json with invalid status values', () => {
-		const invalidStatusPlanPath = path.join(TEST_DIR, 'invalid-status-plan.json');
+		const invalidStatusPlanPath = path.join(
+			TEST_DIR,
+			'invalid-status-plan.json',
+		);
 		const plan = {
 			phases: [
 				{

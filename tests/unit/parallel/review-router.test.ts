@@ -3,17 +3,17 @@
  * Covers computeComplexity, routeReview, and high complexity detection
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	type ComplexityMetrics,
 	computeComplexity,
+	type ReviewRouting,
 	routeReview,
 	routeReviewForChanges,
 	shouldParallelizeReview,
-	type ComplexityMetrics,
-	type ReviewRouting,
 } from '../../../src/parallel/review-router';
 
 describe('review-router module tests', () => {
@@ -36,12 +36,15 @@ describe('review-router module tests', () => {
 		it('calculates metrics for TypeScript files', async () => {
 			// Create a TypeScript file with functions
 			const testFile = path.join(tmpDir, 'test.ts');
-			fs.writeFileSync(testFile, `
+			fs.writeFileSync(
+				testFile,
+				`
 function firstFunc() { return 1; }
 function secondFunc() { return 2; }
 function thirdFunc() { return 3; }
 export function main() { return firstFunc(); }
-`);
+`,
+			);
 
 			const metrics = await computeComplexity(tmpDir, ['test.ts']);
 
@@ -53,7 +56,9 @@ export function main() { return firstFunc(); }
 
 		it('calculates metrics for Python files', async () => {
 			const testFile = path.join(tmpDir, 'test.py');
-			fs.writeFileSync(testFile, `
+			fs.writeFileSync(
+				testFile,
+				`
 def first_func():
     pass
 
@@ -63,7 +68,8 @@ def second_func():
 class MyClass:
     def method(self):
         pass
-`);
+`,
+			);
 
 			const metrics = await computeComplexity(tmpDir, ['test.py']);
 
@@ -89,8 +95,14 @@ class MyClass:
 		});
 
 		it('accumulates metrics across multiple files', async () => {
-			fs.writeFileSync(path.join(tmpDir, 'file1.ts'), 'function a() {} function b() {}');
-			fs.writeFileSync(path.join(tmpDir, 'file2.ts'), 'function c() {} function d() {} function e() {}');
+			fs.writeFileSync(
+				path.join(tmpDir, 'file1.ts'),
+				'function a() {} function b() {}',
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'file2.ts'),
+				'function c() {} function d() {} function e() {}',
+			);
 
 			const metrics = await computeComplexity(tmpDir, ['file1.ts', 'file2.ts']);
 
@@ -216,7 +228,10 @@ class MyClass:
 	// ========== GROUP 4: routeReviewForChanges integration test ==========
 	describe('Group 4: routeReviewForChanges integration', () => {
 		it('computes and routes in one call', async () => {
-			fs.writeFileSync(path.join(tmpDir, 'test.ts'), 'function a() {} function b() {}');
+			fs.writeFileSync(
+				path.join(tmpDir, 'test.ts'),
+				'function a() {} function b() {}',
+			);
 
 			const routing = await routeReviewForChanges(tmpDir, ['test.ts']);
 

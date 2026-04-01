@@ -14,7 +14,7 @@
  * 6. Tool count matches AGENT_TOOL_MAP.architect.length
  */
 
-import { describe, it, expect, beforeAll } from 'bun:test';
+import { beforeAll, describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect.js';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants.js';
 
@@ -49,9 +49,14 @@ describe('YOUR TOOLS generation from AGENT_TOOL_MAP', () => {
 		const yourToolsSection = yourToolsMatch![1];
 
 		// Remove prefix, split by comma+space, trim trailing period
-		const afterPrefix = yourToolsSection.replace('Task (delegation),', '').trim();
+		const afterPrefix = yourToolsSection
+			.replace('Task (delegation),', '')
+			.trim();
 		const toolsStr = afterPrefix.replace(/\.\s*$/, ''); // remove trailing period
-		const tools = toolsStr.split(',').map((t) => t.trim()).filter(Boolean);
+		const tools = toolsStr
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
 
 		expect(tools.length).toBe(ARCHITECT_TOOL_COUNT);
 	});
@@ -61,9 +66,14 @@ describe('YOUR TOOLS generation from AGENT_TOOL_MAP', () => {
 		expect(yourToolsMatch).not.toBeNull();
 		const yourToolsSection = yourToolsMatch![1];
 
-		const afterPrefix = yourToolsSection.replace('Task (delegation),', '').trim();
+		const afterPrefix = yourToolsSection
+			.replace('Task (delegation),', '')
+			.trim();
 		const toolsStr = afterPrefix.replace(/\.\s*$/, '');
-		const tools = toolsStr.split(',').map((t) => t.trim()).filter(Boolean);
+		const tools = toolsStr
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
 
 		const sorted = [...tools].sort();
 		expect(tools).toEqual(sorted);
@@ -88,25 +98,33 @@ describe('Available Tools generation from AGENT_TOOL_MAP', () => {
 
 	it('tool count matches AGENT_TOOL_MAP.architect.length', () => {
 		// Extract Available Tools line
-		const availableToolsMatch = resolvedPrompt.match(/^Available Tools: (.+?)$/m);
+		const availableToolsMatch = resolvedPrompt.match(
+			/^Available Tools: (.+?)$/m,
+		);
 		expect(availableToolsMatch).not.toBeNull();
 		const availableToolsContent = availableToolsMatch![1];
 
 		// Use regex to extract tool names - handles descriptions with commas
 		// Match: word characters (tool name) optionally followed by (description)
-		const toolMatches = availableToolsContent.matchAll(/(\w+)(?:\s*\([^)]*\))?/g);
+		const toolMatches = availableToolsContent.matchAll(
+			/(\w+)(?:\s*\([^)]*\))?/g,
+		);
 		const tools = [...toolMatches].map((m) => m[1]).filter(Boolean);
 
 		expect(tools.length).toBe(ARCHITECT_TOOL_COUNT);
 	});
 
 	it('tools are sorted alphabetically', () => {
-		const availableToolsMatch = resolvedPrompt.match(/^Available Tools: (.+?)$/m);
+		const availableToolsMatch = resolvedPrompt.match(
+			/^Available Tools: (.+?)$/m,
+		);
 		expect(availableToolsMatch).not.toBeNull();
 		const availableToolsContent = availableToolsMatch![1];
 
 		// Use regex to extract tool names - handles descriptions with commas
-		const toolMatches = availableToolsContent.matchAll(/(\w+)(?:\s*\([^)]*\))?/g);
+		const toolMatches = availableToolsContent.matchAll(
+			/(\w+)(?:\s*\([^)]*\))?/g,
+		);
 		const tools = [...toolMatches].map((m) => m[1]).filter(Boolean);
 
 		const sorted = [...tools].sort();
@@ -120,16 +138,25 @@ describe('Single source of truth verification', () => {
 		const yourToolsMatch = resolvedPrompt.match(/^YOUR TOOLS: (.+?)$/m);
 		expect(yourToolsMatch).not.toBeNull();
 		const yourToolsSection = yourToolsMatch![1];
-		const afterPrefix = yourToolsSection.replace('Task (delegation),', '').trim();
+		const afterPrefix = yourToolsSection
+			.replace('Task (delegation),', '')
+			.trim();
 		const yourToolsStr = afterPrefix.replace(/\.\s*$/, '');
-		const yourTools = yourToolsStr.split(',').map((t) => t.trim()).filter(Boolean);
+		const yourTools = yourToolsStr
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
 
 		// Extract Available Tools line
-		const availableToolsMatch = resolvedPrompt.match(/^Available Tools: (.+?)$/m);
+		const availableToolsMatch = resolvedPrompt.match(
+			/^Available Tools: (.+?)$/m,
+		);
 		expect(availableToolsMatch).not.toBeNull();
 		const availableToolsContent = availableToolsMatch![1];
 		// Use regex to extract tool names - handles descriptions with commas
-		const toolMatches = availableToolsContent.matchAll(/(\w+)(?:\s*\([^)]*\))?/g);
+		const toolMatches = availableToolsContent.matchAll(
+			/(\w+)(?:\s*\([^)]*\))?/g,
+		);
 		const availableTools = [...toolMatches].map((m) => m[1]).filter(Boolean);
 
 		expect(yourTools.length).toBe(ARCHITECT_TOOL_COUNT);
@@ -141,7 +168,7 @@ describe('Single source of truth verification', () => {
 		// changes, the count test will fail until the prompt is regenerated.
 		// We verify the mechanism is correct by confirming all current tools are present.
 		const allPresent = AGENT_TOOL_MAP['architect'].every((tool) =>
-			resolvedPrompt.includes(tool)
+			resolvedPrompt.includes(tool),
 		);
 		expect(allPresent).toBe(true);
 	});

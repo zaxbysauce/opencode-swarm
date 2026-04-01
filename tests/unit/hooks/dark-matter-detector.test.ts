@@ -4,14 +4,14 @@
  * Tests parseDarkMatterGaps, readDarkMatterMd, and createDarkMatterDetectorHook functions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	createDarkMatterDetectorHook,
 	parseDarkMatterGaps,
 	readDarkMatterMd,
-	createDarkMatterDetectorHook,
 } from '../../../src/hooks/dark-matter-detector.js';
 
 describe('parseDarkMatterGaps', () => {

@@ -16,7 +16,7 @@
  * 8. Double-disable: validation failure + explicit disable
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -27,18 +27,18 @@ import {
 } from '../../../src/config/loader';
 import {
 	GuardrailsConfigSchema,
-	stripKnownSwarmPrefix,
 	resolveGuardrailsConfig,
+	stripKnownSwarmPrefix,
 } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
+	beginInvocation,
 	ensureAgentSession,
 	getActiveWindow,
-	beginInvocation,
 	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../../src/state';
 
 describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
@@ -224,10 +224,7 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 
 				// Verify that 'coder' does NOT get malicious_agent profile
 				// (profile name doesn't match any known agent)
-				const resolved = resolveGuardrailsConfig(
-					config.guardrails!,
-					'coder',
-				);
+				const resolved = resolveGuardrailsConfig(config.guardrails!, 'coder');
 				// Coder should get built-in profile (400), not malicious_agent (1000)
 				expect(resolved.max_tool_calls).toBe(400); // Built-in coder default
 			} finally {
@@ -305,9 +302,9 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			expect(swarmState.activeAgent.get('architect-session')).toBe(
 				ORCHESTRATOR_NAME,
 			);
-			expect(
-				swarmState.agentSessions.get('architect-session')?.agentName,
-			).toBe(ORCHESTRATOR_NAME);
+			expect(swarmState.agentSessions.get('architect-session')?.agentName).toBe(
+				ORCHESTRATOR_NAME,
+			);
 		});
 
 		it('startAgentSession("architect") creates exempt session (no window)', async () => {
@@ -356,9 +353,9 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			);
 
 			// Session should also store the original name
-			expect(
-				swarmState.agentSessions.get('prefixed-session')?.agentName,
-			).toBe('mega_architect');
+			expect(swarmState.agentSessions.get('prefixed-session')?.agentName).toBe(
+				'mega_architect',
+			);
 		});
 
 		it('stripKnownSwarmPrefix("mega_architect") returns "architect"', () => {
@@ -589,7 +586,10 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 				expect(config.guardrails?.enabled).toBe(true);
 
 				// Simulate the index.ts fallback logic
-				const guardrailsFallback: { enabled?: boolean; [key: string]: unknown } =
+				const guardrailsFallback: {
+					enabled?: boolean;
+					[key: string]: unknown;
+				} =
 					config.guardrails?.enabled === false
 						? { ...config.guardrails, enabled: false }
 						: loadedFromFile
@@ -818,13 +818,21 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			// Verify session 1 only has lint
 			// Current behavior: when currentTaskId is null, key is "${sessionId}:unknown"
 			const session1 = swarmState.agentSessions.get('session-1');
-			expect(session1?.gateLog.get('session-1:unknown')?.has('lint')).toBe(true);
-			expect(session1?.gateLog.get('session-1:unknown')?.has('diff')).toBe(false);
+			expect(session1?.gateLog.get('session-1:unknown')?.has('lint')).toBe(
+				true,
+			);
+			expect(session1?.gateLog.get('session-1:unknown')?.has('diff')).toBe(
+				false,
+			);
 
 			// Verify session 2 only has diff
 			const session2 = swarmState.agentSessions.get('session-2');
-			expect(session2?.gateLog.get('session-2:unknown')?.has('diff')).toBe(true);
-			expect(session2?.gateLog.get('session-2:unknown')?.has('lint')).toBe(false);
+			expect(session2?.gateLog.get('session-2:unknown')?.has('diff')).toBe(
+				true,
+			);
+			expect(session2?.gateLog.get('session-2:unknown')?.has('lint')).toBe(
+				false,
+			);
 		});
 
 		it('ATTACK: gate failure state cleared after successful gate', async () => {
@@ -938,7 +946,13 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			startAgentSession('all-gates', ORCHESTRATOR_NAME);
 
 			// Run ALL required gates
-			const requiredGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'];
+			const requiredGates = [
+				'diff',
+				'syntax_check',
+				'placeholder_scan',
+				'lint',
+				'pre_check_batch',
+			];
 			for (let i = 0; i < requiredGates.length; i++) {
 				await hooks.toolAfter(
 					{ tool: requiredGates[i], sessionID: 'all-gates', callID: `c${i}` },
@@ -980,7 +994,11 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			const partialGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint'];
 			for (let i = 0; i < partialGates.length; i++) {
 				await hooks.toolAfter(
-					{ tool: partialGates[i], sessionID: 'missing-one-gate', callID: `c${i}` },
+					{
+						tool: partialGates[i],
+						sessionID: 'missing-one-gate',
+						callID: `c${i}`,
+					},
 					{ title: partialGates[i], output: 'ok', metadata: {} },
 				);
 			}
@@ -1017,7 +1035,13 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			startAgentSession('no-reviewer', ORCHESTRATOR_NAME);
 
 			// Run all required gates
-			const requiredGates = ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'];
+			const requiredGates = [
+				'diff',
+				'syntax_check',
+				'placeholder_scan',
+				'lint',
+				'pre_check_batch',
+			];
 			for (let i = 0; i < requiredGates.length; i++) {
 				await hooks.toolAfter(
 					{ tool: requiredGates[i], sessionID: 'no-reviewer', callID: `c${i}` },
@@ -1051,8 +1075,16 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			startAgentSession('gates-passed-false', ORCHESTRATOR_NAME);
 
 			await hooks.toolAfter(
-				{ tool: 'pre_check_batch', sessionID: 'gates-passed-false', callID: 'c1' },
-				{ title: 'pre_check_batch', output: '{"gates_passed": false, "errors": []}', metadata: {} },
+				{
+					tool: 'pre_check_batch',
+					sessionID: 'gates-passed-false',
+					callID: 'c1',
+				},
+				{
+					title: 'pre_check_batch',
+					output: '{"gates_passed": false, "errors": []}',
+					metadata: {},
+				},
 			);
 
 			const session = swarmState.agentSessions.get('gates-passed-false');
@@ -1069,8 +1101,16 @@ describe('v6.1.2 Guardrails — ADVERSARIAL SECURITY TESTS', () => {
 			startAgentSession('gates-passed-lowercase', ORCHESTRATOR_NAME);
 
 			await hooks.toolAfter(
-				{ tool: 'pre_check_batch', sessionID: 'gates-passed-lowercase', callID: 'c1' },
-				{ title: 'pre_check_batch', output: 'GATES_PASSED: FALSE', metadata: {} },
+				{
+					tool: 'pre_check_batch',
+					sessionID: 'gates-passed-lowercase',
+					callID: 'c1',
+				},
+				{
+					title: 'pre_check_batch',
+					output: 'GATES_PASSED: FALSE',
+					metadata: {},
+				},
 			);
 
 			const session = swarmState.agentSessions.get('gates-passed-lowercase');

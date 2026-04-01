@@ -1,7 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = '/test/project';
 
@@ -14,7 +18,13 @@ const defaultConfig: GuardrailsConfig = {
 	warning_threshold: 0.75,
 	idle_timeout_minutes: 60,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -47,7 +57,9 @@ describe('guardrails loop detection', () => {
 		const input = { tool: 'bash', sessionID: sessionId, callID: 'call-1' };
 		const output = { args: { command: 'ls -la' } };
 
-		await expect(hooks.toolBefore(input as any, output as any)).resolves.toBeUndefined();
+		await expect(
+			hooks.toolBefore(input as any, output as any),
+		).resolves.toBeUndefined();
 
 		const session = swarmState.agentSessions.get(sessionId);
 		expect(session?.loopWarningPending).toBeUndefined();
@@ -110,15 +122,17 @@ describe('guardrails loop detection', () => {
 			const input = { tool: 'Task', sessionID: sessionId, callID: `call-${i}` };
 			const output = { args };
 			// First 4 should not throw
-			await expect(hooks.toolBefore(input as any, output as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.toolBefore(input as any, output as any),
+			).resolves.toBeUndefined();
 		}
 
 		// 5th should throw
 		const input5 = { tool: 'Task', sessionID: sessionId, callID: 'call-5' };
 		const output5 = { args };
-		await expect(hooks.toolBefore(input5 as any, output5 as any)).rejects.toThrow(
-			'CIRCUIT BREAKER',
-		);
+		await expect(
+			hooks.toolBefore(input5 as any, output5 as any),
+		).rejects.toThrow('CIRCUIT BREAKER');
 	});
 
 	// -------------------------------------------------------------------------
@@ -144,9 +158,15 @@ describe('guardrails loop detection', () => {
 		];
 
 		for (const inp of inputs) {
-			const input = { tool: inp.tool, sessionID: inp.sessionID, callID: inp.callID };
+			const input = {
+				tool: inp.tool,
+				sessionID: inp.sessionID,
+				callID: inp.callID,
+			};
 			const output = { args: inp.args };
-			await expect(hooks.toolBefore(input as any, output as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.toolBefore(input as any, output as any),
+			).resolves.toBeUndefined();
 		}
 
 		const session = swarmState.agentSessions.get(sessionId);
@@ -165,7 +185,8 @@ describe('guardrails loop detection', () => {
 		const session = swarmState.agentSessions.get(sessionId)!;
 		session.loopWarningPending = {
 			agent: 'coder',
-			message: 'LOOP DETECTED: You have delegated to coder with the same pattern 3 times.',
+			message:
+				'LOOP DETECTED: You have delegated to coder with the same pattern 3 times.',
 			timestamp: Date.now(),
 		};
 
@@ -187,7 +208,10 @@ describe('guardrails loop detection', () => {
 		await hooks.messagesTransform({}, output as any);
 
 		// Check warning was injected into system message
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toContain('[LOOP WARNING]');
 		expect(textPart.text).toContain('LOOP DETECTED');
 
@@ -226,7 +250,10 @@ describe('guardrails loop detection', () => {
 		).resolves.toBeUndefined();
 
 		// LOOP WARNING should NOT be present (only checking loop detection behavior)
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).not.toContain('[LOOP WARNING]');
 	});
 
@@ -243,7 +270,8 @@ describe('guardrails loop detection', () => {
 		const session = swarmState.agentSessions.get(sessionId)!;
 		session.loopWarningPending = {
 			agent: 'test_engineer',
-			message: 'LOOP DETECTED: You have delegated to test_engineer with the same pattern 3 times.',
+			message:
+				'LOOP DETECTED: You have delegated to test_engineer with the same pattern 3 times.',
 			timestamp: Date.now(),
 		};
 
@@ -265,7 +293,10 @@ describe('guardrails loop detection', () => {
 		await hooks.messagesTransform({}, output as any);
 
 		// Message should be unchanged (no architect = no injection)
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toBe('You are a coder agent.');
 
 		// Flag should NOT be cleared because injection didn't happen
@@ -294,7 +325,9 @@ describe('guardrails loop detection', () => {
 		expect(session?.loopWarningPending?.message).toContain('LOOP DETECTED');
 		expect(session?.loopWarningPending?.agent).toBe('coder');
 		// Message should reference count >= 3 (not just "3 times")
-		expect(session?.loopWarningPending?.message).toMatch(/3 times|4 times|repeated/);
+		expect(session?.loopWarningPending?.message).toMatch(
+			/3 times|4 times|repeated/,
+		);
 	});
 
 	// -------------------------------------------------------------------------
@@ -331,13 +364,17 @@ describe('guardrails loop detection', () => {
 			const output = { args };
 			await hooks.toolBefore(input as any, output as any);
 		}
-		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeUndefined();
+		expect(
+			swarmState.agentSessions.get(sessionId)?.loopWarningPending,
+		).toBeUndefined();
 
 		// Call 3: warning fires
 		const input3 = { tool: 'Task', sessionID: sessionId, callID: 'call-3' };
 		const output3 = { args };
 		await hooks.toolBefore(input3 as any, output3 as any);
-		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeDefined();
+		expect(
+			swarmState.agentSessions.get(sessionId)?.loopWarningPending,
+		).toBeDefined();
 
 		// Clear the warning to test count=4
 		swarmState.agentSessions.get(sessionId)!.loopWarningPending = undefined;
@@ -346,7 +383,9 @@ describe('guardrails loop detection', () => {
 		const input4 = { tool: 'Task', sessionID: sessionId, callID: 'call-4' };
 		const output4 = { args };
 		await hooks.toolBefore(input4 as any, output4 as any);
-		expect(swarmState.agentSessions.get(sessionId)?.loopWarningPending).toBeDefined();
+		expect(
+			swarmState.agentSessions.get(sessionId)?.loopWarningPending,
+		).toBeDefined();
 
 		// Clear the warning to test count=5 block
 		swarmState.agentSessions.get(sessionId)!.loopWarningPending = undefined;
@@ -354,8 +393,8 @@ describe('guardrails loop detection', () => {
 		// Call 5: hard block
 		const input5 = { tool: 'Task', sessionID: sessionId, callID: 'call-5' };
 		const output5 = { args };
-		await expect(hooks.toolBefore(input5 as any, output5 as any)).rejects.toThrow(
-			'CIRCUIT BREAKER',
-		);
+		await expect(
+			hooks.toolBefore(input5 as any, output5 as any),
+		).rejects.toThrow('CIRCUIT BREAKER');
 	});
 });

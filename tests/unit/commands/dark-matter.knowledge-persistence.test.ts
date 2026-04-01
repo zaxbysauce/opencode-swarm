@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import type { CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
 
 // Mock the co-change-analyzer module with all needed exports
@@ -8,7 +8,9 @@ const mockDarkMatterToKnowledgeEntries = mock(() => []);
 
 // Mock the knowledge-store module with all common exports
 const mockAppendKnowledge = mock(async () => {});
-const mockResolveSwarmKnowledgePath = mock(() => '/test/dir/.swarm/knowledge.jsonl');
+const mockResolveSwarmKnowledgePath = mock(
+	() => '/test/dir/.swarm/knowledge.jsonl',
+);
 const mockReadKnowledge = mock(async () => []);
 const mockReadRejectedLessons = mock(async () => []);
 const mockRewriteKnowledge = mock(async () => {});
@@ -28,7 +30,9 @@ mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 
 mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	resolveSwarmKnowledgePath: mockResolveSwarmKnowledgePath,
-	resolveSwarmRejectedPath: mock(() => '/test/dir/.swarm/knowledge-rejected.jsonl'),
+	resolveSwarmRejectedPath: mock(
+		() => '/test/dir/.swarm/knowledge-rejected.jsonl',
+	),
 	resolveHiveKnowledgePath: mock(() => '/hive/shared-learnings.jsonl'),
 	resolveHiveRejectedPath: mock(() => '/hive/shared-learnings-rejected.jsonl'),
 	readKnowledge: mockReadKnowledge,
@@ -45,7 +49,9 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 }));
 
 // Import AFTER mock setup
-const { handleDarkMatterCommand } = await import('../../../src/commands/dark-matter.js');
+const { handleDarkMatterCommand } = await import(
+	'../../../src/commands/dark-matter.js'
+);
 
 describe('Knowledge persistence wiring verification tests', () => {
 	beforeEach(() => {
@@ -81,7 +87,8 @@ describe('Knowledge persistence wiring verification tests', () => {
 				commitsB: 55,
 			},
 		];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\n2 hidden couplings found.';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\n2 hidden couplings found.';
 		const mockEntries = [
 			{ id: 'entry1', category: 'architecture', tags: ['dark-matter'] },
 			{ id: 'entry2', category: 'architecture', tags: ['dark-matter'] },
@@ -93,17 +100,29 @@ describe('Knowledge persistence wiring verification tests', () => {
 
 		const result = await handleDarkMatterCommand('/test/dir', []);
 
-		expect(mockDarkMatterToKnowledgeEntries).toHaveBeenCalledWith(mockPairs, 'dir');
+		expect(mockDarkMatterToKnowledgeEntries).toHaveBeenCalledWith(
+			mockPairs,
+			'dir',
+		);
 		expect(mockResolveSwarmKnowledgePath).toHaveBeenCalledWith('/test/dir');
 		expect(mockAppendKnowledge).toHaveBeenCalledTimes(2);
-		expect(mockAppendKnowledge).toHaveBeenCalledWith('/test/dir/.swarm/knowledge.jsonl', mockEntries[0]);
-		expect(mockAppendKnowledge).toHaveBeenCalledWith('/test/dir/.swarm/knowledge.jsonl', mockEntries[1]);
-		expect(result).toContain('[2 dark matter finding(s) saved to .swarm/knowledge.jsonl]');
+		expect(mockAppendKnowledge).toHaveBeenCalledWith(
+			'/test/dir/.swarm/knowledge.jsonl',
+			mockEntries[0],
+		);
+		expect(mockAppendKnowledge).toHaveBeenCalledWith(
+			'/test/dir/.swarm/knowledge.jsonl',
+			mockEntries[1],
+		);
+		expect(result).toContain(
+			'[2 dark matter finding(s) saved to .swarm/knowledge.jsonl]',
+		);
 	});
 
 	it('When 0 pairs → appendKnowledge NOT called; returns plain output only', async () => {
 		const mockPairs: CoChangeEntry[] = [];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\nNo hidden couplings found.';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\nNo hidden couplings found.';
 
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
@@ -130,7 +149,8 @@ describe('Knowledge persistence wiring verification tests', () => {
 				commitsB: 60,
 			},
 		];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
@@ -158,17 +178,20 @@ describe('Knowledge persistence wiring verification tests', () => {
 				commitsB: 60,
 			},
 		];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 		const mockEntries = [{ id: 'entry1' }] as unknown[];
 
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 		mockFormatDarkMatterOutput.mockImplementation(() => mockOutput);
-		mockDarkMatterToKnowledgeEntries.mockImplementation((pairs, projectName) => {
-			// projectName should be the actual directory name, not "."
-			expect(projectName).not.toBe('.');
-			expect(typeof projectName).toBe('string');
-			return mockEntries;
-		});
+		mockDarkMatterToKnowledgeEntries.mockImplementation(
+			(pairs, projectName) => {
+				// projectName should be the actual directory name, not "."
+				expect(projectName).not.toBe('.');
+				expect(typeof projectName).toBe('string');
+				return mockEntries;
+			},
+		);
 
 		await handleDarkMatterCommand('.', []);
 
@@ -189,7 +212,8 @@ describe('Knowledge persistence wiring verification tests', () => {
 				commitsB: 60,
 			},
 		];
-		const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+		const mockOutput =
+			'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 		const mockEntries = [{ id: 'entry1' }] as unknown[];
 
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
@@ -201,6 +225,8 @@ describe('Knowledge persistence wiring verification tests', () => {
 
 		expect(mockResolveSwarmKnowledgePath).toHaveBeenCalledWith(directory);
 		// Should NOT be called with path.resolve(directory) or absolute path
-		expect(mockResolveSwarmKnowledgePath).not.toHaveBeenCalledWith(expect.stringContaining('C:\\'));
+		expect(mockResolveSwarmKnowledgePath).not.toHaveBeenCalledWith(
+			expect.stringContaining('C:\\'),
+		);
 	});
 });

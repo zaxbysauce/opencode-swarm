@@ -3,21 +3,29 @@
  * Tests readPriorDriftReports and writeDriftReport functions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
-	readPriorDriftReports,
-	writeDriftReport,
-	runDeterministicDriftCheck,
 	buildDriftInjectionText,
+	readPriorDriftReports,
+	runDeterministicDriftCheck,
+	writeDriftReport,
 } from '../../../src/hooks/curator-drift';
-import type { DriftReport, CuratorPhaseResult, CuratorConfig, ComplianceObservation, PhaseDigestEntry } from '../../../src/hooks/curator-types';
+import type {
+	ComplianceObservation,
+	CuratorConfig,
+	CuratorPhaseResult,
+	DriftReport,
+	PhaseDigestEntry,
+} from '../../../src/hooks/curator-types';
 
 // Helper to create a valid CuratorPhaseResult for testing
-function makeCuratorResult(overrides?: Partial<CuratorPhaseResult>): CuratorPhaseResult {
+function makeCuratorResult(
+	overrides?: Partial<CuratorPhaseResult>,
+): CuratorPhaseResult {
 	const defaultDigest: PhaseDigestEntry = {
 		phase: 1,
 		timestamp: new Date().toISOString(),
@@ -402,7 +410,11 @@ describe('runDeterministicDriftCheck', () => {
 		// Create .swarm directory
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 		// Create plan.md in .swarm (the implementation reads from .swarm/plan.md)
-		await fs.writeFile(path.join(tmpDir, '.swarm', 'plan.md'), '# Test Plan\n- Task 1\n- Task 2', 'utf-8');
+		await fs.writeFile(
+			path.join(tmpDir, '.swarm', 'plan.md'),
+			'# Test Plan\n- Task 1\n- Task 2',
+			'utf-8',
+		);
 	});
 
 	afterEach(async () => {
@@ -420,11 +432,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [], // no warnings
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.alignment).toBe('ALIGNED');
 			expect(result.report.drift_score).toBe(0);
@@ -438,13 +464,33 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [
-					{ phase: 1, timestamp: new Date().toISOString(), type: 'missing_reviewer', description: 'Reviewer not assigned', severity: 'warning' },
+					{
+						phase: 1,
+						timestamp: new Date().toISOString(),
+						type: 'missing_reviewer',
+						description: 'Reviewer not assigned',
+						severity: 'warning',
+					},
 				],
-				digest: { tasks_completed: 8, tasks_total: 10, summary: 'mostly done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 8,
+					tasks_total: 10,
+					summary: 'mostly done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.alignment).toBe('MINOR_DRIFT');
 			// Score: 0.2 + 1*0.05 = 0.25, capped at 0.49
@@ -455,15 +501,47 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [
-					{ phase: 1, timestamp: new Date().toISOString(), type: 'missing_reviewer', description: 'Warning 1', severity: 'warning' },
-					{ phase: 1, timestamp: new Date().toISOString(), type: 'missing_retro', description: 'Warning 2', severity: 'warning' },
-					{ phase: 1, timestamp: new Date().toISOString(), type: 'missing_sme', description: 'Warning 3', severity: 'warning' },
+					{
+						phase: 1,
+						timestamp: new Date().toISOString(),
+						type: 'missing_reviewer',
+						description: 'Warning 1',
+						severity: 'warning',
+					},
+					{
+						phase: 1,
+						timestamp: new Date().toISOString(),
+						type: 'missing_retro',
+						description: 'Warning 2',
+						severity: 'warning',
+					},
+					{
+						phase: 1,
+						timestamp: new Date().toISOString(),
+						type: 'missing_sme',
+						description: 'Warning 3',
+						severity: 'warning',
+					},
 				],
-				digest: { tasks_completed: 5, tasks_total: 10, summary: 'in progress', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 5,
+					tasks_total: 10,
+					summary: 'in progress',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.alignment).toBe('MAJOR_DRIFT');
 			// Score: 0.5 + 3*0.1 = 0.8, capped at 0.9
@@ -477,7 +555,12 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({ phase: 1 });
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.alignment).toBe('MINOR_DRIFT');
 			expect(result.report.drift_score).toBe(0.3);
@@ -490,7 +573,12 @@ describe('runDeterministicDriftCheck', () => {
 			const config = makeCuratorConfig();
 
 			// Should not throw
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report).toBeDefined();
 			// The injection_summary should contain 'none' for spec
@@ -501,11 +589,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [],
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig({ drift_inject_max_chars: 10 });
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.injection_summary.length).toBeLessThanOrEqual(10);
 			expect(result.injection_text.length).toBeLessThanOrEqual(10);
@@ -533,11 +635,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 2,
 				compliance: [],
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 2, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 2,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 2, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				2,
+				curatorResult,
+				config,
+			);
 
 			// compounding_effects includes prior MINOR_DRIFT report even when current is ALIGNED
 			// (it filters out prior ALIGNED reports, but includes prior drift)
@@ -567,13 +683,33 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 2,
 				compliance: [
-					{ phase: 2, timestamp: new Date().toISOString(), type: 'skipped_test', description: 'Test skipped', severity: 'warning' },
+					{
+						phase: 2,
+						timestamp: new Date().toISOString(),
+						type: 'skipped_test',
+						description: 'Test skipped',
+						severity: 'warning',
+					},
 				],
-				digest: { tasks_completed: 9, tasks_total: 10, summary: 'mostly done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 2, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 9,
+					tasks_total: 10,
+					summary: 'mostly done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 2,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 2, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				2,
+				curatorResult,
+				config,
+			);
 
 			// Since phase 2 has drift, compounding_effects should include prior
 			expect(result.report.compounding_effects.length).toBeGreaterThan(0);
@@ -584,11 +720,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [],
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report_path).toContain('.swarm');
 			expect(result.report_path).toContain('drift-report-phase-1.json');
@@ -599,11 +749,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [],
-				digest: { tasks_completed: 7, tasks_total: 12, summary: 'some done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 7,
+					tasks_total: 12,
+					summary: 'some done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.requirements_checked).toBe(12);
 			expect(result.report.requirements_satisfied).toBe(7);
@@ -616,13 +780,21 @@ describe('runDeterministicDriftCheck', () => {
 		it('Nonexistent directory → returns MINOR_DRIFT (no plan found), not crash', async () => {
 			// A nonexistent directory will cause plan.md to not be found
 			// This is treated as "no plan" → MINOR_DRIFT, not as an error
-			const nonexistentDir = path.join(os.tmpdir(), 'nonexistent-' + Date.now());
-			
+			const nonexistentDir = path.join(
+				os.tmpdir(),
+				'nonexistent-' + Date.now(),
+			);
+
 			const curatorResult = makeCuratorResult({ phase: 1 });
 			const config = makeCuratorConfig();
 
 			// Should NOT throw - missing plan is expected behavior
-			const result = await runDeterministicDriftCheck(nonexistentDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				nonexistentDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			// Per implementation: missing plan = MINOR_DRIFT with score 0.3
 			// (not an error - missing data is handled gracefully)
@@ -639,7 +811,12 @@ describe('runDeterministicDriftCheck', () => {
 			const emptySwarmDir = path.join(tmpDir, 'no-plan-test');
 			mkdirSync(path.join(emptySwarmDir, '.swarm'), { recursive: true });
 
-			const result = await runDeterministicDriftCheck(emptySwarmDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				emptySwarmDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			// When planMd is null, the function returns MINOR_DRIFT with score 0.3
 			// ("cannot assess alignment without a plan").
@@ -651,11 +828,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [],
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig({ drift_inject_max_chars: 0 });
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.injection_summary).toBe('');
 			expect(result.injection_text).toBe('');
@@ -665,11 +856,25 @@ describe('runDeterministicDriftCheck', () => {
 			const curatorResult = makeCuratorResult({
 				phase: 1,
 				compliance: [],
-				digest: { tasks_completed: 10, tasks_total: 10, summary: 'all done', agents_used: [], key_decisions: [], blockers_resolved: [], phase: 1, timestamp: new Date().toISOString() },
+				digest: {
+					tasks_completed: 10,
+					tasks_total: 10,
+					summary: 'all done',
+					agents_used: [],
+					key_decisions: [],
+					blockers_resolved: [],
+					phase: 1,
+					timestamp: new Date().toISOString(),
+				},
 			});
 			const config = makeCuratorConfig();
 
-			const result = await runDeterministicDriftCheck(tmpDir, 1, curatorResult, config);
+			const result = await runDeterministicDriftCheck(
+				tmpDir,
+				1,
+				curatorResult,
+				config,
+			);
 
 			expect(result.report.alignment).toBe('ALIGNED');
 			expect(result.report.drift_score).toBe(0);
@@ -760,9 +965,7 @@ describe('buildDriftInjectionText', () => {
 				task: 'task-1',
 				description: 'Minor deviation',
 			};
-			report.corrections = [
-				'Reverted scope addition',
-			];
+			report.corrections = ['Reverted scope addition'];
 
 			const result = buildDriftInjectionText(report, 500);
 

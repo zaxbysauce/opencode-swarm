@@ -1,17 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { DEFAULT_MODELS } from '../../../src/config/constants';
 import {
-	resolveAgentModel,
 	detectAdversarialPair,
 	formatAdversarialWarning,
+	resolveAgentModel,
 } from '../../../src/hooks/adversarial-detector';
 import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
 import { resetSwarmState, swarmState } from '../../../src/state';
-import type { PluginConfig } from '../../../src/config';
-import { DEFAULT_MODELS } from '../../../src/config/constants';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -198,9 +197,7 @@ describe('adversarial-detector hook', () => {
 			expect(result.error).toBeUndefined();
 
 			// Should contain GATE POLICY warning
-			const warning = result.output.find((s) =>
-				s.includes('GATE POLICY'),
-			);
+			const warning = result.output.find((s) => s.includes('GATE POLICY'));
 			expect(warning).toBeDefined();
 			expect(warning).toContain('[SWARM CONFIG]');
 			expect(warning).toContain('Same-model adversarial pair detected');
@@ -281,9 +278,7 @@ describe('adversarial-detector hook', () => {
 		it('returns DEFAULT_MODELS[baseName] when no overrides', () => {
 			const config = makeConfig();
 
-			expect(resolveAgentModel('coder', config)).toBe(
-				DEFAULT_MODELS.coder,
-			);
+			expect(resolveAgentModel('coder', config)).toBe(DEFAULT_MODELS.coder);
 			expect(resolveAgentModel('reviewer', config)).toBe(
 				DEFAULT_MODELS.reviewer,
 			);
@@ -503,11 +498,7 @@ describe('adversarial-detector hook', () => {
 			const config = makeConfig();
 
 			// Both unknown agents default to DEFAULT_MODELS.default
-			const result = detectAdversarialPair(
-				'unknown_a',
-				'unknown_b',
-				config,
-			);
+			const result = detectAdversarialPair('unknown_a', 'unknown_b', config);
 
 			expect(result).toBe(DEFAULT_MODELS.default.toLowerCase());
 		});
@@ -522,9 +513,7 @@ describe('adversarial-detector hook', () => {
 				'warn',
 			);
 
-			expect(result).toMatch(
-				/^⚠️ Same-model adversarial pair detected\./,
-			);
+			expect(result).toMatch(/^⚠️ Same-model adversarial pair detected\./);
 			expect(result).toContain('coder');
 			expect(result).toContain('reviewer');
 			expect(result).toContain('model-x');
@@ -552,9 +541,7 @@ describe('adversarial-detector hook', () => {
 				'ignore',
 			);
 
-			expect(result).toMatch(
-				/^⚠️ Same-model adversarial pair detected\./,
-			);
+			expect(result).toMatch(/^⚠️ Same-model adversarial pair detected\./);
 			expect(result).toContain('Review may lack independence.');
 		});
 
@@ -566,9 +553,7 @@ describe('adversarial-detector hook', () => {
 				'unknown',
 			);
 
-			expect(result).toMatch(
-				/^⚠️ Same-model adversarial pair detected\./,
-			);
+			expect(result).toMatch(/^⚠️ Same-model adversarial pair detected\./);
 			expect(result).toContain('Review may lack independence.');
 		});
 

@@ -1,16 +1,22 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import {
 	createTrajectoryLoggerHook,
 	recordToolCallStart,
-	truncateTrajectoryFile,
 	type TrajectoryConfig,
+	truncateTrajectoryFile,
 } from '../../../src/hooks/trajectory-logger';
-import { swarmState, startAgentSession, resetSwarmState } from '../../../src/state';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<TrajectoryConfig>): Partial<TrajectoryConfig> {
+function defaultConfig(
+	overrides?: Partial<TrajectoryConfig>,
+): Partial<TrajectoryConfig> {
 	return {
 		enabled: true,
 		max_lines: 500,
@@ -63,7 +69,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '1.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'trajectory.jsonl',
+		);
 		expect(fs.existsSync(trajectoryPath)).toBe(true);
 
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
@@ -105,7 +117,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '1.2', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.2',
+			'trajectory.jsonl',
+		);
 		expect(fs.existsSync(trajectoryPath)).toBe(false);
 	});
 
@@ -126,7 +144,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '1.3', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.3',
+			'trajectory.jsonl',
+		);
 		expect(fs.existsSync(trajectoryPath)).toBe(false);
 	});
 
@@ -161,7 +185,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '2.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'2.1',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -203,7 +233,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '2.2', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'2.2',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -248,7 +284,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '3.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'3.1',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -352,10 +394,21 @@ describe('trajectory-logger', () => {
 
 		// sanitizeTaskId throws BEFORE the try block, so error propagates
 		// The hook does NOT create any file when taskId is invalid
-		await expect(hook.toolAfter(input, output)).rejects.toThrow('Invalid task ID: path traversal detected');
+		await expect(hook.toolAfter(input, output)).rejects.toThrow(
+			'Invalid task ID: path traversal detected',
+		);
 
 		// No file should be created at the traversal path (nothing leaks outside .swarm)
-		const etcPasswd = path.join(tempDir, '.swarm', 'evidence', '..', '..', '..', 'etc', 'passwd');
+		const etcPasswd = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'..',
+			'..',
+			'..',
+			'etc',
+			'passwd',
+		);
 		expect(fs.existsSync(etcPasswd)).toBe(false);
 	});
 
@@ -381,10 +434,14 @@ describe('trajectory-logger', () => {
 		};
 
 		// sanitizeTaskId throws BEFORE the try block, so error propagates
-		await expect(hook.toolAfter(input, output)).rejects.toThrow('Invalid task ID: contains null bytes');
+		await expect(hook.toolAfter(input, output)).rejects.toThrow(
+			'Invalid task ID: contains null bytes',
+		);
 
 		// No file should leak outside .swarm
-		expect(fs.existsSync(path.join(tempDir, '.swarm', 'evidence', '1.1\x00invalid'))).toBe(false);
+		expect(
+			fs.existsSync(path.join(tempDir, '.swarm', 'evidence', '1.1\x00invalid')),
+		).toBe(false);
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────────
@@ -478,7 +535,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '6.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'6.1',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -513,7 +576,13 @@ describe('trajectory-logger', () => {
 		await hook.toolAfter(input, output);
 		const afterCall = Date.now();
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '6.2', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'6.2',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -549,7 +618,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '7.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'7.1',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -579,7 +654,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '7.2', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'7.2',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -609,7 +690,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '7.3', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'7.3',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -643,7 +730,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '8.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'8.1',
+			'trajectory.jsonl',
+		);
 		const content = fs.readFileSync(trajectoryPath, 'utf-8');
 		const entry = JSON.parse(content.split('\n')[0]);
 
@@ -660,7 +753,10 @@ describe('trajectory-logger', () => {
 		session.delegationActive = true;
 		session.currentTaskId = '9.1';
 
-		const hook = createTrajectoryLoggerHook(defaultConfig({ enabled: false }), tempDir);
+		const hook = createTrajectoryLoggerHook(
+			defaultConfig({ enabled: false }),
+			tempDir,
+		);
 
 		const input = {
 			tool: 'Read',
@@ -676,7 +772,13 @@ describe('trajectory-logger', () => {
 
 		await hook.toolAfter(input, output);
 
-		const trajectoryPath = path.join(tempDir, '.swarm', 'evidence', '9.1', 'trajectory.jsonl');
+		const trajectoryPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'9.1',
+			'trajectory.jsonl',
+		);
 		expect(fs.existsSync(trajectoryPath)).toBe(false);
 	});
 });

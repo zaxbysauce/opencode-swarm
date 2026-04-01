@@ -3,12 +3,18 @@
  * Tests all three promotion routes and confirmation advancement logic.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock knowledge-store module
-const mockResolveHiveKnowledgePath = vi.fn().mockReturnValue('/hive/shared-learnings.jsonl');
-const mockResolveHiveRejectedPath = vi.fn().mockReturnValue('/hive/shared-learnings-rejected.jsonl');
-const mockResolveSwarmKnowledgePath = vi.fn().mockReturnValue('/swarm/.swarm/knowledge.jsonl');
+const mockResolveHiveKnowledgePath = vi
+	.fn()
+	.mockReturnValue('/hive/shared-learnings.jsonl');
+const mockResolveHiveRejectedPath = vi
+	.fn()
+	.mockReturnValue('/hive/shared-learnings-rejected.jsonl');
+const mockResolveSwarmKnowledgePath = vi
+	.fn()
+	.mockReturnValue('/swarm/.swarm/knowledge.jsonl');
 const mockReadKnowledge = vi.fn().mockResolvedValue([]);
 const mockAppendKnowledge = vi.fn().mockResolvedValue(undefined);
 const mockRewriteKnowledge = vi.fn().mockResolvedValue(undefined);
@@ -17,11 +23,15 @@ const mockFindNearDuplicate = vi.fn().mockReturnValue(undefined);
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 	resolveHiveKnowledgePath: () => mockResolveHiveKnowledgePath(),
 	resolveHiveRejectedPath: () => mockResolveHiveRejectedPath(),
-	resolveSwarmKnowledgePath: (dir?: string) => mockResolveSwarmKnowledgePath(dir),
+	resolveSwarmKnowledgePath: (dir?: string) =>
+		mockResolveSwarmKnowledgePath(dir),
 	readKnowledge: (path: string) => mockReadKnowledge(path),
-	appendKnowledge: (path: string, data: unknown) => mockAppendKnowledge(path, data),
-	rewriteKnowledge: (path: string, data: unknown) => mockRewriteKnowledge(path, data),
-	findNearDuplicate: (lesson: string, entries: unknown[], threshold: number) => mockFindNearDuplicate(lesson, entries, threshold),
+	appendKnowledge: (path: string, data: unknown) =>
+		mockAppendKnowledge(path, data),
+	rewriteKnowledge: (path: string, data: unknown) =>
+		mockRewriteKnowledge(path, data),
+	findNearDuplicate: (lesson: string, entries: unknown[], threshold: number) =>
+		mockFindNearDuplicate(lesson, entries, threshold),
 	computeConfidence: vi.fn().mockReturnValue(0.6),
 }));
 
@@ -34,7 +44,8 @@ const mockValidateLesson = vi.fn().mockReturnValue({
 });
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
-	validateLesson: (lesson: string, existingLessons: string[], meta: unknown) => mockValidateLesson(lesson, existingLessons, meta),
+	validateLesson: (lesson: string, existingLessons: string[], meta: unknown) =>
+		mockValidateLesson(lesson, existingLessons, meta),
 }));
 
 import {
@@ -82,11 +93,27 @@ describe('hive-promoter', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-				{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-				{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
+				{
+					phase_number: 2,
+					confirmed_at: '2026-01-02T00:00:00Z',
+					project_name: 'projectA',
+				},
+				{
+					phase_number: 3,
+					confirmed_at: '2026-01-03T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -113,9 +140,21 @@ describe('hive-promoter', () => {
 				id: 'swarm-1',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -128,9 +167,13 @@ describe('hive-promoter', () => {
 		// Assert
 		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
 		const hivePath = mockResolveHiveKnowledgePath();
-		expect(mockAppendKnowledge).toHaveBeenCalledWith(hivePath, expect.any(Object));
+		expect(mockAppendKnowledge).toHaveBeenCalledWith(
+			hivePath,
+			expect.any(Object),
+		);
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.tier).toBe('hive');
 		expect(hiveEntry.status).toBe('candidate');
 		expect(hiveEntry.confidence).toBe(0.5);
@@ -145,8 +188,16 @@ describe('hive-promoter', () => {
 				...baseSwarmEntry,
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -166,7 +217,11 @@ describe('hive-promoter', () => {
 				hive_eligible: undefined,
 				tags: ['hive-fast-track', 'testing'],
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -176,7 +231,8 @@ describe('hive-promoter', () => {
 
 		// Assert
 		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.tier).toBe('hive');
 		expect(hiveEntry.status).toBe('candidate');
 	});
@@ -189,7 +245,11 @@ describe('hive-promoter', () => {
 				hive_eligible: undefined,
 				tags: ['testing'],
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 				created_at: new Date(Date.now() - 100 * 86400000).toISOString(),
 			},
@@ -202,7 +262,8 @@ describe('hive-promoter', () => {
 
 		// Assert
 		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.tier).toBe('hive');
 		expect(hiveEntry.status).toBe('candidate');
 	});
@@ -215,7 +276,11 @@ describe('hive-promoter', () => {
 				hive_eligible: undefined,
 				tags: ['testing'],
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 				created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
 			},
@@ -242,7 +307,11 @@ describe('hive-promoter', () => {
 			confidence: 0.9,
 			status: 'established',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 10, succeeded_after_count: 8, failed_after_count: 1 },
+			retrieval_outcomes: {
+				applied_count: 10,
+				succeeded_after_count: 8,
+				failed_after_count: 1,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -256,9 +325,21 @@ describe('hive-promoter', () => {
 				lesson: 'Never use TypeScript strict mode',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -279,15 +360,18 @@ describe('hive-promoter', () => {
 
 		// Assert - should be rejected, not promoted
 		const hiveRejectedPath = mockResolveHiveRejectedPath();
-		expect(mockAppendKnowledge).toHaveBeenCalledWith(hiveRejectedPath, expect.objectContaining({
-			lesson: 'Never use TypeScript strict mode',
-			rejection_layer: 3,
-		}));
+		expect(mockAppendKnowledge).toHaveBeenCalledWith(
+			hiveRejectedPath,
+			expect.objectContaining({
+				lesson: 'Never use TypeScript strict mode',
+				rejection_layer: 3,
+			}),
+		);
 
 		// Assert - NOT promoted to hive knowledge
 		const hiveKnowledgePath = mockResolveHiveKnowledgePath();
 		const appendCalls = mockAppendKnowledge.mock.calls.filter(
-			(call) => call[0] === hiveKnowledgePath
+			(call) => call[0] === hiveKnowledgePath,
 		);
 		expect(appendCalls).toHaveLength(0);
 	});
@@ -321,7 +405,11 @@ describe('hive-promoter', () => {
 				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
 				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -352,14 +440,21 @@ describe('hive-promoter', () => {
 		// Assert
 		expect(mockRewriteKnowledge).toHaveBeenCalledTimes(1);
 		const hivePath = mockResolveHiveKnowledgePath();
-		expect(mockRewriteKnowledge).toHaveBeenCalledWith(hivePath, expect.any(Array));
+		expect(mockRewriteKnowledge).toHaveBeenCalledWith(
+			hivePath,
+			expect.any(Array),
+		);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		expect(updatedEntry).toBeDefined();
 		expect(updatedEntry!.status).toBe('established');
 		expect(updatedEntry!.confirmed_by).toHaveLength(3);
-		expect(updatedEntry!.confirmed_by).toContainEqual({ project_name: 'projectC', confirmed_at: expect.any(String) });
+		expect(updatedEntry!.confirmed_by).toContainEqual({
+			project_name: 'projectC',
+			confirmed_at: expect.any(String),
+		});
 	});
 
 	it('No double-count: same project in hive entry confirmed_by is not added again', async () => {
@@ -376,7 +471,11 @@ describe('hive-promoter', () => {
 			confirmed_by: [
 				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -420,7 +519,11 @@ describe('hive-promoter', () => {
 			confidence: 0.5,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -432,9 +535,21 @@ describe('hive-promoter', () => {
 				...baseSwarmEntry,
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectB' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectB' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectB' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectB',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectB',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectB',
+					},
 				],
 			},
 		];
@@ -450,7 +565,7 @@ describe('hive-promoter', () => {
 		// Assert - should NOT append (skipped as duplicate)
 		const hivePath = mockResolveHiveKnowledgePath();
 		const appendCalls = mockAppendKnowledge.mock.calls.filter(
-			(call) => call[0] === hivePath
+			(call) => call[0] === hivePath,
 		);
 		expect(appendCalls).toHaveLength(0);
 	});
@@ -465,7 +580,9 @@ describe('hive-promoter', () => {
 			.mockResolvedValueOnce(hiveEntries); // For hive entries
 
 		// Mock resolveSwarmKnowledgePath to return proper path
-		mockResolveSwarmKnowledgePath.mockReturnValue('/project/.swarm/knowledge.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/project/.swarm/knowledge.jsonl',
+		);
 
 		// Act
 		const hook = createHivePromoterHook('/project', mockConfig);
@@ -475,7 +592,7 @@ describe('hive-promoter', () => {
 		expect(mockReadKnowledge).toHaveBeenCalled();
 		const swarmPath = '/project/.swarm/knowledge.jsonl';
 		const swarmReadCalls = mockReadKnowledge.mock.calls.filter(
-			(call) => call[0] === swarmPath
+			(call) => call[0] === swarmPath,
 		);
 		expect(swarmReadCalls.length).toBeGreaterThan(0);
 	});
@@ -528,9 +645,17 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -546,7 +671,8 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 	it('promoteToHive uses resolveHiveKnowledgePath for correct path', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
-		const testLesson = 'Test lesson for path verification with sufficient length';
+		const testLesson =
+			'Test lesson for path verification with sufficient length';
 
 		await module.promoteToHive('/test-dir', testLesson, 'process');
 
@@ -564,11 +690,15 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 		// Verify validateLesson was called
 		expect(mockValidateLesson).toHaveBeenCalledTimes(1);
-		expect(mockValidateLesson).toHaveBeenCalledWith(testLesson, [], expect.objectContaining({
-			category: 'process',
-			scope: 'global',
-			confidence: 1.0,
-		}));
+		expect(mockValidateLesson).toHaveBeenCalledWith(
+			testLesson,
+			[],
+			expect.objectContaining({
+				category: 'process',
+				scope: 'global',
+				confidence: 1.0,
+			}),
+		);
 	});
 
 	it('promoteToHive rejects invalid lesson', async () => {
@@ -582,17 +712,21 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 			severity: 'error',
 		});
 
-		await expect(module.promoteToHive('/test-dir', shortLesson, 'process')).rejects.toThrow('rejected by validator');
+		await expect(
+			module.promoteToHive('/test-dir', shortLesson, 'process'),
+		).rejects.toThrow('rejected by validator');
 	});
 
 	it('promoteToHive creates HiveKnowledgeEntry with all required fields', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
-		const testLesson = 'Test lesson for schema verification with sufficient length';
+		const testLesson =
+			'Test lesson for schema verification with sufficient length';
 
 		await module.promoteToHive('/test-dir', testLesson, 'process');
 
 		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 
 		// Verify all required fields exist
 		expect(hiveEntry).toHaveProperty('id');
@@ -617,7 +751,8 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteToHive('/test-dir', testLesson, 'process');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.confidence).toBe(1.0);
 	});
 
@@ -627,7 +762,8 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteToHive('/test-dir', testLesson, 'process');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.status).toBe('promoted');
 	});
 
@@ -637,7 +773,8 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteToHive('/test-dir', testLesson, 'process');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.tier).toBe('hive');
 	});
 
@@ -645,7 +782,11 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
 		const testLesson = 'Test lesson for return value verification';
 
-		const result = await module.promoteToHive('/test-dir', testLesson, 'process');
+		const result = await module.promoteToHive(
+			'/test-dir',
+			testLesson,
+			'process',
+		);
 
 		expect(result).toContain('Promoted to hive');
 		expect(result).toContain('confidence: 1.0');
@@ -658,7 +799,11 @@ describe('promoteToHive - Schema Mismatch Fix Verification', () => {
 
 		mockFindNearDuplicate.mockReturnValue({} as HiveKnowledgeEntry);
 
-		const result = await module.promoteToHive('/test-dir', testLesson, 'process');
+		const result = await module.promoteToHive(
+			'/test-dir',
+			testLesson,
+			'process',
+		);
 
 		expect(result).toContain('already exists');
 		expect(result).toContain('near-duplicate');
@@ -709,9 +854,17 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -739,7 +892,9 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
 		// Verify readKnowledge was called with the swarm path
-		expect(mockReadKnowledge).toHaveBeenCalledWith(mockResolveSwarmKnowledgePath('/test-dir'));
+		expect(mockReadKnowledge).toHaveBeenCalledWith(
+			mockResolveSwarmKnowledgePath('/test-dir'),
+		);
 	});
 
 	it('promoteFromSwarm finds lesson by ID', async () => {
@@ -764,7 +919,9 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		mockReadKnowledge.mockResolvedValue([]);
 
-		await expect(module.promoteFromSwarm('/test-dir', 'non-existent-id')).rejects.toThrow('not found');
+		await expect(
+			module.promoteFromSwarm('/test-dir', 'non-existent-id'),
+		).rejects.toThrow('not found');
 	});
 
 	it('promoteFromSwarm throws error with specific message for missing lesson', async () => {
@@ -781,34 +938,34 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 		}
 	});
 
-		it('promoteFromSwarm validates before writing', async () => {
-			const module = await import('../../../src/hooks/hive-promoter.js');
+	it('promoteFromSwarm validates before writing', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
 
-			const swarmEntry: SwarmKnowledgeEntry = {
-				...baseSwarmEntry,
-				id: 'test-lesson-id',
-				lesson: 'Valid lesson with sufficient length for testing',
-			};
+		const swarmEntry: SwarmKnowledgeEntry = {
+			...baseSwarmEntry,
+			id: 'test-lesson-id',
+			lesson: 'Valid lesson with sufficient length for testing',
+		};
 
-			// Mock readKnowledge to return swarm entries first, then empty hive entries
-			mockReadKnowledge
-				.mockResolvedValueOnce([swarmEntry]) // first call - swarm entries
-				.mockResolvedValueOnce([]); // second call - hive entries (empty)
+		// Mock readKnowledge to return swarm entries first, then empty hive entries
+		mockReadKnowledge
+			.mockResolvedValueOnce([swarmEntry]) // first call - swarm entries
+			.mockResolvedValueOnce([]); // second call - hive entries (empty)
 
-			await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
+		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-			// Verify validateLesson was called
-			expect(mockValidateLesson).toHaveBeenCalledTimes(1);
-			expect(mockValidateLesson).toHaveBeenCalledWith(
-				swarmEntry.lesson,
-				[],
-				expect.objectContaining({
-					category: swarmEntry.category,
-					scope: swarmEntry.scope,
-					confidence: swarmEntry.confidence,
-				})
-			);
-		});
+		// Verify validateLesson was called
+		expect(mockValidateLesson).toHaveBeenCalledTimes(1);
+		expect(mockValidateLesson).toHaveBeenCalledWith(
+			swarmEntry.lesson,
+			[],
+			expect.objectContaining({
+				category: swarmEntry.category,
+				scope: swarmEntry.scope,
+				confidence: swarmEntry.confidence,
+			}),
+		);
+	});
 
 	it('promoteFromSwarm rejects invalid lesson', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
@@ -827,7 +984,9 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 			severity: 'error',
 		});
 
-		await expect(module.promoteFromSwarm('/test-dir', 'test-lesson-id')).rejects.toThrow('rejected by validator');
+		await expect(
+			module.promoteFromSwarm('/test-dir', 'test-lesson-id'),
+		).rejects.toThrow('rejected by validator');
 	});
 
 	it('promoteFromSwarm creates HiveKnowledgeEntry with all required fields', async () => {
@@ -846,7 +1005,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 
 		// Verify all required fields exist
 		expect(hiveEntry).toHaveProperty('id');
@@ -879,7 +1039,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.confidence).toBe(1.0);
 	});
 
@@ -896,7 +1057,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.status).toBe('promoted');
 	});
 
@@ -914,7 +1076,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.lesson).toBe(testLesson);
 	});
 
@@ -932,7 +1095,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.category).toBe('security');
 	});
 
@@ -951,7 +1115,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.tags).toEqual(testTags);
 	});
 
@@ -970,7 +1135,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.scope).toBe(testScope);
 	});
 
@@ -989,7 +1155,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'test-lesson-id');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.source_project).toBe(projectName);
 	});
 
@@ -1006,7 +1173,8 @@ describe('promoteFromSwarm - Schema Mismatch Fix Verification', () => {
 
 		await module.promoteFromSwarm('/test-dir', 'swarm-123');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		expect(hiveEntry.id).not.toBe(swarmEntry.id);
 	});
 
@@ -1052,7 +1220,12 @@ describe('File Cleanup - Schema Mismatch Fix Verification', () => {
 	it('src/knowledge/hive-promoter.ts does not exist', async () => {
 		const fs = await import('node:fs');
 		const path = await import('node:path');
-		const brokenFilePath = path.join(process.cwd(), 'src', 'knowledge', 'hive-promoter.ts');
+		const brokenFilePath = path.join(
+			process.cwd(),
+			'src',
+			'knowledge',
+			'hive-promoter.ts',
+		);
 
 		// The broken file should NOT exist
 		expect(fs.existsSync(brokenFilePath)).toBe(false);
@@ -1085,27 +1258,41 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 
 	it('promoteToHive uses path.basename(directory) for source_project', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
-		const testLesson = 'Test lesson for source_project path basename verification';
+		const testLesson =
+			'Test lesson for source_project path basename verification';
 
 		// Use a directory with a clear basename
-		await module.promoteToHive('/Users/testuser/my-project', testLesson, 'process');
+		await module.promoteToHive(
+			'/Users/testuser/my-project',
+			testLesson,
+			'process',
+		);
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		// path.basename on Unix extracts 'my-project' from '/Users/testuser/my-project'
 		expect(hiveEntry.source_project).toBe('my-project');
 	});
 
-	it.skipIf(process.platform !== 'win32')('promoteToHive handles Windows-style paths correctly', async () => {
-		const module = await import('../../../src/hooks/hive-promoter.js');
-		const testLesson = 'Test lesson for Windows path verification';
+	it.skipIf(process.platform !== 'win32')(
+		'promoteToHive handles Windows-style paths correctly',
+		async () => {
+			const module = await import('../../../src/hooks/hive-promoter.js');
+			const testLesson = 'Test lesson for Windows path verification';
 
-		// Use a Windows-style path
-		await module.promoteToHive('C:\\Users\\testuser\\my-project', testLesson, 'process');
+			// Use a Windows-style path
+			await module.promoteToHive(
+				'C:\\Users\\testuser\\my-project',
+				testLesson,
+				'process',
+			);
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
-		// path.basename on Windows extracts 'my-project' from 'C:\Users\testuser\my-project'
-		expect(hiveEntry.source_project).toBe('my-project');
-	});
+			const hiveEntry = mockAppendKnowledge.mock
+				.calls[0][1] as HiveKnowledgeEntry;
+			// path.basename on Windows extracts 'my-project' from 'C:\Users\testuser\my-project'
+			expect(hiveEntry.source_project).toBe('my-project');
+		},
+	);
 
 	it('promoteToHive falls back to "unknown" when path.basename returns empty', async () => {
 		const module = await import('../../../src/hooks/hive-promoter.js');
@@ -1114,7 +1301,8 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 		// Empty directory path should result in empty basename
 		await module.promoteToHive('', testLesson, 'process');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		// path.basename('') returns '' which is falsy, so should fallback to 'unknown'
 		expect(hiveEntry.source_project).toBe('unknown');
 	});
@@ -1126,7 +1314,8 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 		// Root path - basename may be empty string on some platforms
 		await module.promoteToHive('/', testLesson, 'process');
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		// path.basename('/') returns '' on Unix, should fallback to 'unknown'
 		expect(hiveEntry.source_project).toBe('unknown');
 	});
@@ -1136,9 +1325,14 @@ describe('R5: promoteToHive source_project cross-platform fix', () => {
 		const testLesson = 'Test lesson for nested path basename';
 
 		// Deeply nested path
-		await module.promoteToHive('/home/user/projects/my-awesome-app/src', testLesson, 'process');
+		await module.promoteToHive(
+			'/home/user/projects/my-awesome-app/src',
+			testLesson,
+			'process',
+		);
 
-		const hiveEntry = mockAppendKnowledge.mock.calls[0][1] as HiveKnowledgeEntry;
+		const hiveEntry = mockAppendKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry;
 		// Should get 'src' (the last component)
 		expect(hiveEntry.source_project).toBe('src');
 	});
@@ -1174,9 +1368,17 @@ describe('Task 3.3: weighted advancement behavior', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -1224,7 +1426,11 @@ describe('Task 3.3: weighted advancement behavior', () => {
 			confirmed_by: [
 				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1252,7 +1458,8 @@ describe('Task 3.3: weighted advancement behavior', () => {
 		expect(result.encounters_incremented).toBe(1);
 		expect(mockRewriteKnowledge).toHaveBeenCalledTimes(1);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		expect(updatedEntry!.encounter_score).toBe(1.1); // 1.0 + 0.1
 	});
@@ -1269,7 +1476,11 @@ describe('Task 3.3: weighted advancement behavior', () => {
 			confidence: 0.5,
 			status: 'candidate',
 			confirmed_by: [], // Empty to avoid double-count prevention
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1297,7 +1508,8 @@ describe('Task 3.3: weighted advancement behavior', () => {
 		expect(result.encounters_incremented).toBe(1);
 		expect(mockRewriteKnowledge).toHaveBeenCalledTimes(1);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		expect(updatedEntry!.encounter_score).toBe(1.05); // 1.0 + (0.1 * 0.5)
 	});
@@ -1320,7 +1532,11 @@ describe('Task 3.3: weighted advancement behavior', () => {
 				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
 				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1348,7 +1564,8 @@ describe('Task 3.3: weighted advancement behavior', () => {
 		// Assert: cross-project should advance to established (3 distinct projects)
 		expect(result.advancements).toBe(1);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		expect(updatedEntry!.status).toBe('established');
 		expect(updatedEntry!.confirmed_by).toHaveLength(3);
@@ -1365,7 +1582,11 @@ describe('Task 3.3: weighted advancement behavior', () => {
 			confidence: 0.5,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1391,7 +1612,8 @@ describe('Task 3.3: weighted advancement behavior', () => {
 		// Act
 		await checkHivePromotions(swarmEntries, mockConfig);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		// Score should be clamped to min_encounter_score (0.1), not go below
 		expect(updatedEntry!.encounter_score).toBeGreaterThanOrEqual(0.1);
@@ -1408,7 +1630,11 @@ describe('Task 3.3: weighted advancement behavior', () => {
 			confidence: 0.5,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1434,7 +1660,8 @@ describe('Task 3.3: weighted advancement behavior', () => {
 		// Act
 		await checkHivePromotions(swarmEntries, mockConfig);
 
-		const updatedHive = mockRewriteKnowledge.mock.calls[0][1] as HiveKnowledgeEntry[];
+		const updatedHive = mockRewriteKnowledge.mock
+			.calls[0][1] as HiveKnowledgeEntry[];
 		const updatedEntry = updatedHive.find((e) => e.id === 'hive-1');
 		// Score should be clamped to max_encounter_score (5.0)
 		expect(updatedEntry!.encounter_score).toBeLessThanOrEqual(5.0);
@@ -1467,9 +1694,17 @@ describe('Task 3.3: same-run double-count prevention', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -1518,7 +1753,11 @@ describe('Task 3.3: same-run double-count prevention', () => {
 				{ project_name: 'projectA', confirmed_at: '2026-01-01T00:00:00Z' },
 				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' }, // already confirmed
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1562,7 +1801,11 @@ describe('Task 3.3: same-run double-count prevention', () => {
 			confirmed_by: [
 				{ project_name: 'projectB', confirmed_at: '2026-01-02T00:00:00Z' },
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
@@ -1634,9 +1877,17 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 			confidence: 0.7,
 			status: 'promoted',
 			confirmed_by: [
-				{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
+				{
+					phase_number: 1,
+					confirmed_at: '2026-01-01T00:00:00Z',
+					project_name: 'projectA',
+				},
 			],
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 4,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: new Date(Date.now() - 50 * 86400000).toISOString(),
 			updated_at: new Date().toISOString(),
@@ -1691,9 +1942,21 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 				id: 'swarm-1',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -1746,9 +2009,21 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 				id: 'swarm-1',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -1813,9 +2088,21 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 				id: 'swarm-1',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -1864,9 +2151,21 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 				id: 'swarm-1',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'projectA' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'projectA' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'projectA',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'projectA',
+					},
 				],
 			},
 		];
@@ -1881,6 +2180,8 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 		// Assert: existing recommendation should be preserved
 		const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
 		expect(writtenSummary.knowledge_recommendations.length).toBe(2);
-		expect(writtenSummary.knowledge_recommendations[0]).toEqual(existingRecommendation);
+		expect(writtenSummary.knowledge_recommendations[0]).toEqual(
+			existingRecommendation,
+		);
 	});
 });

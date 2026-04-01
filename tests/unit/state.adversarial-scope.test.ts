@@ -3,14 +3,14 @@
  * Tests malformed inputs, boundary violations, mutation safety, type coercion
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
-	resetSwarmState,
-	ensureAgentSession,
-	startAgentSession,
-	getAgentSession,
-	swarmState,
 	type AgentSessionState,
+	ensureAgentSession,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../src/state';
 
 /**
@@ -111,7 +111,9 @@ describe('modifiedFilesThisCoderTask adversarial tests', () => {
 			(session as any).modifiedFilesThisCoderTask = 'invalid-string';
 
 			// Verify it persists
-			expect((session as any).modifiedFilesThisCoderTask).toBe('invalid-string');
+			expect((session as any).modifiedFilesThisCoderTask).toBe(
+				'invalid-string',
+			);
 
 			// Should not crash ensureAgentSession
 			expect(() => {
@@ -404,7 +406,10 @@ describe('modifiedFilesThisCoderTask adversarial tests', () => {
 				session.modifiedFilesThisCoderTask.splice(1, 1);
 			}).not.toThrow();
 
-			expect(session.modifiedFilesThisCoderTask).toEqual(['file1.ts', 'file3.ts']);
+			expect(session.modifiedFilesThisCoderTask).toEqual([
+				'file1.ts',
+				'file3.ts',
+			]);
 		});
 
 		it('should handle length manipulation attempts', () => {
@@ -440,7 +445,9 @@ describe('modifiedFilesThisCoderTask adversarial tests', () => {
 			const s2 = getAgentSession(sessionId2);
 
 			// Different array references
-			expect(s1!.modifiedFilesThisCoderTask).not.toBe(s2!.modifiedFilesThisCoderTask);
+			expect(s1!.modifiedFilesThisCoderTask).not.toBe(
+				s2!.modifiedFilesThisCoderTask,
+			);
 
 			// Both are empty arrays
 			expect(s1!.modifiedFilesThisCoderTask).toEqual([]);

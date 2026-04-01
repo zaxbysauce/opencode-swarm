@@ -3,11 +3,11 @@
  * Tests edge cases, invalid inputs, and mutation safety
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	LanguageRegistry,
-	LanguageProfile,
 	LANGUAGE_REGISTRY,
+	type LanguageProfile,
+	LanguageRegistry,
 } from '../../../src/lang/profiles';
 
 describe('LanguageRegistry Adversarial Tests', () => {

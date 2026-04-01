@@ -1,11 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState, startAgentSession } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { existsSync, readFileSync, rm, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 // Mock knowledge-recall module at file scope
 const mockExecute = mock(() => Promise.resolve('{"results":[],"total":0}'));
@@ -67,7 +71,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 	/**
 	 * Helper to invoke the transform hook with coder role
 	 */
-	async function invokeAsCoder(sessionId: string, taskId: string, primaryFile: string) {
+	async function invokeAsCoder(
+		sessionId: string,
+		taskId: string,
+		primaryFile: string,
+	) {
 		// Set up active agent as coder
 		swarmState.activeAgent.set(sessionId, 'paid_coder');
 
@@ -115,7 +123,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			),
 		);
 
-		const system = await invokeAsCoder('session-kb-1', 'task-1', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-kb-1',
+			'task-1',
+			'src/utils/paths.ts',
+		);
 
 		// Should have injected knowledge block
 		const hasKnowledgeBlock = system.some((s) =>
@@ -136,7 +148,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			Promise.resolve(JSON.stringify({ results: [], total: 0 })),
 		);
 
-		const system = await invokeAsCoder('session-kb-2', 'task-2', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-kb-2',
+			'task-2',
+			'src/utils/paths.ts',
+		);
 
 		// Should NOT have knowledge block
 		const hasKnowledgeBlock = system.some((s) =>
@@ -157,7 +173,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 		);
 
 		// Should not throw
-		const system = await invokeAsCoder('session-no-evidence', 'task-no-evidence', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-no-evidence',
+			'task-no-evidence',
+			'src/utils/paths.ts',
+		);
 
 		// Should NOT have rejection block
 		const hasRejectionBlock = system.some((s) =>
@@ -264,7 +284,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			JSON.stringify(evidenceData),
 		);
 
-		const system = await invokeAsCoder('session-both', 'task-both', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-both',
+			'task-both',
+			'src/utils/paths.ts',
+		);
 
 		// Should have BOTH knowledge block AND rejection block
 		const hasKnowledgeBlock = system.some((s) =>
@@ -285,9 +309,7 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 		expect(knowledgeText).toContain('[debugging]');
 
 		// Verify the rejection block contains the reasons
-		const rejectionText = system.find((s) =>
-			s.includes('## PRIOR REJECTIONS'),
-		);
+		const rejectionText = system.find((s) => s.includes('## PRIOR REJECTIONS'));
 		expect(rejectionText).toContain('Missing null check on line 42');
 		expect(rejectionText).toContain('Inefficient algorithm detected');
 	});
@@ -350,7 +372,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			),
 		);
 
-		const system = await invokeAsCoder('session-long', 'task-long', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-long',
+			'task-long',
+			'src/utils/paths.ts',
+		);
 
 		const knowledgeText = system.find((s) =>
 			s.includes('## CONTEXT FROM KNOWLEDGE BASE'),
@@ -363,7 +389,9 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 		// The line prefix is "- [architecture] " = 17 chars
 		// Lesson is truncated to 200 chars, so total = 17 + 200 + "..." = 220
 		// The entire knowledge block should be longer than just the truncated lesson line
-		const truncatedPart = knowledgeText!.split('## CONTEXT FROM KNOWLEDGE BASE')[1];
+		const truncatedPart = knowledgeText!.split(
+			'## CONTEXT FROM KNOWLEDGE BASE',
+		)[1];
 		// Should contain "...", indicating truncation happened
 		expect(truncatedPart).toContain('...');
 	});
@@ -401,10 +429,7 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 		// Create malformed evidence file
 		const evidenceDir = join(tempDir, '.swarm', 'evidence');
 		await mkdir(evidenceDir, { recursive: true });
-		writeFileSync(
-			join(evidenceDir, 'task-malformed.json'),
-			'not valid json {',
-		);
+		writeFileSync(join(evidenceDir, 'task-malformed.json'), 'not valid json {');
 
 		// Knowledge recall returns empty
 		mockExecute.mockImplementationOnce(() =>
@@ -412,7 +437,11 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 		);
 
 		// Should not throw despite malformed JSON
-		const system = await invokeAsCoder('session-malformed', 'task-malformed', 'src/utils/paths.ts');
+		const system = await invokeAsCoder(
+			'session-malformed',
+			'task-malformed',
+			'src/utils/paths.ts',
+		);
 
 		// Should have empty rejection block (caught by try/catch)
 		const hasRejectionBlock = system.some((s) =>

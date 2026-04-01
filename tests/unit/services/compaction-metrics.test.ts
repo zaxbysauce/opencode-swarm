@@ -1,15 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
+import type { AgentDefinition } from '../../../src/agents';
 import {
+	createCompactionService,
 	getCompactionMetrics,
 	resetCompactionState,
-	createCompactionService,
 } from '../../../src/services/compaction-service';
 import { getStatusData } from '../../../src/services/status-service';
 import { resetSwarmState, swarmState } from '../../../src/state';
-import type { AgentDefinition } from '../../../src/agents';
 
 describe('compaction-metrics', () => {
 	const tempDir = path.join(os.tmpdir(), `swarm-compaction-test-${Date.now()}`);
@@ -62,7 +62,9 @@ describe('compaction-metrics', () => {
 		const metrics = getCompactionMetrics();
 		expect(metrics.compactionCount).toBe(1);
 		expect(typeof metrics.lastSnapshotAt).toBe('string');
-		expect(metrics.lastSnapshotAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+		expect(metrics.lastSnapshotAt).toMatch(
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+		);
 	});
 
 	test('getStatusData returns live compactionCount and lastSnapshotAt from getCompactionMetrics', async () => {

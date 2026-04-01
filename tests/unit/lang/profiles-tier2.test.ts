@@ -3,11 +3,11 @@
  * Tests for Java, Kotlin, C#, C/C++, and Swift profiles
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
 	LANGUAGE_REGISTRY,
-	LanguageRegistry,
 	type LanguageProfile,
+	LanguageRegistry,
 } from '../../../src/lang/profiles';
 
 // Create a test registry isolated from the global one
@@ -116,7 +116,9 @@ describe('Tier 2 Language Profile Registry - Verification Tests', () => {
 		const cppProfile = TEST_REGISTRY.getById('cpp');
 		expect(cppProfile).toBeDefined();
 		const expectedExtensions = ['.c', '.h', '.cpp', '.hpp', '.cc', '.cxx'];
-		expect(cppProfile?.extensions).toEqual(expect.arrayContaining(expectedExtensions));
+		expect(cppProfile?.extensions).toEqual(
+			expect.arrayContaining(expectedExtensions),
+		);
 		expect(cppProfile?.extensions).toHaveLength(6);
 	});
 
@@ -188,8 +190,14 @@ describe('Tier 2 Language Profile Registry - Adversarial Tests', () => {
 			audit: { detectFiles: ['pom.xml'], command: null, outputFormat: 'json' },
 			sast: { nativeRuleSet: 'java', semgrepSupport: 'ga' },
 			prompts: {
-				coderConstraints: ['overwritten constraint 1', 'overwritten constraint 2'],
-				reviewerChecklist: ['overwritten checklist 1', 'overwritten checklist 2'],
+				coderConstraints: [
+					'overwritten constraint 1',
+					'overwritten constraint 2',
+				],
+				reviewerChecklist: [
+					'overwritten checklist 1',
+					'overwritten checklist 2',
+				],
 			},
 		};
 

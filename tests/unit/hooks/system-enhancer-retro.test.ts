@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { swarmState } from '../../../src/state';
 
 describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 	let tempDir: string;
@@ -37,8 +36,18 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 			swarm: 'test',
 			phases: [
 				{ id: 1, name: 'Phase 1', status: 'completed', tasks: [] },
-				{ id: 2, name: 'Phase 2', status: currentPhase === 2 ? 'in_progress' : 'pending', tasks: [] },
-				{ id: 3, name: 'Phase 3', status: currentPhase === 3 ? 'in_progress' : 'pending', tasks: [] },
+				{
+					id: 2,
+					name: 'Phase 2',
+					status: currentPhase === 2 ? 'in_progress' : 'pending',
+					tasks: [],
+				},
+				{
+					id: 3,
+					name: 'Phase 3',
+					status: currentPhase === 3 ? 'in_progress' : 'pending',
+					tasks: [],
+				},
 				{ id: 4, name: 'Phase 4', status: 'pending', tasks: [] },
 				{ id: 5, name: 'Phase 5', status: 'pending', tasks: [] },
 			],
@@ -55,7 +64,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const retroDir = join(tempDir, '.swarm', 'evidence', `retro-${phase}`);
 		await mkdir(retroDir, { recursive: true });
 
-		const timestamp = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+		const timestamp = new Date(
+			Date.now() - daysAgo * 24 * 60 * 60 * 1000,
+		).toISOString();
 		const bundle = {
 			schema_version: '1.0.0',
 			task_id: `retro-${phase}`,
@@ -119,7 +130,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 	it('1. Injects previous phase retrospective when retro-{N-1} exists', async () => {
 		// Create retro-1 for Phase 2 context
 		await createRetroBundle(1, 'pass', 1);
-		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-2'), { recursive: true });
+		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-2'), {
+			recursive: true,
+		});
 
 		const systemOutput = await invokeHook('architect', 2);
 
@@ -130,7 +143,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		expect(hasRetroHeading).toBe(true);
 
 		// Assert it includes content from the bundle
-		const hasOutcome = systemOutput.some((s) => s.includes('Phase 1 completed successfully'));
+		const hasOutcome = systemOutput.some((s) =>
+			s.includes('Phase 1 completed successfully'),
+		);
 		const hasRejectionReason = systemOutput.some((s) =>
 			s.includes('Config schema approach not aligned'),
 		);
@@ -146,8 +161,12 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 	it('2. Falls back to scan when direct lookup fails but another retro-* bundle exists', async () => {
 		// Create retro-3 (not retro-1) to test fallback scan
 		await createRetroBundle(3, 'pass', 1);
-		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-1'), { recursive: true });
-		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-2'), { recursive: true });
+		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-1'), {
+			recursive: true,
+		});
+		await mkdir(join(tempDir, '.swarm', 'evidence', 'retro-2'), {
+			recursive: true,
+		});
 
 		const systemOutput = await invokeHook('architect', 4);
 
@@ -158,7 +177,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		expect(hasRetroHeading).toBe(true);
 
 		// Assert it includes the phase 3 content
-		const hasOutcome = systemOutput.some((s) => s.includes('Phase 3 completed successfully'));
+		const hasOutcome = systemOutput.some((s) =>
+			s.includes('Phase 3 completed successfully'),
+		);
 		expect(hasOutcome).toBe(true);
 	});
 
@@ -181,7 +202,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const systemOutput = await invokeHook('architect', 2);
 
 		// Find the retrospective block
-		const retroBlock = systemOutput.find((s) => s.includes('## Previous Phase Retrospective'));
+		const retroBlock = systemOutput.find((s) =>
+			s.includes('## Previous Phase Retrospective'),
+		);
 		expect(retroBlock).toBeDefined();
 
 		// Check for structured sections
@@ -190,7 +213,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		expect(retroBlock!).toMatch(/\*\*Lessons learned:\*\*/);
 
 		// Check for bullet format in lessons
-		expect(retroBlock!).toMatch(/- Tree-sitter integration requires WASM grammar files/);
+		expect(retroBlock!).toMatch(
+			/- Tree-sitter integration requires WASM grammar files/,
+		);
 	});
 
 	it('5. Does NOT inject when retro-{N-1} verdict is "fail"', async () => {
@@ -272,11 +297,14 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		expect(hasHistoricalHeading).toBe(true);
 
 		// Find the block and count distinct phase entries (not all "Phase X" mentions in text)
-		const historicalBlock = systemOutput.find((s) => s.includes('## Historical Lessons'));
+		const historicalBlock = systemOutput.find((s) =>
+			s.includes('## Historical Lessons'),
+		);
 		expect(historicalBlock).toBeDefined();
 
 		// Count unique phase numbers mentioned in the format "Phase N (date):"
-		const phaseEntryMatches = historicalBlock!.match(/Phase \d+ \(\d{4}-\d{2}-\d{2}\):/g) || [];
+		const phaseEntryMatches =
+			historicalBlock!.match(/Phase \d+ \(\d{4}-\d{2}-\d{2}\):/g) || [];
 		// Should have exactly 3 phases (top-3 most recent)
 		expect(phaseEntryMatches.length).toBe(3);
 	});
@@ -321,7 +349,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const systemOutput = await invokeHook('architect', 2);
 
 		// Assert architect does NOT get the [SWARM RETROSPECTIVE] prefix
-		const hasPrefix = systemOutput.some((s) => s.includes('[SWARM RETROSPECTIVE]'));
+		const hasPrefix = systemOutput.some((s) =>
+			s.includes('[SWARM RETROSPECTIVE]'),
+		);
 		expect(hasPrefix).toBe(false);
 
 		// Assert architect gets the ## heading format
@@ -337,7 +367,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const systemOutput = await invokeHook('coder', 1);
 
 		// Assert coder gets no retrospective injection for Phase 1
-		const hasRetro = systemOutput.some((s) => s.includes('[SWARM RETROSPECTIVE]'));
+		const hasRetro = systemOutput.some((s) =>
+			s.includes('[SWARM RETROSPECTIVE]'),
+		);
 		expect(hasRetro).toBe(false);
 	});
 
@@ -361,8 +393,10 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		await transform(input, output);
 
 		// Assert no retrospective injection (graceful null)
-		const hasRetro = output.system.some((s) =>
-			s.includes('## Previous Phase Retrospective') || s.includes('[SWARM RETROSPECTIVE]'),
+		const hasRetro = output.system.some(
+			(s) =>
+				s.includes('## Previous Phase Retrospective') ||
+				s.includes('[SWARM RETROSPECTIVE]'),
 		);
 		expect(hasRetro).toBe(false);
 	});
@@ -373,7 +407,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		await mkdir(retroDir, { recursive: true });
 		const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 		const longLesson =
-			'This is a very long lesson that adds many characters to test the 1600 character cap for architect injection '.repeat(20);
+			'This is a very long lesson that adds many characters to test the 1600 character cap for architect injection '.repeat(
+				20,
+			);
 		const bundle = {
 			schema_version: '1.0.0',
 			task_id: 'retro-1',
@@ -396,7 +432,13 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 					task_count: 5,
 					task_complexity: 'moderate',
 					top_rejection_reasons: [longLesson, longLesson, longLesson],
-					lessons_learned: [longLesson, longLesson, longLesson, longLesson, longLesson],
+					lessons_learned: [
+						longLesson,
+						longLesson,
+						longLesson,
+						longLesson,
+						longLesson,
+					],
 				},
 			],
 			created_at: timestamp,
@@ -407,7 +449,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const systemOutput = await invokeHook('architect', 2);
 
 		// Find the retrospective block
-		const retroBlock = systemOutput.find((s) => s.includes('## Previous Phase Retrospective'));
+		const retroBlock = systemOutput.find((s) =>
+			s.includes('## Previous Phase Retrospective'),
+		);
 		expect(retroBlock).toBeDefined();
 
 		// Assert it's capped at 1600 characters (or 1603 with "..." suffix when truncated)
@@ -420,7 +464,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		await mkdir(retroDir, { recursive: true });
 		const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 		const longLesson =
-			'This is a very long lesson that adds many characters to test the 400 character cap for coder injection '.repeat(20);
+			'This is a very long lesson that adds many characters to test the 400 character cap for coder injection '.repeat(
+				20,
+			);
 		const bundle = {
 			schema_version: '1.0.0',
 			task_id: 'retro-1',
@@ -443,7 +489,13 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 					task_count: 5,
 					task_complexity: 'moderate',
 					top_rejection_reasons: [longLesson, longLesson, longLesson],
-					lessons_learned: [longLesson, longLesson, longLesson, longLesson, longLesson],
+					lessons_learned: [
+						longLesson,
+						longLesson,
+						longLesson,
+						longLesson,
+						longLesson,
+					],
 				},
 			],
 			created_at: timestamp,
@@ -454,7 +506,9 @@ describe('System Enhancer - Retrospective Injection (16 Tests)', () => {
 		const systemOutput = await invokeHook('coder', 2);
 
 		// Find the coder retrospective
-		const coderRetro = systemOutput.find((s) => s.includes('[SWARM RETROSPECTIVE]'));
+		const coderRetro = systemOutput.find((s) =>
+			s.includes('[SWARM RETROSPECTIVE]'),
+		);
 		expect(coderRetro).toBeDefined();
 
 		// Assert it's capped at 400 characters

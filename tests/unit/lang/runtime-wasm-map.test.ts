@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
-	loadGrammar,
-	isGrammarAvailable,
 	clearParserCache,
 	getSupportedLanguages,
+	isGrammarAvailable,
+	loadGrammar,
 } from '../../../src/lang/runtime';
 
 /**
@@ -35,12 +35,30 @@ describe('LANGUAGE_WASM_MAP - Kotlin, Swift, Dart entries', () => {
 
 		test('should include all three new languages together', () => {
 			const supported = getSupportedLanguages();
-			expect(supported).toEqual(expect.arrayContaining(['kotlin', 'swift', 'dart']));
+			expect(supported).toEqual(
+				expect.arrayContaining(['kotlin', 'swift', 'dart']),
+			);
 		});
 
 		test('should include existing languages as well', () => {
 			const supported = getSupportedLanguages();
-			const existingLanguages = ['javascript', 'typescript', 'python', 'go', 'rust', 'cpp', 'c', 'csharp', 'css', 'html', 'json', 'bash', 'ruby', 'php', 'java'];
+			const existingLanguages = [
+				'javascript',
+				'typescript',
+				'python',
+				'go',
+				'rust',
+				'cpp',
+				'c',
+				'csharp',
+				'css',
+				'html',
+				'json',
+				'bash',
+				'ruby',
+				'php',
+				'java',
+			];
 			expect(supported).toEqual(expect.arrayContaining(existingLanguages));
 		});
 	});

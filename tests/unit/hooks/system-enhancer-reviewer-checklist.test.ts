@@ -4,7 +4,7 @@
  * Since buildLanguageReviewerChecklist is not exported from system-enhancer.ts,
  * we recreate its logic with an injectable mock for getProfileForFile to test it directly.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 /**
  * Type for language profile mock
@@ -93,9 +93,15 @@ describe('buildLanguageReviewerChecklist', () => {
 			});
 
 			expect(result).not.toBe(null);
-			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]');
-			expect(result).toContain('- [ ] Check for explicit return types on all functions');
-			expect(result).toContain('- [ ] Ensure no any types except in type guards');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]',
+			);
+			expect(result).toContain(
+				'- [ ] Check for explicit return types on all functions',
+			);
+			expect(result).toContain(
+				'- [ ] Ensure no any types except in type guards',
+			);
 		});
 
 		it('returns null for unknown file extension (no profile)', () => {
@@ -188,7 +194,10 @@ describe('buildLanguageReviewerChecklist', () => {
 	describe('Item limit (10 items max)', () => {
 		it('limits output to exactly 10 items when profile has more', () => {
 			const taskText = 'Update src/tools/lint.ts';
-			const items = Array.from({ length: 15 }, (_, i) => `Checklist item ${i + 1}`);
+			const items = Array.from(
+				{ length: 15 },
+				(_, i) => `Checklist item ${i + 1}`,
+			);
 			const mockProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {
@@ -196,7 +205,10 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
@@ -226,7 +238,10 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
@@ -257,7 +272,9 @@ describe('buildLanguageReviewerChecklist', () => {
 			});
 
 			expect(result).not.toBe(null);
-			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]',
+			);
 
 			// Should have exactly 3 unique items
 			const lines = result?.split('\n') ?? [];
@@ -266,23 +283,18 @@ describe('buildLanguageReviewerChecklist', () => {
 		});
 
 		it('merges items from multiple languages with first language label', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
 			const tsProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {
-					reviewerChecklist: [
-						'Check TS function types',
-						'Verify TS imports',
-					],
+					reviewerChecklist: ['Check TS function types', 'Verify TS imports'],
 				},
 			};
 			const rustProfile: LanguageProfileMock = {
 				displayName: 'Rust',
 				prompts: {
-					reviewerChecklist: [
-						'Check Rust safety',
-						'Verify Rust ownership',
-					],
+					reviewerChecklist: ['Check Rust safety', 'Verify Rust ownership'],
 				},
 			};
 
@@ -313,12 +325,16 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 			expect(result).toBe(null);
 		});
 
 		it('returns null when all files have no profile', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
 			const result = buildLanguageReviewerChecklistTest(taskText, () => null);
 			expect(result).toBe(null);
 		});
@@ -368,7 +384,10 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 			expect(result).toBe(null);
 		});
 	});
@@ -383,12 +402,17 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
 			// Verify format: [LANGUAGE-SPECIFIC REVIEW CHECKLIST — <language>]
-			expect(result).toMatch(/^\[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript \/ JavaScript\]/);
+			expect(result).toMatch(
+				/^\[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript \/ JavaScript\]/,
+			);
 
 			// Verify each item starts with "- [ ] " (note the space after checkbox)
 			const lines = result?.split('\n') ?? [];
@@ -399,7 +423,8 @@ describe('buildLanguageReviewerChecklist', () => {
 		});
 
 		it('uses first language label when multiple languages present', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
 			const tsProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {
@@ -433,7 +458,10 @@ describe('buildLanguageReviewerChecklist', () => {
 				},
 			};
 
-			const result = buildLanguageReviewerChecklistTest(taskText, () => mockProfile);
+			const result = buildLanguageReviewerChecklistTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 			expect(result).toContain('- [ ] Item one');
@@ -483,12 +511,19 @@ describe('buildLanguageReviewerChecklist', () => {
 
 	describe('Item cap spans multiple files', () => {
 		it('limits to 10 items when multiple files each contribute many items', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
 
 			// First file contributes 7 items
-			const file1Items = Array.from({ length: 7 }, (_, i) => `File1 Check ${i + 1}`);
+			const file1Items = Array.from(
+				{ length: 7 },
+				(_, i) => `File1 Check ${i + 1}`,
+			);
 			// Second file contributes 7 items
-			const file2Items = Array.from({ length: 7 }, (_, i) => `File2 Check ${i + 1}`);
+			const file2Items = Array.from(
+				{ length: 7 },
+				(_, i) => `File2 Check ${i + 1}`,
+			);
 
 			// Simulate different profiles for different files
 			const mockProfile1: LanguageProfileMock = {

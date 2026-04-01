@@ -1,11 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
-	resetSwarmState,
 	ensureAgentSession,
+	resetSwarmState,
 	swarmState,
 } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
 const TEST_DIR = '/test/project';
 

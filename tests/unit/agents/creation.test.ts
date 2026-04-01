@@ -1,11 +1,11 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import {
 	createArchitectAgent,
 	createCoderAgent,
-	createExplorerAgent,
-	createSMEAgent,
-	createReviewerAgent,
 	createCriticAgent,
+	createExplorerAgent,
+	createReviewerAgent,
+	createSMEAgent,
 	createTestEngineerAgent,
 } from '../../../src/agents';
 
@@ -58,7 +58,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createArchitectAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createArchitectAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -109,7 +113,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createCoderAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createCoderAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -163,7 +171,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createExplorerAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createExplorerAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -217,7 +229,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createSMEAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createSMEAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -271,7 +287,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createReviewerAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createReviewerAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -325,7 +345,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createCriticAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createCriticAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -376,7 +400,11 @@ describe('Agent Creation Functions', () => {
 
 		test('handles append prompt correctly', () => {
 			const appendPrompt = 'additional prompt';
-			const agentWithAppend = createTestEngineerAgent(testModel, undefined, appendPrompt);
+			const agentWithAppend = createTestEngineerAgent(
+				testModel,
+				undefined,
+				appendPrompt,
+			);
 			expect(agentWithAppend.config.prompt).toEndWith(appendPrompt);
 		});
 
@@ -431,7 +459,9 @@ describe('Agent Creation Functions', () => {
 				});
 
 				test('contains anti-delegation directive', () => {
-					expect(prompt).toContain('DO NOT use the Task tool to delegate to other agents');
+					expect(prompt).toContain(
+						'DO NOT use the Task tool to delegate to other agents',
+					);
 				});
 
 				test('contains identity reinforcement', () => {

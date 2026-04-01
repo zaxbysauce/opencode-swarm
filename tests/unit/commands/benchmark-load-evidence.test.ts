@@ -12,10 +12,10 @@
  * bun test runner module-registry contamination across test files.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { handleBenchmarkCommand } from '../../../src/commands/benchmark.js';
 import { saveEvidence } from '../../../src/evidence/manager.js';
 
@@ -179,7 +179,10 @@ describe('handleBenchmarkCommand loadEvidence discriminated union', () => {
 		it('should skip task when loadEvidence returns status: "invalid_schema"', async () => {
 			// Create directory with invalid JSON → loadEvidence returns 'invalid_schema'
 			const dir = mkEvidenceDir('3.1');
-			writeFileSync(path.join(dir, 'evidence.json'), '{ invalid json content !!!');
+			writeFileSync(
+				path.join(dir, 'evidence.json'),
+				'{ invalid json content !!!',
+			);
 
 			const result = await handleBenchmarkCommand(testDir, ['--cumulative']);
 

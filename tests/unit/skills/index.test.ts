@@ -3,13 +3,13 @@
  * Task 6.2 - SKILL_VERSION
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
 	AgentOverlay,
-	SkillDefinition,
-	getSkill,
 	getAgentOverlay,
+	getSkill,
 	resolveAgentPrompt,
+	type SkillDefinition,
 	skills,
 } from '../../../src/skills/index';
 
@@ -141,7 +141,11 @@ describe('src/skills/index.ts - Task 6.2 SKILL_VERSION', () => {
 
 			skills.push(testSkill);
 			try {
-				const prompt = resolveAgentPrompt('test-skill-3', 'coder', 'Default prompt');
+				const prompt = resolveAgentPrompt(
+					'test-skill-3',
+					'coder',
+					'Default prompt',
+				);
 				expect(prompt).toBe('Overlay prompt');
 			} finally {
 				const idx = skills.findIndex((s) => s.id === 'test-skill-3');
@@ -151,12 +155,20 @@ describe('src/skills/index.ts - Task 6.2 SKILL_VERSION', () => {
 
 		it('returns default prompt when no overlay exists', () => {
 			const defaultPrompt = 'Default prompt text';
-			const prompt = resolveAgentPrompt('default', 'non-existent-agent', defaultPrompt);
+			const prompt = resolveAgentPrompt(
+				'default',
+				'non-existent-agent',
+				defaultPrompt,
+			);
 			expect(prompt).toBe(defaultPrompt);
 		});
 
 		it('returns default prompt for non-existent skill', () => {
-			const prompt = resolveAgentPrompt('non-existent', 'coder', 'Fallback prompt');
+			const prompt = resolveAgentPrompt(
+				'non-existent',
+				'coder',
+				'Fallback prompt',
+			);
 			expect(prompt).toBe('Fallback prompt');
 		});
 
@@ -171,7 +183,11 @@ describe('src/skills/index.ts - Task 6.2 SKILL_VERSION', () => {
 
 			skills.push(testSkill);
 			try {
-				const prompt = resolveAgentPrompt('test-skill-4', 'coder', 'Default prompt');
+				const prompt = resolveAgentPrompt(
+					'test-skill-4',
+					'coder',
+					'Default prompt',
+				);
 				expect(prompt).toBe('Default prompt');
 			} finally {
 				const idx = skills.findIndex((s) => s.id === 'test-skill-4');

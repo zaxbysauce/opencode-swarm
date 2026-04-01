@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
 	AutomationEventBus,
-	resetGlobalEventBus,
-	getGlobalEventBus,
 	type AutomationEventType,
+	getGlobalEventBus,
+	resetGlobalEventBus,
 } from '../../../src/background/event-bus';
 
 describe('AutomationEventBus', () => {
@@ -87,7 +87,10 @@ describe('AutomationEventBus', () => {
 				results.push('async done');
 			};
 
-			eventBus.subscribe('automation.stopped' as AutomationEventType, asyncListener);
+			eventBus.subscribe(
+				'automation.stopped' as AutomationEventType,
+				asyncListener,
+			);
 
 			await eventBus.publish('automation.stopped' as AutomationEventType, {});
 
@@ -102,12 +105,14 @@ describe('AutomationEventBus', () => {
 
 			eventBus.subscribe('worker.error' as AutomationEventType, errorListener);
 
-			await eventBus.publish('worker.error' as AutomationEventType, {
-				workerName: 'test',
-				error: 'test error',
-			}).then(() => {
-				publishCompleted = true;
-			});
+			await eventBus
+				.publish('worker.error' as AutomationEventType, {
+					workerName: 'test',
+					error: 'test error',
+				})
+				.then(() => {
+					publishCompleted = true;
+				});
 
 			expect(publishCompleted).toBe(true);
 		});

@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { filterByRole, ContextEntry } from '../../../src/context/role-filter';
 import { stripKnownSwarmPrefix } from '../../../src/config/schema';
+import {
+	type ContextEntry,
+	filterByRole,
+} from '../../../src/context/role-filter';
 import { resetSwarmState } from '../../../src/state';
 
 describe('filterByRole', () => {
@@ -11,7 +14,13 @@ describe('filterByRole', () => {
 	beforeEach(() => {
 		resetSwarmState();
 		// Create a temporary directory for event logging tests
-		tempDir = path.join(process.cwd(), 'tests', 'unit', 'context', 'temp-test-' + Date.now());
+		tempDir = path.join(
+			process.cwd(),
+			'tests',
+			'unit',
+			'context',
+			'temp-test-' + Date.now(),
+		);
 		fs.mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -179,8 +188,12 @@ describe('filterByRole', () => {
 
 			const resultArchitect = filterByRole(entries, 'architect', tempDir);
 			expect(resultArchitect).toHaveLength(2); // architect-specific + untagged
-			expect(resultArchitect.some(e => e.content.includes('Architect-only'))).toBe(true);
-			expect(resultArchitect.some(e => e.content.includes('Plain shared'))).toBe(true);
+			expect(
+				resultArchitect.some((e) => e.content.includes('Architect-only')),
+			).toBe(true);
+			expect(
+				resultArchitect.some((e) => e.content.includes('Plain shared')),
+			).toBe(true);
 
 			const resultCoder = filterByRole(entries, 'coder', tempDir);
 			expect(resultCoder).toHaveLength(2); // coder-specific + untagged

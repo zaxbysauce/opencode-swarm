@@ -44,7 +44,9 @@ describe('Architect RETRY CIRCUIT BREAKER (Task 2.2)', () => {
 
 		it('Includes escalation to user as final step', () => {
 			// Should escalate to user if simplified approach also fails
-			expect(prompt).toMatch(/simplified approach.*fails.*escalate|escalate.*simplified.*fails/i);
+			expect(prompt).toMatch(
+				/simplified approach.*fails.*escalate|escalate.*simplified.*fails/i,
+			);
 		});
 
 		it('Specifies rewrite task spec with simplicity constraints', () => {

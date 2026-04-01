@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import { resetSwarmState } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -66,17 +68,24 @@ Rule 3: Use programmatic gates
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End of prompt`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-4o-mini'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// All 3 markers should be replaced
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
 
 			// Count replacements - should have 3 replacements
-			const replacementCount = (resultText.match(/\[Enforcement: programmatic gates active\]/g) || []).length;
+			const replacementCount = (
+				resultText.match(/\[Enforcement: programmatic gates active\]/g) || []
+			).length;
 			expect(replacementCount).toBe(3);
 
 			// Original content outside markers should be preserved
@@ -97,12 +106,17 @@ Rule 1: Always delegate
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-4o'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// Markers should still be present
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
 			expect(resultText).toContain('Rule 1: Always delegate');
@@ -124,7 +138,9 @@ End`;
 			await hooks.messagesTransform({}, { messages });
 
 			// Markers should still be present
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_END -->');
 		});
@@ -140,12 +156,17 @@ This should not be removed
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeUserMessage(userText), makeAssistantMessage('gpt-4o-mini')];
+			const messages = [
+				makeUserMessage(userText),
+				makeAssistantMessage('gpt-4o-mini'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// User message should remain unchanged
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 			expect(resultText).toContain('This should not be removed');
 		});
@@ -160,12 +181,17 @@ Rule to remove
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('GPT-4O-NANO')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('GPT-4O-NANO'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// Should be trimmed (case-insensitive match on 'nano')
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).not.toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 			expect(resultText).toContain('[Enforcement: programmatic gates active]');
 		});
@@ -195,15 +221,25 @@ End 2`;
 			await hooks.messagesTransform({}, { messages });
 
 			// Both system messages should be trimmed
-			const resultText1 = (messages[0].parts[0] as { type: string; text: string }).text;
-			const resultText2 = (messages[1].parts[0] as { type: string; text: string }).text;
+			const resultText1 = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
+			const resultText2 = (
+				messages[1].parts[0] as { type: string; text: string }
+			).text;
 
 			expect(resultText1).not.toContain('BEHAVIORAL_GUIDANCE_START');
 			expect(resultText2).not.toContain('BEHAVIORAL_GUIDANCE_START');
 
 			// Each should have one replacement
-			expect((resultText1.match(/\[Enforcement: programmatic gates active\]/g) || []).length).toBe(1);
-			expect((resultText2.match(/\[Enforcement: programmatic gates active\]/g) || []).length).toBe(1);
+			expect(
+				(resultText1.match(/\[Enforcement: programmatic gates active\]/g) || [])
+					.length,
+			).toBe(1);
+			expect(
+				(resultText2.match(/\[Enforcement: programmatic gates active\]/g) || [])
+					.length,
+			).toBe(1);
 		});
 
 		it('System message WITHOUT markers - not modified', async () => {
@@ -214,12 +250,17 @@ End 2`;
 Just regular content here.
 End of prompt.`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-4o-mini'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// Text should remain unchanged
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toBe(systemText);
 		});
 
@@ -234,11 +275,16 @@ Rule
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('claude-3-nano')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('claude-3-nano'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('[Enforcement: programmatic gates active]');
 		});
 
@@ -252,11 +298,16 @@ Rule
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-35-turbo-small')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-35-turbo-small'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('[Enforcement: programmatic gates active]');
 		});
 
@@ -270,11 +321,16 @@ Rule
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-free')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-4o-free'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('[Enforcement: programmatic gates active]');
 		});
 
@@ -283,7 +339,9 @@ End`;
 			const hooks = createGuardrailsHooks(config);
 
 			// Should not throw
-			await expect(hooks.messagesTransform({}, { messages: [] })).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, { messages: [] }),
+			).resolves.toBeUndefined();
 		});
 
 		it('messages without sessionID - no trim (early return)', async () => {
@@ -311,7 +369,9 @@ End`;
 			await hooks.messagesTransform({}, { messages });
 
 			// Should not be trimmed (early return due to missing sessionID)
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('<!-- BEHAVIORAL_GUIDANCE_START -->');
 		});
 
@@ -329,11 +389,16 @@ That should be removed
 <!-- BEHAVIORAL_GUIDANCE_END -->
 End`;
 
-			const messages = [makeSystemMessage(systemText), makeAssistantMessage('gpt-4o-mini')];
+			const messages = [
+				makeSystemMessage(systemText),
+				makeAssistantMessage('gpt-4o-mini'),
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const resultText = (messages[0].parts[0] as { type: string; text: string }).text;
+			const resultText = (
+				messages[0].parts[0] as { type: string; text: string }
+			).text;
 			expect(resultText).toContain('[Enforcement: programmatic gates active]');
 			expect(resultText).not.toContain('Rule 1: Delegate');
 			expect(resultText).not.toContain('multi-line content');

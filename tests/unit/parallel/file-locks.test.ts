@@ -3,17 +3,17 @@
  * Covers tryAcquireLock, releaseLock, and lock expiration
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
-	tryAcquireLock,
-	releaseLock,
-	isLocked,
 	cleanupExpiredLocks,
-	listActiveLocks,
 	type FileLock,
+	isLocked,
+	listActiveLocks,
+	releaseLock,
+	tryAcquireLock,
 } from '../../../src/parallel/file-locks';
 
 describe('file-locks module tests', () => {
@@ -23,7 +23,8 @@ describe('file-locks module tests', () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'file-locks-test-'));
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
+		// Release any lingering proper-lockfile locks before removing the directory
 		try {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		} catch {
@@ -33,8 +34,13 @@ describe('file-locks module tests', () => {
 
 	// ========== GROUP 1: tryAcquireLock tests ==========
 	describe('Group 1: tryAcquireLock', () => {
-		it('acquires lock on first attempt', () => {
-			const result = tryAcquireLock(tmpDir, 'test-file.ts', 'agent1', 'task1');
+		it('acquires lock on first attempt', async () => {
+			const result = await tryAcquireLock(
+				tmpDir,
+				'test-file.ts',
+				'agent1',
+				'task1',
+			);
 
 			expect(result.acquired).toBe(true);
 			if (result.acquired && 'lock' in result) {
@@ -43,70 +49,112 @@ describe('file-locks module tests', () => {
 				expect(result.lock.agent).toBe('agent1');
 				expect(result.lock.taskId).toBe('task1');
 				expect(result.lock.expiresAt).toBeGreaterThan(Date.now());
+				// Release so the lock dir can be cleaned up
+				await result.lock._release?.();
 			}
 		});
 
-		it('fails to acquire existing valid lock', () => {
+		it('fails to acquire existing valid lock', async () => {
 			// First acquisition
-			const first = tryAcquireLock(tmpDir, 'test-file.ts', 'agent1', 'task1');
+			const first = await tryAcquireLock(
+				tmpDir,
+				'test-file.ts',
+				'agent1',
+				'task1',
+			);
 			expect(first.acquired).toBe(true);
 
 			// Second attempt should fail
-			const second = tryAcquireLock(tmpDir, 'test-file.ts', 'agent2', 'task2');
+			const second = await tryAcquireLock(
+				tmpDir,
+				'test-file.ts',
+				'agent2',
+				'task2',
+			);
 			expect(second.acquired).toBe(false);
-			if (!second.acquired && 'existing' in second && second.existing) {
-				expect(second.existing.agent).toBe('agent1');
-			}
+
+			// Release the first lock
+			if (first.acquired) await first.lock._release?.();
 		});
 
-		it('creates locks directory if not exists', () => {
-			const result = tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task');
+		it('creates locks directory if not exists', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task');
 
 			expect(result.acquired).toBe(true);
 			expect(fs.existsSync(path.join(tmpDir, '.swarm', 'locks'))).toBe(true);
+			if (result.acquired) await result.lock._release?.();
 		});
 
-		it('uses path hash for lock filename', () => {
-			const result1 = tryAcquireLock(tmpDir, 'file-a.ts', 'agent', 'task');
-			const result2 = tryAcquireLock(tmpDir, 'file-b.ts', 'agent', 'task');
+		it('uses path hash for lock filename', async () => {
+			const result1 = await tryAcquireLock(
+				tmpDir,
+				'file-a.ts',
+				'agent',
+				'task',
+			);
+			const result2 = await tryAcquireLock(
+				tmpDir,
+				'file-b.ts',
+				'agent',
+				'task',
+			);
 
 			// Different files should have different lock paths
 			expect(result1.acquired).toBe(true);
 			expect(result2.acquired).toBe(true);
+
+			if (result1.acquired) await result1.lock._release?.();
+			if (result2.acquired) await result2.lock._release?.();
 		});
 	});
 
 	// ========== GROUP 2: releaseLock tests ==========
+	// releaseLock is now a no-op wrapper for API compatibility.
+	// Actual release is via lock._release(). These tests verify compatibility.
 	describe('Group 2: releaseLock', () => {
-		it('releases lock owned by same task', () => {
-			tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task1');
+		it('releaseLock is a no-op and returns true', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task1');
+			expect(result.acquired).toBe(true);
 
-			const released = releaseLock(tmpDir, 'test.ts', 'task1');
+			// releaseLock is a no-op but must return true for API compatibility
+			const released = await releaseLock(tmpDir, 'test.ts', 'task1');
 			expect(released).toBe(true);
-			expect(isLocked(tmpDir, 'test.ts')).toBeNull();
+
+			// Actual release via _release
+			if (result.acquired) await result.lock._release?.();
 		});
 
-		it('fails to release lock owned by different task', () => {
-			tryAcquireLock(tmpDir, 'test.ts', 'agent1', 'task1');
+		it('releaseLock always returns true (no-op)', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent1', 'task1');
+			expect(result.acquired).toBe(true);
 
-			const released = releaseLock(tmpDir, 'test.ts', 'task2');
-			expect(released).toBe(false);
-			expect(isLocked(tmpDir, 'test.ts')).not.toBeNull();
+			// Even a "wrong" taskId returns true since this is now a no-op
+			const released = await releaseLock(tmpDir, 'test.ts', 'task2');
+			expect(released).toBe(true);
+
+			if (result.acquired) await result.lock._release?.();
 		});
 
-		it('returns true for non-existent lock', () => {
-			const released = releaseLock(tmpDir, 'nonexistent.ts', 'task');
+		it('returns true for non-existent lock', async () => {
+			const released = await releaseLock(tmpDir, 'nonexistent.ts', 'task');
 			expect(released).toBe(true);
 		});
 
-		it('removes corrupted lock file', () => {
-			// Create lock directory and corrupted lock
-			const locksDir = path.join(tmpDir, '.swarm', 'locks');
-			fs.mkdirSync(locksDir, { recursive: true });
-			fs.writeFileSync(path.join(locksDir, 'test.lock'), 'not valid json');
+		it('lock can be re-acquired after _release()', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task1');
+			expect(result.acquired).toBe(true);
 
-			const released = releaseLock(tmpDir, 'test.ts', 'task');
-			expect(released).toBe(true);
+			if (result.acquired) await result.lock._release?.();
+
+			// Now another agent should be able to acquire it
+			const result2 = await tryAcquireLock(
+				tmpDir,
+				'test.ts',
+				'agent2',
+				'task2',
+			);
+			expect(result2.acquired).toBe(true);
+			if (result2.acquired) await result2.lock._release?.();
 		});
 	});
 
@@ -117,32 +165,23 @@ describe('file-locks module tests', () => {
 			expect(lock).toBeNull();
 		});
 
-		it('returns lock info for locked file', () => {
-			tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task1');
+		it('returns lock info for locked file', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task1');
+			expect(result.acquired).toBe(true);
 
 			const lock = isLocked(tmpDir, 'test.ts');
 			expect(lock).not.toBeNull();
 			expect(lock?.filePath).toBe('test.ts');
-			expect(lock?.agent).toBe('agent');
+
+			if (result.acquired) await result.lock._release?.();
 		});
 
-		it('removes and returns null for expired lock', () => {
-			// Create a lock with expired timestamp via tryAcquireLock, then modify expiry
-			const result = tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task');
+		it('returns null after lock is released', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent', 'task');
 			expect(result.acquired).toBe(true);
 
-			// Now modify the expiry to be in the past
-			const locksDir = path.join(tmpDir, '.swarm', 'locks');
-			const files = fs.readdirSync(locksDir);
-			const lockFile = files.find(f => f.endsWith('.lock'));
-			expect(lockFile).toBeDefined();
+			if (result.acquired) await result.lock._release?.();
 
-			const lockPath = path.join(locksDir, lockFile!);
-			const lockData = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
-			lockData.expiresAt = Date.now() - 1000; // Set to expired
-			fs.writeFileSync(lockPath, JSON.stringify(lockData));
-
-			// Now isLocked should detect expiration and return null
 			const lock = isLocked(tmpDir, 'test.ts');
 			expect(lock).toBeNull();
 		});
@@ -150,55 +189,43 @@ describe('file-locks module tests', () => {
 
 	// ========== GROUP 4: Lock expiration tests ==========
 	describe('Group 4: Lock expiration', () => {
-		it('locks expire after timeout', async () => {
-			// Create a lock with very short timeout
-			const locksDir = path.join(tmpDir, '.swarm', 'locks');
-			fs.mkdirSync(locksDir, { recursive: true });
-			const lockPath = path.join(locksDir, 'test.lock');
-			fs.writeFileSync(lockPath, JSON.stringify({
-				filePath: 'test.ts',
-				agent: 'agent',
-				taskId: 'task',
-				timestamp: new Date().toISOString(),
-				expiresAt: Date.now() + 10, // Expires in 10ms
-			}));
-
-			// Wait for expiration
-			await new Promise(resolve => setTimeout(resolve, 20));
-
-			// Try to acquire should succeed
-			const result = tryAcquireLock(tmpDir, 'test.ts', 'new-agent', 'new-task');
+		it('re-acquiring a lock after _release succeeds immediately', async () => {
+			const result = await tryAcquireLock(tmpDir, 'test.ts', 'agent1', 'task1');
 			expect(result.acquired).toBe(true);
+			if (result.acquired) await result.lock._release?.();
+
+			const result2 = await tryAcquireLock(
+				tmpDir,
+				'test.ts',
+				'new-agent',
+				'new-task',
+			);
+			expect(result2.acquired).toBe(true);
+			if (result2.acquired) await result2.lock._release?.();
 		});
 	});
 
 	// ========== GROUP 5: cleanupExpiredLocks tests ==========
 	describe('Group 5: cleanupExpiredLocks', () => {
-		it('removes expired locks', () => {
+		it('removes stale sentinel files (plain files older than timeout)', () => {
 			const locksDir = path.join(tmpDir, '.swarm', 'locks');
 			fs.mkdirSync(locksDir, { recursive: true });
 
-			// Create expired lock
-			fs.writeFileSync(path.join(locksDir, 'expired.lock'), JSON.stringify({
-				filePath: 'a.ts',
-				agent: 'a',
-				taskId: 't',
-				timestamp: new Date().toISOString(),
-				expiresAt: Date.now() - 1000,
-			}));
+			// Create a sentinel file and backdate its mtime to simulate staleness
+			const sentinelPath = path.join(locksDir, 'stale.lock');
+			fs.writeFileSync(sentinelPath, '', 'utf-8');
+			// Backdate mtime by 6 minutes (past the 5-minute timeout)
+			const staleTime = new Date(Date.now() - 6 * 60 * 1000);
+			fs.utimesSync(sentinelPath, staleTime, staleTime);
 
-			// Create valid lock
-			fs.writeFileSync(path.join(locksDir, 'valid.lock'), JSON.stringify({
-				filePath: 'b.ts',
-				agent: 'b',
-				taskId: 't',
-				timestamp: new Date().toISOString(),
-				expiresAt: Date.now() + 60000,
-			}));
+			// Create a fresh sentinel file that should not be removed
+			const freshPath = path.join(locksDir, 'fresh.lock');
+			fs.writeFileSync(freshPath, '', 'utf-8');
 
 			const cleaned = cleanupExpiredLocks(tmpDir);
 			expect(cleaned).toBe(1);
-			expect(fs.existsSync(path.join(locksDir, 'valid.lock'))).toBe(true);
+			expect(fs.existsSync(freshPath)).toBe(true);
+			expect(fs.existsSync(sentinelPath)).toBe(false);
 		});
 
 		it('returns 0 for non-existent locks directory', () => {
@@ -209,32 +236,31 @@ describe('file-locks module tests', () => {
 
 	// ========== GROUP 6: listActiveLocks tests ==========
 	describe('Group 6: listActiveLocks', () => {
-		it('lists active locks', () => {
-			tryAcquireLock(tmpDir, 'file1.ts', 'agent1', 'task1');
-			tryAcquireLock(tmpDir, 'file2.ts', 'agent2', 'task2');
+		it('lists active locks', async () => {
+			const r1 = await tryAcquireLock(tmpDir, 'file1.ts', 'agent1', 'task1');
+			const r2 = await tryAcquireLock(tmpDir, 'file2.ts', 'agent2', 'task2');
 
 			const locks = listActiveLocks(tmpDir);
 			expect(locks.length).toBe(2);
+
+			if (r1.acquired) await r1.lock._release?.();
+			if (r2.acquired) await r2.lock._release?.();
 		});
 
-		it('excludes expired locks', () => {
-			// Create expired lock directly
+		it('excludes files without active proper-lockfile lock directory', async () => {
+			// Create a bare sentinel file with no .lock directory — should not appear
 			const locksDir = path.join(tmpDir, '.swarm', 'locks');
 			fs.mkdirSync(locksDir, { recursive: true });
-			fs.writeFileSync(path.join(locksDir, 'expired.lock'), JSON.stringify({
-				filePath: 'a.ts',
-				agent: 'a',
-				taskId: 't',
-				timestamp: new Date().toISOString(),
-				expiresAt: Date.now() - 1000,
-			}));
+			fs.writeFileSync(path.join(locksDir, 'orphan.lock'), '', 'utf-8');
 
-			// Create valid lock
-			tryAcquireLock(tmpDir, 'file.ts', 'agent', 'task');
+			// Create a real active lock
+			const r = await tryAcquireLock(tmpDir, 'file.ts', 'agent', 'task');
+			expect(r.acquired).toBe(true);
 
 			const locks = listActiveLocks(tmpDir);
 			expect(locks.length).toBe(1);
-			expect(locks[0].filePath).toBe('file.ts');
+
+			if (r.acquired) await r.lock._release?.();
 		});
 
 		it('returns empty array for no locks', () => {

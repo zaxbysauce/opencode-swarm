@@ -19,10 +19,13 @@
  * 10. Empty agent name → injection blocked
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createKnowledgeInjectorHook } from '../../../src/hooks/knowledge-injector.js';
-import type { KnowledgeConfig, MessageWithParts } from '../../../src/hooks/knowledge-types.js';
 import type { RankedEntry } from '../../../src/hooks/knowledge-reader.js';
+import type {
+	KnowledgeConfig,
+	MessageWithParts,
+} from '../../../src/hooks/knowledge-types.js';
 
 // ============================================================================
 // Mocks
@@ -61,10 +64,10 @@ vi.mock('../../../src/hooks/utils.js', () => ({
 	safeHook: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 
-import { readMergedKnowledge } from '../../../src/hooks/knowledge-reader.js';
-import { loadPlan } from '../../../src/plan/manager.js';
-import { readRejectedLessons } from '../../../src/hooks/knowledge-store.js';
 import { extractCurrentPhaseFromPlan } from '../../../src/hooks/extractors.js';
+import { readMergedKnowledge } from '../../../src/hooks/knowledge-reader.js';
+import { readRejectedLessons } from '../../../src/hooks/knowledge-store.js';
+import { loadPlan } from '../../../src/plan/manager.js';
 
 // ============================================================================
 // Helpers
@@ -81,7 +84,11 @@ function makeEntry(lesson = 'Always use TypeScript strict mode'): RankedEntry {
 		confidence: 0.85,
 		status: 'established',
 		confirmed_by: [],
-		retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+		retrieval_outcomes: {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+		},
 		schema_version: 1,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
@@ -93,8 +100,14 @@ function makeEntry(lesson = 'Always use TypeScript strict mode'): RankedEntry {
 function makeOutput(agentName: string): { messages: MessageWithParts[] } {
 	return {
 		messages: [
-			{ info: { role: 'system', agent: agentName }, parts: [{ type: 'text', text: 'system prompt' }] },
-			{ info: { role: 'user' }, parts: [{ type: 'text', text: 'user message' }] },
+			{
+				info: { role: 'system', agent: agentName },
+				parts: [{ type: 'text', text: 'system prompt' }],
+			},
+			{
+				info: { role: 'user' },
+				parts: [{ type: 'text', text: 'user message' }],
+			},
 		],
 	};
 }
@@ -119,12 +132,15 @@ function makeConfig(): KnowledgeConfig {
 	};
 }
 
-function hasKnowledgeInjection(output: { messages: MessageWithParts[] }): boolean {
-	return output.messages.some(m =>
-		m.parts?.some(p =>
-			p.text?.includes('📚 Knowledge') ||
-			p.text?.includes('<drift_report>') ||
-			p.text?.includes('<curator_briefing>'),
+function hasKnowledgeInjection(output: {
+	messages: MessageWithParts[];
+}): boolean {
+	return output.messages.some((m) =>
+		m.parts?.some(
+			(p) =>
+				p.text?.includes('📚 Knowledge') ||
+				p.text?.includes('<drift_report>') ||
+				p.text?.includes('<curator_briefing>'),
 		),
 	);
 }
@@ -136,10 +152,17 @@ function hasKnowledgeInjection(output: { messages: MessageWithParts[] }): boolea
 describe('Knowledge injection allowlist — architect only', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({ current_phase: 1, title: 'Test' });
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([makeEntry()]);
+		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
+			current_phase: 1,
+			title: 'Test',
+		});
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([
+			makeEntry(),
+		]);
 		(readRejectedLessons as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue('Phase 1: Setup');
+		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
+			'Phase 1: Setup',
+		);
 	});
 
 	it('injects into architect', async () => {
@@ -216,7 +239,10 @@ describe('Knowledge injection allowlist — architect only', () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output: { messages: MessageWithParts[] } = {
 			messages: [
-				{ info: { role: 'system', agent: '' }, parts: [{ type: 'text', text: 'sys' }] },
+				{
+					info: { role: 'system', agent: '' },
+					parts: [{ type: 'text', text: 'sys' }],
+				},
 				{ info: { role: 'user' }, parts: [{ type: 'text', text: 'hi' }] },
 			],
 		};

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
 	LoopProtection,
 	type LoopProtectionConfig,
@@ -238,13 +238,10 @@ describe('LoopProtection', () => {
 			let detectedKey: string | null = null;
 			let detectedCount = 0;
 
-			const lp = new LoopProtection(
-				defaultConfig,
-				(key, count) => {
-					detectedKey = key;
-					detectedCount = count;
-				},
-			);
+			const lp = new LoopProtection(defaultConfig, (key, count) => {
+				detectedKey = key;
+				detectedCount = count;
+			});
 
 			// Use up iterations
 			for (let i = 0; i < 5; i++) {

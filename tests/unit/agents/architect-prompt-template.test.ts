@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 describe('architect-prompt-template: task 11.1 verification tests', () => {
@@ -171,7 +171,9 @@ describe('architect-prompt-template: task 11.1 verification tests', () => {
 		expect(prompt).not.toMatch(/^Create .swarm\/plan\.md$/m);
 		// The FILES section still mentions .swarm/plan.md which is fine
 		// So we verify that the MODE:PLAN section does not start with that instruction
-		const modePlanMatch = prompt.match(/### MODE: PLAN\s*\n([\s\S]*?)(?=### MODE:|$)/);
+		const modePlanMatch = prompt.match(
+			/### MODE: PLAN\s*\n([\s\S]*?)(?=### MODE:|$)/,
+		);
 		if (modePlanMatch) {
 			const modePlanSection = modePlanMatch[1];
 			expect(modePlanSection).not.toMatch(/^Create .swarm\/plan\.md/m);
@@ -180,11 +182,15 @@ describe('architect-prompt-template: task 11.1 verification tests', () => {
 
 	it('29. MODE:PLAN section includes context.md creation instruction', () => {
 		expect(prompt).toContain('Also create .swarm/context.md');
-		expect(prompt).toContain('decisions made, patterns identified, SME cache entries, and relevant file map');
+		expect(prompt).toContain(
+			'decisions made, patterns identified, SME cache entries, and relevant file map',
+		);
 	});
 
 	it('30. MODE:PLAN section includes save_plan example call', () => {
 		expect(prompt).toContain('Example call:');
-		expect(prompt).toMatch(/save_plan\(\{\s*title: "My Real Project",\s*swarm_id: "mega",/);
+		expect(prompt).toMatch(
+			/save_plan\(\{\s*title: "My Real Project",\s*swarm_id: "mega",/,
+		);
 	});
 });

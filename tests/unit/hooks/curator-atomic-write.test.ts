@@ -1,8 +1,20 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { readCuratorSummary, writeCuratorSummary, filterPhaseEvents } from '../../../src/hooks/curator.js';
+import * as path from 'node:path';
+import {
+	filterPhaseEvents,
+	readCuratorSummary,
+	writeCuratorSummary,
+} from '../../../src/hooks/curator.js';
 import type { CuratorSummary } from '../../../src/hooks/curator-types';
 
 describe('curator atomic write', () => {
@@ -127,8 +139,12 @@ describe('curator atomic write', () => {
 			// Verify schema_version is 1
 			expect((parsed as CuratorSummary).schema_version).toBe(1);
 			expect((parsed as CuratorSummary).phase_digests).toHaveLength(1);
-			expect((parsed as CuratorSummary).compliance_observations).toHaveLength(1);
-			expect((parsed as CuratorSummary).knowledge_recommendations).toHaveLength(1);
+			expect((parsed as CuratorSummary).compliance_observations).toHaveLength(
+				1,
+			);
+			expect((parsed as CuratorSummary).knowledge_recommendations).toHaveLength(
+				1,
+			);
 		});
 
 		test('no temp files left after successful write', async () => {

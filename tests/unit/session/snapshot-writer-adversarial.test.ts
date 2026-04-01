@@ -5,15 +5,15 @@
  * These tests verify that the snapshot writer is resilient to abuse.
  */
 
-import { tmpdir } from 'node:os';
-import { mkdir, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	writeSnapshot,
-	serializeAgentSession,
 	createSnapshotWriterHook,
+	serializeAgentSession,
+	writeSnapshot,
 } from '../../../src/session/snapshot-writer';
 import type { AgentSessionState, InvocationWindow } from '../../../src/state';
 
@@ -23,22 +23,35 @@ describe('snapshot-writer ADVERSARIAL', () => {
 
 	beforeEach(async () => {
 		// Create unique temp directory for each test
-		testDir = path.join(tmpdir(), `snapshot-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = path.join(
+			tmpdir(),
+			`snapshot-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(testDir, { recursive: true });
 
 		// Create mock state
 		state = {
 			toolAggregates: new Map([
-				['test-tool', { tool: 'test-tool', count: 5, successCount: 4, failureCount: 1, totalDuration: 500 }],
+				[
+					'test-tool',
+					{
+						tool: 'test-tool',
+						count: 5,
+						successCount: 4,
+						failureCount: 1,
+						totalDuration: 500,
+					},
+				],
 			]),
 			activeAgent: new Map([
 				['session-1', 'architect'],
 				['session-2', 'coder'],
 			]),
 			delegationChains: new Map([
-				['session-1', [
-					{ from: 'architect', to: 'coder', timestamp: Date.now() },
-				]],
+				[
+					'session-1',
+					[{ from: 'architect', to: 'coder', timestamp: Date.now() }],
+				],
 			]),
 			agentSessions: new Map(),
 		};
@@ -78,13 +91,19 @@ describe('snapshot-writer ADVERSARIAL', () => {
 
 		it('should not write to system paths', async () => {
 			// Try to write to Windows system32
-			const systemPath = process.platform === 'win32' ? 'C:\\Windows\\System32' : '/usr/bin';
+			const systemPath =
+				process.platform === 'win32' ? 'C:\\Windows\\System32' : '/usr/bin';
 
 			// This should fail silently
 			await writeSnapshot(systemPath, state);
 
 			// Verify no state.json was written there
-			const targetPath = path.join(systemPath, '.swarm', 'session', 'state.json');
+			const targetPath = path.join(
+				systemPath,
+				'.swarm',
+				'session',
+				'state.json',
+			);
 			expect(existsSync(targetPath)).toBe(false);
 		});
 	});
@@ -252,7 +271,9 @@ describe('snapshot-writer ADVERSARIAL', () => {
 			const serialized = serializeAgentSession(session);
 
 			// Keys should be converted to strings
-			expect(serialized.reviewerCallCount[String(Number.MAX_SAFE_INTEGER)]).toBe(999);
+			expect(
+				serialized.reviewerCallCount[String(Number.MAX_SAFE_INTEGER)],
+			).toBe(999);
 			expect(serialized.reviewerCallCount['0']).toBe(1);
 			expect(serialized.reviewerCallCount['-1']).toBe(2);
 		});
@@ -318,8 +339,12 @@ describe('snapshot-writer ADVERSARIAL', () => {
 			const serialized = serializeAgentSession(session);
 
 			expect(serialized.windows['coder:1'].recentToolCalls).toHaveLength(20);
-			expect(serialized.windows['coder:1'].recentToolCalls[0].tool).toBe('tool-0');
-			expect(serialized.windows['coder:1'].recentToolCalls[19].tool).toBe('tool-19');
+			expect(serialized.windows['coder:1'].recentToolCalls[0].tool).toBe(
+				'tool-0',
+			);
+			expect(serialized.windows['coder:1'].recentToolCalls[19].tool).toBe(
+				'tool-19',
+			);
 		});
 
 		it('should handle session with ALL optional fields missing/undefined', async () => {
@@ -386,8 +411,9 @@ describe('snapshot-writer ADVERSARIAL', () => {
 	describe('Additional Attack Vectors', () => {
 		it('should handle deeply nested agentSessions keys', async () => {
 			// Create session IDs with many path-like segments
-			const deepKeys = Array.from({ length: 100 }, (_, i) =>
-				`session-${i}/nested/deep/${i}`,
+			const deepKeys = Array.from(
+				{ length: 100 },
+				(_, i) => `session-${i}/nested/deep/${i}`,
 			);
 
 			for (const key of deepKeys) {

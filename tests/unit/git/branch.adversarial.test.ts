@@ -1,6 +1,6 @@
 /**
  * Adversarial security tests for src/git/branch.ts
- * 
+ *
  * Tests attack vectors:
  * 1. Command injection through branchName parameter
  * 2. Command injection through file paths in stageFiles
@@ -9,7 +9,7 @@
  * 5. Special characters in branch names (spaces, quotes, semicolons)
  * 6. UNC path injection (Windows)
  * 7. Null bytes and control characters
- * 
+ *
  * SECURITY MODEL:
  * The module uses spawnSync with array arguments, which is inherently safe from
  * command injection. Inputs are passed directly to git, which performs validation.
@@ -19,7 +19,7 @@
  * 3. Git handles the validation (which would reject invalid inputs in real execution)
  */
 
-import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Track all calls to spawnSync for security verification
 interface SpawnCall {
@@ -30,14 +30,21 @@ interface SpawnCall {
 
 let callIndex = 0;
 let spawnCalls: SpawnCall[] = [];
-let returnValues: Array<{ status: number; stdout: string; stderr: string }> = [];
+let returnValues: Array<{ status: number; stdout: string; stderr: string }> =
+	[];
 
-const mockSpawnSync = mock((command: string, args: string[], options: { cwd: string }) => {
-	spawnCalls.push({ command, args, options });
-	const result = returnValues[callIndex] ?? { status: 0, stdout: '', stderr: '' };
-	callIndex++;
-	return result;
-});
+const mockSpawnSync = mock(
+	(command: string, args: string[], options: { cwd: string }) => {
+		spawnCalls.push({ command, args, options });
+		const result = returnValues[callIndex] ?? {
+			status: 0,
+			stdout: '',
+			stderr: '',
+		};
+		callIndex++;
+		return result;
+	},
+);
 
 // Mock the node:child_process module BEFORE importing branch
 mock.module('node:child_process', () => ({
@@ -47,7 +54,9 @@ mock.module('node:child_process', () => ({
 // Import AFTER mock setup
 const branch = await import('../../../src/git/branch');
 
-function setupMock(...values: Array<{ status: number; stdout: string; stderr: string }>) {
+function setupMock(
+	...values: Array<{ status: number; stdout: string; stderr: string }>
+) {
 	callIndex = 0;
 	spawnCalls = [];
 	returnValues = values;
@@ -59,7 +68,7 @@ function getLastCall(): SpawnCall | undefined {
 }
 
 function getAllArgs(): string[] {
-	return spawnCalls.flatMap(call => call.args);
+	return spawnCalls.flatMap((call) => call.args);
 }
 
 describe('Git Branch Module - Adversarial Security Tests', () => {
@@ -76,7 +85,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('createBranch passes arguments as array, not shell command', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' }, // remote check fails
-				{ status: 0, stdout: '', stderr: '' } // checkout -b succeeds
+				{ status: 0, stdout: '', stderr: '' }, // checkout -b succeeds
 			);
 
 			branch.createBranch(testCwd, 'test-branch');
@@ -130,7 +139,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with semicolon is passed to git (git will reject)', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main; rm -rf /');
@@ -143,7 +152,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with command substitution is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main$(whoami)');
@@ -155,7 +164,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with pipe operator is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main|cat /etc/passwd');
@@ -167,7 +176,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with backticks is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main`ls`');
@@ -179,7 +188,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with && chain is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main&&touch /tmp/pwned');
@@ -191,7 +200,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with || chain is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main||echo pwned');
@@ -203,7 +212,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with redirect is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'main>/tmp/pwned');
@@ -273,7 +282,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with path traversal is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, '../../../master');
@@ -314,7 +323,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('extremely long branch name is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			const longBranchName = 'a'.repeat(10000);
@@ -388,7 +397,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with spaces is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'my branch');
@@ -400,7 +409,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with quotes is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, "branch'name");
@@ -412,7 +421,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with double quotes is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch"name');
@@ -424,7 +433,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with backslash is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\\name');
@@ -436,7 +445,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with newline is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\nname');
@@ -448,7 +457,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with tab is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\tname');
@@ -460,7 +469,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with carriage return is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\rname');
@@ -472,7 +481,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with special characters is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, '!@#$%^&*()');
@@ -484,7 +493,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with tilde is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch~name');
@@ -496,7 +505,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with caret is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch^name');
@@ -508,7 +517,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with colon is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch:name');
@@ -520,7 +529,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with asterisk is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch*name');
@@ -532,7 +541,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with question mark is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch?name');
@@ -544,7 +553,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with square brackets is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch[name]');
@@ -556,7 +565,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with curly braces is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch{name}');
@@ -588,7 +597,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('UNC path in branch name is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, '\\\\server\\share');
@@ -629,7 +638,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with null byte is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\x00name');
@@ -659,7 +668,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with SOH is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\x01name');
@@ -671,7 +680,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with ETX is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\x03name');
@@ -683,7 +692,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with ESC is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'branch\x1bname');
@@ -695,7 +704,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('multiple null bytes are passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, '\x00\x00\x00');
@@ -776,7 +785,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('normal branch name works', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'feature/my-branch');
@@ -807,7 +816,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with hyphens works', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'feature-branch-name');
@@ -819,7 +828,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('branch name with underscores works', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'feature_branch_name');
@@ -842,7 +851,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('unicode branch name is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, '功能分支');
@@ -854,7 +863,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('emoji in branch name is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'feature-🔥');
@@ -866,7 +875,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 		test('right-to-left unicode is passed to git', () => {
 			setupMock(
 				{ status: 128, stdout: '', stderr: 'not found' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'feature\u202efile');
@@ -881,11 +890,11 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 			// Run multiple operations
 			setupMock(
 				{ status: 0, stdout: '.git', stderr: '' }, // isGitRepo
-				{ status: 0, stdout: 'main', stderr: '' },  // getCurrentBranch
+				{ status: 0, stdout: 'main', stderr: '' }, // getCurrentBranch
 				{ status: 128, stdout: '', stderr: 'not found' }, // createBranch remote check
-				{ status: 0, stdout: '', stderr: '' },  // createBranch checkout
-				{ status: 0, stdout: '', stderr: '' },  // stageFiles
-				{ status: 0, stdout: '', stderr: '' },  // commitChanges
+				{ status: 0, stdout: '', stderr: '' }, // createBranch checkout
+				{ status: 0, stdout: '', stderr: '' }, // stageFiles
+				{ status: 0, stdout: '', stderr: '' }, // commitChanges
 			);
 
 			branch.isGitRepo(testCwd);
@@ -900,7 +909,7 @@ describe('Git Branch Module - Adversarial Security Tests', () => {
 				expect(Array.isArray(call.args)).toBe(true);
 				// Verify no shell operators in any single argument that would indicate string concatenation
 				for (const arg of call.args) {
-					expect(arg).not.toMatch(/^.*[\;&|`$<>].*/);
+					expect(arg).not.toMatch(/^.*[;&|`$<>].*/);
 				}
 			}
 		});

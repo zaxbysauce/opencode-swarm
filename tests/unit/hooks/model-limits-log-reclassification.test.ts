@@ -4,7 +4,7 @@
  * Mocks only src/utils/logger to avoid leaking a partial mock.
  */
 
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 
 const mockLog = mock(() => {});
 const mockWarn = mock(() => {});
@@ -28,7 +28,10 @@ describe('model-limits: log reclassification', () => {
 
 		const logCalls = mockLog.mock.calls;
 		const resolvedLimitCall = logCalls.find((call: any[]) =>
-			call.some((arg: any) => typeof arg === 'string' && arg.includes('Resolved limit for'))
+			call.some(
+				(arg: any) =>
+					typeof arg === 'string' && arg.includes('Resolved limit for'),
+			),
 		);
 		expect(resolvedLimitCall).toBeDefined();
 

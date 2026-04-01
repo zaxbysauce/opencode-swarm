@@ -10,9 +10,9 @@
  * - Ruby profile (no ECOSYSTEMS entry) doesn't block others
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Test directory
 const TEST_DIR = path.join(process.cwd(), 'test-tmp-discovery-profiles');
@@ -25,12 +25,15 @@ const mockLangRegistryGet = vi.fn();
 
 // Mock the detector module
 vi.mock('../../../src/lang/detector', () => ({
-	detectProjectLanguages: (...args: unknown[]) => mockDetectProjectLanguages(...args),
+	detectProjectLanguages: (...args: unknown[]) =>
+		mockDetectProjectLanguages(...args),
 }));
 
 // Mock the profiles module
 vi.mock('../../../src/lang/profiles', () => ({
-	LANGUAGE_REGISTRY: { get: (...args: unknown[]) => mockLangRegistryGet(...args) },
+	LANGUAGE_REGISTRY: {
+		get: (...args: unknown[]) => mockLangRegistryGet(...args),
+	},
 }));
 
 // ============ Helper Types ============
@@ -52,7 +55,11 @@ interface MockLanguageProfile {
 	};
 	test: { detectFiles: string[]; frameworks: unknown[] };
 	lint: { detectFiles: string[]; linters: unknown[] };
-	audit: { detectFiles: string[]; command: string | null; outputFormat: 'json' | 'text' };
+	audit: {
+		detectFiles: string[];
+		command: string | null;
+		outputFormat: 'json' | 'text';
+	};
 	sast: { nativeRuleSet: string | null; semgrepSupport: string };
 	prompts: { coderConstraints: string[]; reviewerChecklist: string[] };
 }
@@ -110,13 +117,27 @@ describe('discoverBuildCommandsFromProfiles - Basic Behavior', () => {
 			build: {
 				detectFiles: ['pyproject.toml'],
 				commands: [
-					{ name: 'pip', cmd: 'pip install -e .', detectFile: 'setup.py', priority: 10 },
-					{ name: 'build', cmd: 'python -m build', detectFile: 'pyproject.toml', priority: 9 },
+					{
+						name: 'pip',
+						cmd: 'pip install -e .',
+						detectFile: 'setup.py',
+						priority: 10,
+					},
+					{
+						name: 'build',
+						cmd: 'python -m build',
+						detectFile: 'pyproject.toml',
+						priority: 9,
+					},
 				],
 			},
 			test: { detectFiles: ['pytest.ini'], frameworks: [] },
 			lint: { detectFiles: ['pyproject.toml'], linters: [] },
-			audit: { detectFiles: ['pyproject.toml'], command: null, outputFormat: 'json' },
+			audit: {
+				detectFiles: ['pyproject.toml'],
+				command: null,
+				outputFormat: 'json',
+			},
 			sast: { nativeRuleSet: 'python', semgrepSupport: 'ga' },
 			prompts: { coderConstraints: [], reviewerChecklist: [] },
 		};
@@ -155,13 +176,27 @@ describe('discoverBuildCommandsFromProfiles - detectFile Filtering', () => {
 			build: {
 				detectFiles: ['pyproject.toml'],
 				commands: [
-					{ name: 'pip', cmd: 'pip install -e .', detectFile: 'setup.py', priority: 10 },
-					{ name: 'build', cmd: 'python -m build', detectFile: 'pyproject.toml', priority: 9 },
+					{
+						name: 'pip',
+						cmd: 'pip install -e .',
+						detectFile: 'setup.py',
+						priority: 10,
+					},
+					{
+						name: 'build',
+						cmd: 'python -m build',
+						detectFile: 'pyproject.toml',
+						priority: 9,
+					},
 				],
 			},
 			test: { detectFiles: ['pytest.ini'], frameworks: [] },
 			lint: { detectFiles: ['pyproject.toml'], linters: [] },
-			audit: { detectFiles: ['pyproject.toml'], command: null, outputFormat: 'json' },
+			audit: {
+				detectFiles: ['pyproject.toml'],
+				command: null,
+				outputFormat: 'json',
+			},
 			sast: { nativeRuleSet: 'python', semgrepSupport: 'ga' },
 			prompts: { coderConstraints: [], reviewerChecklist: [] },
 		};
@@ -203,13 +238,27 @@ describe('discoverBuildCommands - Profile vs ECOSYSTEMS Priority', () => {
 			build: {
 				detectFiles: ['pyproject.toml'],
 				commands: [
-					{ name: 'pip', cmd: 'pip install -e .', detectFile: 'setup.py', priority: 10 },
-					{ name: 'build', cmd: 'python -m build', detectFile: 'pyproject.toml', priority: 9 },
+					{
+						name: 'pip',
+						cmd: 'pip install -e .',
+						detectFile: 'setup.py',
+						priority: 10,
+					},
+					{
+						name: 'build',
+						cmd: 'python -m build',
+						detectFile: 'pyproject.toml',
+						priority: 9,
+					},
 				],
 			},
 			test: { detectFiles: ['pytest.ini'], frameworks: [] },
 			lint: { detectFiles: ['pyproject.toml'], linters: [] },
-			audit: { detectFiles: ['pyproject.toml'], command: null, outputFormat: 'json' },
+			audit: {
+				detectFiles: ['pyproject.toml'],
+				command: null,
+				outputFormat: 'json',
+			},
 			sast: { nativeRuleSet: 'python', semgrepSupport: 'ga' },
 			prompts: { coderConstraints: [], reviewerChecklist: [] },
 		};
@@ -265,16 +314,28 @@ describe('discoverBuildCommands - Ecosystem Deduplication', () => {
 			displayName: 'TypeScript',
 			tier: 1,
 			extensions: ['.ts', '.tsx'],
-			treeSitter: { grammarId: 'typescript', wasmFile: 'tree-sitter-typescript.wasm' },
+			treeSitter: {
+				grammarId: 'typescript',
+				wasmFile: 'tree-sitter-typescript.wasm',
+			},
 			build: {
 				detectFiles: ['package.json'],
 				commands: [
-					{ name: 'bun', cmd: 'bun run build', detectFile: 'package.json', priority: 10 },
+					{
+						name: 'bun',
+						cmd: 'bun run build',
+						detectFile: 'package.json',
+						priority: 10,
+					},
 				],
 			},
 			test: { detectFiles: ['vitest.config.ts'], frameworks: [] },
 			lint: { detectFiles: ['biome.json'], linters: [] },
-			audit: { detectFiles: ['package.json'], command: null, outputFormat: 'json' },
+			audit: {
+				detectFiles: ['package.json'],
+				command: null,
+				outputFormat: 'json',
+			},
 			sast: { nativeRuleSet: 'javascript', semgrepSupport: 'ga' },
 			prompts: { coderConstraints: [], reviewerChecklist: [] },
 		};
@@ -325,12 +386,21 @@ describe('discoverBuildCommands - Ruby Profile Behavior', () => {
 			build: {
 				detectFiles: ['Gemfile'],
 				commands: [
-					{ name: 'bundle', cmd: 'bundle install', detectFile: 'Gemfile', priority: 10 },
+					{
+						name: 'bundle',
+						cmd: 'bundle install',
+						detectFile: 'Gemfile',
+						priority: 10,
+					},
 				],
 			},
 			test: { detectFiles: ['.rspec'], frameworks: [] },
 			lint: { detectFiles: ['.rubocop.yml'], linters: [] },
-			audit: { detectFiles: ['Gemfile.lock'], command: null, outputFormat: 'json' },
+			audit: {
+				detectFiles: ['Gemfile.lock'],
+				command: null,
+				outputFormat: 'json',
+			},
 			sast: { nativeRuleSet: null, semgrepSupport: 'experimental' },
 			prompts: { coderConstraints: [], reviewerChecklist: [] },
 		};
@@ -370,7 +440,9 @@ describe('discoverBuildCommands - Ruby Profile Behavior', () => {
 
 		// Verify that the reason for skipping is NOT "covered by profile"
 		// (there's no such reason in the code, this is just to ensure we understand the behavior)
-		const blockedByProfileReasons = result.skipped.filter((s) => s.reason.includes('covered by profile'));
+		const blockedByProfileReasons = result.skipped.filter((s) =>
+			s.reason.includes('covered by profile'),
+		);
 		expect(blockedByProfileReasons.length).toBe(0);
 	});
 });

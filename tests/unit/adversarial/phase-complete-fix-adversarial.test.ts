@@ -3,13 +3,18 @@
  * Tests attack vectors, malformed inputs, boundary violations, and edge cases.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { swarmState, ensureAgentSession, resetSwarmState, startAgentSession } from '../../../src/state';
-import { checkReviewerGate } from '../../../src/tools/update-task-status';
+import * as path from 'node:path';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 import { executePhaseComplete } from '../../../src/tools/phase-complete';
+import { checkReviewerGate } from '../../../src/tools/update-task-status';
 
 describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 	let tempDir: string;
@@ -29,7 +34,11 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 		// Setup: create .swarm directory with malformed JSON
 		const swarmDir = path.join(tempDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
-		fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{ invalid json }', 'utf-8');
+		fs.writeFileSync(
+			path.join(swarmDir, 'plan.json'),
+			'{ invalid json }',
+			'utf-8',
+		);
 
 		// The checkReviewerGate should NOT throw, should fall through to blocked
 		const result = checkReviewerGate('1.1', tempDir);
@@ -42,7 +51,11 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 		// Setup: create plan.json with no phases key
 		const swarmDir = path.join(tempDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
-		fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify({ title: 'test' }), 'utf-8');
+		fs.writeFileSync(
+			path.join(swarmDir, 'plan.json'),
+			JSON.stringify({ title: 'test' }),
+			'utf-8',
+		);
 
 		// Should not throw
 		const result = checkReviewerGate('1.1', tempDir);
@@ -67,7 +80,7 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 					},
 				],
 			}),
-			'utf-8'
+			'utf-8',
 		);
 
 		// Should not throw - should handle nulls gracefully
@@ -85,7 +98,7 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 			JSON.stringify({
 				phases: [{ id: 1, tasks: [{ id: '1.1', status: 'completed' }] }],
 			}),
-			'utf-8'
+			'utf-8',
 		);
 
 		// taskId is used ONLY for string equality comparison, not as file path
@@ -121,7 +134,7 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 					},
 				],
 			}),
-			'utf-8'
+			'utf-8',
 		);
 
 		// Should not throw - should handle missing id gracefully
@@ -188,7 +201,7 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 	 * Test the hasRestoredAgents logic:
 	 * hasRestoredAgents = (session.phaseAgentsDispatched?.size ?? 0) > 0 &&
 	 *                    session.lastPhaseCompleteTimestamp === phaseReferenceTimestamp
-	 * 
+	 *
 	 * This tests that a session with phaseAgentsDispatched but timestamp=0 (default)
 	 * is NOT included when phaseReferenceTimestamp > 0
 	 */
@@ -210,22 +223,32 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 		// (session.phaseAgentsDispatched?.size ?? 0) > 0 && session.lastPhaseCompleteTimestamp === phaseReferenceTimestamp
 		// With phaseReferenceTimestamp from caller (non-zero), this should be FALSE
 		// because 0 !== non-zero timestamp
-		
+
 		const phaseReferenceTimestamp = callerSession.lastPhaseCompleteTimestamp;
-		
+
 		// Manually replicate the hasRestoredAgents logic to verify behavior
-		const hasRestoredAgentsCheck = (session: typeof restoredSession, refTs: number) => {
-			return ((session.phaseAgentsDispatched?.size ?? 0) > 0) &&
-			       (session.lastPhaseCompleteTimestamp === refTs);
+		const hasRestoredAgentsCheck = (
+			session: typeof restoredSession,
+			refTs: number,
+		) => {
+			return (
+				(session.phaseAgentsDispatched?.size ?? 0) > 0 &&
+				session.lastPhaseCompleteTimestamp === refTs
+			);
 		};
-		
+
 		// The restored session with timestamp=0 should NOT match when ref timestamp is non-zero
-		expect(hasRestoredAgentsCheck(restoredSession, phaseReferenceTimestamp)).toBe(false);
-		
+		expect(
+			hasRestoredAgentsCheck(restoredSession, phaseReferenceTimestamp),
+		).toBe(false);
+
 		// Even if we call executePhaseComplete, the restored session should not contribute
 		// because its timestamp doesn't match
-		const result = executePhaseComplete({ phase: 1, sessionID: callerSessionId }, tempDir);
-		
+		const result = executePhaseComplete(
+			{ phase: 1, sessionID: callerSessionId },
+			tempDir,
+		);
+
 		// Result should complete without error
 		expect(result).toBeDefined();
 	});
@@ -234,18 +257,22 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 		const sessionId = 'test-session';
 		ensureAgentSession(sessionId, 'architect');
 		const session = swarmState.agentSessions.get(sessionId)!;
-		
+
 		// Add same agents to both sets
 		session.phaseAgentsDispatched = new Set(['coder', 'reviewer']);
-		session.lastCompletedPhaseAgentsDispatched = new Set(['coder', 'reviewer', 'test-engineer']);
+		session.lastCompletedPhaseAgentsDispatched = new Set([
+			'coder',
+			'reviewer',
+			'test-engineer',
+		]);
 
 		// The Set data structure inherently prevents duplicates when adding
 		// Verify this by checking what would happen if we merged them
 		const mergedAgents = new Set<string>([
 			...Array.from(session.phaseAgentsDispatched),
-			...Array.from(session.lastCompletedPhaseAgentsDispatched)
+			...Array.from(session.lastCompletedPhaseAgentsDispatched),
 		]);
-		
+
 		// Should have unique agents, no duplicates
 		expect(mergedAgents.size).toBe(3);
 		expect(mergedAgents.has('coder')).toBe(true);
@@ -257,18 +284,21 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 		const sessionId = 'test-session';
 		ensureAgentSession(sessionId, 'architect');
 		const session = swarmState.agentSessions.get(sessionId)!;
-		
+
 		// Simulate edge case: phaseAgentsDispatched has agent A
 		// lastCompletedPhaseAgentsDispatched also has agent A (duplicated from same phase)
 		session.phaseAgentsDispatched = new Set(['agent-a', 'agent-b']);
-		session.lastCompletedPhaseAgentsDispatched = new Set(['agent-a', 'agent-c']);
+		session.lastCompletedPhaseAgentsDispatched = new Set([
+			'agent-a',
+			'agent-c',
+		]);
 
 		// Verify Set deduplication works
 		const mergedAgents = new Set<string>([
 			...Array.from(session.phaseAgentsDispatched),
-			...Array.from(session.lastCompletedPhaseAgentsDispatched)
+			...Array.from(session.lastCompletedPhaseAgentsDispatched),
 		]);
-		
+
 		// Set ensures deduplication - should have exactly 3 unique agents
 		expect(mergedAgents.size).toBe(3);
 		expect(mergedAgents.has('agent-a')).toBe(true);
@@ -278,7 +308,7 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 
 	it('ATTACK: restored session with lastPhaseCompleteTimestamp matching caller should be included', () => {
 		const timestamp = Date.now();
-		
+
 		const callerSessionId = 'caller-session';
 		ensureAgentSession(callerSessionId, 'architect');
 		const callerSession = swarmState.agentSessions.get(callerSessionId)!;
@@ -292,11 +322,16 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 		restoredSession.lastPhaseCompleteTimestamp = timestamp; // Matches caller
 
 		// The hasRestoredAgents condition should be TRUE when timestamps match
-		const hasRestoredAgentsCheck = (session: typeof restoredSession, refTs: number) => {
-			return ((session.phaseAgentsDispatched?.size ?? 0) > 0) &&
-			       (session.lastPhaseCompleteTimestamp === refTs);
+		const hasRestoredAgentsCheck = (
+			session: typeof restoredSession,
+			refTs: number,
+		) => {
+			return (
+				(session.phaseAgentsDispatched?.size ?? 0) > 0 &&
+				session.lastPhaseCompleteTimestamp === refTs
+			);
 		};
-		
+
 		// Should include restored session because timestamps match
 		expect(hasRestoredAgentsCheck(restoredSession, timestamp)).toBe(true);
 	});
@@ -306,11 +341,13 @@ describe('ADVERSARIAL: phase-complete.ts hasRestoredAgents condition', () => {
 	beforeEach(() => {
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-adversarial-'));
 		// Create required evidence directory
-		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence', 'retro-1'), { recursive: true });
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence', 'retro-1'), {
+			recursive: true,
+		});
 		// Write gate evidence for Phase 4 mandatory gates
 		writeGateEvidence(tempDir, 1);
 	});
-	
+
 	afterEach(() => {
 		fs.rmSync(tempDir, { force: true, recursive: true });
 	});
@@ -323,60 +360,73 @@ describe('ADVERSARIAL: state.ts ensureAgentSession migration guard', () => {
 
 	it('ATTACK: ensureAgentSession should NOT overwrite existing lastCompletedPhaseAgentsDispatched', () => {
 		const sessionId = 'test-session';
-		
+
 		// First call: create session and set lastCompletedPhaseAgentsDispatched
 		ensureAgentSession(sessionId, 'architect');
 		let session = swarmState.agentSessions.get(sessionId)!;
-		
+
 		// Simulate: this session completed a previous phase and has persisted agents
-		session.lastCompletedPhaseAgentsDispatched = new Set(['coder-v1', 'reviewer-v1']);
-		
+		session.lastCompletedPhaseAgentsDispatched = new Set([
+			'coder-v1',
+			'reviewer-v1',
+		]);
+
 		// Capture the reference before next ensureAgentSession call
 		const originalSet = session.lastCompletedPhaseAgentsDispatched;
-		
+
 		// Second call: ensureAgentSession is called again (e.g., on new tool call)
 		// The guard: if (!session.lastCompletedPhaseAgentsDispatched) should prevent overwrite
 		session = ensureAgentSession(sessionId, 'architect');
-		
+
 		// CRITICAL: Should NOT have overwritten the existing set
 		expect(session.lastCompletedPhaseAgentsDispatched).toBe(originalSet);
-		expect(Array.from(session.lastCompletedPhaseAgentsDispatched)).toEqual(['coder-v1', 'reviewer-v1']);
+		expect(Array.from(session.lastCompletedPhaseAgentsDispatched)).toEqual([
+			'coder-v1',
+			'reviewer-v1',
+		]);
 	});
 
 	it('ATTACK: ensureAgentSession should initialize lastCompletedPhaseAgentsDispatched if undefined (migration case)', () => {
 		const sessionId = 'test-session';
-		
+
 		// Create session without lastCompletedPhaseAgentsDispatched
 		ensureAgentSession(sessionId, 'architect');
 		let session = swarmState.agentSessions.get(sessionId)!;
-		
+
 		// Ensure it's undefined (simulating old state)
-		session.lastCompletedPhaseAgentsDispatched = undefined as unknown as Set<string>;
-		
+		session.lastCompletedPhaseAgentsDispatched =
+			undefined as unknown as Set<string>;
+
 		// Call ensureAgentSession - should initialize it
 		session = ensureAgentSession(sessionId, 'architect');
-		
+
 		// Should now have an empty Set (initialized, not undefined)
 		expect(session.lastCompletedPhaseAgentsDispatched).toBeDefined();
-		expect(session.lastCompletedPhaseAgentsDispatched instanceof Set).toBe(true);
+		expect(session.lastCompletedPhaseAgentsDispatched instanceof Set).toBe(
+			true,
+		);
 		expect(session.lastCompletedPhaseAgentsDispatched.size).toBe(0);
 	});
 
 	it('ATTACK: ensureAgentSession should NOT overwrite lastCompletedPhaseAgentsDispatched when session already exists with populated set', () => {
 		const sessionId = 'test-session';
-		
+
 		// Create session
 		startAgentSession(sessionId, 'architect');
 		let session = swarmState.agentSessions.get(sessionId)!;
-		
+
 		// Manually populate lastCompletedPhaseAgentsDispatched (as if from snapshot restore)
-		session.lastCompletedPhaseAgentsDispatched = new Set(['curator', 'docs', 'security']);
-		
+		session.lastCompletedPhaseAgentsDispatched = new Set([
+			'curator',
+			'docs',
+			'security',
+		]);
+
 		// Now call ensureAgentSession multiple times (simulating repeated tool calls)
 		for (let i = 0; i < 5; i++) {
 			session = ensureAgentSession(sessionId, 'architect');
 		}
-		
+
 		// The set should still contain the original agents - NOT overwritten with empty set
 		const agents = Array.from(session.lastCompletedPhaseAgentsDispatched);
 		expect(agents).toContain('curator');

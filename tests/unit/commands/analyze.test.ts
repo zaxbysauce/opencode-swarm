@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
+import type { AgentDefinition } from '../../../src/agents';
 import { handleAnalyzeCommand } from '../../../src/commands/analyze';
 import { createSwarmCommandHandler } from '../../../src/commands/index';
-import type { AgentDefinition } from '../../../src/agents';
 
 describe('handleAnalyzeCommand', () => {
 	test('returns [MODE: ANALYZE] <description> when args are provided', async () => {
@@ -44,7 +44,9 @@ describe('handleAnalyzeCommand', () => {
 	});
 
 	test('handleAnalyzeCommand is exported from src/commands/index.ts', () => {
-		const { handleAnalyzeCommand: exportedHandler } = require('../../../src/commands/index');
+		const {
+			handleAnalyzeCommand: exportedHandler,
+		} = require('../../../src/commands/index');
 		expect(exportedHandler).toBeDefined();
 		expect(typeof exportedHandler).toBe('function');
 	});
@@ -57,7 +59,10 @@ describe('handleAnalyzeCommand', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Trigger help by using unknown subcommand
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'unknown' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'unknown' },
+			output,
+		);
 
 		const helpText = (output.parts[0] as { type: string; text: string }).text;
 		expect(helpText).toContain('/swarm analyze');
@@ -66,7 +71,9 @@ describe('handleAnalyzeCommand', () => {
 
 describe('handleAnalyzeCommand — adversarial', () => {
 	test('does NOT return [MODE: SPECIFY] (wrong mode tag must never be emitted)', async () => {
-		const result = await handleAnalyzeCommand('/test/dir', ['test description']);
+		const result = await handleAnalyzeCommand('/test/dir', [
+			'test description',
+		]);
 		expect(result).not.toContain('[MODE: SPECIFY]');
 		expect(result).toContain('[MODE: ANALYZE]');
 	});
@@ -106,7 +113,9 @@ describe('handleAnalyzeCommand — adversarial', () => {
 	});
 
 	test('does NOT include directory in returned string', async () => {
-		const result = await handleAnalyzeCommand('/some/test/directory', ['test description']);
+		const result = await handleAnalyzeCommand('/some/test/directory', [
+			'test description',
+		]);
 		expect(result).not.toContain('/some/test/directory');
 		expect(result).not.toContain('/test/dir');
 		expect(result).not.toContain('/some');
@@ -122,7 +131,10 @@ describe('handleAnalyzeCommand index registration — adversarial', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Call /swarm analyze with arguments
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'analyze test spec' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'analyze test spec' },
+			output,
+		);
 
 		const result = (output.parts[0] as { type: string; text: string }).text;
 
@@ -145,7 +157,10 @@ describe('handleAnalyzeCommand index registration — adversarial', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Call /swarm analyze without args
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'analyze' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'analyze' },
+			output,
+		);
 
 		const result = (output.parts[0] as { type: string; text: string }).text;
 
@@ -166,7 +181,10 @@ describe('handleAnalyzeCommand index registration — adversarial', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Call with unknown subcommand
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'unknown-cmd test args' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'unknown-cmd test args' },
+			output,
+		);
 
 		const result = (output.parts[0] as { type: string; text: string }).text;
 

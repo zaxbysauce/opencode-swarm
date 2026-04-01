@@ -3,17 +3,21 @@
  * Tests round-trip save/load, error handling, and idempotency.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { loadSnapshot } from '../../../src/session/snapshot-reader.js';
 // Direct imports from session modules (not from src/index.ts)
 import { createSnapshotWriterHook } from '../../../src/session/snapshot-writer.js';
-import { loadSnapshot } from '../../../src/session/snapshot-reader.js';
 
 // State imports for setup and verification
-import { swarmState, resetSwarmState, startAgentSession, ensureAgentSession } from '../../../src/state.js';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state.js';
 
 describe('Snapshot Integration', () => {
 	let tempDir: string;
@@ -306,8 +310,8 @@ describe('Snapshot Integration', () => {
 			// Verify first write
 			const statePath = join(tempDir, '.swarm', 'session', 'state.json');
 			let file = Bun.file(statePath);
-			let content1 = await file.text();
-			let parsed1 = JSON.parse(content1);
+			const content1 = await file.text();
+			const parsed1 = JSON.parse(content1);
 			expect(parsed1.toolAggregates.write.count).toBe(3);
 			expect(parsed1.agentSessions[sessionId].architectWriteCount).toBe(1);
 
@@ -428,7 +432,9 @@ describe('Snapshot Integration', () => {
 			const loadedSession = swarmState.agentSessions.get(sessionId);
 			expect(loadedSession).toBeDefined();
 			expect(loadedSession?.gateLog.size).toBe(2);
-			expect(loadedSession?.gateLog.get('task-1')).toEqual(new Set(['gate-a', 'gate-b']));
+			expect(loadedSession?.gateLog.get('task-1')).toEqual(
+				new Set(['gate-a', 'gate-b']),
+			);
 			expect(loadedSession?.gateLog.get('task-2')).toEqual(new Set(['gate-c']));
 			expect(loadedSession?.reviewerCallCount.get(1)).toBe(3);
 			expect(loadedSession?.reviewerCallCount.get(2)).toBe(5);
@@ -460,8 +466,12 @@ describe('Snapshot Integration', () => {
 			const loadedSession = swarmState.agentSessions.get(sessionId);
 			expect(loadedSession).toBeDefined();
 			expect(loadedSession?.partialGateWarningsIssuedForTask.size).toBe(2);
-			expect(loadedSession?.partialGateWarningsIssuedForTask.has('task-a')).toBe(true);
-			expect(loadedSession?.partialGateWarningsIssuedForTask.has('task-b')).toBe(true);
+			expect(
+				loadedSession?.partialGateWarningsIssuedForTask.has('task-a'),
+			).toBe(true);
+			expect(
+				loadedSession?.partialGateWarningsIssuedForTask.has('task-b'),
+			).toBe(true);
 			expect(loadedSession?.catastrophicPhaseWarnings.size).toBe(2);
 			expect(loadedSession?.catastrophicPhaseWarnings.has(1)).toBe(true);
 			expect(loadedSession?.catastrophicPhaseWarnings.has(3)).toBe(true);
@@ -469,5 +479,4 @@ describe('Snapshot Integration', () => {
 			expect(loadedSession?.phaseAgentsDispatched.has('reviewer')).toBe(true);
 		});
 	});
-
 });

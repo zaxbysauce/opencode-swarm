@@ -3,13 +3,13 @@
  * Tests the curator hook and lesson extraction/storage logic.
  */
 
-import { vi, describe, test, expect, beforeEach } from 'vitest';
-import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
 	createKnowledgeCuratorHook,
 	curateAndStoreSwarm,
 	runAutoPromotion,
 } from '../../../src/hooks/knowledge-curator.js';
+import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
 
 // IMPORTANT: vi.mocked() does NOT work in this environment - use local mock variables
 
@@ -25,14 +25,22 @@ const mockComputeConfidence = vi.fn<[number, boolean], number>();
 const mockInferTags = vi.fn<[string], string[]>();
 
 // Create local mock variables for utils
-const mockReadSwarmFileAsync = vi.fn<[string, string], Promise<string | null>>();
+const mockReadSwarmFileAsync = vi.fn<
+	[string, string],
+	Promise<string | null>
+>();
 const mockSafeHook = vi.fn<(fn: unknown) => unknown>();
 const mockValidateSwarmPath = vi.fn<[string, string], string>();
 
 // Create local mock variable for knowledge-validator
 const mockValidateLesson = vi.fn<
 	[string, string[], { category: string; scope: string; confidence: number }],
-	{ valid: boolean; layer: number | null; reason: string | null; severity: string | null }
+	{
+		valid: boolean;
+		layer: number | null;
+		reason: string | null;
+		severity: string | null;
+	}
 >();
 const mockQuarantineEntry = vi.fn<
 	[string, string, string, 'architect' | 'user' | 'auto'],
@@ -41,13 +49,24 @@ const mockQuarantineEntry = vi.fn<
 const mockNormalize = vi.fn<[string], string>();
 
 // Create local mock variable for knowledge-reader
-const mockUpdateRetrievalOutcome = vi.fn<[string, string, boolean], Promise<void>>();
+const mockUpdateRetrievalOutcome = vi.fn<
+	[string, string, boolean],
+	Promise<void>
+>();
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
-		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
+		mockValidateLesson(
+			...(args as [
+				string,
+				string[],
+				{ category: string; scope: string; confidence: number },
+			]),
+		),
 	quarantineEntry: (...args: unknown[]) =>
-		mockQuarantineEntry(...(args as [string, string, string, 'architect' | 'user' | 'auto'])),
+		mockQuarantineEntry(
+			...(args as [string, string, string, 'architect' | 'user' | 'auto']),
+		),
 }));
 
 vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
@@ -56,27 +75,42 @@ vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
 }));
 
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
-	resolveSwarmKnowledgePath: (...args: unknown[]) => mockResolveSwarmKnowledgePath(...(args as [string])),
-	resolveSwarmRejectedPath: (...args: unknown[]) => mockResolveSwarmRejectedPath(...(args as [string])),
-	readKnowledge: (...args: unknown[]) => mockReadKnowledge(...(args as [string])),
+	resolveSwarmKnowledgePath: (...args: unknown[]) =>
+		mockResolveSwarmKnowledgePath(...(args as [string])),
+	resolveSwarmRejectedPath: (...args: unknown[]) =>
+		mockResolveSwarmRejectedPath(...(args as [string])),
+	readKnowledge: (...args: unknown[]) =>
+		mockReadKnowledge(...(args as [string])),
 	appendKnowledge: (...args: unknown[]) => mockAppendKnowledge(...(args as [])),
-	appendRejectedLesson: (...args: unknown[]) => mockAppendRejectedLesson(...(args as [])),
-	findNearDuplicate: (...args: unknown[]) => mockFindNearDuplicate(...(args as [string, unknown[], number])),
-	rewriteKnowledge: (...args: unknown[]) => mockRewriteKnowledge(...(args as [string, unknown[]])),
-	computeConfidence: (...args: unknown[]) => mockComputeConfidence(...(args as [number, boolean])),
+	appendRejectedLesson: (...args: unknown[]) =>
+		mockAppendRejectedLesson(...(args as [])),
+	findNearDuplicate: (...args: unknown[]) =>
+		mockFindNearDuplicate(...(args as [string, unknown[], number])),
+	rewriteKnowledge: (...args: unknown[]) =>
+		mockRewriteKnowledge(...(args as [string, unknown[]])),
+	computeConfidence: (...args: unknown[]) =>
+		mockComputeConfidence(...(args as [number, boolean])),
 	inferTags: (...args: unknown[]) => mockInferTags(...(args as [string])),
 	normalize: (...args: unknown[]) => mockNormalize(...(args as [string])),
 }));
 
 vi.mock('../../../src/hooks/utils.js', () => ({
-	readSwarmFileAsync: (...args: unknown[]) => mockReadSwarmFileAsync(...(args as [string, string])),
+	readSwarmFileAsync: (...args: unknown[]) =>
+		mockReadSwarmFileAsync(...(args as [string, string])),
 	safeHook: (...args: unknown[]) => mockSafeHook(...(args as [unknown])),
-	validateSwarmPath: (...args: unknown[]) => mockValidateSwarmPath(...(args as [string, string])),
+	validateSwarmPath: (...args: unknown[]) =>
+		mockValidateSwarmPath(...(args as [string, string])),
 }));
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
-		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
+		mockValidateLesson(
+			...(args as [
+				string,
+				string[],
+				{ category: string; scope: string; confidence: number },
+			]),
+		),
 }));
 
 // ============================================================================
@@ -126,8 +160,12 @@ describe('knowledge-curator', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset mock implementations to defaults
-		mockResolveSwarmKnowledgePath.mockReturnValue('/project/.swarm/knowledge.jsonl');
-		mockResolveSwarmRejectedPath.mockReturnValue('/project/.swarm/rejected.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/project/.swarm/knowledge.jsonl',
+		);
+		mockResolveSwarmRejectedPath.mockReturnValue(
+			'/project/.swarm/rejected.jsonl',
+		);
 		mockReadKnowledge.mockResolvedValue([]);
 		mockAppendKnowledge.mockResolvedValue(undefined);
 		mockAppendRejectedLesson.mockResolvedValue(undefined);
@@ -137,10 +175,19 @@ describe('knowledge-curator', () => {
 		mockInferTags.mockReturnValue([]);
 		mockReadSwarmFileAsync.mockResolvedValue(null);
 		mockSafeHook.mockImplementation((fn: unknown) => fn);
-		mockValidateSwarmPath.mockImplementation((dir: string, file: string) => `${dir}/.swarm/${file}`);
-		mockValidateLesson.mockReturnValue({ valid: true, layer: null, reason: null, severity: null });
+		mockValidateSwarmPath.mockImplementation(
+			(dir: string, file: string) => `${dir}/.swarm/${file}`,
+		);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: null,
+			reason: null,
+			severity: null,
+		});
 		mockQuarantineEntry.mockResolvedValue(undefined);
-		mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+		mockNormalize.mockImplementation((text: string) =>
+			text.toLowerCase().trim(),
+		);
 		mockUpdateRetrievalOutcome.mockResolvedValue(undefined);
 	});
 
@@ -153,7 +200,11 @@ describe('knowledge-curator', () => {
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: write to plan.md
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess1' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess1',
+			};
 			await hook(input, {});
 
 			// Expected: appendKnowledge called once
@@ -164,7 +215,11 @@ describe('knowledge-curator', () => {
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: write to README.md
-			const input = { toolName: 'write', path: '/project/README.md', sessionID: 'sess1' };
+			const input = {
+				toolName: 'write',
+				path: '/project/README.md',
+				sessionID: 'sess1',
+			};
 			await hook(input, {});
 
 			// Expected: readSwarmFileAsync NOT called (early return)
@@ -179,7 +234,11 @@ describe('knowledge-curator', () => {
 			});
 
 			// Input: write to plan.md
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess1' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess1',
+			};
 			await hook(input, {});
 
 			// Expected: readSwarmFileAsync NOT called
@@ -193,7 +252,11 @@ describe('knowledge-curator', () => {
 			mockReadSwarmFileAsync.mockResolvedValue(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-idempotent' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-idempotent',
+			};
 
 			// Call hook twice with same session ID
 			await hook(input, {});
@@ -205,13 +268,18 @@ describe('knowledge-curator', () => {
 
 		test('safeHook swallows thrown errors without propagating', async () => {
 			// Setup: make readSwarmFileAsync throw
-			mockReadSwarmFileAsync.mockRejectedValueOnce(new Error('file read failed'));
+			mockReadSwarmFileAsync.mockRejectedValueOnce(
+				new Error('file read failed'),
+			);
 
 			// Make safeHook wrap the function to catch errors (the real behavior)
 			mockSafeHook.mockImplementation((fn: unknown) => {
 				return async (...args: unknown[]) => {
 					try {
-						await (fn as (input: unknown, output: unknown) => Promise<void>)(args[0], args[1]);
+						await (fn as (input: unknown, output: unknown) => Promise<void>)(
+							args[0],
+							args[1],
+						);
 					} catch {
 						// Swallow the error
 					}
@@ -221,7 +289,11 @@ describe('knowledge-curator', () => {
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: write to plan.md
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-error' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-error',
+			};
 
 			// Expected: hook should NOT throw (safeHook catches errors)
 			// The function resolves successfully (even though it catches internally)
@@ -231,12 +303,20 @@ describe('knowledge-curator', () => {
 
 	describe('extractLessonsFromRetro (via curateAndStoreSwarm)', () => {
 		test('lessons extracted from ### Lessons Learned bullet points', async () => {
-			const lessons = ['First lesson learned', 'Second lesson learned', 'Third lesson learned'];
+			const lessons = [
+				'First lesson learned',
+				'Second lesson learned',
+				'Third lesson learned',
+			];
 			const planContent = makePlanContent(lessons);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-extract' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-extract',
+			};
 			await hook(input, {});
 
 			// Should have 3 lessons stored
@@ -256,7 +336,11 @@ Another line without a bullet
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-ignore' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-ignore',
+			};
 			await hook(input, {});
 
 			// Should only store 2 lessons (the bullet points)
@@ -371,11 +455,27 @@ Another line without a bullet
 				confidence: 0.6,
 				status: 'candidate',
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'proj' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'proj',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -394,7 +494,9 @@ Another line without a bullet
 
 		test('established entry older than auto_promote_days becomes promoted', async () => {
 			// Create a created_at that is older than auto_promote_days
-			const oldDate = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000).toISOString(); // 91 days ago
+			const oldDate = new Date(
+				Date.now() - 91 * 24 * 60 * 60 * 1000,
+			).toISOString(); // 91 days ago
 			const establishedEntry = {
 				id: 'entry-2',
 				tier: 'swarm',
@@ -407,7 +509,11 @@ Another line without a bullet
 				confirmed_by: [
 					{ phase_number: 1, confirmed_at: oldDate, project_name: 'proj' },
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: oldDate,
 				updated_at: oldDate,
@@ -436,11 +542,27 @@ Another line without a bullet
 				status: 'promoted',
 				hive_eligible: true,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
-					{ phase_number: 2, confirmed_at: '2026-01-02T00:00:00Z', project_name: 'proj' },
-					{ phase_number: 3, confirmed_at: '2026-01-03T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2026-01-02T00:00:00Z',
+						project_name: 'proj',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2026-01-03T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-03T00:00:00Z',
@@ -456,7 +578,9 @@ Another line without a bullet
 		});
 
 		test('promoted entry has hive_eligible set to true', async () => {
-			const oldDate = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString(); // 95 days ago
+			const oldDate = new Date(
+				Date.now() - 95 * 24 * 60 * 60 * 1000,
+			).toISOString(); // 95 days ago
 			const establishedEntry = {
 				id: 'entry-4',
 				tier: 'swarm',
@@ -469,7 +593,11 @@ Another line without a bullet
 				confirmed_by: [
 					{ phase_number: 1, confirmed_at: oldDate, project_name: 'proj' },
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: oldDate,
 				updated_at: oldDate,
@@ -499,9 +627,17 @@ Another line without a bullet
 				confidence: 0.7,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -522,7 +658,11 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-retract' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-retract',
+			};
 			await hook(input, {});
 
 			// Expected: only the normal lesson stored (1 call), not the retraction
@@ -556,9 +696,17 @@ Phase: 1
 				confidence: 0.6,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -578,7 +726,11 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-badrule' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-badrule',
+			};
 			await hook(input, {});
 
 			// Expected: only the normal lesson stored
@@ -611,9 +763,17 @@ Phase: 1
 				confidence: 0.5,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -623,7 +783,9 @@ Phase: 1
 			mockReadKnowledge.mockResolvedValueOnce([existingEntry]);
 
 			// Test with lowercase "retract:"
-			mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+			mockNormalize.mockImplementation((text: string) =>
+				text.toLowerCase().trim(),
+			);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(`# Test
 Swarm: mega
 
@@ -631,7 +793,14 @@ Swarm: mega
 - retract: Test lesson to retract
 `);
 			const hook1 = createKnowledgeCuratorHook('/project', defaultConfig);
-			await hook1({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-lower' }, {});
+			await hook1(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-lower',
+				},
+				{},
+			);
 			expect(mockQuarantineEntry).toHaveBeenCalledTimes(1);
 			vi.clearAllMocks();
 
@@ -644,7 +813,14 @@ Swarm: mega
 - RETRACT: Test lesson to retract
 `);
 			const hook2 = createKnowledgeCuratorHook('/project', defaultConfig);
-			await hook2({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-upper' }, {});
+			await hook2(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-upper',
+				},
+				{},
+			);
 			expect(mockQuarantineEntry).toHaveBeenCalledTimes(1);
 			vi.clearAllMocks();
 
@@ -657,7 +833,14 @@ Swarm: mega
 - Retract: Test lesson to retract
 `);
 			const hook3 = createKnowledgeCuratorHook('/project', defaultConfig);
-			await hook3({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-mixed' }, {});
+			await hook3(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-mixed',
+				},
+				{},
+			);
 			expect(mockQuarantineEntry).toHaveBeenCalledTimes(1);
 		});
 
@@ -672,9 +855,17 @@ Swarm: mega
 				confidence: 0.7,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -697,12 +888,18 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-mixed' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-mixed',
+			};
 			await hook(input, {});
 
 			// Expected: 3 normal lessons stored (not the retraction lines)
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(3);
-			const lessonsStored = mockAppendKnowledge.mock.calls.map(([, entry]) => entry.lesson);
+			const lessonsStored = mockAppendKnowledge.mock.calls.map(
+				([, entry]) => entry.lesson,
+			);
 			expect(lessonsStored).toContain('First valid lesson');
 			expect(lessonsStored).toContain('Second valid lesson');
 			expect(lessonsStored).toContain('Third valid lesson');
@@ -734,7 +931,11 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-nomatch' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-nomatch',
+			};
 
 			// Should NOT throw
 			await expect(hook(input, {})).resolves.toBeUndefined();
@@ -768,12 +969,18 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-empty' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-empty',
+			};
 			await hook(input, {});
 
 			// Expected: 2 normal lessons stored (empty retractions ignored)
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(2);
-			const lessonsStored = mockAppendKnowledge.mock.calls.map(([, entry]) => entry.lesson);
+			const lessonsStored = mockAppendKnowledge.mock.calls.map(
+				([, entry]) => entry.lesson,
+			);
 			expect(lessonsStored).toContain('Normal lesson should still be stored');
 			expect(lessonsStored).toContain('Another normal lesson');
 
@@ -792,9 +999,17 @@ Phase: 1
 				confidence: 0.7,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -811,9 +1026,17 @@ Phase: 1
 				confidence: 0.6,
 				status: 'candidate' as const,
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2026-01-01T00:00:00Z', project_name: 'proj' },
+					{
+						phase_number: 1,
+						confirmed_at: '2026-01-01T00:00:00Z',
+						project_name: 'proj',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -834,7 +1057,11 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-multi' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-multi',
+			};
 			await hook(input, {});
 
 			// Expected: only 1 normal lesson stored
@@ -880,7 +1107,11 @@ Phase: 7
 
 			// Expected: updateRetrievalOutcome called with directory, "Phase 7", and true
 			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledTimes(1);
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 7', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 7',
+				true,
+			);
 
 			// Also ensure curation happened
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
@@ -916,7 +1147,11 @@ Phase: 3
 
 			// Expected: updateRetrievalOutcome still called even though no entries were stored
 			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledTimes(1);
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 3', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 3',
+				true,
+			);
 
 			// Confirm no entries were stored
 			expect(mockAppendKnowledge).not.toHaveBeenCalled();
@@ -932,13 +1167,18 @@ Phase: 5
 `;
 
 			// Make updateRetrievalOutcome throw
-			mockUpdateRetrievalOutcome.mockRejectedValueOnce(new Error('knowledge-reader failed'));
+			mockUpdateRetrievalOutcome.mockRejectedValueOnce(
+				new Error('knowledge-reader failed'),
+			);
 
 			// Make safeHook wrap the function to catch errors (the real behavior)
 			mockSafeHook.mockImplementation((fn: unknown) => {
 				return async (...args: unknown[]) => {
 					try {
-						await (fn as (input: unknown, output: unknown) => Promise<void>)(args[0], args[1]);
+						await (fn as (input: unknown, output: unknown) => Promise<void>)(
+							args[0],
+							args[1],
+						);
 					} catch {
 						// Swallow the error
 					}
@@ -985,7 +1225,11 @@ Phase: 1
 			await hook(input, {});
 
 			// Expected: "Phase 1" (not "Phase 01" or "Phase  1")
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 1', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 1',
+				true,
+			);
 		});
 
 		test('phase number is correctly interpolated for multi-digit phases', async () => {
@@ -1009,7 +1253,11 @@ Phase: 12
 			await hook(input, {});
 
 			// Expected: "Phase 12" (not "Phase 12" or other formatting)
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 12', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 12',
+				true,
+			);
 		});
 
 		test('phase number defaults to 1 when Phase: header is missing', async () => {
@@ -1032,7 +1280,11 @@ Swarm: mega
 			await hook(input, {});
 
 			// Expected: Falls back to "Phase 1" when Phase: header not found
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 1', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 1',
+				true,
+			);
 		});
 	});
 });

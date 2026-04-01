@@ -3,7 +3,7 @@ import { createArchitectAgent } from '../../../src/agents/architect';
 
 /**
  * Task 6.3: Focused tests for adversarial testing checklist output
- * 
+ *
  * Verifies:
  * - disabled: checklist shows SKIPPED — disabled by config
  * - security-only: checklist allows PASS / FAIL / SKIP — not security-sensitive
@@ -11,30 +11,27 @@ import { createArchitectAgent } from '../../../src/agents/architect';
  */
 
 describe('Task 6.3: Adversarial testing checklist behavior', () => {
-	
 	describe('Checklist output for disabled adversarial testing', () => {
 		it('enabled=false shows SKIPPED — disabled by config in checklist', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: false, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: false,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Checklist should show SKIPPED — disabled by config
-			expect(prompt).toContain('test_engineer-adversarial: SKIPPED — disabled by config — value: ___');
+			expect(prompt).toContain(
+				'test_engineer-adversarial: SKIPPED — disabled by config — value: ___',
+			);
 		});
 
 		it('enabled=false removes step 5m entirely', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: false, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: false,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Step 5m should be removed
 			expect(prompt).not.toContain('{{ADVERSARIAL_TEST_STEP}}');
 			expect(prompt).not.toContain('5m. {{AGENT_PREFIX}}test_engineer');
@@ -43,60 +40,60 @@ describe('Task 6.3: Adversarial testing checklist behavior', () => {
 
 	describe('Checklist output for security-only scope', () => {
 		it('scope=security-only shows PASS / FAIL / SKIP — not security-sensitive', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'security-only' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'security-only',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Checklist should show all three options with security-sensitive qualifier
-			expect(prompt).toContain('test_engineer-adversarial: PASS / FAIL / SKIP — not security-sensitive — value: ___');
+			expect(prompt).toContain(
+				'test_engineer-adversarial: PASS / FAIL / SKIP — not security-sensitive — value: ___',
+			);
 		});
 
 		it('scope=security-only includes conditional step 5m', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'security-only' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'security-only',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Step should be present with conditional language
-			expect(prompt).toContain('5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests (conditional: security-sensitive only)');
+			expect(prompt).toContain(
+				'5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests (conditional: security-sensitive only)',
+			);
 			expect(prompt).toContain('If NOT security-sensitive → SKIP this step');
 		});
 	});
 
 	describe('Checklist output for default (all) scope', () => {
 		it('scope=all shows PASS / FAIL without security qualifiers', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Checklist should show PASS / FAIL (no SKIP option for default)
-			expect(prompt).toContain('test_engineer-adversarial: PASS / FAIL — value: ___');
+			expect(prompt).toContain(
+				'test_engineer-adversarial: PASS / FAIL — value: ___',
+			);
 			// Should NOT contain security-sensitive qualifier
 			expect(prompt).not.toContain('SKIP — not security-sensitive');
 		});
 
 		it('scope=all includes unconditional step 5m', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Step should be present as unconditional
-			expect(prompt).toContain('5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL');
+			expect(prompt).toContain(
+				'5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL',
+			);
 			expect(prompt).not.toContain('(conditional: security-sensitive only)');
 		});
 	});
@@ -105,9 +102,11 @@ describe('Task 6.3: Adversarial testing checklist behavior', () => {
 		it('defaults to enabled=true, scope=all', () => {
 			const agent = createArchitectAgent('test-model');
 			const prompt = agent.config.prompt!;
-			
+
 			// Should behave like enabled=true, scope='all'
-			expect(prompt).toContain('test_engineer-adversarial: PASS / FAIL — value: ___');
+			expect(prompt).toContain(
+				'test_engineer-adversarial: PASS / FAIL — value: ___',
+			);
 			expect(prompt).not.toContain('SKIPPED — disabled by config');
 			expect(prompt).not.toContain('SKIP — not security-sensitive');
 		});
@@ -118,42 +117,42 @@ describe('Task 6.3: Adversarial testing checklist behavior', () => {
 		// and correct previously stale expectations in other test files
 
 		it('security-only checklist format matches spec: PASS / FAIL / SKIP — not security-sensitive', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'security-only' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'security-only',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Correct format: includes FAIL, not just PASS/SKIP
-			expect(prompt).toMatch(/test_engineer-adversarial: PASS \/ FAIL \/ SKIP — not security-sensitive/);
+			expect(prompt).toMatch(
+				/test_engineer-adversarial: PASS \/ FAIL \/ SKIP — not security-sensitive/,
+			);
 		});
 
 		it('default/all checklist format matches spec: PASS / FAIL', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: true, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: true,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Correct format: only PASS / FAIL, no SKIP option
-			expect(prompt).toMatch(/test_engineer-adversarial: PASS \/ FAIL — value: ___/);
+			expect(prompt).toMatch(
+				/test_engineer-adversarial: PASS \/ FAIL — value: ___/,
+			);
 		});
 
 		it('disabled checklist format matches spec: SKIPPED — disabled by config', () => {
-			const agent = createArchitectAgent(
-				'test-model',
-				undefined,
-				undefined,
-				{ enabled: false, scope: 'all' }
-			);
+			const agent = createArchitectAgent('test-model', undefined, undefined, {
+				enabled: false,
+				scope: 'all',
+			});
 			const prompt = agent.config.prompt!;
-			
+
 			// Correct format: includes "disabled by config"
-			expect(prompt).toMatch(/test_engineer-adversarial: SKIPPED — disabled by config/);
+			expect(prompt).toMatch(
+				/test_engineer-adversarial: SKIPPED — disabled by config/,
+			);
 		});
 	});
 });
@@ -169,7 +168,6 @@ describe('Task 6.3: Adversarial testing checklist behavior', () => {
  * - Step text includes SKIPPED — test_runner error as a valid outcome
  */
 describe('Task 5.1: Regression sweep prompt content', () => {
-
 	describe('regression-sweep step appears in prompt after test_engineer-verification', () => {
 		it('prompt contains regression-sweep step (5l-bis) after test_engineer-verification (5l)', () => {
 			const agent = createArchitectAgent('test-model');
@@ -243,7 +241,10 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 			expect(precommitStart).toBeGreaterThan(0);
 
 			// Extract the precommit section
-			const precommitSection = prompt.slice(precommitStart, precommitStart + 600);
+			const precommitSection = prompt.slice(
+				precommitStart,
+				precommitStart + 600,
+			);
 			expect(precommitSection).toContain('regression-sweep');
 		});
 
@@ -252,7 +253,10 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 			const prompt = agent.config.prompt!;
 
 			const precommitStart = prompt.indexOf('PRE-COMMIT RULE');
-			const precommitSection = prompt.slice(precommitStart, precommitStart + 600);
+			const precommitSection = prompt.slice(
+				precommitStart,
+				precommitStart + 600,
+			);
 
 			// Should contain the full question about regression-sweep
 			expect(precommitSection).toContain('regression-sweep run');

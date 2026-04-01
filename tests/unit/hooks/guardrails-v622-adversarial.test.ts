@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession } from '../../../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -17,7 +23,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'read', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'read',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -53,7 +63,9 @@ describe('guardrails - v6.22 Task 2.1/2.2/2.3 adversarial tests', () => {
 			const output = makeOutput({ filePath: '.swarm/plan.json' });
 
 			// Should throw - plan.json is now blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('write tool targeting .swarm/plan.md → throws PLAN STATE VIOLATION (regression)', async () => {
@@ -70,7 +82,9 @@ describe('guardrails - v6.22 Task 2.1/2.2/2.3 adversarial tests', () => {
 			const output = makeOutput({ filePath: '.swarm/plan.md' });
 
 			// Should throw - plan.md is still blocked (regression check)
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('edit tool targeting .swarm/plan.json → throws PLAN STATE VIOLATION', async () => {
@@ -83,9 +97,15 @@ describe('guardrails - v6.22 Task 2.1/2.2/2.3 adversarial tests', () => {
 			swarmState.activeAgent.set(sessionId, 'architect');
 
 			const input = makeInput(sessionId, 'edit', 'call-1');
-			const output = makeOutput({ filePath: '.swarm/plan.json', oldString: 'old', newString: 'new' });
+			const output = makeOutput({
+				filePath: '.swarm/plan.json',
+				oldString: 'old',
+				newString: 'new',
+			});
 
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 	});
 
@@ -160,7 +180,9 @@ ${content}`;
 			const output = makeOutput({ input: diffContent });
 
 			// Should throw - traditional diff format with .swarm/plan.json is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('traditional diff --- .swarm/plan.json\\t2024-01-01 (with timestamp) → blocked', async () => {
@@ -184,7 +206,9 @@ ${content}`;
 			const output = makeOutput({ input: diffContent });
 
 			// Should throw - traditional diff with timestamp still gets matched
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('traditional diff --- a/.swarm/plan.json → NOT double-matched via traditional pattern (a/ prefix filtered)', async () => {
@@ -209,7 +233,9 @@ ${content}`;
 			const output = makeOutput({ input: diffContent });
 
 			// Should throw - matched via the --- a/<path> pattern (minusPathPattern)
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('git diff format diff --git a/.swarm/plan.json b/.swarm/plan.json → blocked', async () => {
@@ -235,7 +261,9 @@ index 1234567..89abcdef 100644
 			const output = makeOutput({ input: diffContent });
 
 			// Should throw - git diff format targeting plan.json is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('unified diff +++ b/<path> format → still works for non-plan files', async () => {
@@ -446,7 +474,9 @@ index 1234567..89abcdef 100644
 			const output = makeOutput({ input: diffContent });
 
 			// Should throw
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('patchText at exactly 1MB boundary with plan.json → blocked', async () => {
@@ -467,7 +497,9 @@ index 1234567..89abcdef 100644
 			const output = makeOutput({ input: patchContent });
 
 			// Should throw - at exactly 1MB, it's processed
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'PLAN STATE VIOLATION',
+			);
 		});
 
 		it('empty patchText → no error', async () => {

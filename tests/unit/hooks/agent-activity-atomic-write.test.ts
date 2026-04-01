@@ -5,13 +5,13 @@
  * to ensure proper cleanup of .tmp files and error handling.
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { mkdtemp, writeFile, mkdir, rm, stat } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState } from '../../../src/state';
 import { _flushForTesting } from '../../../src/hooks/agent-activity';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 const defaultConfig: PluginConfig = {
 	max_iterations: 5,

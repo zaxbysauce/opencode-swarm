@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
+import { SECURITY_CATEGORIES as reExportedCategories } from '../../../src/agents/index';
 import {
 	SECURITY_CATEGORIES,
 	type SecurityCategory,
 } from '../../../src/agents/reviewer';
-import { SECURITY_CATEGORIES as reExportedCategories } from '../../../src/agents/index';
 
 describe('SECURITY_CATEGORIES constant', () => {
 	it('is an array with exactly 10 elements', () => {

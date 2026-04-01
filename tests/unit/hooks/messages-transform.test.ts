@@ -2,7 +2,7 @@
  * Tests for consolidateSystemMessages function
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { consolidateSystemMessages } from '../../../src/hooks/messages-transform';
 
 type Message = {
@@ -38,12 +38,12 @@ describe('consolidateSystemMessages', () => {
 	describe('Fast path behavior', () => {
 		it('Single system message → fast-path returns copy', () => {
 			const input: Message[] = [
-				{ role: 'system', content: 'You are a helpful assistant.' }
+				{ role: 'system', content: 'You are a helpful assistant.' },
 			];
 			const result = consolidateSystemMessages(input);
 
 			expect(result).not.toBe(input); // New array
-			expect(result).toEqual(input);   // Same content
+			expect(result).toEqual(input); // Same content
 			expect(result.length).toBe(1);
 			expect(result[0].role).toBe('system');
 			expect(result[0].content).toBe('You are a helpful assistant.');
@@ -53,7 +53,7 @@ describe('consolidateSystemMessages', () => {
 		it('Single system at index 0 + extra system(name="tool") at index 1 → fast-path does NOT short-circuit; output has only the first system, tool message removed', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'System prompt' },
-				{ role: 'system', content: 'Tool instructions', name: 'tool' }
+				{ role: 'system', content: 'Tool instructions', name: 'tool' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -68,7 +68,7 @@ describe('consolidateSystemMessages', () => {
 		it('Two string system messages → merged with \\n\\n', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'First system' },
-				{ role: 'system', content: 'Second system' }
+				{ role: 'system', content: 'Second system' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -82,7 +82,7 @@ describe('consolidateSystemMessages', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'A' },
 				{ role: 'system', content: 'B' },
-				{ role: 'system', content: 'C' }
+				{ role: 'system', content: 'C' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -98,7 +98,7 @@ describe('consolidateSystemMessages', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'System A' },
 				{ role: 'user', content: 'Hello' },
-				{ role: 'system', content: 'System B' }
+				{ role: 'system', content: 'System B' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -113,7 +113,7 @@ describe('consolidateSystemMessages', () => {
 		it('User + system → system moved to index 0 (before user)', () => {
 			const input: Message[] = [
 				{ role: 'user', content: 'Hello' },
-				{ role: 'system', content: 'System prompt' }
+				{ role: 'system', content: 'System prompt' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -131,7 +131,7 @@ describe('consolidateSystemMessages', () => {
 				{ role: 'user', content: 'U1' },
 				{ role: 'assistant', content: 'A1' },
 				{ role: 'system', content: 'S2' },
-				{ role: 'user', content: 'U2' }
+				{ role: 'user', content: 'U2' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -151,7 +151,7 @@ describe('consolidateSystemMessages', () => {
 	describe('Array-style system messages (Anthropic format)', () => {
 		it('System(array:[{type:"text",text:"Hello"}]) → extracted to string "Hello"', () => {
 			const input: Message[] = [
-				{ role: 'system', content: [{ type: 'text', text: 'Hello' }] }
+				{ role: 'system', content: [{ type: 'text', text: 'Hello' }] },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -165,7 +165,7 @@ describe('consolidateSystemMessages', () => {
 		it('System(array:[{type:"image"}]) → no text extracted, removed', () => {
 			const input: Message[] = [
 				{ role: 'user', content: 'Hello' },
-				{ role: 'system', content: [{ type: 'image' }] }
+				{ role: 'system', content: [{ type: 'image' }] },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -178,7 +178,13 @@ describe('consolidateSystemMessages', () => {
 
 		it('System with multiple text parts in array', () => {
 			const input: Message[] = [
-				{ role: 'system', content: [{ type: 'text', text: 'Part 1' }, { type: 'text', text: 'Part 2' }] }
+				{
+					role: 'system',
+					content: [
+						{ type: 'text', text: 'Part 1' },
+						{ type: 'text', text: 'Part 2' },
+					],
+				},
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -190,7 +196,10 @@ describe('consolidateSystemMessages', () => {
 
 		it('System with mixed array content (text + image)', () => {
 			const input: Message[] = [
-				{ role: 'system', content: [{ type: 'text', text: 'Text part' }, { type: 'image' }] }
+				{
+					role: 'system',
+					content: [{ type: 'text', text: 'Text part' }, { type: 'image' }],
+				},
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -205,7 +214,7 @@ describe('consolidateSystemMessages', () => {
 		it('System(empty string) + system(valid) → empty removed, valid merged', () => {
 			const input: Message[] = [
 				{ role: 'system', content: '' },
-				{ role: 'system', content: 'Valid content' }
+				{ role: 'system', content: 'Valid content' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -218,7 +227,7 @@ describe('consolidateSystemMessages', () => {
 		it('System(whitespace only) + system(valid) → whitespace removed, valid merged', () => {
 			const input: Message[] = [
 				{ role: 'system', content: '   ' },
-				{ role: 'system', content: 'Valid content' }
+				{ role: 'system', content: 'Valid content' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -231,7 +240,7 @@ describe('consolidateSystemMessages', () => {
 		it('System(null content) is not merged', () => {
 			const input: Message[] = [
 				{ role: 'system', content: null as unknown as string },
-				{ role: 'system', content: 'Valid content' }
+				{ role: 'system', content: 'Valid content' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -245,7 +254,7 @@ describe('consolidateSystemMessages', () => {
 		it('System(undefined content) is not merged', () => {
 			const input: Message[] = [
 				{ role: 'system', content: undefined as unknown as string },
-				{ role: 'system', content: 'Valid content' }
+				{ role: 'system', content: 'Valid content' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -259,7 +268,7 @@ describe('consolidateSystemMessages', () => {
 	describe('System messages with name or tool_call_id', () => {
 		it('System(name="tool") only → kept (at index 0)', () => {
 			const input: Message[] = [
-				{ role: 'system', content: 'Tool instructions', name: 'tool' }
+				{ role: 'system', content: 'Tool instructions', name: 'tool' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -276,7 +285,7 @@ describe('consolidateSystemMessages', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'System prompt' },
 				{ role: 'user', content: 'Hello' },
-				{ role: 'system', content: 'Tool info', name: 'tool' }
+				{ role: 'system', content: 'Tool info', name: 'tool' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -291,7 +300,7 @@ describe('consolidateSystemMessages', () => {
 		it('System with tool_call_id is not merged', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'System A' },
-				{ role: 'system', content: 'Tool msg', tool_call_id: 'call_123' }
+				{ role: 'system', content: 'Tool msg', tool_call_id: 'call_123' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -304,7 +313,7 @@ describe('consolidateSystemMessages', () => {
 		it('Multiple system messages all with name/tool_call_id → only index-0 kept in systemContents=0 branch', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'First tool', name: 'tool1' },
-				{ role: 'system', content: 'Second tool', name: 'tool2' }
+				{ role: 'system', content: 'Second tool', name: 'tool2' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -319,7 +328,7 @@ describe('consolidateSystemMessages', () => {
 		it('Mix of regular system and named system', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'Regular system' },
-				{ role: 'system', content: 'Named system', name: 'tool' }
+				{ role: 'system', content: 'Named system', name: 'tool' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -335,7 +344,7 @@ describe('consolidateSystemMessages', () => {
 		it('Preserves metadata from first system message', () => {
 			const input: Message[] = [
 				{ role: 'system', content: 'System A', custom: 'metadata', foo: 'bar' },
-				{ role: 'system', content: 'System B', other: 'data' }
+				{ role: 'system', content: 'System B', other: 'data' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -357,7 +366,7 @@ describe('consolidateSystemMessages', () => {
 
 		it('Output contract: assert NO result message has role==="system" && index > 0 (on all outputs) - single system', () => {
 			const result = consolidateSystemMessages([
-				{ role: 'system', content: 'System' }
+				{ role: 'system', content: 'System' },
 			]);
 			assertNoSystemAtIndexZeroPlus(result);
 		});
@@ -366,7 +375,7 @@ describe('consolidateSystemMessages', () => {
 			const result = consolidateSystemMessages([
 				{ role: 'system', content: 'A' },
 				{ role: 'user', content: 'U' },
-				{ role: 'system', content: 'B' }
+				{ role: 'system', content: 'B' },
 			]);
 			assertNoSystemAtIndexZeroPlus(result);
 		});
@@ -374,7 +383,7 @@ describe('consolidateSystemMessages', () => {
 		it('Output contract: assert NO result message has role==="system" && index > 0 (on all outputs) - reordered', () => {
 			const result = consolidateSystemMessages([
 				{ role: 'user', content: 'U' },
-				{ role: 'system', content: 'S' }
+				{ role: 'system', content: 'S' },
 			]);
 			assertNoSystemAtIndexZeroPlus(result);
 		});
@@ -385,7 +394,7 @@ describe('consolidateSystemMessages', () => {
 				{ role: 'system', content: 'S1' },
 				{ role: 'user', content: 'U2' },
 				{ role: 'system', content: 'S2' },
-				{ role: 'assistant', content: 'A' }
+				{ role: 'assistant', content: 'A' },
 			]);
 			assertNoSystemAtIndexZeroPlus(result);
 		});
@@ -395,7 +404,7 @@ describe('consolidateSystemMessages', () => {
 		it('Non-system messages only - unchanged', () => {
 			const input: Message[] = [
 				{ role: 'user', content: 'Hello' },
-				{ role: 'assistant', content: 'Hi' }
+				{ role: 'assistant', content: 'Hi' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -407,7 +416,7 @@ describe('consolidateSystemMessages', () => {
 			const input: Message[] = [
 				{ role: 'system', content: '' },
 				{ role: 'system', content: '   ' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -424,7 +433,7 @@ describe('consolidateSystemMessages', () => {
 			const input: Message[] = [
 				{ role: 'user', content: 'Hello' },
 				{ role: 'user', content: 'World' },
-				{ role: 'system', content: 'System prompt' }
+				{ role: 'system', content: 'System prompt' },
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -440,7 +449,7 @@ describe('consolidateSystemMessages', () => {
 
 		it('Fast path with trimmed content check', () => {
 			const input: Message[] = [
-				{ role: 'system', content: '  System with spaces  ' }
+				{ role: 'system', content: '  System with spaces  ' },
 			];
 			const result = consolidateSystemMessages(input);
 

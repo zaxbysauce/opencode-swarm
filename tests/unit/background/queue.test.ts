@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { resetGlobalEventBus } from '../../../src/background/event-bus';
 import {
 	AutomationQueue,
 	type QueueItem,
 	type QueuePriority,
 } from '../../../src/background/queue';
-import { resetGlobalEventBus } from '../../../src/background/event-bus';
 
 describe('AutomationQueue', () => {
 	beforeEach(() => {
@@ -66,9 +66,7 @@ describe('AutomationQueue', () => {
 			queue.enqueue('item1', 'normal');
 			queue.enqueue('item2', 'normal');
 
-			expect(() => queue.enqueue('item3', 'normal')).toThrow(
-				'Queue is full',
-			);
+			expect(() => queue.enqueue('item3', 'normal')).toThrow('Queue is full');
 		});
 	});
 

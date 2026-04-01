@@ -8,7 +8,7 @@
  * 4. Correct bundle.entries access (not direct property access on result)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Create mock functions before vi.mock to ensure they're available in the mock
 const mockLoadEvidence = vi.fn();
@@ -113,7 +113,9 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 		expect(result).not.toBeNull();
 		expect(result).toContain('## Previous Phase Retrospective (Phase 1)');
 		expect(result).toContain('Phase 1 completed successfully');
-		expect(result).toContain('Tree-sitter integration requires WASM grammar files');
+		expect(result).toContain(
+			'Tree-sitter integration requires WASM grammar files',
+		);
 
 		// Verify loadEvidence was called with the correct task ID
 		expect(mockLoadEvidence).toHaveBeenCalledWith('/test/directory', 'retro-1');
@@ -139,7 +141,10 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 		// Arrange
 		mockLoadEvidence.mockResolvedValue({
 			status: 'invalid_schema',
-			errors: ['entries.0.phase_number: Expected number, got undefined', 'entries.0.summary: Required field missing'],
+			errors: [
+				'entries.0.phase_number: Expected number, got undefined',
+				'entries.0.summary: Required field missing',
+			],
 		});
 
 		// Act
@@ -271,7 +276,11 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 
 	it('8. buildRetroInjection Tier 2 Phase 1 filters by status: "found" during cross-project scan', async () => {
 		// Arrange - Phase 1 uses Tier 2 cross-project scan
-		mockListEvidenceTaskIds.mockResolvedValue(['retro-1', 'retro-2', 'retro-3']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'retro-1',
+			'retro-2',
+			'retro-3',
+		]);
 		mockLoadEvidence
 			.mockResolvedValue(createMockRetroBundle(1, 'pass', 'Phase 1 completed'))
 			.mockResolvedValue(createMockRetroBundle(2, 'pass', 'Phase 2 completed'))
@@ -279,11 +288,17 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 
 		// Act
 		const buildRetroInjection = getBuildRetroInjection();
-		const result = await buildRetroInjection('/test/directory', 1, 'different-plan');
+		const result = await buildRetroInjection(
+			'/test/directory',
+			1,
+			'different-plan',
+		);
 
 		// Assert
 		expect(result).not.toBeNull();
-		expect(result).toContain('## Historical Lessons (from recent prior projects)');
+		expect(result).toContain(
+			'## Historical Lessons (from recent prior projects)',
+		);
 		expect(result).toContain('Most recent retrospectives in this workspace:');
 	});
 
@@ -296,7 +311,11 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 
 		// Act
 		const buildRetroInjection = getBuildRetroInjection();
-		const result = await buildRetroInjection('/test/directory', 1, 'different-plan');
+		const result = await buildRetroInjection(
+			'/test/directory',
+			1,
+			'different-plan',
+		);
 
 		// Assert - Should skip not_found and use found retros
 		expect(result).not.toBeNull();
@@ -318,7 +337,11 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 
 		// Act
 		const buildRetroInjection = getBuildRetroInjection();
-		const result = await buildRetroInjection('/test/directory', 1, 'different-plan');
+		const result = await buildRetroInjection(
+			'/test/directory',
+			1,
+			'different-plan',
+		);
 
 		// Assert - Should skip invalid_schema and use found retros
 		expect(result).not.toBeNull();
@@ -355,7 +378,11 @@ describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {
 				errors: ['Invalid schema'],
 			}) // retro-2 scan
 			.mockResolvedValue(createMockRetroBundle(3, 'pass', 'Phase 3 found')); // retro-3 scan
-		mockListEvidenceTaskIds.mockResolvedValue(['retro-1', 'retro-2', 'retro-3']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'retro-1',
+			'retro-2',
+			'retro-3',
+		]);
 
 		// Act
 		const buildRetroInjection = getBuildRetroInjection();

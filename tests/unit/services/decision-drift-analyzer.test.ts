@@ -1,15 +1,15 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import {
 	analyzeDecisionDrift,
+	type DriftAnalysisResult,
+	type DriftSignal,
 	extractDecisionsFromContext,
 	findContradictions,
 	formatDriftForContext,
-	type DriftAnalysisResult,
-	type DriftSignal,
 } from '../../../src/services/decision-drift-analyzer';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { tmpdir } from 'node:os';
 
 describe('decision-drift-analyzer', () => {
 	let tempDir: string;
@@ -86,8 +86,20 @@ Some content without decisions`;
 	describe('findContradictions', () => {
 		it('should detect contradictions between use and not use', () => {
 			const decisions = [
-				{ text: 'Use TypeScript for the project', phase: 1, confirmed: true, timestamp: null, line: 1 },
-				{ text: 'Do not use TypeScript', phase: 2, confirmed: false, timestamp: null, line: 2 },
+				{
+					text: 'Use TypeScript for the project',
+					phase: 1,
+					confirmed: true,
+					timestamp: null,
+					line: 1,
+				},
+				{
+					text: 'Do not use TypeScript',
+					phase: 2,
+					confirmed: false,
+					timestamp: null,
+					line: 2,
+				},
 			];
 
 			const contradictions = findContradictions(decisions);
@@ -97,8 +109,20 @@ Some content without decisions`;
 
 		it('should detect contradictions between keep and remove', () => {
 			const decisions = [
-				{ text: 'Keep the existing config', phase: 1, confirmed: true, timestamp: null, line: 1 },
-				{ text: 'Remove the config file', phase: 2, confirmed: false, timestamp: null, line: 2 },
+				{
+					text: 'Keep the existing config',
+					phase: 1,
+					confirmed: true,
+					timestamp: null,
+					line: 1,
+				},
+				{
+					text: 'Remove the config file',
+					phase: 2,
+					confirmed: false,
+					timestamp: null,
+					line: 2,
+				},
 			];
 
 			const contradictions = findContradictions(decisions);
@@ -107,8 +131,20 @@ Some content without decisions`;
 
 		it('should not flag unrelated decisions as contradictions', () => {
 			const decisions = [
-				{ text: 'Use TypeScript for backend', phase: 1, confirmed: true, timestamp: null, line: 1 },
-				{ text: 'Use React for frontend', phase: 2, confirmed: false, timestamp: null, line: 2 },
+				{
+					text: 'Use TypeScript for backend',
+					phase: 1,
+					confirmed: true,
+					timestamp: null,
+					line: 1,
+				},
+				{
+					text: 'Use React for frontend',
+					phase: 2,
+					confirmed: false,
+					timestamp: null,
+					line: 2,
+				},
 			];
 
 			const contradictions = findContradictions(decisions);
@@ -118,7 +154,13 @@ Some content without decisions`;
 
 		it('should return empty array for less than 2 decisions', () => {
 			const decisions = [
-				{ text: 'Use TypeScript', phase: 1, confirmed: true, timestamp: null, line: 1 },
+				{
+					text: 'Use TypeScript',
+					phase: 1,
+					confirmed: true,
+					timestamp: null,
+					line: 1,
+				},
 			];
 
 			const contradictions = findContradictions(decisions);
@@ -190,7 +232,9 @@ Current phase is now active`,
 					title: 'Test Plan',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
@@ -218,7 +262,9 @@ Current phase is now active`,
 					title: 'Test Plan',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
@@ -255,7 +301,10 @@ Current phase is now active`,
 			);
 
 			// Create many stale decisions
-			const manyDecisions = Array.from({ length: 10 }, (_, i) => `- Decision ${i + 1}`).join('\n');
+			const manyDecisions = Array.from(
+				{ length: 10 },
+				(_, i) => `- Decision ${i + 1}`,
+			).join('\n');
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'context.md'),
 				`## Phase 1
@@ -276,7 +325,9 @@ ${manyDecisions}`,
 					title: 'Test Plan',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
@@ -288,9 +339,13 @@ ${manyDecisions}`,
 - Do not use TypeScript`,
 			);
 
-			const result = await analyzeDecisionDrift(tempDir, { detectContradictions: false });
+			const result = await analyzeDecisionDrift(tempDir, {
+				detectContradictions: false,
+			});
 			// Should not detect contradiction
-			expect(result.signals.some((s) => s.type === 'contradiction')).toBe(false);
+			expect(result.signals.some((s) => s.type === 'contradiction')).toBe(
+				false,
+			);
 		});
 	});
 
@@ -396,7 +451,9 @@ ${manyDecisions}`,
 					title: 'Test Plan',
 					swarm: 'test',
 					current_phase: 1,
-					phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+					phases: [
+						{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+					],
 				}),
 			);
 
@@ -436,12 +493,15 @@ Phase: 2
 			);
 
 			// Test decision extraction separately
-			const contextContent = fs.readFileSync(path.join(tempDir, '.swarm', 'context.md'), 'utf-8');
+			const contextContent = fs.readFileSync(
+				path.join(tempDir, '.swarm', 'context.md'),
+				'utf-8',
+			);
 			const decisions = extractDecisionsFromContext(contextContent);
 			console.log('Extracted decisions:', JSON.stringify(decisions, null, 2));
 
 			const result = await analyzeDecisionDrift(tempDir);
-			
+
 			// Should work without crashing and detect stale from Phase 1
 			expect(result).toBeDefined();
 			// Debug output

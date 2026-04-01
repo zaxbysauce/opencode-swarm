@@ -3,14 +3,13 @@
  * - UI/UX Designer agent opt-in hint injection (ui_review.enabled)
  * - Docs agent opt-out hint injection (docs.enabled = false)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState } from '../../../src/state';
 
 describe('v6.1 System Enhancer Hint Injection', () => {
 	let tempDir: string;

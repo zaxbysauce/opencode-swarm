@@ -7,18 +7,18 @@
  * - updateRetrievalOutcome (outcome tracking)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	readMergedKnowledge,
-	updateRetrievalOutcome,
 	type ProjectContext,
 	type RankedEntry,
+	readMergedKnowledge,
+	updateRetrievalOutcome,
 } from '../../../src/hooks/knowledge-reader.js';
 import type {
-	KnowledgeConfig,
-	SwarmKnowledgeEntry,
 	HiveKnowledgeEntry,
+	KnowledgeConfig,
 	PhaseConfirmationRecord,
+	SwarmKnowledgeEntry,
 } from '../../../src/hooks/knowledge-types.js';
 
 // ============================================================================
@@ -72,10 +72,15 @@ vi.mock('node:fs/promises', () => ({
 	writeFile: vi.fn(async () => {}),
 }));
 
-// Import mocked modules
-import { readKnowledge, rewriteKnowledge, resolveSwarmKnowledgePath, resolveHiveKnowledgePath } from '../../../src/hooks/knowledge-store.js';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+// Import mocked modules
+import {
+	readKnowledge,
+	resolveHiveKnowledgePath,
+	resolveSwarmKnowledgePath,
+	rewriteKnowledge,
+} from '../../../src/hooks/knowledge-store.js';
 
 // ============================================================================
 // Helper Factories
@@ -87,7 +92,9 @@ const defaultPhaseConfirmation: PhaseConfirmationRecord = {
 	project_name: 'test-project',
 };
 
-function makeSwarmEntry(overrides?: Partial<SwarmKnowledgeEntry>): SwarmKnowledgeEntry {
+function makeSwarmEntry(
+	overrides?: Partial<SwarmKnowledgeEntry>,
+): SwarmKnowledgeEntry {
 	return {
 		id: 'swarm-' + Math.random().toString(36).substring(2, 9),
 		tier: 'swarm',
@@ -111,7 +118,9 @@ function makeSwarmEntry(overrides?: Partial<SwarmKnowledgeEntry>): SwarmKnowledg
 	};
 }
 
-function makeHiveEntry(overrides?: Partial<HiveKnowledgeEntry>): HiveKnowledgeEntry {
+function makeHiveEntry(
+	overrides?: Partial<HiveKnowledgeEntry>,
+): HiveKnowledgeEntry {
 	return {
 		id: 'hive-' + Math.random().toString(36).substring(2, 9),
 		tier: 'hive',
@@ -169,15 +178,19 @@ function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
 describe('readMergedKnowledge — basic merge', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			[],
+		);
 	});
 
 	it('Test 1: empty both tiers returns empty array', async () => {
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [];
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [];
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config);
@@ -192,11 +205,13 @@ describe('readMergedKnowledge — basic merge', () => {
 			makeSwarmEntry({ lesson: 'Second swarm lesson' }),
 		];
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return swarmEntries;
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return swarmEntries;
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		const config = makeConfig({ hive_enabled: false });
 		const result = await readMergedKnowledge('/proj', config);
@@ -210,11 +225,13 @@ describe('readMergedKnowledge — basic merge', () => {
 		const swarmEntry = makeSwarmEntry({ lesson: lessonText });
 		const hiveEntry = makeHiveEntry({ lesson: lessonText });
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [hiveEntry];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [hiveEntry];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config);
@@ -234,11 +251,13 @@ describe('readMergedKnowledge — basic merge', () => {
 		const swarmEntry = makeSwarmEntry({ lesson: swarmLesson });
 		const hiveEntry = makeHiveEntry({ lesson: hiveLesson });
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [hiveEntry];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [hiveEntry];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config);
@@ -255,11 +274,13 @@ describe('readMergedKnowledge — basic merge', () => {
 		const swarmEntry = makeSwarmEntry({ lesson: swarmLesson });
 		const hiveEntry = makeHiveEntry({ lesson: hiveLesson });
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [hiveEntry];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [hiveEntry];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config);
@@ -279,7 +300,9 @@ describe('readMergedKnowledge — basic merge', () => {
 describe('readMergedKnowledge — ranking', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			[],
+		);
 	});
 
 	it('Test 6: hive entries ranked above equal-confidence swarm entries', async () => {
@@ -292,11 +315,13 @@ describe('readMergedKnowledge — ranking', () => {
 			confidence: 0.7,
 		});
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [hiveEntry];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [hiveEntry];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config);
@@ -316,11 +341,13 @@ describe('readMergedKnowledge — ranking', () => {
 			}),
 		);
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return swarmEntries;
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return swarmEntries;
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		const config = makeConfig({ max_inject_count: 3 });
 		const result = await readMergedKnowledge('/proj', config);
@@ -340,11 +367,13 @@ describe('readMergedKnowledge — ranking', () => {
 			}),
 		];
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return swarmEntries;
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return swarmEntries;
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config); // No context
@@ -374,11 +403,14 @@ describe('readMergedKnowledge — ranking', () => {
 			scope: 'global',
 		});
 
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [];
-			if (path.includes('hive')) return [hiveEntrySameProject, hiveEntryOtherProject];
-			return [];
-		});
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [];
+				if (path.includes('hive'))
+					return [hiveEntrySameProject, hiveEntryOtherProject];
+				return [];
+			},
+		);
 
 		const config = makeConfig();
 		const result = await readMergedKnowledge('/proj', config, context);
@@ -398,8 +430,12 @@ describe('readMergedKnowledge — ranking', () => {
 describe('updateRetrievalOutcome', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-		(rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			[],
+		);
+		(rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			undefined,
+		);
 		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
 		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('');
 	});
@@ -429,18 +465,24 @@ describe('updateRetrievalOutcome', () => {
 		});
 
 		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
-		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			JSON.stringify(shownData),
+		);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		await updateRetrievalOutcome('/proj', phaseInfo, true); // phaseSucceeded
 
 		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
 
-		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const rewriteCall = (
+			rewriteKnowledge as unknown as ReturnType<typeof vi.fn>
+		).mock.calls[0];
 		const updatedEntries = rewriteCall[1] as SwarmKnowledgeEntry[];
 		const updatedEntry = updatedEntries.find((e) => e.id === 'id-1');
 
@@ -467,18 +509,24 @@ describe('updateRetrievalOutcome', () => {
 		});
 
 		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
-		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			JSON.stringify(shownData),
+		);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		await updateRetrievalOutcome('/proj', phaseInfo, false); // phaseSucceeded = false
 
 		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
 
-		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const rewriteCall = (
+			rewriteKnowledge as unknown as ReturnType<typeof vi.fn>
+		).mock.calls[0];
 		const updatedEntries = rewriteCall[1] as SwarmKnowledgeEntry[];
 		const updatedEntry = updatedEntries.find((e) => e.id === 'id-1');
 
@@ -505,18 +553,23 @@ describe('updateRetrievalOutcome', () => {
 		});
 
 		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
-		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			if (path.includes('hive')) return [];
-			return [];
-		});
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			JSON.stringify(shownData),
+		);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				if (path.includes('hive')) return [];
+				return [];
+			},
+		);
 
 		await updateRetrievalOutcome('/proj', phaseInfo, true);
 
 		expect(writeFile).toHaveBeenCalled();
 
-		const writeFileCall = (writeFile as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const writeFileCall = (writeFile as unknown as ReturnType<typeof vi.fn>)
+			.mock.calls[0];
 		const writtenData = JSON.parse(writeFileCall[1] as string);
 
 		expect(writtenData[phaseInfo]).toBeUndefined();
@@ -539,12 +592,16 @@ describe('updateRetrievalOutcome', () => {
 		});
 
 		(existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
-		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(shownData));
-		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-			if (path.includes('swarm')) return [swarmEntry];
-			// Hive should NOT be called
-			throw new Error('Hive readKnowledge should not be called');
-		});
+		(readFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+			JSON.stringify(shownData),
+		);
+		(readKnowledge as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async (path: string) => {
+				if (path.includes('swarm')) return [swarmEntry];
+				// Hive should NOT be called
+				throw new Error('Hive readKnowledge should not be called');
+			},
+		);
 
 		await updateRetrievalOutcome('/proj', phaseInfo, true);
 
@@ -552,7 +609,9 @@ describe('updateRetrievalOutcome', () => {
 		expect(rewriteKnowledge).toHaveBeenCalledTimes(1);
 
 		// Verify it was called for swarm path
-		const rewriteCall = (rewriteKnowledge as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+		const rewriteCall = (
+			rewriteKnowledge as unknown as ReturnType<typeof vi.fn>
+		).mock.calls[0];
 		const rewritePath = rewriteCall[0] as string;
 		expect(rewritePath).toContain('swarm');
 		expect(rewritePath).not.toContain('hive');

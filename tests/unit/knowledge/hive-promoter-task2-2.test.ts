@@ -1,21 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { unlinkSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { appendFile, mkdir } from 'node:fs/promises';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import {
-	validateLesson,
-	promoteToHive,
-	promoteFromSwarm,
-	getHiveFilePath,
-} from '../../../src/knowledge/hive-promoter';
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	unlinkSync,
+} from 'node:fs';
+import { appendFile, mkdir } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { handlePromoteCommand } from '../../../src/commands/promote';
+import {
+	getHiveFilePath,
+	promoteFromSwarm,
+	promoteToHive,
+	validateLesson,
+} from '../../../src/knowledge/hive-promoter';
 
 // Test constants
 const TEST_SWARM_DIR = path.join(process.cwd(), '.swarm-test');
 const TEST_SWARM_SUBDIR = path.join(TEST_SWARM_DIR, '.swarm');
 const TEST_KNOWLEDGE_FILE = path.join(TEST_SWARM_SUBDIR, 'knowledge.jsonl');
-const TEMP_HIVE_DIR = path.join(os.tmpdir(), 'opencode-swarm-test-' + Date.now());
+const TEMP_HIVE_DIR = path.join(
+	os.tmpdir(),
+	'opencode-swarm-test-' + Date.now(),
+);
 
 describe('Task 2.2: Hive Promotion Logic', () => {
 	beforeEach(() => {
@@ -198,7 +207,9 @@ Use the following approach to ensure safety.`,
 		it('rejects grep as raw command', () => {
 			const result = validateLesson('grep "password" /etc/shadow');
 			expect(result.valid).toBe(false);
-			expect(result.reason).toBe('Lesson appears to contain raw shell commands');
+			expect(result.reason).toBe(
+				'Lesson appears to contain raw shell commands',
+			);
 		});
 
 		it('rejects find as raw command', () => {
@@ -410,7 +421,7 @@ Use the following approach to ensure safety.`,
 				const entry = JSON.parse(content.trim());
 
 				expect(entry.id).toMatch(/^hive-manual-\d+$/);
-				const timestamp = Number.parseInt(entry.id.split('-')[2]);
+				const timestamp = Number.parseInt(entry.id.split('-')[2], 10);
 				expect(timestamp).toBeGreaterThanOrEqual(beforePromote);
 				expect(timestamp).toBeLessThanOrEqual(afterPromote);
 			} finally {
@@ -434,7 +445,9 @@ Use the following approach to ensure safety.`,
 				const content = readFileSync(hivePath, 'utf-8');
 				const entry = JSON.parse(content.trim());
 
-				expect(entry.promotedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+				expect(entry.promotedAt).toMatch(
+					/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/,
+				);
 				const promotedAtTime = new Date(entry.promotedAt).getTime();
 				expect(promotedAtTime).toBeGreaterThanOrEqual(beforePromote);
 				expect(promotedAtTime).toBeLessThanOrEqual(afterPromote);
@@ -504,7 +517,11 @@ Use the following approach to ensure safety.`,
 				id: 'swarm-other',
 				lesson: 'Other lesson',
 			};
-			await appendFile(TEST_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			await appendFile(
+				TEST_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			try {
 				await expect(
@@ -616,9 +633,9 @@ Use the following approach to ensure safety.`,
 
 	describe('Requirement 7: Error handling for edge cases', () => {
 		it('promoteToHive throws error for empty lesson', async () => {
-			await expect(
-				async () => await promoteToHive(TEST_SWARM_DIR, ''),
-			).toThrow('Lesson text required');
+			await expect(async () => await promoteToHive(TEST_SWARM_DIR, '')).toThrow(
+				'Lesson text required',
+			);
 		});
 
 		it('promoteToHive throws error for whitespace-only lesson', async () => {
@@ -629,7 +646,8 @@ Use the following approach to ensure safety.`,
 
 		it('promoteToHive throws error when validation fails', async () => {
 			await expect(
-				async () => await promoteToHive(TEST_SWARM_DIR, 'rm -rf / dangerous command'),
+				async () =>
+					await promoteToHive(TEST_SWARM_DIR, 'rm -rf / dangerous command'),
 			).toThrow('Lesson rejected by validator');
 		});
 
@@ -648,7 +666,8 @@ Use the following approach to ensure safety.`,
 
 			try {
 				await expect(
-					async () => await promoteFromSwarm(TEST_SWARM_DIR, 'swarm-empty-lesson'),
+					async () =>
+						await promoteFromSwarm(TEST_SWARM_DIR, 'swarm-empty-lesson'),
 				).toThrow('Lesson text required');
 			} finally {
 				if (existsSync(TEST_KNOWLEDGE_FILE)) {
@@ -687,10 +706,9 @@ Use the following approach to ensure safety.`,
 		});
 
 		it('handlePromoteCommand returns validation error for dangerous lesson', async () => {
-			const result = await handlePromoteCommand(
-				TEST_SWARM_DIR,
-				['rm -rf / dangerous'],
-			);
+			const result = await handlePromoteCommand(TEST_SWARM_DIR, [
+				'rm -rf / dangerous',
+			]);
 			expect(result).toContain('Lesson rejected by validator');
 		});
 
@@ -698,10 +716,11 @@ Use the following approach to ensure safety.`,
 			await mkdir(TEMP_HIVE_DIR, { recursive: true });
 
 			try {
-				const result = await handlePromoteCommand(
-					TEST_SWARM_DIR,
-					['valid', 'lesson', 'text'],
-				);
+				const result = await handlePromoteCommand(TEST_SWARM_DIR, [
+					'valid',
+					'lesson',
+					'text',
+				]);
 
 				expect(result).toContain('Promoted to hive');
 				expect(result).toContain('confidence: 1.0');
@@ -715,10 +734,10 @@ Use the following approach to ensure safety.`,
 		});
 
 		it('handlePromoteCommand handles --from-swarm with invalid ID', async () => {
-			const result = await handlePromoteCommand(
-				TEST_SWARM_DIR,
-				['--from-swarm', 'non-existent-id'],
-			);
+			const result = await handlePromoteCommand(TEST_SWARM_DIR, [
+				'--from-swarm',
+				'non-existent-id',
+			]);
 
 			expect(result).toContain('not found in .swarm/knowledge.jsonl');
 		});
@@ -739,10 +758,10 @@ Use the following approach to ensure safety.`,
 					'utf-8',
 				);
 
-				const result = await handlePromoteCommand(
-					TEST_SWARM_DIR,
-					['--from-swarm', 'swarm-cmd-test'],
-				);
+				const result = await handlePromoteCommand(TEST_SWARM_DIR, [
+					'--from-swarm',
+					'swarm-cmd-test',
+				]);
 
 				expect(result).toContain('Promoted to hive');
 				expect(result).toContain('Test lesson from command');
@@ -759,10 +778,11 @@ Use the following approach to ensure safety.`,
 			await mkdir(TEMP_HIVE_DIR, { recursive: true });
 
 			try {
-				const result = await handlePromoteCommand(
-					TEST_SWARM_DIR,
-					['--category', 'custom-cat', 'custom lesson text'],
-				);
+				const result = await handlePromoteCommand(TEST_SWARM_DIR, [
+					'--category',
+					'custom-cat',
+					'custom lesson text',
+				]);
 
 				expect(result).toContain('Promoted to hive');
 

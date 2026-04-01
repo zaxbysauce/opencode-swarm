@@ -1,14 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import {
-	AgentCategory,
 	AGENT_CATEGORY,
+	type AgentCategory,
 	getAgentCategory,
 } from '../../../src/config/agent-categories.ts';
 
 describe('agent-categories', () => {
 	describe('AgentCategory type', () => {
 		test('category values are limited to the 4 expected values', () => {
-			const validCategories: AgentCategory[] = ['orchestrator', 'pipeline', 'qa', 'support'];
+			const validCategories: AgentCategory[] = [
+				'orchestrator',
+				'pipeline',
+				'qa',
+				'support',
+			];
 			const allCategories = Object.values(AGENT_CATEGORY);
 			for (const category of allCategories) {
 				expect(validCategories).toContain(category);

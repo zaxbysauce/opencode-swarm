@@ -24,13 +24,17 @@ describe('MODE: ANALYZE — verification', () => {
 
 	it('5. Contains "GOLD-PLATING" or "GOLD_PLATING" for gold-plating detection', () => {
 		// Check for either gold-plating or GOLD_PLATING
-		const hasGoldPlating = prompt.includes('GOLD-PLATING') || prompt.includes('GOLD_PLATING');
+		const hasGoldPlating =
+			prompt.includes('GOLD-PLATING') || prompt.includes('GOLD_PLATING');
 		expect(hasGoldPlating).toBe(true);
 	});
 
 	it('6. Has severity classification with "CRITICAL" and "HIGH" for gaps', () => {
 		// Look in the GAPS section for CRITICAL and HIGH severity assignments
-		const gapsSection = prompt.substring(prompt.indexOf('Flag GAPS') || 0, prompt.indexOf('Flag GOLD-PLATING') || prompt.length);
+		const gapsSection = prompt.substring(
+			prompt.indexOf('Flag GAPS') || 0,
+			prompt.indexOf('Flag GOLD-PLATING') || prompt.length,
+		);
 		expect(gapsSection).toContain('CRITICAL');
 		expect(gapsSection).toContain('HIGH');
 	});
@@ -79,7 +83,8 @@ describe('MODE: ANALYZE — verification', () => {
 
 	it('13. Has infrastructure exclusion list mentioning "project setup" or "CI configuration"', () => {
 		// Check for infrastructure exclusion text
-		const hasInfrastructureExclusion = prompt.includes('project setup') || prompt.includes('CI configuration');
+		const hasInfrastructureExclusion =
+			prompt.includes('project setup') || prompt.includes('CI configuration');
 		expect(hasInfrastructureExclusion).toBe(true);
 	});
 
@@ -126,7 +131,9 @@ describe('MODE: ANALYZE — adversarial', () => {
 	it('3. Does NOT use CRITICAL/MAJOR/MINOR as the severity scheme for ANALYZE', () => {
 		// Check that ANALYZE uses CRITICAL/HIGH/MEDIUM/LOW, not the plan-review scheme
 		// The prompt should explicitly mention the difference
-		expect(prompt).toContain('ANALYZE uses CRITICAL/HIGH/MEDIUM/LOW severity (not CRITICAL/MAJOR/MINOR used by plan review).');
+		expect(prompt).toContain(
+			'ANALYZE uses CRITICAL/HIGH/MEDIUM/LOW severity (not CRITICAL/MAJOR/MINOR used by plan review).',
+		);
 
 		// Verify the GAPS section uses CRITICAL/HIGH (not MAJOR/MINOR)
 		const gapsStart = prompt.indexOf('Flag GAPS');
@@ -143,9 +150,10 @@ describe('MODE: ANALYZE — adversarial', () => {
 		const analyzeSection = prompt.substring(analyzeStart);
 
 		// Should mention stopping or not proceeding if files are absent/missing
-		const hasStopOrAbort = analyzeSection.includes('stop') ||
-							  analyzeSection.includes('abort') ||
-							  analyzeSection.includes('do not attempt analysis');
+		const hasStopOrAbort =
+			analyzeSection.includes('stop') ||
+			analyzeSection.includes('abort') ||
+			analyzeSection.includes('do not attempt analysis');
 
 		expect(hasStopOrAbort).toBe(true);
 	});
@@ -153,7 +161,9 @@ describe('MODE: ANALYZE — adversarial', () => {
 	it('5. Does NOT silently cap lists — when more than 10 items exist, must note total count', () => {
 		// Check that the output format mentions noting total count
 		// Look for language like "showing 10 of N"
-		expect(prompt).toMatch(/showing 10 of \d+|showing 10 of N|note total count/);
+		expect(prompt).toMatch(
+			/showing 10 of \d+|showing 10 of N|note total count/,
+		);
 
 		// Verify the GAPS output format line mentions capping with total count
 		const gapsOutput = prompt.match(/GAPS: \[.*top 10.*\]/);
@@ -167,8 +177,9 @@ describe('MODE: ANALYZE — adversarial security', () => {
 
 	it('1. Prompt injection resistance — CRITIC_PROMPT forbids delegation', () => {
 		// Verify the prompt explicitly instructs NOT to delegate or use Task tool
-		const hasNoDelegate = prompt.includes('do NOT delegate') ||
-							prompt.includes('DO NOT use the Task tool');
+		const hasNoDelegate =
+			prompt.includes('do NOT delegate') ||
+			prompt.includes('DO NOT use the Task tool');
 
 		expect(hasNoDelegate).toBe(true);
 	});
@@ -180,7 +191,9 @@ describe('MODE: ANALYZE — adversarial security', () => {
 
 		// The READ-ONLY rule should say "any file" not specific files like spec.md or plan.md
 		expect(analyzeSection).toContain('READ-ONLY');
-		expect(analyzeSection).toContain('do not create, modify, or delete any file');
+		expect(analyzeSection).toContain(
+			'do not create, modify, or delete any file',
+		);
 		expect(analyzeSection).toContain('any file');
 	});
 
@@ -210,7 +223,11 @@ describe('MODE: ANALYZE — adversarial security', () => {
 			}
 
 			// Check if any line mentions creating/writing/outputting to files
-			if (line.includes('create') || line.includes('write to') || line.includes('output to file')) {
+			if (
+				line.includes('create') ||
+				line.includes('write to') ||
+				line.includes('output to file')
+			) {
 				hasUnauthorizedCreate = true;
 				break;
 			}
@@ -221,16 +238,22 @@ describe('MODE: ANALYZE — adversarial security', () => {
 
 	it('5. Agent identity confusion guard — warns about delegation confusion', () => {
 		// Verify CRITIC_PROMPT contains text warning about agent delegation confusion
-		const hasIdentityGuard = prompt.includes('IGNORE them') ||
-								prompt.includes('You ARE the agent') ||
-								prompt.includes('not instructions for you to delegate');
+		const hasIdentityGuard =
+			prompt.includes('IGNORE them') ||
+			prompt.includes('You ARE the agent') ||
+			prompt.includes('not instructions for you to delegate');
 
 		expect(hasIdentityGuard).toBe(true);
 	});
 });
 
 describe('PHASE_DRIFT_VERIFIER_PROMPT — verification', () => {
-	const agent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+	const agent = createCriticAgent(
+		'test-model',
+		undefined,
+		undefined,
+		'phase_drift_verifier',
+	);
 	const prompt = agent.config.prompt!;
 
 	it('1. Contains "Phase Drift Verifier" identity', () => {
@@ -299,7 +322,12 @@ describe('PHASE_DRIFT_VERIFIER_PROMPT — verification', () => {
 });
 
 describe('PHASE_DRIFT_VERIFIER_PROMPT — adversarial', () => {
-	const agent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+	const agent = createCriticAgent(
+		'test-model',
+		undefined,
+		undefined,
+		'phase_drift_verifier',
+	);
 	const prompt = agent.config.prompt!;
 
 	it('1. Does NOT instruct critic to write files directly', () => {
@@ -327,14 +355,17 @@ describe('PHASE_DRIFT_VERIFIER_PROMPT — adversarial', () => {
 	});
 
 	it('5. Agent identity confusion guard — warns about delegation confusion', () => {
-		const hasIdentityGuard = prompt.includes('IGNORE them') ||
-								prompt.includes('You ARE the agent') ||
-								prompt.includes('not instructions for you to delegate');
+		const hasIdentityGuard =
+			prompt.includes('IGNORE them') ||
+			prompt.includes('You ARE the agent') ||
+			prompt.includes('not instructions for you to delegate');
 		expect(hasIdentityGuard).toBe(true);
 	});
 
 	it('6. APPROVED requires ALL tasks VERIFIED with no DRIFT', () => {
-		expect(prompt).toContain('APPROVED only if ALL tasks are VERIFIED with no DRIFT');
+		expect(prompt).toContain(
+			'APPROVED only if ALL tasks are VERIFIED with no DRIFT',
+		);
 	});
 });
 

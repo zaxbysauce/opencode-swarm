@@ -1,25 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { RejectedLesson } from '../../../src/hooks/knowledge-types.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	resolveSwarmKnowledgePath,
-	resolveSwarmRejectedPath,
-	resolveHiveKnowledgePath,
-	resolveHiveRejectedPath,
+	appendKnowledge,
+	appendRejectedLesson,
+	computeConfidence,
+	findNearDuplicate,
+	inferTags,
+	jaccardBigram,
+	normalize,
 	readKnowledge,
 	readRejectedLessons,
-	appendKnowledge,
+	resolveHiveKnowledgePath,
+	resolveHiveRejectedPath,
+	resolveSwarmKnowledgePath,
+	resolveSwarmRejectedPath,
 	rewriteKnowledge,
-	appendRejectedLesson,
-	normalize,
 	wordBigrams,
-	jaccardBigram,
-	findNearDuplicate,
-	computeConfidence,
-	inferTags,
 } from '../../../src/hooks/knowledge-store.js';
+import type { RejectedLesson } from '../../../src/hooks/knowledge-types.js';
 
 describe('knowledge-store', () => {
 	describe('Path resolvers', () => {
@@ -60,10 +60,17 @@ describe('knowledge-store', () => {
 		});
 
 		it('skips corrupted JSONL lines and returns valid entries', async () => {
-			const tempPath = path.join(os.tmpdir(), `test-corrupt-${Date.now()}.jsonl`);
-			const content = JSON.stringify({ id: 1, text: 'valid1' }) + '\n' +
-				'{ invalid json here' + '\n' +
-				JSON.stringify({ id: 2, text: 'valid2' }) + '\n';
+			const tempPath = path.join(
+				os.tmpdir(),
+				`test-corrupt-${Date.now()}.jsonl`,
+			);
+			const content =
+				JSON.stringify({ id: 1, text: 'valid1' }) +
+				'\n' +
+				'{ invalid json here' +
+				'\n' +
+				JSON.stringify({ id: 2, text: 'valid2' }) +
+				'\n';
 			await fs.promises.writeFile(tempPath, content, 'utf-8');
 
 			const result = await readKnowledge(tempPath);
@@ -98,10 +105,7 @@ describe('knowledge-store', () => {
 			expect(parsed).toEqual(entry);
 
 			// Cleanup
-			const baseDir = path.join(
-				os.tmpdir(),
-				`test-deep-${Date.now()}`,
-			);
+			const baseDir = path.join(os.tmpdir(), `test-deep-${Date.now()}`);
 			await fs.promises.rm(baseDir, { recursive: true, force: true });
 		});
 	});

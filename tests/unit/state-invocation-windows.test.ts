@@ -57,7 +57,10 @@ describe('Invocation Windows', () => {
 		expect(architectWindow).toBeNull();
 
 		// Also test with prefixed 'mega_architect' → should also return null
-		const prefixedArchitectWindow = beginInvocation(sessionId, 'mega_architect');
+		const prefixedArchitectWindow = beginInvocation(
+			sessionId,
+			'mega_architect',
+		);
 		expect(prefixedArchitectWindow).toBeNull();
 	});
 

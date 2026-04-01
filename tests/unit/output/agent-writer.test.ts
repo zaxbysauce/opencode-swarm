@@ -1,12 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	writeAgentOutput,
-	readAgentOutput,
-	listAgentOutputs,
 	type AgentOutputMetadata,
+	listAgentOutputs,
+	readAgentOutput,
+	writeAgentOutput,
 } from '../../../src/output/agent-writer';
 
 describe('agent-writer', () => {
@@ -58,7 +58,11 @@ describe('agent-writer', () => {
 				success: true,
 			};
 
-			const filePath = await writeAgentOutput(tempDir, metadata, 'Review content');
+			const filePath = await writeAgentOutput(
+				tempDir,
+				metadata,
+				'Review content',
+			);
 
 			const content = fs.readFileSync(filePath, 'utf-8');
 			expect(content.startsWith('---')).toBe(true);
@@ -198,12 +202,14 @@ describe('agent-writer', () => {
 			const phase1Outputs = await listAgentOutputs(tempDir, 1);
 
 			// Note: listAgentOutputs has a regex parsing issue with timestamps containing multiple dashes
-			// It incorrectly parses 'coder-test-2026-03-06T10-00-00-000Z.md' 
+			// It incorrectly parses 'coder-test-2026-03-06T10-00-00-000Z.md'
 			// This is a known limitation of the current implementation
 			expect(phase1Outputs).toHaveLength(2);
 			// The agent field incorrectly contains more than just the agent name
 			expect(phase1Outputs.some((o) => o.agent.includes('coder'))).toBe(true);
-			expect(phase1Outputs.some((o) => o.agent.includes('reviewer'))).toBe(true);
+			expect(phase1Outputs.some((o) => o.agent.includes('reviewer'))).toBe(
+				true,
+			);
 			expect(phase1Outputs.every((o) => o.phase === 1)).toBe(true);
 		});
 

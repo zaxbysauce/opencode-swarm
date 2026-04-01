@@ -3,18 +3,25 @@
  * Tests all git branch management functions with mocked spawnSync
  */
 
-import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Create mock function for spawnSync
 let callIndex = 0;
-let returnValues: Array<{ status: number; stdout: string; stderr: string }> = [];
+let returnValues: Array<{ status: number; stdout: string; stderr: string }> =
+	[];
 
-const mockSpawnSync = mock((command: string, args: string[], options: { cwd: string }) => {
-	// console.log(`Mock call ${callIndex}: git ${args.join(' ')}`);
-	const result = returnValues[callIndex] ?? { status: 0, stdout: '', stderr: '' };
-	callIndex++;
-	return result;
-});
+const mockSpawnSync = mock(
+	(command: string, args: string[], options: { cwd: string }) => {
+		// console.log(`Mock call ${callIndex}: git ${args.join(' ')}`);
+		const result = returnValues[callIndex] ?? {
+			status: 0,
+			stdout: '',
+			stderr: '',
+		};
+		callIndex++;
+		return result;
+	},
+);
 
 // Mock the node:child_process module BEFORE importing branch
 mock.module('node:child_process', () => ({
@@ -24,7 +31,9 @@ mock.module('node:child_process', () => ({
 // Import AFTER mock setup
 const branch = await import('../../../src/git/branch');
 
-function setupMock(...values: Array<{ status: number; stdout: string; stderr: string }>) {
+function setupMock(
+	...values: Array<{ status: number; stdout: string; stderr: string }>
+) {
 	callIndex = 0;
 	returnValues = values;
 	mockSpawnSync.mockClear();
@@ -86,7 +95,11 @@ describe('Git Branch Module', () => {
 		});
 
 		test('throws error when not in a git repo', () => {
-			setupMock({ status: 128, stdout: '', stderr: 'fatal: not a git repository' });
+			setupMock({
+				status: 128,
+				stdout: '',
+				stderr: 'fatal: not a git repository',
+			});
 
 			expect(() => branch.getCurrentBranch(testCwd)).toThrow();
 		});
@@ -98,8 +111,8 @@ describe('Git Branch Module', () => {
 			// Second call: create new branch (should succeed)
 			// Using only 2 mock values to match the 2 git calls made
 			setupMock(
-				{ status: 128, stdout: '', stderr: 'fatal: couldn\'t find remote ref' }, // remote check fails
-				{ status: 0, stdout: '', stderr: '' }  // checkout -b succeeds
+				{ status: 128, stdout: '', stderr: "fatal: couldn't find remote ref" }, // remote check fails
+				{ status: 0, stdout: '', stderr: '' }, // checkout -b succeeds
 			);
 
 			// Should not throw - should create branch successfully
@@ -116,7 +129,7 @@ describe('Git Branch Module', () => {
 			setupMock(
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 0, stdout: 'abc123', stderr: '' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'existing-branch');
@@ -131,7 +144,7 @@ describe('Git Branch Module', () => {
 			setupMock(
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 128, stdout: '', stderr: 'fatal: invalid reference' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			branch.createBranch(testCwd, 'remote-branch');
@@ -143,8 +156,8 @@ describe('Git Branch Module', () => {
 			// First call: check upstream remote (fails)
 			// Second call: create new branch (should succeed)
 			setupMock(
-				{ status: 128, stdout: '', stderr: 'fatal: couldn\'t find remote ref' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 128, stdout: '', stderr: "fatal: couldn't find remote ref" },
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			// Should not throw - should create branch successfully
@@ -160,7 +173,7 @@ describe('Git Branch Module', () => {
 			// Second call: diff --name-only
 			setupMock(
 				{ status: 0, stdout: '.git', stderr: '' },
-				{ status: 0, stdout: 'file1.ts\nfile2.ts\nfile3.ts\n', stderr: '' }
+				{ status: 0, stdout: 'file1.ts\nfile2.ts\nfile3.ts\n', stderr: '' },
 			);
 
 			const result = branch.getChangedFiles(testCwd);
@@ -171,7 +184,7 @@ describe('Git Branch Module', () => {
 		test('returns empty array when no changes', () => {
 			setupMock(
 				{ status: 0, stdout: '.git', stderr: '' },
-				{ status: 0, stdout: '', stderr: '' }
+				{ status: 0, stdout: '', stderr: '' },
 			);
 
 			const result = branch.getChangedFiles(testCwd);
@@ -182,7 +195,7 @@ describe('Git Branch Module', () => {
 		test('returns empty array and logs error on git failure', () => {
 			setupMock(
 				{ status: 0, stdout: '.git', stderr: '' },
-				{ status: 128, stdout: '', stderr: 'fatal: ambiguous argument' }
+				{ status: 128, stdout: '', stderr: 'fatal: ambiguous argument' },
 			);
 
 			const result = branch.getChangedFiles(testCwd);
@@ -194,7 +207,7 @@ describe('Git Branch Module', () => {
 			// When a branch is provided, getDefaultBaseBranch is NOT called
 			// Only the diff command is called with the provided branch
 			setupMock(
-				{ status: 0, stdout: 'modified.ts\n', stderr: '' }  // diff with develop
+				{ status: 0, stdout: 'modified.ts\n', stderr: '' }, // diff with develop
 			);
 
 			const result = branch.getChangedFiles(testCwd, 'develop');
@@ -205,7 +218,7 @@ describe('Git Branch Module', () => {
 		test('filters out empty strings from split', () => {
 			setupMock(
 				{ status: 0, stdout: '.git', stderr: '' },
-				{ status: 0, stdout: 'file1.ts\n\nfile2.ts\n\n', stderr: '' }
+				{ status: 0, stdout: 'file1.ts\n\nfile2.ts\n\n', stderr: '' },
 			);
 
 			const result = branch.getChangedFiles(testCwd);
@@ -225,8 +238,8 @@ describe('Git Branch Module', () => {
 
 		test('returns origin/master when main does not exist', () => {
 			setupMock(
-				{ status: 128, stdout: '', stderr: 'fatal: couldn\'t find remote ref' },
-				{ status: 0, stdout: 'abc123', stderr: '' }
+				{ status: 128, stdout: '', stderr: "fatal: couldn't find remote ref" },
+				{ status: 0, stdout: 'abc123', stderr: '' },
 			);
 
 			const result = branch.getDefaultBaseBranch(testCwd);
@@ -236,8 +249,8 @@ describe('Git Branch Module', () => {
 
 		test('falls back to origin/main when neither main nor master exist', () => {
 			setupMock(
-				{ status: 128, stdout: '', stderr: 'fatal: couldn\'t find remote ref' },
-				{ status: 128, stdout: '', stderr: 'fatal: couldn\'t find remote ref' }
+				{ status: 128, stdout: '', stderr: "fatal: couldn't find remote ref" },
+				{ status: 128, stdout: '', stderr: "fatal: couldn't find remote ref" },
 			);
 
 			const result = branch.getDefaultBaseBranch(testCwd);
@@ -278,7 +291,10 @@ describe('Git Branch Module', () => {
 		test('handles files with spaces in path', () => {
 			setupMock({ status: 0, stdout: '', stderr: '' });
 
-			branch.stageFiles(testCwd, ['path with spaces/file.ts', 'another path/file.ts']);
+			branch.stageFiles(testCwd, [
+				'path with spaces/file.ts',
+				'another path/file.ts',
+			]);
 
 			expect(mockSpawnSync).toHaveBeenCalled();
 		});
@@ -312,7 +328,8 @@ describe('Git Branch Module', () => {
 		test('commits with multi-line message', () => {
 			setupMock({ status: 0, stdout: '', stderr: '' });
 
-			const multiLineMessage = 'feat: add new feature\n\n- Added feature X\n- Fixed bug Y';
+			const multiLineMessage =
+				'feat: add new feature\n\n- Added feature X\n- Fixed bug Y';
 			branch.commitChanges(testCwd, multiLineMessage);
 
 			expect(mockSpawnSync).toHaveBeenCalled();
@@ -343,7 +360,11 @@ describe('Git Branch Module', () => {
 		});
 
 		test('throws error when not in git repo', () => {
-			setupMock({ status: 128, stdout: '', stderr: 'fatal: not a git repository' });
+			setupMock({
+				status: 128,
+				stdout: '',
+				stderr: 'fatal: not a git repository',
+			});
 
 			expect(() => branch.getCurrentSha(testCwd)).toThrow();
 		});
@@ -351,7 +372,11 @@ describe('Git Branch Module', () => {
 
 	describe('hasUncommittedChanges()', () => {
 		test('returns true when there are uncommitted changes', () => {
-			setupMock({ status: 0, stdout: ' M modified.ts\n?? untracked.ts\n', stderr: '' });
+			setupMock({
+				status: 0,
+				stdout: ' M modified.ts\n?? untracked.ts\n',
+				stderr: '',
+			});
 
 			const result = branch.hasUncommittedChanges(testCwd);
 
@@ -395,8 +420,8 @@ describe('Git Branch Module', () => {
 
 			// createBranch - new branch: remote check fails (1), checkout -b succeeds (2)
 			setupMock(
-				{ status: 128, stdout: '', stderr: 'not found' },  // remote check fails
-				{ status: 0, stdout: '', stderr: '' }              // checkout -b succeeds
+				{ status: 128, stdout: '', stderr: 'not found' }, // remote check fails
+				{ status: 0, stdout: '', stderr: '' }, // checkout -b succeeds
 			);
 			branch.createBranch(testCwd, 'feature-branch');
 			expect(mockSpawnSync).toHaveBeenCalled();

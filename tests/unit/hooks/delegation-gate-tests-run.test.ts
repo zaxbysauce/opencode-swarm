@@ -4,10 +4,15 @@
  * Verifies that when BOTH hasReviewer AND hasTestEngineer are true (after last coder)
  * AND session.currentTaskId is set, advanceTaskState advances state to 'tests_run'.
  */
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession, getTaskState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	ensureAgentSession,
+	getTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -28,7 +33,10 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 }
 
 // Helper to trigger toolAfter for testing
-async function triggerToolAfter(hook: ReturnType<typeof createDelegationGateHook>, sessionID: string) {
+async function triggerToolAfter(
+	hook: ReturnType<typeof createDelegationGateHook>,
+	sessionID: string,
+) {
 	await hook.toolAfter(
 		{ tool: 'tool.execute.Task', sessionID, callID: 'call-123' },
 		{},
@@ -680,7 +688,12 @@ describe('delegation-gate: tests_run state transition (v6.22 Task 2.3)', () => {
 			session.taskWorkflowStates.set('1.1', 'reviewer_run');
 
 			await hook.toolAfter(
-				{ tool: 'tool.execute.Task', sessionID: 'args-te-session', callID: 'call-args-te-1', args: { subagent_type: 'mega_test_engineer' } },
+				{
+					tool: 'tool.execute.Task',
+					sessionID: 'args-te-session',
+					callID: 'call-args-te-1',
+					args: { subagent_type: 'mega_test_engineer' },
+				},
 				{},
 			);
 

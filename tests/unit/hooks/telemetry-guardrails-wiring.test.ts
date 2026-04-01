@@ -1,29 +1,30 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
+import * as path from 'node:path';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	beginInvocation,
+	ensureAgentSession,
+	getActiveWindow,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 import {
 	addTelemetryListener,
-	telemetry,
-	resetTelemetryForTesting,
 	initTelemetry,
+	resetTelemetryForTesting,
+	telemetry,
 } from '../../../src/telemetry';
-import {
-	swarmState,
-	resetSwarmState,
-	ensureAgentSession,
-	beginInvocation,
-	getActiveWindow,
-} from '../../../src/state';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
 // Shared temp dir for file I/O tests
 let sharedTempDir: string;
 
 // Helper to create minimal valid guardrails config
-function makeGuardrailsConfig(overrides: Partial<GuardrailsConfig> = {}): GuardrailsConfig {
+function makeGuardrailsConfig(
+	overrides: Partial<GuardrailsConfig> = {},
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 30,
@@ -42,7 +43,9 @@ describe('telemetry-guardrails-wiring', () => {
 	beforeEach(() => {
 		resetTelemetryForTesting();
 		resetSwarmState();
-		sharedTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrails-telemetry-'));
+		sharedTempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'guardrails-telemetry-'),
+		);
 		initTelemetry(sharedTempDir);
 	});
 
@@ -62,7 +65,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.hardLimitHit emits correct event data', () => {
 		test('hardLimitHit with tool_calls limit type', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.hardLimitHit('session-1', 'coder', 'tool_calls', 100);
@@ -78,7 +82,8 @@ describe('telemetry-guardrails-wiring', () => {
 		});
 
 		test('hardLimitHit with duration limit type', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.hardLimitHit('session-2', 'reviewer', 'duration', 30.5);
@@ -90,7 +95,8 @@ describe('telemetry-guardrails-wiring', () => {
 		});
 
 		test('hardLimitHit with repetition limit type', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.hardLimitHit('session-3', 'coder', 'repetition', 5);
@@ -101,10 +107,16 @@ describe('telemetry-guardrails-wiring', () => {
 		});
 
 		test('hardLimitHit with consecutive_errors limit type', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
-			telemetry.hardLimitHit('session-4', 'test_engineer', 'consecutive_errors', 3);
+			telemetry.hardLimitHit(
+				'session-4',
+				'test_engineer',
+				'consecutive_errors',
+				3,
+			);
 
 			const found = received.find((r) => r.event === 'hard_limit_hit');
 			expect(found).toBeDefined();
@@ -112,7 +124,8 @@ describe('telemetry-guardrails-wiring', () => {
 		});
 
 		test('hardLimitHit with idle_timeout limit type', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.hardLimitHit('session-5', 'coder', 'idle_timeout', 15.25);
@@ -125,7 +138,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.modelFallback emits correct event data', () => {
 		test('modelFallback emits with correct fields', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.modelFallback(
@@ -150,7 +164,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.revisionLimitHit emits correct event data', () => {
 		test('revisionLimitHit emits with sessionId and agentName', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.revisionLimitHit('session-rev-1', 'coder');
@@ -166,7 +181,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.loopDetected emits correct event data', () => {
 		test('loopDetected emits with loop pattern info', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.loopDetected(
@@ -187,7 +203,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.scopeViolation emits correct event data', () => {
 		test('scopeViolation emits with file and reason', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.scopeViolation(
@@ -210,7 +227,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('telemetry.qaSkipViolation emits correct event data', () => {
 		test('qaSkipViolation emits with skip count', () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			telemetry.qaSkipViolation('session-qa-1', 'architect', 3);
@@ -233,7 +251,8 @@ describe('telemetry-guardrails-wiring', () => {
 	describe('guardrails toolBefore triggers hardLimitHit telemetry (tool_calls)', () => {
 		test('toolBefore does not emit hardLimitHit when under limit', async () => {
 			// This test passes - validates that under-limit calls don't trigger telemetry
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-2';
@@ -260,14 +279,16 @@ describe('telemetry-guardrails-wiring', () => {
 
 		test('hardLimitHit telemetry convenience method works correctly', () => {
 			// Direct test of the telemetry method - validates the wiring is correct
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			// Call the telemetry method directly as guardrails would
 			telemetry.hardLimitHit('session-direct', 'coder', 'tool_calls', 30);
 
 			const found = received.find(
-				(r) => r.event === 'hard_limit_hit' && r.data.sessionId === 'session-direct',
+				(r) =>
+					r.event === 'hard_limit_hit' && r.data.sessionId === 'session-direct',
 			);
 			expect(found).toBeDefined();
 			expect(found!.data.limitType).toBe('tool_calls');
@@ -279,7 +300,8 @@ describe('telemetry-guardrails-wiring', () => {
 		test('toolAfter with null output and transient error string triggers modelFallback', async () => {
 			// Test that when output.output is null AND error string matches pattern,
 			// modelFallback is triggered
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-fb-null';
@@ -321,7 +343,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('guardrails toolAfter triggers revisionLimitHit telemetry', () => {
 		test('toolAfter emits revisionLimitHit when coder revisions exceed limit', async () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-rev-1';
@@ -373,7 +396,8 @@ describe('telemetry-guardrails-wiring', () => {
 		test('messagesTransform with loop warning pending emits loopDetected (BUG: uses undefined sessionId)', async () => {
 			// NOTE: This test exposes a bug in guardrails.ts where loopDetected is called
 			// with _input.sessionID (undefined) instead of sessionId from the last message context.
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-loop-1';
@@ -401,7 +425,11 @@ describe('telemetry-guardrails-wiring', () => {
 				{
 					messages: [
 						{
-							info: { role: 'system', agent: 'architect', sessionID: sessionId },
+							info: {
+								role: 'system',
+								agent: 'architect',
+								sessionID: sessionId,
+							},
 							parts: [{ type: 'text', text: 'You are the architect.' }],
 						},
 						{
@@ -423,7 +451,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('guardrails toolAfter triggers scopeViolation telemetry', () => {
 		test('toolAfter emits scopeViolation when coder modifies undeclared files', async () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-sv-1';
@@ -483,7 +512,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('guardrails disabled does not trigger telemetry', () => {
 		test('toolBefore with disabled guardrails does not throw or emit telemetry', async () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-disabled';
@@ -520,7 +550,8 @@ describe('telemetry-guardrails-wiring', () => {
 
 	describe('architect session is exempt from guardrails telemetry', () => {
 		test('toolBefore for architect does not emit hardLimitHit', async () => {
-			const received: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const received: Array<{ event: string; data: Record<string, unknown> }> =
+				[];
 			addTelemetryListener((event, data) => received.push({ event, data }));
 
 			const sessionId = 'session-gr-arch';

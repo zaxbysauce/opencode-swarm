@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { handleBenchmarkCommand } from '../../../src/commands/benchmark';
-import { resetSwarmState, swarmState, startAgentSession } from '../../../src/state';
-import { saveEvidence } from '../../../src/evidence/manager';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { handleBenchmarkCommand } from '../../../src/commands/benchmark';
+import { saveEvidence } from '../../../src/evidence/manager';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 let testDir: string;
 

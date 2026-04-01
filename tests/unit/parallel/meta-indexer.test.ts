@@ -3,15 +3,15 @@
  * Covers extractMetaSummaries, indexMetaSummaries, and querySummaries
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	extractMetaSummaries,
+	getLatestTaskSummary,
 	indexMetaSummaries,
 	querySummaries,
-	getLatestTaskSummary,
 } from '../../../src/parallel/meta-indexer';
 
 describe('meta-indexer module tests', () => {
@@ -34,13 +34,16 @@ describe('meta-indexer module tests', () => {
 	describe('Group 1: extractMetaSummaries', () => {
 		it('extracts from events with meta.summary field', () => {
 			const eventsPath = path.join(tmpDir, 'events.jsonl');
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				phase: 1,
-				taskId: '1.1',
-				agent: 'coder',
-				meta: { summary: 'Added new feature' },
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					phase: 1,
+					taskId: '1.1',
+					agent: 'coder',
+					meta: { summary: 'Added new feature' },
+				}) + '\n',
+			);
 
 			const entries = extractMetaSummaries(eventsPath);
 			expect(entries).toHaveLength(1);
@@ -52,13 +55,16 @@ describe('meta-indexer module tests', () => {
 
 		it('extracts from events with direct summary field', () => {
 			const eventsPath = path.join(tmpDir, 'events.jsonl');
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				phase: 2,
-				taskId: '2.1',
-				agent: 'reviewer',
-				summary: 'Reviewed code',
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					phase: 2,
+					taskId: '2.1',
+					agent: 'reviewer',
+					summary: 'Reviewed code',
+				}) + '\n',
+			);
 
 			const entries = extractMetaSummaries(eventsPath);
 			expect(entries).toHaveLength(1);
@@ -66,16 +72,19 @@ describe('meta-indexer module tests', () => {
 		});
 
 		it('returns empty array for non-existent file', () => {
-			const entries = extractMetaSummaries(path.join(tmpDir, 'nonexistent.jsonl'));
+			const entries = extractMetaSummaries(
+				path.join(tmpDir, 'nonexistent.jsonl'),
+			);
 			expect(entries).toHaveLength(0);
 		});
 
 		it('skips malformed JSON lines', () => {
 			const eventsPath = path.join(tmpDir, 'events.jsonl');
-			fs.writeFileSync(eventsPath, 
+			fs.writeFileSync(
+				eventsPath,
 				'{"timestamp": "2024-01-01T10:00:00Z", "meta": {"summary": "Valid"}}\n' +
-				'invalid json line\n' +
-				'{"timestamp": "2024-01-01T10:01:00Z", "meta": {"summary": "Also valid"}}\n'
+					'invalid json line\n' +
+					'{"timestamp": "2024-01-01T10:01:00Z", "meta": {"summary": "Also valid"}}\n',
 			);
 
 			const entries = extractMetaSummaries(eventsPath);
@@ -84,11 +93,14 @@ describe('meta-indexer module tests', () => {
 
 		it('skips events without summary', () => {
 			const eventsPath = path.join(tmpDir, 'events.jsonl');
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				phase: 1,
-				taskId: '1.1',
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					phase: 1,
+					taskId: '1.1',
+				}) + '\n',
+			);
 
 			const entries = extractMetaSummaries(eventsPath);
 			expect(entries).toHaveLength(0);
@@ -99,13 +111,16 @@ describe('meta-indexer module tests', () => {
 	describe('Group 2: indexMetaSummaries', () => {
 		it('writes to index file', async () => {
 			const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				phase: 1,
-				taskId: '1.1',
-				agent: 'coder',
-				meta: { summary: 'Added feature X' },
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					phase: 1,
+					taskId: '1.1',
+					agent: 'coder',
+					meta: { summary: 'Added feature X' },
+				}) + '\n',
+			);
 
 			const result = await indexMetaSummaries(tmpDir);
 
@@ -116,12 +131,15 @@ describe('meta-indexer module tests', () => {
 
 		it('skips duplicate entries', async () => {
 			const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				phase: 1,
-				taskId: '1.1',
-				meta: { summary: 'Test summary' },
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					phase: 1,
+					taskId: '1.1',
+					meta: { summary: 'Test summary' },
+				}) + '\n',
+			);
 
 			const result1 = await indexMetaSummaries(tmpDir);
 			expect(result1.indexed).toBe(1);
@@ -135,15 +153,20 @@ describe('meta-indexer module tests', () => {
 			const noSwarmDir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-swarm-'));
 			const eventsPath = path.join(noSwarmDir, '.swarm', 'events.jsonl');
 			fs.mkdirSync(path.dirname(eventsPath), { recursive: true });
-			fs.writeFileSync(eventsPath, JSON.stringify({
-				timestamp: '2024-01-01T10:00:00Z',
-				meta: { summary: 'Test' },
-			}) + '\n');
+			fs.writeFileSync(
+				eventsPath,
+				JSON.stringify({
+					timestamp: '2024-01-01T10:00:00Z',
+					meta: { summary: 'Test' },
+				}) + '\n',
+			);
 
 			const result = await indexMetaSummaries(noSwarmDir);
 
 			expect(result.indexed).toBe(1);
-			expect(fs.existsSync(path.join(noSwarmDir, '.swarm', 'summary-index.jsonl'))).toBe(true);
+			expect(
+				fs.existsSync(path.join(noSwarmDir, '.swarm', 'summary-index.jsonl')),
+			).toBe(true);
 
 			fs.rmSync(noSwarmDir, { recursive: true, force: true });
 		});
@@ -154,17 +177,18 @@ describe('meta-indexer module tests', () => {
 		beforeEach(() => {
 			// Create pre-populated index
 			const indexPath = path.join(tmpDir, '.swarm', 'summary-index.jsonl');
-			fs.writeFileSync(indexPath, 
+			fs.writeFileSync(
+				indexPath,
 				'{"timestamp": "2024-01-01T10:00:00Z", "phase": 1, "taskId": "1.1", "agent": "coder", "summary": "Summary 1"}\n' +
-				'{"timestamp": "2024-01-02T10:00:00Z", "phase": 1, "taskId": "1.2", "agent": "reviewer", "summary": "Summary 2"}\n' +
-				'{"timestamp": "2024-01-03T10:00:00Z", "phase": 2, "taskId": "2.1", "agent": "coder", "summary": "Summary 3"}\n'
+					'{"timestamp": "2024-01-02T10:00:00Z", "phase": 1, "taskId": "1.2", "agent": "reviewer", "summary": "Summary 2"}\n' +
+					'{"timestamp": "2024-01-03T10:00:00Z", "phase": 2, "taskId": "2.1", "agent": "coder", "summary": "Summary 3"}\n',
 			);
 		});
 
 		it('filters by phase correctly', () => {
 			const results = querySummaries(tmpDir, { phase: 1 });
 			expect(results).toHaveLength(2);
-			expect(results.every(r => r.phase === 1)).toBe(true);
+			expect(results.every((r) => r.phase === 1)).toBe(true);
 		});
 
 		it('filters by taskId correctly', () => {
@@ -204,10 +228,11 @@ describe('meta-indexer module tests', () => {
 	describe('Group 4: getLatestTaskSummary', () => {
 		it('returns latest summary for a task', () => {
 			const indexPath = path.join(tmpDir, '.swarm', 'summary-index.jsonl');
-			fs.writeFileSync(indexPath, 
+			fs.writeFileSync(
+				indexPath,
 				'{"timestamp": "2024-01-01T10:00:00Z", "taskId": "1.1", "summary": "First"}\n' +
-				'{"timestamp": "2024-01-02T10:00:00Z", "taskId": "1.1", "summary": "Second"}\n' +
-				'{"timestamp": "2024-01-03T10:00:00Z", "taskId": "1.1", "summary": "Third"}\n'
+					'{"timestamp": "2024-01-02T10:00:00Z", "taskId": "1.1", "summary": "Second"}\n' +
+					'{"timestamp": "2024-01-03T10:00:00Z", "taskId": "1.1", "summary": "Third"}\n',
 			);
 
 			const latest = getLatestTaskSummary(tmpDir, '1.1');
@@ -216,8 +241,9 @@ describe('meta-indexer module tests', () => {
 
 		it('returns undefined for non-existent task', () => {
 			const indexPath = path.join(tmpDir, '.swarm', 'summary-index.jsonl');
-			fs.writeFileSync(indexPath, 
-				'{"timestamp": "2024-01-01T10:00:00Z", "taskId": "1.1", "summary": "First"}\n'
+			fs.writeFileSync(
+				indexPath,
+				'{"timestamp": "2024-01-01T10:00:00Z", "taskId": "1.1", "summary": "First"}\n',
 			);
 
 			const latest = getLatestTaskSummary(tmpDir, '99.99');

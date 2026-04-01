@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import {
-	getAllRules,
-	getRulesForLanguage,
-	getRuleById,
 	executeRulesSync,
+	getAllRules,
+	getRuleById,
 	getRuleStats,
+	getRulesForLanguage,
 } from '../../../src/sast/rules/index';
 
 describe('SAST Rule Engine', () => {
@@ -122,7 +122,9 @@ describe('SAST Rule Engine', () => {
 				'const fn = new Function("return " + userInput);',
 				'javascript',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/js-dangerous-function');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/js-dangerous-function',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -132,7 +134,9 @@ describe('SAST Rule Engine', () => {
 				'exec(`rm -rf /`);',
 				'javascript',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/js-command-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/js-command-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -143,7 +147,9 @@ describe('SAST Rule Engine', () => {
 				'setTimeout("console.log(x)", 100);',
 				'javascript',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/js-set-timeout-string');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/js-set-timeout-string',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -163,7 +169,9 @@ describe('SAST Rule Engine', () => {
 				'const API_KEY = "sk_live_1234567890abcdefghij";',
 				'javascript',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/js-hardcoded-secret');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/js-hardcoded-secret',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -187,7 +195,9 @@ describe('SAST Rule Engine', () => {
 				'subprocess.run(cmd, shell=True)',
 				'python',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/py-shell-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/py-shell-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -229,7 +239,9 @@ describe('SAST Rule Engine', () => {
 				'API_KEY = "sk_live_abcdefghijklmnop"',
 				'python',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/py-hardcoded-secret');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/py-hardcoded-secret',
+			);
 			expect(finding).toBeDefined();
 		});
 	});
@@ -241,7 +253,9 @@ describe('SAST Rule Engine', () => {
 				'exec.Command("sh", "-c", userInput)',
 				'go',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/go-shell-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/go-shell-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -263,7 +277,9 @@ describe('SAST Rule Engine', () => {
 				'const api_key = "sk_live_abcdefghijklmnop"',
 				'go',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/go-hardcoded-secret');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/go-hardcoded-secret',
+			);
 			expect(finding).toBeDefined();
 		});
 	});
@@ -275,7 +291,9 @@ describe('SAST Rule Engine', () => {
 				'Runtime.getRuntime().exec("rm -rf " + userInput)',
 				'java',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/java-command-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/java-command-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -286,7 +304,9 @@ describe('SAST Rule Engine', () => {
 				'Object obj = ois.readObject();',
 				'java',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/java-deserialization');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/java-deserialization',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('high');
 		});
@@ -297,7 +317,9 @@ describe('SAST Rule Engine', () => {
 				'String password = "super_secret";',
 				'java',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/java-hardcoded-secret');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/java-hardcoded-secret',
+			);
 			expect(finding).toBeDefined();
 		});
 	});
@@ -309,7 +331,9 @@ describe('SAST Rule Engine', () => {
 				'$data = unserialize($_POST["data"]);',
 				'php',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/php-unserialize');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/php-unserialize',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -320,17 +344,15 @@ describe('SAST Rule Engine', () => {
 				'exec($_GET["cmd"]);',
 				'php',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/php-command-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/php-command-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
 
 		it('should detect eval usage', () => {
-			const findings = executeRulesSync(
-				'test.php',
-				'eval($userCode);',
-				'php',
-			);
+			const findings = executeRulesSync('test.php', 'eval($userCode);', 'php');
 			const finding = findings.find((f) => f.rule_id === 'sast/php-eval');
 			expect(finding).toBeDefined();
 		});
@@ -353,7 +375,9 @@ describe('SAST Rule Engine', () => {
 				'strcpy(buffer, userInput);',
 				'c',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/c-buffer-overflow');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/c-buffer-overflow',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -364,7 +388,9 @@ describe('SAST Rule Engine', () => {
 				'strcat(buffer, userInput);',
 				'c',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/c-buffer-overflow');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/c-buffer-overflow',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -379,21 +405,13 @@ describe('SAST Rule Engine', () => {
 		});
 
 		it('should detect gets()', () => {
-			const findings = executeRulesSync(
-				'test.c',
-				'gets(buffer);',
-				'c',
-			);
+			const findings = executeRulesSync('test.c', 'gets(buffer);', 'c');
 			const finding = findings.find((f) => f.rule_id === 'sast/c-gets');
 			expect(finding).toBeDefined();
 		});
 
 		it('should detect scanf without width', () => {
-			const findings = executeRulesSync(
-				'test.c',
-				'scanf("%s", buffer);',
-				'c',
-			);
+			const findings = executeRulesSync('test.c', 'scanf("%s", buffer);', 'c');
 			const finding = findings.find((f) => f.rule_id === 'sast/c-scanf');
 			expect(finding).toBeDefined();
 		});
@@ -406,7 +424,9 @@ describe('SAST Rule Engine', () => {
 				'Process.Start("notepad.exe");',
 				'csharp',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/cs-command-injection');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/cs-command-injection',
+			);
 			expect(finding).toBeDefined();
 			expect(finding?.severity).toBe('critical');
 		});
@@ -417,7 +437,9 @@ describe('SAST Rule Engine', () => {
 				'BinaryFormatter formatter = new BinaryFormatter();',
 				'csharp',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/cs-deserialization');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/cs-deserialization',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -427,7 +449,9 @@ describe('SAST Rule Engine', () => {
 				'string api_key = "sk_live_abcdefghijklmnop";',
 				'csharp',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/cs-hardcoded-secret');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/cs-hardcoded-secret',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -437,7 +461,9 @@ describe('SAST Rule Engine', () => {
 				'DESCryptoServiceProvider des = new DESCryptoServiceProvider();',
 				'csharp',
 			);
-			const finding = findings.find((f) => f.rule_id === 'sast/cs-weak-encryption');
+			const finding = findings.find(
+				(f) => f.rule_id === 'sast/cs-weak-encryption',
+			);
 			expect(finding).toBeDefined();
 		});
 
@@ -525,7 +551,9 @@ describe('SAST Rule Engine', () => {
 				'c',
 			);
 			const dangerous = findings.filter(
-				(f) => f.rule_id === 'sast/c-buffer-overflow' || f.rule_id === 'sast/c-sprintf',
+				(f) =>
+					f.rule_id === 'sast/c-buffer-overflow' ||
+					f.rule_id === 'sast/c-sprintf',
 			);
 			expect(dangerous.length).toBe(0);
 		});

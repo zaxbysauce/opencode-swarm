@@ -104,7 +104,10 @@ describe('PRE-PHASE BRIEFING Verification (Task 2.5)', () => {
 		expect(planStart).not.toBe(-1);
 
 		// Extract the PRE-PHASE BRIEFING section
-		const prePhaseBriefingSection = prompt!.slice(prePhaseBriefingStart, planStart);
+		const prePhaseBriefingSection = prompt!.slice(
+			prePhaseBriefingStart,
+			planStart,
+		);
 
 		// Verify it contains "HARD REQUIREMENT"
 		expect(prePhaseBriefingSection).toContain('HARD REQUIREMENT');

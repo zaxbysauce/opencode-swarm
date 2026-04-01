@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mock validateDirectory to a no-op so empty-string directory works in tests.
 mock.module('../../../src/utils/path-security', () => ({
@@ -11,24 +11,32 @@ mock.module('../../../src/utils/path-security', () => ({
 describe('context-budget-service', () => {
 	describe('estimateTokens', () => {
 		test('uses chars/3.5 formula - hello should return ceil(5/3.5) = 2', async () => {
-			const { estimateTokens } = await import('../../../src/services/context-budget-service');
+			const { estimateTokens } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			// 5 / 3.5 = 1.428..., ceil = 2
 			expect(estimateTokens('hello')).toBe(2);
 		});
 
 		test('returns 0 for empty string', async () => {
-			const { estimateTokens } = await import('../../../src/services/context-budget-service');
+			const { estimateTokens } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			expect(estimateTokens('')).toBe(0);
 		});
 
 		test('returns 0 for null/undefined', async () => {
-			const { estimateTokens } = await import('../../../src/services/context-budget-service');
+			const { estimateTokens } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			expect(estimateTokens(null as any)).toBe(0);
 			expect(estimateTokens(undefined as any)).toBe(0);
 		});
 
 		test('handles long strings correctly', async () => {
-			const { estimateTokens } = await import('../../../src/services/context-budget-service');
+			const { estimateTokens } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			// 10 chars / 3.5 = 2.857..., ceil = 3
 			expect(estimateTokens('abcdefghij')).toBe(3);
 			// 7 chars / 3.5 = 2, ceil = 2
@@ -38,7 +46,9 @@ describe('context-budget-service', () => {
 
 	describe('getDefaultConfig', () => {
 		test('returns correct default values', async () => {
-			const { getDefaultConfig } = await import('../../../src/services/context-budget-service');
+			const { getDefaultConfig } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			const config = getDefaultConfig();
 
 			expect(config.enabled).toBe(true);
@@ -50,7 +60,9 @@ describe('context-budget-service', () => {
 		});
 
 		test('returns a copy, not the original', async () => {
-			const { getDefaultConfig } = await import('../../../src/services/context-budget-service');
+			const { getDefaultConfig } = await import(
+				'../../../src/services/context-budget-service'
+			);
 			const config1 = getDefaultConfig();
 			const config2 = getDefaultConfig();
 
@@ -61,7 +73,9 @@ describe('context-budget-service', () => {
 
 	describe('formatBudgetWarning - returns null when budgetPct < warningPct', () => {
 		test('returns null when status is ok (below warning threshold)', async () => {
-			const { formatBudgetWarning } = await import('../../../src/services/context-budget-service');
+			const { formatBudgetWarning } = await import(
+				'../../../src/services/context-budget-service'
+			);
 
 			const report = {
 				timestamp: new Date().toISOString(),
@@ -96,7 +110,9 @@ describe('context-budget-service', () => {
 
 	describe('formatBudgetWarning - null when suppressed by warningMode=once', () => {
 		test('returns null on second warning when mode is once', async () => {
-			const { formatBudgetWarning } = await import('../../../src/services/context-budget-service');
+			const { formatBudgetWarning } = await import(
+				'../../../src/services/context-budget-service'
+			);
 
 			const report = {
 				timestamp: new Date().toISOString(),
@@ -140,7 +156,9 @@ describe('context-budget-service', () => {
 	describe('formatBudgetWarning - once mode only fires on first crossing', () => {
 		test('source code verifies once mode suppresses repeat warnings', async () => {
 			// Read the source to verify the implementation
-			const source = await Bun.file('./src/services/context-budget-service.ts').text();
+			const source = await Bun.file(
+				'./src/services/context-budget-service.ts',
+			).text();
 
 			// Verify that 'once' mode has suppression logic
 			expect(source).toContain("config.warningMode === 'once'");
@@ -151,29 +169,40 @@ describe('context-budget-service', () => {
 
 	describe('formatBudgetWarning - critical status does NOT write budget-state.json', () => {
 		test('source code shows critical does not call writeBudgetState', async () => {
-			const source = await Bun.file('./src/services/context-budget-service.ts').text();
+			const source = await Bun.file(
+				'./src/services/context-budget-service.ts',
+			).text();
 
 			// Verify the implementation - critical should NOT write state
 			// The code shows: for warning, it calls await writeBudgetState
 			// But for critical, it only updates state in memory, doesn't write
-			expect(source).toContain('// Critical warnings are not suppressible - do NOT write state file');
-			expect(source).toContain('} else if (report.status === \'critical\') {');
+			expect(source).toContain(
+				'// Critical warnings are not suppressible - do NOT write state file',
+			);
+			expect(source).toContain("} else if (report.status === 'critical') {");
 			// Should NOT have writeBudgetState in the critical branch
-			const criticalSection = source.match(/else if \(report\.status === 'critical'\) \{[\s\S]*?\n\t\}/)?.[0] || '';
+			const criticalSection =
+				source.match(
+					/else if \(report\.status === 'critical'\) \{[\s\S]*?\n\t\}/,
+				)?.[0] || '';
 			expect(criticalSection).not.toContain('writeBudgetState');
 		});
 	});
 
 	describe('cost estimate uses $0.003/1K tokens', () => {
 		test('source code verifies COST_PER_1K_TOKENS = 0.003', async () => {
-			const source = await Bun.file('./src/services/context-budget-service.ts').text();
+			const source = await Bun.file(
+				'./src/services/context-budget-service.ts',
+			).text();
 
 			// Verify the cost constant
 			expect(source).toContain('const COST_PER_1K_TOKENS = 0.003');
 		});
 
 		test('critical warning includes cost per turn calculation', async () => {
-			const source = await Bun.file('./src/services/context-budget-service.ts').text();
+			const source = await Bun.file(
+				'./src/services/context-budget-service.ts',
+			).text();
 
 			// Verify cost calculation in critical warning
 			expect(source).toContain('report.swarmTotalTokens / 1000');

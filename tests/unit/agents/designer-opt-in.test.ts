@@ -1,7 +1,7 @@
 /**
  * Tests for v6.1 designer and docs agent opt-in behavior in createAgents()
  */
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { createAgents } from '../../../src/agents/index';
 import type { PluginConfig } from '../../../src/config';
 import { resetSwarmState } from '../../../src/state';

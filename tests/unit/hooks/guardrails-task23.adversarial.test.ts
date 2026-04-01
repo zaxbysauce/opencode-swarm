@@ -1,8 +1,8 @@
 /**
  * Task 2.3 — ADVERSARIAL SECURITY TESTS
- * 
+ *
  * Adversarial tests for lastGateOutcome and advanceTaskState wiring in guardrails.ts
- * 
+ *
  * Attack vectors probed:
  * 1. Reviewer output with embedded VERDICT strings (REJECTED + APPROVED)
  * 2. Test_engineer output with VERDICT: PASS in failure message
@@ -14,17 +14,17 @@
  * 8. Deliberate VERDICT: APPROVED injection in rejection message
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { GuardrailsConfigSchema } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
+	getAgentSession,
 	resetSwarmState,
 	startAgentSession,
-	getAgentSession,
 } from '../../../src/state';
-import { GuardrailsConfigSchema } from '../../../src/config/schema';
 
 describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSARIAL TESTS', () => {
 	let tempDir: string;
@@ -47,7 +47,11 @@ describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSAR
 	}
 
 	// Helper to make toolAfter input
-	function makeToolAfterInput(sessionID = 'test-session', tool = 'Task', callID = 'call-1') {
+	function makeToolAfterInput(
+		sessionID = 'test-session',
+		tool = 'Task',
+		callID = 'call-1',
+	) {
 		return { tool, sessionID, callID };
 	}
 
@@ -390,7 +394,9 @@ describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSAR
 			);
 
 			const input1 = makeToolAfterInput('test-session', 'Task', 'call-1');
-			const output1 = makeToolAfterOutput('VERDICT: APPROVED\nFirst review passed');
+			const output1 = makeToolAfterOutput(
+				'VERDICT: APPROVED\nFirst review passed',
+			);
 
 			await hooks.toolAfter(input1, output1);
 
@@ -401,7 +407,9 @@ describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSAR
 			);
 
 			const input2 = makeToolAfterInput('test-session', 'Task', 'call-2');
-			const output2 = makeToolAfterOutput('VERDICT: APPROVED\nSecond review passed');
+			const output2 = makeToolAfterOutput(
+				'VERDICT: APPROVED\nSecond review passed',
+			);
 
 			// Should not throw (error is caught internally)
 			await hooks.toolAfter(input2, output2);
@@ -462,7 +470,9 @@ describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSAR
 
 			// Test gate tool (not Task delegation)
 			const input = makeToolAfterInput('test-session', 'lint', 'call-1');
-			const output = makeToolAfterOutput('FAIL: lint check failed\nerror: syntax error on line 42');
+			const output = makeToolAfterOutput(
+				'FAIL: lint check failed\nerror: syntax error on line 42',
+			);
 
 			await hooks.toolAfter(input, output);
 
@@ -519,8 +529,14 @@ describe.skip('Task 2.3 — lastGateOutcome and advanceTaskState wiring ADVERSAR
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', 'mega_coder');
 
-			const input = makeToolAfterInput('test-session', 'pre_check_batch', 'call-1');
-			const output = makeToolAfterOutput('gates_passed: false\nSome gates failed');
+			const input = makeToolAfterInput(
+				'test-session',
+				'pre_check_batch',
+				'call-1',
+			);
+			const output = makeToolAfterOutput(
+				'gates_passed: false\nSome gates failed',
+			);
 
 			await hooks.toolAfter(input, output);
 

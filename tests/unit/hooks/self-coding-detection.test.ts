@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
-	ensureAgentSession,
-} from '../../../src/state';
-import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 function makeGuardrailsConfig(overrides?: Record<string, unknown>) {
 	return {
@@ -23,7 +23,9 @@ function makeGuardrailsConfig(overrides?: Record<string, unknown>) {
 	};
 }
 
-function makeDelegationConfig(overrides?: Record<string, unknown>): PluginConfig {
+function makeDelegationConfig(
+	overrides?: Record<string, unknown>,
+): PluginConfig {
 	return {
 		max_iterations: 5,
 		qa_retry_limit: 3,
@@ -41,12 +43,18 @@ function makeDelegationConfig(overrides?: Record<string, unknown>): PluginConfig
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: { role: 'user' as const, agent, sessionID },
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -73,7 +81,9 @@ describe('architect self-coding detection (Task 2.1)', () => {
 
 		// Architect writes to .swarm/state.json (a non-blocked .swarm/ file)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/state.json', content: '{}' } };
+		const toolOutput = {
+			args: { filePath: '.swarm/state.json', content: '{}' },
+		};
 
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
@@ -93,7 +103,9 @@ describe('architect self-coding detection (Task 2.1)', () => {
 
 		// Architect writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
@@ -102,11 +114,17 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		expect(session.architectWriteCount).toBe(1);
 
 		// Now call messagesTransform to verify warning is injected
-		const messages = makeMessages('TASK: Check the code', 'architect', sessionId);
+		const messages = makeMessages(
+			'TASK: Check the code',
+			'architect',
+			sessionId,
+		);
 		await hook.messagesTransform({}, messages as any);
 
 		// Verify warning contains SELF-CODING DETECTED
-		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
 		expect(messages.messages[0].parts[0].text).toContain('1 write-class');
 	});
 
@@ -121,16 +139,24 @@ describe('architect self-coding detection (Task 2.1)', () => {
 
 		// Coder writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify warning is NOT injected
-		const messages = makeMessages('Working on the code', 'mega_coder', sessionId);
+		const messages = makeMessages(
+			'Working on the code',
+			'mega_coder',
+			sessionId,
+		);
 		await hook.messagesTransform({}, messages as any);
 
 		// Should NOT contain SELF-CODING DETECTED
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	it('warning includes write count', async () => {
@@ -143,12 +169,20 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		// Architect writes twice
-		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput1 = { args: { filePath: 'src/foo.ts', content: 'const x = 1;' } };
+		const toolInput1 = {
+			tool: 'write',
+			sessionID: sessionId,
+			callID: 'call-1',
+		};
+		const toolOutput1 = {
+			args: { filePath: 'src/foo.ts', content: 'const x = 1;' },
+		};
 		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
 
 		const toolInput2 = { tool: 'edit', sessionID: sessionId, callID: 'call-2' };
-		const toolOutput2 = { args: { filePath: 'src/bar.ts', content: 'const y = 2;' } };
+		const toolOutput2 = {
+			args: { filePath: 'src/bar.ts', content: 'const y = 2;' },
+		};
 		await hook.toolBefore(toolInput2 as any, toolOutput2 as any);
 
 		// Verify count is 2
@@ -174,14 +208,18 @@ describe('architect self-coding detection (Task 2.1)', () => {
 
 		// Architect writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify warning text contains SELF-CODING DETECTED
 		const messages = makeMessages('TASK: Check', 'architect', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	it('architectWriteCount increments per write', async () => {
@@ -197,7 +235,11 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		expect(session.architectWriteCount).toBe(0);
 
 		// First write
-		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
+		const toolInput1 = {
+			tool: 'write',
+			sessionID: sessionId,
+			callID: 'call-1',
+		};
 		const toolOutput1 = { args: { filePath: 'src/a.ts', content: 'a' } };
 		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
 		expect(session.architectWriteCount).toBe(1);
@@ -209,7 +251,11 @@ describe('architect self-coding detection (Task 2.1)', () => {
 		expect(session.architectWriteCount).toBe(2);
 
 		// Third write
-		const toolInput3 = { tool: 'patch', sessionID: sessionId, callID: 'call-3' };
+		const toolInput3 = {
+			tool: 'patch',
+			sessionID: sessionId,
+			callID: 'call-3',
+		};
 		const toolOutput3 = { args: { filePath: 'src/c.ts', content: 'c' } };
 		await hook.toolBefore(toolInput3 as any, toolOutput3 as any);
 		expect(session.architectWriteCount).toBe(3);
@@ -232,7 +278,8 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const cleanText = 'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email';
+		const cleanText =
+			'coder\nTASK: Add validation\nFILE: src/test.ts\nINPUT: Validate email';
 		const messages = makeMessages(cleanText, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
@@ -247,7 +294,8 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
+		const text =
+			'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
 		await hook.messagesTransform({}, messages as any);
@@ -261,39 +309,48 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const text = 'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
+		const text =
+			'coder\nTASK: Add validation\nFILE: src/auth.ts\nFILE: src/login.ts';
 		const messages = makeMessages(text, 'architect');
 
 		await hook.messagesTransform({}, messages as any);
 
 		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[1].parts[0].text).toContain('Multiple FILE: directives');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'Multiple FILE: directives',
+		);
 	});
 
 	it('"additionally" -> warning', async () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const text = 'coder\nTASK: Add validation additionally add tests\nFILE: src/test.ts';
+		const text =
+			'coder\nTASK: Add validation additionally add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
 		await hook.messagesTransform({}, messages as any);
 
 		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'Batching language detected',
+		);
 	});
 
 	it('"and also" -> warning', async () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const text = 'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
+		const text =
+			'coder\nTASK: Add validation and also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 
 		await hook.messagesTransform({}, messages as any);
 
 		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'Batching language detected',
+		);
 	});
 
 	it('"also" alone (without and) -> no warning (needs "and also" pattern)', async () => {
@@ -301,7 +358,8 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const hook = createDelegationGateHook(config, process.cwd());
 
 		// "also" alone doesn't match the batching pattern - needs "and also" or "then also"
-		const text = 'coder\nTASK: Add validation also add tests\nFILE: src/test.ts';
+		const text =
+			'coder\nTASK: Add validation also add tests\nFILE: src/test.ts';
 		const messages = makeMessages(text, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
@@ -316,13 +374,16 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const config = makeDelegationConfig();
 		const hook = createDelegationGateHook(config, process.cwd());
 
-		const text = 'coder\nTASK: Add validation while you\'re at it add tests\nFILE: src/test.ts';
+		const text =
+			"coder\nTASK: Add validation while you're at it add tests\nFILE: src/test.ts";
 		const messages = makeMessages(text, 'architect');
 
 		await hook.messagesTransform({}, messages as any);
 
 		expect(messages.messages[1].parts[0].text).toContain('BATCH DETECTED');
-		expect(messages.messages[1].parts[0].text).toContain('Batching language detected');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'Batching language detected',
+		);
 	});
 
 	it('warning includes matched heuristic name (Detected signal: ...)', async () => {
@@ -336,7 +397,9 @@ describe('batch delegation detection (Task 2.4)', () => {
 
 		// Check that warning contains "Detected signal:" with the heuristic
 		expect(messages.messages[1].parts[0].text).toContain('Detected signal:');
-		expect(messages.messages[1].parts[0].text).toContain('Multiple FILE: directives');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'Multiple FILE: directives',
+		);
 	});
 
 	it('long single-task delegation under maxChars -> no warning', async () => {
@@ -344,7 +407,9 @@ describe('batch delegation detection (Task 2.4)', () => {
 		const hook = createDelegationGateHook(config, process.cwd());
 
 		// Long but single task - under 4000 chars
-		const text = 'coder\nTASK: Add comprehensive validation\nFILE: src/test.ts\nINPUT: ' + 'x'.repeat(1000);
+		const text =
+			'coder\nTASK: Add comprehensive validation\nFILE: src/test.ts\nINPUT: ' +
+			'x'.repeat(1000);
 		const messages = makeMessages(text, 'architect');
 		const originalText = messages.messages[0].parts[0].text;
 
@@ -387,11 +452,17 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		};
 
 		// Now architect delegates to coder (not writing)
-		const messages = makeMessages('coder\nTASK: Fix the issue', 'architect', sessionId);
+		const messages = makeMessages(
+			'coder\nTASK: Fix the issue',
+			'architect',
+			sessionId,
+		);
 		await hook.messagesTransform({}, messages as any);
 
 		// Should NOT contain SELF-FIX warning (delegation is OK)
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-FIX DETECTED',
+		);
 	});
 
 	it('gate fail -> architect write to src/ within 2 min -> SELF-FIX warning', async () => {
@@ -413,7 +484,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to src/ (self-fix attempt)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("fix");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify selfFixAttempted flag is set
@@ -444,7 +517,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to src/
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify selfFixAttempted is NOT set (no gate failure)
@@ -454,7 +529,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		const messages = makeMessages('TASK: Check', 'architect', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-FIX DETECTED',
+		);
 	});
 
 	it('gate fail -> architect write to .swarm/ -> no warning (legit)', async () => {
@@ -476,7 +553,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to .swarm/ (not a self-fix - this is legit plan update)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/state.json', content: '{}' } };
+		const toolOutput = {
+			args: { filePath: '.swarm/state.json', content: '{}' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Verify selfFixAttempted is NOT set (writing to .swarm/ is OK)
@@ -486,7 +565,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		const messages = makeMessages('TASK: Update plan', 'architect', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-FIX DETECTED',
+		);
 	});
 
 	it('self-fix warning clears after messagesTransform (no duplicate warnings)', async () => {
@@ -507,8 +588,14 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		};
 
 		// Architect attempts self-fix
-		const toolInput1 = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput1 = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		const toolInput1 = {
+			tool: 'write',
+			sessionID: sessionId,
+			callID: 'call-1',
+		};
+		const toolOutput1 = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("fix");' },
+		};
 		await hook.toolBefore(toolInput1 as any, toolOutput1 as any);
 		expect(session.selfFixAttempted).toBe(true);
 
@@ -519,11 +606,17 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		expect(session.selfFixAttempted).toBe(false); // Flag cleared after warning injection
 
 		// Second messagesTransform - NO warning (flag was cleared)
-		const messages2 = makeMessages('TASK: Another task', 'architect', sessionId);
+		const messages2 = makeMessages(
+			'TASK: Another task',
+			'architect',
+			sessionId,
+		);
 		await hook.messagesTransform({}, messages2 as any);
 		// Should NOT contain another SELF-FIX warning (flag is false)
 		// Note: The warning was already cleared, so no new warning
-		expect(messages2.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(messages2.messages[0].parts[0].text).not.toContain(
+			'SELF-FIX DETECTED',
+		);
 	});
 
 	it('2-minute window expires -> no warning', async () => {
@@ -545,7 +638,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to src/
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("fix");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// selfFixAttempted should NOT be set because window expired
@@ -555,7 +650,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 		const messages = makeMessages('TASK: Check', 'architect', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-FIX DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-FIX DETECTED',
+		);
 	});
 
 	it('architect write after gate failure writes only to src/ triggers warning', async () => {
@@ -577,7 +674,9 @@ describe('gate failure self-fix detection (Task 2.5)', () => {
 
 		// Architect writes to src/ - this IS a self-fix
 		const toolInput = { tool: 'edit', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/main.ts', content: '// fixed' } };
+		const toolOutput = {
+			args: { filePath: 'src/main.ts', content: '// fixed' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// selfFixAttempted should be set
@@ -616,18 +715,28 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Architect writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Create messages with both system and user roles
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Write some code' }],
 				},
 			],
@@ -665,18 +774,28 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Architect writes to src/foo.ts (self-fix attempt)
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("fix");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("fix");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Create messages with both system and user roles
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Fix the issue' }],
 				},
 			],
@@ -706,18 +825,28 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Architect writes to src/foo.ts - this stores args internally
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Create messages that will be transformed
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'You are the architect.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Check the code' }],
 				},
 			],
@@ -726,9 +855,7 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 		await hook.messagesTransform({}, messages as any);
 
 		// Get the final text that would be visible to user
-		const visibleText = messages.messages
-			.map((m) => m.parts[0].text)
-			.join(' ');
+		const visibleText = messages.messages.map((m) => m.parts[0].text).join(' ');
 
 		// Verify NO debug/internal storage references leak into visible output
 		// These are internal implementation details that should never appear in messages
@@ -758,14 +885,20 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Architect writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Create messages WITHOUT system message (edge case)
 		const messages = {
 			messages: [
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Write code' }],
 				},
 			],
@@ -775,8 +908,12 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Verify a system message was created and warning injected there (model-only)
 		expect(messages.messages[0].info.role).toBe('system');
-		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
-		expect(messages.messages[0].parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
+		expect(messages.messages[0].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
+		expect(messages.messages[0].parts[0].text).toContain(
+			'[MODEL_ONLY_GUIDANCE]',
+		);
 
 		// Original user message should be unchanged
 		expect(messages.messages[1].parts[0].text).toBe('TASK: Write code');
@@ -793,14 +930,20 @@ describe('self-coding warnings model-only (Task 2.7)', () => {
 
 		// Architect writes to src/foo.ts
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'console.log("test");' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'console.log("test");' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Create messages with system role
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt here.' }],
 				},
 			],
@@ -848,15 +991,27 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt 1.' }],
 				},
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt 2.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -865,9 +1020,13 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		await hook.messagesTransform({}, messages as any);
 
 		// Warning should be in FIRST system message only
-		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
 		// Second system message should NOT have warning
-		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[1].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	// GAP 2: Role field with different case variations
@@ -887,11 +1046,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'SYSTEM' as any, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'SYSTEM' as any,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -902,7 +1069,9 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		// With uppercase 'SYSTEM', the filter won't match 'system'
 		// This could be a GAP - warning might not get injected
 		// Check user message to see if warning leaked (shouldn't)
-		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[1].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	// GAP 3: Missing info object entirely
@@ -925,7 +1094,11 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -934,7 +1107,9 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		// Should not crash - graceful handling
 		await hook.messagesTransform({}, messages as any);
 		// User message should not have leaked warning
-		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[1].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	// GAP 4: Message with role but empty info
@@ -957,7 +1132,11 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -996,7 +1175,11 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 			],
@@ -1029,11 +1212,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -1077,11 +1268,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Fix' }],
 				},
 			],
@@ -1113,12 +1312,22 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 				{
-					info: { role: 'assistant' as const, agent: 'architect', sessionID: sessionId },
-					parts: [{ type: 'text' as const, text: 'I will delegate this task.' }],
+					info: {
+						role: 'assistant' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
+					parts: [
+						{ type: 'text' as const, text: 'I will delegate this task.' },
+					],
 				},
 			],
 		};
@@ -1126,8 +1335,12 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		await hook.messagesTransform({}, messages as any);
 
 		// Assistant message should NOT contain the warning
-		expect(messages.messages[1].parts[0].text).not.toContain('SELF-CODING DETECTED');
-		expect(messages.messages[1].parts[0].text).not.toContain('[MODEL_ONLY_GUIDANCE]');
+		expect(messages.messages[1].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
+		expect(messages.messages[1].parts[0].text).not.toContain(
+			'[MODEL_ONLY_GUIDANCE]',
+		);
 	});
 
 	// GAP 9: System message at index > 0 - edge case from message consolidation
@@ -1147,11 +1360,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 			],
@@ -1161,9 +1382,13 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 
 		// The system message is at index 1 - code should still find it
 		// Check the system message at index 1
-		expect(messages.messages[1].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[1].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
 		// User message should not have warning
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	// GAP 10: Verify warning text doesn't contain raw internal data
@@ -1177,13 +1402,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 
 		// Write with some content that could leak if not filtered
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/foo.ts', content: 'secret: my-api-key-123' } };
+		const toolOutput = {
+			args: { filePath: 'src/foo.ts', content: 'secret: my-api-key-123' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'System prompt.' }],
 				},
 			],
@@ -1216,11 +1447,19 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					// Missing parts array
 				},
 				{
-					info: { role: 'user' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'user' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [{ type: 'text' as const, text: 'TASK: Code' }],
 				},
 			],
@@ -1246,7 +1485,11 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		const messages = {
 			messages: [
 				{
-					info: { role: 'system' as const, agent: 'architect', sessionID: sessionId },
+					info: {
+						role: 'system' as const,
+						agent: 'architect',
+						sessionID: sessionId,
+					},
 					parts: [
 						{ type: 'text' as const, text: 'System prompt.' },
 						{ type: 'image' as any, data: 'fake-image-data' }, // Non-text part
@@ -1258,7 +1501,9 @@ describe('ADVERSARIAL: Task 2.7 model-only guidance gaps', () => {
 		// Should not crash - find() handles only text parts
 		await hook.messagesTransform({}, messages as any);
 		// Warning should still be injected in text part
-		expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 });
 
@@ -1285,7 +1530,9 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 
 		// Malicious path traversal attempt
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '../../../etc/passwd', content: 'malicious' } };
+		const toolOutput = {
+			args: { filePath: '../../../etc/passwd', content: 'malicious' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);
@@ -1303,7 +1550,9 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 
 		// Path with .swarm/ prefix but traverses out - now CORRECTLY DETECTED after fix
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/../src/evil.ts', content: 'malicious' } };
+		const toolOutput = {
+			args: { filePath: '.swarm/../src/evil.ts', content: 'malicious' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);
@@ -1321,14 +1570,18 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		startAgentSession(sessionId, 'architect_evil');
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/evil.ts', content: 'malicious' } };
+		const toolOutput = {
+			args: { filePath: 'src/evil.ts', content: 'malicious' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		// Should NOT trigger self-coding warning because it's not the real architect
 		const messages = makeMessages('TASK: Hack', 'architect_evil', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
-		expect(messages.messages[0].parts[0].text).not.toContain('SELF-CODING DETECTED');
+		expect(messages.messages[0].parts[0].text).not.toContain(
+			'SELF-CODING DETECTED',
+		);
 	});
 
 	// VULNERABILITY: Empty/null sessionID causes unhandled behavior
@@ -1353,7 +1606,11 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
-		const toolInput = { tool: 'write', sessionID: null as any, callID: 'call-1' };
+		const toolInput = {
+			tool: 'write',
+			sessionID: null as any,
+			callID: 'call-1',
+		};
 		const toolOutput = { args: { filePath: 'src/test.ts', content: 'test' } };
 
 		// Should NOT crash - null is handled as undefined session
@@ -1475,7 +1732,9 @@ describe('ADVERSARIAL: malformed inputs (Task 4.2)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: { path: 'evil' } as any, content: 'test' } };
+		const toolOutput = {
+			args: { filePath: { path: 'evil' } as any, content: 'test' },
+		};
 
 		// Hook handles object filePath gracefully (type check)
 		await hook.toolBefore(toolInput as any, toolOutput as any);
@@ -1632,7 +1891,9 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: '.swarm/./state.json', content: '{}' } };
+		const toolOutput = {
+			args: { filePath: '.swarm/./state.json', content: '{}' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);
@@ -1649,7 +1910,9 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		const toolOutput = { args: { filePath: 'src/unicode/test.ts', content: 'test' } };
+		const toolOutput = {
+			args: { filePath: 'src/unicode/test.ts', content: 'test' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);
@@ -1666,7 +1929,9 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
 		// Null byte injection attempt
-		const toolOutput = { args: { filePath: 'src/test.ts\x00.swarm/', content: 'test' } };
+		const toolOutput = {
+			args: { filePath: 'src/test.ts\x00.swarm/', content: 'test' },
+		};
 		await hook.toolBefore(toolInput as any, toolOutput as any);
 
 		const session = ensureAgentSession(sessionId);

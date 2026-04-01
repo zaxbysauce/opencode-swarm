@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { DEFAULT_MODELS } from '../../../src/config/constants';
 import {
-	resolveAgentModel,
 	detectAdversarialPair,
 	formatAdversarialWarning,
+	resolveAgentModel,
 } from '../../../src/hooks/adversarial-detector';
-import { DEFAULT_MODELS } from '../../../src/config/constants';
 
 describe('adversarial-detector - Adversarial Security Testing', () => {
 	const mockConfig: PluginConfig = {
@@ -112,17 +112,32 @@ describe('adversarial-detector - Adversarial Security Testing', () => {
 		});
 
 		it('ATTACK 7: Empty policy should return standard warn message', () => {
-			const result = formatAdversarialWarning('coder', 'reviewer', 'model-1', '');
+			const result = formatAdversarialWarning(
+				'coder',
+				'reviewer',
+				'model-1',
+				'',
+			);
 			expect(result).toContain('Same-model adversarial pair detected');
 			expect(result).not.toContain('GATE POLICY');
 		});
 
 		it('ATTACK 7b: Null-like policy values should return standard warn message', () => {
-			const result1 = formatAdversarialWarning('coder', 'reviewer', 'model-1', 'null');
+			const result1 = formatAdversarialWarning(
+				'coder',
+				'reviewer',
+				'model-1',
+				'null',
+			);
 			expect(result1).toContain('Same-model adversarial pair detected');
 			expect(result1).not.toContain('GATE POLICY');
 
-			const result2 = formatAdversarialWarning('coder', 'reviewer', 'model-1', 'undefined');
+			const result2 = formatAdversarialWarning(
+				'coder',
+				'reviewer',
+				'model-1',
+				'undefined',
+			);
 			expect(result2).toContain('Same-model adversarial pair detected');
 			expect(result2).not.toContain('GATE POLICY');
 		});
@@ -191,13 +206,21 @@ describe('adversarial-detector - Adversarial Security Testing', () => {
 		});
 
 		it('ATTACK 9b: Same unknown agent twice should return shared default model', () => {
-			const result = detectAdversarialPair('unknown-agent', 'unknown-agent', mockConfig);
+			const result = detectAdversarialPair(
+				'unknown-agent',
+				'unknown-agent',
+				mockConfig,
+			);
 			expect(result).toBe(DEFAULT_MODELS.default);
 		});
 
 		it('ATTACK 9c: One unknown, one known agent with same default model', () => {
 			// explorer uses 'google/gemini-2.5-flash' which is the default
-			const result = detectAdversarialPair('unknown-agent', 'explorer', mockConfig);
+			const result = detectAdversarialPair(
+				'unknown-agent',
+				'explorer',
+				mockConfig,
+			);
 			expect(result).toBe(DEFAULT_MODELS.default);
 		});
 	});
@@ -223,7 +246,11 @@ describe('adversarial-detector - Adversarial Security Testing', () => {
 		it('ATTACK 11: Mixed case agent names should normalize correctly', () => {
 			// Both resolve to the same base agent after prefix stripping and lowercasing
 			// architect key is intentionally absent from DEFAULT_MODELS so it falls back to default
-			const result = detectAdversarialPair('ARCHITECT', 'architect', mockConfig);
+			const result = detectAdversarialPair(
+				'ARCHITECT',
+				'architect',
+				mockConfig,
+			);
 			expect(result).toBe(DEFAULT_MODELS.default.toLowerCase());
 		});
 

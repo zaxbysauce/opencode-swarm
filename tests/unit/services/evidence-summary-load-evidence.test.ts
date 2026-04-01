@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Plan, Task } from '../../../src/config/plan-schema.js';
+import type { LoadEvidenceResult } from '../../../src/evidence/manager.js';
 import {
 	buildEvidenceSummary,
 	type EvidenceSummaryArtifact,
 	type TaskEvidenceSummary,
 } from '../../../src/services/evidence-summary-service.js';
-import type { Plan, Task } from '../../../src/config/plan-schema.js';
-import type { LoadEvidenceResult } from '../../../src/evidence/manager.js';
 
 // Create mock functions
 const mockLoadPlanJsonOnly = vi.fn();
@@ -331,8 +331,20 @@ describe('loadEvidence discriminated union handling', () => {
 
 			// Mix of status types
 			mockLoadEvidence
-				.mockResolvedValueOnce({ status: 'found', bundle: { schema_version: '1.0.0', task_id: '1.1', entries: createMockEvidence('1.1', ['review', 'test']), created_at: new Date().toISOString(), updated_at: new Date().toISOString() } })
-				.mockResolvedValueOnce({ status: 'invalid_schema', errors: ['Invalid schema'] })
+				.mockResolvedValueOnce({
+					status: 'found',
+					bundle: {
+						schema_version: '1.0.0',
+						task_id: '1.1',
+						entries: createMockEvidence('1.1', ['review', 'test']),
+						created_at: new Date().toISOString(),
+						updated_at: new Date().toISOString(),
+					},
+				})
+				.mockResolvedValueOnce({
+					status: 'invalid_schema',
+					errors: ['Invalid schema'],
+				})
 				.mockResolvedValueOnce({ status: 'not_found' });
 
 			const result = await buildEvidenceSummary(tempDir, 1);
@@ -342,9 +354,15 @@ describe('loadEvidence discriminated union handling', () => {
 			expect(result!.phaseSummaries[0].tasks).toHaveLength(3);
 
 			// Verify each task was handled correctly
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
-			const task12 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.2');
-			const task13 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.3');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
+			const task12 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.2',
+			);
+			const task13 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.3',
+			);
 
 			expect(task11?.evidenceCount).toBe(2);
 			expect(task12?.evidenceCount).toBe(0); // invalid_schema treated as no evidence
@@ -361,7 +379,12 @@ describe('loadEvidence discriminated union handling', () => {
 			const mockBundle = {
 				schema_version: '1.0.0' as const,
 				task_id: '1.1',
-				entries: createMockEvidence('1.1', ['review', 'test', 'approval', 'diff']),
+				entries: createMockEvidence('1.1', [
+					'review',
+					'test',
+					'approval',
+					'diff',
+				]),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 			};
@@ -373,7 +396,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Verify bundle = result.status === 'found' ? result.bundle : null worked correctly
 			expect(task11?.evidenceCount).toBe(4);
@@ -391,7 +416,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Verify bundle = result.status === 'found' ? result.bundle : null worked correctly
 			expect(task11?.evidenceCount).toBe(0);
@@ -409,7 +436,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Verify bundle = result.status === 'found' ? result.bundle : null worked correctly
 			expect(task11?.evidenceCount).toBe(0);
@@ -444,9 +473,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const tasks = result!.phaseSummaries[0].tasks;
 
-			const task11 = tasks.find(t => t.taskId === '1.1');
-			const task12 = tasks.find(t => t.taskId === '1.2');
-			const task13 = tasks.find(t => t.taskId === '1.3');
+			const task11 = tasks.find((t) => t.taskId === '1.1');
+			const task12 = tasks.find((t) => t.taskId === '1.2');
+			const task13 = tasks.find((t) => t.taskId === '1.3');
 
 			// Task 1.1 (found): has evidence
 			expect(task11?.evidenceCount).toBe(2);
@@ -482,7 +511,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Bundle was found, but has no entries
 			expect(task11?.evidenceCount).toBe(0);
@@ -512,7 +543,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Should infer 'completed' from evidence presence
 			expect(task11?.taskStatus).toBe('completed');
@@ -566,7 +599,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// Should track the most recent timestamp
 			expect(task11?.lastEvidenceTimestamp).toBe(timestamp3);
@@ -581,7 +616,9 @@ describe('loadEvidence discriminated union handling', () => {
 
 			const result = await buildEvidenceSummary(tempDir, 1);
 
-			const task11 = result!.phaseSummaries[0].tasks.find(t => t.taskId === '1.1');
+			const task11 = result!.phaseSummaries[0].tasks.find(
+				(t) => t.taskId === '1.1',
+			);
 
 			// No bundle = no timestamp
 			expect(task11?.lastEvidenceTimestamp).toBeNull();

@@ -1,9 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { handleResetSessionCommand } from '../../../src/commands/reset-session';
-import { resetSwarmState, swarmState, startAgentSession } from '../../../src/state';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 let testDir: string;
 

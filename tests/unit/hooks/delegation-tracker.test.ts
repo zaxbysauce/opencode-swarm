@@ -1,7 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { swarmState, resetSwarmState, getActiveWindow, ensureAgentSession } from '../../../src/state';
-import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
+import {
+	ensureAgentSession,
+	getActiveWindow,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 describe('DelegationTrackerHook', () => {
 	const defaultConfig: PluginConfig = {
@@ -424,7 +429,13 @@ describe('DelegationTrackerHook', () => {
 
 			it('sets delegationActive=true for all subagent types', async () => {
 				const hook = createDelegationTrackerHook(defaultConfig);
-				const subagents = ['sme', 'reviewer', 'critic', 'explorer', 'test_engineer'];
+				const subagents = [
+					'sme',
+					'reviewer',
+					'critic',
+					'explorer',
+					'test_engineer',
+				];
 
 				for (const agent of subagents) {
 					const sessionId = `session-${agent}`;
@@ -441,7 +452,9 @@ describe('DelegationTrackerHook', () => {
 
 				// First set a subagent
 				await hook({ sessionID: sessionId, agent: 'coder' }, {});
-				expect(swarmState.agentSessions.get(sessionId)!.delegationActive).toBe(true);
+				expect(swarmState.agentSessions.get(sessionId)!.delegationActive).toBe(
+					true,
+				);
 
 				// Then clear agent to trigger handoff
 				await hook({ sessionID: sessionId, agent: '' }, {});
@@ -525,7 +538,7 @@ describe('DelegationTrackerHook', () => {
 
 	// Task 1.1: delegation_gate behavior tests
 	describe('delegation_gate feature (Task 1.1)', () => {
-		// Behavior 1: Default config (delegation_tracker=false, delegation_gate not set) 
+		// Behavior 1: Default config (delegation_tracker=false, delegation_gate not set)
 		// — delegation chain IS populated when agents switch
 		it('populates delegation chain with default config (no explicit delegation_tracker)', async () => {
 			const hook = createDelegationTrackerHook(defaultConfig);
@@ -772,7 +785,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: 'coder' }, {});
 
 			// Verify no debug leakage in console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain(`session=${sessionId}`);
@@ -796,7 +811,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: 'reviewer' }, {});
 
 			// Verify no debug leakage in console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain('taskStates=');
@@ -820,7 +837,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: '' }, {});
 
 			// Verify no debug leakage in console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain('taskStates=');
@@ -846,7 +865,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: '' }, {}); // Empty triggers architect handoff
 
 			// Verify no debug leakage in any console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain('taskStates=');
@@ -867,7 +888,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: 'architect' }, {});
 
 			// Verify no debug leakage in console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain('taskStates=');
@@ -885,7 +908,9 @@ describe('DelegationTrackerHook', () => {
 			await hook({ sessionID: sessionId, agent: 'architect' }, {});
 
 			// Verify no debug leakage in console output
-			const loggedOutput = consoleLogSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+			const loggedOutput = consoleLogSpy.mock.calls
+				.map((c: any[]) => c.join(' '))
+				.join('\n');
 			expect(loggedOutput).not.toContain('[swarm-debug-task]');
 			expect(loggedOutput).not.toContain('chat.message');
 			expect(loggedOutput).not.toContain('taskStates=');
@@ -963,11 +988,11 @@ describe('DelegationTrackerHook', () => {
 
 			// Create a session with task workflow states using ensureAgentSession
 			swarmState.activeAgent.set(sessionId, 'architect');
-			
+
 			// Use ensureAgentSession to create proper session object
 			const session = ensureAgentSession(sessionId, 'architect');
 			session.delegationActive = true;
-			
+
 			// Add some task states
 			session.taskWorkflowStates['task-1'] = 'completed';
 			session.taskWorkflowStates['task-2'] = 'in_progress';
@@ -1026,7 +1051,14 @@ describe('DelegationTrackerHook', () => {
 
 		it('does not emit debug for any subagent type', async () => {
 			const hook = createDelegationTrackerHook(enabledConfig);
-			const subagents = ['coder', 'sme', 'reviewer', 'critic', 'explorer', 'test_engineer'];
+			const subagents = [
+				'coder',
+				'sme',
+				'reviewer',
+				'critic',
+				'explorer',
+				'test_engineer',
+			];
 
 			for (const agent of subagents) {
 				const sessionId = `session-${agent}`;

@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { savePlan } from '../../../src/plan/manager';
 import type { Plan } from '../../../src/config/plan-schema';
+import { savePlan } from '../../../src/plan/manager';
 
 function createTestPlan(overrides?: Partial<Plan>): Plan {
 	return {
@@ -262,8 +262,24 @@ describe('savePlan write-marker', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Task 1', depends: [], files_touched: [] },
-						{ id: '1.2', phase: 1, status: 'pending', size: 'small', description: 'Task 2', depends: [], files_touched: [] },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 2',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 				{
@@ -271,7 +287,15 @@ describe('savePlan write-marker', () => {
 					name: 'Phase 2',
 					status: 'pending',
 					tasks: [
-						{ id: '2.1', phase: 2, status: 'pending', size: 'medium', description: 'Task 3', depends: [], files_touched: [] },
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'pending',
+							size: 'medium',
+							description: 'Task 3',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 			],

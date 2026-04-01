@@ -1,10 +1,8 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import {
-	computeComplexity,
-} from '../../../src/parallel/review-router.js';
+import * as path from 'node:path';
+import { computeComplexity } from '../../../src/parallel/review-router.js';
 
 /**
  * Security Tests: Review-Router
@@ -77,7 +75,11 @@ describe('Security: Review-Router - ReDoS in Regex', () => {
 			fs.mkdirSync(currentDir, { recursive: true });
 		}
 
-		fs.writeFileSync(path.join(currentDir, 'deep.ts'), 'function deep() {}', 'utf-8');
+		fs.writeFileSync(
+			path.join(currentDir, 'deep.ts'),
+			'function deep() {}',
+			'utf-8',
+		);
 
 		const startTime = Date.now();
 		const metrics = await computeComplexity(deepDir, ['level29/deep.ts']);

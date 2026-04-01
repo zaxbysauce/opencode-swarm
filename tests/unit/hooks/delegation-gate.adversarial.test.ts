@@ -9,10 +9,14 @@
  * - Resource exhaustion (OOM, long strings)
  */
 
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -32,12 +36,18 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: { role: 'user' as const, agent, sessionID },
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -83,7 +93,14 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
-				messages: [null, undefined, { info: { role: 'user' as const, sessionID: 'test-session' }, parts: [{ type: 'text', text: 'test' }] }] as never[],
+				messages: [
+					null,
+					undefined,
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' },
+						parts: [{ type: 'text', text: 'test' }],
+					},
+				] as never[],
 			};
 
 			await hook.messagesTransform({}, output);
@@ -94,10 +111,12 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
-				messages: [{
-					info: { role: 'user' as const, sessionID: 'test-session' },
-					parts: undefined as never,
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' },
+						parts: undefined as never,
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, output);
@@ -108,10 +127,12 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
-				messages: [{
-					info: { role: 'user' as const, sessionID: 'test-session' },
-					parts: [],
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' },
+						parts: [],
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, output);
@@ -122,10 +143,12 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
-				messages: [{
-					info: { role: 'user' as const, sessionID: 'test-session' },
-					parts: [null, undefined, { type: 'text', text: 'test' }] as never[],
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' },
+						parts: [null, undefined, { type: 'text', text: 'test' }] as never[],
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, output);
@@ -136,10 +159,12 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			const output = {
-				messages: [{
-					info: { role: 'user' as const, sessionID: 'test-session' },
-					parts: [{ type: 'text' }],  // Missing text field
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' },
+						parts: [{ type: 'text' }], // Missing text field
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, output);
@@ -168,7 +193,8 @@ describe('delegation gate adversarial tests', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config, process.cwd());
 
-			const specialTaskId = 'Task with \\n newline, \\t tab, "quotes", \'apostrophes\', <html>, &amp;';
+			const specialTaskId =
+				'Task with \\n newline, \\t tab, "quotes", \'apostrophes\', <html>, &amp;';
 			const text = `coder\nTASK: ${specialTaskId}\nFILE: src/test.ts`;
 
 			const messages = makeMessages(text, 'architect');
@@ -228,10 +254,15 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: next-task\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: next-task\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should still throw correctly without integer overflow
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('QA GATE ENFORCEMENT');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'QA GATE ENFORCEMENT',
+			);
 
 			// qaSkipCount should NOT increment - error is thrown before increment
 			expect(session.qaSkipCount).toBe(Number.MAX_SAFE_INTEGER - 1);
@@ -253,7 +284,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: next-task\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: next-task\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// First skip should warn, not throw
 			await hook.messagesTransform({}, messages);
@@ -276,7 +310,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: next-task\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: next-task\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should handle negative count gracefully
 			await hook.messagesTransform({}, messages);
@@ -308,10 +345,15 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-1001\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-1001\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should throw with error containing skipped tasks
-			await expect(hook.messagesTransform({}, messages)).rejects.toThrow('QA GATE ENFORCEMENT');
+			await expect(hook.messagesTransform({}, messages)).rejects.toThrow(
+				'QA GATE ENFORCEMENT',
+			);
 
 			// Verify first few and last few task IDs are in the error message
 			const error = await hook.messagesTransform({}, messages).catch((e) => e);
@@ -341,7 +383,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 5 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-501\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-501\nFILE: src/test.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -367,7 +412,8 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
 			]);
 
-			const longText = 'coder\nTASK: ' + 'a'.repeat(5000) + '\nFILE: src/test.ts';
+			const longText =
+				'coder\nTASK: ' + 'a'.repeat(5000) + '\nFILE: src/test.ts';
 			const messages = makeMessages(longText, 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
@@ -383,7 +429,13 @@ describe('delegation gate adversarial tests', () => {
 			// Setup session with non-zero skip count
 			const session = ensureAgentSession('test-session');
 			session.qaSkipCount = 5;
-			session.qaSkipTaskIds = ['task-1', 'task-2', 'task-3', 'task-4', 'task-5'];
+			session.qaSkipTaskIds = [
+				'task-1',
+				'task-2',
+				'task-3',
+				'task-4',
+				'task-5',
+			];
 
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'reviewer', timestamp: 1 },
@@ -438,18 +490,28 @@ describe('delegation gate adversarial tests', () => {
 			swarmState.delegationChains.set('session-2', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
 				{ from: 'mega_coder', to: 'architect', timestamp: 2 },
-				{ from: 'architect', to: 'mega_coder', timestamp: 3 },  // Second coder without QA - should warn
+				{ from: 'architect', to: 'mega_coder', timestamp: 3 }, // Second coder without QA - should warn
 			]);
 
 			// Session 1 should throw (second skip after existing skip)
-			const messages1 = makeMessages('coder\nTASK: task-2\nFILE: src/a.ts', 'architect', 'session-1');
-			await expect(hook.messagesTransform({}, messages1)).rejects.toThrow('QA GATE ENFORCEMENT');
-			expect(session1.qaSkipCount).toBe(1);  // Should be thrown before increment
+			const messages1 = makeMessages(
+				'coder\nTASK: task-2\nFILE: src/a.ts',
+				'architect',
+				'session-1',
+			);
+			await expect(hook.messagesTransform({}, messages1)).rejects.toThrow(
+				'QA GATE ENFORCEMENT',
+			);
+			expect(session1.qaSkipCount).toBe(1); // Should be thrown before increment
 
 			// Session 2 should not throw (first skip - just warns)
-			const messages2 = makeMessages('coder\nTASK: task-3\nFILE: src/b.ts', 'architect', 'session-2');
+			const messages2 = makeMessages(
+				'coder\nTASK: task-3\nFILE: src/b.ts',
+				'architect',
+				'session-2',
+			);
 			await hook.messagesTransform({}, messages2);
-			expect(session2.qaSkipCount).toBe(1);  // Incremented due to warning
+			expect(session2.qaSkipCount).toBe(1); // Incremented due to warning
 		});
 
 		it('resetting qaSkipCount in one session should not affect other sessions', async () => {
@@ -606,7 +668,7 @@ describe('delegation gate adversarial tests', () => {
 			]);
 
 			const toolAfterInput = {
-				tool: 'Task',  // No prefix
+				tool: 'Task', // No prefix
 				sessionID: 'test-session',
 				callID: 'call-123',
 			};
@@ -631,7 +693,10 @@ describe('delegation gate adversarial tests', () => {
 			]);
 
 			// Message contains bash tool reference but no coder delegation
-			const messages = makeMessages('TASK: Run bash to check logs\n\nbash\nls -la', 'architect');
+			const messages = makeMessages(
+				'TASK: Run bash to check logs\n\nbash\nls -la',
+				'architect',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
@@ -649,7 +714,8 @@ describe('delegation gate adversarial tests', () => {
 			const hook = createDelegationGateHook(config, process.cwd());
 
 			// Long message with "and also" but no coder delegation
-			const longText = 'TASK: Check logs and also check error messages\n\nbash\ntail -f logs/app.log';
+			const longText =
+				'TASK: Check logs and also check error messages\n\nbash\ntail -f logs/app.log';
 			const messages = makeMessages(longText, 'architect');
 			const originalText = messages.messages[0].parts[0].text;
 
@@ -659,8 +725,12 @@ describe('delegation gate adversarial tests', () => {
 			const userMsg = messages.messages.find((m) => m?.info?.role === 'user');
 			expect(userMsg?.parts[0].text).toContain(originalText);
 			// No batch warning should appear in any system message for non-coder delegations
-			const systemMsgs = messages.messages.filter((m) => m?.info?.role === 'system');
-			const systemText = systemMsgs.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			const systemMsgs = messages.messages.filter(
+				(m) => m?.info?.role === 'system',
+			);
+			const systemText = systemMsgs
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(systemText).not.toContain('BATCH DETECTED');
 		});
 	});
@@ -698,7 +768,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-1\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-1\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should initialize qaSkipTaskIds via ensureAgentSession and not throw
 			await hook.messagesTransform({}, messages);
@@ -740,7 +813,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-1\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-1\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Migration safety via ensureAgentSession should handle null
 			await hook.messagesTransform({}, messages);
@@ -782,7 +858,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: 'mega_coder', timestamp: 3 },
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-1\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-1\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Migration safety should handle corrupted state - will throw but should not crash
 			// Note: This tests that we handle the error gracefully
@@ -798,10 +877,13 @@ describe('delegation gate adversarial tests', () => {
 			// Chain with only coder entries (no architect in between)
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
-				{ from: 'mega_coder', to: 'mega_coder', timestamp: 2 },  // coder -> coder (unusual but possible)
+				{ from: 'mega_coder', to: 'mega_coder', timestamp: 2 }, // coder -> coder (unusual but possible)
 			]);
 
-			const messages = makeMessages('coder\nTASK: task-2\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-2\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should not throw - only 1 actual coder delegation from architect
 			await hook.messagesTransform({}, messages);
@@ -816,11 +898,14 @@ describe('delegation gate adversarial tests', () => {
 			// Chain with entries missing required fields
 			swarmState.delegationChains.set('test-session', [
 				{ from: 'architect', to: 'mega_coder', timestamp: 1 },
-				{ from: '', to: 'mega_coder', timestamp: 2 } as never,  // Empty 'from'
-				{ from: 'mega_coder', to: '', timestamp: 3 } as never,  // Empty 'to'
+				{ from: '', to: 'mega_coder', timestamp: 2 } as never, // Empty 'from'
+				{ from: 'mega_coder', to: '', timestamp: 3 } as never, // Empty 'to'
 			] as never);
 
-			const messages = makeMessages('coder\nTASK: task-2\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: task-2\nFILE: src/test.ts',
+				'architect',
+			);
 
 			// Should handle malformed entries gracefully
 			await hook.messagesTransform({}, messages);
@@ -837,7 +922,10 @@ describe('delegation gate adversarial tests', () => {
 				{ from: 'architect', to: longAgentName, timestamp: 3 },
 			]);
 
-			const messages = makeMessages(`${longAgentName}\nTASK: task-2\nFILE: src/test.ts`, 'architect');
+			const messages = makeMessages(
+				`${longAgentName}\nTASK: task-2\nFILE: src/test.ts`,
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 		});
@@ -882,7 +970,10 @@ describe('delegation gate adversarial tests', () => {
 			]);
 
 			// Message with empty TASK: (currentTaskId will be empty string from next line)
-			const messages = makeMessages('coder\nTASK: \nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: \nFILE: src/test.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -896,7 +987,10 @@ describe('delegation gate adversarial tests', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config, process.cwd());
 
-			const messages = makeMessages('coder\nTASK: test\nFILE: src/test.ts', 'agent-with-dash');
+			const messages = makeMessages(
+				'coder\nTASK: test\nFILE: src/test.ts',
+				'agent-with-dash',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
@@ -908,7 +1002,10 @@ describe('delegation gate adversarial tests', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config, process.cwd());
 
-			const messages = makeMessages('coder\nTASK: test\nFILE: src/test.ts', 'agent123');
+			const messages = makeMessages(
+				'coder\nTASK: test\nFILE: src/test.ts',
+				'agent123',
+			);
 			const originalText = messages.messages[0].parts[0].text;
 
 			await hook.messagesTransform({}, messages);
@@ -1140,7 +1237,7 @@ describe('delegation gate adversarial tests', () => {
 				tool: 'tool.execute.Task',
 				sessionID: 'test-session',
 				callID: 'call-134',
-				args: { subagent_type: "reviewer; DROP TABLE users;--" },
+				args: { subagent_type: 'reviewer; DROP TABLE users;--' },
 			};
 
 			await hook.toolAfter(toolAfterInput, {});

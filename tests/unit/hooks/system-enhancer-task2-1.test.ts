@@ -1,13 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-	loadEvidence,
-	listEvidenceTaskIds,
-} from '../../../src/evidence/manager';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EvidenceBundle } from '../../../src/config/evidence-schema';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 
 describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 	let tempDir: string;
@@ -131,7 +130,10 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			expect(entry?.type).toBe('retrospective');
 			expect((entry as any).phase_number).toBe(1);
 			expect((entry as any).lessons_learned).toEqual(['lesson A', 'lesson B']);
-			expect((entry as any).top_rejection_reasons).toEqual(['reason X', 'reason Y']);
+			expect((entry as any).top_rejection_reasons).toEqual([
+				'reason X',
+				'reason Y',
+			]);
 			expect(entry?.verdict).toBe('pass');
 		});
 
@@ -153,7 +155,9 @@ describe('Task 2.1: System Enhancer Retrospective Injection', () => {
 			const entry = getRetrospectiveEntry(result.bundle);
 			expect(entry?.verdict).toBe('fail');
 			expect((entry as any).lessons_learned).toEqual(['lesson about failure']);
-			expect((entry as any).top_rejection_reasons).toEqual(['reason for failure']);
+			expect((entry as any).top_rejection_reasons).toEqual([
+				'reason for failure',
+			]);
 		});
 
 		it('returns invalid_schema when evidence.json has invalid schema', async () => {

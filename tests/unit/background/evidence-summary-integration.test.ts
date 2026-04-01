@@ -1,20 +1,34 @@
-import { describe, it, expect, beforeEach, afterEach, jest, mock } from 'bun:test';
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import {
-	EvidenceSummaryIntegration,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	jest,
+	mock,
+} from 'bun:test';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
 	createEvidenceSummaryIntegration,
+	EvidenceSummaryIntegration,
 	type EvidenceSummaryIntegrationConfig,
 } from '../../../src/background/evidence-summary-integration';
 import type { AutomationConfig } from '../../../src/config/schema';
 
 // Mock the event bus
-const mockSubscribers: Map<string, Array<(event: { payload: unknown }) => void>> = new Map();
+const mockSubscribers: Map<
+	string,
+	Array<(event: { payload: unknown }) => void>
+> = new Map();
 
 mock.module('../../../src/background/event-bus', () => ({
 	getGlobalEventBus: () => ({
-		subscribe: (type: string, handler: (event: { payload: unknown }) => void) => {
+		subscribe: (
+			type: string,
+			handler: (event: { payload: unknown }) => void,
+		) => {
 			if (!mockSubscribers.has(type)) {
 				mockSubscribers.set(type, []);
 			}
@@ -37,7 +51,10 @@ mock.module('../../../src/services/evidence-summary-service', () => ({
 	isAutoSummaryEnabled: jest.fn(),
 }));
 
-import { buildEvidenceSummary, isAutoSummaryEnabled } from '../../../src/services/evidence-summary-service';
+import {
+	buildEvidenceSummary,
+	isAutoSummaryEnabled,
+} from '../../../src/services/evidence-summary-service';
 
 const mockBuildEvidenceSummary = buildEvidenceSummary as jest.MockedFunction<
 	typeof buildEvidenceSummary
@@ -100,7 +117,9 @@ describe('EvidenceSummaryIntegration', () => {
 			const integration = new EvidenceSummaryIntegration(config);
 
 			expect(integration.isEnabled()).toBe(true);
-			expect(mockIsAutoSummaryEnabled).toHaveBeenCalledWith(config.automationConfig);
+			expect(mockIsAutoSummaryEnabled).toHaveBeenCalledWith(
+				config.automationConfig,
+			);
 		});
 
 		it('returns false when feature flag is disabled', () => {
@@ -164,7 +183,10 @@ describe('EvidenceSummaryIntegration', () => {
 			const config = createIntegrationConfig();
 			const integration = new EvidenceSummaryIntegration(config);
 
-			const result = await integration.generateSummary(1, 'preflight.completed');
+			const result = await integration.generateSummary(
+				1,
+				'preflight.completed',
+			);
 
 			expect(result).toBeNull();
 			expect(mockBuildEvidenceSummary).toHaveBeenCalledWith(tempDir, 1);
@@ -186,7 +208,10 @@ describe('EvidenceSummaryIntegration', () => {
 			const config = createIntegrationConfig();
 			const integration = new EvidenceSummaryIntegration(config);
 
-			const result = await integration.generateSummary(1, 'preflight.completed');
+			const result = await integration.generateSummary(
+				1,
+				'preflight.completed',
+			);
 
 			expect(result).not.toBeNull();
 			expect(result!.planTitle).toBe('Test Plan');
@@ -255,7 +280,10 @@ describe('EvidenceSummaryIntegration', () => {
 			const config = createIntegrationConfig();
 			const integration = new EvidenceSummaryIntegration(config);
 
-			const result = await integration.generateSummary(1, 'preflight.completed');
+			const result = await integration.generateSummary(
+				1,
+				'preflight.completed',
+			);
 
 			expect(result).toBeNull();
 		});

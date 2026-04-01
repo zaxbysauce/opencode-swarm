@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
-	TaskSchema,
-	PhaseSchema,
-	PlanSchema,
-	TaskStatusSchema,
-	TaskSizeSchema,
-	PhaseStatusSchema,
-	MigrationStatusSchema,
 	findFirstActivePhase,
 	getCurrentPhase,
-	normalizePhaseStatus,
 	isPhaseComplete,
+	MigrationStatusSchema,
+	normalizePhaseStatus,
+	PhaseSchema,
+	PhaseStatusSchema,
 	type Plan,
+	PlanSchema,
+	TaskSchema,
+	TaskSizeSchema,
+	TaskStatusSchema,
 } from '../../../src/config/plan-schema';
 
 function createTestPlan(overrides: Partial<Plan> = {}): Plan {
@@ -325,7 +325,9 @@ describe('PlanSchema', () => {
 			expect(result.data.swarm).toBe(plan.swarm);
 			expect(result.data.current_phase).toBe(plan.current_phase);
 			expect(result.data.phases.length).toBe(2);
-			expect(result.data.migration_status).toBe('migration_status' in plan ? 'migrated' : undefined);
+			expect(result.data.migration_status).toBe(
+				'migration_status' in plan ? 'migrated' : undefined,
+			);
 			// Check first phase
 			expect(result.data.phases[0].id).toBe(1);
 			expect(result.data.phases[0].name).toBe('Phase 1');
@@ -433,7 +435,7 @@ describe('PhaseStatusSchema with completed alias', () => {
 	it('accepts both complete and completed', () => {
 		const complete = PhaseStatusSchema.safeParse('complete');
 		const completed = PhaseStatusSchema.safeParse('completed');
-		
+
 		expect(complete.success).toBe(true);
 		expect(completed.success).toBe(true);
 	});
@@ -465,13 +467,33 @@ describe('getCurrentPhase with inference', () => {
 					id: 1,
 					name: 'Phase 1',
 					status: 'complete',
-					tasks: [{ id: '1.1', phase: 1, status: 'complete', size: 'small', description: 't1', depends: [], files_touched: [] }],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'complete',
+							size: 'small',
+							description: 't1',
+							depends: [],
+							files_touched: [],
+						},
+					],
 				},
 				{
 					id: 2,
 					name: 'Phase 2',
 					status: 'in_progress',
-					tasks: [{ id: '2.1', phase: 2, status: 'in_progress', size: 'small', description: 't2', depends: [], files_touched: [] }],
+					tasks: [
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'in_progress',
+							size: 'small',
+							description: 't2',
+							depends: [],
+							files_touched: [],
+						},
+					],
 				},
 			],
 		});
@@ -486,7 +508,17 @@ describe('getCurrentPhase with inference', () => {
 					id: 1,
 					name: 'Phase 1',
 					status: 'pending',
-					tasks: [{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 't1', depends: [], files_touched: [] }],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 't1',
+							depends: [],
+							files_touched: [],
+						},
+					],
 				},
 			],
 		});
@@ -505,11 +537,21 @@ describe('PlanSchema with optional current_phase', () => {
 					id: 1,
 					name: 'Phase 1',
 					status: 'pending',
-					tasks: [{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 't1', depends: [], files_touched: [] }],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 't1',
+							depends: [],
+							files_touched: [],
+						},
+					],
 				},
 			],
 		};
-		
+
 		const result = PlanSchema.safeParse(planWithoutPhase);
 		expect(result.success).toBe(true);
 	});
@@ -526,7 +568,7 @@ describe('PlanSchema with optional current_phase', () => {
 				{ id: 3, name: 'P3', status: 'in_progress', tasks: [] },
 			],
 		};
-		
+
 		const result = PlanSchema.safeParse(planWithPhase);
 		expect(result.success).toBe(true);
 		expect(result.data?.current_phase).toBe(3);

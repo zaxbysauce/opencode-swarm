@@ -1,19 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants.js';
+import type { GuardrailsConfig } from '../../../src/config/schema.js';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails.js';
 import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
-	getAgentSession,
 	beginInvocation,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../../src/state.js';
-import type { GuardrailsConfig } from '../../../src/config/schema.js';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -35,9 +37,19 @@ function createTempPlan(tempDir: string, currentPhase = 1): void {
 		title: 'Test Plan',
 		swarm: 'mega',
 		current_phase: currentPhase,
-		phases: [{ id: currentPhase, name: `Phase ${currentPhase}`, status: 'in_progress', tasks: [] }],
+		phases: [
+			{
+				id: currentPhase,
+				name: `Phase ${currentPhase}`,
+				status: 'in_progress',
+				tasks: [],
+			},
+		],
 	};
-	fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan, null, 2));
+	fs.writeFileSync(
+		path.join(swarmDir, 'plan.json'),
+		JSON.stringify(plan, null, 2),
+	);
 }
 
 describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
@@ -79,7 +91,16 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 		session.currentTaskId = 'task-1.1';
 
 		// Task A has all gates completed
-		session.gateLog.set('task-1.1', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+		session.gateLog.set(
+			'task-1.1',
+			new Set([
+				'diff',
+				'syntax_check',
+				'placeholder_scan',
+				'lint',
+				'pre_check_batch',
+			]),
+		);
 		session.reviewerCallCount.set(1, 1);
 		session.partialGateWarningsIssuedForTask.add('task-1.1'); // task A already warned
 
@@ -145,7 +166,12 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 		expect(session.partialGateWarningsIssuedForTask.has('task-3.1')).toBe(true);
 
 		// SECOND messagesTransform call (same session, same task): EXPECT no NEW warning
-		const messages2 = [{ info: { role: 'assistant', sessionID: sid }, parts: [{ type: 'text', text: 'Next message' }] }];
+		const messages2 = [
+			{
+				info: { role: 'assistant', sessionID: sid },
+				parts: [{ type: 'text', text: 'Next message' }],
+			},
+		];
 		await hooks.messagesTransform({}, { messages: messages2 });
 
 		// The second message should NOT have double-warning
@@ -192,7 +218,12 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 		// session.gateLog does NOT have 'task-4.2'
 
 		// Second messagesTransform call with fresh message
-		const messages2 = [{ info: { role: 'assistant', sessionID: sid }, parts: [{ type: 'text', text: 'Second task message' }] }];
+		const messages2 = [
+			{
+				info: { role: 'assistant', sessionID: sid },
+				parts: [{ type: 'text', text: 'Second task message' }],
+			},
+		];
 		await hooks.messagesTransform({}, { messages: messages2 });
 
 		// EXPECT: warning IS injected again (because 'task-4.2' is not in warningsIssuedForTask set)
@@ -218,7 +249,16 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 		// Get session and set up task with complete gates
 		const session = getAgentSession(sid)!;
 		session.currentTaskId = 'task-5.1';
-		session.gateLog.set('task-5.1', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+		session.gateLog.set(
+			'task-5.1',
+			new Set([
+				'diff',
+				'syntax_check',
+				'placeholder_scan',
+				'lint',
+				'pre_check_batch',
+			]),
+		);
 		session.reviewerCallCount.set(1, 2); // has reviewer delegations
 
 		// messagesTransform: EXPECT no 'PARTIAL GATE VIOLATION'
@@ -255,17 +295,29 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 		session.reviewerCallCount.set(1, 0);
 
 		// First messagesTransform: warning injected, task-6.1 added to set
-		const messages1 = [{ info: { role: 'assistant', sessionID: sid }, parts: [{ type: 'text', text: 'First attempt' }] }];
+		const messages1 = [
+			{
+				info: { role: 'assistant', sessionID: sid },
+				parts: [{ type: 'text', text: 'First attempt' }],
+			},
+		];
 		await hooks.messagesTransform({}, { messages: messages1 });
 		expect(messages1[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
 		expect(session.partialGateWarningsIssuedForTask.has('task-6.1')).toBe(true);
 
 		// Simulate coder re-delegation: delete the warning set entry (as toolAfter would)
 		session.partialGateWarningsIssuedForTask.delete('task-6.1');
-		expect(session.partialGateWarningsIssuedForTask.has('task-6.1')).toBe(false);
+		expect(session.partialGateWarningsIssuedForTask.has('task-6.1')).toBe(
+			false,
+		);
 
 		// Second messagesTransform: warning should fire again since entry was deleted
-		const messages2 = [{ info: { role: 'assistant', sessionID: sid }, parts: [{ type: 'text', text: 'Second attempt after re-delegation' }] }];
+		const messages2 = [
+			{
+				info: { role: 'assistant', sessionID: sid },
+				parts: [{ type: 'text', text: 'Second attempt after re-delegation' }],
+			},
+		];
 		await hooks.messagesTransform({}, { messages: messages2 });
 		expect(messages2[0].parts[0].text).toContain('PARTIAL GATE VIOLATION');
 	});

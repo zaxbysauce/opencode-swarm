@@ -1,8 +1,8 @@
 /**
  * Tests for v6.1 docs and designer agent creation functions
  */
-import { describe, test, expect } from 'bun:test';
-import { createDocsAgent, createDesignerAgent } from '../../../src/agents';
+import { describe, expect, test } from 'bun:test';
+import { createDesignerAgent, createDocsAgent } from '../../../src/agents';
 
 describe('createDocsAgent', () => {
 	const testModel = 'google/gemini-2.0-flash';
@@ -76,7 +76,9 @@ describe('createDocsAgent', () => {
 	test('contains anti-delegation directive', () => {
 		const agent = createDocsAgent(testModel);
 		const prompt = agent.config.prompt || '';
-		expect(prompt).toContain('DO NOT use the Task tool to delegate to other agents');
+		expect(prompt).toContain(
+			'DO NOT use the Task tool to delegate to other agents',
+		);
 	});
 
 	test('contains identity reinforcement', () => {
@@ -145,7 +147,9 @@ describe('createDesignerAgent', () => {
 	test('contains anti-delegation directive', () => {
 		const agent = createDesignerAgent(testModel);
 		const prompt = agent.config.prompt || '';
-		expect(prompt).toContain('DO NOT use the Task tool to delegate to other agents');
+		expect(prompt).toContain(
+			'DO NOT use the Task tool to delegate to other agents',
+		);
 	});
 
 	test('contains identity reinforcement', () => {

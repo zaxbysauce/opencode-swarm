@@ -151,7 +151,9 @@ describe('delegation-gate: stale coder_delegated detection (Bug B)', () => {
 		]);
 
 		try {
-			await hook.toolBefore(...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-5'));
+			await hook.toolBefore(
+				...makeToolBeforeArgs(SESSION_ID, 'coder', 'call-5'),
+			);
 			// Should not reach here
 			expect(true).toBe(false);
 		} catch (err: unknown) {

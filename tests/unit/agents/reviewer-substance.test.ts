@@ -22,8 +22,12 @@ describe('Task 3.2: SUBSTANCE VERIFICATION in reviewer prompt', () => {
 		});
 
 		it('should have SUBSTANCE VERIFICATION after Step 0a and before Tier 1', () => {
-			const step0aIndex = REVIEWER_PROMPT.indexOf('STEP 0a: COMPLEXITY CLASSIFICATION');
-			const substanceIndex = REVIEWER_PROMPT.indexOf('STEP 0b: SUBSTANCE VERIFICATION');
+			const step0aIndex = REVIEWER_PROMPT.indexOf(
+				'STEP 0a: COMPLEXITY CLASSIFICATION',
+			);
+			const substanceIndex = REVIEWER_PROMPT.indexOf(
+				'STEP 0b: SUBSTANCE VERIFICATION',
+			);
 			const tier1Index = REVIEWER_PROMPT.indexOf('TIER 1: CORRECTNESS');
 
 			expect(step0aIndex).toBeGreaterThan(-1);
@@ -97,7 +101,9 @@ describe('Task 3.2: SUBSTANCE VERIFICATION in reviewer prompt', () => {
 				/STEP 0b: SUBSTANCE VERIFICATION[^]+?TIER 1/,
 			);
 			expect(substanceSection?.[0]).toContain('proceed to Tier 1');
-			expect(substanceSection?.[0]).toContain('If substance verification passes');
+			expect(substanceSection?.[0]).toContain(
+				'If substance verification passes',
+			);
 		});
 	});
 

@@ -14,13 +14,12 @@
  *
  * Tests both Path A (legacy - scoring disabled) and Path B (scoring enabled)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('system-enhancer: Same-Model Adversarial Detection', () => {
 	let tempDir: string;
@@ -368,9 +367,7 @@ describe('system-enhancer: Same-Model Adversarial Detection', () => {
 
 			expect(result.error).toBeUndefined();
 
-			const warning = result.output.find((s) =>
-				s.includes('GATE POLICY'),
-			);
+			const warning = result.output.find((s) => s.includes('GATE POLICY'));
 			expect(warning).toBeDefined();
 			expect(warning).toContain('Same-model adversarial pair detected');
 			expect(warning).toContain('escalate if issues are found');
@@ -412,9 +409,7 @@ describe('system-enhancer: Same-Model Adversarial Detection', () => {
 
 			expect(result.error).toBeUndefined();
 
-			const warning = result.output.find((s) =>
-				s.includes('GATE POLICY'),
-			);
+			const warning = result.output.find((s) => s.includes('GATE POLICY'));
 			expect(warning).toBeDefined();
 			expect(warning).toContain('Same-model adversarial pair detected');
 			expect(warning).toContain('escalate if issues are found');
@@ -442,9 +437,7 @@ describe('system-enhancer: Same-Model Adversarial Detection', () => {
 
 			expect(result.error).toBeUndefined();
 
-			const gateWarning = result.output.find((s) =>
-				s.includes('GATE POLICY'),
-			);
+			const gateWarning = result.output.find((s) => s.includes('GATE POLICY'));
 			expect(gateWarning).toBeUndefined();
 
 			const normalWarning = result.output.find((s) =>
@@ -748,9 +741,7 @@ describe('system-enhancer: Same-Model Adversarial Detection', () => {
 
 			expect(result.error).toBeUndefined();
 
-			const warning = result.output.find((s) =>
-				s.includes('[SWARM CONFIG]'),
-			);
+			const warning = result.output.find((s) => s.includes('[SWARM CONFIG]'));
 			expect(warning).toBeDefined();
 			expect(warning).toContain('Same-model adversarial pair detected');
 		});

@@ -13,7 +13,7 @@
  * - What happens when all loadEvidence calls return non-found across many tasks
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Create mock functions before vi.mock to ensure they're available in the mock
 const mockLoadEvidence = vi.fn();
@@ -66,7 +66,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should return null without crashing (caught by try/catch)
-		const result = await buildRetroInjection(testDir, currentPhase, 'Test Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Test Plan',
+		);
 		expect(result).toBeNull();
 	});
 
@@ -86,7 +90,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 			});
 
 		// Should return null without crashing
-		const result = await buildRetroInjection(testDir, currentPhase, 'Test Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Test Plan',
+		);
 		expect(result).toBeNull();
 	});
 
@@ -100,7 +108,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should return null without crashing
-		const result = await buildRetroInjection(testDir, currentPhase, 'Different Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Different Plan',
+		);
 		expect(result).toBeNull();
 	});
 
@@ -122,7 +134,10 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		const currentPhase = 2;
 
 		// @ts-expect-error - Testing invalid status
-		mockLoadEvidence.mockResolvedValue({ status: 'partial', bundle: { entries: [] } });
+		mockLoadEvidence.mockResolvedValue({
+			status: 'partial',
+			bundle: { entries: [] },
+		});
 
 		const result = await buildRetroInjection(testDir, currentPhase);
 		expect(result).toBeNull();
@@ -315,7 +330,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should handle gracefully - falls back to retro.timestamp but it's too old (exceeds 30-day cutoff in Tier 2)
-		const result = await buildRetroInjection(testDir, currentPhase, 'Different Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Different Plan',
+		);
 		// The timestamp is from 2024, which is more than 30 days ago, so it gets filtered out
 		expect(result).toBeNull();
 	});
@@ -360,7 +379,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should handle gracefully - falls back to retro.timestamp which is recent
-		const result = await buildRetroInjection(testDir, currentPhase, 'Different Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Different Plan',
+		);
 		// Recent timestamp should be included
 		expect(result).not.toBeNull();
 	});
@@ -404,7 +427,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should handle gracefully - falls back to retro.timestamp but it's too old (exceeds 30-day cutoff in Tier 2)
-		const result = await buildRetroInjection(testDir, currentPhase, 'Different Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Different Plan',
+		);
 		// The timestamp is from 2024, which is more than 30 days ago, so it gets filtered out
 		expect(result).toBeNull();
 	});
@@ -447,7 +474,11 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		});
 
 		// Should handle gracefully (filter out due to age cutoff)
-		const result = await buildRetroInjection(testDir, currentPhase, 'Different Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Different Plan',
+		);
 		expect(result).toBeNull();
 	});
 
@@ -603,7 +634,9 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		const currentPhase = 2;
 
 		mockLoadEvidence.mockResolvedValueOnce({ status: 'not_found' });
-		mockListEvidenceTaskIds.mockResolvedValueOnce(['retro-1\'; DROP TABLE users; --']);
+		mockListEvidenceTaskIds.mockResolvedValueOnce([
+			"retro-1'; DROP TABLE users; --",
+		]);
 
 		mockLoadEvidence.mockImplementationOnce(() => {
 			throw new Error('Invalid task ID: must match pattern');
@@ -623,7 +656,13 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
 		// Fallback: scan all evidence for any retro
-		mockListEvidenceTaskIds.mockResolvedValue(['retro-1', 'retro-2', 'retro-3', 'retro-4', 'retro-5']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'retro-1',
+			'retro-2',
+			'retro-3',
+			'retro-4',
+			'retro-5',
+		]);
 
 		// All retro loads return not_found
 		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
@@ -636,10 +675,18 @@ describe('buildRetroInjection - Adversarial Attack Vectors', () => {
 		const testDir = '/test/directory';
 		const currentPhase = 1; // Phase 1 triggers Tier 2
 
-		mockListEvidenceTaskIds.mockResolvedValue(['retro-1', 'retro-2', 'retro-3']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'retro-1',
+			'retro-2',
+			'retro-3',
+		]);
 		mockLoadEvidence.mockResolvedValue({ status: 'not_found' });
 
-		const result = await buildRetroInjection(testDir, currentPhase, 'Test Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Test Plan',
+		);
 		expect(result).toBeNull();
 	});
 
@@ -734,7 +781,10 @@ describe('Combined Attack Vectors - Multiple Failures', () => {
 		const testDir = '/test/directory';
 		const currentPhase = 1;
 
-		mockListEvidenceTaskIds.mockResolvedValue(['retro-../../../etc', 'retro-1']);
+		mockListEvidenceTaskIds.mockResolvedValue([
+			'retro-../../../etc',
+			'retro-1',
+		]);
 
 		// First call (path traversal) throws
 		mockLoadEvidence.mockImplementationOnce(() => {
@@ -745,7 +795,11 @@ describe('Combined Attack Vectors - Multiple Failures', () => {
 		// @ts-expect-error - Testing invalid status
 		mockLoadEvidence.mockResolvedValueOnce({ status: 'corrupted', bundle: {} });
 
-		const result = await buildRetroInjection(testDir, currentPhase, 'Test Plan');
+		const result = await buildRetroInjection(
+			testDir,
+			currentPhase,
+			'Test Plan',
+		);
 		expect(result).toBeNull();
 	});
 });

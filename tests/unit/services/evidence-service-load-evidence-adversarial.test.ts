@@ -1,20 +1,16 @@
-import {
-	describe,
-	it,
-	expect,
-	beforeEach,
-	afterEach,
-	vi,
-} from 'vitest';
 import { mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-	getTaskEvidenceData,
-	getEvidenceListData,
-} from '../../../src/services/evidence-service.js';
-import type { EvidenceBundle, Evidence } from '../../../src/config/evidence-schema.js';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+	Evidence,
+	EvidenceBundle,
+} from '../../../src/config/evidence-schema.js';
 import type { LoadEvidenceResult } from '../../../src/evidence/manager.js';
+import {
+	getEvidenceListData,
+	getTaskEvidenceData,
+} from '../../../src/services/evidence-service.js';
 
 // Mock the evidence manager using factory functions
 vi.mock('../../../src/evidence/manager.js', () => ({
@@ -22,7 +18,10 @@ vi.mock('../../../src/evidence/manager.js', () => ({
 	listEvidenceTaskIds: vi.fn(),
 }));
 
-import { loadEvidence, listEvidenceTaskIds } from '../../../src/evidence/manager.js';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager.js';
 
 // Local mock variables (vi.mocked() is not available in Bun/Vitest)
 const mockLoadEvidence = loadEvidence as ReturnType<typeof vi.fn>;
@@ -43,9 +42,7 @@ function createMockEvidenceBundle(
 	};
 }
 
-function createMockEvidence(
-	overrides: Partial<Evidence> = {},
-): Evidence {
+function createMockEvidence(overrides: Partial<Evidence> = {}): Evidence {
 	return {
 		task_id: 'test-task',
 		type: 'review',

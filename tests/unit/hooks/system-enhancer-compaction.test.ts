@@ -1,15 +1,24 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState, swarmState, ensureAgentSession } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 // Helper to create tool aggregate (only uses fields that exist in ToolAggregate)
 function createToolAggregate(count: number) {
-	return { tool: 'bash', count, successCount: 0, failureCount: 0, totalDuration: 0 };
+	return {
+		tool: 'bash',
+		count,
+		successCount: 0,
+		failureCount: 0,
+		totalDuration: 0,
+	};
 }
 
 describe('v6.2 System Enhancer Compaction Advisory', () => {
@@ -138,7 +147,9 @@ describe('v6.2 System Enhancer Compaction Advisory', () => {
 		// 5. config = { ...defaultConfig, compaction_advisory: { enabled: false } }
 		const config = {
 			...defaultConfig,
-			compaction_advisory: { enabled: false } as PluginConfig['compaction_advisory'],
+			compaction_advisory: {
+				enabled: false,
+			} as PluginConfig['compaction_advisory'],
 		};
 
 		// 6. invokeHook(config)

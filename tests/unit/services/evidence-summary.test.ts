@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { Evidence } from '../../../src/config/evidence-schema';
+import type { Phase, Plan, Task } from '../../../src/config/plan-schema';
+import type { LoadEvidenceResult } from '../../../src/evidence/manager';
 import {
 	buildEvidenceSummary,
-	isAutoSummaryEnabled,
 	type EvidenceSummaryArtifact,
+	isAutoSummaryEnabled,
 	type PhaseBlocker,
 	type TaskEvidenceSummary,
 } from '../../../src/services/evidence-summary-service';
-import type { Plan, Task, Phase } from '../../../src/config/plan-schema';
-import type { Evidence } from '../../../src/config/evidence-schema';
-import type { LoadEvidenceResult } from '../../../src/evidence/manager';
 
 // Helper to wrap a bundle into a LoadEvidenceResult
 function foundResult(bundle: {
@@ -37,8 +37,11 @@ jest.mock('../../../src/evidence/manager', () => ({
 	listEvidenceTaskIds: jest.fn(),
 }));
 
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 import { loadPlanJsonOnly } from '../../../src/plan/manager';
-import { loadEvidence, listEvidenceTaskIds } from '../../../src/evidence/manager';
 
 const mockLoadPlanJsonOnly = loadPlanJsonOnly as jest.MockedFunction<
 	typeof loadPlanJsonOnly
@@ -232,21 +235,25 @@ describe('buildEvidenceSummary', () => {
 
 		// Task 1.1 has both review and test
 		mockLoadEvidence
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.1',
-				entries: createMockEvidence('1.1', ['review', 'test']),
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}))
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.1',
+					entries: createMockEvidence('1.1', ['review', 'test']),
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			)
 			// Task 1.2 only has review
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.2',
-				entries: createMockEvidence('1.2', ['review']),
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}));
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.2',
+					entries: createMockEvidence('1.2', ['review']),
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			);
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -275,55 +282,59 @@ describe('buildEvidenceSummary', () => {
 
 		// Task 1.1 has both evidence types (complete)
 		mockLoadEvidence
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.1',
-				entries: [
-					{
-						task_id: '1.1',
-						type: 'review',
-						timestamp: new Date().toISOString(),
-						agent: 'test',
-						verdict: 'pass',
-						summary: 'test',
-					},
-					{
-						task_id: '1.1',
-						type: 'test',
-						timestamp: new Date().toISOString(),
-						agent: 'test',
-						verdict: 'pass',
-						summary: 'test',
-					},
-				],
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}))
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.1',
+					entries: [
+						{
+							task_id: '1.1',
+							type: 'review',
+							timestamp: new Date().toISOString(),
+							agent: 'test',
+							verdict: 'pass',
+							summary: 'test',
+						},
+						{
+							task_id: '1.1',
+							type: 'test',
+							timestamp: new Date().toISOString(),
+							agent: 'test',
+							verdict: 'pass',
+							summary: 'test',
+						},
+					],
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			)
 			// Task 1.2 has both evidence types (complete)
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.2',
-				entries: [
-					{
-						task_id: '1.2',
-						type: 'review',
-						timestamp: new Date().toISOString(),
-						agent: 'test',
-						verdict: 'pass',
-						summary: 'test',
-					},
-					{
-						task_id: '1.2',
-						type: 'test',
-						timestamp: new Date().toISOString(),
-						agent: 'test',
-						verdict: 'pass',
-						summary: 'test',
-					},
-				],
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}))
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.2',
+					entries: [
+						{
+							task_id: '1.2',
+							type: 'review',
+							timestamp: new Date().toISOString(),
+							agent: 'test',
+							verdict: 'pass',
+							summary: 'test',
+						},
+						{
+							task_id: '1.2',
+							type: 'test',
+							timestamp: new Date().toISOString(),
+							agent: 'test',
+							verdict: 'pass',
+							summary: 'test',
+						},
+					],
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			)
 			// Task 1.3 has no evidence but has blocked_reason
 			.mockResolvedValueOnce(NOT_FOUND);
 
@@ -356,15 +367,47 @@ describe('buildEvidenceSummary', () => {
 
 		// Set up tasks with various statuses for both phases
 		const mockTasks: Task[] = [
-			{ id: '1.1', phase: 1, status: 'completed', size: 'small', description: 't1', depends: [], files_touched: [] },
-			{ id: '1.2', phase: 1, status: 'completed', size: 'small', description: 't2', depends: [], files_touched: [] },
-			{ id: '1.3', phase: 1, status: 'pending', size: 'small', description: 't3', depends: [], files_touched: [] },
-			{ id: '2.1', phase: 2, status: 'pending', size: 'small', description: 't4', depends: [], files_touched: [] },
+			{
+				id: '1.1',
+				phase: 1,
+				status: 'completed',
+				size: 'small',
+				description: 't1',
+				depends: [],
+				files_touched: [],
+			},
+			{
+				id: '1.2',
+				phase: 1,
+				status: 'completed',
+				size: 'small',
+				description: 't2',
+				depends: [],
+				files_touched: [],
+			},
+			{
+				id: '1.3',
+				phase: 1,
+				status: 'pending',
+				size: 'small',
+				description: 't3',
+				depends: [],
+				files_touched: [],
+			},
+			{
+				id: '2.1',
+				phase: 2,
+				status: 'pending',
+				size: 'small',
+				description: 't4',
+				depends: [],
+				files_touched: [],
+			},
 		];
-		
+
 		// Update plan with correct tasks
-		plan.phases[0].tasks = mockTasks.filter(t => t.phase === 1);
-		plan.phases[1].tasks = mockTasks.filter(t => t.phase === 2);
+		plan.phases[0].tasks = mockTasks.filter((t) => t.phase === 1);
+		plan.phases[1].tasks = mockTasks.filter((t) => t.phase === 2);
 
 		mockLoadEvidence.mockResolvedValue(NOT_FOUND);
 
@@ -395,13 +438,15 @@ describe('TaskEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
-		mockLoadEvidence.mockResolvedValue(foundResult({
-			schema_version: '1.0.0',
-			task_id: '1.1',
-			entries: createMockEvidence('1.1', ['review', 'test', 'approval']),
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
+		mockLoadEvidence.mockResolvedValue(
+			foundResult({
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: createMockEvidence('1.1', ['review', 'test', 'approval']),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			}),
+		);
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -422,13 +467,15 @@ describe('TaskEvidenceSummary', () => {
 		const plan = createMockPlan();
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.2']);
-		mockLoadEvidence.mockResolvedValue(foundResult({
-			schema_version: '1.0.0',
-			task_id: '1.2',
-			entries: createMockEvidence('1.2', ['note', 'diff']),
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
+		mockLoadEvidence.mockResolvedValue(
+			foundResult({
+				schema_version: '1.0.0',
+				task_id: '1.2',
+				entries: createMockEvidence('1.2', ['note', 'diff']),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			}),
+		);
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -454,20 +501,24 @@ describe('Blocker detection', () => {
 
 		// Both tasks missing test evidence
 		mockLoadEvidence
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.1',
-				entries: createMockEvidence('1.1', ['review']),
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}))
-			.mockResolvedValueOnce(foundResult({
-				schema_version: '1.0.0',
-				task_id: '1.2',
-				entries: createMockEvidence('1.2', ['review']),
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			}));
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.1',
+					entries: createMockEvidence('1.1', ['review']),
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			)
+			.mockResolvedValueOnce(
+				foundResult({
+					schema_version: '1.0.0',
+					task_id: '1.2',
+					entries: createMockEvidence('1.2', ['review']),
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				}),
+			);
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -485,16 +536,18 @@ describe('Blocker detection', () => {
 		const plan = createMockPlan();
 		// Task 1.1 is completed but missing evidence
 		plan.phases[0].tasks[0].status = 'completed';
-		
+
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
-		mockLoadEvidence.mockResolvedValue(foundResult({
-			schema_version: '1.0.0',
-			task_id: '1.1',
-			entries: createMockEvidence('1.1', ['note']), // Missing review + test
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		}));
+		mockLoadEvidence.mockResolvedValue(
+			foundResult({
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: createMockEvidence('1.1', ['note']), // Missing review + test
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			}),
+		);
 
 		const result = await buildEvidenceSummary(tempDir, 1);
 
@@ -515,7 +568,7 @@ describe('Blocker detection', () => {
 		});
 		// Phase 1 is complete but has blockers
 		plan.phases[0].status = 'complete';
-		
+
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.3']); // Blocked task in phase 1
 		mockLoadEvidence.mockResolvedValue(NOT_FOUND);

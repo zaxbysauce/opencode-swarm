@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import type { AgentDefinition } from '../../../src/agents';
-import { createSwarmCommandHandler, handleRollbackCommand as indexRollbackExport } from '../../../src/commands/index';
-import { VALID_COMMANDS, COMMAND_REGISTRY } from '../../../src/commands/registry';
+import {
+	createSwarmCommandHandler,
+	handleRollbackCommand as indexRollbackExport,
+} from '../../../src/commands/index';
+import {
+	COMMAND_REGISTRY,
+	VALID_COMMANDS,
+} from '../../../src/commands/registry';
 import { handleRollbackCommand } from '../../../src/commands/rollback';
 
 describe('Rollback Command Integration Tests', () => {
@@ -74,7 +80,9 @@ describe('Rollback Command Integration Tests', () => {
 		it('should have rollback description in COMMAND_REGISTRY', () => {
 			expect(COMMAND_REGISTRY['rollback']).toBeDefined();
 			expect(typeof COMMAND_REGISTRY['rollback'].description).toBe('string');
-			expect(COMMAND_REGISTRY['rollback'].description.length).toBeGreaterThan(0);
+			expect(COMMAND_REGISTRY['rollback'].description.length).toBeGreaterThan(
+				0,
+			);
 		});
 	});
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 /**
@@ -10,7 +10,8 @@ import { createArchitectAgent } from '../../../src/agents/architect';
 
 describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 	// Get the prompt from the agent (ARCHITECT_PROMPT is not exported directly)
-	const ARCHITECT_PROMPT = createArchitectAgent('test-model').config.prompt || '';
+	const ARCHITECT_PROMPT =
+		createArchitectAgent('test-model').config.prompt || '';
 	const retroGateHeader = '## ⛔ RETROSPECTIVE GATE';
 	const phaseWrapHeader = '### MODE: PHASE-WRAP';
 	const filesHeader = '## FILES';
@@ -94,7 +95,7 @@ describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 			// Extract content between retro gate header and next section
 			const retroGateContent = ARCHITECT_PROMPT.slice(
 				retroGateIndex + retroGateHeader.length,
-				nextSectionIndex
+				nextSectionIndex,
 			);
 
 			// Must be at least 100 characters
@@ -114,7 +115,7 @@ describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 
 			const retroGateContent = ARCHITECT_PROMPT.slice(
 				retroGateIndex,
-				nextSectionIndex
+				nextSectionIndex,
 			);
 
 			// Check that phase_complete is mentioned
@@ -133,7 +134,7 @@ describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 
 			const retroGateContent = ARCHITECT_PROMPT.slice(
 				retroGateIndex,
-				nextSectionIndex
+				nextSectionIndex,
 			);
 
 			// Check that lessons_learned is in the JSON example

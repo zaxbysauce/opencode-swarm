@@ -45,7 +45,10 @@ describe('SME_PROMPT — Research Caching', () => {
 
 	it('9. Cache bypass still produces CACHE-UPDATE line', () => {
 		const cacheBypassIndex = prompt.indexOf('Cache bypass');
-		const cacheBypassSection = prompt.substring(cacheBypassIndex, cacheBypassIndex + 300);
+		const cacheBypassSection = prompt.substring(
+			cacheBypassIndex,
+			cacheBypassIndex + 300,
+		);
 		expect(cacheBypassSection).toContain('still include the CACHE-UPDATE line');
 	});
 
@@ -71,10 +74,14 @@ describe('SME_PROMPT — Research Caching adversarial', () => {
 	it('1. SME does NOT instruct writing directly to context.md', () => {
 		// Find the RESEARCH CACHING section
 		const researchCachingStart = prompt.indexOf('RESEARCH CACHING');
-		const researchCachingEnd = prompt.indexOf('OUTPUT FORMAT:', researchCachingStart) !== -1
-			? prompt.indexOf('OUTPUT FORMAT:', researchCachingStart)
-			: prompt.length;
-		const researchCachingSection = prompt.substring(researchCachingStart, researchCachingEnd);
+		const researchCachingEnd =
+			prompt.indexOf('OUTPUT FORMAT:', researchCachingStart) !== -1
+				? prompt.indexOf('OUTPUT FORMAT:', researchCachingStart)
+				: prompt.length;
+		const researchCachingSection = prompt.substring(
+			researchCachingStart,
+			researchCachingEnd,
+		);
 
 		// Look for "write to" or "append to" instructions that are NOT followed by "Architect"
 		const lines = researchCachingSection.split('\n');
@@ -99,10 +106,14 @@ describe('SME_PROMPT — Research Caching adversarial', () => {
 	it('2. No raw `${...}` template injection in the caching section', () => {
 		// Find the RESEARCH CACHING section
 		const researchCachingStart = prompt.indexOf('RESEARCH CACHING');
-		const researchCachingEnd = prompt.indexOf('OUTPUT FORMAT:', researchCachingStart) !== -1
-			? prompt.indexOf('OUTPUT FORMAT:', researchCachingStart)
-			: prompt.length;
-		const researchCachingSection = prompt.substring(researchCachingStart, researchCachingEnd);
+		const researchCachingEnd =
+			prompt.indexOf('OUTPUT FORMAT:', researchCachingStart) !== -1
+				? prompt.indexOf('OUTPUT FORMAT:', researchCachingStart)
+				: prompt.length;
+		const researchCachingSection = prompt.substring(
+			researchCachingStart,
+			researchCachingEnd,
+		);
 
 		// Check for unescaped template expressions like ${...}
 		const hasTemplateInjection = researchCachingSection.match(/\$\{[^}]+\}/);
@@ -112,7 +123,10 @@ describe('SME_PROMPT — Research Caching adversarial', () => {
 	it('3. Cache bypass does NOT skip the CACHE-UPDATE line', () => {
 		// Find the Cache bypass line
 		const cacheBypassIndex = prompt.indexOf('Cache bypass');
-		const cacheBypassSection = prompt.substring(cacheBypassIndex, cacheBypassIndex + 300);
+		const cacheBypassSection = prompt.substring(
+			cacheBypassIndex,
+			cacheBypassIndex + 300,
+		);
 
 		// The bypass should skip cache CHECK, but still include CACHE-UPDATE
 		expect(cacheBypassSection).toContain('skip the cache check');

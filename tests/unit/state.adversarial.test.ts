@@ -1,5 +1,12 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { resetSwarmState, ensureAgentSession, advanceTaskState, getTaskState, type AgentSessionState, type TaskWorkflowState } from '../../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import {
+	type AgentSessionState,
+	advanceTaskState,
+	ensureAgentSession,
+	getTaskState,
+	resetSwarmState,
+	type TaskWorkflowState,
+} from '../../src/state';
 
 /**
  * Adversarial security/edge-case tests for state machine helpers in src/state.ts
@@ -46,27 +53,31 @@ describe('state machine adversarial tests', () => {
 
 		it('should handle very long taskId (10,000 chars) without crashing', () => {
 			const longTaskId = 'a'.repeat(10000);
-			
+
 			expect(() => {
 				advanceTaskState(session, longTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
-			expect(session.taskWorkflowStates.get(longTaskId)).toBe('coder_delegated');
+
+			expect(session.taskWorkflowStates.get(longTaskId)).toBe(
+				'coder_delegated',
+			);
 		});
 
 		it('should handle taskId with special characters (potential injection)', () => {
 			const maliciousTaskId = '</script><img src=x onerror=alert(1)>';
-			
+
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
-			expect(session.taskWorkflowStates.get(maliciousTaskId)).toBe('coder_delegated');
+
+			expect(session.taskWorkflowStates.get(maliciousTaskId)).toBe(
+				'coder_delegated',
+			);
 		});
 
 		it('should handle taskId with null bytes', () => {
 			const taskIdWithNull = 'test\0task';
-			
+
 			expect(() => {
 				advanceTaskState(session, taskIdWithNull as any, 'coder_delegated');
 			}).not.toThrow();
@@ -97,7 +108,7 @@ describe('state machine adversarial tests', () => {
 
 		it('should throw when session is a plain object without taskWorkflowStates', () => {
 			const badSession = { agentName: 'test' } as any;
-			
+
 			expect(() => {
 				advanceTaskState(badSession, 'task-1', 'coder_delegated');
 			}).toThrow();
@@ -106,9 +117,9 @@ describe('state machine adversarial tests', () => {
 		it('should throw when session.taskWorkflowStates is null', () => {
 			const badSession = {
 				agentName: 'test',
-				taskWorkflowStates: null
+				taskWorkflowStates: null,
 			} as any;
-			
+
 			expect(() => {
 				advanceTaskState(badSession, 'task-1', 'coder_delegated');
 			}).toThrow();
@@ -117,9 +128,9 @@ describe('state machine adversarial tests', () => {
 		it('should throw when session.taskWorkflowStates is undefined', () => {
 			const badSession = {
 				agentName: 'test',
-				taskWorkflowStates: undefined
+				taskWorkflowStates: undefined,
 			} as any;
-			
+
 			expect(() => {
 				advanceTaskState(badSession, 'task-1', 'coder_delegated');
 			}).toThrow();
@@ -166,12 +177,12 @@ describe('state machine adversarial tests', () => {
 		it('should throw when attempting backward transition', () => {
 			advanceTaskState(session, 'task-1', 'coder_delegated');
 			advanceTaskState(session, 'task-1', 'pre_check_passed');
-			
+
 			// Try to go back to earlier state
 			expect(() => {
 				advanceTaskState(session, 'task-1', 'idle' as any);
 			}).toThrow('INVALID_TASK_STATE_TRANSITION');
-			
+
 			// Try to go to same state
 			expect(() => {
 				advanceTaskState(session, 'task-1', 'pre_check_passed' as any);
@@ -185,7 +196,7 @@ describe('state machine adversarial tests', () => {
 			advanceTaskState(session, 'task-1', 'reviewer_run');
 			advanceTaskState(session, 'task-1', 'tests_run');
 			advanceTaskState(session, 'task-1', 'complete');
-			
+
 			// Try to advance past complete - should throw since there's no valid state after complete
 			// indexOf('complete') = 5, and any other valid state has index < 5
 			expect(() => {
@@ -237,24 +248,24 @@ describe('state machine adversarial tests', () => {
 				'pre_check_passed',
 				'reviewer_run',
 				'tests_run',
-				'complete'
+				'complete',
 			];
-			
+
 			// Rapidly advance through all states
 			for (let i = 1; i < states.length; i++) {
 				advanceTaskState(session, taskId, states[i]);
 			}
-			
+
 			// Verify final state is correct
 			expect(getTaskState(session, taskId)).toBe('complete');
-			
+
 			// Verify no extra entries were created
 			expect(session.taskWorkflowStates.size).toBe(1);
 		});
 
 		it('should handle multiple tasks being advanced rapidly', () => {
 			const taskIds = ['task-1', 'task-2', 'task-3', 'task-4', 'task-5'];
-			
+
 			// Interleave advances
 			for (let i = 0; i < 5; i++) {
 				for (const taskId of taskIds) {
@@ -271,12 +282,12 @@ describe('state machine adversarial tests', () => {
 					}
 				}
 			}
-			
+
 			// All should be complete
 			for (const taskId of taskIds) {
 				expect(getTaskState(session, taskId)).toBe('complete');
 			}
-			
+
 			// Should have exactly 5 entries
 			expect(session.taskWorkflowStates.size).toBe(5);
 		});
@@ -292,16 +303,16 @@ describe('state machine adversarial tests', () => {
 					'pre_check_passed',
 					'reviewer_run',
 					'tests_run',
-					'complete'
+					'complete',
 				];
-				
+
 				try {
 					advanceTaskState(session, taskId, states[stateIndex]);
 				} catch {
 					// Ignore transition errors for already-completed tasks
 				}
 			}
-			
+
 			// Should have exactly 10 unique tasks
 			expect(session.taskWorkflowStates.size).toBe(10);
 		});
@@ -314,7 +325,7 @@ describe('state machine adversarial tests', () => {
 				lastToolCallTime: Date.now(),
 				// Missing taskWorkflowStates
 			} as any;
-			
+
 			// Should throw when trying to access missing Map
 			expect(() => {
 				advanceTaskState(corruptedSession, 'task-1', 'coder_delegated');
@@ -326,7 +337,7 @@ describe('state machine adversarial tests', () => {
 				agentName: 'test',
 				taskWorkflowStates: 'not-a-map',
 			} as any;
-			
+
 			expect(() => {
 				advanceTaskState(badSession, 'task-1', 'coder_delegated');
 			}).toThrow();
@@ -337,7 +348,7 @@ describe('state machine adversarial tests', () => {
 				agentName: 'test',
 				taskWorkflowStates: [] as any,
 			} as any;
-			
+
 			expect(() => {
 				advanceTaskState(badSession, 'task-1', 'coder_delegated');
 			}).toThrow();
@@ -349,17 +360,17 @@ describe('state machine adversarial tests', () => {
 				agentName: 'legacy',
 				lastToolCallTime: Date.now(),
 			} as any;
-			
+
 			// Set it directly in swarmState (bypassing ensureAgentSession)
 			const { swarmState } = require('../../src/state');
 			swarmState.agentSessions.set('legacy-session', legacySession);
-			
+
 			// Now use ensureAgentSession which should migrate it
 			const migratedSession = ensureAgentSession('legacy-session', 'migrated');
-			
+
 			// taskWorkflowStates should now be a Map
 			expect(migratedSession.taskWorkflowStates).toBeInstanceOf(Map);
-			
+
 			// And should work normally
 			advanceTaskState(migratedSession, 'task-1', 'coder_delegated');
 			expect(getTaskState(migratedSession, 'task-1')).toBe('coder_delegated');
@@ -369,19 +380,19 @@ describe('state machine adversarial tests', () => {
 	describe('edge cases and boundary violations', () => {
 		it('should handle state machine at boundaries correctly', () => {
 			const taskId = 'boundary-test';
-			
+
 			// Start at idle (default)
 			expect(getTaskState(session, taskId)).toBe('idle');
-			
+
 			// Advance to first state
 			advanceTaskState(session, taskId, 'coder_delegated');
 			expect(getTaskState(session, taskId)).toBe('coder_delegated');
-			
+
 			// Can't go back to idle
 			expect(() => {
 				advanceTaskState(session, taskId, 'idle' as any);
 			}).toThrow();
-			
+
 			// Fixed: complete can only be reached from tests_run
 			expect(() => {
 				advanceTaskState(session, taskId, 'complete' as any);
@@ -393,12 +404,12 @@ describe('state machine adversarial tests', () => {
 			// This correctly handles:
 			// - newIndex = -1 (invalid state) vs any valid currentIndex (0-5)
 			// - newIndex = 5 (complete) vs currentIndex = 5 (complete)
-			
+
 			// Test invalid state throws
 			expect(() => {
 				advanceTaskState(session, 'task-1', 'invalid' as any);
 			}).toThrow();
-			
+
 			// Test same state throws
 			advanceTaskState(session, 'task-1', 'coder_delegated');
 			expect(() => {
@@ -408,27 +419,27 @@ describe('state machine adversarial tests', () => {
 
 		it('should handle unicode taskIds', () => {
 			const unicodeTaskId = '任务-🔧-✏️';
-			
+
 			expect(() => {
 				advanceTaskState(session, unicodeTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(getTaskState(session, unicodeTaskId)).toBe('coder_delegated');
 		});
 
 		it('should handle emoji taskIds', () => {
 			const emojiTaskId = '🎫-urgent-task-🔥';
-			
+
 			expect(() => {
 				advanceTaskState(session, emojiTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(getTaskState(session, emojiTaskId)).toBe('coder_delegated');
 		});
 
 		it('should handle taskId with newlines', () => {
 			const multilineTaskId = 'task\nwith\nnewlines';
-			
+
 			expect(() => {
 				advanceTaskState(session, multilineTaskId as any, 'coder_delegated');
 			}).not.toThrow();
@@ -437,17 +448,17 @@ describe('state machine adversarial tests', () => {
 		it('should handle taskId that looks like a state', () => {
 			// Task ID that happens to match a valid state name
 			const stateLikeTaskId = 'complete';
-			
+
 			// Should still work - task IDs are separate from state values
 			advanceTaskState(session, stateLikeTaskId, 'coder_delegated');
 			expect(getTaskState(session, stateLikeTaskId)).toBe('coder_delegated');
-			
+
 			// But advancing the task itself to complete should work
 			advanceTaskState(session, stateLikeTaskId, 'pre_check_passed');
 			advanceTaskState(session, stateLikeTaskId, 'reviewer_run');
 			advanceTaskState(session, stateLikeTaskId, 'tests_run');
 			advanceTaskState(session, stateLikeTaskId, 'complete');
-			
+
 			expect(getTaskState(session, stateLikeTaskId)).toBe('complete');
 		});
 	});
@@ -457,10 +468,12 @@ describe('state machine adversarial tests', () => {
 			expect(() => {
 				advanceTaskState(session, '__proto__' as any, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			// Should store under the string key '__proto__' without issues
-			expect(session.taskWorkflowStates.get('__proto__')).toBe('coder_delegated');
-			
+			expect(session.taskWorkflowStates.get('__proto__')).toBe(
+				'coder_delegated',
+			);
+
 			// Object.prototype should not have 'test' property added
 			expect(({} as any).test).toBeUndefined();
 		});

@@ -9,7 +9,7 @@
  * 6. Token budget ≤500
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { createSMEAgent } from '../../../src/agents/sme';
 
 describe('SME Agent - Task 4.1 Verification', () => {
@@ -26,7 +26,9 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			// Verify the specific confidence definitions
 			expect(agent.config.prompt).toContain('verified from multiple sources');
 			expect(agent.config.prompt).toContain('single authoritative source');
-			expect(agent.config.prompt).toContain('inferred or from community sources');
+			expect(agent.config.prompt).toContain(
+				'inferred or from community sources',
+			);
 		});
 
 		it('SME prompt requires confidence in OUTPUT FORMAT', () => {
@@ -52,7 +54,9 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Verify the staleness check logic is described
-			expect(agent.config.prompt).toContain('check cachedAt timestamp against TTL');
+			expect(agent.config.prompt).toContain(
+				'check cachedAt timestamp against TTL',
+			);
 			expect(agent.config.prompt).toContain('If approaching TTL');
 		});
 	});
@@ -72,7 +76,9 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			expect(agent.config.prompt).toContain(
 				'You MAY recommend domain-specific approaches, APIs, constraints, and trade-offs',
 			);
-			expect(agent.config.prompt).toContain('do NOT make final architecture decisions');
+			expect(agent.config.prompt).toContain(
+				'do NOT make final architecture decisions',
+			);
 			expect(agent.config.prompt).toContain('choose product scope');
 			expect(agent.config.prompt).toContain("Architect's and Coder's domains");
 		});
@@ -112,14 +118,18 @@ describe('SME Agent - Task 4.1 Verification', () => {
 
 			// Check for the fs.renameSync example
 			expect(agent.config.prompt).toContain('fs.renameSync');
-			expect(agent.config.prompt).toContain('cannot atomically overwrite existing directories on Windows');
+			expect(agent.config.prompt).toContain(
+				'cannot atomically overwrite existing directories on Windows',
+			);
 		});
 
 		it('SME prompt includes PLATFORM field in OUTPUT FORMAT', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Verify output format has platform field
-			expect(agent.config.prompt).toContain('PLATFORM: [cross-platform notes if OS-interaction APIs]');
+			expect(agent.config.prompt).toContain(
+				'PLATFORM: [cross-platform notes if OS-interaction APIs]',
+			);
 		});
 	});
 
@@ -135,15 +145,21 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Verify the verbosity guidelines
-			expect(agent.config.prompt).toContain('HIGH confidence on simple lookup = 1-2 lines');
-			expect(agent.config.prompt).toContain('LOW confidence on ambiguous topic = full reasoning with sources');
+			expect(agent.config.prompt).toContain(
+				'HIGH confidence on simple lookup = 1-2 lines',
+			);
+			expect(agent.config.prompt).toContain(
+				'LOW confidence on ambiguous topic = full reasoning with sources',
+			);
 		});
 
 		it('SME prompt warns against padding HIGH-confidence answers', () => {
 			const agent = createSMEAgent('gpt-4');
 
 			// Check the guidance against hedging
-			expect(agent.config.prompt).toContain('Do not pad HIGH-confidence answers with hedging language');
+			expect(agent.config.prompt).toContain(
+				'Do not pad HIGH-confidence answers with hedging language',
+			);
 		});
 
 		it('SME prompt includes concise rule', () => {
@@ -170,7 +186,9 @@ describe('SME Agent - Task 4.1 Verification', () => {
 			expect(agent.config.prompt).toBeDefined();
 
 			// Verify the concise rule is in the RULES section
-			const rulesSectionMatch = agent.config.prompt?.match(/## RULES[\s\S]*?(?=\n##|$)/);
+			const rulesSectionMatch = agent.config.prompt?.match(
+				/## RULES[\s\S]*?(?=\n##|$)/,
+			);
 			expect(rulesSectionMatch).toBeTruthy();
 
 			if (rulesSectionMatch) {

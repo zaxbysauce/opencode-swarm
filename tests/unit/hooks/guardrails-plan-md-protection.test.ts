@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession, swarmState } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -18,7 +25,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'write', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'write',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -39,7 +50,9 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 		const input = makeInput('s1', 'write', 'call-1');
 		const output = makeOutput({ filePath: '.swarm/plan.md' });
 
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'PLAN STATE VIOLATION',
+		);
 	});
 
 	it('edit tool targeting .swarm/plan.md → throws PLAN STATE VIOLATION', async () => {
@@ -50,7 +63,9 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 		const input = makeInput('s1', 'edit', 'call-1');
 		const output = makeOutput({ filePath: '.swarm/plan.md' });
 
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'PLAN STATE VIOLATION',
+		);
 	});
 
 	it('write tool targeting .swarm/context.md → does NOT throw', async () => {
@@ -73,7 +88,9 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 		const input = makeInput('s1', 'write', 'call-1');
 		const output = makeOutput({ filePath: '.swarm/plan.json' });
 
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'PLAN STATE VIOLATION',
+		);
 	});
 
 	it('apply_patch targeting .swarm/plan.md in diff content → throws PLAN STATE VIOLATION', async () => {
@@ -91,7 +108,9 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 `;
 		const output = makeOutput({ input: diffContent });
 
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'PLAN STATE VIOLATION',
+		);
 	});
 
 	it('apply_patch targeting .swarm/plan.json in diff content → throws PLAN STATE VIOLATION', async () => {
@@ -109,6 +128,8 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 `;
 		const output = makeOutput({ input: diffContent });
 
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow('PLAN STATE VIOLATION');
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+			'PLAN STATE VIOLATION',
+		);
 	});
 });

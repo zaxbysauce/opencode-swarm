@@ -11,14 +11,14 @@
  * - Null/undefined/NaN fields
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	readCoChangeJson,
-	getCoChangePartnersForFile,
 	createCoChangeSuggesterHook,
+	getCoChangePartnersForFile,
+	readCoChangeJson,
 } from '../../../src/hooks/co-change-suggester.js';
 
 describe('adversarial: co-change-suggester', () => {
@@ -41,7 +41,14 @@ describe('adversarial: co-change-suggester', () => {
 		it('should reject path traversal with ../escape', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: '../../../etc/passwd', fileB: 'test.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{
+						fileA: '../../../etc/passwd',
+						fileB: 'test.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+					},
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 			fs.writeFileSync(path.join(tempDir, 'etc'), 'sensitive-data');
@@ -55,7 +62,12 @@ describe('adversarial: co-change-suggester', () => {
 		});
 
 		it('should handle deeply nested objects without stack overflow', async () => {
-			let nested: any = { fileA: 'a.ts', fileB: 'b.ts', coChangeCount: 1, npmi: 0.5 };
+			let nested: any = {
+				fileA: 'a.ts',
+				fileB: 'b.ts',
+				coChangeCount: 1,
+				npmi: 0.5,
+			};
 			for (let i = 0; i < 1000; i++) {
 				nested = { parent: nested };
 			}
@@ -76,7 +88,12 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle oversized arrays', async () => {
 			const entries: any[] = [];
 			for (let i = 0; i < 100000; i++) {
-				entries.push({ fileA: `file${i}.ts`, fileB: `file${i + 1}.ts`, coChangeCount: i % 100, npmi: 0.5 });
+				entries.push({
+					fileA: `file${i}.ts`,
+					fileB: `file${i + 1}.ts`,
+					coChangeCount: i % 100,
+					npmi: 0.5,
+				});
 			}
 
 			const content = JSON.stringify({ version: '1.0', entries });
@@ -91,7 +108,12 @@ describe('adversarial: co-change-suggester', () => {
 			const content = JSON.stringify({
 				version: '1.0',
 				entries: [
-					{ fileA: 'a.ts', fileB: 'b.ts', coChangeCount: Number.MAX_SAFE_INTEGER, npmi: 0.5 },
+					{
+						fileA: 'a.ts',
+						fileB: 'b.ts',
+						coChangeCount: Number.MAX_SAFE_INTEGER,
+						npmi: 0.5,
+					},
 					{ fileA: 'c.ts', fileB: 'd.ts', coChangeCount: -Infinity, npmi: 0.5 },
 					{ fileA: 'e.ts', fileB: 'f.ts', coChangeCount: Infinity, npmi: 0.5 },
 				],
@@ -111,8 +133,18 @@ describe('adversarial: co-change-suggester', () => {
 			const content = JSON.stringify({
 				version: '1.0',
 				entries: [
-					{ fileA: '<script>alert("xss")</script>.ts', fileB: 'normal.ts', coChangeCount: 1, npmi: 0.5 },
-					{ fileA: 'normal.ts', fileB: '"><img src=x onerror=alert(1)>.ts', coChangeCount: 1, npmi: 0.5 },
+					{
+						fileA: '<script>alert("xss")</script>.ts',
+						fileB: 'normal.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+					},
+					{
+						fileA: 'normal.ts',
+						fileB: '"><img src=x onerror=alert(1)>.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+					},
 				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
@@ -128,7 +160,13 @@ describe('adversarial: co-change-suggester', () => {
 			const content = JSON.stringify({
 				version: '1.0',
 				entries: [
-					{ fileA: 'a.ts', fileB: 'b.ts', coChangeCount: 1, npmi: 0.5, __proto__: { malicious: true } },
+					{
+						fileA: 'a.ts',
+						fileB: 'b.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+						__proto__: { malicious: true },
+					},
 				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
@@ -145,7 +183,13 @@ describe('adversarial: co-change-suggester', () => {
 			const content = JSON.stringify({
 				version: '1.0',
 				entries: [
-					{ fileA: 'a.ts', fileB: 'b.ts', coChangeCount: 1, npmi: 0.5, constructor: { prototype: { polluted: true } } },
+					{
+						fileA: 'a.ts',
+						fileB: 'b.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+						constructor: { prototype: { polluted: true } },
+					},
 				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
@@ -162,7 +206,12 @@ describe('adversarial: co-change-suggester', () => {
 				entries: [
 					{ fileA: null, fileB: 'test.ts', coChangeCount: 1, npmi: 0.5 },
 					{ fileA: 'test.ts', fileB: undefined, coChangeCount: 1, npmi: 0.5 },
-					{ fileA: 'test.ts', fileB: 'test2.ts', coChangeCount: NaN, npmi: 0.5 },
+					{
+						fileA: 'test.ts',
+						fileB: 'test2.ts',
+						coChangeCount: NaN,
+						npmi: 0.5,
+					},
 					{ fileA: 'test.ts', fileB: 'test3.ts', coChangeCount: 1, npmi: NaN },
 					{ fileA: 'test.ts', fileB: 'test4.ts', coChangeCount: 1, npmi: -1 }, // Invalid npmi
 				],
@@ -193,7 +242,9 @@ describe('adversarial: co-change-suggester', () => {
 
 		it('should handle missing version field', async () => {
 			const content = JSON.stringify({
-				entries: [{ fileA: 'a.ts', fileB: 'b.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'a.ts', fileB: 'b.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -223,7 +274,9 @@ describe('adversarial: co-change-suggester', () => {
 			const longPath = 'a'.repeat(10000) + '.ts';
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: longPath, fileB: 'b.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: longPath, fileB: 'b.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -236,7 +289,14 @@ describe('adversarial: co-change-suggester', () => {
 
 	describe('getCoChangePartnersForFile - Path attacks', () => {
 		it('should handle path traversal in filePath parameter', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
 			const result = getCoChangePartnersForFile(entries, '../../../etc/passwd');
 			// No match expected since paths don't match
@@ -244,29 +304,63 @@ describe('adversarial: co-change-suggester', () => {
 		});
 
 		it('should handle absolute path in filePath', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
-			const result = getCoChangePartnersForFile(entries, '/absolute/path/to/file.ts');
+			const result = getCoChangePartnersForFile(
+				entries,
+				'/absolute/path/to/file.ts',
+			);
 			expect(result).toHaveLength(0);
 		});
 
 		it('should handle path with null byte', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
 			const result = getCoChangePartnersForFile(entries, 'test\x00file.ts');
 			expect(result).toHaveLength(0);
 		});
 
 		it('should handle URL-encoded path traversal', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
-			const result = getCoChangePartnersForFile(entries, '..%2F..%2Fetc%2Fpasswd');
+			const result = getCoChangePartnersForFile(
+				entries,
+				'..%2F..%2Fetc%2Fpasswd',
+			);
 			// The encoded path won't match normal paths
 			expect(result).toHaveLength(0);
 		});
 
 		it('should handle mixed slashes', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src\\helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src\\helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
 			const result = getCoChangePartnersForFile(entries, 'src/test.ts');
 			// Should normalize and match
@@ -274,14 +368,28 @@ describe('adversarial: co-change-suggester', () => {
 		});
 
 		it('should handle empty string filePath', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
 			const result = getCoChangePartnersForFile(entries, '');
 			expect(result).toHaveLength(0);
 		});
 
 		it('should handle null/undefined filePath', () => {
-			const entries = [{ fileA: 'src/test.ts', fileB: 'src/helper.ts', coChangeCount: 1, npmi: 0.5 }];
+			const entries = [
+				{
+					fileA: 'src/test.ts',
+					fileB: 'src/helper.ts',
+					coChangeCount: 1,
+					npmi: 0.5,
+				},
+			];
 
 			// @ts-expect-error - Testing with null/undefined
 			// VULNERABILITY: normalizePath doesn't handle null/undefined and will crash
@@ -294,7 +402,12 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle very large entries array', () => {
 			const entries: any[] = [];
 			for (let i = 0; i < 100000; i++) {
-				entries.push({ fileA: `file${i}.ts`, fileB: `file${i + 1}.ts`, coChangeCount: 1, npmi: 0.5 });
+				entries.push({
+					fileA: `file${i}.ts`,
+					fileB: `file${i + 1}.ts`,
+					coChangeCount: 1,
+					npmi: 0.5,
+				});
 			}
 
 			const result = getCoChangePartnersForFile(entries, 'file50000.ts');
@@ -307,7 +420,9 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle malicious tool names', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -330,14 +445,19 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle path traversal in filePath', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
 			const hook = createCoChangeSuggesterHook(tempDir);
 
 			// Path traversal in filePath - just no match expected
-			await hook({ tool: 'write', input: { filePath: '../../../etc/passwd' } }, null);
+			await hook(
+				{ tool: 'write', input: { filePath: '../../../etc/passwd' } },
+				null,
+			);
 
 			// Should not crash
 		});
@@ -345,7 +465,9 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle null/undefined tool input', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -361,13 +483,18 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle object instead of string filePath', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
 			const hook = createCoChangeSuggesterHook(tempDir);
 
-			await hook({ tool: 'write', input: { filePath: { malicious: 'object' } } }, null);
+			await hook(
+				{ tool: 'write', input: { filePath: { malicious: 'object' } } },
+				null,
+			);
 
 			// Should not crash
 		});
@@ -375,7 +502,14 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle oversized filePath (1MB)', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'a'.repeat(1000000) + '.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{
+						fileA: 'a'.repeat(1000000) + '.ts',
+						fileB: 'helper.ts',
+						coChangeCount: 1,
+						npmi: 0.5,
+					},
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -390,7 +524,9 @@ describe('adversarial: co-change-suggester', () => {
 		it('should handle concurrent calls (Promise.all)', async () => {
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -398,7 +534,9 @@ describe('adversarial: co-change-suggester', () => {
 
 			const promises: Promise<void>[] = [];
 			for (let i = 0; i < 20; i++) {
-				promises.push(hook({ tool: 'write', input: { filePath: `test${i}.ts` } }, null));
+				promises.push(
+					hook({ tool: 'write', input: { filePath: `test${i}.ts` } }, null),
+				);
 			}
 
 			await Promise.all(promises);
@@ -454,7 +592,9 @@ describe('adversarial: co-change-suggester', () => {
 			// The actual path validation is in utils.ts, but we test the integration
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 
@@ -472,7 +612,9 @@ describe('adversarial: co-change-suggester', () => {
 			// But we test that validateSwarmPath would reject them
 			const content = JSON.stringify({
 				version: '1.0',
-				entries: [{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 }],
+				entries: [
+					{ fileA: 'test.ts', fileB: 'helper.ts', coChangeCount: 1, npmi: 0.5 },
+				],
 			});
 			fs.writeFileSync(path.join(swarmDir, 'co-change.json'), content);
 

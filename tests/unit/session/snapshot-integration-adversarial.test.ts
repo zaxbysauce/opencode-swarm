@@ -3,18 +3,31 @@
  * Tests security protections and resilience against malicious inputs.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadSnapshot } from '../../../src/session/snapshot-reader.js';
+import type {
+	SerializedAgentSession,
+	SnapshotData,
+} from '../../../src/session/snapshot-writer.js';
 // Direct imports from session modules (not from src/index.ts)
 import { createSnapshotWriterHook } from '../../../src/session/snapshot-writer.js';
-import { loadSnapshot } from '../../../src/session/snapshot-reader.js';
-import type { SerializedAgentSession, SnapshotData } from '../../../src/session/snapshot-writer.js';
 
 // State imports for setup and verification
-import { swarmState, resetSwarmState, startAgentSession } from '../../../src/state.js';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state.js';
 
 describe('Session Snapshot Integration - Adversarial Tests', () => {
 	let tempDir: string;
@@ -283,11 +296,7 @@ describe('Session Snapshot Integration - Adversarial Tests', () => {
 			// Insert null byte into the JSON content
 			const jsonWithNull = JSON.stringify(snapshot).replace('}', '\0}');
 
-			writeFileSync(
-				join(statePath, 'state.json'),
-				jsonWithNull,
-				'utf8',
-			);
+			writeFileSync(join(statePath, 'state.json'), jsonWithNull, 'utf8');
 
 			// Should not throw unhandled error
 			await loadSnapshot(tempDir);
@@ -315,11 +324,7 @@ describe('Session Snapshot Integration - Adversarial Tests', () => {
 			// Cut off the JSON mid-object
 			const truncatedJson = json.substring(0, Math.floor(json.length * 0.5));
 
-			writeFileSync(
-				join(statePath, 'state.json'),
-				truncatedJson,
-				'utf8',
-			);
+			writeFileSync(join(statePath, 'state.json'), truncatedJson, 'utf8');
 
 			// Should not throw - handle gracefully
 			await loadSnapshot(tempDir);
@@ -564,5 +569,4 @@ describe('Session Snapshot Integration - Adversarial Tests', () => {
 			expect(swarmState.agentSessions.size).toBe(0);
 		});
 	});
-
 });

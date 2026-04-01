@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
-	GuardrailsProfileSchema,
+	DEFAULT_AGENT_PROFILES,
+	DEFAULT_ARCHITECT_PROFILE,
+	type GuardrailsConfig,
 	GuardrailsConfigSchema,
+	GuardrailsProfileSchema,
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
-	DEFAULT_ARCHITECT_PROFILE,
-	DEFAULT_AGENT_PROFILES,
-	type GuardrailsConfig,
 } from '../../../src/config/schema';
 
 describe('GuardrailsProfileSchema', () => {

@@ -1,19 +1,32 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
-import * as path from 'node:path';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { loadEvidence } from '../../../src/evidence/manager.js';
 
 // Helper to create a temp directory
 function createTempDir(): string {
-	const tempDir = path.join(os.tmpdir(), `load-evidence-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+	const tempDir = path.join(
+		os.tmpdir(),
+		`load-evidence-test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+	);
 	mkdirSync(tempDir, { recursive: true });
 	return tempDir;
 }
 
 // Helper to create evidence.json in a temp directory
-function createEvidenceFile(tempDir: string, taskId: string, content: string): void {
-	const evidencePath = path.join(tempDir, '.swarm', 'evidence', taskId, 'evidence.json');
+function createEvidenceFile(
+	tempDir: string,
+	taskId: string,
+	content: string,
+): void {
+	const evidencePath = path.join(
+		tempDir,
+		'.swarm',
+		'evidence',
+		taskId,
+		'evidence.json',
+	);
 	const evidenceDir = path.dirname(evidencePath);
 	mkdirSync(evidenceDir, { recursive: true });
 	writeFileSync(evidencePath, content, 'utf-8');
@@ -55,14 +68,16 @@ describe('loadEvidence discriminated union behavior', () => {
 		const validEvidence = {
 			schema_version: '1.0.0',
 			task_id: 'test-task-1',
-			entries: [{
-				task_id: 'test-task-1',
-				type: 'note',
-				timestamp: '2026-01-01T00:00:00.000Z',
-				agent: 'architect',
-				verdict: 'info',
-				summary: 'test note',
-			}],
+			entries: [
+				{
+					task_id: 'test-task-1',
+					type: 'note',
+					timestamp: '2026-01-01T00:00:00.000Z',
+					agent: 'architect',
+					verdict: 'info',
+					summary: 'test note',
+				},
+			],
 			created_at: '2026-01-01T00:00:00.000Z',
 			updated_at: '2026-01-01T00:00:00.000Z',
 		};
@@ -100,7 +115,11 @@ describe('loadEvidence discriminated union behavior', () => {
 			expect(result.errors).toBeDefined();
 			expect(result.errors.length).toBeGreaterThan(0);
 			// Verify errors contain field names and messages
-			expect(result.errors.some(e => e.includes('schema_version') || e.includes('entries'))).toBe(true);
+			expect(
+				result.errors.some(
+					(e) => e.includes('schema_version') || e.includes('entries'),
+				),
+			).toBe(true);
 		}
 	});
 
@@ -111,19 +130,25 @@ describe('loadEvidence discriminated union behavior', () => {
 		const validEvidence = {
 			schema_version: '1.0.0',
 			task_id: 'task-1.2.3-beta',
-			entries: [{
-				task_id: 'task-1.2.3-beta',
-				type: 'note',
-				timestamp: '2026-01-01T00:00:00.000Z',
-				agent: 'architect',
-				verdict: 'info',
-				summary: 'test note',
-			}],
+			entries: [
+				{
+					task_id: 'task-1.2.3-beta',
+					type: 'note',
+					timestamp: '2026-01-01T00:00:00.000Z',
+					agent: 'architect',
+					verdict: 'info',
+					summary: 'test note',
+				},
+			],
 			created_at: '2026-01-01T00:00:00.000Z',
 			updated_at: '2026-01-01T00:00:00.000Z',
 		};
 
-		createEvidenceFile(tempDir, 'task-1.2.3-beta', JSON.stringify(validEvidence));
+		createEvidenceFile(
+			tempDir,
+			'task-1.2.3-beta',
+			JSON.stringify(validEvidence),
+		);
 
 		const result = await loadEvidence(tempDir, 'task-1.2.3-beta');
 

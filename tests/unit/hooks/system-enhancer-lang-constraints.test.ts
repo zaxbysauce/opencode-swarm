@@ -4,7 +4,7 @@
  * Since buildLanguageCoderConstraints is not exported from system-enhancer.ts,
  * we recreate its logic with an injectable mock for getProfileForFile to test it directly.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 /**
  * Type for language profile mock
@@ -93,7 +93,9 @@ describe('buildLanguageCoderConstraints', () => {
 			});
 
 			expect(result).not.toBe(null);
-			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]',
+			);
 			expect(result).toContain('- Use explicit return types for all functions');
 			expect(result).toContain('- Avoid any types except in type guards');
 		});
@@ -243,7 +245,10 @@ describe('buildLanguageCoderConstraints', () => {
 	describe('Constraint limit (10 items max)', () => {
 		it('limits output to exactly 10 constraints when profile has more', () => {
 			const taskText = 'Update src/tools/lint.ts';
-			const constraints = Array.from({ length: 15 }, (_, i) => `Constraint ${i + 1}`);
+			const constraints = Array.from(
+				{ length: 15 },
+				(_, i) => `Constraint ${i + 1}`,
+			);
 			const mockProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {
@@ -251,7 +256,10 @@ describe('buildLanguageCoderConstraints', () => {
 				},
 			};
 
-			const result = buildLanguageCoderConstraintsTest(taskText, () => mockProfile);
+			const result = buildLanguageCoderConstraintsTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
@@ -272,8 +280,14 @@ describe('buildLanguageCoderConstraints', () => {
 		it('limits output to 10 constraints even with multiple files', () => {
 			const taskText =
 				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
-			const constraints1 = Array.from({ length: 8 }, (_, i) => `File1 Constraint ${i + 1}`);
-			const constraints2 = Array.from({ length: 8 }, (_, i) => `File2 Constraint ${i + 1}`);
+			const constraints1 = Array.from(
+				{ length: 8 },
+				(_, i) => `File1 Constraint ${i + 1}`,
+			);
+			const constraints2 = Array.from(
+				{ length: 8 },
+				(_, i) => `File2 Constraint ${i + 1}`,
+			);
 			const mockProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {
@@ -281,7 +295,10 @@ describe('buildLanguageCoderConstraints', () => {
 				},
 			};
 
-			const result = buildLanguageCoderConstraintsTest(taskText, () => mockProfile);
+			const result = buildLanguageCoderConstraintsTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
@@ -312,7 +329,9 @@ describe('buildLanguageCoderConstraints', () => {
 			});
 
 			expect(result).not.toBe(null);
-			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]',
+			);
 
 			// Should have exactly 3 unique constraints
 			const lines = result?.split('\n') ?? [];
@@ -331,12 +350,16 @@ describe('buildLanguageCoderConstraints', () => {
 				},
 			};
 
-			const result = buildLanguageCoderConstraintsTest(taskText, () => mockProfile);
+			const result = buildLanguageCoderConstraintsTest(
+				taskText,
+				() => mockProfile,
+			);
 			expect(result).toBe(null);
 		});
 
 		it('returns null when all files have no profile', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/config/types.ts';
 			const result = buildLanguageCoderConstraintsTest(taskText, () => null);
 			expect(result).toBe(null);
 		});
@@ -386,7 +409,10 @@ describe('buildLanguageCoderConstraints', () => {
 				},
 			};
 
-			const result = buildLanguageCoderConstraintsTest(taskText, () => mockProfile);
+			const result = buildLanguageCoderConstraintsTest(
+				taskText,
+				() => mockProfile,
+			);
 			expect(result).toBe(null);
 		});
 	});
@@ -401,12 +427,17 @@ describe('buildLanguageCoderConstraints', () => {
 				},
 			};
 
-			const result = buildLanguageCoderConstraintsTest(taskText, () => mockProfile);
+			const result = buildLanguageCoderConstraintsTest(
+				taskText,
+				() => mockProfile,
+			);
 
 			expect(result).not.toBe(null);
 
 			// Verify format: [LANGUAGE-SPECIFIC CONSTRAINTS — <language>]
-			expect(result).toMatch(/^\[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript \/ JavaScript\]/);
+			expect(result).toMatch(
+				/^\[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript \/ JavaScript\]/,
+			);
 
 			// Verify each constraint starts with "- "
 			const lines = result?.split('\n') ?? [];
@@ -417,7 +448,8 @@ describe('buildLanguageCoderConstraints', () => {
 		});
 
 		it('uses first language label when multiple languages present', () => {
-			const taskText = '- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
+			const taskText =
+				'- [ ] 1.1: Update src/tools/lint.ts\n- [ ] 1.2: Modify src/main.rs';
 			const tsProfile: LanguageProfileMock = {
 				displayName: 'TypeScript / JavaScript',
 				prompts: {

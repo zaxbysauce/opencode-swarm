@@ -1,9 +1,17 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { loadEvidence, saveEvidence, type LoadEvidenceResult } from '../../../src/evidence/manager';
-import type { Evidence, EvidenceBundle, RetrospectiveEvidence } from '../../../src/config/evidence-schema';
+import * as path from 'node:path';
+import type {
+	Evidence,
+	EvidenceBundle,
+	RetrospectiveEvidence,
+} from '../../../src/config/evidence-schema';
+import {
+	type LoadEvidenceResult,
+	loadEvidence,
+	saveEvidence,
+} from '../../../src/evidence/manager';
 
 // Test helpers
 function createTempDir(): string {
@@ -11,7 +19,10 @@ function createTempDir(): string {
 }
 
 // Helper to create a valid retrospective evidence with all required fields
-function createRetrospectiveEvidence(taskId: string, taskComplexity: string): RetrospectiveEvidence {
+function createRetrospectiveEvidence(
+	taskId: string,
+	taskComplexity: string,
+): RetrospectiveEvidence {
 	return {
 		task_id: taskId,
 		type: 'retrospective',
@@ -22,7 +33,11 @@ function createRetrospectiveEvidence(taskId: string, taskComplexity: string): Re
 		total_tool_calls: 100,
 		summary: 'Test summary',
 		task_count: 1,
-		task_complexity: taskComplexity as 'trivial' | 'simple' | 'moderate' | 'complex',
+		task_complexity: taskComplexity as
+			| 'trivial'
+			| 'simple'
+			| 'moderate'
+			| 'complex',
 		coder_revisions: 1,
 		reviewer_rejections: 0,
 		test_failures: 0,
@@ -127,7 +142,7 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 		 */
 		test('legacy task_complexity "low" triggers wrapFlatRetrospective path', async () => {
 			const taskId = 'test-task-low-flat';
-			
+
 			// Create a flat retrospective with legacy value
 			const flatRetro = {
 				type: 'retrospective',
@@ -135,13 +150,19 @@ describe('legacy task_complexity remapping - adversarial tests', () => {
 				task_complexity: 'low', // legacy value
 			};
 
-			const evidencePath = path.join(tempDir, '.swarm', 'evidence', taskId, 'evidence.json');
+			const evidencePath = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				taskId,
+				'evidence.json',
+			);
 			fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
 			fs.writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 			// The wrap function attempts to remap but fails due to missing required fields
 			const result = await loadEvidence(tempDir, taskId);
-			
+
 			// This currently fails due to bug in wrapFlatRetrospective (missing timestamp/agent/verdict)
 			expect(result.status).toBe('invalid_schema');
 		});
@@ -170,10 +191,12 @@ describe('file persistence failure handling - adversarial tests', () => {
 
 		// Save should return the bundle
 		const result = await saveEvidence(tempDir, taskId, evidence);
-		
+
 		expect(result).toBeDefined();
 		expect(result.entries.length).toBe(1);
-		expect((result.entries[0] as RetrospectiveEvidence).task_complexity).toBe('simple');
+		expect((result.entries[0] as RetrospectiveEvidence).task_complexity).toBe(
+			'simple',
+		);
 	});
 
 	test('atomic write pattern - no temp files remain after success', async () => {
@@ -182,14 +205,14 @@ describe('file persistence failure handling - adversarial tests', () => {
 
 		// Check before write
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', taskId);
-		
+
 		// Write
 		await saveEvidence(tempDir, taskId, evidence);
 
 		// After successful write, check no temp files remain
 		if (fs.existsSync(evidenceDir)) {
 			const files = fs.readdirSync(evidenceDir);
-			const tempFiles = files.filter(f => f.includes('tmp'));
+			const tempFiles = files.filter((f) => f.includes('tmp'));
 			expect(tempFiles.length).toBe(0);
 		}
 	});
@@ -197,13 +220,19 @@ describe('file persistence failure handling - adversarial tests', () => {
 	test('loadEvidence returns bundle when flat retrospective wrapping fails gracefully', async () => {
 		// Create an invalid flat retrospective that will fail validation
 		const taskId = 'invalid-flat';
-		
+
 		const flatRetro = {
 			type: 'retrospective',
 			task_id: taskId,
 		};
 
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', taskId, 'evidence.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			taskId,
+			'evidence.json',
+		);
 		fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
 		fs.writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -219,9 +248,15 @@ describe('file persistence failure handling - adversarial tests', () => {
 		// First, save should succeed
 		const result = await saveEvidence(tempDir, taskId, evidence);
 		expect(result).toBeDefined();
-		
+
 		// Verify file exists and is valid JSON
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', taskId, 'evidence.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			taskId,
+			'evidence.json',
+		);
 		const content = fs.readFileSync(evidencePath, 'utf-8');
 		const parsed = JSON.parse(content);
 		expect(parsed.schema_version).toBe('1.0.0');
@@ -251,20 +286,22 @@ describe('concurrent write safety - adversarial tests', () => {
 
 		// Save evidence - this uses atomic write
 		const result = await saveEvidence(tempDir, taskId, evidence);
-		
+
 		expect(result).toBeDefined();
 		expect(result.entries.length).toBe(1);
-		
+
 		// Verify no temp files remain
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', taskId);
 		const files = fs.readdirSync(evidenceDir);
 		expect(files).toContain('evidence.json');
-		expect(files.filter(f => f.startsWith('evidence.json.tmp.')).length).toBe(0);
+		expect(files.filter((f) => f.startsWith('evidence.json.tmp.')).length).toBe(
+			0,
+		);
 	});
 
 	test('saveEvidence handles rapid sequential writes', async () => {
 		const taskId = 'sequential-writes-test';
-		
+
 		// Write 5 times sequentially
 		for (let i = 0; i < 5; i++) {
 			const evidence = createRetrospectiveEvidence(taskId, 'simple');
@@ -285,7 +322,7 @@ describe('concurrent write safety - adversarial tests', () => {
 
 	test('loadEvidence handles reads during write', async () => {
 		const taskId = 'concurrent-read-test';
-		
+
 		const initialEvidence = createRetrospectiveEvidence(taskId, 'simple');
 
 		await saveEvidence(tempDir, taskId, initialEvidence);
@@ -297,11 +334,14 @@ describe('concurrent write safety - adversarial tests', () => {
 			summary: 'Concurrent write',
 		});
 
-		const [readResult, writeResult] = await Promise.all([readPromise, writePromise]);
-		
+		const [readResult, writeResult] = await Promise.all([
+			readPromise,
+			writePromise,
+		]);
+
 		// Read should succeed
 		expect(readResult.status).toBe('found');
-		
+
 		// Write should return bundle
 		expect(writeResult).toBeDefined();
 		expect(writeResult.entries).toBeDefined();
@@ -316,19 +356,23 @@ describe('concurrent write safety - adversarial tests', () => {
 
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', taskId);
 		const files = fs.readdirSync(evidenceDir);
-		
+
 		// Should have no temp files left
-		const tempFiles = files.filter(f => f.includes('tmp'));
+		const tempFiles = files.filter((f) => f.includes('tmp'));
 		expect(tempFiles.length).toBe(0);
 	});
 
 	test('multiple tasks can be written without interference', async () => {
 		// Create multiple tasks
 		const tasks = ['task-a', 'task-b', 'task-c'];
-		
+
 		// Write to all tasks
 		for (const taskId of tasks) {
-			await saveEvidence(tempDir, taskId, createRetrospectiveEvidence(taskId, 'simple'));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createRetrospectiveEvidence(taskId, 'simple'),
+			);
 		}
 
 		// Verify all tasks have evidence
@@ -357,13 +401,16 @@ describe('edge cases for task_complexity handling', () => {
 
 	test('invalid task_complexity fails validation when loaded', async () => {
 		const taskId = 'invalid-complexity';
-		
+
 		// Create evidence with invalid complexity (cast as any to bypass TS)
-		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
+		const evidence = createRetrospectiveEvidence(
+			taskId,
+			'simple',
+		) as unknown as Evidence;
 		(evidence as any).task_complexity = 'invalid';
 
 		const result = await saveEvidence(tempDir, taskId, evidence);
-		
+
 		// Save may accept it but load should fail
 		const loadResult = await loadEvidence(tempDir, taskId);
 		expect(loadResult.status).toBe('invalid_schema');
@@ -371,27 +418,33 @@ describe('edge cases for task_complexity handling', () => {
 
 	test('empty task_complexity is handled', async () => {
 		const taskId = 'empty-complexity';
-		
-		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
+
+		const evidence = createRetrospectiveEvidence(
+			taskId,
+			'simple',
+		) as unknown as Evidence;
 		(evidence as any).task_complexity = '';
 
 		const result = await saveEvidence(tempDir, taskId, evidence);
 		const loadResult = await loadEvidence(tempDir, taskId);
-		
+
 		// Should fail validation
 		expect(loadResult.status).toBe('invalid_schema');
 	});
 
 	test('case-sensitive task_complexity values', async () => {
 		const taskId = 'case-test';
-		
+
 		// Test that case matters - "Simple" is different from "simple"
-		const evidence = createRetrospectiveEvidence(taskId, 'simple') as unknown as Evidence;
+		const evidence = createRetrospectiveEvidence(
+			taskId,
+			'simple',
+		) as unknown as Evidence;
 		(evidence as any).task_complexity = 'Simple';
 
 		const result = await saveEvidence(tempDir, taskId, evidence);
 		const loadResult = await loadEvidence(tempDir, taskId);
-		
+
 		// Should fail validation - wrong case
 		expect(loadResult.status).toBe('invalid_schema');
 	});
@@ -406,7 +459,7 @@ describe('edge cases for task_complexity handling', () => {
 
 		// Save should create the directory
 		const result = await saveEvidence(tempDir, taskId, evidence);
-		
+
 		// Directory should now exist
 		expect(fs.existsSync(evidenceDir)).toBe(true);
 		expect(result).toBeDefined();
@@ -420,11 +473,11 @@ describe('edge cases for task_complexity handling', () => {
 	test('task_complexity is preserved across save and load cycles', async () => {
 		const taskId = 'persistence-test';
 		const complexity = 'moderate';
-		
+
 		const evidence = createRetrospectiveEvidence(taskId, complexity);
 
 		await saveEvidence(tempDir, taskId, evidence);
-		
+
 		const result = await loadEvidence(tempDir, taskId);
 		expect(result.status).toBe('found');
 		if (result.status === 'found') {

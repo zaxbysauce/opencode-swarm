@@ -2,14 +2,14 @@
  * CycloneDX Emitter Tests
  */
 
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
-	generateCycloneDX,
-	serializeCycloneDX,
-	generateComponentPurl,
 	type CycloneDXBom,
 	type CycloneDXComponent,
+	generateComponentPurl,
+	generateCycloneDX,
+	serializeCycloneDX,
 } from '../../../src/sbom/cyclonedx.js';
-import { describe, expect, test, beforeEach } from 'bun:test';
 
 describe('CycloneDX Emitter', () => {
 	const minimalComponents = [

@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
+import type { AgentDefinition } from '../../../src/agents';
 import { handleClarifyCommand } from '../../../src/commands/clarify';
 import { createSwarmCommandHandler } from '../../../src/commands/index';
-import type { AgentDefinition } from '../../../src/agents';
 
 describe('handleClarifyCommand', () => {
 	test('returns [MODE: CLARIFY-SPEC] <description> when args are provided', async () => {
@@ -44,7 +44,9 @@ describe('handleClarifyCommand', () => {
 	});
 
 	test('handleClarifyCommand is exported from src/commands/index.ts', () => {
-		const { handleClarifyCommand: exportedHandler } = require('../../../src/commands/index');
+		const {
+			handleClarifyCommand: exportedHandler,
+		} = require('../../../src/commands/index');
 		expect(exportedHandler).toBeDefined();
 		expect(typeof exportedHandler).toBe('function');
 	});
@@ -57,7 +59,10 @@ describe('handleClarifyCommand', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Trigger help by using unknown subcommand
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'unknown' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'unknown' },
+			output,
+		);
 
 		const helpText = (output.parts[0] as { type: string; text: string }).text;
 		expect(helpText).toContain('/swarm clarify');
@@ -66,7 +71,9 @@ describe('handleClarifyCommand', () => {
 
 describe('handleClarifyCommand — adversarial', () => {
 	test('does NOT return [MODE: SPECIFY] (wrong mode tag must never be emitted)', async () => {
-		const result = await handleClarifyCommand('/test/dir', ['test description']);
+		const result = await handleClarifyCommand('/test/dir', [
+			'test description',
+		]);
 		expect(result).not.toContain('[MODE: SPECIFY]');
 		expect(result).toContain('[MODE: CLARIFY-SPEC]');
 	});

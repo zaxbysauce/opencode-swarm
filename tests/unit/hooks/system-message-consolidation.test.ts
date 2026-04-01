@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { consolidateSystemMessages } from '../../../src/hooks/messages-transform';
 
 describe('consolidateSystemMessages', () => {
@@ -26,7 +26,9 @@ describe('consolidateSystemMessages', () => {
 		});
 
 		it('returns new array when single system message is at index 0 (fast path)', () => {
-			const messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
+			const messages = [
+				{ role: 'system', content: 'You are a helpful assistant.' },
+			];
 
 			const result = consolidateSystemMessages(messages);
 
@@ -64,7 +66,9 @@ describe('consolidateSystemMessages', () => {
 
 			expect(result.length).toBe(3);
 			expect(result[0].role).toBe('system');
-			expect(result[0].content).toBe('You are OpenCode.\n\nYou are also a coding assistant.');
+			expect(result[0].content).toBe(
+				'You are OpenCode.\n\nYou are also a coding assistant.',
+			);
 			expect(result[1].role).toBe('user');
 			expect(result[2].role).toBe('assistant');
 		});
@@ -100,12 +104,24 @@ describe('consolidateSystemMessages', () => {
 					role: 'user',
 					content: 'Hello',
 					name: 'user123',
-					tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'test', arguments: '{}' } }],
+					tool_calls: [
+						{
+							id: 'call_1',
+							type: 'function',
+							function: { name: 'test', arguments: '{}' },
+						},
+					],
 				},
 				{
 					role: 'assistant',
 					content: 'Hi',
-					tool_calls: [{ id: 'call_2', type: 'function', function: { name: 'test2', arguments: '{}' } }],
+					tool_calls: [
+						{
+							id: 'call_2',
+							type: 'function',
+							function: { name: 'test2', arguments: '{}' },
+						},
+					],
 				},
 			];
 
@@ -113,10 +129,18 @@ describe('consolidateSystemMessages', () => {
 
 			expect(result[1].name).toBe('user123');
 			expect(result[1].tool_calls).toEqual([
-				{ id: 'call_1', type: 'function', function: { name: 'test', arguments: '{}' } },
+				{
+					id: 'call_1',
+					type: 'function',
+					function: { name: 'test', arguments: '{}' },
+				},
 			]);
 			expect(result[2].tool_calls).toEqual([
-				{ id: 'call_2', type: 'function', function: { name: 'test2', arguments: '{}' } },
+				{
+					id: 'call_2',
+					type: 'function',
+					function: { name: 'test2', arguments: '{}' },
+				},
 			]);
 		});
 
@@ -127,7 +151,7 @@ describe('consolidateSystemMessages', () => {
 					content: 'System prompt 1',
 					extraField: 'preserved',
 					anotherField: 123,
-			 },
+				},
 				{ role: 'user', content: 'Hello' },
 				{ role: 'system', content: 'System prompt 2' },
 			];
@@ -200,7 +224,11 @@ describe('consolidateSystemMessages', () => {
 
 		it('removes system message with tool_call_id at index > 0 (safety net for local models)', () => {
 			const messages = [
-				{ role: 'system', content: 'Tool result content', tool_call_id: 'call_123' },
+				{
+					role: 'system',
+					content: 'Tool result content',
+					tool_call_id: 'call_123',
+				},
 				{ role: 'user', content: 'Hello' },
 			];
 
@@ -239,7 +267,10 @@ describe('consolidateSystemMessages', () => {
 			const messages = [
 				{ role: 'system', content: 'Valid system prompt 1' },
 				{ role: 'user', content: 'Hello' },
-				{ role: 'system', content: [{ type: 'text', text: 'Anthropic style' }] },
+				{
+					role: 'system',
+					content: [{ type: 'text', text: 'Anthropic style' }],
+				},
 				{ role: 'system', content: 'Valid system prompt 2' },
 				{ role: 'system', content: '   ' }, // whitespace-only - removed
 				{ role: 'assistant', content: 'Hi!' },
@@ -254,7 +285,7 @@ describe('consolidateSystemMessages', () => {
 			expect(result[0].content).toContain('Valid system prompt 2');
 			expect(result[0].content).toContain('Anthropic style');
 			// No system messages at index > 0
-			const systemCount = result.filter(m => m.role === 'system').length;
+			const systemCount = result.filter((m) => m.role === 'system').length;
 			expect(systemCount).toBe(1);
 		});
 
@@ -322,7 +353,9 @@ describe('consolidateSystemMessages', () => {
 
 			expect(result.length).toBe(2);
 			expect(result[0].role).toBe('system');
-			expect(result[0].content).toBe('You are OpenCode, an AI-powered IDE assistant.');
+			expect(result[0].content).toBe(
+				'You are OpenCode, an AI-powered IDE assistant.',
+			);
 		});
 
 		it('handles strict template with multiple consecutive system messages from different sources', () => {
@@ -347,7 +380,10 @@ describe('consolidateSystemMessages', () => {
 				{ role: 'system', content: 'You are a helpful assistant.' },
 				{ role: 'user', content: 'Fix the bug in auth.ts' },
 				{ role: 'assistant', content: 'I will delegate to the coder.' },
-				{ role: 'system', content: 'You are the coder agent. Follow all QA gates...' },
+				{
+					role: 'system',
+					content: 'You are the coder agent. Follow all QA gates...',
+				},
 			];
 			const result = consolidateSystemMessages(input);
 
@@ -358,8 +394,14 @@ describe('consolidateSystemMessages', () => {
 			expect(result[0].content).toContain('You are the coder agent.');
 
 			const nonSystem = result.filter((m) => m.role !== 'system');
-			expect(nonSystem[0]).toEqual({ role: 'user', content: 'Fix the bug in auth.ts' });
-			expect(nonSystem[1]).toEqual({ role: 'assistant', content: 'I will delegate to the coder.' });
+			expect(nonSystem[0]).toEqual({
+				role: 'user',
+				content: 'Fix the bug in auth.ts',
+			});
+			expect(nonSystem[1]).toEqual({
+				role: 'assistant',
+				content: 'I will delegate to the coder.',
+			});
 		});
 	});
 });

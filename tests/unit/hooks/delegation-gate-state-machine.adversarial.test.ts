@@ -5,10 +5,16 @@
  * Focus on attack vectors: malformed inputs, injection attempts, bypass attempts, boundary violations
  */
 
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession, getTaskState, advanceTaskState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	advanceTaskState,
+	ensureAgentSession,
+	getTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -28,12 +34,18 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: { role: 'user' as const, agent, sessionID },
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -65,10 +77,16 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Verify state machine handled it gracefully - should be stored as string key
-			const state = getTaskState(ensureAgentSession(sessionID), 'task/../../../etc');
+			const state = getTaskState(
+				ensureAgentSession(sessionID),
+				'task/../../../etc',
+			);
 			expect(state).toBe('coder_delegated');
 		});
 
@@ -90,10 +108,16 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Verify state machine handled it - stored as literal string key
-			const state = getTaskState(ensureAgentSession(sessionID), "'; DROP TABLE tasks; --");
+			const state = getTaskState(
+				ensureAgentSession(sessionID),
+				"'; DROP TABLE tasks; --",
+			);
 			expect(state).toBe('coder_delegated');
 		});
 
@@ -113,9 +137,15 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
-			const state = getTaskState(ensureAgentSession(sessionID), "<script>alert('xss')</script>");
+			const state = getTaskState(
+				ensureAgentSession(sessionID),
+				"<script>alert('xss')</script>",
+			);
 			expect(state).toBe('coder_delegated');
 		});
 
@@ -136,10 +166,16 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// State machine should handle it - Map uses string keys
-			const state = getTaskState(ensureAgentSession(sessionID), "task\x00injected");
+			const state = getTaskState(
+				ensureAgentSession(sessionID),
+				'task\x00injected',
+			);
 			expect(state).toBe('coder_delegated');
 		});
 	});
@@ -165,7 +201,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not throw
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Verify state was set
 			const state = getTaskState(ensureAgentSession(sessionID), longTaskId);
@@ -192,7 +231,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not crash (may be slow but should complete)
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			const state = getTaskState(ensureAgentSession(sessionID), hugeTaskId);
 			expect(state).toBe('coder_delegated');
@@ -221,7 +263,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// State should still be 'coder_delegated' - NOT 'complete'
 			// The coder delegation pattern only triggers advanceTaskState(session, taskId, 'coder_delegated')
@@ -327,7 +372,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-				await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+				await hook.messagesTransform(
+					{},
+					makeMessages(text, undefined, sessionID),
+				);
 			}
 
 			// All tasks should be in coder_delegated state
@@ -365,7 +413,10 @@ COMMANDTYPE: task
 FILES: src/other.ts
 ACCEPTANCECRITERA: review passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Based on the code, it uses text.match(/TASK:\s*(.+?)(?:\n|$)/i) which is greedy but non-greedy
 			// The regex captures the first TASK: line content
@@ -397,10 +448,16 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Should extract the full URL including colons
-			const state = getTaskState(ensureAgentSession(sessionID), 'http://example.com:8080/path');
+			const state = getTaskState(
+				ensureAgentSession(sessionID),
+				'http://example.com:8080/path',
+			);
 			expect(state).toBe('coder_delegated');
 		});
 	});
@@ -441,7 +498,10 @@ ACCEPTANCECRITERA: test passes`;
 
 			// The delegation-gate tries to advance to coder_delegated but should fail
 			// Error is caught and swallowed in the hook
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// State should remain at reviewer_run (or higher)
 			const state = getTaskState(session, 'post-review-task');
@@ -508,13 +568,20 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, session1));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, session1),
+			);
 
 			// Session 1 should have coder_delegated
-			expect(getTaskState(ensureAgentSession(session1), 'shared-task')).toBe('coder_delegated');
+			expect(getTaskState(ensureAgentSession(session1), 'shared-task')).toBe(
+				'coder_delegated',
+			);
 
 			// Session 2 should still be idle (not affected)
-			expect(getTaskState(ensureAgentSession(session2), 'shared-task')).toBe('idle');
+			expect(getTaskState(ensureAgentSession(session2), 'shared-task')).toBe(
+				'idle',
+			);
 		});
 	});
 
@@ -540,7 +607,10 @@ COMMANDTYPE: task
 FILES: src/a.ts
 ACCEPTANCECRITERA: a works`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify first task is coder_delegated
 			expect(getTaskState(session, '1.1')).toBe('coder_delegated');
@@ -566,7 +636,10 @@ FILES: src/b.ts
 ACCEPTANCECRITERA: b works`;
 
 			// This should still trigger the warning because !hasReviewer || !hasTestEngineer
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			// Should get warning since there's no reviewer/test_engineer in delegation chain
 			// The original !hasReviewer || !hasTestEngineer check should still catch it
@@ -591,7 +664,10 @@ COMMANDTYPE: task
 FILES: src/a.ts
 ACCEPTANCECRITERA: a works`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Advance state to bypass QA
 			advanceTaskState(session, 'task-a', 'pre_check_passed');
@@ -614,7 +690,10 @@ COMMANDTYPE: task
 FILES: src/b.ts
 ACCEPTANCECRITERA: b works`;
 
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 			expect(session.qaSkipCount).toBe(1);
 
 			// Third coder delegation - should HARD BLOCK (second skip)
@@ -635,7 +714,7 @@ ACCEPTANCECRITERA: c works`;
 
 			// Should throw hard block error
 			await expect(
-				hook.messagesTransform({}, makeMessages(text3, undefined, sessionID))
+				hook.messagesTransform({}, makeMessages(text3, undefined, sessionID)),
 			).rejects.toThrow('QA GATE ENFORCEMENT');
 		});
 	});
@@ -658,7 +737,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not throw, should handle gracefully
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Verify session state is not corrupted
 			const session = ensureAgentSession(sessionID);
@@ -683,7 +765,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not throw
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Session should be intact
 			const session = ensureAgentSession(sessionID);
@@ -696,10 +781,17 @@ ACCEPTANCECRITERA: test passes`;
 
 			// Message with no sessionID
 			const messages = {
-				messages: [{
-					info: { role: 'user' as const, agent: undefined },
-					parts: [{ type: 'text', text: 'coder\n\nTASK: task1\nTARGETAGENT: coder\nACTION: implement\nCOMMANDTYPE: task\nFILES: src/test.ts\nACCEPTANCECRITERA: test passes' }],
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, agent: undefined },
+						parts: [
+							{
+								type: 'text',
+								text: 'coder\n\nTASK: task1\nTARGETAGENT: coder\nACTION: implement\nCOMMANDTYPE: task\nFILES: src/test.ts\nACCEPTANCECRITERA: test passes',
+							},
+						],
+					},
+				],
 			};
 
 			// Should not throw
@@ -727,7 +819,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify priorCoderTaskId was set
 			expect(session.lastCoderDelegationTaskId).toBe('retry-task');
@@ -736,7 +831,11 @@ ACCEPTANCECRITERA: test passes`;
 			swarmState.delegationChains.set(sessionID, [
 				{ from: 'architect', to: 'coder', timestamp: Date.now() - 3000 },
 				{ from: 'architect', to: 'reviewer', timestamp: Date.now() - 2000 },
-				{ from: 'architect', to: 'test_engineer', timestamp: Date.now() - 1000 },
+				{
+					from: 'architect',
+					to: 'test_engineer',
+					timestamp: Date.now() - 1000,
+				},
 			]);
 
 			// Now re-delegate to SAME task (retry scenario)
@@ -751,7 +850,10 @@ ACCEPTANCECRITERA: test passes`;
 
 			// priorCoderTaskId === currentTaskId here, but QA was completed
 			// Should NOT trigger warning because hasReviewer && hasTestEngineer
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			// qaSkipCount should remain 0 because QA was done
 			expect(session.qaSkipCount).toBe(0);
@@ -774,7 +876,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Setup chain with TWO coder entries for the check to trigger (requires coderIndices.length === 2)
 			swarmState.delegationChains.set(sessionID, [
@@ -792,7 +897,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 			expect(session.qaSkipCount).toBe(1);
 
 			// Third to same task - should hard block
@@ -812,7 +920,7 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			await expect(
-				hook.messagesTransform({}, makeMessages(text3, undefined, sessionID))
+				hook.messagesTransform({}, makeMessages(text3, undefined, sessionID)),
 			).rejects.toThrow('QA GATE ENFORCEMENT');
 		});
 	});
@@ -840,7 +948,10 @@ ACCEPTANCECRITERA: test passes`;
 
 			// priorCoderTaskId should be null, so priorTaskStuckAtCoder should be false
 			// This should not trigger any QA enforcement
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// qaSkipCount should still be 0 (no prior task to check)
 			expect(session.qaSkipCount).toBe(0);
@@ -863,7 +974,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not throw
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Session should have been created with proper defaults
 			const session = ensureAgentSession(sessionID);
@@ -904,7 +1018,10 @@ ACCEPTANCECRITERA: test passes`;
 			// - getTaskState(session, "never-created-task") returns 'idle' (not 'coder_delegated')
 			// So priorTaskStuckAtCoder = false
 			// But !hasReviewer || !hasTestEngineer = true, so it should still warn
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Should have warned due to missing QA in chain
 			expect(session.qaSkipCount).toBe(1);
@@ -924,7 +1041,11 @@ ACCEPTANCECRITERA: test passes`;
 			swarmState.delegationChains.set(sessionID, [
 				{ from: 'architect', to: 'coder', timestamp: Date.now() - 3000 },
 				{ from: 'architect', to: 'reviewer', timestamp: Date.now() - 2000 },
-				{ from: 'architect', to: 'test_engineer', timestamp: Date.now() - 1000 },
+				{
+					from: 'architect',
+					to: 'test_engineer',
+					timestamp: Date.now() - 1000,
+				},
 			]);
 
 			const text = `coder
@@ -937,7 +1058,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// QA was completed, so should not warn
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// qaSkipCount should be 0 because hasReviewer && hasTestEngineer
 			expect(session.qaSkipCount).toBe(0);
@@ -963,7 +1087,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify it was set
 			expect(session.lastCoderDelegationTaskId).toBe(longTaskId);
@@ -986,7 +1113,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should not crash or hang
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			// Should have warned due to missing QA (no reviewer/test_engineer between coders)
 			expect(session.qaSkipCount).toBe(1);
@@ -1011,7 +1141,10 @@ ACCEPTANCECRITERA: test passes`;
 
 			// Should complete without timeout or crash
 			const start = Date.now();
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 			const duration = Date.now() - start;
 
 			// Should complete in reasonable time (< 5 seconds)
@@ -1039,7 +1172,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify it was stored
 			expect(session.lastCoderDelegationTaskId).toBe(nullByteTaskId);
@@ -1060,7 +1196,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should handle safely - Map keys handle strings with null bytes
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			expect(session.qaSkipCount).toBe(1);
 		});
@@ -1083,7 +1222,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify first task was stored with special chars
 			expect(session.lastCoderDelegationTaskId).toBe(xssTaskId);
@@ -1104,7 +1246,10 @@ ACCEPTANCECRITERA: test passes`;
 
 			// Should not execute or evaluate the XSS - just use as Map key
 			// No crash = pass
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			// State was tracked safely - after second delegation, it's updated to new task
 			expect(session.lastCoderDelegationTaskId).toBe('safe-task');
@@ -1128,7 +1273,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text1, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text1, undefined, sessionID),
+			);
 
 			// Verify first task was stored safely
 			expect(session.lastCoderDelegationTaskId).toBe(sqlTaskId);
@@ -1148,7 +1296,10 @@ FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
 			// Should be handled as literal string, not SQL - no crash
-			await hook.messagesTransform({}, makeMessages(text2, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text2, undefined, sessionID),
+			);
 
 			// After second delegation, updated to new task
 			expect(session.lastCoderDelegationTaskId).toBe('next-task');
@@ -1171,7 +1322,10 @@ COMMANDTYPE: task
 FILES: src/test.ts
 ACCEPTANCECRITERA: test passes`;
 
-			await hook.messagesTransform({}, makeMessages(text, undefined, sessionID));
+			await hook.messagesTransform(
+				{},
+				makeMessages(text, undefined, sessionID),
+			);
 
 			// Should handle unicode correctly as Map key
 			expect(session.lastCoderDelegationTaskId).toBe(unicodeTaskId);

@@ -4,7 +4,7 @@
  * Mocks only src/utils/logger to avoid leaking a partial mock.
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 
 const mockLog = mock(() => {});
 
@@ -41,7 +41,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 
 	describe('Scenario 3: null coercion', () => {
 		it('should not crash on null coercion (null as any)', () => {
-			const result = resolveModelLimit(null as any, 'null-coercion-provider', {});
+			const result = resolveModelLimit(
+				null as any,
+				'null-coercion-provider',
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 			const logCall = mockLog.mock.calls[0] as any[];
@@ -62,7 +66,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 
 		it('should not crash on 10000+ character modelID (boundary test)', () => {
 			const veryLongModelID = 'verylong10000-' + 'x'.repeat(9990);
-			const result = resolveModelLimit(veryLongModelID, 'verylong-provider', {});
+			const result = resolveModelLimit(
+				veryLongModelID,
+				'verylong-provider',
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 			const logCall = mockLog.mock.calls[0] as any[];
@@ -74,7 +82,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 		it('should safely pass through backticks without crashing', () => {
 			const maliciousModelID = 'backtick`${malicious}`';
 			const maliciousProviderID = 'backtick`${attack}`';
-			const result = resolveModelLimit(maliciousModelID, maliciousProviderID, {});
+			const result = resolveModelLimit(
+				maliciousModelID,
+				maliciousProviderID,
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 			const logCall = mockLog.mock.calls[0] as any[];
@@ -84,7 +96,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 		it('should safely pass through newlines without crashing', () => {
 			const maliciousModelID = 'newlines\nmodel\nwith\nnewlines';
 			const maliciousProviderID = 'newlines\rprovider\rwith\rcarriage';
-			const result = resolveModelLimit(maliciousModelID, maliciousProviderID, {});
+			const result = resolveModelLimit(
+				maliciousModelID,
+				maliciousProviderID,
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 		});
@@ -92,7 +108,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 		it('should safely pass through null bytes and special chars without crashing', () => {
 			const maliciousModelID = 'control\x00\x1f\x7fwith\x00control\x1bchars';
 			const maliciousProviderID = 'control\t\tprovider';
-			const result = resolveModelLimit(maliciousModelID, maliciousProviderID, {});
+			const result = resolveModelLimit(
+				maliciousModelID,
+				maliciousProviderID,
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 		});
@@ -100,7 +120,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 		it('should safely handle template literal injection attempts', () => {
 			const maliciousModelID = 'template-${process.exit()}';
 			const maliciousProviderID = 'template-${require("child_process")}';
-			const result = resolveModelLimit(maliciousModelID, maliciousProviderID, {});
+			const result = resolveModelLimit(
+				maliciousModelID,
+				maliciousProviderID,
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 		});
@@ -108,7 +132,11 @@ describe('model-limits: adversarial/attack-vector tests', () => {
 		it('should safely handle ANSI escape sequences', () => {
 			const maliciousModelID = 'ansi\x1b[31mmodel\x1b[0m';
 			const maliciousProviderID = 'ansi\x1b[32mprovider\x1b[0m';
-			const result = resolveModelLimit(maliciousModelID, maliciousProviderID, {});
+			const result = resolveModelLimit(
+				maliciousModelID,
+				maliciousProviderID,
+				{},
+			);
 			expect(result).toBe(128000);
 			expect(mockLog).toHaveBeenCalledTimes(1);
 		});

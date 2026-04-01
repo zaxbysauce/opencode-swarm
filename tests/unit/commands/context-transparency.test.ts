@@ -1,6 +1,13 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { formatStatusMarkdown, type StatusData } from '../../../src/services/status-service';
-import { ensureAgentSession, resetSwarmState, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	formatStatusMarkdown,
+	type StatusData,
+} from '../../../src/services/status-service';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 describe('context-transparency', () => {
 	const TEST_SESSION_ID = 'test-session-context-transparency';

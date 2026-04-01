@@ -11,20 +11,24 @@
  * 4. GUI/background workflow compatibility (startup behavior, feature gating)
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
-import * as path from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
-import { loadPluginConfig, deepMerge } from '../../../src/config/loader';
+import * as path from 'node:path';
+import { deepMerge, loadPluginConfig } from '../../../src/config/loader';
+import type { Plan } from '../../../src/config/plan-schema';
 import {
-	PluginConfigSchema,
+	AutomationCapabilitiesSchema,
 	AutomationConfigSchema,
 	AutomationModeSchema,
-	AutomationCapabilitiesSchema,
+	PluginConfigSchema,
 } from '../../../src/config/schema';
-import { loadPlan, loadPlanJsonOnly, savePlan } from '../../../src/plan/manager';
-import type { Plan } from '../../../src/config/plan-schema';
+import {
+	loadPlan,
+	loadPlanJsonOnly,
+	savePlan,
+} from '../../../src/plan/manager';
 
 /**
  * Helper to create valid Plan objects for testing
@@ -90,8 +94,14 @@ afterEach(async () => {
 /**
  * Create a temporary test directory with optional swarm structure
  */
-async function createTestDir(name: string, withSwarmDir = true): Promise<string> {
-	const tempDir = path.join(os.tmpdir(), `swarm-backcompat-${name}-${Date.now()}`);
+async function createTestDir(
+	name: string,
+	withSwarmDir = true,
+): Promise<string> {
+	const tempDir = path.join(
+		os.tmpdir(),
+		`swarm-backcompat-${name}-${Date.now()}`,
+	);
 	await mkdir(tempDir, { recursive: true });
 	if (withSwarmDir) {
 		await mkdir(path.join(tempDir, SWARM_DIR), { recursive: true });
@@ -103,7 +113,10 @@ async function createTestDir(name: string, withSwarmDir = true): Promise<string>
 /**
  * Create a config file in the test directory
  */
-async function createConfig(tempDir: string, config: Record<string, unknown>): Promise<void> {
+async function createConfig(
+	tempDir: string,
+	config: Record<string, unknown>,
+): Promise<void> {
 	const configPath = path.join(tempDir, CONFIG_FILE);
 	await mkdir(path.dirname(configPath), { recursive: true });
 	await writeFile(configPath, JSON.stringify(config, null, 2));
@@ -112,7 +125,10 @@ async function createConfig(tempDir: string, config: Record<string, unknown>): P
 /**
  * Create a plan.json file in the test directory
  */
-async function createPlanJson(tempDir: string, plan: Record<string, unknown>): Promise<void> {
+async function createPlanJson(
+	tempDir: string,
+	plan: Record<string, unknown>,
+): Promise<void> {
 	const planPath = path.join(tempDir, SWARM_DIR, 'plan.json');
 	await writeFile(planPath, JSON.stringify(plan, null, 2));
 }
@@ -128,7 +144,9 @@ async function createPlanMd(tempDir: string, content: string): Promise<void> {
 /**
  * Read automation status file if it exists
  */
-async function readAutomationStatus(tempDir: string): Promise<Record<string, unknown> | null> {
+async function readAutomationStatus(
+	tempDir: string,
+): Promise<Record<string, unknown> | null> {
 	const statusPath = path.join(tempDir, SWARM_DIR, 'automation-status.json');
 	if (!existsSync(statusPath)) return null;
 	const content = readFileSync(statusPath, 'utf-8');
@@ -185,8 +203,12 @@ describe('Legacy Config Compatibility', () => {
 		expect(config.automation?.mode).toBe('hybrid');
 		expect(config.automation?.capabilities?.plan_sync).toBe(true); // v6.8 default
 		expect(config.automation?.capabilities?.phase_preflight).toBe(false);
-		expect(config.automation?.capabilities?.config_doctor_on_startup).toBe(false);
-		expect(config.automation?.capabilities?.decision_drift_detection).toBe(true); // v6.8 default
+		expect(config.automation?.capabilities?.config_doctor_on_startup).toBe(
+			false,
+		);
+		expect(config.automation?.capabilities?.decision_drift_detection).toBe(
+			true,
+		); // v6.8 default
 	});
 
 	test('Mixed config - some capabilities true, others default to false', async () => {
@@ -375,7 +397,8 @@ describe('Migration Behavior', () => {
 		const hasAnyAutomationEnabled =
 			loadedConfig.automation?.capabilities?.plan_sync === true ||
 			loadedConfig.automation?.capabilities?.phase_preflight === true ||
-			loadedConfig.automation?.capabilities?.config_doctor_on_startup === true ||
+			loadedConfig.automation?.capabilities?.config_doctor_on_startup ===
+				true ||
 			loadedConfig.automation?.capabilities?.decision_drift_detection === true;
 
 		expect(hasAnyAutomationEnabled).toBe(false);
@@ -609,10 +632,14 @@ describe('GUI/Background Workflow Compatibility', () => {
 
 		// Action-triggering capabilities default to false (phase_preflight, config_doctor)
 		expect(loadedConfig.automation?.capabilities?.phase_preflight).toBe(false);
-		expect(loadedConfig.automation?.capabilities?.config_doctor_on_startup).toBe(false);
+		expect(
+			loadedConfig.automation?.capabilities?.config_doctor_on_startup,
+		).toBe(false);
 		// Read-only capabilities default to true in v6.8
 		expect(loadedConfig.automation?.capabilities?.plan_sync).toBe(true);
-		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(true);
+		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(
+			true,
+		);
 	});
 
 	test('Feature-gated auto behaviors: phase_preflight requires explicit opt-in', async () => {
@@ -631,10 +658,16 @@ describe('GUI/Background Workflow Compatibility', () => {
 
 		expect(loadedConfig.automation?.capabilities?.plan_sync).toBe(true);
 		expect(loadedConfig.automation?.capabilities?.phase_preflight).toBe(false);
-		expect(loadedConfig.automation?.capabilities?.config_doctor_on_startup).toBe(false);
+		expect(
+			loadedConfig.automation?.capabilities?.config_doctor_on_startup,
+		).toBe(false);
 		// evidence_auto_summaries and decision_drift_detection default to true in v6.8
-		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(true);
-		expect(loadedConfig.automation?.capabilities?.decision_drift_detection).toBe(true);
+		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(
+			true,
+		);
+		expect(
+			loadedConfig.automation?.capabilities?.decision_drift_detection,
+		).toBe(true);
 	});
 
 	test('Hybrid mode: manual triggers allowed but not automatic', async () => {
@@ -673,7 +706,8 @@ describe('GUI/Background Workflow Compatibility', () => {
 		const loadedConfig = loadPluginConfig(tempDir);
 
 		// Status should reflect manual mode (no action-triggering automation running)
-		const isAutomationEnabled = loadedConfig.automation?.mode !== 'manual' ||
+		const isAutomationEnabled =
+			loadedConfig.automation?.mode !== 'manual' ||
 			loadedConfig.automation?.capabilities?.plan_sync === true ||
 			loadedConfig.automation?.capabilities?.phase_preflight === true;
 
@@ -722,7 +756,9 @@ describe('GUI/Background Workflow Compatibility', () => {
 		const loadedConfig = loadPluginConfig(tempDir);
 
 		// evidence_auto_summaries is true (explicitly set, also the v6.8 default)
-		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(true);
+		expect(loadedConfig.automation?.capabilities?.evidence_auto_summaries).toBe(
+			true,
+		);
 		// plan_sync also defaults to true in v6.8
 		expect(loadedConfig.automation?.capabilities?.plan_sync).toBe(true);
 		expect(loadedConfig.automation?.capabilities?.phase_preflight).toBe(false);
@@ -742,7 +778,9 @@ describe('GUI/Background Workflow Compatibility', () => {
 		const loadedConfig = loadPluginConfig(tempDir);
 
 		// decision_drift_detection is true (explicitly set, also the v6.8 default)
-		expect(loadedConfig.automation?.capabilities?.decision_drift_detection).toBe(true);
+		expect(
+			loadedConfig.automation?.capabilities?.decision_drift_detection,
+		).toBe(true);
 		// plan_sync also defaults to true in v6.8
 		expect(loadedConfig.automation?.capabilities?.plan_sync).toBe(true);
 		expect(loadedConfig.automation?.capabilities?.phase_preflight).toBe(false);
@@ -919,20 +957,29 @@ describe('Deterministic Artifacts & No Destructive Side-Effects', () => {
 		// Save plan twice
 		await savePlan(tempDir, plan);
 
-		const planMd1 = readFileSync(path.join(tempDir, SWARM_DIR, 'plan.md'), 'utf-8');
+		const planMd1 = readFileSync(
+			path.join(tempDir, SWARM_DIR, 'plan.md'),
+			'utf-8',
+		);
 
 		// Modify and save again
 		const planModified = { ...plan, current_phase: 2 };
 		await savePlan(tempDir, planModified);
 
-		const planMd2 = readFileSync(path.join(tempDir, SWARM_DIR, 'plan.md'), 'utf-8');
+		const planMd2 = readFileSync(
+			path.join(tempDir, SWARM_DIR, 'plan.md'),
+			'utf-8',
+		);
 
 		// Hash should be different for different content
 		expect(planMd1).not.toBe(planMd2);
 
 		// Same content should produce same hash
 		await savePlan(tempDir, plan);
-		const planMd3 = readFileSync(path.join(tempDir, SWARM_DIR, 'plan.md'), 'utf-8');
+		const planMd3 = readFileSync(
+			path.join(tempDir, SWARM_DIR, 'plan.md'),
+			'utf-8',
+		);
 
 		// The hash in the new plan.md should match when content is same
 		// (This verifies deterministic regeneration)
@@ -1125,7 +1172,9 @@ describe('Full v6.7 Backward Compatibility Summary', () => {
 		// Automation enabled via config, no slash commands needed
 		expect(config.automation?.mode).toBe('auto');
 		expect(config.automation?.capabilities?.plan_sync).toBe(true);
-		expect(config.automation?.capabilities?.config_doctor_on_startup).toBe(true);
+		expect(config.automation?.capabilities?.config_doctor_on_startup).toBe(
+			true,
+		);
 
 		// CLI commands still work if needed
 		const plan = {

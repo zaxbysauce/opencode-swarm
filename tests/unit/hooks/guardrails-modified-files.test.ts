@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession, swarmState } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -18,7 +25,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'write', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'write',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -37,7 +48,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const hooks = createGuardrailsHooks(config);
 			// Start as architect but set delegationActive=true to simulate coder subagent
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			// Enable delegation to simulate coder subagent
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
@@ -54,7 +65,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -70,14 +81,14 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 
 			// Should only have one entry
 			const files = session?.modifiedFilesThisCoderTask ?? [];
-			expect(files.filter(f => f === 'src/foo.ts').length).toBe(1);
+			expect(files.filter((f) => f === 'src/foo.ts').length).toBe(1);
 		});
 
 		it('multiple different write tools → all paths tracked', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -107,7 +118,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -127,7 +138,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -136,14 +147,16 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 				makeOutput({ path: 'src/using-path.ts' }),
 			);
 
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/using-path.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/using-path.ts',
+			);
 		});
 
 		it('args.file works for path extraction', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -152,14 +165,16 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 				makeOutput({ file: 'src/using-file.ts' }),
 			);
 
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/using-file.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/using-file.ts',
+			);
 		});
 
 		it('args.target works for path extraction', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -168,14 +183,16 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 				makeOutput({ target: 'src/using-target.ts' }),
 			);
 
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/using-target.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/using-target.ts',
+			);
 		});
 
 		it('all write tool variants tracked: create_file, insert, apply_patch', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -196,7 +213,9 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			);
 
 			expect(session?.modifiedFilesThisCoderTask).toContain('src/new-file.ts');
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/insert-into.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/insert-into.ts',
+			);
 			expect(session?.modifiedFilesThisCoderTask).toContain('src/patch.ts');
 			expect(session?.modifiedFilesThisCoderTask?.length).toBe(3);
 		});
@@ -208,9 +227,9 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const hooks = createGuardrailsHooks(config);
 			// Start as architect
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
-			
+
 			// Pre-populate modifiedFilesThisCoderTask (simulating prior coder activity)
 			session!.modifiedFilesThisCoderTask = ['src/old1.ts', 'src/old2.ts'];
 
@@ -228,7 +247,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.modifiedFilesThisCoderTask = ['src/old.ts'];
 
@@ -247,7 +266,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.modifiedFilesThisCoderTask = ['src/old.ts'];
 
@@ -266,7 +285,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.modifiedFilesThisCoderTask = ['src/old.ts'];
 
@@ -287,7 +306,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -306,14 +325,18 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			);
 
 			expect(session?.modifiedFilesThisCoderTask?.length).toBe(3);
-			expect(session?.modifiedFilesThisCoderTask).toEqual(['src/a.ts', 'src/b.ts', 'src/c.ts']);
+			expect(session?.modifiedFilesThisCoderTask).toEqual([
+				'src/a.ts',
+				'src/b.ts',
+				'src/c.ts',
+			]);
 		});
 
 		it('after reset on new coder dispatch, subsequent writes track fresh list', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -322,12 +345,14 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 				makeInput('test-session', 'write', 'call-1'),
 				makeOutput({ filePath: 'src/first-round.ts' }),
 			);
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/first-round.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/first-round.ts',
+			);
 
 			// Now simulate architect dispatching a NEW coder delegation (reset)
 			// First, turn off delegationActive to simulate architect's perspective
 			session!.delegationActive = false;
-			
+
 			// Architect dispatches new coder
 			await hooks.toolBefore(
 				makeInput('test-session', 'Task', 'call-2'),
@@ -344,8 +369,12 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			);
 
 			// Should have only the new file, not the old one
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/second-round.ts');
-			expect(session?.modifiedFilesThisCoderTask).not.toContain('src/first-round.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/second-round.ts',
+			);
+			expect(session?.modifiedFilesThisCoderTask).not.toContain(
+				'src/first-round.ts',
+			);
 			expect(session?.modifiedFilesThisCoderTask?.length).toBe(1);
 		});
 	});
@@ -355,7 +384,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			// delegationActive is false by default (or explicitly set to false)
 			session!.delegationActive = false;
@@ -388,7 +417,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const hooks = createGuardrailsHooks(config);
 			// Start as architect (NOT delegationActive)
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = false; // Explicitly not in delegation
 
@@ -406,7 +435,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = false;
 
@@ -424,7 +453,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true; // Coder subagent is active
 
@@ -435,8 +464,10 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			);
 
 			// Should track in modifiedFilesThisCoderTask (Task 5.2 primary behavior)
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/coder-write.ts');
-			
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/coder-write.ts',
+			);
+
 			// Note: architectWriteCount may or may not be incremented depending on implementation
 			// The key is that modifiedFilesThisCoderTask is populated for the delegation flow
 		});
@@ -447,7 +478,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -463,7 +494,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -479,7 +510,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
-			
+
 			const session = getAgentSession('test-session');
 			session!.delegationActive = true;
 
@@ -489,7 +520,9 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 				makeOutput({ filePath: 'src/namespaced.ts' }),
 			);
 
-			expect(session?.modifiedFilesThisCoderTask).toContain('src/namespaced.ts');
+			expect(session?.modifiedFilesThisCoderTask).toContain(
+				'src/namespaced.ts',
+			);
 		});
 	});
 });

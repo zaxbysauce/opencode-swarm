@@ -1,9 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
-import { createIsolatedTestEnv } from '../../helpers/isolated-test-env';
 import { ensureAgentSession } from '../../../src/state';
+import { createIsolatedTestEnv } from '../../helpers/isolated-test-env';
 
 // Import the function under test
 let buildRetroInjection: (
@@ -32,7 +31,9 @@ describe('buildRetroInjection - TIER 2 ADVERSARIAL ATTACKS', () => {
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 
 		// Import the function after setting up environment
-		const systemEnhancerModule = await import('../../../src/hooks/system-enhancer');
+		const systemEnhancerModule = await import(
+			'../../../src/hooks/system-enhancer'
+		);
 		buildRetroInjection = systemEnhancerModule.buildRetroInjection;
 	});
 
@@ -44,10 +45,7 @@ describe('buildRetroInjection - TIER 2 ADVERSARIAL ATTACKS', () => {
 	});
 
 	// Helper function to write a retro bundle with custom entries
-	function writeRetroBundleWithEntries(
-		taskId: string,
-		entries: any[],
-	): void {
+	function writeRetroBundleWithEntries(taskId: string, entries: any[]): void {
 		const retroDir = path.join(tempDir, '.swarm', 'evidence', taskId);
 		fs.mkdirSync(retroDir, { recursive: true });
 
@@ -85,14 +83,19 @@ describe('buildRetroInjection - TIER 2 ADVERSARIAL ATTACKS', () => {
 			task_count: 10,
 			task_complexity: 'moderate',
 			top_rejection_reasons: ['Config schema', 'Dependencies'],
-			lessons_learned: ['Plan tree-sitter integration early', 'Review security findings before release'],
+			lessons_learned: [
+				'Plan tree-sitter integration early',
+				'Review security findings before release',
+			],
 			...overrides,
 		};
 	}
 
 	// Helper function to call the system enhancer hook and extract retrospective content
 	// Now we can call buildRetroInjection directly
-	async function callBuildRetroInjection(phaseNumber: number): Promise<string | null> {
+	async function callBuildRetroInjection(
+		phaseNumber: number,
+	): Promise<string | null> {
 		return await buildRetroInjection(tempDir, phaseNumber);
 	}
 

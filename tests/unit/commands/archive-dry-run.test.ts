@@ -10,13 +10,13 @@
  * bun test runner module-registry contamination across test files.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { handleArchiveCommand } from '../../../src/commands/archive.js';
-import { saveEvidence } from '../../../src/evidence/manager.js';
 import type { Evidence } from '../../../src/config/evidence-schema.js';
+import { saveEvidence } from '../../../src/evidence/manager.js';
 
 let tempDir: string;
 
@@ -55,7 +55,13 @@ async function makeBundleOld(taskId: string, daysOld: number): Promise<void> {
 	const oldIso = oldDate.toISOString();
 	bundle.updated_at = oldIso;
 	bundle.created_at = oldIso;
-	const evidencePath = path.join(tempDir, '.swarm', 'evidence', taskId, 'evidence.json');
+	const evidencePath = path.join(
+		tempDir,
+		'.swarm',
+		'evidence',
+		taskId,
+		'evidence.json',
+	);
 	await Bun.write(evidencePath, JSON.stringify(bundle));
 }
 
@@ -88,7 +94,10 @@ describe('handleArchiveCommand --dry-run loadEvidence discriminated union', () =
 		// Create a task ID directory with invalid JSON content
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '3.1');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(path.join(evidenceDir, 'evidence.json'), '{ invalid json content !!!');
+		writeFileSync(
+			path.join(evidenceDir, 'evidence.json'),
+			'{ invalid json content !!!',
+		);
 
 		const result = await handleArchiveCommand(tempDir, ['--dry-run']);
 

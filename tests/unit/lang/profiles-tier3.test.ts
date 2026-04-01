@@ -4,7 +4,7 @@
  * Tests for Dart and Ruby language profiles in the Language Registry.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles';
 
 describe('Tier 3 Language Profiles - Verification', () => {
@@ -91,7 +91,7 @@ describe('Tier 3 Language Profiles - Verification', () => {
 		for (const profile of allProfiles) {
 			expect(
 				profile.prompts.coderConstraints.length,
-				`Profile ${profile.id} has ${profile.prompts.coderConstraints.length} coderConstraints, expected >= 3`
+				`Profile ${profile.id} has ${profile.prompts.coderConstraints.length} coderConstraints, expected >= 3`,
 			).toBeGreaterThanOrEqual(3);
 		}
 	});
@@ -101,7 +101,7 @@ describe('Tier 3 Language Profiles - Verification', () => {
 		for (const profile of allProfiles) {
 			expect(
 				profile.prompts.reviewerChecklist.length,
-				`Profile ${profile.id} has ${profile.prompts.reviewerChecklist.length} reviewerChecklist items, expected >= 3`
+				`Profile ${profile.id} has ${profile.prompts.reviewerChecklist.length} reviewerChecklist items, expected >= 3`,
 			).toBeGreaterThanOrEqual(3);
 		}
 	});
@@ -135,11 +135,14 @@ describe('Tier 3 Language Profiles - Verification', () => {
 
 		expect(
 			collisions.length,
-			`Found extension collisions: ${collisions.join('; ')}`
+			`Found extension collisions: ${collisions.join('; ')}`,
 		).toBe(0);
 
 		// Also verify total extension count
-		const totalExtensions = allProfiles.reduce((sum, p) => sum + p.extensions.length, 0);
+		const totalExtensions = allProfiles.reduce(
+			(sum, p) => sum + p.extensions.length,
+			0,
+		);
 		expect(extensionSet.size).toBe(totalExtensions);
 	});
 });
