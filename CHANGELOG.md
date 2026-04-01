@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.43.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.1...v6.43.2) (2026-04-01)
+
+
+### Bug Fixes
+
+* **curator:** prevent re-trigger loop, session leak, and task counting bug ([#366](https://github.com/zaxbysauce/opencode-swarm/issues/366)) ([871c657](https://github.com/zaxbysauce/opencode-swarm/commit/871c65761c32d860bfe3e4476c665da38cc223d8))
+
 ## [6.43.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.0...v6.43.1) (2026-04-01)
 
 
