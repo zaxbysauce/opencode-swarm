@@ -35,6 +35,7 @@ import type {
 	KnowledgeConfig,
 	SwarmKnowledgeEntry,
 } from './knowledge-types.js';
+import { loadPlanJsonOnly } from '../plan/manager.js';
 import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
 
 /**
@@ -593,10 +594,15 @@ export async function runCuratorPhase(
 			phase,
 		);
 
-		// 5. Build phase digest entry from available data
-		const tasksCompleted = phaseEvents.filter(
-			(e) => (e as Record<string, unknown>).type === 'task.completed',
-		).length;
+		// 5. Build phase digest entry from plan.json (source of truth for task status).
+		// Previously this filtered events.jsonl for 'task.completed' events, but that
+		// event type is never emitted — task status lives in plan.json only.
+		const plan = await loadPlanJsonOnly(directory);
+		const phaseData = plan?.phases.find((p) => p.id === phase);
+		const tasksCompleted = phaseData
+			? phaseData.tasks.filter((t) => t.status === 'completed').length
+			: 0;
+		const tasksTotal = phaseData ? phaseData.tasks.length : 0;
 
 		// Extract key decisions from context.md (lines starting with '- ')
 		const keyDecisions: string[] = [];
@@ -618,10 +624,10 @@ export async function runCuratorPhase(
 		const phaseDigest: PhaseDigestEntry = {
 			phase,
 			timestamp: new Date().toISOString(),
-			summary: `Phase ${phase} completed. ${tasksCompleted} tasks recorded. ${complianceObservations.length} compliance observations.`,
+			summary: `Phase ${phase} completed. ${tasksCompleted}/${tasksTotal} tasks completed. ${complianceObservations.length} compliance observations.`,
 			agents_used: [...new Set(agentsDispatched.map(normalizeAgentName))],
 			tasks_completed: tasksCompleted,
-			tasks_total: tasksCompleted, // actual total not available here; caller may update
+			tasks_total: tasksTotal,
 			key_decisions: keyDecisions.slice(0, 5),
 			blockers_resolved: [],
 		};

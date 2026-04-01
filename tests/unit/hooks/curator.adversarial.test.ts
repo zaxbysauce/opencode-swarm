@@ -1180,13 +1180,24 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 		it('should process valid lines and skip corrupt ones', async () => {
 			const eventsPath = join(tempDir, '.swarm', 'events.jsonl');
 			const events = [
-				'{"phase": 1, "timestamp": "2024-01-01T00:00:00Z", "type": "task.completed"}',
+				'{"phase": 1, "timestamp": "2024-01-01T00:00:00Z", "type": "phase_complete"}',
 				'{{{ invalid json',
-				'{"phase": 1, "timestamp": "2024-01-01T00:00:01Z", "type": "task.completed"}',
+				'{"phase": 1, "timestamp": "2024-01-01T00:00:01Z", "type": "phase_complete"}',
 				'not json at all',
-				'{"phase": 1, "timestamp": "2024-01-01T00:00:02Z", "type": "task.completed"}',
+				'{"phase": 1, "timestamp": "2024-01-01T00:00:02Z", "type": "phase_complete"}',
 			];
 			writeFileSync(eventsPath, events.join('\n'), 'utf-8');
+
+			// Set up plan.json with 3 completed tasks so task count is accurate
+			const plan = {
+				schema_version: '1.0.0', title: 'Test', swarm: 'test', current_phase: 1,
+				phases: [{ id: 1, name: 'P1', status: 'in_progress', tasks: [
+					{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
+					{ id: '1.2', phase: 1, status: 'completed', description: 'B' },
+					{ id: '1.3', phase: 1, status: 'completed', description: 'C' },
+				] }],
+			};
+			writeFileSync(join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
 
 			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
 
@@ -1208,15 +1219,25 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 				events.push(JSON.stringify({
 					phase: 1,
 					timestamp: `2024-01-01T00:00:${i.toString().padStart(2, '0')}Z`,
-					type: 'task.completed',
+					type: 'phase_complete',
 				}));
 			}
 			writeFileSync(eventsPath, events.join('\n'), 'utf-8');
 
+			// Task count comes from plan.json, not events
+			const plan = {
+				schema_version: '1.0.0', title: 'Test', swarm: 'test', current_phase: 1,
+				phases: [{ id: 1, name: 'P1', status: 'in_progress', tasks: [
+					{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
+				] }],
+			};
+			writeFileSync(join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
+
 			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
 
 			expect(result).toBeDefined();
-			expect(result.digest.tasks_completed).toBe(10000);
+			// Task count from plan.json (1 task), not from events (10,000 events)
+			expect(result.digest.tasks_completed).toBe(1);
 		}, 60000);
 	});
 
