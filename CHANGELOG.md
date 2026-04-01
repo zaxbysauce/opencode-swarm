@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.44.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.2...v6.44.0) (2026-04-01)
+
+
+### Features
+
+* **plan:** add durable ledger, capability source-of-truth, and verification hardening ([#368](https://github.com/zaxbysauce/opencode-swarm/issues/368)) ([806c9d2](https://github.com/zaxbysauce/opencode-swarm/commit/806c9d275914d3ca888af1779a46d55f4d5acba4))
+
 ## [6.43.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.43.1...v6.43.2) (2026-04-01)
 
 
