@@ -32,6 +32,11 @@ import {
 } from '../hooks/review-receipt.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { writeCheckpoint } from '../plan/checkpoint';
+import {
+	ledgerExists,
+	replayFromLedger,
+	takeSnapshotEvent,
+} from '../plan/ledger';
 import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import {
@@ -1022,8 +1027,46 @@ export async function executePhaseComplete(
 			const plan = await loadPlan(dir);
 			if (plan === null) {
 				// loadPlan() returned null (malformed JSON and no plan.md to migrate from)
+				// Try ledger-first rebuild before direct write
+				if (await ledgerExists(dir)) {
+					try {
+						const rebuilt = await replayFromLedger(dir);
+						if (rebuilt) {
+							const phaseObj = rebuilt.phases.find(
+								(p: { id: number }) => p.id === phase,
+							);
+							if (phaseObj) {
+								phaseObj.status = 'complete';
+								await savePlan(dir, rebuilt);
+								// After successful phase completion, take a snapshot
+								try {
+									await takeSnapshotEvent(dir, rebuilt).catch(() => {});
+								} catch {
+									// Snapshot failure is non-blocking
+								}
+								return JSON.stringify(
+									{
+										success: true,
+										phase,
+										status: 'success',
+										message,
+										agentsDispatched,
+										agentsMissing,
+										warnings,
+										timestamp: event.timestamp,
+										duration_ms: durationMs,
+									},
+									null,
+									2,
+								);
+							}
+						}
+					} catch {
+						// Rebuild failed, fall through to direct write
+					}
+				}
+				// Last resort: direct write
 				warnings.push(`Warning: failed to update plan.json phase status`);
-				// Fall back to direct fs operations
 				try {
 					const planPath = validateSwarmPath(dir, 'plan.json');
 					const planRaw = fs.readFileSync(planPath, 'utf-8');
@@ -1046,9 +1089,42 @@ export async function executePhaseComplete(
 					phaseObj.status = 'complete';
 					await savePlan(dir, plan, { preserveCompletedStatuses: true });
 				}
+				// After successful phase completion, take a snapshot
+				try {
+					const plan = await loadPlan(dir);
+					if (plan) {
+						await takeSnapshotEvent(dir, plan).catch(() => {});
+					}
+				} catch {
+					// Snapshot failure is non-blocking
+				}
 			}
 		} catch (error) {
 			// loadPlan() threw — this shouldn't happen for malformed JSON (loadPlan returns null instead)
+			// Try ledger-first rebuild before direct write
+			if (await ledgerExists(dir)) {
+				try {
+					const rebuilt = await replayFromLedger(dir);
+					if (rebuilt) {
+						const phaseObj = rebuilt.phases.find(
+							(p: { id: number }) => p.id === phase,
+						);
+						if (phaseObj) {
+							phaseObj.status = 'complete';
+							await savePlan(dir, rebuilt);
+							// After successful phase completion, take a snapshot
+							try {
+								await takeSnapshotEvent(dir, rebuilt).catch(() => {});
+							} catch {
+								// Snapshot failure is non-blocking
+							}
+						}
+					}
+				} catch {
+					// Rebuild failed, fall through to direct write
+				}
+			}
+			// Last resort: direct write
 			warnings.push(`Warning: failed to update plan.json phase status`);
 			try {
 				const planPath = validateSwarmPath(dir, 'plan.json');

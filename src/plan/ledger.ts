@@ -16,45 +16,6 @@ import type { Plan, Task } from '../config/plan-schema';
 export const LEDGER_SCHEMA_VERSION = '1.0.0';
 
 /**
- * Snapshot interval - take a snapshot every N events
- */
-export const SNAPSHOT_INTERVAL = 50;
-
-/**
- * Directory name for snapshot storage
- */
-export const SNAPSHOT_DIR = 'ledger-snapshots';
-
-/**
- * File name for latest snapshot pointer
- */
-export const LATEST_SNAPSHOT_FILE = 'latest-snapshot.json';
-
-/**
- * A point-in-time snapshot of the plan state.
- */
-export interface LedgerSnapshot {
-	/** Last seq included in this snapshot */
-	snapshot_seq: number;
-	/** Hash of plan state at snapshot time */
-	snapshot_hash: string;
-	/** ISO timestamp when snapshot was created */
-	created_at: string;
-	/** The plan state at snapshot time */
-	plan_state: Plan;
-}
-
-/**
- * Metadata about a snapshot (without the full plan state).
- * Used for quick lookups without loading the full snapshot.
- */
-export interface LedgerSnapshotMetadata {
-	snapshot_seq: number;
-	snapshot_hash: string;
-	created_at: string;
-}
-
-/**
  * Valid ledger event types
  */
 export const LEDGER_EVENT_TYPES = [
@@ -67,6 +28,7 @@ export const LEDGER_EVENT_TYPES = [
 	'plan_rebuilt',
 	'plan_exported',
 	'plan_reset',
+	'snapshot',
 ] as const;
 
 export type LedgerEventType = (typeof LEDGER_EVENT_TYPES)[number];
@@ -100,6 +62,8 @@ export interface LedgerEvent {
 	plan_hash_after: string;
 	/** Schema version for this ledger entry */
 	schema_version: string;
+	/** Optional payload for events that carry additional data */
+	payload?: Record<string, unknown>;
 }
 
 /**
@@ -113,6 +77,15 @@ export type LedgerEventInput = Omit<
 	| 'plan_hash_after'
 	| 'schema_version'
 >;
+
+/**
+ * Payload for snapshot ledger events.
+ * Embeds the full Plan payload for ledger-only rebuild.
+ */
+export interface SnapshotEventPayload {
+	plan: Plan;
+	payload_hash: string;
+}
 
 /**
  * Ledger file name
@@ -147,27 +120,6 @@ function getLedgerPath(directory: string): string {
  */
 function getPlanJsonPath(directory: string): string {
 	return path.join(directory, '.swarm', PLAN_JSON_FILENAME);
-}
-
-/**
- * Get the path to the snapshot directory
- */
-function getSnapshotDir(directory: string): string {
-	return path.join(directory, '.swarm', SNAPSHOT_DIR);
-}
-
-/**
- * Get the path to a specific snapshot file
- */
-function getSnapshotPath(directory: string, snapshotSeq: number): string {
-	return path.join(getSnapshotDir(directory), `snapshot-${snapshotSeq}.json`);
-}
-
-/**
- * Get the path to the latest snapshot pointer file
- */
-function getLatestSnapshotPath(directory: string): string {
-	return path.join(getSnapshotDir(directory), LATEST_SNAPSHOT_FILE);
 }
 
 /**
@@ -389,7 +341,11 @@ export async function initLedger(
 export async function appendLedgerEvent(
 	directory: string,
 	eventInput: LedgerEventInput,
-	options?: { expectedSeq?: number; expectedHash?: string },
+	options?: {
+		expectedSeq?: number;
+		expectedHash?: string;
+		planHashAfter?: string;
+	},
 ): Promise<LedgerEvent> {
 	const ledgerPath = getLedgerPath(directory);
 
@@ -416,10 +372,10 @@ export async function appendLedgerEvent(
 		);
 	}
 
-	// Read plan after (in case event modified it, though this is called before)
-	// For now, hash_before and hash_after are the same since plan.json
-	// hasn't been modified yet - the caller is responsible for updating plan.json
-	const planHashAfter = planHashBefore;
+	// Use provided planHashAfter if available (allows caller to compute hash from
+	// in-memory mutated plan before writing to disk), otherwise fall back to
+	// computing from current plan.json (backward-compatible)
+	const planHashAfter = options?.planHashAfter ?? planHashBefore;
 
 	const event: LedgerEvent = {
 		...eventInput,
@@ -452,6 +408,31 @@ export async function appendLedgerEvent(
 }
 
 /**
+ * Take a snapshot event and append it to the ledger.
+ * The snapshot embeds the full Plan payload for ledger-only rebuild.
+ *
+ * @param directory - The working directory
+ * @param plan - The current plan state to snapshot
+ * @returns The LedgerEvent that was written
+ */
+export async function takeSnapshotEvent(
+	directory: string,
+	plan: Plan,
+): Promise<LedgerEvent> {
+	const payloadHash = computePlanHash(plan);
+	const snapshotPayload: SnapshotEventPayload = {
+		plan,
+		payload_hash: payloadHash,
+	};
+	return appendLedgerEvent(directory, {
+		event_type: 'snapshot',
+		source: 'takeSnapshotEvent',
+		plan_id: plan.title,
+		payload: snapshotPayload as unknown as Record<string, unknown>,
+	});
+}
+
+/**
  * Options for replayFromLedger
  */
 interface ReplayOptions {
@@ -477,38 +458,6 @@ export async function replayFromLedger(
 	directory: string,
 	options?: ReplayOptions,
 ): Promise<Plan | null> {
-	// If useSnapshot is enabled, try to load from snapshot + delta
-	if (options?.useSnapshot) {
-		const latestSnapshot = await getLatestSnapshotMetadata(directory);
-		if (latestSnapshot) {
-			const snapshot = await loadSnapshot(
-				directory,
-				latestSnapshot.snapshot_seq,
-			);
-			if (snapshot) {
-				// Load events after the snapshot
-				const events = await getEventsAfterSeq(
-					directory,
-					latestSnapshot.snapshot_seq,
-				);
-
-				// Start from snapshot plan state and apply only new events
-				let plan: Plan | null = snapshot.plan_state;
-
-				for (const event of events) {
-					plan = applyEventToPlan(plan, event);
-					if (plan === null) {
-						// plan_reset event
-						return null;
-					}
-				}
-
-				return plan;
-			}
-		}
-	}
-
-	// Full replay from plan.json
 	const events = await readLedgerEvents(directory);
 
 	// If no events, nothing to replay
@@ -516,9 +465,36 @@ export async function replayFromLedger(
 		return null;
 	}
 
-	// Load plan.json as base state
-	// NOTE: plan.json must exist — the ledger does not store the full plan payload,
-	// only incremental events. This is a known limitation.
+	// Always check for in-ledger snapshot events first
+	{
+		// Find the latest snapshot event
+		const snapshotEvents = events.filter((e) => e.event_type === 'snapshot');
+		if (snapshotEvents.length > 0) {
+			const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
+
+			// Get the plan from the snapshot payload
+			const snapshotPayload =
+				latestSnapshotEvent.payload as unknown as SnapshotEventPayload;
+			let plan: Plan | null = snapshotPayload.plan;
+
+			// Replay events after the snapshot
+			const eventsAfterSnapshot = events.filter(
+				(e) => e.seq > latestSnapshotEvent.seq,
+			);
+
+			for (const event of eventsAfterSnapshot) {
+				plan = applyEventToPlan(plan, event);
+				if (plan === null) {
+					// plan_reset event
+					return null;
+				}
+			}
+
+			return plan;
+		}
+	}
+
+	// Fall back to plan.json as base state
 	const planJsonPath = getPlanJsonPath(directory);
 	if (!fs.existsSync(planJsonPath)) {
 		return null;
@@ -600,6 +576,10 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 			// Audit-only: task order was changed, structure already reflected in plan.json
 			return plan;
 
+		case 'snapshot':
+			// Audit-only: snapshot embeds full plan state, already handled by replayFromLedger
+			return plan;
+
 		case 'plan_reset':
 			// Reset means start fresh — nothing to replay after a reset
 			return null;
@@ -610,142 +590,6 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 				`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`,
 			);
 	}
-}
-
-/**
- * Take a snapshot of the current plan state.
- * Stores the snapshot with metadata and updates latest-snapshot pointer.
- *
- * @param directory - The working directory
- * @param plan - The current plan state to snapshot
- * @returns The created LedgerSnapshot
- */
-export async function takeSnapshot(
-	directory: string,
-	plan: Plan,
-): Promise<LedgerSnapshot> {
-	const latestSeq = await getLatestLedgerSeq(directory);
-
-	// Compute actual current state by replaying all events up to latestSeq
-	let currentPlan = plan;
-	let lastAppliedSeq = 0;
-	if (latestSeq > 0) {
-		// Replay all events to get the true current state
-		const events = await readLedgerEvents(directory);
-		for (const event of events) {
-			lastAppliedSeq = event.seq;
-			const result = applyEventToPlan(currentPlan, event);
-			if (result === null) {
-				// plan_reset — stop replay, remaining events are invalid
-				break;
-			}
-			currentPlan = result;
-		}
-	}
-
-	const snapshotHash = computePlanHash(currentPlan);
-
-	const snapshot: LedgerSnapshot = {
-		snapshot_seq: lastAppliedSeq,
-		snapshot_hash: snapshotHash,
-		created_at: new Date().toISOString(),
-		plan_state: currentPlan,
-	};
-
-	// Ensure snapshot directory exists
-	const snapshotDir = getSnapshotDir(directory);
-	fs.mkdirSync(snapshotDir, { recursive: true });
-
-	// Write snapshot to file
-	const snapshotPath = getSnapshotPath(directory, snapshot.snapshot_seq);
-	fs.writeFileSync(snapshotPath, JSON.stringify(snapshot), 'utf8');
-
-	// Update latest-snapshot pointer
-	const latestSnapshotPath = getLatestSnapshotPath(directory);
-	const metadata: LedgerSnapshotMetadata = {
-		snapshot_seq: snapshot.snapshot_seq,
-		snapshot_hash: snapshot.snapshot_hash,
-		created_at: snapshot.created_at,
-	};
-	fs.writeFileSync(latestSnapshotPath, JSON.stringify(metadata), 'utf8');
-
-	return snapshot;
-}
-
-/**
- * Get the latest snapshot metadata.
- *
- * @param directory - The working directory
- * @returns The latest snapshot metadata, or null if no snapshot exists
- */
-export async function getLatestSnapshotMetadata(
-	directory: string,
-): Promise<LedgerSnapshotMetadata | null> {
-	const latestSnapshotPath = getLatestSnapshotPath(directory);
-
-	if (!fs.existsSync(latestSnapshotPath)) {
-		return null;
-	}
-
-	try {
-		const content = fs.readFileSync(latestSnapshotPath, 'utf8');
-		const metadata = JSON.parse(content) as LedgerSnapshotMetadata;
-		return metadata;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Load a snapshot by seq number.
- *
- * @param directory - The working directory
- * @param snapshotSeq - The seq number of the snapshot to load
- * @returns The LedgerSnapshot, or null if not found
- */
-export async function loadSnapshot(
-	directory: string,
-	snapshotSeq: number,
-): Promise<LedgerSnapshot | null> {
-	const snapshotPath = getSnapshotPath(directory, snapshotSeq);
-
-	if (!fs.existsSync(snapshotPath)) {
-		return null;
-	}
-
-	try {
-		const content = fs.readFileSync(snapshotPath, 'utf8');
-		const snapshot = JSON.parse(content) as LedgerSnapshot;
-		if (!snapshot || !snapshot.plan_state) {
-			return null;
-		}
-		return snapshot;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Get events newer than a given snapshot seq.
- * Used to replay from snapshot + delta.
- *
- * @param directory - The working directory
- * @param afterSeq - Load events after this seq number
- * @returns Array of LedgerEvent sorted by seq
- */
-export async function getEventsAfterSeq(
-	directory: string,
-	afterSeq: number,
-): Promise<LedgerEvent[]> {
-	const events = await readLedgerEvents(directory);
-
-	// Filter to only events after the given seq
-	const newerEvents = events.filter((event) => event.seq > afterSeq);
-
-	// Sort by seq ascending (should already be sorted, but ensure it)
-	newerEvents.sort((a, b) => a.seq - b.seq);
-
-	return newerEvents;
 }
 
 /**
@@ -864,35 +708,33 @@ export async function replayWithIntegrity(
 		if (truncated && badSuffix !== null) {
 			await quarantineLedgerSuffix(directory, badSuffix);
 
-			// Try snapshot+prefix replay
-			const latestSnapshot = await getLatestSnapshotMetadata(directory);
-			if (latestSnapshot) {
-				const snapshot = await loadSnapshot(
-					directory,
-					latestSnapshot.snapshot_seq,
+			// Try in-ledger snapshot+prefix replay
+			const snapshotEvents = events.filter((e) => e.event_type === 'snapshot');
+			if (snapshotEvents.length > 0) {
+				const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
+				const snapshotPayload =
+					latestSnapshotEvent.payload as unknown as SnapshotEventPayload;
+
+				// Get only events after the snapshot
+				const eventsAfterSnapshot = events.filter(
+					(event) => event.seq > latestSnapshotEvent.seq,
 				);
-				if (snapshot) {
-					// Get only events after the snapshot
-					const eventsAfterSnapshot = events.filter(
-						(event) => event.seq > latestSnapshot.snapshot_seq,
-					);
 
-					// Start from snapshot plan state and apply only valid events
-					let plan: Plan | null = snapshot.plan_state;
+				// Start from snapshot plan state and apply only valid events
+				let plan: Plan | null = snapshotPayload.plan;
 
-					for (const event of eventsAfterSnapshot) {
-						plan = applyEventToPlan(plan, event);
-						if (plan === null) {
-							// plan_reset event
-							return null;
-						}
+				for (const event of eventsAfterSnapshot) {
+					plan = applyEventToPlan(plan, event);
+					if (plan === null) {
+						// plan_reset event
+						return null;
 					}
-
-					return plan;
 				}
+
+				return plan;
 			}
 
-			// No snapshot available — fall back to plan.json base with only valid events
+			// No in-ledger snapshot available — fall back to plan.json base with only valid events
 			const planJsonPath = getPlanJsonPath(directory);
 			if (!fs.existsSync(planJsonPath)) {
 				return null;

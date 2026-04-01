@@ -13,12 +13,14 @@ import {
 	appendLedgerEvent,
 	computeCurrentPlanHash,
 	computePlanHash,
+	getLatestLedgerSeq,
 	initLedger,
 	type LedgerEventInput,
 	LedgerStaleWriterError,
 	ledgerExists,
 	readLedgerEvents,
 	replayFromLedger,
+	takeSnapshotEvent,
 } from './ledger';
 
 /**
@@ -407,6 +409,11 @@ export async function savePlan(
 	// Get current plan hash for optimistic concurrency
 	const currentHash = computeCurrentPlanHash(directory);
 
+	// Compute post-mutation hash from the fully-mutated validated plan
+	// This must happen BEFORE ledger events are appended so each event
+	// receives the correct planHashAfter (the hash after all mutations)
+	const hashAfter = computePlanHash(validated);
+
 	// Compute task changes by comparing old vs new plan
 	if (currentPlan) {
 		const oldTaskMap = new Map<string, { phase: number; status: TaskStatus }>();
@@ -437,6 +444,7 @@ export async function savePlan(
 						};
 						await appendLedgerEvent(directory, eventInput, {
 							expectedHash: currentHash,
+							planHashAfter: hashAfter,
 						});
 					}
 				}
@@ -449,6 +457,13 @@ export async function savePlan(
 			}
 			throw error;
 		}
+	}
+
+	// After the ledger event loop, check if we should take a snapshot
+	const SNAPSHOT_INTERVAL = 50;
+	const latestSeq = await getLatestLedgerSeq(directory);
+	if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
+		await takeSnapshotEvent(directory, validated).catch(() => {});
 	}
 
 	const swarmDir = path.resolve(directory, '.swarm');

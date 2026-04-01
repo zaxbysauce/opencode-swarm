@@ -23,6 +23,7 @@
 {"type":"task_status_changed","taskId":"1.1","status":"completed","ts":"ISO8601"}
 {"type":"task_reordered","taskId":"1.1","afterTaskId":"1.2","ts":"ISO8601"}
 {"type":"phase_completed","phase":1,"ts":"ISO8601"}
+{"type":"snapshot","data":{"plan":{...},"payload_hash":"abc123"},"ts":"ISO8601"}
 {"type":"plan_rebuilt","ts":"ISO8601"}
 {"type":"plan_exported","path":"SWARM_PLAN.json","ts":"ISO8601"}
 {"type":"plan_reset","ts":"ISO8601"}
@@ -62,13 +63,13 @@ Writes `SWARM_PLAN.md` and `SWARM_PLAN.json` to the working directory.
 
 ## Snapshot System
 
-Every **50 ledger events**, a snapshot is written to `.swarm/ledger-snapshots/`:
+Every **50 ledger events** and on `phase_complete`, a `snapshot` event is appended to the ledger itself:
 
 ```json
-{"snapshot_seq":50,"snapshot_hash":"abc123","created_at":"ISO8601","plan_state":{...}}
+{"type":"snapshot","data":{"plan":{...},"payload_hash":"abc123"},"ts":"ISO8601"}
 ```
 
-Snapshots enable **fast recovery** — instead of replaying thousands of events, the system loads the nearest snapshot and replays only subsequent events.
+Snapshot events embed the full Plan payload and its `payload_hash`. During `loadPlan()`, `replayFromLedger()` scans for the latest snapshot event and uses it as the base state, then replays only events after that snapshot. This avoids replaying the entire ledger on every load.
 
 ## Corruption Handling
 

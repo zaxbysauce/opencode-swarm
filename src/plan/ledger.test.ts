@@ -6,19 +6,15 @@ import {
 	appendLedgerEvent,
 	computeCurrentPlanHash,
 	computePlanHash,
-	getEventsAfterSeq,
 	getLatestLedgerSeq,
-	getLatestSnapshotMetadata,
 	initLedger,
 	type LedgerEvent,
-	type LedgerSnapshot,
 	LedgerStaleWriterError,
 	ledgerExists,
-	loadSnapshot,
 	readLedgerEvents,
 	replayFromLedger,
-	SNAPSHOT_INTERVAL,
-	takeSnapshot,
+	type SnapshotEventPayload,
+	takeSnapshotEvent,
 } from '../../src/plan/ledger';
 
 // Test workspace directory
@@ -860,11 +856,7 @@ describe('ledger', () => {
 	});
 
 	describe('snapshot functionality', () => {
-		test('SNAPSHOT_INTERVAL is 50', () => {
-			expect(SNAPSHOT_INTERVAL).toBe(50);
-		});
-
-		test('takeSnapshot stores snapshot with correct metadata', async () => {
+		test('takeSnapshotEvent appends snapshot event to ledger', async () => {
 			// Create plan.json before initLedger
 			const planJsonPath = path.join(testDir, '.swarm', 'plan.json');
 			const initialPlan: Plan = {
@@ -895,58 +887,50 @@ describe('ledger', () => {
 
 			await initLedger(testDir, 'test-plan');
 
-			// Add some events to get to seq 2
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_added',
-				task_id: '1.2',
-				source: 'test',
-			});
+			// Take snapshot event
+			const snapshotEvent = await takeSnapshotEvent(testDir, initialPlan);
 
-			const latestSeq = await getLatestLedgerSeq(testDir);
-			expect(latestSeq).toBe(2);
+			// Verify the event was appended
+			expect(snapshotEvent).not.toBeNull();
+			expect(snapshotEvent.event_type).toBe('snapshot');
+			expect(snapshotEvent.seq).toBe(2);
 
-			// Take snapshot
-			const snapshot = await takeSnapshot(testDir, initialPlan);
+			// Verify the payload structure
+			const payload = snapshotEvent.payload as unknown as SnapshotEventPayload;
+			expect(payload.plan).toEqual(initialPlan);
+			expect(payload.payload_hash).toBe(computePlanHash(initialPlan));
 
-			// Verify snapshot metadata
-			expect(snapshot.snapshot_seq).toBe(2);
-			expect(snapshot.snapshot_hash).toHaveLength(64);
-			expect(snapshot.created_at).toBeTruthy();
-			expect(snapshot.plan_state).toEqual(initialPlan);
-
-			// Verify snapshot file exists
-			const snapshotPath = path.join(
-				testDir,
-				'.swarm',
-				'ledger-snapshots',
-				`snapshot-${snapshot.snapshot_seq}.json`,
-			);
-			expect(fs.existsSync(snapshotPath)).toBe(true);
-
-			// Verify latest-snapshot pointer exists
-			const latestSnapshotPath = path.join(
-				testDir,
-				'.swarm',
-				'ledger-snapshots',
-				'latest-snapshot.json',
-			);
-			expect(fs.existsSync(latestSnapshotPath)).toBe(true);
+			// Verify the event is in the ledger
+			const events = await readLedgerEvents(testDir);
+			const snapshotEvents = events.filter((e) => e.event_type === 'snapshot');
+			expect(snapshotEvents).toHaveLength(1);
+			expect(snapshotEvents[0].seq).toBe(2);
 		});
 
-		test('getLatestSnapshotMetadata returns latest snapshot', async () => {
-			// Create plan.json
+		test('replayFromLedger uses snapshot event as base when plan.json missing', async () => {
+			// Create plan.json and save
 			const planJsonPath = path.join(testDir, '.swarm', 'plan.json');
 			const plan: Plan = {
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
+				current_phase: 1,
 				phases: [
 					{
 						id: 1,
 						name: 'Phase 1',
-						status: 'pending',
-						tasks: [],
+						status: 'in_progress',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: 'Task 1',
+								depends: [],
+								files_touched: [],
+							},
+						],
 					},
 				],
 			};
@@ -954,22 +938,21 @@ describe('ledger', () => {
 
 			await initLedger(testDir, 'test-plan');
 
-			// No snapshot yet
-			const noSnapshot = await getLatestSnapshotMetadata(testDir);
-			expect(noSnapshot).toBeNull();
+			// Take snapshot event
+			await takeSnapshotEvent(testDir, plan);
 
-			// Take snapshot
-			await takeSnapshot(testDir, plan);
+			// Delete plan.json
+			fs.unlinkSync(planJsonPath);
 
-			// Now we have a snapshot
-			const metadata = await getLatestSnapshotMetadata(testDir);
-			expect(metadata).not.toBeNull();
-			expect(metadata!.snapshot_seq).toBe(1);
-			expect(metadata!.snapshot_hash).toHaveLength(64);
-			expect(metadata!.created_at).toBeTruthy();
+			// replayFromLedger should succeed using the snapshot event as base
+			const result = await replayFromLedger(testDir);
+			expect(result).not.toBeNull();
+			expect(result!.phases[0].tasks.find((t) => t.id === '1.1')!.status).toBe(
+				'pending',
+			);
 		});
 
-		test('loadSnapshot recovers plan state at snapshot seq', async () => {
+		test('replayFromLedger falls back to plan.json when no snapshot event exists', async () => {
 			// Create plan.json
 			const planJsonPath = path.join(testDir, '.swarm', 'plan.json');
 			const plan: Plan = {
@@ -992,15 +975,6 @@ describe('ledger', () => {
 								depends: [],
 								files_touched: [],
 							},
-							{
-								id: '1.2',
-								phase: 1,
-								status: 'pending',
-								size: 'medium',
-								description: 'Task 2',
-								depends: [],
-								files_touched: [],
-							},
 						],
 					},
 				],
@@ -1009,45 +983,25 @@ describe('ledger', () => {
 
 			await initLedger(testDir, 'test-plan');
 
-			// Add events to get to seq 3
+			// Add events without taking snapshot event
 			await appendLedgerEvent(testDir, {
 				plan_id: 'test-plan',
 				event_type: 'task_status_changed',
 				task_id: '1.1',
 				from_status: 'pending',
-				to_status: 'in_progress',
-				source: 'test',
-			});
-
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.2',
-				from_status: 'pending',
 				to_status: 'completed',
 				source: 'test',
 			});
 
-			// Take snapshot at seq 3
-			const snapshot = await takeSnapshot(testDir, plan);
-
-			// Load the snapshot
-			const loaded = await loadSnapshot(testDir, snapshot.snapshot_seq);
-
-			expect(loaded).not.toBeNull();
-			expect(loaded!.snapshot_seq).toBe(3);
-			// After replaying events 1 and 2:
-			// - task 1.1 is 'in_progress' (event 1: pending → in_progress)
-			// - task 1.2 is 'completed' (event 2: pending → completed)
-			expect(
-				loaded!.plan_state.phases[0].tasks.find((t) => t.id === '1.1')!.status,
-			).toBe('in_progress');
-			expect(
-				loaded!.plan_state.phases[0].tasks.find((t) => t.id === '1.2')!.status,
-			).toBe('completed');
+			// replayFromLedger should use plan.json as base (existing behavior)
+			const result = await replayFromLedger(testDir);
+			expect(result).not.toBeNull();
+			expect(result!.phases[0].tasks.find((t) => t.id === '1.1')!.status).toBe(
+				'completed',
+			);
 		});
 
-		test('getEventsAfterSeq returns only newer events', async () => {
+		test('replayFromLedger returns null when neither plan.json nor snapshot event exists', async () => {
 			// Create plan.json
 			const planJsonPath = path.join(testDir, '.swarm', 'plan.json');
 			const plan: Plan = {
@@ -1067,45 +1021,16 @@ describe('ledger', () => {
 
 			await initLedger(testDir, 'test-plan');
 
-			// Add events to get to seq 4
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_added',
-				task_id: '1.1',
-				source: 'test',
-			});
+			// Delete plan.json (no snapshot event was taken)
+			fs.unlinkSync(planJsonPath);
 
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_added',
-				task_id: '1.2',
-				source: 'test',
-			});
-
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_added',
-				task_id: '1.3',
-				source: 'test',
-			});
-
-			// Get events after seq 2 (should return events 3 and 4)
-			const eventsAfter2 = await getEventsAfterSeq(testDir, 2);
-			expect(eventsAfter2).toHaveLength(2);
-			expect(eventsAfter2[0].seq).toBe(3);
-			expect(eventsAfter2[1].seq).toBe(4);
-
-			// Get events after seq 4 (should return nothing)
-			const eventsAfter4 = await getEventsAfterSeq(testDir, 4);
-			expect(eventsAfter4).toHaveLength(0);
-
-			// Get events after seq 0 (should return all events)
-			const eventsAfter0 = await getEventsAfterSeq(testDir, 0);
-			expect(eventsAfter0).toHaveLength(4); // plan_created + 3 task_added
+			// replayFromLedger should return null
+			const result = await replayFromLedger(testDir);
+			expect(result).toBeNull();
 		});
 
-		test('snapshot and replay parity test', async () => {
-			// Create plan.json
+		test('replayFromLedger replays deltas after snapshot event', async () => {
+			// Create plan.json with task 1.1 pending
 			const planJsonPath = path.join(testDir, '.swarm', 'plan.json');
 			const plan: Plan = {
 				schema_version: '1.0.0',
@@ -1127,15 +1052,6 @@ describe('ledger', () => {
 								depends: [],
 								files_touched: [],
 							},
-							{
-								id: '1.2',
-								phase: 1,
-								status: 'pending',
-								size: 'medium',
-								description: 'Task 2',
-								depends: ['1.1'],
-								files_touched: [],
-							},
 						],
 					},
 				],
@@ -1144,99 +1060,25 @@ describe('ledger', () => {
 
 			await initLedger(testDir, 'test-plan');
 
-			// Add events
+			// Take snapshot event
+			await takeSnapshotEvent(testDir, plan);
+
+			// Append task_status_changed event changing 1.1 to completed
 			await appendLedgerEvent(testDir, {
 				plan_id: 'test-plan',
 				event_type: 'task_status_changed',
 				task_id: '1.1',
 				from_status: 'pending',
-				to_status: 'in_progress',
-				source: 'test',
-			});
-
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.1',
-				from_status: 'in_progress',
 				to_status: 'completed',
 				source: 'test',
 			});
 
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.2',
-				from_status: 'pending',
-				to_status: 'in_progress',
-				source: 'test',
-			});
-
-			// Take snapshot at seq 4
-			const snapshot = await takeSnapshot(testDir, plan);
-
-			// Add more events after the snapshot
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.2',
-				from_status: 'in_progress',
-				to_status: 'completed',
-				source: 'test',
-			});
-
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'phase_completed',
-				phase_id: 1,
-				source: 'test',
-			});
-
-			// Full replay (without snapshot)
-			const fullReplay = await replayFromLedger(testDir);
-
-			// Snapshot-based replay
-			const snapshotReplay = await replayFromLedger(testDir, {
-				useSnapshot: true,
-			});
-
-			// Both should produce the same final state
-			expect(snapshotReplay).not.toBeNull();
-			expect(fullReplay).not.toBeNull();
-
-			// Both should show task 1.1 as completed
-			expect(
-				snapshotReplay!.phases[0].tasks.find((t) => t.id === '1.1')!.status,
-			).toBe('completed');
-			expect(
-				fullReplay!.phases[0].tasks.find((t) => t.id === '1.1')!.status,
-			).toBe('completed');
-
-			// Both should show task 1.2 as completed
-			expect(
-				snapshotReplay!.phases[0].tasks.find((t) => t.id === '1.2')!.status,
-			).toBe('completed');
-			expect(
-				fullReplay!.phases[0].tasks.find((t) => t.id === '1.2')!.status,
-			).toBe('completed');
-
-			// Both should show phase 1 as complete
-			expect(snapshotReplay!.phases[0].status).toBe('complete');
-			expect(fullReplay!.phases[0].status).toBe('complete');
-
-			// Verify snapshot metadata is correct
-			expect(snapshot.snapshot_seq).toBe(4);
-			expect(snapshot.snapshot_hash).toBe(computePlanHash(plan));
-		});
-
-		test('loadSnapshot returns null for non-existent snapshot', async () => {
-			const result = await loadSnapshot(testDir, 999);
-			expect(result).toBeNull();
-		});
-
-		test('getLatestSnapshotMetadata returns null when no snapshots exist', async () => {
-			const result = await getLatestSnapshotMetadata(testDir);
-			expect(result).toBeNull();
+			// replayFromLedger should replay deltas after snapshot event
+			const result = await replayFromLedger(testDir);
+			expect(result).not.toBeNull();
+			expect(result!.phases[0].tasks.find((t) => t.id === '1.1')!.status).toBe(
+				'completed',
+			);
 		});
 	});
 });

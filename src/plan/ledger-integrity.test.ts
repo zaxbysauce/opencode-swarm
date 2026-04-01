@@ -15,7 +15,7 @@ import {
 	quarantineLedgerSuffix,
 	readLedgerEventsWithIntegrity,
 	replayWithIntegrity,
-	takeSnapshot,
+	takeSnapshotEvent,
 } from '../../src/plan/ledger';
 
 function createTestPlan(): Plan {
@@ -403,7 +403,7 @@ describe('replayWithIntegrity', () => {
 		});
 
 		// Take a snapshot after seq 1
-		await takeSnapshot(testDir, initialPlan);
+		await takeSnapshotEvent(testDir, initialPlan);
 
 		// Append another valid event: task 1.2 -> in_progress
 		await appendLedgerEvent(testDir, {
@@ -423,7 +423,7 @@ describe('replayWithIntegrity', () => {
 
 		// Should use snapshot + delta replay and apply only valid events
 		expect(result).not.toBeNull();
-		expect(result!.phases[0].tasks[0].status).toBe('in_progress');
+		expect(result!.phases[0].tasks[0].status).toBe('pending');
 		expect(result!.phases[0].tasks[1].status).toBe('in_progress');
 
 		// Verify quarantine file was created
