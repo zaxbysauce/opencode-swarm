@@ -47,8 +47,11 @@ export type CuratorLLMDelegate = (
 	userInput: string,
 ) => Promise<string>;
 
-/** Timeout for curator LLM delegation calls (ms) */
-const CURATOR_LLM_TIMEOUT_MS = 30_000;
+/** Timeout for curator LLM delegation calls (ms).
+ * Curator delegates may process many knowledge entries and run on any model,
+ * so the budget needs to cover session creation overhead plus a full model
+ * response. 5 minutes gives headroom for slower or more capable models. */
+const CURATOR_LLM_TIMEOUT_MS = 300_000;
 
 /**
  * Parse KNOWLEDGE_UPDATES section from curator LLM output.
