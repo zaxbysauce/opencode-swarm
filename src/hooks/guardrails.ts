@@ -10,7 +10,11 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
-import { isLowCapabilityModel, ORCHESTRATOR_NAME } from '../config/constants';
+import {
+	isLowCapabilityModel,
+	ORCHESTRATOR_NAME,
+	WRITE_TOOL_NAMES,
+} from '../config/constants';
 import {
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
@@ -96,16 +100,7 @@ function extractPhaseNumber(phaseString: string | null): number {
 function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
 	const normalized = toolName.replace(/^[^:]+[:.]/, '');
-	const writeTools = [
-		'write',
-		'edit',
-		'patch',
-		'apply_patch',
-		'create_file',
-		'insert',
-		'replace',
-	];
-	return writeTools.includes(normalized);
+	return (WRITE_TOOL_NAMES as readonly string[]).includes(normalized);
 }
 
 /**

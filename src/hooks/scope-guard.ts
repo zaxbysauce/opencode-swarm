@@ -10,7 +10,7 @@
  */
 
 import * as path from 'node:path';
-import { ORCHESTRATOR_NAME } from '../config/constants';
+import { ORCHESTRATOR_NAME, WRITE_TOOL_NAMES } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { swarmState } from '../state';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
@@ -22,17 +22,8 @@ import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 // diff-scope validation provides secondary coverage.
 
 // Tools that write files — scope guard watches these
-const WRITE_TOOLS = new Set([
-	'write',
-	'edit',
-	'patch',
-	'apply_patch',
-	'create_file',
-	'insert',
-	'replace',
-	'append',
-	'prepend',
-]);
+// Derived from shared WRITE_TOOL_NAMES constant — do not edit here
+const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 
 /**
  * Configuration for scope guard behavior.

@@ -1,4 +1,5 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
+import { AGENT_TOOL_MAP, TOOL_DESCRIPTIONS } from '../config/constants';
 import { hasActiveTurboMode } from '../state';
 
 export interface AgentDefinition {
@@ -94,9 +95,8 @@ Do not re-trigger DISCOVER or CONSULT because you noticed a project phase bounda
 Output to .swarm/plan.md MUST use "## Phase N" headers. Do not write MODE labels into plan.md.
 
 1. DELEGATE all coding to {{AGENT_PREFIX}}coder. You do NOT write code.
-// IMPORTANT: This list MUST match AGENT_TOOL_MAP['architect'] in src/config/constants.ts
-// If you add a tool to the map, add it here. If you remove it from the map, remove it here.
-YOUR TOOLS: Task (delegation), build_check, check_gate_status, checkpoint, co_change_analyzer, completion_verify, complexity_hotspots, curator_analyze, declare_scope, detect_domains, diff, doc_extract, doc_scan, evidence_check, extract_code_blocks, gitingest, imports, knowledgeAdd, knowledge_query, knowledgeRecall, knowledgeRemove, lint, phase_complete, pkg_audit, placeholder_scan, pre_check_batch, quality_budget, retrieve_summary, sast_scan, save_plan, sbom_generate, schema_drift, secretscan, symbols, syntax_check, test_runner, todo_extract, update_task_status, write_drift_evidence, write_retro.
+// IMPORTANT: This list is auto-generated from AGENT_TOOL_MAP['architect'] in src/config/constants.ts
+YOUR TOOLS: {{YOUR_TOOLS}}
 CODER'S TOOLS: write, edit, patch, apply_patch, create_file, insert, replace — any tool that modifies file contents.
 If a tool modifies a file, it is a CODER tool. Delegate.
 2. ONE agent per message. Send, STOP, wait for response.
@@ -350,7 +350,7 @@ Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <comm
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
 
-Available Tools: symbols (code symbol search), checkpoint (state snapshots), diff (structured git diff with contract change detection), imports (dependency audit), lint (code quality), placeholder_scan (placeholder/todo detection), secretscan (secret detection), sast_scan (static analysis security scan), syntax_check (syntax validation), test_runner (auto-detect and run tests), pkg_audit (dependency vulnerability scan — npm/pip/cargo), complexity_hotspots (git churn × complexity risk map), schema_drift (OpenAPI spec vs route drift), todo_extract (structured TODO/FIXME extraction), evidence_check (verify task evidence completeness), sbom_generate (SBOM generation for dependency inventory), build_check (build verification), quality_budget (code quality budget check), pre_check_batch (parallel verification: lint:check + secretscan + sast_scan + quality_budget), update_task_status (mark tasks complete, track phase progress), write_retro (document phase retrospectives via phase_complete workflow, capture lessons learned)
+Available Tools: {{AVAILABLE_TOOLS}}
 
 ## DELEGATION FORMAT
 
@@ -948,10 +948,10 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 4. Write retrospective evidence: record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/ via write_retro. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
-5.5. **Drift verification**: Delegate to {{AGENT_PREFIX}}critic_drift_verifier for phase drift review BEFORE calling phase_complete. The critic_drift_verifier will read every target file, verify described changes exist, and produce drift evidence. After the delegation returns, use the \`write_drift_evidence\` tool to persist the drift evidence (phase, verdict from critic, summary). Only then call phase_complete. If the critic returns needs_revision, address the missing items before retrying phase_complete. If spec.md does not exist: skip the critic delegation. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
+5.5. **Drift verification**: Delegate to {{AGENT_PREFIX}}critic_drift_verifier for phase drift review BEFORE calling phase_complete. The critic_drift_verifier will read every target file, verify described changes exist, and return a verdict (APPROVED or NEEDS_REVISION). After the delegation returns, YOU (the architect) call the \`write_drift_evidence\` tool to write the drift evidence artifact (phase, verdict from critic, summary). The critic does NOT write files — it is read-only. Only then call phase_complete. If the critic returns needs_revision, address the missing items before retrying phase_complete. If spec.md does not exist: skip the critic delegation. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
    - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
-   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by the critic_drift_verifier delegation in step 5.5)
+   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by YOU via the \`write_drift_evidence\` tool after the critic_drift_verifier returns its verdict in step 5.5)
    If either is missing, run the missing gate first. Turbo mode skips both gates automatically.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
@@ -1009,6 +1009,31 @@ export interface AdversarialTestingConfig {
 	scope: 'all' | 'security-only';
 }
 
+/**
+ * Generate the YOUR TOOLS line from AGENT_TOOL_MAP.architect.
+ * Format: "Task (delegation), tool1, tool2, ..." — Task is always first.
+ */
+function buildYourToolsList(): string {
+	const tools = AGENT_TOOL_MAP.architect ?? [];
+	const sorted = [...tools].sort();
+	return `Task (delegation), ${sorted.join(', ')}.`;
+}
+
+/**
+ * Generate the Available Tools block from AGENT_TOOL_MAP.architect + TOOL_DESCRIPTIONS.
+ * Format: "tool1 (description), tool2 (description), ..." — tools without descriptions use name only.
+ */
+function buildAvailableToolsList(): string {
+	const tools = AGENT_TOOL_MAP.architect ?? [];
+	const sorted = [...tools].sort();
+	return sorted
+		.map((t) => {
+			const desc = TOOL_DESCRIPTIONS[t];
+			return desc ? `${t} (${desc})` : t;
+		})
+		.join(', ');
+}
+
 export function createArchitectAgent(
 	model: string,
 	customPrompt?: string,
@@ -1022,6 +1047,11 @@ export function createArchitectAgent(
 	} else if (customAppendPrompt) {
 		prompt = `${ARCHITECT_PROMPT}\n\n${customAppendPrompt}`;
 	}
+
+	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth)
+	prompt = prompt
+		?.replace('{{YOUR_TOOLS}}', buildYourToolsList())
+		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList());
 
 	// Handle adversarial testing conditional based on config
 	const advEnabled = adversarialTesting?.enabled ?? true; // Default: true (preserve current behavior)

@@ -518,4 +518,72 @@ describe('runPreCheckBatch SAST gate integration', () => {
 		expect(finding.location.line).toBe(1);
 		expect(finding.remediation).toBe('Use environment variables');
 	});
+
+	test(
+		'no false deadlock: changed file is clean, unchanged file has HIGH SAST finding → gates_passed true, finding surfaced to reviewer',
+		{ timeout: 30_000 },
+		async () => {
+			// Scenario: coder touched clean.ts (no findings), but legacy.ts (not touched) has a HIGH finding.
+			// System must NOT block the coder for legacy.ts's pre-existing issue.
+			// The finding must be surfaced to reviewer via sast_preexisting_findings.
+
+			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pcb-nodeadlock-'));
+			try {
+				// Create two files: clean.ts (changed) and legacy.ts (unchanged with finding)
+				fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
+				fs.writeFileSync(path.join(tempDir, 'legacy.ts'), 'eval(userInput);\n');
+
+				// Set up git repo: legacy.ts committed first, then clean.ts added in second commit
+				const { execSync } = await import('node:child_process');
+				try {
+					execSync('git init', { cwd: tempDir, stdio: 'pipe' });
+					execSync('git config user.email "test@test.com"', { cwd: tempDir, stdio: 'pipe' });
+					execSync('git config user.name "Test"', { cwd: tempDir, stdio: 'pipe' });
+					// First commit: legacy.ts only
+					execSync('git add legacy.ts && git commit -m "add legacy"', { cwd: tempDir, stdio: 'pipe' });
+					// Second commit: add clean.ts (this is the "changed" file)
+					execSync('git add clean.ts && git commit -m "add clean"', { cwd: tempDir, stdio: 'pipe' });
+				} catch {
+					// Git not available — skip gracefully
+					return;
+				}
+
+				const legacyFile = path.join(tempDir, 'legacy.ts');
+				// SAST returns a HIGH finding on legacy.ts line 1 (unchanged file)
+				mockSastScan.mockImplementationOnce(async () => ({
+					verdict: 'fail' as const,
+					findings: [
+						{
+							rule_id: 'eval-injection',
+							severity: 'high' as const,
+							message: 'eval() with user input is dangerous',
+							location: { file: legacyFile, line: 1 },
+						},
+					],
+					summary: {
+						engine: 'tier_a' as const,
+						files_scanned: 2,
+						findings_count: 1,
+						findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
+					},
+				}));
+
+				// Coder only touched clean.ts — pass only that file
+				const result = await runPreCheckBatch({
+					files: ['clean.ts'],
+					directory: tempDir,
+				});
+
+				// Must NOT block: changed file (clean.ts) has no findings
+				expect(result.gates_passed).toBe(true);
+
+				// Must surface the pre-existing finding to reviewer
+				expect(result.sast_preexisting_findings).toBeDefined();
+				expect(result.sast_preexisting_findings).toHaveLength(1);
+				expect(result.sast_preexisting_findings![0].rule_id).toBe('eval-injection');
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		},
+	);
 });

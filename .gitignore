@@ -42,3 +42,8 @@ output_*.js
 
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/
+
+# Root-level checkpoint artifacts (export-only, not runtime source of truth)
+/SWARM_PLAN.md
+/SWARM_PLAN.json
+

@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
 import { releaseLock, tryAcquireLock } from '../parallel/file-locks.js';
+import { writeCheckpoint } from '../plan/checkpoint';
 import { savePlan } from '../plan/manager';
 import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
@@ -254,6 +255,8 @@ export async function executeSavePlan(
 		}
 		try {
 			await savePlan(dir, plan);
+			// Write root-level checkpoint artifact (non-blocking)
+			await writeCheckpoint(dir).catch(() => {});
 			// Advisory: write marker file for unauthorized-write detection
 			try {
 				const markerPath = path.join(dir, '.swarm', '.plan-write-marker');

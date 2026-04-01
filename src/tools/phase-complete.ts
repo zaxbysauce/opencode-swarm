@@ -31,6 +31,13 @@ import {
 	persistReviewReceipt,
 } from '../hooks/review-receipt.js';
 import { validateSwarmPath } from '../hooks/utils';
+import { writeCheckpoint } from '../plan/checkpoint';
+import {
+	ledgerExists,
+	replayFromLedger,
+	takeSnapshotEvent,
+} from '../plan/ledger';
+import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import {
 	endAgentSession,
@@ -924,6 +931,18 @@ export async function executePhaseComplete(
 		}
 	}
 
+	// Declare result early so the ledger-rebuild blocks can set result fields
+	// instead of returning early, allowing flow-through to the finalization block
+	const result: PhaseCompleteResult = {
+		success,
+		phase,
+		status,
+		message,
+		agentsDispatched,
+		agentsMissing,
+		warnings,
+	};
+
 	// Regression sweep check: advisory warning if enforce=true and no sweep found
 	if (phaseCompleteConfig.regression_sweep?.enforce) {
 		try {
@@ -1015,31 +1034,117 @@ export async function executePhaseComplete(
 			}
 		}
 
-		// Update plan.json phase status to completed
+		// Update plan.json phase status to complete via ledger-first savePlan
 		try {
-			const planPath = validateSwarmPath(dir, 'plan.json');
-			const planJson = fs.readFileSync(planPath, 'utf-8');
-			const plan: {
-				phases: Array<{
-					id: number;
-					status: string;
-					tasks: Array<{ id: string; status: string }>;
-				}>;
-			} = JSON.parse(planJson);
-
-			const phaseObj = plan.phases.find((p) => p.id === phase);
-			if (phaseObj) {
-				phaseObj.status = 'completed';
-				fs.writeFileSync(
-					planPath,
-					`${JSON.stringify(plan, null, 2)}\n`,
-					'utf-8',
+			const plan = await loadPlan(dir);
+			if (plan === null) {
+				// loadPlan() returned null (malformed JSON and no plan.md to migrate from)
+				// Try ledger-first rebuild before direct write
+				if (await ledgerExists(dir)) {
+					try {
+						const rebuilt = await replayFromLedger(dir);
+						if (rebuilt) {
+							const phaseObj = rebuilt.phases.find(
+								(p: { id: number }) => p.id === phase,
+							);
+							if (phaseObj) {
+								phaseObj.status = 'complete';
+								await savePlan(dir, rebuilt);
+								// After successful phase completion, take a snapshot
+								try {
+									await takeSnapshotEvent(dir, rebuilt).catch(() => {});
+								} catch {
+									// Snapshot failure is non-blocking
+								}
+								// Don't return here — flow through to the common finalization block
+								// which writes checkpoint artifacts and builds the final result
+								result.success = true;
+								result.status = 'success';
+							}
+						}
+					} catch {
+						// Rebuild failed, fall through to direct write
+					}
+				}
+				// Last resort: direct write
+				warnings.push(`Warning: failed to update plan.json phase status`);
+				try {
+					const planPath = validateSwarmPath(dir, 'plan.json');
+					const planRaw = fs.readFileSync(planPath, 'utf-8');
+					const plan = JSON.parse(planRaw);
+					const phaseObj = plan.phases.find(
+						(p: { id: number }) => p.id === phase,
+					);
+					if (phaseObj) {
+						phaseObj.status = 'complete';
+						fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+					}
+				} catch {
+					/* fallback failed */
+				}
+			} else if (plan) {
+				const phaseObj = plan.phases.find(
+					(p: { id: number }) => p.id === phase,
 				);
+				if (phaseObj) {
+					phaseObj.status = 'complete';
+					await savePlan(dir, plan, { preserveCompletedStatuses: true });
+				}
+				// After successful phase completion, take a snapshot
+				try {
+					const plan = await loadPlan(dir);
+					if (plan) {
+						await takeSnapshotEvent(dir, plan).catch(() => {});
+					}
+				} catch {
+					// Snapshot failure is non-blocking
+				}
 			}
 		} catch (error) {
-			warnings.push(
-				`Warning: failed to update plan.json phase status: ${error instanceof Error ? error.message : String(error)}`,
-			);
+			// loadPlan() threw — this shouldn't happen for malformed JSON (loadPlan returns null instead)
+			// Try ledger-first rebuild before direct write
+			if (await ledgerExists(dir)) {
+				try {
+					const rebuilt = await replayFromLedger(dir);
+					if (rebuilt) {
+						const phaseObj = rebuilt.phases.find(
+							(p: { id: number }) => p.id === phase,
+						);
+						if (phaseObj) {
+							phaseObj.status = 'complete';
+							await savePlan(dir, rebuilt);
+							// After successful phase completion, take a snapshot
+							try {
+								await takeSnapshotEvent(dir, rebuilt).catch(() => {});
+							} catch {
+								// Snapshot failure is non-blocking
+							}
+							// Don't return here — flow through to the common finalization block
+							// which writes checkpoint artifacts and builds the final result
+							result.success = true;
+							result.status = 'success';
+						}
+					}
+				} catch {
+					// Rebuild failed, fall through to direct write
+				}
+			}
+			// Last resort: direct write
+			warnings.push(`Warning: failed to update plan.json phase status`);
+			try {
+				const planPath = validateSwarmPath(dir, 'plan.json');
+				const planRaw = fs.readFileSync(planPath, 'utf-8');
+				const plan = JSON.parse(planRaw);
+				const phaseObj = plan.phases.find(
+					(p: { id: number }) => p.id === phase,
+				);
+				if (phaseObj) {
+					phaseObj.status = 'complete';
+					fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+				}
+			} catch {
+				/* fallback failed */
+			}
 		}
 	}
 
@@ -1047,19 +1152,11 @@ export async function executePhaseComplete(
 		warnings.push(`Curator compliance: ${complianceWarnings.join('; ')}`);
 	}
 
-	// Build final result
-	const result: PhaseCompleteResult = {
-		success,
-		phase,
-		status,
-		message,
-		agentsDispatched,
-		agentsMissing,
-		warnings,
-	};
-
 	// v6.33.1: Flush debounced snapshot on phase-complete
 	await flushPendingSnapshot(dir);
+
+	// Write root-level checkpoint artifact (non-blocking)
+	await writeCheckpoint(dir).catch(() => {});
 
 	return JSON.stringify(
 		{ ...result, timestamp: event.timestamp, duration_ms: durationMs },
