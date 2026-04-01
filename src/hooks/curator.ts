@@ -545,6 +545,25 @@ export async function runCuratorPhase(
 		// 1. Read prior curator summary
 		const priorSummary = await readCuratorSummary(directory);
 
+		// 1b. Deduplication guard: skip if this phase was already digested.
+		// Without this, repeated phase_complete or curator_analyze calls for
+		// the same phase append duplicate digest entries and re-emit compliance
+		// events, causing the summary to balloon and ephemeral sessions to leak.
+		if (priorSummary?.phase_digests.some((d) => d.phase === phase)) {
+			const existingDigest = priorSummary.phase_digests.find(
+				(d) => d.phase === phase,
+			)!;
+			return {
+				phase,
+				digest: existingDigest,
+				compliance: priorSummary.compliance_observations.filter(
+					(c) => c.phase === phase,
+				),
+				knowledge_recommendations: [],
+				summary_updated: false,
+			};
+		}
+
 		// 2. Read events.jsonl filtered to this phase window
 		const eventsJsonlContent = await readSwarmFileAsync(
 			directory,
