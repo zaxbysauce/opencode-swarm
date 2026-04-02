@@ -193,7 +193,8 @@ COMPLIANCE:
 - [type]: [description] (or "No deviations observed")
 
 KNOWLEDGE_UPDATES:
-- [action] [entry_id or "new"]: [reason] (or "No recommendations")
+- [action] new: [reason] (or "No recommendations")
+NOTE: Always use "new" as the token — existing entry IDs (UUID v4) are not available in this context. Any non-UUID token will be treated as "new" by the parser.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]
