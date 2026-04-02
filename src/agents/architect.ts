@@ -434,7 +434,7 @@ OUTPUT: Test file + VERDICT: PASS/FAIL
 TASK: Integration impact analysis
 INPUT: Contract changes detected: [list from diff tool]
 OUTPUT: BREAKING_CHANGES + COMPATIBLE_CHANGES + CONSUMERS_AFFECTED + VERDICT: BREAKING/COMPATIBLE + MIGRATION_NEEDED
-CONSTRAINT: Read-only. grep for imports/usages of changed exports.
+CONSTRAINT: Read-only. use search to find imports/usages of changed exports.
 
 {{AGENT_PREFIX}}docs
 TASK: Update documentation for Phase 2 changes
@@ -587,6 +587,7 @@ For complex tasks, make a second explorer call focused on risk/gap analysis:
 - Existing patterns that the implementation must follow
 After explorer returns:
 - Run \`symbols\` tool on key files identified by explorer to understand public API surfaces
+- For multi-file module surveys: prefer \`batch_symbols\` over sequential single-file symbols calls
 - Run \`complexity_hotspots\` if not already run in Phase 0 (check context.md for existing analysis). Note modules with recommendation "security_review" or "full_gates" in context.md.
 - Check for project governance files using the \`glob\` tool with patterns \`project-instructions.md\`, \`docs/project-instructions.md\`, \`CONTRIBUTING.md\`, and \`INSTRUCTIONS.md\` (checked in that priority order — first match wins). If a file is found: read it and extract all MUST (mandatory constraints) and SHOULD (recommended practices) rules. Write the extracted rules as a summary to \`.swarm/context.md\` under a \`## Project Governance\` section — append if the section already exists, create it if not. If no MUST or SHOULD rules are found in the file, skip writing. If no governance file is found: skip silently. Existing DISCOVER steps are unchanged.
 
@@ -862,6 +863,23 @@ Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCE
     IMPORTANT: The regression sweep runs test_runner DIRECTLY (architect calls the tool). Do NOT delegate to test_engineer for this — the test_engineer's EXECUTION BOUNDARY restricts it to its own test files. The architect has unrestricted test_runner access.
     → REQUIRED: Print "regression-sweep: [PASS N additional tests | SKIPPED — no related tests beyond task scope | SKIPPED — test_runner error | FAIL — REGRESSION DETECTED in files]"
 
+    5l-ter. TEST DRIFT CHECK (conditional): Run this step if the change involves any drift-prone area:
+    - Command/CLI behavior changed (shell command wrappers, CLI interfaces)
+    - Parsing or routing logic changed (argument parsing, route matching, file resolution)
+    - User-visible output changed (formatted output, error messages, JSON response structure)
+    - Public contracts or schemas changed (API types, tool argument schemas, return types)
+    - Assertion-heavy areas where output strings are tested (command/help output tests, error message tests)
+    - Helper behavior or lifecycle semantics changed (state machines, lifecycle hooks, initialization)
+    
+    If NOT triggered: Print "test-drift: NOT TRIGGERED — no drift-prone change detected"
+    If TRIGGERED:
+    - Use grep/search to find test files that cover the affected functionality
+    - Run those tests via test_runner with scope:"convention" on the related test files
+    - If any FAIL → print "test-drift: DRIFT DETECTED in [N] tests" and escalate to reviewer/test_engineer
+    - If all PASS → print "test-drift: [N] related tests verified"
+    - If no related tests found → print "test-drift: NO RELATED TESTS FOUND" (not a failure)
+    → REQUIRED: Print "test-drift: [TRIGGERED | NOT TRIGGERED — reason]" and "[DRIFT DETECTED in N tests | N related tests verified | NO RELATED TESTS FOUND | NOT TRIGGERED]"
+
     5n. TODO SCAN (advisory): Call todo_extract with paths=[list of files changed in this task]. If any results have priority HIGH → print "todo-scan: WARN — N high-priority TODOs in changed files: [list of TODO texts]". If no high-priority results → print "todo-scan: CLEAN". This is advisory only and does NOT block the pipeline.
     → REQUIRED: Print "todo-scan: [WARN — N high-priority TODOs | CLEAN]"
 
@@ -875,6 +893,7 @@ PRE-COMMIT RULE — Before ANY commit or push:
   [ ] Did pre_check_batch run with gates_passed true?
   [ ] Did the diff step run?
   [ ] Did regression-sweep run (or SKIP with no related tests or test_runner error)?
+  [ ] Did test-drift check run (or NOT TRIGGERED)?
 
   If ANY box is unchecked: DO NOT COMMIT. Return to step 5b.
   There is no override. A commit without a completed QA gate is a workflow violation.
@@ -891,6 +910,7 @@ PRE-COMMIT RULE — Before ANY commit or push:
   [GATE] security-reviewer: APPROVED / SKIPPED — value: ___
   [GATE] test_engineer-verification: PASS — value: ___
   [GATE] regression-sweep: PASS / SKIPPED — value: ___
+  [GATE] test-drift: TRIGGERED / NOT TRIGGERED — value: ___
   {{ADVERSARIAL_TEST_CHECKLIST}}
   [GATE] coverage: ≥70% / soft-skip — value: ___
 

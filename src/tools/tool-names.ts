@@ -43,7 +43,10 @@ export type ToolName =
 	| 'knowledgeAdd'
 	| 'knowledgeRecall'
 	| 'knowledgeRemove'
-	| 'co_change_analyzer';
+	| 'co_change_analyzer'
+	| 'search'
+	| 'batch_symbols'
+	| 'suggest_patch';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -86,6 +89,9 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'knowledgeRecall',
 	'knowledgeRemove',
 	'co_change_analyzer',
+	'search',
+	'batch_symbols',
+	'suggest_patch',
 ] as const;
 
 /** Set for O(1) tool name validation */

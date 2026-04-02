@@ -9,6 +9,7 @@
  */
 
 import { swarmState } from '../state';
+import { normalizeToolNameLowerCase } from './normalize-tool-name';
 
 export interface LedgerEntry {
 	agent: string;
@@ -180,12 +181,12 @@ const WRITE_TOOL_PATTERNS = [
 	'prepend',
 ];
 function isWriteTool(toolName: string): boolean {
-	const normalized = toolName.replace(/^[^:]+[:.]/, '').toLowerCase();
+	const normalized = normalizeToolNameLowerCase(toolName);
 	return WRITE_TOOL_PATTERNS.some((p) => normalized.includes(p));
 }
 
 const READ_TOOL_PATTERNS = ['read', 'cat', 'view', 'fetch', 'get'];
 function isReadTool(toolName: string): boolean {
-	const normalized = toolName.replace(/^[^:]+[:.]/, '').toLowerCase();
+	const normalized = normalizeToolNameLowerCase(toolName);
 	return READ_TOOL_PATTERNS.some((p) => normalized.includes(p));
 }

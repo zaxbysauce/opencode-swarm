@@ -48,6 +48,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'quality_budget',
 		'retrieve_summary',
 		'save_plan',
+		'search',
+		'batch_symbols',
 		'schema_drift',
 		'secretscan',
 		'symbols',
@@ -70,6 +72,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledgeRecall',
 		'knowledgeRemove',
 		'co_change_analyzer',
+		'suggest_patch',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -79,6 +82,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'schema_drift',
+		'search',
+		'batch_symbols',
 		'symbols',
 		'todo_extract',
 		'doc_scan',
@@ -91,6 +96,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'extract_code_blocks',
 		'retrieve_summary',
+		'search',
 		'build_check',
 		'syntax_check',
 		'knowledgeAdd',
@@ -107,6 +113,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'pkg_audit',
 		'build_check',
 		'syntax_check',
+		'search',
 	],
 	sme: [
 		'complexity_hotspots',
@@ -133,6 +140,9 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'sast_scan',
 		'placeholder_scan',
 		'knowledgeRecall',
+		'search',
+		'batch_symbols',
+		'suggest_patch',
 	],
 	critic: [
 		'complexity_hotspots',
@@ -249,6 +259,12 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'extract code blocks from text content and save them to files',
 	gitingest: 'fetch a GitHub repository full content via gitingest.com',
 	retrieve_summary: 'retrieve the full content of a stored tool output summary',
+	search:
+		'Workspace-scoped ripgrep-style text search with structured JSON output. Supports literal and regex modes, glob filtering, and result limits. NOTE: This is text search, not structural AST search — use symbols and imports tools for structural queries.',
+	batch_symbols:
+		'Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.',
+	suggest_patch:
+		'Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

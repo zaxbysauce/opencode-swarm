@@ -299,3 +299,191 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 		});
 	});
 });
+
+/**
+ * Task 5.l-ter: Test drift check prompt content tests
+ *
+ * Verifies:
+ * - test-drift appears AFTER regression-sweep in prompt
+ * - test-drift has correct trigger conditions
+ * - test-drift prints "test-drift: NOT TRIGGERED" when no drift-prone change
+ * - test-drift appears in TASK COMPLETION GATE checklist
+ * - test-drift appears in PRE-COMMIT RULE checklist
+ */
+describe('Task 5.l-ter: Test drift check prompt content', () => {
+	describe('test-drift step appears in prompt after regression-sweep', () => {
+		it('prompt contains test-drift step (5l-ter) after regression-sweep (5l-bis)', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find positions of both steps in the prompt
+			const regressionPos = prompt.indexOf('regression-sweep');
+			const testDriftPos = prompt.indexOf('test-drift');
+
+			expect(regressionPos).toBeGreaterThan(0);
+			expect(testDriftPos).toBeGreaterThan(0);
+			expect(testDriftPos).toBeGreaterThan(regressionPos);
+		});
+
+		it('test-drift step is labeled as TEST DRIFT CHECK', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('TEST DRIFT CHECK');
+		});
+
+		it('test-drift step includes all six trigger conditions', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// All six trigger conditions should be present
+			expect(prompt).toContain('Command/CLI behavior changed');
+			expect(prompt).toContain('Parsing or routing logic changed');
+			expect(prompt).toContain('User-visible output changed');
+			expect(prompt).toContain('Public contracts or schemas changed');
+			expect(prompt).toContain(
+				'Assertion-heavy areas where output strings are tested',
+			);
+			expect(prompt).toContain(
+				'Helper behavior or lifecycle semantics changed',
+			);
+		});
+
+		it('test-drift step includes scope:"convention" for running related tests', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// The actual text in the file uses scope:"convention" (no space after colon)
+			expect(prompt).toContain('scope:"convention"');
+		});
+	});
+
+	describe('test-drift prints NOT TRIGGERED when no drift-prone change', () => {
+		it('prompt contains "test-drift: NOT TRIGGERED" for non-triggered case', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('test-drift: NOT TRIGGERED');
+		});
+
+		it('NOT TRIGGERED message includes reason "no drift-prone change detected"', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('no drift-prone change detected');
+		});
+	});
+
+	describe('test-drift shows correct outcomes when triggered', () => {
+		it('triggered outcome includes "DRIFT DETECTED" when tests fail', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('DRIFT DETECTED');
+		});
+
+		it('triggered outcome includes "related tests verified" when all pass', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('related tests verified');
+		});
+
+		it('triggered outcome includes "NO RELATED TESTS FOUND" (not a failure)', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('NO RELATED TESTS FOUND');
+		});
+	});
+
+	describe('test-drift appears in TASK COMPLETION GATE checklist', () => {
+		it('TASK COMPLETION GATE checklist includes test-drift', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find the TASK COMPLETION GATE section
+			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			expect(gateStart).toBeGreaterThan(0);
+
+			// Extract the gate section
+			const gateSection = prompt.slice(gateStart, gateStart + 1000);
+			expect(gateSection).toContain('test-drift');
+		});
+
+		it('TASK COMPLETION GATE shows test-drift: TRIGGERED / NOT TRIGGERED format', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			const gateSection = prompt.slice(gateStart, gateStart + 1000);
+
+			// Should show the format: [GATE] test-drift: TRIGGERED / NOT TRIGGERED — value: ___
+			expect(gateSection).toMatch(
+				/test-drift:\s*TRIGGERED\s*\/\s*NOT\s*TRIGGERED/,
+			);
+		});
+	});
+
+	describe('test-drift appears in PRE-COMMIT RULE', () => {
+		it('PRE-COMMIT RULE checklist includes test-drift check', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Find the PRE-COMMIT RULE section
+			const precommitStart = prompt.indexOf('PRE-COMMIT RULE');
+			expect(precommitStart).toBeGreaterThan(0);
+
+			// Extract the precommit section
+			const precommitSection = prompt.slice(
+				precommitStart,
+				precommitStart + 700,
+			);
+			expect(precommitSection).toContain('test-drift');
+		});
+
+		it('PRE-COMMIT RULE asks "Did test-drift check run (or NOT TRIGGERED)?"', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			const precommitStart = prompt.indexOf('PRE-COMMIT RULE');
+			const precommitSection = prompt.slice(
+				precommitStart,
+				precommitStart + 700,
+			);
+
+			// Should contain the question about test-drift check
+			expect(precommitSection).toContain('test-drift check run');
+			expect(precommitSection).toContain('NOT TRIGGERED');
+		});
+	});
+
+	describe('Step 5l-ter text content verification', () => {
+		it('step 5l-ter is labeled as TEST DRIFT CHECK (conditional)', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			expect(prompt).toContain('5l-ter. TEST DRIFT CHECK (conditional)');
+		});
+
+		it('step uses grep/search to find test files that cover affected functionality', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// Should mention using grep/search to find related tests
+			expect(prompt).toContain('grep/search');
+			expect(prompt).toContain('test files that cover');
+		});
+
+		it('step includes all four possible outcomes', () => {
+			const agent = createArchitectAgent('test-model');
+			const prompt = agent.config.prompt!;
+
+			// All outcomes should be mentioned
+			expect(prompt).toContain('NOT TRIGGERED');
+			expect(prompt).toContain('DRIFT DETECTED');
+			expect(prompt).toContain('related tests verified');
+			expect(prompt).toContain('NO RELATED TESTS FOUND');
+		});
+	});
+});

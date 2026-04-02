@@ -339,7 +339,10 @@ Controls the size of tool outputs sent back to the LLM.
     "max_lines": 150,
     "per_tool": {
       "diff": 200,
-      "symbols": 100
+      "symbols": 100,
+      "search": 200,
+      "batch_symbols": 150,
+      "suggest_patch": 50
     }
   }
 }
@@ -347,7 +350,7 @@ Controls the size of tool outputs sent back to the LLM.
 
 - **truncation_enabled** – Global switch (default true).
 - **max_lines** – Default line limit for any tool output.
-- **per_tool** – Overrides `max_lines` for specific tools. The `diff` and `symbols` tools are truncated by default because their outputs can be very large.
+- **per_tool** – Overrides `max_lines` for specific tools. `diff`, `symbols`, `search`, and `batch_symbols` are truncated by default because their outputs can be very large. `suggest_patch` uses a conservative limit since patch output is typically compact.
 
 When truncation is active, a footer is appended to the output:
 
@@ -355,6 +358,63 @@ When truncation is active, a footer is appended to the output:
 ---
 [output truncated to {maxLines} lines – use `tool_output.per_tool.<tool>` to adjust]
 ```
+
+### Structured Search Tool — `search` (v6.45.0)
+
+Added as the default structured search path for workspace pattern lookup. Replaces shell `grep` workarounds with a machine-readable JSON output.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `pattern` | `string` | required | Search pattern (literal or regex) |
+| `workspace` | `string` | required | Root directory to search |
+| `mode` | `"literal" \| "regex"` | `"literal"` | Match mode |
+| `glob` | `string[]` | `[]` | Include globs (e.g. `["**/*.ts"]`) |
+| `exclude` | `string[]` | `[]` | Exclude globs |
+| `maxResults` | `number` | `100` | Hard cap on returned matches |
+| `maxLines` | `number` | `10` | Max lines per match snippet |
+| `context` | `number` | `0` | Surrounding lines per match (only when > 0) |
+
+Returns structured JSON with `file`, `line`, `text`, and `truncated` fields per hit. Falls back to a graceful error when ripgrep is unavailable. **Not a structural AST search** — combine with `symbols` and `imports` for full module analysis.
+
+**Registered for**: architect, coder, reviewer, explorer, test_engineer.
+
+### Reviewer-Safe Patch Suggestion Tool — `suggest_patch` (v6.45.0)
+
+Generates structured diff hunks for a target file without modifying it. Used by the reviewer agent to deliver actionable remediation artifacts in read-only review passes.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `file` | `string` | required | Target file path |
+| `patch` | `string` | required | Unified diff body |
+| `context` | `number` | `3` | Context lines per hunk |
+
+Returns structured patch output with hunk anchors. Detects and reports stale context when the file content has changed since the patch was authored. **Not a write tool** — no file is modified. Not registered for coder agents.
+
+**Registered for**: reviewer, architect.
+
+### Batched Symbol Extraction — `batch_symbols` (v6.45.0)
+
+Extracts exported symbols from multiple files in a single call. Each file is processed independently with per-file error isolation — a parse failure in one file does not affect others.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `files` | `string[]` | required | List of file paths to analyse |
+| `includeTopLevel` | `boolean` | `false` | Include non-exported top-level definitions |
+
+Returns a per-file symbol summary with `exports`, `topLevel` (optional), `parseError`, and `empty` fields. Benchmarks show 75–98% call reduction versus sequential single-file calls. Reuses `symbols.ts` parsing logic.
+
+**Registered for**: architect, explorer, reviewer.
+
+### Tool-Name Normalization — `normalizeToolName` (v6.45.0)
+
+Canonical helper for stripping namespace prefixes from tool names (e.g. `mega:search` → `search`, `mega.search` → `search`). Exposed via `src/hooks/normalize-tool-name.ts`.
+
+| Function | Description |
+|----------|-------------|
+| `normalizeToolName(name)` | Returns the bare tool name string |
+| `normalizeToolNameLowerCase(name)` | Returns the bare tool name in lowercase |
+
+Replaces 13 inline `replace(/^[^:]+[:.]/, '')` regex patterns that were duplicated across guardrails.ts, scope-guard.ts, index.ts, delegation-gate.ts, self-review.ts, and delegation-ledger.ts. Test-file sites are excluded — they validate the raw pattern behavior directly.
 
 ### Mode Detection (v6.13)
 

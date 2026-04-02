@@ -95,7 +95,7 @@ function validatePathForRead(filePath: string, workspace: string): boolean {
  * Handles: export function, export const, export class, export interface,
  * export type, export enum, export default, and class members.
  */
-function extractTSSymbols(filePath: string, cwd: string): SymbolInfo[] {
+export function extractTSSymbols(filePath: string, cwd: string): SymbolInfo[] {
 	const fullPath = path.join(cwd, filePath);
 
 	// Re-validate path right before file read to catch any TOCTOU issues
@@ -314,7 +314,10 @@ function extractTSSymbols(filePath: string, cwd: string): SymbolInfo[] {
 /**
  * Extract symbols from a Python file.
  */
-function extractPythonSymbols(filePath: string, cwd: string): SymbolInfo[] {
+export function extractPythonSymbols(
+	filePath: string,
+	cwd: string,
+): SymbolInfo[] {
 	const fullPath = path.join(cwd, filePath);
 
 	// Re-validate path right before file read to catch any TOCTOU issues

@@ -14,6 +14,7 @@ import { ORCHESTRATOR_NAME, WRITE_TOOL_NAMES } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { swarmState } from '../state';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
+import { normalizeToolName } from './normalize-tool-name';
 
 // NOTE: bash/shell tools are intentionally excluded from WRITE_TOOLS.
 // A coder agent using bash with shell redirections (echo > file, cp, sed -i) can
@@ -59,7 +60,7 @@ export function createScopeGuardHook(
 			if (!enabled) return;
 
 			// Only fire for write/edit tools
-			const toolName = input.tool.replace(/^[^:]+[:.]/, ''); // strip namespace prefix
+			const toolName = normalizeToolName(input.tool); // strip namespace prefix
 			if (!WRITE_TOOLS.has(toolName)) return;
 
 			// Only fire for non-architect sessions
