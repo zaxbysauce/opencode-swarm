@@ -3,6 +3,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -24,7 +25,7 @@ async function executeSearch(
 let tmpDir: string;
 
 beforeEach(() => {
-	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'search-test-'));
+	tmpDir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'search-test-')));
 	// Create a src subdirectory structure for testing
 	mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
 	mkdirSync(path.join(tmpDir, 'tests'), { recursive: true });

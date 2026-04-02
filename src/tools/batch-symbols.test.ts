@@ -18,7 +18,9 @@ async function executeBatchSymbols(
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = fs.mkdtempSync(path.join(process.cwd(), 'batch-symbols-test-'));
+	tempDir = fs.realpathSync(
+		fs.mkdtempSync(path.join(process.cwd(), 'batch-symbols-test-')),
+	);
 });
 
 afterEach(() => {

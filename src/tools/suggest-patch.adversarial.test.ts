@@ -3,6 +3,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -24,7 +25,9 @@ async function executeSuggestPatch(
 let tmpDir: string;
 
 beforeEach(() => {
-	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'suggest-patch-adversarial-'));
+	tmpDir = realpathSync(
+		mkdtempSync(path.join(os.tmpdir(), 'suggest-patch-adversarial-')),
+	);
 	mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
 });
 

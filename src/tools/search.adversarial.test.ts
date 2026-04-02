@@ -3,6 +3,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -24,7 +25,9 @@ async function executeSearch(
 let tmpDir: string;
 
 beforeEach(() => {
-	tmpDir = mkdtempSync(path.join(os.tmpdir(), 'search-adversarial-'));
+	tmpDir = realpathSync(
+		mkdtempSync(path.join(os.tmpdir(), 'search-adversarial-')),
+	);
 	mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
 	mkdirSync(path.join(tmpDir, 'tests'), { recursive: true });
 });
@@ -979,7 +982,9 @@ describe('search ADVERSARIAL - rg-not-found fallback', () => {
 		// Note: Symlink creation may fail on some platforms without privileges
 		// The important thing is the search remains scoped to workspace
 
-		const outsideDir = mkdtempSync(path.join(os.tmpdir(), 'search-outside-'));
+		const outsideDir = realpathSync(
+			mkdtempSync(path.join(os.tmpdir(), 'search-outside-')),
+		);
 		const symlinkDir = path.join(tmpDir, 'src', 'link-to-outside');
 		mkdirSync(symlinkDir, { recursive: true });
 
@@ -1070,7 +1075,9 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 		expect(parsed1.matches.length).toBe(1);
 
 		// Simulate workspace being replaced
-		tmpDir = mkdtempSync(path.join(os.tmpdir(), 'search-replaced-'));
+		tmpDir = realpathSync(
+			mkdtempSync(path.join(os.tmpdir(), 'search-replaced-')),
+		);
 		mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
 
 		// Search in new directory
