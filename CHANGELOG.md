@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.44.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.2...v6.44.3) (2026-04-02)
+
+
+### Bug Fixes
+
+* **tests:** resolve CI test failures on macOS, ubuntu, and Windows ([#374](https://github.com/zaxbysauce/opencode-swarm/issues/374)) ([5300213](https://github.com/zaxbysauce/opencode-swarm/commit/5300213a5905f1f19cbc49bbdf12245c040d78ee))
+
 ## [6.44.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.1...v6.44.2) (2026-04-02)
 
 
