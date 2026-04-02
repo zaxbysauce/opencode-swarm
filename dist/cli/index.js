@@ -18000,7 +18000,10 @@ var TOOL_NAMES = [
   "knowledgeAdd",
   "knowledgeRecall",
   "knowledgeRemove",
-  "co_change_analyzer"
+  "co_change_analyzer",
+  "search",
+  "batch_symbols",
+  "suggest_patch"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -18042,6 +18045,8 @@ var AGENT_TOOL_MAP = {
     "quality_budget",
     "retrieve_summary",
     "save_plan",
+    "search",
+    "batch_symbols",
     "schema_drift",
     "secretscan",
     "symbols",
@@ -18063,7 +18068,8 @@ var AGENT_TOOL_MAP = {
     "knowledgeAdd",
     "knowledgeRecall",
     "knowledgeRemove",
-    "co_change_analyzer"
+    "co_change_analyzer",
+    "suggest_patch"
   ],
   explorer: [
     "complexity_hotspots",
@@ -18073,6 +18079,8 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "schema_drift",
+    "search",
+    "batch_symbols",
     "symbols",
     "todo_extract",
     "doc_scan",
@@ -18085,6 +18093,7 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "extract_code_blocks",
     "retrieve_summary",
+    "search",
     "build_check",
     "syntax_check",
     "knowledgeAdd",
@@ -18100,7 +18109,8 @@ var AGENT_TOOL_MAP = {
     "complexity_hotspots",
     "pkg_audit",
     "build_check",
-    "syntax_check"
+    "syntax_check",
+    "search"
   ],
   sme: [
     "complexity_hotspots",
@@ -18126,7 +18136,10 @@ var AGENT_TOOL_MAP = {
     "test_runner",
     "sast_scan",
     "placeholder_scan",
-    "knowledgeRecall"
+    "knowledgeRecall",
+    "search",
+    "batch_symbols",
+    "suggest_patch"
   ],
   critic: [
     "complexity_hotspots",
