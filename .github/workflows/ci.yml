@@ -104,7 +104,16 @@ jobs:
         run: bun --smol test tests/unit/hooks/adversarial-detect*.test.ts --timeout 120000
       - name: Unit tests (hooks - remaining)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (commands, config)
         shell: bash
         run: |
