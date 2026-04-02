@@ -71,7 +71,16 @@ jobs:
           exit $failed
       - name: Unit tests (hooks - knowledge injector)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/knowledge-injector*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (hooks - knowledge-curator)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts --timeout 120000
