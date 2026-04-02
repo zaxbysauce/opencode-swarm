@@ -1309,6 +1309,12 @@ invalid json here
 			low_utility_threshold: 0.3,
 			min_retrievals_for_utility: 3,
 			schema_version: 1,
+			same_project_weight: 1.0,
+			cross_project_weight: 0.5,
+			min_encounter_score: 0.1,
+			initial_encounter_score: 1.0,
+			encounter_increment: 0.1,
+			max_encounter_score: 10.0,
 		};
 
 		function createKnowledgeFile(
@@ -1907,6 +1913,86 @@ invalid json here
 			expect(result.applied).toBe(0);
 			expect(result.skipped).toBe(1);
 			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
+		});
+
+		it('lesson length boundary: exactly 14 chars is skipped, exactly 15 chars is stored', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const lesson14 = 'A'.repeat(14); // exactly 14 — below minimum
+			const lesson15 = 'B'.repeat(15); // exactly 15 — at minimum
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson14,
+					reason: 'r',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson15,
+					reason: 'r',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(1);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(lesson15);
+		});
+
+		it('lesson length boundary: exactly 280 chars is stored in full, 281 chars is truncated to 280', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const lesson280 = 'C'.repeat(280);
+			const lesson281 = 'D'.repeat(281);
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson280,
+					reason: 'r',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson281,
+					reason: 'r',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(2);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(2);
+
+			const entry280 = entries.find((e) => e.lesson === lesson280);
+			expect(entry280?.lesson).toHaveLength(280);
+
+			const entry281 = entries.find((e) => e.lesson.startsWith('D'));
+			expect(entry281?.lesson).toHaveLength(280); // truncated
+			expect(entry281?.lesson).toBe('D'.repeat(280));
 		});
 
 		it('skips new entry creation for non-promote actions with undefined entry_id', async () => {
