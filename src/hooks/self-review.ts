@@ -1,6 +1,7 @@
 import { ORCHESTRATOR_NAME } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { swarmState } from '../state';
+import { normalizeToolName } from './normalize-tool-name';
 
 export interface SelfReviewConfig {
 	enabled: boolean;
@@ -24,7 +25,7 @@ export function createSelfReviewHook(
 			if (!enabled) return;
 
 			// Only fire for update_task_status tool
-			const toolName = input.tool.replace(/^[^:]+[:.]/, '');
+			const toolName = normalizeToolName(input.tool);
 			if (toolName !== 'update_task_status') return;
 
 			// Only fire when status is 'in_progress' (advances state to coder_delegated)

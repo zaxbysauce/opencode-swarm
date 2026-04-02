@@ -51,6 +51,7 @@ import { createHivePromoterHook } from './hooks/hive-promoter.js';
 import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
+import { normalizeToolName } from './hooks/normalize-tool-name';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
@@ -806,7 +807,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		'tool.execute.before': (async (input: any, output: any) => {
 			if (process.env.DEBUG_SWARM)
 				console.error(
-					`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool} session=${input.sessionID}`,
+					`[DIAG] toolBefore tool=${normalizeToolName(input.tool) ?? input.tool} session=${input.sessionID}`,
 				);
 			// If no active agent is mapped for this session, it's the primary agent (architect)
 			// Subagent delegations always set activeAgent via chat.message before tool calls
@@ -872,13 +873,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
 			const _dbg = !!process.env.DEBUG_SWARM;
-			const _toolName = input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool;
+			const _toolName = normalizeToolName(input.tool) ?? input.tool;
 			if (_dbg)
 				console.error(
 					`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`,
 				);
 
-			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '');
+			const normalizedTool = normalizeToolName(input.tool);
 			const isTaskTool = normalizedTool === 'Task' || normalizedTool === 'task';
 
 			const hookChain = async (): Promise<void> => {
