@@ -812,23 +812,30 @@ describe('save-plan adversarial tests', () => {
 			expect(hasValidationError).toBe(false);
 		});
 
-		it('should accept valid Windows-style workspace path with .swarm subdirectory', async () => {
-			const args: SavePlanArgs = {
-				title: 'Test Plan',
-				swarm_id: 'test',
-				phases: [
-					{
-						id: 1,
-						name: 'Setup',
-						tasks: [{ id: '1.1', description: 'Valid description' }],
-					},
-				],
-				working_directory: 'C:\\projects\\myworkspace',
-			};
-			const result = await executeSavePlan(args);
-			// Valid workspace path should succeed
-			expect(result.success).toBe(true);
-		});
+		it.skipIf(process.platform === 'win32')(
+			'should accept valid Windows-style workspace path with .swarm subdirectory',
+			async () => {
+				// On Linux/macOS: C:\projects\myworkspace is treated as a single directory
+				// name (backslash is a valid filename character), so the write succeeds.
+				// On Windows: this would attempt to write to the real C:\projects\ path,
+				// which requires admin permissions unavailable in CI.
+				const args: SavePlanArgs = {
+					title: 'Test Plan',
+					swarm_id: 'test',
+					phases: [
+						{
+							id: 1,
+							name: 'Setup',
+							tasks: [{ id: '1.1', description: 'Valid description' }],
+						},
+					],
+					working_directory: 'C:\\projects\\myworkspace',
+				};
+				const result = await executeSavePlan(args);
+				// Valid workspace path should succeed
+				expect(result.success).toBe(true);
+			},
+		);
 
 		it('should accept valid POSIX-style workspace path', async () => {
 			const args: SavePlanArgs = {

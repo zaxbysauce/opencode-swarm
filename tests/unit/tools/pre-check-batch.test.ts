@@ -90,7 +90,11 @@ mock.module('../../../src/utils', () => ({
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-test-'));
+	// Use realpathSync to resolve macOS /var→/private/var symlink so that
+	// process.cwd() (which resolves symlinks after chdir) matches tempDir.
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-test-')),
+	);
 }
 
 describe('runPreCheckBatch', () => {

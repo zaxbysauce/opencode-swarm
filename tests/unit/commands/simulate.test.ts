@@ -36,8 +36,8 @@ describe('handleSimulateCommand', () => {
 		mockDetectDarkMatter.mockClear();
 
 		// Create a unique temp directory for each test
-		testDir = require('node:fs').mkdtempSync(
-			path.join(os.tmpdir(), 'simulate-test-'),
+		testDir = require('node:fs').fs.realpathSync(
+			mkdtempSync(path.join(os.tmpdir(), 'simulate-test-')),
 		);
 
 		// Set up mock pairs

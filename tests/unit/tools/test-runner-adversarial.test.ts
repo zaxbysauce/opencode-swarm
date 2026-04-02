@@ -64,7 +64,11 @@ function mockSpawn(cmd: string[], opts: Record<string, unknown>) {
 
 // Helper to create temp directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-adv-'));
+	// Use realpathSync to resolve macOS /var→/private/var symlink so that
+	// process.cwd() (which resolves symlinks after chdir) matches tempDir.
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-adv-')),
+	);
 }
 
 // Helper to create test files

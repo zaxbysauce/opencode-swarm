@@ -320,7 +320,9 @@ describe('runPreCheckBatch SAST gate integration', () => {
 
 	beforeEach(() => {
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sast-gate-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'sast-gate-test-')),
+		);
 		process.chdir(tempDir);
 
 		// Create test file
@@ -565,7 +567,9 @@ describe('runPreCheckBatch SAST gate integration', () => {
 			// System must NOT block the coder for legacy.ts's pre-existing issue.
 			// The finding must be surfaced to reviewer via sast_preexisting_findings.
 
-			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pcb-nodeadlock-'));
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'pcb-nodeadlock-')),
+			);
 			try {
 				// Create two files: clean.ts (changed) and legacy.ts (unchanged with finding)
 				fs.writeFileSync(

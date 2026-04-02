@@ -73,7 +73,9 @@ describe('pkg-audit tool', () => {
 
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test-')),
+		);
 		process.chdir(tempDir);
 	});
 

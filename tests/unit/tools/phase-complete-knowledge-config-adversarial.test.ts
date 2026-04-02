@@ -25,8 +25,8 @@ describe('phase-complete.ts KnowledgeConfig fallback adversarial tests', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-adversarial-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-adversarial-')),
 		);
 		// Create .swarm directory structure
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence', 'retro-1'), {

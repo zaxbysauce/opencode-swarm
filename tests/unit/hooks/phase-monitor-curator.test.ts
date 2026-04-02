@@ -102,8 +102,8 @@ describe('createPhaseMonitorHook - Curator Integration', () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-monitor-curator-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-monitor-curator-test-')),
 		);
 		mockCheckAndTrigger.mockClear();
 		mockRunCuratorInit.mockReset(); // Use mockReset to clear implementation too
@@ -419,8 +419,8 @@ describe('Task 5.3: curator-briefing.md persistence', () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-monitor-briefing-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-monitor-briefing-test-')),
 		);
 		mockCheckAndTrigger.mockClear();
 		mockRunCuratorInit.mockClear();

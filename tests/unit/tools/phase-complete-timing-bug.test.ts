@@ -231,8 +231,10 @@ describe('Task 2.3: phase_complete timing bug fix — drift gate architecture', 
 		mockRunDeterministicDriftCheck.mockClear();
 		mockReadPriorDriftReports.mockClear();
 
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-timing-test-'),
+		// Use realpathSync to resolve macOS /var→/private/var symlink so that
+		// process.cwd() (which resolves symlinks after chdir) matches tempDir.
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-timing-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

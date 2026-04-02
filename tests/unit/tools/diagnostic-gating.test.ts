@@ -21,8 +21,8 @@ describe('DEBUG_SWARM diagnostic gating', () => {
 		let originalDebugSwarm: string | undefined;
 
 		beforeEach(() => {
-			tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'curator-diagnostic-test-'),
+			tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'curator-diagnostic-test-')),
 			);
 			originalDebugSwarm = process.env.DEBUG_SWARM;
 		});

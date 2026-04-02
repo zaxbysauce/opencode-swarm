@@ -35,7 +35,9 @@ function createMockContext(dir?: string): ToolContext {
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-cwd-test-'));
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-cwd-test-')),
+	);
 }
 
 describe('EC-001: execute() directory validation via wrapper', () => {

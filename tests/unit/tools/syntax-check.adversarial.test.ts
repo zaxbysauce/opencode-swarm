@@ -49,7 +49,9 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 
 	beforeEach(() => {
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adv-syntax-'));
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'adv-syntax-')),
+		);
 		process.chdir(tmpDir);
 		vi.clearAllMocks();
 	});

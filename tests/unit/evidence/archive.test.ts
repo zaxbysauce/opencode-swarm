@@ -247,8 +247,8 @@ describe('archiveEvidence', () => {
 
 // Helper functions
 function mkdtemp(): string {
-	return require('node:fs').mkdtempSync(
-		path.join(os.tmpdir(), 'evidence-archive-test-'),
+	return require('node:fs').fs.realpathSync(
+		mkdtempSync(path.join(os.tmpdir(), 'evidence-archive-test-')),
 	);
 }
 

@@ -12,7 +12,9 @@ export function createIsolatedTestEnv(): {
 	configDir: string;
 	cleanup: () => void;
 } {
-	const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-test-'));
+	const configDir = fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-test-')),
+	);
 
 	// Save original values
 	const originalEnv: Record<string, string | undefined> = {

@@ -127,7 +127,9 @@ describe('write-retro error taxonomy classification', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-taxonomy-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-taxonomy-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });

@@ -20,8 +20,8 @@ describe('write_retro runtime registration adversarial verification', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'write-retro-registration-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-registration-')),
 		);
 		originalCwd = process.cwd();
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });

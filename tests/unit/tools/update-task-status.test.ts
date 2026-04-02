@@ -65,8 +65,8 @@ describe('executeUpdateTaskStatus', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'update-task-status-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -344,8 +344,8 @@ describe('checkReviewerGate', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'checkreviewer-gate-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'checkreviewer-gate-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -475,8 +475,10 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'update-task-status-reviewer-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(
+				path.join(os.tmpdir(), 'update-task-status-reviewer-test-'),
+			),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -625,7 +627,9 @@ describe('Batch reviewer delegation advances all coder_delegated tasks to review
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'batch-delegation-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'batch-delegation-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -741,8 +745,8 @@ describe('executeUpdateTaskStatus in_progress state machine seeding (Task 2.3)',
 		swarmState.agentSessions.clear();
 
 		// Create tempDir with valid plan.json
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'update-task-status-task23-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-task23-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -857,8 +861,8 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 		swarmState.agentSessions.clear();
 
 		// Create tempDir with valid plan.json containing two tasks
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'task-12-regression-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'task-12-regression-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -1038,7 +1042,9 @@ describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dynamic-error-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'dynamic-error-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1118,7 +1124,9 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue81-warning-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'issue81-warning-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1269,7 +1277,9 @@ describe('checkReviewerGate — adversarial warn', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adversarial-warn-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'adversarial-warn-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1493,7 +1503,9 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'generic-reviewer-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'generic-reviewer-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1593,8 +1605,8 @@ describe('checkReviewerGate — non-visible regression warning handling (Task 2.
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'regression-warning-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'regression-warning-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -1723,8 +1735,12 @@ describe('checkReviewerGate — directory-aware plan resolution (Task 2.2)', () 
 		originalCwd = process.cwd();
 
 		// Create two temp directories with different plans
-		tempDirA = fs.mkdtempSync(path.join(os.tmpdir(), 'dir-a-test-'));
-		tempDirB = fs.mkdtempSync(path.join(os.tmpdir(), 'dir-b-test-'));
+		tempDirA = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'dir-a-test-')),
+		);
+		tempDirB = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'dir-b-test-')),
+		);
 
 		fs.mkdirSync(path.join(tempDirA, '.swarm'), { recursive: true });
 		fs.mkdirSync(path.join(tempDirB, '.swarm'), { recursive: true });
@@ -1876,7 +1892,9 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir without .swarm/plan.json
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-'));
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-')),
+		);
 		try {
 			const result = checkReviewerGate('1.1', tempDir);
 
@@ -1892,8 +1910,8 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with invalid JSON
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'invalid-json-test-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'invalid-json-test-')),
 		);
 		try {
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -1916,8 +1934,8 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with plan that has different task
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'task-not-found-test-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'task-not-found-test-')),
 		);
 		try {
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -1970,8 +1988,8 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'evidence-dir-check-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-dir-check-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

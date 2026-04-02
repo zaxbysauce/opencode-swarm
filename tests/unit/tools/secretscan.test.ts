@@ -6,7 +6,9 @@ import { secretscan } from '../../../src/tools/secretscan';
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'secretscan-test-'));
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'secretscan-test-')),
+	);
 }
 
 // Helper to create test files

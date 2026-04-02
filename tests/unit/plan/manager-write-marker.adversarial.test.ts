@@ -355,6 +355,11 @@ describe('savePlan write-marker adversarial tests', () => {
 	test('5. Plan save succeeds - marker directory read-only (Unix)', async () => {
 		// Skip on Windows - chmod behavior is different
 		test.skipIf(process.platform === 'win32');
+		// Skip on root - root ignores chmod restrictions so permission-denied
+		// behavior cannot be verified (all writes succeed regardless).
+		if (process.getuid?.() === 0) {
+			return;
+		}
 
 		const testPlan = createTestPlan();
 		const swarmDir = join(tempDir, '.swarm');
@@ -366,21 +371,18 @@ describe('savePlan write-marker adversarial tests', () => {
 		await chmod(swarmDir, 0o555);
 
 		try {
-			// savePlan should NOT throw even if marker write fails
+			// When .swarm/ is entirely read-only, savePlan THROWS because
+			// plan.json itself cannot be written — not just the marker.
+			// (Marker resilience when only the marker file is protected is
+			// tested separately in the "pre-existing read-only marker file" test.)
 			let threw = false;
-			let error: Error | null = null;
 			try {
 				await savePlan(tempDir, testPlan);
-			} catch (e) {
+			} catch {
 				threw = true;
-				error = e as Error;
 			}
 
-			expect(threw).toBe(false);
-
-			// Plan files should still be written
-			expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
-			expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
+			expect(threw).toBe(true);
 		} finally {
 			// Restore permissions for cleanup
 			await chmod(swarmDir, 0o755);

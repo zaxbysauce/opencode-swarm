@@ -110,8 +110,8 @@ describe('phase_complete tool - ADVERSARIAL SECURITY TESTS', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-adversarial-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-adversarial-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

@@ -20,7 +20,9 @@ describe('symbols.ts SECURITY ADVERSARIAL TESTS', () => {
 
 	beforeAll(async () => {
 		// Create temp workspace for testing
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'symbols-security-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'symbols-security-')),
+		);
 		workspaceDir = path.join(tempDir, 'workspace');
 		fs.mkdirSync(workspaceDir, { recursive: true });
 
@@ -322,7 +324,9 @@ __all__ = ['public_function', 'PublicClass']`,
 			'should prevent symlink escape to parent directory',
 			async () => {
 				// Create a symlink in workspace pointing outside
-				const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'));
+				const outsideDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'outside-')),
+				);
 				const targetFile = path.join(outsideDir, 'secret.txt');
 				fs.writeFileSync(targetFile, 'super secret data');
 
@@ -345,7 +349,9 @@ __all__ = ['public_function', 'PublicClass']`,
 				const nestedDir = path.join(workspaceDir, 'nested');
 				fs.mkdirSync(nestedDir, { recursive: true });
 
-				const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside2-'));
+				const outsideDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'outside2-')),
+				);
 				const targetFile = path.join(outsideDir, 'config.json');
 				fs.writeFileSync(targetFile, '{"secret": true}');
 

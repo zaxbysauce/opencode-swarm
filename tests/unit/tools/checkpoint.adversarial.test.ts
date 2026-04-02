@@ -12,7 +12,9 @@ describe('checkpoint adversarial security tests', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-adversarial-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-adversarial-')),
+		);
 		originalCwd = process.cwd();
 
 		process.chdir(tempDir);

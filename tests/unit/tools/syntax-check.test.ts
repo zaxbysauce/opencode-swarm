@@ -19,7 +19,9 @@ describe('syntax_check tool', () => {
 
 	beforeEach(async () => {
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'syntax-check-test-'));
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'syntax-check-test-')),
+		);
 		process.chdir(tmpDir);
 	});
 

@@ -41,7 +41,9 @@ function createTestFile(relativePath: string, content: string): void {
 
 describe('computeQualityMetrics', () => {
 	beforeEach(async () => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-metrics-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'quality-metrics-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 	});

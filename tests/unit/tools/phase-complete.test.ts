@@ -133,7 +133,9 @@ describe('phase_complete tool', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 

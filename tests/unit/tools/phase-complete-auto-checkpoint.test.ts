@@ -18,7 +18,9 @@ describe('phase_complete auto-checkpoint trigger', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'auto-checkpoint-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'auto-checkpoint-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -251,7 +253,9 @@ describe('phase_complete auto-checkpoint trigger', () => {
 
 		test('Non-git directory - checkpoint failure is non-fatal', async () => {
 			// Arrange: Create a non-git directory
-			const nonGitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-test-'));
+			const nonGitDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'non-git-test-')),
+			);
 			try {
 				// Create .swarm directory structure
 				fs.mkdirSync(path.join(nonGitDir, '.swarm'), { recursive: true });

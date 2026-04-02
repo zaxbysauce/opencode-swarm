@@ -74,7 +74,9 @@ describe('pkg-audit adversarial security tests', () => {
 
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-adversarial-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-adversarial-')),
+		);
 		process.chdir(tempDir);
 	});
 

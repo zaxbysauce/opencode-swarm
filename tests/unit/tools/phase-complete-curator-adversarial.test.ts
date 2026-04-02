@@ -192,8 +192,10 @@ describe('phase_complete - curator pipeline adversarial tests', () => {
 		}));
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-curator-adversarial-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(
+				path.join(os.tmpdir(), 'phase-complete-curator-adversarial-'),
+			),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

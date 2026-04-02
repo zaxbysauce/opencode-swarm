@@ -89,8 +89,10 @@ describe('phase_complete - loadEvidence discriminated union fixes (A+B+C)', () =
 		vi.clearAllMocks();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-load-evidence-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(
+				path.join(os.tmpdir(), 'phase-complete-load-evidence-test-'),
+			),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

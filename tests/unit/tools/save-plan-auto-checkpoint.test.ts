@@ -18,8 +18,8 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 
 	beforeEach(() => {
 		// Create temp directory
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'save-plan-auto-checkpoint-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'save-plan-auto-checkpoint-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

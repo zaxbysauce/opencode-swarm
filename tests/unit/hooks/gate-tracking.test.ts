@@ -86,7 +86,9 @@ describe('v6.12 Task 4.4: Gate-Tracking ADVERSARIAL TESTS', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-gate-tracking-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-gate-tracking-')),
+		);
 		originalCwd = process.cwd();
 	});
 
