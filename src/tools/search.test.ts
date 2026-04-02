@@ -107,7 +107,7 @@ describe('search - literal mode', () => {
 
 		expect(parsed.query).toBe('test');
 		expect(parsed.mode).toBe('literal');
-		expect(parsed.maxResults).toBe(1000); // default
+		expect(parsed.maxResults).toBe(100); // default
 	});
 });
 

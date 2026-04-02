@@ -53,6 +53,8 @@ const DEFAULT_MAX_RESULTS = 100;
 const DEFAULT_MAX_LINES = 200;
 const REGEX_TIMEOUT_MS = 5000;
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB per file
+const HARD_CAP_RESULTS = 10000;
+const HARD_CAP_LINES = 10000;
 
 // ============ Glob Pattern Matching (Fallback) ============
 
@@ -211,9 +213,7 @@ async function ripgrepSearch(
 	}
 
 	// Set search mode
-	if (opts.mode === 'regex') {
-		args.push('--regex');
-	} else {
+	if (opts.mode !== 'regex') {
 		args.push('--fixed-strings');
 	}
 
@@ -552,12 +552,21 @@ export const search: ToolDefinition = createSwarmTool({
 			mode = obj.mode === 'regex' ? 'regex' : 'literal';
 			include = obj.include as string | undefined;
 			exclude = obj.exclude as string | undefined;
-			maxResults =
+			const rawMaxResults =
 				typeof obj.max_results === 'number'
 					? obj.max_results
 					: DEFAULT_MAX_RESULTS;
-			maxLines =
+			const sanitizedMaxResults = Number.isNaN(rawMaxResults)
+				? DEFAULT_MAX_RESULTS
+				: rawMaxResults;
+			maxResults = Math.min(Math.max(0, sanitizedMaxResults), HARD_CAP_RESULTS);
+
+			const rawMaxLines =
 				typeof obj.max_lines === 'number' ? obj.max_lines : DEFAULT_MAX_LINES;
+			const sanitizedMaxLines = Number.isNaN(rawMaxLines)
+				? DEFAULT_MAX_LINES
+				: rawMaxLines;
+			maxLines = Math.min(Math.max(0, sanitizedMaxLines), HARD_CAP_LINES);
 		} catch {
 			return JSON.stringify(
 				{

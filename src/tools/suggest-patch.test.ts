@@ -206,7 +206,7 @@ describe('suggest-patch tool', () => {
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
-			expect(parsed.type).toBe('parse-error');
+			expect(parsed.type).toBe('file-not-found');
 		});
 
 		test('no context provided returns context-mismatch', async () => {
@@ -425,7 +425,7 @@ describe('suggest-patch tool', () => {
 			expect(parsed.filesModified).toEqual(['good.txt']);
 			expect(parsed.errors).toBeDefined();
 			expect(parsed.errors.length).toBe(1);
-			expect(parsed.errors[0].type).toBe('parse-error');
+			expect(parsed.errors[0].type).toBe('file-not-found');
 		});
 
 		test('all patches fail returns error structure', async () => {

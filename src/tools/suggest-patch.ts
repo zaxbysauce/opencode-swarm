@@ -73,6 +73,10 @@ function containsWindowsAttacks(str: string): boolean {
 function isPathInWorkspace(filePath: string, workspace: string): boolean {
 	try {
 		const resolvedPath = path.resolve(workspace, filePath);
+		// If the file doesn't exist, return true — let the caller handle missing files
+		if (!fs.existsSync(resolvedPath)) {
+			return true;
+		}
 		const realWorkspace = fs.realpathSync(workspace);
 		const realResolvedPath = fs.realpathSync(resolvedPath);
 		const relativePath = path.relative(realWorkspace, realResolvedPath);
@@ -375,9 +379,24 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 		const filesModifiedSet = new Set<string>();
 		const errors: PatchError[] = [];
 
+		// Create a Set for O(1) targetFiles membership checks
+		const targetFileSet = new Set(targetFiles);
+
 		// Process each change
 		for (let changeIndex = 0; changeIndex < changes.length; changeIndex++) {
 			const change = changes[changeIndex];
+
+			// Check that change.file is in targetFiles
+			if (!targetFileSet.has(change.file)) {
+				errors.push({
+					success: false,
+					error: true,
+					type: 'parse-error',
+					message: `File "${change.file}" is not in targetFiles`,
+					details: { location: change.file },
+				});
+				continue;
+			}
 
 			// Validate file path
 			if (!validateFilePath(change.file, directory)) {
