@@ -59,7 +59,16 @@ jobs:
         run: bun --smol test tests/unit/hooks/knowledge-types*.test.ts tests/unit/hooks/knowledge-validator*.test.ts tests/unit/hooks/knowledge-registration*.test.ts tests/unit/hooks/knowledge-store*.test.ts tests/unit/hooks/knowledge-quarantine*.test.ts --timeout 120000
       - name: Unit tests (hooks - knowledge reader/migrator)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (hooks - knowledge injector)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
