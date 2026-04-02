@@ -845,8 +845,18 @@ export const secretscan: ReturnType<typeof createSwarmTool> = createSwarmTool({
 		}
 
 		try {
-			// Resolve the target directory to an absolute path
-			const scanDir = path.resolve(directory);
+			// Resolve the target directory to an absolute path, then resolve
+			// any OS-level symlinks (e.g. /var → /private/var on macOS) so that
+			// isPathWithinScope() comparisons against fs.realpathSync()-resolved
+			// subdirectory paths always match.
+			const _scanDirRaw = path.resolve(directory);
+			const scanDir = (() => {
+				try {
+					return fs.realpathSync(_scanDirRaw);
+				} catch {
+					return _scanDirRaw;
+				}
+			})();
 
 			// Check if directory exists
 			if (!fs.existsSync(scanDir)) {
