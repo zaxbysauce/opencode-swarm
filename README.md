@@ -602,6 +602,85 @@ Per-agent overrides:
 </details>
 
 <details>
+<summary><strong>File Authority (Per-Agent Write Permissions)</strong></summary>
+
+Swarm enforces per-agent file write authority — each agent can only write to specific paths. By default, these rules are hardcoded, but you can override them via config.
+
+### Default Rules
+
+| Agent | Can Write | Blocked | Zones |
+|-------|-----------|---------|-------|
+| `architect` | Everything (except plan files) | `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `coder` | `src/`, `tests/`, `docs/`, `scripts/` | `.swarm/` (entire directory) | `generated`, `config` |
+| `reviewer` | `.swarm/evidence/`, `.swarm/outputs/` | `src/`, `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `test_engineer` | `tests/`, `.swarm/evidence/` | `src/`, `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `explorer` | Read-only | Everything | — |
+| `sme` | Read-only | Everything | — |
+| `docs` | `docs/`, `.swarm/outputs/` | — | `generated` |
+| `designer` | `docs/`, `.swarm/outputs/` | — | `generated` |
+| `critic` | `.swarm/evidence/` | — | `generated` |
+
+### Configuration
+
+Override default rules in `.opencode/opencode-swarm.json`:
+
+```json
+{
+  "authority": {
+    "enabled": true,
+    "rules": {
+      "coder": {
+        "allowedPrefix": ["src/", "lib/", "scripts/"],
+        "blockedPrefix": [".swarm/"],
+        "blockedZones": ["generated"]
+      },
+      "explorer": {
+        "readOnly": false,
+        "allowedPrefix": ["notes/", "scratch/"]
+      }
+    }
+  }
+}
+```
+
+### Rule Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `readOnly` | boolean | If `true`, agent cannot write anywhere |
+| `blockedExact` | string[] | Exact file paths that are blocked |
+| `blockedPrefix` | string[] | Path prefixes that are blocked (e.g., `.swarm/`) |
+| `allowedPrefix` | string[] | Only these path prefixes are allowed. If empty/absent, all paths allowed (unless blocked) |
+| `blockedZones` | string[] | File zones to block: `production`, `test`, `config`, `generated`, `docs`, `build` |
+
+### Merge Behavior
+
+- User rules **override** hardcoded defaults for the specified agent
+- Scalar fields (`readOnly`) — user value replaces default
+- Array fields (`blockedPrefix`, `allowedPrefix`, etc.) — user array **replaces** entirely (not merged)
+- If a field is omitted in the user rule, the default value is preserved
+- Setting `enabled: false` ignores all custom rules and uses defaults
+
+### Adding a Custom Agent
+
+You can define authority rules for agents not in the defaults:
+
+```json
+{
+  "authority": {
+    "rules": {
+      "my_custom_agent": {
+        "allowedPrefix": ["plugins/", "extensions/"],
+        "blockedZones": ["generated", "config"]
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><strong>Context Budget Guard</strong></summary>
 
 The Context Budget Guard monitors how much context Swarm is injecting into the conversation. It helps prevent context overflow before it becomes a problem.
@@ -778,6 +857,16 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
     "max_duration_minutes": 30,
     "profiles": {
       "coder": { "max_tool_calls": 500 }
+    }
+  },
+  "authority": {
+    "enabled": true,
+    "rules": {
+      "coder": {
+        "allowedPrefix": ["src/", "lib/"],
+        "blockedPrefix": [".swarm/"],
+        "blockedZones": ["generated"]
+      }
     }
   },
   "review_passes": {
