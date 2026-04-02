@@ -37,7 +37,9 @@ describe('write_retro tool', () => {
 
 	beforeEach(() => {
 		// Create temp directory
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 

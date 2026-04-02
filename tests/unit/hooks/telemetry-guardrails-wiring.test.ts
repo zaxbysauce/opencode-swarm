@@ -43,8 +43,8 @@ describe('telemetry-guardrails-wiring', () => {
 	beforeEach(() => {
 		resetTelemetryForTesting();
 		resetSwarmState();
-		sharedTempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'guardrails-telemetry-'),
+		sharedTempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'guardrails-telemetry-')),
 		);
 		initTelemetry(sharedTempDir);
 	});

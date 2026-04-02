@@ -16,8 +16,8 @@ import { saveEvidence } from '../../../src/evidence/manager.js';
 let testDir: string;
 
 beforeEach(() => {
-	testDir = require('node:fs').mkdtempSync(
-		path.join(os.tmpdir(), 'benchmark-adversarial-test-'),
+	testDir = require('node:fs').fs.realpathSync(
+		mkdtempSync(path.join(os.tmpdir(), 'benchmark-adversarial-test-')),
 	);
 	mkdirSync(path.join(testDir, '.swarm'), { recursive: true });
 });
@@ -145,8 +145,8 @@ describe('handleBenchmarkCommand - Adversarial Security Tests', () => {
 
 		it('should handle directory with no .swarm subdirectory', async () => {
 			// Create a real directory but without .swarm
-			const emptyDir = require('node:fs').mkdtempSync(
-				path.join(os.tmpdir(), 'benchmark-empty-'),
+			const emptyDir = require('node:fs').fs.realpathSync(
+				mkdtempSync(path.join(os.tmpdir(), 'benchmark-empty-')),
 			);
 			try {
 				const result = await handleBenchmarkCommand(emptyDir, ['--cumulative']);

@@ -168,8 +168,8 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Create second temp dir
-			const tempDir2 = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'telemetry-init-test2-'),
+			const tempDir2 = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-init-test2-')),
 			);
 
 			// Reset should allow re-init to new dir

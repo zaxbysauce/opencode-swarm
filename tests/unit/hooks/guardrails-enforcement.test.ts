@@ -59,7 +59,9 @@ describe('v6.17 Task 9.3/9.4: Guardrails per-task enforcement', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrails-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'guardrails-test-')),
+		);
 		process.chdir(tempDir);
 		createTempPlan(tempDir, 1);
 	});

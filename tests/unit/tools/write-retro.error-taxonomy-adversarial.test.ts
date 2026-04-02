@@ -91,8 +91,10 @@ describe('Adversarial: executeWriteRetro error taxonomy classification', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'write-retro-taxonomy-adversarial-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(
+				path.join(os.tmpdir(), 'write-retro-taxonomy-adversarial-'),
+			),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

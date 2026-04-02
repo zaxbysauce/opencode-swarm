@@ -215,8 +215,8 @@ describe('config/loader', () => {
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create a separate project directory with no config
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 
 			const result = loadPluginConfig(projectDir);
@@ -232,8 +232,8 @@ describe('config/loader', () => {
 
 		it('loads project config', () => {
 			// Create a project directory with config
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -261,8 +261,8 @@ describe('config/loader', () => {
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -297,8 +297,8 @@ describe('config/loader', () => {
 			);
 
 			// Create project config with different agents
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -332,8 +332,8 @@ describe('config/loader', () => {
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config with invalid JSON
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -357,8 +357,8 @@ describe('config/loader', () => {
 		});
 
 		it('returns defaults when config file is too large', () => {
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -376,8 +376,8 @@ describe('config/loader', () => {
 		});
 
 		it('loads config when file is under size limit', () => {
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -399,8 +399,8 @@ describe('config/loader', () => {
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config with invalid schema (max_iterations too high)
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -433,8 +433,8 @@ describe('config/loader', () => {
 			);
 
 			// Project config has guardrails.max_tool_calls: 500
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -466,8 +466,8 @@ describe('config/loader', () => {
 				}),
 			);
 
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -500,8 +500,8 @@ describe('config/loader', () => {
 				}),
 			);
 
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -526,8 +526,8 @@ describe('config/loader', () => {
 			// Security test: _loadedFromFile is internal loader state and must not be
 			// deserialized from user input. A config file containing "_loadedFromFile": true
 			// should produce a config with NO _loadedFromFile property (Zod strips unknown fields).
-			const projectDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'project-test-'),
+			const projectDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -557,8 +557,8 @@ describe('config/loader', () => {
 				);
 
 				// Create project config that also has invalid values (to trigger merge failure)
-				const projectDir = fs.mkdtempSync(
-					path.join(os.tmpdir(), 'project-test-'),
+				const projectDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -575,8 +575,8 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file is too large', () => {
-				const projectDir = fs.mkdtempSync(
-					path.join(os.tmpdir(), 'project-test-'),
+				const projectDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -599,8 +599,8 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file contains non-object root', () => {
-				const projectDir = fs.mkdtempSync(
-					path.join(os.tmpdir(), 'project-test-'),
+				const projectDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -617,8 +617,8 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file is invalid JSON', () => {
-				const projectDir = fs.mkdtempSync(
-					path.join(os.tmpdir(), 'project-test-'),
+				const projectDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
@@ -647,8 +647,8 @@ describe('config/loader', () => {
 					}),
 				);
 
-				const projectDir = fs.mkdtempSync(
-					path.join(os.tmpdir(), 'project-test-'),
+				const projectDir = fs.realpathSync(
+					fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-')),
 				);
 
 				const result = loadPluginConfig(projectDir);

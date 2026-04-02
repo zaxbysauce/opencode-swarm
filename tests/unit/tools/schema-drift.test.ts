@@ -52,7 +52,9 @@ async function runSchemaDrift(specFile?: string): Promise<{
 describe('schema_drift tool', async () => {
 	beforeEach(() => {
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'schema-drift-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'schema-drift-test-')),
+		);
 		process.chdir(tempDir);
 	});
 
@@ -373,8 +375,8 @@ app.delete('/users/:id', handler);
 
 		it('rejects spec_file outside cwd', async () => {
 			// Create a file in a subdirectory of tmpdir (not root)
-			const tmpSubdir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'schema-drift-test-'),
+			const tmpSubdir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'schema-drift-test-')),
 			);
 			const externalPath = path.join(tmpSubdir, 'external-spec.json');
 			fs.writeFileSync(externalPath, JSON.stringify({ paths: {} }));

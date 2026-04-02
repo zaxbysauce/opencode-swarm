@@ -70,7 +70,9 @@ function createMockSpawn() {
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-adv-'));
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'pre-check-batch-adv-')),
+	);
 }
 
 describe('ADVERSARIAL: workspaceDir path traversal', () => {

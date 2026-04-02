@@ -192,8 +192,8 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 		mockRunDeterministicDriftCheck.mockClear();
 		mockReadPriorDriftReports.mockClear();
 
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-task2-4-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-task2-4-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

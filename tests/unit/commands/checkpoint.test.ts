@@ -12,7 +12,9 @@ describe('checkpoint command', () => {
 
 	beforeEach(() => {
 		// Create a unique temp directory for each test
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-cmd-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-cmd-test-')),
+		);
 		originalCwd = process.cwd();
 
 		// Initialize a git repo in temp directory

@@ -164,8 +164,8 @@ describe('phase_complete — drift verifier gate', () => {
 		resetSwarmState();
 
 		// Create temp directory
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'phase-complete-drift-gate-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'phase-complete-drift-gate-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);

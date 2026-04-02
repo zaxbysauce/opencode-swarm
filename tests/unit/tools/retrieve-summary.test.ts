@@ -40,7 +40,9 @@ describe('retrieve_summary pagination', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'retrieve-summary-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'retrieve-summary-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		mockLoadFullOutput.mockClear();

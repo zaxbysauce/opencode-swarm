@@ -55,7 +55,9 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-ptrav-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-ptrav-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		resetSwarmState();

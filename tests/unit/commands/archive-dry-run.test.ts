@@ -21,8 +21,8 @@ import { saveEvidence } from '../../../src/evidence/manager.js';
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = require('node:fs').mkdtempSync(
-		path.join(os.tmpdir(), 'archive-dry-run-test-'),
+	tempDir = require('node:fs').fs.realpathSync(
+		mkdtempSync(path.join(os.tmpdir(), 'archive-dry-run-test-')),
 	);
 	mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 	mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });

@@ -16,7 +16,9 @@ describe('checkpoint retention policy', () => {
 
 	beforeEach(() => {
 		// Create a unique temp directory for each test
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'retention-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'retention-test-')),
+		);
 		originalCwd = process.cwd();
 
 		// Initialize a git repo in temp directory

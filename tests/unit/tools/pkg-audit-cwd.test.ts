@@ -105,7 +105,9 @@ describe('pkg-audit tool - cwd fix tests', () => {
 
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-cwd-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-cwd-test-')),
+		);
 
 		// Spy on Bun.spawn
 		BunSpawnSpy = spyOn(Bun, 'spawn').mockImplementation(createMockSpawn());
@@ -305,11 +307,11 @@ describe('pkg-audit tool - cwd fix tests', () => {
 			mockStdout = '{}';
 
 			// Create two different temp directories
-			const tempDir1 = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'pkg-audit-test1-'),
+			const tempDir1 = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test1-')),
 			);
-			const tempDir2 = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'pkg-audit-test2-'),
+			const tempDir2 = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-audit-test2-')),
 			);
 
 			fs.writeFileSync(path.join(tempDir1, 'package.json'), '{}');

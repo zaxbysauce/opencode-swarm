@@ -72,8 +72,8 @@ describe('complexity_hotspots tool', async () => {
 
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'complexity-hotspots-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'complexity-hotspots-test-')),
 		);
 		process.chdir(tempDir);
 	});

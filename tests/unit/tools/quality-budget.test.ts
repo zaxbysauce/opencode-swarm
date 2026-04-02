@@ -14,7 +14,9 @@ vi.mock('../../../src/evidence/manager', () => ({
 
 // Helper to create temp test directories
 function createTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), 'quality-budget-test-'));
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'quality-budget-test-')),
+	);
 }
 
 // Helper to create test files

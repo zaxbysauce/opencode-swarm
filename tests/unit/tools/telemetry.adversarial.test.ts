@@ -117,8 +117,8 @@ describe('telemetry adversarial tests', () => {
 		// Create a directory and make it read-only (if we can)
 		// On Windows, we can try setting read-only attribute
 		// On Unix, we can try chmod 000
-		const readOnlyDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'telemetry-readonly-'),
+		const readOnlyDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-readonly-')),
 		);
 
 		try {

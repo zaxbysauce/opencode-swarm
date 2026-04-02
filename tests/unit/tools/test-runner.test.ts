@@ -110,7 +110,9 @@ describe('test-runner.ts - Framework Detection', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-detect-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-detect-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 	});
@@ -244,7 +246,9 @@ tokio = { version = "1.0", features = ["full"] }
 
 describe('test-runner.ts - Validation Tests (no execution)', () => {
 	test('returns error when no framework detected', async () => {
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-none-'));
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-none-')),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -271,7 +275,9 @@ describe('test-runner.ts - Validation Tests (no execution)', () => {
 	}, 10000);
 
 	test('tool returns valid JSON structure for error case', async () => {
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-json-'));
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-json-')),
+		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -302,7 +308,9 @@ describe('test-runner.ts - Edge Cases', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-edge-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-edge-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		// Create vitest config to allow framework detection
@@ -521,8 +529,8 @@ describe('test-runner.ts - Security Validation', () => {
 
 	test('rejects non-source files array for convention scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'test-runner-nonsrc-conv-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-conv-')),
 		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -562,8 +570,8 @@ describe('test-runner.ts - Security Validation', () => {
 
 	test('rejects non-source files array for graph scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'test-runner-nonsrc-graph-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-nonsrc-graph-')),
 		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -614,8 +622,8 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('allows narrow scope requests to execute normally', async () => {
 		// Create a temp directory with a simple test file
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'test-runner-narrow-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-narrow-')),
 		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -667,8 +675,8 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('rejects source file with no matching test file for convention scope', async () => {
 		// Create a temp directory with a source file but NO test file
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'test-runner-empty-conv-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-conv-')),
 		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -714,8 +722,8 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 	test('rejects source file with no matching test file for graph scope', async () => {
 		// Create a temp directory with a source file but NO test file
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'test-runner-empty-graph-'),
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-empty-graph-')),
 		);
 		const originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -787,8 +795,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// The execute function should proceed past the guard check.
 
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-allowall-'),
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allowall-')),
 			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
@@ -828,8 +836,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// by the zero-test-files guard when files is an empty array.
 			// Uses a temp dir with no framework so we get "No test framework detected"
 			// rather than actually running the project's test suite.
-			const noFrameworkDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-allfiles-'),
+			const noFrameworkDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allfiles-')),
 			);
 			const savedCwd = process.cwd();
 			process.chdir(noFrameworkDir);
@@ -864,8 +872,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			// Codex Bug 1 fix verification: scope:"all" with allow_full_suite:true and NO files argument
 			// Uses a temp dir with no framework so we get "No test framework detected"
 			// rather than actually running the project's test suite.
-			const noFrameworkDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-allnofiles-'),
+			const noFrameworkDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-allnofiles-')),
 			);
 			const savedCwd = process.cwd();
 			process.chdir(noFrameworkDir);
@@ -921,8 +929,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 	describe('scope "convention" and "graph" are unaffected by allow_full_suite', () => {
 		test('scope:"convention" without allow_full_suite works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-conv-'),
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-')),
 			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
@@ -965,8 +973,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"graph" without allow_full_suite works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-graph-'),
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-')),
 			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
@@ -1009,8 +1017,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"convention" with allow_full_suite:true still works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-conv-allow-'),
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-conv-allow-')),
 			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);
@@ -1057,8 +1065,8 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 		test('scope:"graph" with allow_full_suite:true still works normally', async () => {
 			// Create a temp dir so framework detection can work
-			const tempDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'test-runner-graph-allow-'),
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-allow-')),
 			);
 			const originalCwd = process.cwd();
 			process.chdir(tempDir);

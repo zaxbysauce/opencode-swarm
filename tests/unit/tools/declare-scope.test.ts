@@ -70,7 +70,9 @@ describe('executeDeclareScope', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'declare-scope-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'declare-scope-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -322,7 +324,9 @@ describe('executeDeclareScope', () => {
 
 	// Test 11: working_directory without plan.json
 	test('working_directory without plan.json returns error', async () => {
-		const noPlanDir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-'));
+		const noPlanDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'no-plan-test-')),
+		);
 		try {
 			const args: DeclareScopeArgs = {
 				taskId: '1.1',
@@ -359,7 +363,9 @@ describe('executeDeclareScope', () => {
 	// so this test validates the code doesn't crash and handles non-existent paths correctly
 	test('working_directory with path traversal returns error', async () => {
 		// Create a valid directory structure to test
-		const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traversal-test-'));
+		const testDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'traversal-test-')),
+		);
 		const subDir = path.join(testDir, 'subdir');
 		fs.mkdirSync(subDir, { recursive: true });
 

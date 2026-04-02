@@ -12,8 +12,8 @@ describe('write-retro adversarial security tests', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'write-retro-adversarial-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-adversarial-')),
 		);
 		originalCwd = process.cwd();
 
@@ -689,8 +689,8 @@ describe('write-retro adversarial security tests', () => {
 		});
 
 		test('requires .swarm directory structure', async () => {
-			const emptyDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'write-retro-empty-'),
+			const emptyDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-empty-')),
 			);
 			try {
 				const args: WriteRetroArgs = {

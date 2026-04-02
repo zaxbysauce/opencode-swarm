@@ -222,8 +222,10 @@ describe('update_task_status error sanitization', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'update-task-status-sanitize-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(
+				path.join(os.tmpdir(), 'update-task-status-sanitize-test-'),
+			),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -364,8 +366,8 @@ describe('save-plan error sanitization', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'save-plan-sanitize-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'save-plan-sanitize-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -597,8 +599,8 @@ describe('evidence/manager error sanitization', () => {
 	test('loadEvidence catch block sanitizes errors in warn calls', async () => {
 		const { loadEvidence } = await import('../../../src/evidence/manager');
 
-		const tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'evidence-sanitize-test-'),
+		const tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-sanitize-test-')),
 		);
 
 		try {
@@ -643,8 +645,8 @@ describe('commands error sanitization', () => {
 			'../../../src/commands/rollback'
 		);
 
-		const tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'rollback-sanitize-test-'),
+		const tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'rollback-sanitize-test-')),
 		);
 
 		try {
@@ -701,8 +703,8 @@ describe('commands error sanitization', () => {
 			'../../../src/commands/dark-matter'
 		);
 
-		const tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'dark-matter-sanitize-test-'),
+		const tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'dark-matter-sanitize-test-')),
 		);
 
 		try {
@@ -913,7 +915,9 @@ describe('full tool pipeline sanitization', () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'full-pipeline-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'full-pipeline-test-')),
+		);
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 	});
 

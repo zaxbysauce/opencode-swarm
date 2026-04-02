@@ -32,7 +32,9 @@ describe('sbom_generate tool', () => {
 	beforeEach(() => {
 		// Save current directory and create temp dir
 		originalCwd = process.cwd();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sbom-generate-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'sbom-generate-test-')),
+		);
 		process.chdir(tempDir);
 	});
 

@@ -25,8 +25,8 @@ describe('readTaskEvidenceRaw', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'read-task-evidence-raw-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'read-task-evidence-raw-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -203,7 +203,9 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-fix-evidence-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'gate-fix-evidence-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -519,8 +521,8 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'gate-fix-edge-case-test-'),
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'gate-fix-edge-case-test-')),
 		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
@@ -656,7 +658,9 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dir-evidence-test-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'gate-dir-evidence-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 

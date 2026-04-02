@@ -53,7 +53,9 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 
 	beforeEach(() => {
 		resetSwarmState();
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-catastrophic-'));
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-catastrophic-')),
+		);
 		originalCwd = process.cwd();
 	});
 
