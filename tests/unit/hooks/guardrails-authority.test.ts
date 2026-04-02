@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { AuthorityConfig } from '../../../src/config/schema';
 import { checkFileAuthority } from '../../../src/hooks/guardrails';
 
 // Helper to check if result is a denial
@@ -430,6 +431,144 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			const result = checkFileAuthority('coder', 'index.ts', tempDir);
 			// Not in allowed prefixes for coder
 			expect(result.allowed).toBe(false);
+		});
+	});
+
+	describe('Config-based authority overrides', () => {
+		it('uses default rules when no authorityConfig is provided', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('uses default rules when authorityConfig is undefined', () => {
+			const result = checkFileAuthority(
+				'coder',
+				'src/file.ts',
+				tempDir,
+				undefined,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('user rules override default allowedPrefix for coder', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'], // Override: coder can only write to lib/
+					},
+				},
+			});
+			// src/ is no longer in allowedPrefix, so should be blocked
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('not in allowed list');
+			}
+		});
+
+		it('user rules allow new paths for coder', () => {
+			const result = checkFileAuthority('coder', 'lib/utils.ts', tempDir, {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+				},
+			});
+			expect(result.allowed).toBe(true);
+		});
+
+		it('user rules add new agent not in defaults', () => {
+			const result = checkFileAuthority(
+				'custom_agent',
+				'custom/path.ts',
+				tempDir,
+				{
+					enabled: true,
+					rules: {
+						custom_agent: {
+							allowedPrefix: ['custom/'],
+						},
+					},
+				},
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('authority disabled falls back to defaults', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: false,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'], // Should be ignored
+					},
+				},
+			});
+			// Falls back to defaults where src/ is allowed for coder
+			expect(result.allowed).toBe(true);
+		});
+
+		it('user rules override blockedPrefix for coder', () => {
+			const result = checkFileAuthority(
+				'coder',
+				'.swarm/evidence/test.ts',
+				tempDir,
+				{
+					enabled: true,
+					rules: {
+						coder: {
+							blockedPrefix: [], // Remove .swarm/ block
+							allowedPrefix: ['.swarm/'],
+							blockedZones: ['generated'], // Remove config zone block
+						},
+					},
+				},
+			);
+			// With override, coder can now write to .swarm/
+			expect(result.allowed).toBe(true);
+		});
+
+		it('user rules override readOnly for explorer', () => {
+			const result = checkFileAuthority('explorer', 'notes.txt', tempDir, {
+				enabled: true,
+				rules: {
+					explorer: {
+						readOnly: false,
+						allowedPrefix: [''],
+					},
+				},
+			});
+			// Explorer is no longer read-only with override
+			expect(result.allowed).toBe(true);
+		});
+
+		it('empty rules object preserves defaults', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {},
+			});
+			// Empty rules should preserve all defaults
+			expect(result.allowed).toBe(true);
+		});
+
+		it('partial override preserves other default fields', () => {
+			// Override only allowedPrefix, blockedPrefix should still apply from defaults
+			const result = checkFileAuthority('coder', '.swarm/plan.md', tempDir, {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['src/', 'lib/'],
+						// blockedPrefix not specified — should NOT inherit default ['.swarm/']
+						// because the merge logic uses userRule.blockedPrefix ?? existing.blockedPrefix
+						// and undefined means the user didn't specify it, so it falls back to default
+					},
+				},
+			});
+			// .swarm/ should still be blocked because blockedPrefix falls back to default
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('Path blocked');
+			}
 		});
 	});
 });

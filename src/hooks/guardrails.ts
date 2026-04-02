@@ -16,6 +16,7 @@ import {
 	WRITE_TOOL_NAMES,
 } from '../config/constants';
 import {
+	type AuthorityConfig,
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
@@ -273,6 +274,7 @@ export function createGuardrailsHooks(
 	directory: string,
 	directoryOrConfig?: string | GuardrailsConfig,
 	config?: GuardrailsConfig,
+	authorityConfig?: AuthorityConfig,
 ): {
 	toolBefore: (
 		input: { tool: string; sessionID: string; callID: string },
@@ -525,6 +527,7 @@ export function createGuardrailsHooks(
 						agentName,
 						delegTargetPath,
 						cwd,
+						authorityConfig,
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1889,7 +1892,7 @@ type AgentRule = {
 	blockedZones?: FileZone[];
 };
 
-const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
+export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedZones: ['generated'],
@@ -1938,8 +1941,28 @@ export function checkFileAuthority(
 	agentName: string,
 	filePath: string,
 	cwd: string,
+	authorityConfig?: AuthorityConfig,
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
+
+	// Merge user-configured rules with defaults (user overrides take precedence)
+	let effectiveRules: Record<string, AgentRule> = DEFAULT_AGENT_AUTHORITY_RULES;
+	if (authorityConfig?.enabled !== false && authorityConfig?.rules) {
+		effectiveRules = { ...DEFAULT_AGENT_AUTHORITY_RULES };
+		for (const [agent, userRule] of Object.entries(authorityConfig.rules)) {
+			const existing = effectiveRules[agent] ?? {};
+			effectiveRules[agent] = {
+				...existing,
+				...userRule,
+				// Arrays: user replaces entirely (not merged)
+				blockedExact: userRule.blockedExact ?? existing.blockedExact,
+				blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
+				allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
+				blockedZones: userRule.blockedZones ?? existing.blockedZones,
+			};
+		}
+	}
+
 	// Resolve absolute-or-relative to absolute, then convert to relative for prefix matching.
 	// This ensures absolute paths like "C:/Users/.../src/file.ts" or "/home/.../src/file.ts"
 	// are correctly matched against relative prefixes like "src/". (Fix for #259)
@@ -1947,7 +1970,7 @@ export function checkFileAuthority(
 	const resolved = path.resolve(dir, filePath);
 	const normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 
-	const rules = AGENT_AUTHORITY_RULES[normalizedAgent];
+	const rules = effectiveRules[normalizedAgent];
 	if (!rules) {
 		return { allowed: false, reason: `Unknown agent: ${agentName}` };
 	}

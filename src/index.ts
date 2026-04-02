@@ -12,6 +12,7 @@ import { createSwarmCommandHandler } from './commands';
 import { loadPluginConfigWithMeta } from './config';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import {
+	AuthorityConfigSchema,
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
 	KnowledgeConfigSchema,
@@ -191,10 +192,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		config,
 		guardrailsConfig.enabled,
 	);
+	const authorityConfig = AuthorityConfigSchema.parse(config.authority ?? {});
 	const guardrailsHooks = createGuardrailsHooks(
 		ctx.directory,
 		undefined,
 		guardrailsConfig,
+		authorityConfig,
 	);
 
 	// Watchdog: scope-guard + delegation-ledger
