@@ -875,9 +875,15 @@ export async function applyCuratorKnowledgeUpdates(
 
 	// Create new entries for recommendations that used the "new" token.
 	// entry_id === undefined means the LLM requested a new knowledge entry.
+	// Only 'promote' actions are meaningful without an existing entry_id —
+	// 'archive' and 'flag_contradiction' require a real entry to operate on.
 	// These are appended after the rewrite to avoid lock contention.
 	for (const rec of recommendations) {
 		if (rec.entry_id !== undefined) continue;
+		if (rec.action !== 'promote') {
+			skipped++;
+			continue;
+		}
 		const lesson = rec.lesson?.trim() ?? '';
 		// Enforce minimum length per KnowledgeEntryBase spec (15–280 chars)
 		if (lesson.length < 15) {

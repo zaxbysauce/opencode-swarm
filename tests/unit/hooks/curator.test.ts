@@ -1909,6 +1909,37 @@ invalid json here
 			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
 		});
 
+		it('skips new entry creation for non-promote actions with undefined entry_id', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'archive',
+					entry_id: undefined,
+					lesson: 'Archive action with no real entry should be skipped entirely',
+					reason: 'No valid UUID — cannot archive',
+				},
+				{
+					action: 'flag_contradiction',
+					entry_id: undefined,
+					lesson: 'Flag contradiction with no real entry should also be skipped',
+					reason: 'No valid UUID — cannot flag',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(0);
+			expect(result.skipped).toBe(2);
+			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
+		});
+
 		it('end-to-end: hallucinated slug from LLM creates new entry via parseKnowledgeRecommendations chain', async () => {
 			const swarmDir = path.join(tempDir, '.swarm');
 			fs.mkdirSync(swarmDir, { recursive: true });
