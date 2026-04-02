@@ -38018,7 +38018,14 @@ var secretscan = createSwarmTool({
       }
     }
     try {
-      const scanDir = path19.resolve(directory);
+      const _scanDirRaw = path19.resolve(directory);
+      const scanDir = (() => {
+        try {
+          return fs10.realpathSync(_scanDirRaw);
+        } catch {
+          return _scanDirRaw;
+        }
+      })();
       if (!fs10.existsSync(scanDir)) {
         const errorResult = {
           error: "directory not found",

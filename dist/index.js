@@ -35808,7 +35808,14 @@ var init_secretscan = __esm(() => {
         }
       }
       try {
-        const scanDir = path26.resolve(directory);
+        const _scanDirRaw = path26.resolve(directory);
+        const scanDir = (() => {
+          try {
+            return fs16.realpathSync(_scanDirRaw);
+          } catch {
+            return _scanDirRaw;
+          }
+        })();
         if (!fs16.existsSync(scanDir)) {
           const errorResult = {
             error: "directory not found",
