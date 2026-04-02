@@ -15,7 +15,9 @@ describe('todo_extract tool', () => {
 		originalCwd = process.cwd();
 		// Use realpathSync to resolve macOS /var→/private/var symlink so that
 		// process.cwd() (which resolves symlinks after chdir) matches tmpDir.
-		tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'todo-extract-test-')));
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'todo-extract-test-')),
+		);
 		process.chdir(tmpDir);
 	});
 

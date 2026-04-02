@@ -22,7 +22,9 @@ const { test_runner, detectTestFramework, runTests } = testRunnerModule;
 function createTempDir(): string {
 	// Use realpathSync to resolve macOS /var→/private/var symlink so that
 	// process.cwd() (which resolves symlinks after chdir) matches tempDir.
-	return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-cwd-')));
+	return fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-cwd-')),
+	);
 }
 
 // Helper to create test files
