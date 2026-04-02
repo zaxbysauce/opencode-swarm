@@ -146,8 +146,22 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				let applied = 0;
 				let skipped = 0;
 
+				const UUID_V4 =
+					/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 				// Apply recommendations if provided
 				if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
+					// Validate entry_id values strictly: undefined is allowed (new entry), but a
+					// non-UUID string is a caller error and must be rejected rather than coerced.
+					for (const rec of typedArgs.recommendations) {
+						if (rec.entry_id !== undefined && !UUID_V4.test(rec.entry_id)) {
+							return JSON.stringify({
+								error:
+									`Invalid entry_id '${rec.entry_id}': must be a UUID v4 or omitted. ` +
+									`Use undefined/omit entry_id to create a new entry.`,
+							});
+						}
+					}
 					const result = await applyCuratorKnowledgeUpdates(
 						directory,
 						typedArgs.recommendations,

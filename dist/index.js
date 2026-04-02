@@ -32066,7 +32066,7 @@ __export(exports_co_change_analyzer, {
   buildCoChangeMatrix: () => buildCoChangeMatrix
 });
 import * as child_process from "child_process";
-import { randomUUID } from "crypto";
+import { randomUUID as randomUUID2 } from "crypto";
 import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
 import * as path18 from "path";
 import { promisify } from "util";
@@ -32326,7 +32326,7 @@ function darkMatterToKnowledgeEntries(pairs, projectName) {
     }
     const confidence = Math.min(0.3 + 0.2 * Math.min(pair.coChangeCount / 10, 1), 0.5);
     entries.push({
-      id: randomUUID(),
+      id: randomUUID2(),
       tier: "swarm",
       lesson,
       category: "architecture",
@@ -35704,17 +35704,17 @@ function getTestFilesFromConvention(sourceFiles) {
   const testFiles = [];
   for (const file3 of sourceFiles) {
     const normalizedPath = file3.replace(/\\/g, "/");
-    const basename4 = path27.basename(file3);
+    const basename5 = path27.basename(file3);
     const dirname11 = path27.dirname(file3);
-    if (hasCompoundTestExtension(basename4) || basename4.includes(".spec.") || basename4.includes(".test.") || normalizedPath.includes("/__tests__/") || normalizedPath.includes("/tests/") || normalizedPath.includes("/test/")) {
+    if (hasCompoundTestExtension(basename5) || basename5.includes(".spec.") || basename5.includes(".test.") || normalizedPath.includes("/__tests__/") || normalizedPath.includes("/tests/") || normalizedPath.includes("/test/")) {
       if (!testFiles.includes(file3)) {
         testFiles.push(file3);
       }
       continue;
     }
     for (const _pattern of TEST_PATTERNS) {
-      const nameWithoutExt = basename4.replace(/\.[^.]+$/, "");
-      const ext = path27.extname(basename4);
+      const nameWithoutExt = basename5.replace(/\.[^.]+$/, "");
+      const ext = path27.extname(basename5);
       const possibleTestFiles = [
         path27.join(dirname11, `${nameWithoutExt}.spec${ext}`),
         path27.join(dirname11, `${nameWithoutExt}.test${ext}`),
@@ -37544,17 +37544,17 @@ function normalizeSeparators(filePath) {
 }
 function matchesDocPattern(filePath, patterns) {
   const normalizedPath = normalizeSeparators(filePath);
-  const basename5 = path40.basename(filePath);
+  const basename6 = path40.basename(filePath);
   for (const pattern of patterns) {
     if (!pattern.includes("/") && !pattern.includes("\\")) {
-      if (basename5 === pattern) {
+      if (basename6 === pattern) {
         return true;
       }
       continue;
     }
     if (pattern.startsWith("**/")) {
       const filenamePattern = pattern.slice(3);
-      if (basename5 === filenamePattern) {
+      if (basename6 === filenamePattern) {
         return true;
       }
       continue;
@@ -43828,7 +43828,8 @@ COMPLIANCE:
 - [type]: [description] (or "No deviations observed")
 
 KNOWLEDGE_UPDATES:
-- [action] [entry_id or "new"]: [reason] (or "No recommendations")
+- [action] new: [reason] (or "No recommendations")
+NOTE: Always use "new" as the token \u2014 existing entry IDs (UUID v4) are not available in this context. Any non-UUID token is treated as "new" by the parser. Only "promote new:" creates a new entry; "archive new:" and "flag_contradiction new:" are silently skipped because those actions require an existing entry to operate on.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]
@@ -47530,6 +47531,7 @@ init_schema();
 import path17 from "path";
 
 // src/hooks/curator.ts
+import { randomUUID } from "crypto";
 import * as fs10 from "fs";
 import * as path16 from "path";
 init_event_bus();
@@ -47550,7 +47552,8 @@ function parseKnowledgeRecommendations(llmOutput) {
     const match = trimmed.match(/^-\s+(promote|archive|flag_contradiction)\s+(\S+):\s+(.+)$/i);
     if (match) {
       const action = match[1].toLowerCase();
-      const entryId = match[2] === "new" ? undefined : match[2];
+      const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const entryId = match[2] === "new" || !UUID_V4.test(match[2]) ? undefined : match[2];
       const reason = match[3].trim();
       recommendations.push({
         action,
@@ -47971,7 +47974,7 @@ ${phaseDigest.summary}`,
     };
   }
 }
-async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowledgeConfig) {
+async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledgeConfig) {
   let applied = 0;
   let skipped = 0;
   if (recommendations.length === 0) {
@@ -48032,6 +48035,56 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowled
   }
   if (modified) {
     await rewriteKnowledge(knowledgePath, updatedEntries);
+  }
+  const existingLessons = entries.map((e) => e.lesson);
+  for (const rec of recommendations) {
+    if (rec.entry_id !== undefined)
+      continue;
+    if (rec.action !== "promote") {
+      skipped++;
+      continue;
+    }
+    const lesson = rec.lesson?.trim() ?? "";
+    if (lesson.length < 15) {
+      skipped++;
+      continue;
+    }
+    if (knowledgeConfig.validation_enabled !== false) {
+      const validation = validateLesson(lesson, existingLessons, {
+        category: "other",
+        scope: "global",
+        confidence: 0.5
+      });
+      if (!validation.valid) {
+        skipped++;
+        continue;
+      }
+    }
+    const now = new Date().toISOString();
+    const newEntry = {
+      id: randomUUID(),
+      tier: "swarm",
+      lesson: lesson.slice(0, 280),
+      category: "other",
+      tags: [],
+      scope: "global",
+      confidence: 0.5,
+      status: "candidate",
+      confirmed_by: [],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: 1,
+      created_at: now,
+      updated_at: now,
+      auto_generated: true,
+      project_name: path16.basename(directory)
+    };
+    await appendKnowledge(knowledgePath, newEntry);
+    applied++;
+    existingLessons.push(lesson);
   }
   return { applied, skipped };
 }
@@ -49789,7 +49842,7 @@ init_schema();
 
 // src/hooks/knowledge-migrator.ts
 init_knowledge_store();
-import { randomUUID as randomUUID2 } from "crypto";
+import { randomUUID as randomUUID3 } from "crypto";
 import { existsSync as existsSync11, readFileSync as readFileSync7 } from "fs";
 import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
 import * as path22 from "path";
@@ -49859,7 +49912,7 @@ async function migrateContextToKnowledge(directory, config3) {
     }
     const inferredTags = inferTags(raw.text);
     const entry = {
-      id: randomUUID2(),
+      id: randomUUID3(),
       tier: "swarm",
       lesson: truncateLesson(raw.text),
       category: raw.categoryHint ?? inferCategoryFromText(raw.text),
@@ -58528,7 +58581,7 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename7 = path48.basename(filePath);
+  const basename8 = path48.basename(filePath);
   const _ext = path48.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
@@ -58544,7 +58597,7 @@ function isTestFile(filePath) {
     ".spec.jsx"
   ];
   for (const pattern of testPatterns) {
-    if (basename7.includes(pattern)) {
+    if (basename8.includes(pattern)) {
       return true;
     }
   }
@@ -59209,7 +59262,15 @@ var curator_analyze = createSwarmTool({
       }
       let applied = 0;
       let skipped = 0;
+      const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
+        for (const rec of typedArgs.recommendations) {
+          if (rec.entry_id !== undefined && !UUID_V4.test(rec.entry_id)) {
+            return JSON.stringify({
+              error: `Invalid entry_id '${rec.entry_id}': must be a UUID v4 or omitted. ` + `Use undefined/omit entry_id to create a new entry.`
+            });
+          }
+        }
         const result = await applyCuratorKnowledgeUpdates(directory, typedArgs.recommendations, knowledgeConfig);
         applied = result.applied;
         skipped = result.skipped;
@@ -60888,7 +60949,7 @@ var imports = createSwarmTool({
 init_dist();
 init_config();
 init_knowledge_store();
-import { randomUUID as randomUUID5 } from "crypto";
+import { randomUUID as randomUUID6 } from "crypto";
 init_manager2();
 init_create_tool();
 var VALID_CATEGORIES2 = [
@@ -60963,7 +61024,7 @@ var knowledgeAdd = createSwarmTool({
       project_name = plan?.title ?? "";
     } catch {}
     const entry = {
-      id: randomUUID5(),
+      id: randomUUID6(),
       tier: "swarm",
       lesson,
       category,
