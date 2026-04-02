@@ -156,6 +156,16 @@ function processFile(
 		};
 	}
 
+	const fullPath = path.join(cwd, file);
+	if (!fs.existsSync(fullPath)) {
+		return {
+			file,
+			success: false,
+			error: `File not found: ${file}`,
+			errorType: 'file-not-found',
+		};
+	}
+
 	let syms: SymbolInfo[];
 
 	switch (ext) {
@@ -181,7 +191,6 @@ function processFile(
 
 	// Check for empty file (file exists but has no symbols)
 	// This happens when the file exists but extraction returned empty
-	const fullPath = path.join(cwd, file);
 	let isEmptyFile = false;
 	try {
 		const stats = fs.statSync(fullPath);

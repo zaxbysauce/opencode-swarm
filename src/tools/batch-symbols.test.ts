@@ -205,7 +205,8 @@ class MyClass:
 			// Each result has a valid structure
 			for (const r of parsed.results) {
 				expect(r).toHaveProperty('file');
-				expect(r).toHaveProperty('success');
+				expect(r.success).toBe(false);
+				expect(r.errorType).toBe('file-not-found');
 			}
 		});
 	});
