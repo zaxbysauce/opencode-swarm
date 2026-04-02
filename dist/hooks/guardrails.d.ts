@@ -6,7 +6,7 @@
  * - Layer 1 (Soft Warning @ warning_threshold): Sets warning flag for messagesTransform to inject warning
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
-import { type GuardrailsConfig } from '../config/schema';
+import { type AuthorityConfig, type GuardrailsConfig } from '../config/schema';
 import { type FileZone } from '../context/zone-classifier';
 /**
  * Retrieves stored input args for a given callID.
@@ -34,7 +34,7 @@ export declare function deleteStoredInputArgs(callID: string): void;
  * @param config Guardrails configuration (optional)
  * @returns Tool before/after hooks and messages transform hook
  */
-export declare function createGuardrailsHooks(directory: string, directoryOrConfig?: string | GuardrailsConfig, config?: GuardrailsConfig): {
+export declare function createGuardrailsHooks(directory: string, directoryOrConfig?: string | GuardrailsConfig, config?: GuardrailsConfig, authorityConfig?: AuthorityConfig): {
     toolBefore: (input: {
         tool: string;
         sessionID: string;
@@ -103,13 +103,22 @@ export declare function validateAndRecordAttestation(dir: string, findingId: str
     valid: false;
     reason: string;
 }>;
+type AgentRule = {
+    readOnly?: boolean;
+    blockedExact?: string[];
+    blockedPrefix?: string[];
+    allowedPrefix?: string[];
+    blockedZones?: FileZone[];
+};
+export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
 /**
  * Checks whether the given agent is authorised to write to the given file path.
  */
-export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string): {
+export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig): {
     allowed: true;
 } | {
     allowed: false;
     reason: string;
     zone?: FileZone;
 };
+export {};

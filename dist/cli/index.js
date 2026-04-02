@@ -5,25 +5,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -18636,6 +18654,17 @@ var CompactionConfigSchema = exports_external.object({
   emergencyThreshold: exports_external.number().min(1).max(99).default(80),
   preserveLastNTurns: exports_external.number().int().min(1).default(5)
 });
+var AgentAuthorityRuleSchema = exports_external.object({
+  readOnly: exports_external.boolean().optional(),
+  blockedExact: exports_external.array(exports_external.string()).optional(),
+  blockedPrefix: exports_external.array(exports_external.string()).optional(),
+  allowedPrefix: exports_external.array(exports_external.string()).optional(),
+  blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional()
+});
+var AuthorityConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
+});
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -18652,6 +18681,7 @@ var PluginConfigSchema = exports_external.object({
   watchdog: WatchdogConfigSchema.optional(),
   self_review: SelfReviewConfigSchema.optional(),
   tool_filter: ToolFilterConfigSchema.optional(),
+  authority: AuthorityConfigSchema.optional(),
   plan_cursor: PlanCursorConfigSchema.optional(),
   evidence: EvidenceConfigSchema.optional(),
   summaries: SummaryConfigSchema.optional(),

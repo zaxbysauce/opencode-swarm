@@ -4,25 +4,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name2, newValue) {
+  this[name2] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, {
       get: all[name2],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name2] = () => newValue
+      set: __exportSetter.bind(all, name2)
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -14557,7 +14575,7 @@ function resolveGuardrailsConfig(config2, agentName) {
   };
   return resolved;
 }
-var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, PluginConfigSchema;
+var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, PluginConfigSchema;
 var init_schema = __esm(() => {
   init_zod();
   init_constants();
@@ -15031,6 +15049,17 @@ var init_schema = __esm(() => {
     emergencyThreshold: exports_external.number().min(1).max(99).default(80),
     preserveLastNTurns: exports_external.number().int().min(1).default(5)
   });
+  AgentAuthorityRuleSchema = exports_external.object({
+    readOnly: exports_external.boolean().optional(),
+    blockedExact: exports_external.array(exports_external.string()).optional(),
+    blockedPrefix: exports_external.array(exports_external.string()).optional(),
+    allowedPrefix: exports_external.array(exports_external.string()).optional(),
+    blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional()
+  });
+  AuthorityConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
+  });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -15047,6 +15076,7 @@ var init_schema = __esm(() => {
     watchdog: WatchdogConfigSchema.optional(),
     self_review: SelfReviewConfigSchema.optional(),
     tool_filter: ToolFilterConfigSchema.optional(),
+    authority: AuthorityConfigSchema.optional(),
     plan_cursor: PlanCursorConfigSchema.optional(),
     evidence: EvidenceConfigSchema.optional(),
     summaries: SummaryConfigSchema.optional(),
@@ -53469,7 +53499,7 @@ function isInDeclaredScope(filePath, scopeEntries, cwd) {
     return rel.length > 0 && !rel.startsWith("..") && !path35.isAbsolute(rel);
   });
 }
-function createGuardrailsHooks(directory, directoryOrConfig, config3) {
+function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityConfig) {
   let guardrailsConfig;
   if (directory && typeof directory === "object" && "enabled" in directory) {
     console.warn("[guardrails] Legacy call without directory, falling back to process.cwd()");
@@ -53581,7 +53611,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3) {
         if (typeof delegTargetPath === "string" && delegTargetPath.length > 0) {
           const agentName = swarmState.activeAgent.get(sessionID) ?? "unknown";
           const cwd = effectiveDirectory;
-          const authorityCheck = checkFileAuthority(agentName, delegTargetPath, cwd);
+          const authorityCheck = checkFileAuthority(agentName, delegTargetPath, cwd, authorityConfig);
           if (!authorityCheck.allowed) {
             throw new Error(`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${delegTargetPath}". Reason: ${authorityCheck.reason}`);
           }
@@ -54322,7 +54352,7 @@ function hashArgs(args2) {
     return 0;
   }
 }
-var AGENT_AUTHORITY_RULES = {
+var DEFAULT_AGENT_AUTHORITY_RULES = {
   architect: {
     blockedExact: [".swarm/plan.md", ".swarm/plan.json"],
     blockedZones: ["generated"]
@@ -54363,12 +54393,27 @@ var AGENT_AUTHORITY_RULES = {
     blockedZones: ["generated"]
   }
 };
-function checkFileAuthority(agentName, filePath, cwd) {
+function checkFileAuthority(agentName, filePath, cwd, authorityConfig) {
   const normalizedAgent = agentName.toLowerCase();
+  let effectiveRules = DEFAULT_AGENT_AUTHORITY_RULES;
+  if (authorityConfig?.enabled !== false && authorityConfig?.rules) {
+    effectiveRules = { ...DEFAULT_AGENT_AUTHORITY_RULES };
+    for (const [agent, userRule] of Object.entries(authorityConfig.rules)) {
+      const existing = effectiveRules[agent] ?? {};
+      effectiveRules[agent] = {
+        ...existing,
+        ...userRule,
+        blockedExact: userRule.blockedExact ?? existing.blockedExact,
+        blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
+        allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
+        blockedZones: userRule.blockedZones ?? existing.blockedZones
+      };
+    }
+  }
   const dir = cwd || process.cwd();
   const resolved = path35.resolve(dir, filePath);
   const normalizedPath = path35.relative(dir, resolved).replace(/\\/g, "/");
-  const rules = AGENT_AUTHORITY_RULES[normalizedAgent];
+  const rules = effectiveRules[normalizedAgent];
   if (!rules) {
     return { allowed: false, reason: `Unknown agent: ${agentName}` };
   }
@@ -69016,7 +69061,8 @@ var OpenCodeSwarm = async (ctx) => {
     console.warn("");
   }
   const delegationHandler = createDelegationTrackerHook(config3, guardrailsConfig.enabled);
-  const guardrailsHooks = createGuardrailsHooks(ctx.directory, undefined, guardrailsConfig);
+  const authorityConfig = AuthorityConfigSchema.parse(config3.authority ?? {});
+  const guardrailsHooks = createGuardrailsHooks(ctx.directory, undefined, guardrailsConfig, authorityConfig);
   const watchdogConfig = WatchdogConfigSchema.parse(config3.watchdog ?? {});
   const advisoryInjector = (sessionId, message) => {
     const s = swarmState.agentSessions.get(sessionId);
