@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.44.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.1...v6.44.2) (2026-04-02)
+
+
+### Bug Fixes
+
+* **ci:** remove continue-on-error and resolve 50+ pre-existing test failures ([#372](https://github.com/zaxbysauce/opencode-swarm/issues/372)) ([9ced9e6](https://github.com/zaxbysauce/opencode-swarm/commit/9ced9e6a6d7d9d10431627cd83887eacc4ed2fe0))
+
 ## [6.44.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.0...v6.44.1) (2026-04-01)
 
 
