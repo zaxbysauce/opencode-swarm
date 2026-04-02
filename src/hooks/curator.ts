@@ -9,6 +9,7 @@
  * When the delegate is absent or fails, falls back to data-only behavior.
  */
 
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -78,7 +79,15 @@ export function parseKnowledgeRecommendations(
 		if (match) {
 			const action =
 				match[1].toLowerCase() as KnowledgeRecommendation['action'];
-			const entryId = match[2] === 'new' ? undefined : match[2];
+			// Only treat as a real entry_id if it is UUID v4 format.
+			// LLMs hallucinate human-readable slugs (e.g. 'tool-name-normalization')
+			// because they never receive actual IDs in CURATOR_PHASE context.
+			// Any non-UUID, non-"new" token is treated as "new" to prevent failed
+			// lookups in applyCuratorKnowledgeUpdates.
+			const UUID_V4 =
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+			const entryId =
+				match[2] === 'new' || !UUID_V4.test(match[2]) ? undefined : match[2];
 			const reason = match[3].trim();
 			recommendations.push({
 				action,
@@ -862,6 +871,49 @@ export async function applyCuratorKnowledgeUpdates(
 	// Only rewrite if at least one entry was mutated
 	if (modified) {
 		await rewriteKnowledge(knowledgePath, updatedEntries);
+	}
+
+	// Create new entries for recommendations that used the "new" token.
+	// entry_id === undefined means the LLM requested a new knowledge entry.
+	// Only 'promote' actions are meaningful without an existing entry_id —
+	// 'archive' and 'flag_contradiction' require a real entry to operate on.
+	// These are appended after the rewrite to avoid lock contention.
+	for (const rec of recommendations) {
+		if (rec.entry_id !== undefined) continue;
+		if (rec.action !== 'promote') {
+			skipped++;
+			continue;
+		}
+		const lesson = rec.lesson?.trim() ?? '';
+		// Enforce minimum length per KnowledgeEntryBase spec (15–280 chars)
+		if (lesson.length < 15) {
+			skipped++;
+			continue;
+		}
+		const now = new Date().toISOString();
+		const newEntry: SwarmKnowledgeEntry = {
+			id: randomUUID(),
+			tier: 'swarm',
+			lesson: lesson.slice(0, 280),
+			category: 'other',
+			tags: [],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [],
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+			schema_version: 1,
+			created_at: now,
+			updated_at: now,
+			auto_generated: true,
+			project_name: path.basename(directory),
+		};
+		await appendKnowledge(knowledgePath, newEntry);
+		applied++;
 	}
 
 	return { applied, skipped };
