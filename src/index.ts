@@ -63,6 +63,7 @@ import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import { initTelemetry, telemetry } from './telemetry';
 import {
+	batch_symbols,
 	check_gate_status,
 	checkpoint,
 	co_change_analyzer,
@@ -89,7 +90,9 @@ import {
 	retrieve_summary,
 	save_plan,
 	schema_drift,
+	search,
 	secretscan,
+	suggestPatch,
 	symbols,
 	test_runner,
 	todo_extract,
@@ -517,6 +520,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			symbols,
 			test_runner,
 			todo_extract,
+			search,
+			batch_symbols,
+			suggest_patch: suggestPatch,
 			update_task_status,
 			write_retro,
 			write_drift_evidence,
