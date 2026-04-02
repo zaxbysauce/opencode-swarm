@@ -16,30 +16,62 @@ import {
 describe('file lock integration', () => {
 	const tmpDir = path.join(os.tmpdir(), `lock-test-${Date.now()}`);
 
-	test('tryAcquireLock acquires and releaseLock releases', () => {
-		const result = tryAcquireLock(tmpDir, 'plan.json', 'architect', 'task-1');
+	test('tryAcquireLock acquires and releaseLock releases', async () => {
+		const result = await tryAcquireLock(
+			tmpDir,
+			'plan.json',
+			'architect',
+			'task-1',
+		);
 		expect(result.acquired).toBe(true);
-		const released = releaseLock(tmpDir, 'plan.json', 'task-1');
-		expect(released).toBe(true);
+		if (result.acquired) {
+			await (
+				result.lock as unknown as { _release: () => Promise<void> }
+			)._release();
+		}
+		expect(isLocked(tmpDir, 'plan.json')).toBeNull();
 	});
 
-	test('concurrent writes are serialized via locks', () => {
-		const result1 = tryAcquireLock(tmpDir, 'plan.json', 'architect', 'task-a');
+	test('concurrent writes are serialized via locks', async () => {
+		const result1 = await tryAcquireLock(
+			tmpDir,
+			'plan.json',
+			'architect',
+			'task-a',
+		);
 		expect(result1.acquired).toBe(true);
-		const result2 = tryAcquireLock(tmpDir, 'plan.json', 'coder', 'task-b');
+		const result2 = await tryAcquireLock(
+			tmpDir,
+			'plan.json',
+			'coder',
+			'task-b',
+		);
 		expect(result2.acquired).toBe(false);
-		releaseLock(tmpDir, 'plan.json', 'task-a');
+		if (result1.acquired) {
+			await (
+				result1.lock as unknown as { _release: () => Promise<void> }
+			)._release();
+		}
 	});
 
-	test('lock is released even on write failure', () => {
-		const result = tryAcquireLock(tmpDir, 'test.json', 'architect', 'task-c');
+	test('lock is released even on write failure', async () => {
+		const result = await tryAcquireLock(
+			tmpDir,
+			'test.json',
+			'architect',
+			'task-c',
+		);
 		expect(result.acquired).toBe(true);
 		try {
 			throw new Error('simulated write failure');
 		} catch {
 			// simulated failure
 		} finally {
-			releaseLock(tmpDir, 'test.json', 'task-c');
+			if (result.acquired) {
+				await (
+					result.lock as unknown as { _release: () => Promise<void> }
+				)._release();
+			}
 		}
 		expect(isLocked(tmpDir, 'test.json')).toBeNull();
 	});

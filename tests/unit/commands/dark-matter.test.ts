@@ -21,6 +21,7 @@ const mockJaccardBigram = mock(() => 0);
 const mockFindNearDuplicate = mock(() => undefined);
 const mockComputeConfidence = mock(() => 0.5);
 const mockInferTags = mock(() => []);
+const mockEnforceKnowledgeCap = mock(async () => {});
 
 mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 	detectDarkMatter: mockDetectDarkMatter,
@@ -46,6 +47,7 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	findNearDuplicate: mockFindNearDuplicate,
 	computeConfidence: mockComputeConfidence,
 	inferTags: mockInferTags,
+	enforceKnowledgeCap: mockEnforceKnowledgeCap,
 }));
 
 // Import AFTER mock setup

@@ -745,9 +745,9 @@ describe('ADVERSARIAL: Command Services Attack Vectors', () => {
 			const result2 = await getPlanData(tempDir, 2);
 			expect(result2.requestedPhase).toBe(2);
 
-			// Invalid string
+			// Invalid string — returns null (not NaN) since source uses parseInt + null guard
 			const result3 = await getPlanData(tempDir, 'invalid');
-			expect(Number.isNaN(result3.requestedPhase)).toBe(true);
+			expect(result3.requestedPhase).toBeNull();
 		});
 	});
 });

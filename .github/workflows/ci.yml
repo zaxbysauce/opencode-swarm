@@ -88,7 +88,19 @@ jobs:
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts --timeout 120000
       - name: Unit tests (commands, config)
-        run: bun --smol test tests/unit/commands tests/unit/config --timeout 120000
+        shell: bash
+        run: |
+          # Per-file isolation to prevent --smol cache poisoning (#330).
+          failed=0
+          for dir in tests/unit/commands tests/unit/config; do
+            for f in "$dir"/*.test.ts; do
+              [ -f "$f" ] || continue
+              if ! bun --smol test "$f" --timeout 120000; then
+                failed=1
+              fi
+            done
+          done
+          exit $failed
       - name: Unit tests (cli)
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (tools)
