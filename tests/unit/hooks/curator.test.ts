@@ -10,6 +10,7 @@ import {
 	applyCuratorKnowledgeUpdates,
 	checkPhaseCompliance,
 	filterPhaseEvents,
+	parseKnowledgeRecommendations,
 	readCuratorSummary,
 	runCuratorInit,
 	runCuratorPhase,
@@ -1844,6 +1845,101 @@ invalid json here
 			// Verify file was NOT rewritten by checking mtime hasn't changed
 			const newStats = fs.statSync(knowledgePath);
 			expect(newStats.mtimeMs).toBe(originalMtime);
+		});
+
+		it('creates a new SwarmKnowledgeEntry when entry_id is undefined', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'Always escape tool names inside architect prompts',
+					reason: 'Prevents template literal interpretation issues',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(
+				'Always escape tool names inside architect prompts',
+			);
+			expect(entries[0].status).toBe('candidate');
+			expect(entries[0].auto_generated).toBe(true);
+			expect(entries[0].tier).toBe('swarm');
+			expect(entries[0].confidence).toBe(0.5);
+			expect(entries[0].id).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+		});
+
+		it('skips new entry creation when lesson is shorter than 15 chars', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'Too short',
+					reason: 'Below minimum',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(0);
+			expect(result.skipped).toBe(1);
+			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
+		});
+
+		it('end-to-end: hallucinated slug from LLM creates new entry via parseKnowledgeRecommendations chain', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			// Simulate LLM output with hallucinated non-UUID entry_id (real bug trigger)
+			const llmOutput =
+				'KNOWLEDGE_UPDATES:\n- promote tool-name-normalization: Always escape tool names inside architect prompts\n';
+			const recommendations = parseKnowledgeRecommendations(llmOutput);
+
+			// UUID validation converts 'tool-name-normalization' → undefined
+			expect(recommendations).toHaveLength(1);
+			expect(recommendations[0].entry_id).toBeUndefined();
+			expect(recommendations[0].action).toBe('promote');
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(
+				'Always escape tool names inside architect prompts',
+			);
+			expect(entries[0].status).toBe('candidate');
+			expect(entries[0].auto_generated).toBe(true);
 		});
 	});
 });
