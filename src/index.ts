@@ -51,6 +51,7 @@ import { createHivePromoterHook } from './hooks/hive-promoter.js';
 import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
+import { normalizeToolName } from './hooks/normalize-tool-name';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
@@ -62,6 +63,7 @@ import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import { initTelemetry, telemetry } from './telemetry';
 import {
+	batch_symbols,
 	check_gate_status,
 	checkpoint,
 	co_change_analyzer,
@@ -88,7 +90,9 @@ import {
 	retrieve_summary,
 	save_plan,
 	schema_drift,
+	search,
 	secretscan,
+	suggestPatch,
 	symbols,
 	test_runner,
 	todo_extract,
@@ -516,6 +520,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			symbols,
 			test_runner,
 			todo_extract,
+			search,
+			batch_symbols,
+			suggest_patch: suggestPatch,
 			update_task_status,
 			write_retro,
 			write_drift_evidence,
@@ -806,7 +813,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		'tool.execute.before': (async (input: any, output: any) => {
 			if (process.env.DEBUG_SWARM)
 				console.error(
-					`[DIAG] toolBefore tool=${input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool} session=${input.sessionID}`,
+					`[DIAG] toolBefore tool=${normalizeToolName(input.tool) ?? input.tool} session=${input.sessionID}`,
 				);
 			// If no active agent is mapped for this session, it's the primary agent (architect)
 			// Subagent delegations always set activeAgent via chat.message before tool calls
@@ -872,13 +879,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
 		'tool.execute.after': (async (input: any, output: any) => {
 			const _dbg = !!process.env.DEBUG_SWARM;
-			const _toolName = input.tool?.replace?.(/^[^:]+[:.]/, '') ?? input.tool;
+			const _toolName = normalizeToolName(input.tool) ?? input.tool;
 			if (_dbg)
 				console.error(
 					`[DIAG] toolAfter START tool=${_toolName} session=${input.sessionID}`,
 				);
 
-			const normalizedTool = input.tool.replace(/^[^:]+[:.]/, '');
+			const normalizedTool = normalizeToolName(input.tool);
 			const isTaskTool = normalizedTool === 'Task' || normalizedTool === 'task';
 
 			const hookChain = async (): Promise<void> => {

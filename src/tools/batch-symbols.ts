@@ -87,21 +87,17 @@ function containsWindowsAttacks(str: string): boolean {
  */
 function isPathInWorkspace(filePath: string, workspace: string): boolean {
 	try {
-		// Resolve the file path relative to workspace
 		const resolvedPath = path.resolve(workspace, filePath);
-
-		// Get realpath of the FULL resolved path to handle symlinks in the file itself
+		// If the file doesn't exist, return true — let the caller handle missing files
+		if (!fs.existsSync(resolvedPath)) {
+			return true;
+		}
 		const realWorkspace = fs.realpathSync(workspace);
 		const realResolvedPath = fs.realpathSync(resolvedPath);
-
-		// Use robust path.relative containment test against workspace realpath
 		const relativePath = path.relative(realWorkspace, realResolvedPath);
-
-		// If relative path starts with .., it's outside workspace
 		if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
 			return false;
 		}
-
 		return true;
 	} catch {
 		return false;
@@ -160,6 +156,16 @@ function processFile(
 		};
 	}
 
+	const fullPath = path.join(cwd, file);
+	if (!fs.existsSync(fullPath)) {
+		return {
+			file,
+			success: false,
+			error: `File not found: ${file}`,
+			errorType: 'file-not-found',
+		};
+	}
+
 	let syms: SymbolInfo[];
 
 	switch (ext) {
@@ -185,7 +191,6 @@ function processFile(
 
 	// Check for empty file (file exists but has no symbols)
 	// This happens when the file exists but extraction returned empty
-	const fullPath = path.join(cwd, file);
 	let isEmptyFile = false;
 	try {
 		const stats = fs.statSync(fullPath);

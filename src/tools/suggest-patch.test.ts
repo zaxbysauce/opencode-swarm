@@ -206,7 +206,7 @@ describe('suggest-patch tool', () => {
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
-			expect(parsed.type).toBe('parse-error');
+			expect(parsed.type).toBe('file-not-found');
 		});
 
 		test('no context provided returns context-mismatch', async () => {
@@ -425,7 +425,7 @@ describe('suggest-patch tool', () => {
 			expect(parsed.filesModified).toEqual(['good.txt']);
 			expect(parsed.errors).toBeDefined();
 			expect(parsed.errors.length).toBe(1);
-			expect(parsed.errors[0].type).toBe('parse-error');
+			expect(parsed.errors[0].type).toBe('file-not-found');
 		});
 
 		test('all patches fail returns error structure', async () => {
@@ -636,6 +636,56 @@ describe('suggest-patch tool', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.patches[0].hunkIndex).toBe(0);
 			expect(parsed.patches[1].hunkIndex).toBe(1);
+		});
+	});
+
+	describe('anchor occurrence selection with multiple matches', () => {
+		test('contextAfter appears multiple times — selects correct occurrence based on oldContent', async () => {
+			// File content: 'A\nOLD\nB\nA\nX\nB\nC'
+			// Lines: ['A','OLD','B','A','X','B','C']
+			// First B at index 2 has OLD between first A and it
+			// Second B at index 5 has X between second A and it
+			createFile('example.txt', 'A\nOLD\nB\nA\nX\nB\nC');
+
+			const result = await callTool({
+				targetFiles: ['example.txt'],
+				changes: [
+					{
+						file: 'example.txt',
+						contextBefore: ['A'],
+						contextAfter: ['B'],
+						oldContent: 'OLD',
+						newContent: 'NEW',
+					},
+				],
+			});
+
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.patches.length).toBe(1);
+			expect(parsed.patches[0].newContent).toBe('NEW');
+		});
+
+		test('wrong oldContent with multiple contextAfter occurrences returns context-mismatch', async () => {
+			// Same file but oldContent='WRONG' — neither B has 'WRONG' between first A and itself
+			createFile('example.txt', 'A\nOLD\nB\nA\nX\nB\nC');
+
+			const result = await callTool({
+				targetFiles: ['example.txt'],
+				changes: [
+					{
+						file: 'example.txt',
+						contextBefore: ['A'],
+						contextAfter: ['B'],
+						oldContent: 'WRONG',
+						newContent: 'NEW',
+					},
+				],
+			});
+
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.type).toBe('context-mismatch');
 		});
 	});
 });
