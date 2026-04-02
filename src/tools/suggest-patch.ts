@@ -35,6 +35,7 @@ export interface PatchError {
 		actual?: string; // what was actually found
 		location?: string; // file:line where mismatch occurred
 	};
+	errors?: PatchError[];
 }
 
 export interface ChangeDescription {
@@ -115,6 +116,7 @@ function findContextMatch(
 	content: string,
 	contextBefore?: string[],
 	contextAfter?: string[],
+	oldContent?: string,
 ): ContextMatch | null {
 	const lines = content.split('\n');
 
@@ -134,35 +136,84 @@ function findContextMatch(
 		for (let i = 0; i <= lines.length - contextBefore.length; i++) {
 			const slice = lines.slice(i, i + contextBefore.length);
 			if (arraysEqual(slice, contextBefore)) {
-				// Now look for contextAfter starting right after contextBefore ends
+				// Now look for contextAfter starting after contextBefore ends
 				const afterStart = i + contextBefore.length;
 				if (contextAfter && contextAfter.length > 0) {
-					// When both contexts are provided, contextAfter MUST start immediately
-					// after contextBefore ends (with only oldContent between them)
-					if (afterStart + contextAfter.length <= lines.length) {
-						const afterSlice = lines.slice(
-							afterStart,
-							afterStart + contextAfter.length,
-						);
+					// Iterate through all contextAfter occurrences starting from afterStart
+					for (
+						let j = afterStart;
+						j <= lines.length - contextAfter.length;
+						j++
+					) {
+						const afterSlice = lines.slice(j, j + contextAfter.length);
 						if (arraysEqual(afterSlice, contextAfter)) {
-							return {
-								startLineIndex: i,
-								endLineIndex: afterStart + contextAfter.length - 1,
-								matchedBefore: contextBefore,
-								matchedAfter: contextAfter,
-							};
+							if (j === afterStart) {
+								// Adjacent: always return the match immediately
+								// validateOldContent in execute() will handle oldContent validation
+								return {
+									startLineIndex: i,
+									endLineIndex: j + contextAfter.length - 1,
+									matchedBefore: contextBefore,
+									matchedAfter: contextAfter,
+								};
+							} else {
+								// Non-adjacent: oldContent must match between region
+								if (oldContent && oldContent.length > 0) {
+									const oldContentLines = oldContent.split('\n');
+									const betweenLines = lines.slice(afterStart, j);
+									if (arraysEqual(betweenLines, oldContentLines)) {
+										return {
+											startLineIndex: i,
+											// j - 1 points to last line BEFORE contextAfter (end of oldContent region)
+											endLineIndex: j - 1,
+											matchedBefore: contextBefore,
+											matchedAfter: contextAfter,
+										};
+									}
+									// oldContent doesn't match: continue searching for another contextAfter
+								} else {
+									return {
+										startLineIndex: i,
+										// j - 1 points to last line BEFORE contextAfter (end of oldContent region)
+										endLineIndex: j - 1,
+										matchedBefore: contextBefore,
+										matchedAfter: contextAfter,
+									};
+								}
+							}
 						}
 					}
-					// contextAfter not immediately after contextBefore - this is not a match
+					// No matching contextAfter found after contextBefore with valid oldContent
 					return null;
 				} else {
-					// No contextAfter - change extends to end or we need to find oldContent
-					return {
-						startLineIndex: i,
-						endLineIndex: afterStart - 1,
-						matchedBefore: contextBefore,
-						matchedAfter: [],
-					};
+					// No contextAfter - find oldContent starting from afterStart
+					if (oldContent && oldContent.length > 0) {
+						const oldContentLines = oldContent.split('\n');
+						for (
+							let k = afterStart;
+							k <= lines.length - oldContentLines.length;
+							k++
+						) {
+							const candidate = lines.slice(k, k + oldContentLines.length);
+							if (arraysEqual(candidate, oldContentLines)) {
+								return {
+									startLineIndex: i,
+									endLineIndex: k + oldContentLines.length - 1,
+									matchedBefore: contextBefore,
+									matchedAfter: [],
+								};
+							}
+						}
+						return null; // oldContent not found
+					} else {
+						// No oldContent, no contextAfter - return region after contextBefore
+						return {
+							startLineIndex: i,
+							endLineIndex: afterStart - 1,
+							matchedBefore: contextBefore,
+							matchedAfter: [],
+						};
+					}
 				}
 			}
 		}
@@ -380,6 +431,7 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 				content,
 				change.contextBefore,
 				change.contextAfter,
+				change.oldContent,
 			);
 
 			if (!contextMatch) {
@@ -463,10 +515,8 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 				success: false,
 				error: true,
 				type: 'context-mismatch',
-				message: 'All patch suggestions failed',
-				details: {
-					location: 'multiple files',
-				},
+				message: `All ${errors.length} patch suggestions failed`,
+				errors,
 			} satisfies PatchError,
 			null,
 			2,

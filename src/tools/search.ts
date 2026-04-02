@@ -49,7 +49,7 @@ export interface SearchArgs {
 
 // ============ Constants ============
 
-const DEFAULT_MAX_RESULTS = 1000;
+const DEFAULT_MAX_RESULTS = 100;
 const DEFAULT_MAX_LINES = 200;
 const REGEX_TIMEOUT_MS = 5000;
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB per file
