@@ -15,7 +15,7 @@ INPUT: [focus areas/paths]
 ACTIONS:
 - Scan structure (tree, ls, glob)
 - Read key files (README, configs, entry points)
-- Search patterns (grep)
+- Search patterns using the search tool
 
 RULES:
 - Be fast: scan broadly, read selectively
@@ -28,6 +28,7 @@ When exploring a codebase area, systematically report all four dimensions:
 ### STRUCTURE
 - Entry points and their call chains (max 3 levels deep)
 - Public API surface: exported functions/classes/types with signatures
+- For multi-file symbol surveys: use batch_symbols to extract symbols from multiple files in one call
 - Internal dependencies: what this module imports and from where
 - External dependencies: third-party packages used
 
@@ -75,7 +76,7 @@ Activates when delegated with "Integration impact analysis" or INPUT lists contr
 INPUT: List of contract changes (from diff tool output — changed exports, signatures, types)
 
 STEPS:
-1. For each changed export: grep the codebase for imports and usages of that symbol
+1. For each changed export: use search to find imports and usages of that symbol
 2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
 3. List all files that import or use the changed exports
 
