@@ -1918,13 +1918,15 @@ invalid json here
 				{
 					action: 'archive',
 					entry_id: undefined,
-					lesson: 'Archive action with no real entry should be skipped entirely',
+					lesson:
+						'Archive action with no real entry should be skipped entirely',
 					reason: 'No valid UUID — cannot archive',
 				},
 				{
 					action: 'flag_contradiction',
 					entry_id: undefined,
-					lesson: 'Flag contradiction with no real entry should also be skipped',
+					lesson:
+						'Flag contradiction with no real entry should also be skipped',
 					reason: 'No valid UUID — cannot flag',
 				},
 			];
