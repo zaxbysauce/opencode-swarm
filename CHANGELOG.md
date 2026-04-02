@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.45.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.45.0...v6.45.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **curator:** fix LLM hallucinated entry_id causing silent data loss ([#379](https://github.com/zaxbysauce/opencode-swarm/issues/379)) ([aaf7166](https://github.com/zaxbysauce/opencode-swarm/commit/aaf71668d6fc3a899800679055bef1ea1a07e2e5))
+
 ## [6.45.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.3...v6.45.0) (2026-04-02)
 
 
