@@ -44119,7 +44119,7 @@ COMPLIANCE:
 
 KNOWLEDGE_UPDATES:
 - [action] new: [reason] (or "No recommendations")
-NOTE: Always use "new" as the token \u2014 existing entry IDs (UUID v4) are not available in this context. Any non-UUID token will be treated as "new" by the parser.
+NOTE: Always use "new" as the token \u2014 existing entry IDs (UUID v4) are not available in this context. Any non-UUID token is treated as "new" by the parser. Only "promote new:" creates a new entry; "archive new:" and "flag_contradiction new:" are silently skipped because those actions require an existing entry to operate on.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]

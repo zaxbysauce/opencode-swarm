@@ -1942,6 +1942,91 @@ invalid json here
 			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
 		});
 
+		it('mixed-batch: rewrite existing entry and create new entry in same call', async () => {
+			const existingId = '12345678-1234-4abc-89ab-123456789012';
+			const existingEntry: SwarmKnowledgeEntry = {
+				id: existingId,
+				tier: 'swarm',
+				lesson: 'Existing lesson that will be promoted',
+				category: 'other',
+				tags: [],
+				scope: 'global',
+				confidence: 0.5,
+				status: 'candidate',
+				confirmed_by: [],
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				project_name: 'test',
+			};
+			createKnowledgeFile(tempDir, [existingEntry]);
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: existingId,
+					lesson: existingEntry.lesson,
+					reason: 'Promote existing entry',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'New lesson from hallucinated slug normalized to undefined',
+					reason: 'Should create new entry',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(2);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(2);
+
+			// The existing entry should be rewritten (promoted)
+			const updated = entries.find((e) => e.id === existingId);
+			expect(updated).toBeDefined();
+			expect(updated?.status).toBe('candidate'); // promote may not change status directly
+
+			// The new entry should be appended
+			const created = entries.find((e) => e.id !== existingId);
+			expect(created).toBeDefined();
+			expect(created?.lesson).toBe(
+				'New lesson from hallucinated slug normalized to undefined',
+			);
+			expect(created?.auto_generated).toBe(true);
+			expect(created?.status).toBe('candidate');
+		});
+
+		it('parseKnowledgeRecommendations: real UUID v4 is preserved as entry_id', () => {
+			const realUuid = '12345678-1234-4abc-89ab-123456789012';
+			const llmOutput = `KNOWLEDGE_UPDATES:\n- promote ${realUuid}: Lesson text here\n`;
+			const recs = parseKnowledgeRecommendations(llmOutput);
+			expect(recs).toHaveLength(1);
+			expect(recs[0].entry_id).toBe(realUuid);
+			expect(recs[0].action).toBe('promote');
+		});
+
+		it('parseKnowledgeRecommendations: "new" literal token maps to entry_id: undefined', () => {
+			const llmOutput =
+				'KNOWLEDGE_UPDATES:\n- promote new: Some lesson longer than fifteen chars\n';
+			const recs = parseKnowledgeRecommendations(llmOutput);
+			expect(recs).toHaveLength(1);
+			expect(recs[0].entry_id).toBeUndefined();
+			expect(recs[0].action).toBe('promote');
+		});
+
 		it('end-to-end: hallucinated slug from LLM creates new entry via parseKnowledgeRecommendations chain', async () => {
 			const swarmDir = path.join(tempDir, '.swarm');
 			fs.mkdirSync(swarmDir, { recursive: true });
