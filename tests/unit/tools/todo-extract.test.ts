@@ -13,7 +13,9 @@ describe('todo_extract tool', () => {
 		// Create temp dir in os.tmpdir() (not project root), then chdir into it
 		// so the tool's cwd-based path validation accepts paths within tmpDir.
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'todo-extract-test-'));
+		// Use realpathSync to resolve macOS /var→/private/var symlink so that
+		// process.cwd() (which resolves symlinks after chdir) matches tmpDir.
+		tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'todo-extract-test-')));
 		process.chdir(tmpDir);
 	});
 
