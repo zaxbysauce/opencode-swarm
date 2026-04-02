@@ -42,3 +42,4 @@ output_*.js
 
 # Task gate evidence (runtime, not committed)
 .swarm/evidence/
+SWARM_PLAN.json\nSWARM_PLAN.md
