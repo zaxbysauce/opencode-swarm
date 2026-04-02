@@ -48743,6 +48743,10 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowled
   for (const rec of recommendations) {
     if (rec.entry_id !== undefined)
       continue;
+    if (rec.action !== "promote") {
+      skipped++;
+      continue;
+    }
     const lesson = rec.lesson?.trim() ?? "";
     if (lesson.length < 15) {
       skipped++;
@@ -60576,7 +60580,12 @@ var curator_analyze = createSwarmTool({
       let applied = 0;
       let skipped = 0;
       if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
-        const result = await applyCuratorKnowledgeUpdates(directory, typedArgs.recommendations, knowledgeConfig);
+        const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const sanitizedRecs = typedArgs.recommendations.map((rec) => ({
+          ...rec,
+          entry_id: rec.entry_id === undefined || UUID_V4.test(rec.entry_id) ? rec.entry_id : undefined
+        }));
+        const result = await applyCuratorKnowledgeUpdates(directory, sanitizedRecs, knowledgeConfig);
         applied = result.applied;
         skipped = result.skipped;
       }
