@@ -39842,8 +39842,8 @@ var DANGEROUS_PATTERNS = [
   [/\bdd\s+if=/, "\\bdd\\s+if="],
   [/chmod\s+[0-7]*7[0-7]{2}/, "chmod\\s+[0-7]*7[0-7]\\{2\\}"],
   [/\bchown\s+-R\b/, "\\bchown\\s+-R\\b"],
-  [/\beval\s*\(/, "\\beval\\s*\\("],
-  [/\bexec\s*\(/, "\\bexec\\s*\\("]
+  [/(?<!\.)\beval\s*\(/, "(?<!\\.)\\beval\\s*\\("],
+  [/(?<!\.)\bexec\s*\(/, "(?<!\\.)\\bexec\\s*\\("]
 ];
 var SHELL_COMMAND_START = /^(grep|find|ls|cat|sed|awk|curl|wget|ssh|scp|git|mv|cp|mkdir|touch|echo|printf|python|python3|node|bash|sh|zsh|apt|yum|brew)\s/;
 function validateLesson2(text) {

@@ -24,8 +24,8 @@ const DANGEROUS_PATTERNS: Array<[RegExp, string]> = [
 	[/\bdd\s+if=/, '\\bdd\\s+if='],
 	[/chmod\s+[0-7]*7[0-7]{2}/, 'chmod\\s+[0-7]*7[0-7]\\{2\\}'],
 	[/\bchown\s+-R\b/, '\\bchown\\s+-R\\b'],
-	[/\beval\s*\(/, '\\beval\\s*\\('],
-	[/\bexec\s*\(/, '\\bexec\\s*\\('],
+	[/(?<!\.)\beval\s*\(/, '(?<!\\.)\\beval\\s*\\('],
+	[/(?<!\.)\bexec\s*\(/, '(?<!\\.)\\bexec\\s*\\('],
 ];
 
 // Shell command words that indicate a raw shell invocation at the start of a lesson
